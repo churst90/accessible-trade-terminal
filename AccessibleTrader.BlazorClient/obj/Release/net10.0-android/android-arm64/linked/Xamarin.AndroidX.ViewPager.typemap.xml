@@ -1,0 +1,19 @@
+<api type="release" assembly-name="Xamarin.AndroidX.ViewPager" mvid="41fd8e7130e844b69598fd9065115892">
+  <module assembly-name="Xamarin.AndroidX.ViewPager" mvid="41fd8e7130e844b69598fd9065115892" mvid-bytes="cY79QegwtkSVmP2QZRFYkg==">
+    <duplicates>
+      <entry java-name="androidx/viewpager/widget/PagerAdapter" managed-type-name="AndroidX.ViewPager.Widget.PagerAdapterInvoker" token="33554461" />
+      <entry java-name="androidx/viewpager/widget/ViewPager$OnAdapterChangeListener" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnAdapterChangeListenerInvoker" token="33554464" />
+      <entry java-name="androidx/viewpager/widget/ViewPager$OnPageChangeListener" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnPageChangeListenerInvoker" token="33554468" />
+      <entry java-name="androidx/viewpager/widget/ViewPager$PageTransformer" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IPageTransformerInvoker" token="33554474" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/viewpager/widget/PagerAdapter" java-name="androidx/viewpager/widget/PagerAdapter" managed-type-name="AndroidX.ViewPager.Widget.PagerAdapter" token="33554460" />
+      <entry key="androidx/viewpager/widget/ViewPager" java-name="androidx/viewpager/widget/ViewPager" managed-type-name="AndroidX.ViewPager.Widget.ViewPager" token="33554462" />
+      <entry key="androidx/viewpager/widget/ViewPager$OnAdapterChangeListener" java-name="androidx/viewpager/widget/ViewPager$OnAdapterChangeListener" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnAdapterChangeListener" token="33554463" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/viewpager/widget/ViewPager_OnAdapterChangeListenerImplementor" java-name="mono/androidx/viewpager/widget/ViewPager_OnAdapterChangeListenerImplementor" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnAdapterChangeListenerImplementor" token="33554466" />
+      <entry key="androidx/viewpager/widget/ViewPager$OnPageChangeListener" java-name="androidx/viewpager/widget/ViewPager$OnPageChangeListener" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnPageChangeListener" token="33554467" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/viewpager/widget/ViewPager_OnPageChangeListenerImplementor" java-name="mono/androidx/viewpager/widget/ViewPager_OnPageChangeListenerImplementor" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IOnPageChangeListenerImplementor" token="33554472" />
+      <entry key="androidx/viewpager/widget/ViewPager$PageTransformer" java-name="androidx/viewpager/widget/ViewPager$PageTransformer" managed-type-name="AndroidX.ViewPager.Widget.ViewPager/IPageTransformer" token="33554473" skip-in-java-to-managed="True" />
+    </types-scratch>
+  </module>
+</api>

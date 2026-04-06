@@ -1,0 +1,122 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.BlazorClient.Services
+@inject IWorkspaceStore Store
+@inject ISpeechManager SpeechManager
+@inject GlobalInputService InputService
+@inject IJSRuntime JSRuntime
+
+<div class="app-container">
+
+    <header role="banner" class="app-header">
+        <h1 id="main-heading" style="font-size: 1.1rem; margin: 0; font-weight: bold;">
+            @GetTitle()
+        </h1>
+    </header>
+
+    <Toolbar />
+
+    <TabBar />
+
+    <main role="main" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: transparent; position: relative;">
+        <ChartArea />
+    </main>
+
+    <IndicatorBar />
+
+    @* ── Modals ── All modals subscribe to their own OpenXxxEvent on the EventBus.
+       They are rendered here (outside <main>) so they overlay the entire viewport. *@
+    <AddIndicatorModal />
+    <SettingsModal />
+    <ObjectTreeModal />
+    <PropertiesModal />
+    <TradingDashboardModal />
+    <OrderBookModal />
+    <ApiKeysModal />
+    <HelpModal />
+    <StrategyModal />
+    <DrawingToolsModal />
+    <AlertsModal />
+    <CustomScriptsModal />
+    <SoundDesignerModal />
+    <AIAnalystModal />
+
+    @* ARIA LIVE DOUBLE BUFFER:
+       Two assertive regions swap on each speech call so that identical strings are
+       re-announced. Only one region has content at any time; the other is empty.
+       Screen readers re-read a region when its content changes, so alternating
+       between the two guarantees every message triggers an announcement. *@
+    <div class="visually-hidden" aria-hidden="false">
+        <div id="aria-speech-1" role="status" aria-live="assertive" aria-atomic="true">
+            @(_activeBuffer == 1 ? _latestSpeech : "")
+        </div>
+        <div id="aria-speech-2" role="status" aria-live="assertive" aria-atomic="true">
+            @(_activeBuffer == 2 ? _latestSpeech : "")
+        </div>
+    </div>
+
+    <footer role="contentinfo" class="app-footer">
+        <span>Accessible Trade Terminal &copy; 2026. This application is for demonstration purposes only.</span>
+    </footer>
+
+
+</div>
+
+@code {
+    private string _latestSpeech = "";
+    private int _activeBuffer = 1;
+    private IDisposable? _stateSub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Wire the ARIA live region callback. The speech manager queues any early
+        // boot messages and delivers them here as soon as the callback is set.
+        SpeechManager.OnSpeak = text =>
+            InvokeAsync(() =>
+            {
+                _latestSpeech = text;
+                _activeBuffer = _activeBuffer == 1 ? 2 : 1;
+                StateHasChanged();
+            });
+
+        // Re-render on every store state change so the header title stays current.
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Register the global keyboard handler. Wrapping in try/catch prevents
+            // a JS interop failure from crashing the layout component.
+            try
+            {
+                await InputService.InitializeAsync(JSRuntime);
+            }
+            catch (Exception ex)
+            {
+                // Log silently; keyboard input may be partially unavailable but the
+                // app should still render rather than throw.
+                Console.Error.WriteLine($"Keyboard bridge init failed: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetTitle()
+    {
+        var identity = Store.State.Identity;
+        if (string.IsNullOrEmpty(identity.Symbol))
+            return "Accessible Trade Terminal";
+        return $"{identity.Symbol} {identity.Timeframe} — {identity.Provider}";
+    }
+
+    public void Dispose()
+    {
+        _stateSub?.Dispose();
+        SpeechManager.OnSpeak = null;
+    }
+}

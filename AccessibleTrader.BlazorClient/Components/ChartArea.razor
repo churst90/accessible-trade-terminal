@@ -1,0 +1,254 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services.Rendering
+@using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Theming
+@using System.Reactive.Linq
+@using SkiaSharp
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IAccessibilityFeedbackCoordinator Coordinator
+@inject IDataOrchestrator DataOrchestrator
+@inject IThemeService ThemeService
+@inject IPaneLayoutService PaneLayout
+@implements IDisposable
+
+@* Transparent accessibility overlay that sits above the native SkiaSharp canvas.
+   Handles keyboard focus, ARIA role, and chart-focus events. The actual chart
+   pixels are drawn by MainPage.xaml.cs → ChartRenderer on the native SKCanvasView. *@
+<div role="application"
+     aria-label="@GetChartLabel()"
+     tabindex="0"
+     @ref="_chartContainer"
+     id="chart-interact-zone"
+     style="flex: 1; background: black; position: relative; outline: none; width: 100%; height: 100%; cursor: @(_isDragging ? "ns-resize" : "default");"
+     @onfocus="OnChartFocused"
+     @onblur="OnChartBlurred"
+     @onmousemove="OnMouseMove"
+     @onmouseup="OnMouseUp">
+
+    @* Pane divider drag handles — positioned by IPaneLayoutService fractions.
+       Hidden from screen readers; keyboard users use Alt+Up/Down instead. *@
+    @foreach (var divider in PaneLayout.Dividers)
+    {
+        var paneName = divider.BelowPaneName;
+        var topPct = (divider.DividerFraction * 100f).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "%";
+        <div aria-hidden="true"
+             class="pane-divider"
+             style="top: @topPct;"
+             @onmousedown="@(e => OnDividerMouseDown(e, paneName))"
+             @onmousedown:stopPropagation="true">
+        </div>
+    }
+
+    @* Strict Rendering Safety: Show a blackout/loading screen.
+       We use opacity for a smooth transition instead of a binary if-statement
+       to prevent WebView compositor flashes when the DOM tree changes rapidly. *@
+    <div aria-hidden="true"
+         class="blackout-overlay @(IsDataReadyToRender() ? "fade-out" : "")"
+         style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: @(GetThemeBackgroundHex());
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                color: @(GetThemeTextHex()); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                pointer-events: none; user-select: none; z-index: 1000;">
+            
+        <div style="font-size: 1.8rem; margin-bottom: 1rem; color: #fff;">
+            @GetStatusHeader()
+        </div>
+        
+        <div style="font-size: 1rem; color: #888; max-width: 80%; text-align: center;">
+            @GetStatusMessage()
+        </div>
+
+        @if (_currentDataState == DataState.HistoricalFilling)
+        {
+            <div style="margin-top: 2rem; width: 200px; height: 4px; background: #222; border-radius: 2px; overflow: hidden;">
+                <div style="width: 60%; height: 100%; background: #0078d4; animation: loading-shimmer 1.5s infinite linear;"></div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    @@keyframes loading-shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    .blackout-overlay {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+    }
+    .blackout-overlay.fade-out {
+        opacity: 0;
+        visibility: hidden;
+    }
+    .pane-divider {
+        position: absolute;
+        left: 0;
+        right: 65px; /* leave room for Y-axis */
+        height: 8px;
+        transform: translateY(-4px);
+        cursor: ns-resize;
+        z-index: 10;
+        background: transparent;
+    }
+    .pane-divider:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+</style>
+
+@code {
+    private ElementReference _chartContainer;
+    private DataState _currentDataState = DataState.Initializing;
+    private readonly System.Reactive.Disposables.CompositeDisposable _subs = new();
+
+    // Pane divider drag state
+    private bool _isDragging;
+    private string? _dragPaneName;
+    private double _dragStartY;
+    private double _containerHeight = 600; // initial estimate; updated on first drag
+
+    protected override void OnInitialized()
+    {
+        _currentDataState = DataOrchestrator.CurrentState;
+
+        // 1. Listen to Orchestrator state (HistoricalFilling -> LiveStreaming)
+        var orchSub = DataOrchestrator.StateChanged.Subscribe(state =>
+        {
+            InvokeAsync(() =>
+            {
+                _currentDataState = state;
+                StateHasChanged();
+            });
+        });
+        if (orchSub != null) _subs.Add(orchSub);
+
+        // 2. Listen to Store data changes to reveal the chart exactly when pixels are ready
+        var storeSub = Store.StateStream
+            .Select(s => s.Data?.Count ?? 0)
+            .DistinctUntilChanged()
+            .Subscribe(_ =>
+            {
+                InvokeAsync(StateHasChanged);
+            });
+        _subs.Add(storeSub);
+
+        // 3. Listen to Theme changes for the blackout overlay
+        ThemeService.ThemeChanged += OnThemeChanged;
+
+        // 4. Re-render dividers whenever ChartRenderer recalculates pane layout
+        PaneLayout.LayoutChanged += OnPaneLayoutChanged;
+    }
+
+    private void OnDividerMouseDown(MouseEventArgs e, string paneName)
+    {
+        _isDragging = true;
+        _dragPaneName = paneName;
+        _dragStartY = e.ClientY;
+    }
+
+    private void OnMouseMove(MouseEventArgs e)
+    {
+        if (!_isDragging || _dragPaneName == null) return;
+        double dy = e.ClientY - _dragStartY;
+        if (Math.Abs(dy) < 2) return; // dead zone to avoid micro-dispatches
+
+        // Estimate container height from the divider fraction data to convert px → fraction
+        float delta = (float)(-dy / _containerHeight); // drag up = pane below grows
+        Store.Dispatch(new ResizePaneAction(_dragPaneName, delta));
+        _dragStartY = e.ClientY;
+    }
+
+    private void OnMouseUp(MouseEventArgs e)
+    {
+        _isDragging = false;
+        _dragPaneName = null;
+    }
+
+    private void OnPaneLayoutChanged()
+    {
+        // Update container height estimate from divider data
+        if (PaneLayout.Dividers.Count > 0 && PaneLayout.Dividers[0].DividerFraction > 0)
+        {
+            // Not directly available, but we can approximate from the axis fraction
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsDataReadyToRender()
+    {
+        // Must be in a valid data-streaming state AND the store must actually have data points.
+        // This prevents the "White Chart" race condition where the state transitions to
+        // LiveStreaming but the Store has not yet processed the UpdateDataAction.
+        bool isStreaming = _currentDataState == DataState.LiveStreaming || _currentDataState == DataState.GapFilling;
+        
+        var state = Store.State;
+        bool hasData = state.Data != null && state.Data.Count > 0;
+        
+        return isStreaming && hasData;
+    }
+
+    private string GetThemeBackgroundHex() => ColorToHex(ThemeService.Current.Background);
+    private string GetThemeTextHex() => ColorToHex(ThemeService.Current.AxisText);
+
+    private string ColorToHex(SKColor color) => $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
+
+    private string GetStatusHeader()
+    {
+        return _currentDataState switch
+        {
+            DataState.Initializing => "Welcome to AccessibleTrader",
+            DataState.HistoricalFilling => "Loading Historical Data",
+            DataState.GapFilling => "Synchronizing Live Feed",
+            DataState.LiveStreaming => "Chart Ready",
+            DataState.Faulted => "Connection Failed",
+            DataState.Stalled => "Connection Stalled",
+            _ => "No Chart Loaded"
+        };
+    }
+
+    private string GetStatusMessage()
+    {
+        return _currentDataState switch
+        {
+            DataState.Initializing => "Select a market and symbol to begin.",
+            DataState.HistoricalFilling => "Downloading price history from provider...",
+            DataState.GapFilling => "Waiting for live feed synchronization...",
+            DataState.LiveStreaming => "Chart is active and receiving live updates.",
+            DataState.Faulted => "Please check your network connection and API keys.",
+            DataState.Stalled => "Waiting for market data heartbeat...",
+            _ => "Please select a symbol and press Load Chart."
+        };
+    }
+
+    private string GetChartLabel()
+    {
+        var id = Store.State.Identity;
+        if (string.IsNullOrEmpty(id.Symbol))
+            return "Trading chart. No data loaded. Select a market and symbol, then press Load.";
+        return $"Trading chart. {id.Symbol} {id.Timeframe} on {id.Provider}. Press arrow keys to navigate bars.";
+    }
+
+    private void OnChartFocused()
+    {
+        EventBus.Publish(new ChartFocusEvent());
+    }
+
+    private void OnChartBlurred()
+    {
+        EventBus.Publish(new DeactivateEvent());
+    }
+
+    private void OnThemeChanged(object? sender, AccessibleTrader.Sdk.Theming.ChartTheme theme)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeService.ThemeChanged -= OnThemeChanged;
+        PaneLayout.LayoutChanged -= OnPaneLayoutChanged;
+        _subs.Dispose();
+    }
+}

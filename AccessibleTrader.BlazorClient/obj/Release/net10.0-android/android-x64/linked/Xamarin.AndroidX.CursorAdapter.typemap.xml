@@ -1,0 +1,10 @@
+<api type="release" assembly-name="Xamarin.AndroidX.CursorAdapter" mvid="bd0135235d5743b28fa9437725bb4668">
+  <module assembly-name="Xamarin.AndroidX.CursorAdapter" mvid="bd0135235d5743b28fa9437725bb4668" mvid-bytes="IzUBvVddskOPqUN3JbtGaA==">
+    <duplicates>
+      <entry java-name="androidx/cursoradapter/widget/CursorAdapter" managed-type-name="AndroidX.CursorAdapter.Widget.CursorAdapterInvoker" token="33554446" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/cursoradapter/widget/CursorAdapter" java-name="androidx/cursoradapter/widget/CursorAdapter" managed-type-name="AndroidX.CursorAdapter.Widget.CursorAdapter" token="33554445" />
+    </types-scratch>
+  </module>
+</api>

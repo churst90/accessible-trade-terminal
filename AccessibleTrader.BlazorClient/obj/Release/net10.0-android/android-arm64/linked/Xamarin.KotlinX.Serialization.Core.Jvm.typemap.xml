@@ -1,0 +1,27 @@
+<api type="release" assembly-name="Xamarin.KotlinX.Serialization.Core.Jvm" mvid="d8155c9c53e940628e17523c76507c77">
+  <module assembly-name="Xamarin.KotlinX.Serialization.Core.Jvm" mvid="d8155c9c53e940628e17523c76507c77" mvid-bytes="nFwV2OlTYkCOF1I8dlB8dw==">
+    <duplicates>
+      <entry java-name="kotlinx/serialization/DeserializationStrategy" managed-type-name="KotlinX.Serialization.IDeserializationStrategyInvoker" token="33554476" />
+      <entry java-name="kotlinx/serialization/KSerializer" managed-type-name="KotlinX.Serialization.IKSerializerInvoker" token="33554478" />
+      <entry java-name="kotlinx/serialization/SerializationStrategy" managed-type-name="KotlinX.Serialization.ISerializationStrategyInvoker" token="33554480" />
+      <entry java-name="kotlinx/serialization/encoding/CompositeDecoder" managed-type-name="KotlinX.Serialization.Encoding.ICompositeDecoderInvoker" token="33554483" />
+      <entry java-name="kotlinx/serialization/encoding/CompositeEncoder" managed-type-name="KotlinX.Serialization.Encoding.ICompositeEncoderInvoker" token="33554485" />
+      <entry java-name="kotlinx/serialization/encoding/Decoder" managed-type-name="KotlinX.Serialization.Encoding.IDecoderInvoker" token="33554487" />
+      <entry java-name="kotlinx/serialization/encoding/Encoder" managed-type-name="KotlinX.Serialization.Encoding.IEncoderInvoker" token="33554489" />
+      <entry java-name="kotlinx/serialization/descriptors/SerialDescriptor" managed-type-name="KotlinX.Serialization.Descriptors.ISerialDescriptorInvoker" token="33554491" />
+      <entry java-name="kotlinx/serialization/descriptors/SerialKind" managed-type-name="KotlinX.Serialization.Descriptors.SerialKindInvoker" token="33554493" />
+    </duplicates>
+    <types-scratch>
+      <entry key="kotlinx/serialization/DeserializationStrategy" java-name="kotlinx/serialization/DeserializationStrategy" managed-type-name="KotlinX.Serialization.IDeserializationStrategy" token="33554475" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/KSerializer" java-name="kotlinx/serialization/KSerializer" managed-type-name="KotlinX.Serialization.IKSerializer" token="33554477" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/SerializationStrategy" java-name="kotlinx/serialization/SerializationStrategy" managed-type-name="KotlinX.Serialization.ISerializationStrategy" token="33554479" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/encoding/CompositeDecoder$Companion" java-name="kotlinx/serialization/encoding/CompositeDecoder$Companion" managed-type-name="KotlinX.Serialization.Encoding.CompositeDecoderCompanion" token="33554481" />
+      <entry key="kotlinx/serialization/encoding/CompositeDecoder" java-name="kotlinx/serialization/encoding/CompositeDecoder" managed-type-name="KotlinX.Serialization.Encoding.ICompositeDecoder" token="33554482" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/encoding/CompositeEncoder" java-name="kotlinx/serialization/encoding/CompositeEncoder" managed-type-name="KotlinX.Serialization.Encoding.ICompositeEncoder" token="33554484" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/encoding/Decoder" java-name="kotlinx/serialization/encoding/Decoder" managed-type-name="KotlinX.Serialization.Encoding.IDecoder" token="33554486" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/encoding/Encoder" java-name="kotlinx/serialization/encoding/Encoder" managed-type-name="KotlinX.Serialization.Encoding.IEncoder" token="33554488" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/descriptors/SerialDescriptor" java-name="kotlinx/serialization/descriptors/SerialDescriptor" managed-type-name="KotlinX.Serialization.Descriptors.ISerialDescriptor" token="33554490" skip-in-java-to-managed="True" />
+      <entry key="kotlinx/serialization/descriptors/SerialKind" java-name="kotlinx/serialization/descriptors/SerialKind" managed-type-name="KotlinX.Serialization.Descriptors.SerialKind" token="33554492" />
+    </types-scratch>
+  </module>
+</api>

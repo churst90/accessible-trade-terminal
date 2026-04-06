@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Plugins/">
+    <Project Path="Plugins/AccessibleTrader.Plugins.Alpaca/AccessibleTrader.Plugins.Alpaca.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Binance/AccessibleTrader.Plugins.Binance.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Bitstamp/AccessibleTrader.Plugins.Bitstamp.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Coinbase/AccessibleTrader.Plugins.Coinbase.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Fred/AccessibleTrader.Plugins.Fred.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Polygon/AccessibleTrader.Plugins.Polygon.csproj" />
+  </Folder>
+  <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
+  <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
+  <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />
+</Solution>

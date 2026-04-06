@@ -1,0 +1,132 @@
+graph TD
+    subgraph Client Application (MAUI Blazor Hybrid)
+        UI[Visual UI - Blazor / SkiaSharp]
+        GIS[Global Input Service - JS Bridge]
+        BAD[Blazor Audio Driver - Platform Specific]
+        BSM[Blazor Speech Manager - Native TTS Interop]
+        PLS[IPaneLayoutService - Drag Handle Sync]
+    end
+
+    subgraph Platform Input Drivers
+        WIN_KB[Windows - keyboard.js JS Intercept]
+        AND_KB[Android - MainActivity.DispatchKeyEvent]
+        MAC_KB[Mac Catalyst - KeyboardPageHandler / PressesBegan]
+    end
+
+    subgraph Platform Audio Drivers
+        WIN_AUD[Windows - NAudio WASAPI Pull]
+        AND_AUD[Android - AudioTrack PCM Float]
+        IOS_AUD[iOS/Mac - AVAudioEngine SourceNode]
+    end
+
+    subgraph Core Engine (.NET 10)
+        EB[Event Bus]
+        Store[Workspace Store - Redux / Rx]
+
+        subgraph Orchestration Layer
+            MO[Market Orchestrator]
+            DO[Data Orchestrator - Polly]
+            IO[Indicator Orchestrator]
+            DOS[DataOrchestrationService]
+        end
+
+        subgraph Input Pipeline
+            BIS[Blazor Input Service]
+            CCM[Chart Command Manager]
+            SM[Shortcut Manager]
+            CD[Command Dispatcher]
+        end
+
+        subgraph Accessibility Cluster
+            NE[Navigation Engine]
+            VP[Viewport Manager]
+            DS[Drawing Service]
+            DIM[Drawing Interaction Manager]
+            AFC[Accessibility Feedback Coordinator]
+            SMM[Sonification Manager]
+        end
+
+        subgraph Audio Engine (Custom DSP)
+            PO[Playback Orchestrator]
+            NS[Navigation Sonifier]
+            SE[Strategy Engine]
+            SB[Strategy Backtester]
+            DSP[AudioEngine - 64-Voice Polyphonic DSP]
+        end
+
+        IS[Indicator Service]
+        IIP[IIndicatorProvider - Skender Adapter]
+        DMS[Data Service]
+        DCS[Data Cache Service]
+    end
+
+    subgraph Persistence Layer
+        SQL[(Local SQLite Cache)]
+        CFG[Config / Workspace JSON]
+        AK[IApiKeyService]
+    end
+
+    subgraph External Plugins (SDK)
+        MDP[IMarketDataProvider]
+        BN[Binance - Spot + Futures + UserStream]
+        AL[Alpaca - Stocks + Crypto]
+        BS[Bitstamp - REST + WS + PrivateOrders]
+        CB[Coinbase - REST + JWT Auth]
+        PO2[Polygon - Stocks / Forex / Crypto]
+        FR[FRED - Macro Economic Data]
+    end
+
+    %% Platform Input → Core
+    WIN_KB --> GIS
+    AND_KB --> BIS
+    MAC_KB --> BIS
+    GIS --> BIS
+    BIS --> SM
+    SM --> CD
+    BIS --> CCM
+    CCM --> EB
+    CCM --> Store
+
+    %% Platform Audio ← DSP
+    DSP --> WIN_AUD
+    DSP --> AND_AUD
+    DSP --> IOS_AUD
+
+    %% Event & State Flow
+    EB --> NE
+    EB --> AFC
+    Store --> UI
+    Store --> PLS
+
+    %% Accessibility & Speech Flow
+    NE --> VP
+    AFC --> BSM
+    AFC --> SMM
+
+    %% Audio Orchestration Flow
+    SMM --> PO
+    SMM --> NS
+    PO --> DSP
+    NS --> DSP
+
+    %% Strategy Flow
+    Store --> SE
+    SE --> SB
+    SE --> EB
+
+    %% Data Flow
+    MO --> DO
+    DO --> DMS
+    DO --> DCS
+    DO --> SQL
+    DMS --> MDP
+    MDP --> BN & AL & BS & CB & PO2 & FR
+    DO --> IS
+    IS --> IIP
+    DO --> Store
+    AK --> SQL
+    DOS --> IO
+    IO --> Store
+
+    %% Pane Layout Sync
+    PLS --> UI

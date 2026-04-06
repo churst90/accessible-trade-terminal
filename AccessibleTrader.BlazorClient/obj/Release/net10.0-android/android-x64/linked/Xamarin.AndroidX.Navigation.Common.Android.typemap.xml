@@ -1,0 +1,30 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Navigation.Common.Android" mvid="4bf36e1b9c664072b73516a745e0d046">
+  <module assembly-name="Xamarin.AndroidX.Navigation.Common.Android" mvid="4bf36e1b9c664072b73516a745e0d046" mvid-bytes="G27zS2acckC3NRanReDQRg==">
+    <duplicates>
+      <entry java-name="androidx/navigation/NavDirections" managed-type-name="AndroidX.Navigation.INavDirectionsInvoker" token="33554447" />
+      <entry java-name="androidx/navigation/Navigator$Extras" managed-type-name="AndroidX.Navigation.Navigator/IExtrasInvoker" token="33554459" />
+      <entry java-name="androidx/navigation/Navigator" managed-type-name="AndroidX.Navigation.NavigatorInvoker" token="33554460" />
+      <entry java-name="androidx/navigation/NavigatorState" managed-type-name="AndroidX.Navigation.NavigatorStateInvoker" token="33554463" />
+      <entry java-name="androidx/navigation/NavType" managed-type-name="AndroidX.Navigation.NavTypeInvoker" token="33554466" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/navigation/NavDirections" java-name="androidx/navigation/NavDirections" managed-type-name="AndroidX.Navigation.INavDirections" token="33554446" skip-in-java-to-managed="True" />
+      <entry key="androidx/navigation/NavAction" java-name="androidx/navigation/NavAction" managed-type-name="AndroidX.Navigation.NavAction" token="33554448" />
+      <entry key="androidx/navigation/NavArgument" java-name="androidx/navigation/NavArgument" managed-type-name="AndroidX.Navigation.NavArgument" token="33554449" />
+      <entry key="androidx/navigation/NavBackStackEntry" java-name="androidx/navigation/NavBackStackEntry" managed-type-name="AndroidX.Navigation.NavBackStackEntry" token="33554450" />
+      <entry key="androidx/navigation/NavDeepLink" java-name="androidx/navigation/NavDeepLink" managed-type-name="AndroidX.Navigation.NavDeepLink" token="33554451" />
+      <entry key="androidx/navigation/NavDeepLinkRequest" java-name="androidx/navigation/NavDeepLinkRequest" managed-type-name="AndroidX.Navigation.NavDeepLinkRequest" token="33554452" />
+      <entry key="androidx/navigation/NavDestination" java-name="androidx/navigation/NavDestination" managed-type-name="AndroidX.Navigation.NavDestination" token="33554453" />
+      <entry key="androidx/navigation/NavDestination$DeepLinkMatch" java-name="androidx/navigation/NavDestination$DeepLinkMatch" managed-type-name="AndroidX.Navigation.NavDestination/DeepLinkMatch" token="33554454" />
+      <entry key="androidx/navigation/NavGraph" java-name="androidx/navigation/NavGraph" managed-type-name="AndroidX.Navigation.NavGraph" token="33554455" />
+      <entry key="androidx/navigation/NavGraphNavigator" java-name="androidx/navigation/NavGraphNavigator" managed-type-name="AndroidX.Navigation.NavGraphNavigator" token="33554456" />
+      <entry key="androidx/navigation/Navigator" java-name="androidx/navigation/Navigator" managed-type-name="AndroidX.Navigation.Navigator" token="33554457" />
+      <entry key="androidx/navigation/Navigator$Extras" java-name="androidx/navigation/Navigator$Extras" managed-type-name="AndroidX.Navigation.Navigator/IExtras" token="33554458" skip-in-java-to-managed="True" />
+      <entry key="androidx/navigation/NavigatorProvider" java-name="androidx/navigation/NavigatorProvider" managed-type-name="AndroidX.Navigation.NavigatorProvider" token="33554461" />
+      <entry key="androidx/navigation/NavigatorState" java-name="androidx/navigation/NavigatorState" managed-type-name="AndroidX.Navigation.NavigatorState" token="33554462" />
+      <entry key="androidx/navigation/NavOptions" java-name="androidx/navigation/NavOptions" managed-type-name="AndroidX.Navigation.NavOptions" token="33554464" />
+      <entry key="androidx/navigation/NavType" java-name="androidx/navigation/NavType" managed-type-name="AndroidX.Navigation.NavType" token="33554465" />
+      <entry key="androidx/navigation/internal/NavContext" java-name="androidx/navigation/internal/NavContext" managed-type-name="AndroidX.Navigation.Internal.NavContext" token="33554467" />
+    </types-scratch>
+  </module>
+</api>

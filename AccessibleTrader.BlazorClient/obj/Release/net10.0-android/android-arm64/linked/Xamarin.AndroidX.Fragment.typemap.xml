@@ -1,0 +1,38 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Fragment" mvid="37ce08a6a49f454c9b8b8fcf2c01c137">
+  <module assembly-name="Xamarin.AndroidX.Fragment" mvid="37ce08a6a49f454c9b8b8fcf2c01c137" mvid-bytes="pgjON5+kTEWbi4/PLAHBNw==">
+    <duplicates>
+      <entry java-name="androidx/fragment/app/FragmentContainer" managed-type-name="AndroidX.Fragment.App.FragmentContainerInvoker" token="33554472" />
+      <entry java-name="androidx/fragment/app/FragmentHostCallback" managed-type-name="AndroidX.Fragment.App.FragmentHostCallbackInvoker" token="33554476" />
+      <entry java-name="androidx/fragment/app/FragmentManager$BackStackEntry" managed-type-name="AndroidX.Fragment.App.FragmentManager/IBackStackEntryInvoker" token="33554479" />
+      <entry java-name="androidx/fragment/app/FragmentManager$FragmentLifecycleCallbacks" managed-type-name="AndroidX.Fragment.App.FragmentManager/FragmentLifecycleCallbacksInvoker" token="33554481" />
+      <entry java-name="androidx/fragment/app/FragmentManager$OnBackStackChangedListener" managed-type-name="AndroidX.Fragment.App.FragmentManager/IOnBackStackChangedListenerInvoker" token="33554483" />
+      <entry java-name="androidx/fragment/app/FragmentManager" managed-type-name="AndroidX.Fragment.App.FragmentManagerInvoker" token="33554501" />
+      <entry java-name="androidx/fragment/app/FragmentTransaction" managed-type-name="AndroidX.Fragment.App.FragmentTransactionInvoker" token="33554503" />
+      <entry java-name="androidx/fragment/app/FragmentOnAttachListener" managed-type-name="AndroidX.Fragment.App.IFragmentOnAttachListenerInvoker" token="33554505" />
+      <entry java-name="androidx/fragment/app/FragmentResultListener" managed-type-name="AndroidX.Fragment.App.IFragmentResultListenerInvoker" token="33554509" />
+      <entry java-name="androidx/fragment/app/strictmode/Violation" managed-type-name="AndroidX.Fragment.App.StrictMode.ViolationInvoker" token="33554513" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/fragment/app/FragmentActivity" java-name="androidx/fragment/app/FragmentActivity" managed-type-name="AndroidX.Fragment.App.FragmentActivity" token="33554467" />
+      <entry key="androidx/fragment/app/DialogFragment" java-name="androidx/fragment/app/DialogFragment" managed-type-name="AndroidX.Fragment.App.DialogFragment" token="33554468" />
+      <entry key="androidx/fragment/app/Fragment" java-name="androidx/fragment/app/Fragment" managed-type-name="AndroidX.Fragment.App.Fragment" token="33554469" />
+      <entry key="androidx/fragment/app/Fragment$SavedState" java-name="androidx/fragment/app/Fragment$SavedState" managed-type-name="AndroidX.Fragment.App.Fragment/SavedState" token="33554470" />
+      <entry key="androidx/fragment/app/FragmentContainer" java-name="androidx/fragment/app/FragmentContainer" managed-type-name="AndroidX.Fragment.App.FragmentContainer" token="33554471" />
+      <entry key="androidx/fragment/app/FragmentContainerView" java-name="androidx/fragment/app/FragmentContainerView" managed-type-name="AndroidX.Fragment.App.FragmentContainerView" token="33554473" />
+      <entry key="androidx/fragment/app/FragmentFactory" java-name="androidx/fragment/app/FragmentFactory" managed-type-name="AndroidX.Fragment.App.FragmentFactory" token="33554474" />
+      <entry key="androidx/fragment/app/FragmentHostCallback" java-name="androidx/fragment/app/FragmentHostCallback" managed-type-name="AndroidX.Fragment.App.FragmentHostCallback" token="33554475" />
+      <entry key="androidx/fragment/app/FragmentManager" java-name="androidx/fragment/app/FragmentManager" managed-type-name="AndroidX.Fragment.App.FragmentManager" token="33554477" />
+      <entry key="androidx/fragment/app/FragmentManager$BackStackEntry" java-name="androidx/fragment/app/FragmentManager$BackStackEntry" managed-type-name="AndroidX.Fragment.App.FragmentManager/IBackStackEntry" token="33554478" skip-in-java-to-managed="True" />
+      <entry key="androidx/fragment/app/FragmentManager$FragmentLifecycleCallbacks" java-name="androidx/fragment/app/FragmentManager$FragmentLifecycleCallbacks" managed-type-name="AndroidX.Fragment.App.FragmentManager/FragmentLifecycleCallbacks" token="33554480" />
+      <entry key="androidx/fragment/app/FragmentManager$OnBackStackChangedListener" java-name="androidx/fragment/app/FragmentManager$OnBackStackChangedListener" managed-type-name="AndroidX.Fragment.App.FragmentManager/IOnBackStackChangedListener" token="33554482" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/fragment/app/FragmentManager_OnBackStackChangedListenerImplementor" java-name="mono/androidx/fragment/app/FragmentManager_OnBackStackChangedListenerImplementor" managed-type-name="AndroidX.Fragment.App.FragmentManager/IOnBackStackChangedListenerImplementor" token="33554487" />
+      <entry key="androidx/fragment/app/FragmentTransaction" java-name="androidx/fragment/app/FragmentTransaction" managed-type-name="AndroidX.Fragment.App.FragmentTransaction" token="33554502" />
+      <entry key="androidx/fragment/app/FragmentOnAttachListener" java-name="androidx/fragment/app/FragmentOnAttachListener" managed-type-name="AndroidX.Fragment.App.IFragmentOnAttachListener" token="33554504" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/fragment/app/FragmentOnAttachListenerImplementor" java-name="mono/androidx/fragment/app/FragmentOnAttachListenerImplementor" managed-type-name="AndroidX.Fragment.App.IFragmentOnAttachListenerImplementor" token="33554507" />
+      <entry key="androidx/fragment/app/FragmentResultListener" java-name="androidx/fragment/app/FragmentResultListener" managed-type-name="AndroidX.Fragment.App.IFragmentResultListener" token="33554508" skip-in-java-to-managed="True" />
+      <entry key="androidx/fragment/app/strictmode/FragmentStrictMode" java-name="androidx/fragment/app/strictmode/FragmentStrictMode" managed-type-name="AndroidX.Fragment.App.StrictMode.FragmentStrictMode" token="33554510" />
+      <entry key="androidx/fragment/app/strictmode/FragmentStrictMode$Policy" java-name="androidx/fragment/app/strictmode/FragmentStrictMode$Policy" managed-type-name="AndroidX.Fragment.App.StrictMode.FragmentStrictMode/Policy" token="33554511" />
+      <entry key="androidx/fragment/app/strictmode/Violation" java-name="androidx/fragment/app/strictmode/Violation" managed-type-name="AndroidX.Fragment.App.StrictMode.Violation" token="33554512" />
+    </types-scratch>
+  </module>
+</api>

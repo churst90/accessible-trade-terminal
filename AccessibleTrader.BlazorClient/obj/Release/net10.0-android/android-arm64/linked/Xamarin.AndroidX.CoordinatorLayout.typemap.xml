@@ -1,0 +1,12 @@
+<api type="release" assembly-name="Xamarin.AndroidX.CoordinatorLayout" mvid="0e7fcd80f50449fb8caabc955e97e36a">
+  <module assembly-name="Xamarin.AndroidX.CoordinatorLayout" mvid="0e7fcd80f50449fb8caabc955e97e36a" mvid-bytes="gM1/DgT1+0mMqryVXpfjag==">
+    <duplicates>
+      <entry java-name="androidx/coordinatorlayout/widget/CoordinatorLayout$Behavior" managed-type-name="AndroidX.CoordinatorLayout.Widget.CoordinatorLayout/BehaviorInvoker" token="33554473" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/coordinatorlayout/widget/CoordinatorLayout" java-name="androidx/coordinatorlayout/widget/CoordinatorLayout" managed-type-name="AndroidX.CoordinatorLayout.Widget.CoordinatorLayout" token="33554471" />
+      <entry key="androidx/coordinatorlayout/widget/CoordinatorLayout$Behavior" java-name="androidx/coordinatorlayout/widget/CoordinatorLayout$Behavior" managed-type-name="AndroidX.CoordinatorLayout.Widget.CoordinatorLayout/Behavior" token="33554472" />
+      <entry key="androidx/coordinatorlayout/widget/CoordinatorLayout$LayoutParams" java-name="androidx/coordinatorlayout/widget/CoordinatorLayout$LayoutParams" managed-type-name="AndroidX.CoordinatorLayout.Widget.CoordinatorLayout/LayoutParams" token="33554474" />
+    </types-scratch>
+  </module>
+</api>

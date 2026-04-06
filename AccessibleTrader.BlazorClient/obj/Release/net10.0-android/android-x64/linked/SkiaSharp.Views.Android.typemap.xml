@@ -1,0 +1,16 @@
+<api type="release" assembly-name="SkiaSharp.Views.Android" mvid="17e255c2840e4cc4a714a0f95df14cc6">
+  <module assembly-name="SkiaSharp.Views.Android" mvid="17e255c2840e4cc4a714a0f95df14cc6" mvid-bytes="wlXiFw6ExEynFKD5XfFMxg==">
+    <types-scratch>
+      <entry key="crc648e35430423bd4943/GLTextureView" java-name="crc648e35430423bd4943/GLTextureView" managed-type-name="SkiaSharp.Views.Android.GLTextureView" token="33554439" />
+      <entry key="crc648e35430423bd4943/GLTextureView_LogWriter" java-name="crc648e35430423bd4943/GLTextureView_LogWriter" managed-type-name="SkiaSharp.Views.Android.GLTextureView/LogWriter" token="33554464" />
+      <entry key="crc648e35430423bd4943/SKCanvasView" java-name="crc648e35430423bd4943/SKCanvasView" managed-type-name="SkiaSharp.Views.Android.SKCanvasView" token="33554440" />
+      <entry key="crc648e35430423bd4943/SKGLSurfaceView" java-name="crc648e35430423bd4943/SKGLSurfaceView" managed-type-name="SkiaSharp.Views.Android.SKGLSurfaceView" token="33554441" />
+      <entry key="crc648e35430423bd4943/SKGLSurfaceView_InternalRenderer" java-name="crc648e35430423bd4943/SKGLSurfaceView_InternalRenderer" managed-type-name="SkiaSharp.Views.Android.SKGLSurfaceView/InternalRenderer" token="33554466" />
+      <entry key="crc648e35430423bd4943/SKGLSurfaceViewRenderer" java-name="crc648e35430423bd4943/SKGLSurfaceViewRenderer" managed-type-name="SkiaSharp.Views.Android.SKGLSurfaceViewRenderer" token="33554442" />
+      <entry key="crc648e35430423bd4943/SKGLTextureView" java-name="crc648e35430423bd4943/SKGLTextureView" managed-type-name="SkiaSharp.Views.Android.SKGLTextureView" token="33554443" />
+      <entry key="crc648e35430423bd4943/SKGLTextureView_InternalRenderer" java-name="crc648e35430423bd4943/SKGLTextureView_InternalRenderer" managed-type-name="SkiaSharp.Views.Android.SKGLTextureView/InternalRenderer" token="33554467" />
+      <entry key="crc648e35430423bd4943/SKGLTextureViewRenderer" java-name="crc648e35430423bd4943/SKGLTextureViewRenderer" managed-type-name="SkiaSharp.Views.Android.SKGLTextureViewRenderer" token="33554444" />
+      <entry key="crc648e35430423bd4943/SKSurfaceView" java-name="crc648e35430423bd4943/SKSurfaceView" managed-type-name="SkiaSharp.Views.Android.SKSurfaceView" token="33554446" />
+    </types-scratch>
+  </module>
+</api>

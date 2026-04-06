@@ -1,0 +1,49 @@
+sequenceDiagram
+    participant User
+    participant JS as keyboard.js (Windows JS Bridge)
+    participant AND as MainActivity (Android DispatchKeyEvent)
+    participant MAC as KeyboardPageHandler (Mac Catalyst PressesBegan)
+    participant BIS as BlazorInputService
+    participant SM as ShortcutManager
+    participant CD as CommandDispatcher
+    participant DIM as DrawingInteractionManager
+    participant EB as EventBus
+    participant Store as WorkspaceStore
+    participant NE as NavigationEngine
+    participant AFC as AccessibilityFeedbackCoordinator
+    participant BSM as BlazorSpeechManager
+    participant SMM as SonificationManager
+
+    Note over User, MAC: Platform Input (Windows / Android / Mac Catalyst)
+    User->>JS: Press Key (Windows)
+    JS->>BIS: OnKeyDown(key, modifiers)
+    User->>AND: Press Key (Android)
+    AND->>BIS: ProcessKey(key, shift, ctrl, alt)
+    User->>MAC: Press Key (Mac hardware keyboard)
+    MAC->>BIS: ProcessKey(key, shift, ctrl, alt)
+
+    BIS->>SM: ResolveCommand(key, modifiers)
+    SM->>CD: Dispatch(SystemCommand)
+
+    Note over CD, Store: Pane Layout Commands (Alt+Up/Down, Ctrl+Alt+Shift+C)
+    CD->>Store: ScrollIndicatorPanesAction(±1)
+    CD->>EB: Publish(ChartFocusEvent)
+    CD->>EB: Publish(FeedbackRequestEvent CONTEXT_SUMMARY)
+
+    Note over CD, DIM: Drawing Flow (Ctrl+Shift+T/H/V/C/F/L)
+    CD->>EB: Publish(AddDrawingEvent)
+    EB->>DIM: HandleAddDrawing
+    BIS->>DIM: HandleMouseEvent(coords)
+
+    Note over CD, NE: Navigation Flow (Arrow keys, Home/End, PgUp/Dn)
+    CD->>NE: ProcessNavigation
+    NE->>Store: Dispatch(NavigateAction)
+    NE-->>EB: Publish(FeedbackRequestEvent)
+
+    par Async Feedback
+        EB->>AFC: OnFeedbackRequest
+        AFC->>BSM: Speak(formattedText)
+    and Audio Note
+        Store->>SMM: SyncNavigationSlots (via StateStream)
+        SMM->>SMM: NavigationSonifier.SyncNavigationSlots
+    end

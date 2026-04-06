@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant Plugin as MarketDataProvider (e.g. Binance)
+    participant DO as DataOrchestrator (Polly Resilience)
+    participant DC as DataCache (CircularBuffer)
+    participant DMS as DataManager
+    participant DOS as DataOrchestrationService
+    participant IO as IndicatorOrchestrator
+    participant Store as WorkspaceStore (Redux/Rx)
+    participant CR as ChartRenderer (SkiaSharp)
+    participant AFC as AccessibilityFeedbackCoordinator
+    participant SMM as SonificationManager
+
+    Note over Plugin, DO: Historical Load
+    DO->>Plugin: FetchHistoricalAsync(symbol, tf, range)
+    Plugin-->>DO: Ohlcv[]
+    DO->>DC: SeedCache(bars)
+    DO->>DMS: SetData(bars)
+    DMS->>Store: Dispatch(SetDataAction)
+    Store-->>DOS: StateStream (InitStatus=Ready)
+    DOS->>IO: RecalculateFullAsync
+    IO->>Store: Dispatch(SetIndicatorDataAction)
+    Store-->>CR: StateStream → InvalidateSurface
+
+    Note over Plugin, DO: Live WebSocket Tick
+    Plugin->>DO: OnNewTick(Ohlcv)
+    DO->>DO: Apply Polly Retry/Circuit Breaker
+    DO->>DC: UpdateLiveBar(tick)
+    DO->>DMS: UpdateIntraBar / AppendBar
+    DMS->>Store: Dispatch(UpdateDataAction)
+
+    par Indicator Recalculation
+        Store-->>DOS: StateStream (data changed)
+        DOS->>IO: RecalculateLastAsync
+        IO->>Store: Dispatch(SetIndicatorDataAction)
+    and Accessibility Feedback
+        Store-->>AFC: StateStream
+        AFC->>AFC: Detect navigation / state changes
+        AFC-->>SMM: SyncNavigationSlots (via SonificationManager)
+    end
+
+    Store-->>CR: StateStream → InvalidateSurface → OnCanvasPaint
+
+    Note over Plugin, DO: Provider Order Update Stream
+    Plugin->>Plugin: UserDataStream / PrivateChannel (Binance/Bitstamp)
+    Plugin-->>DO: OrderUpdate event
+    DO->>Store: Dispatch(OrderUpdateAction)
+    Store-->>AFC: Notify (order filled/cancelled speech)

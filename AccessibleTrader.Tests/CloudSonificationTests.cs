@@ -1,0 +1,114 @@
+using System.Linq;
+using Xunit;
+using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Sdk.Models;
+
+namespace AccessibleTrader.Tests
+{
+    /// <summary>
+    /// Tests for cloud fill sonification configuration across EMA Fill, Ichimoku, and Cipher B.
+    /// Verifies backward compatibility (null Sonification OK), Clone preservation, and
+    /// that each provider's cloud has distinct frequencies.
+    /// </summary>
+    public class CloudSonificationTests
+    {
+        // ── 1. Backward compatibility — null Sonification is valid ────────────
+
+        [Fact]
+        public void CloudFillConfig_WithNullSonification_IsValid()
+        {
+            var fill = new CloudFillConfig
+            {
+                UpperComponentName = "A",
+                LowerComponentName = "B",
+                BullishColorHex    = "#00FF00",
+                BearishColorHex    = "#FF0000",
+                Sonification       = null
+            };
+            Assert.Null(fill.Sonification);
+        }
+
+        // ── 2. CloudFillConfig.Clone preserves Sonification ───────────────────
+
+        [Fact]
+        public void CloudFillConfig_Clone_PreservesSonification()
+        {
+            var original = new CloudFillConfig
+            {
+                UpperComponentName = "FastEma",
+                LowerComponentName = "SlowEma",
+                DisplayName        = "Test Fill",
+                Sonification       = new CloudSonificationConfig(
+                    BullishFrequency: 440f,
+                    BearishFrequency: 220f,
+                    SoundPatchId:     "sine_bell",
+                    DecayMs:          200,
+                    MaxVolume:        0.75f)
+            };
+
+            var cloned = original.Clone();
+
+            Assert.NotNull(cloned.Sonification);
+            Assert.Equal(440f, cloned.Sonification!.BullishFrequency);
+            Assert.Equal(220f, cloned.Sonification.BearishFrequency);
+            Assert.Equal("sine_bell", cloned.Sonification.SoundPatchId);
+            Assert.Equal(200, cloned.Sonification.DecayMs);
+        }
+
+        // ── 3. EmaFillProvider cloud fill ────────────────────────────────────
+
+        [Fact]
+        public void EmaFillProvider_CloudFill_HasNonNullSonification()
+        {
+            var provider = new EmaFillProvider();
+            var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
+            Assert.NotNull(fill.Sonification);
+        }
+
+        [Fact]
+        public void EmaFillProvider_CloudFill_BullishFrequency_Is440()
+        {
+            var provider = new EmaFillProvider();
+            var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
+            Assert.Equal(440f, fill.Sonification!.BullishFrequency);
+        }
+
+        [Fact]
+        public void EmaFillProvider_CloudFill_BearishFrequency_Is220()
+        {
+            var provider = new EmaFillProvider();
+            var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
+            Assert.Equal(220f, fill.Sonification!.BearishFrequency);
+        }
+
+        // ── 4. IchimokuProvider cloud fill — distinct from EMA ────────────────
+
+        [Fact]
+        public void IchimokuProvider_CloudFill_BullishFrequency_Is520()
+        {
+            var provider = new IchimokuProvider();
+            var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
+            Assert.NotNull(fill.Sonification);
+            Assert.Equal(520f, fill.Sonification!.BullishFrequency);
+        }
+
+        [Fact]
+        public void IchimokuProvider_CloudFill_BearishFrequency_Is180()
+        {
+            var provider = new IchimokuProvider();
+            var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
+            Assert.Equal(180f, fill.Sonification!.BearishFrequency);
+        }
+
+        // ── 5. CipherBProvider WT Fill ────────────────────────────────────────
+
+        [Fact]
+        public void CipherBProvider_WtFill_HasNonNullSonification()
+        {
+            var provider  = new CipherBProvider();
+            var meta      = provider.GetIndicators()[0];
+            var wtFill    = meta.DefaultCloudFills.Single(f => f.DisplayName == "WT Fill");
+            Assert.NotNull(wtFill.Sonification);
+        }
+    }
+}

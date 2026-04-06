@@ -1,0 +1,17 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Loader" mvid="db4a7443b0b34c4981a85de0a97eca42">
+  <module assembly-name="Xamarin.AndroidX.Loader" mvid="db4a7443b0b34c4981a85de0a97eca42" mvid-bytes="Q3RK27OwSUyBqF3gqX7KQg==">
+    <duplicates>
+      <entry java-name="androidx/loader/content/Loader$OnLoadCanceledListener" managed-type-name="AndroidX.Loader.Content.Loader/IOnLoadCanceledListenerInvoker" token="33554449" />
+      <entry java-name="androidx/loader/content/Loader$OnLoadCompleteListener" managed-type-name="AndroidX.Loader.Content.Loader/IOnLoadCompleteListenerInvoker" token="33554451" />
+      <entry java-name="androidx/loader/app/LoaderManager$LoaderCallbacks" managed-type-name="AndroidX.Loader.App.LoaderManager/ILoaderCallbacksInvoker" token="33554454" />
+      <entry java-name="androidx/loader/app/LoaderManager" managed-type-name="AndroidX.Loader.App.LoaderManagerInvoker" token="33554455" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/loader/content/Loader" java-name="androidx/loader/content/Loader" managed-type-name="AndroidX.Loader.Content.Loader" token="33554447" />
+      <entry key="androidx/loader/content/Loader$OnLoadCanceledListener" java-name="androidx/loader/content/Loader$OnLoadCanceledListener" managed-type-name="AndroidX.Loader.Content.Loader/IOnLoadCanceledListener" token="33554448" skip-in-java-to-managed="True" />
+      <entry key="androidx/loader/content/Loader$OnLoadCompleteListener" java-name="androidx/loader/content/Loader$OnLoadCompleteListener" managed-type-name="AndroidX.Loader.Content.Loader/IOnLoadCompleteListener" token="33554450" skip-in-java-to-managed="True" />
+      <entry key="androidx/loader/app/LoaderManager" java-name="androidx/loader/app/LoaderManager" managed-type-name="AndroidX.Loader.App.LoaderManager" token="33554452" />
+      <entry key="androidx/loader/app/LoaderManager$LoaderCallbacks" java-name="androidx/loader/app/LoaderManager$LoaderCallbacks" managed-type-name="AndroidX.Loader.App.LoaderManager/ILoaderCallbacks" token="33554453" skip-in-java-to-managed="True" />
+    </types-scratch>
+  </module>
+</api>

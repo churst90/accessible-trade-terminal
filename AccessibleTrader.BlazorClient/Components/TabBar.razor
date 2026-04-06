@@ -1,0 +1,84 @@
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@inject IWorkspaceStore Store
+
+@* Tab bar — rendered between Toolbar and chart area.
+   Visible only when more than one tab is open; keyboard shortcuts (Ctrl+Tab,
+   Ctrl+Shift+Tab, Ctrl+T, Ctrl+W) handle all tab navigation without requiring
+   the user to focus these buttons. Buttons use tabindex="-1" so they don't
+   enter the Tab-key focus order and interfere with chart keyboard routing. *@
+
+@if (Store.State.TabCount > 1)
+{
+    <div class="tab-bar" role="tablist" aria-label="Chart tabs">
+
+        @* Active tab *@
+        <button role="tab"
+                aria-selected="true"
+                tabindex="-1"
+                class="tab-button tab-active"
+                title="Active tab (Ctrl+Tab to switch)">
+            Tab @(Store.State.ActiveTabIndex + 1): @GetActiveLabel()
+            @if (Store.State.TabCount > 1)
+            {
+                <span class="tab-close"
+                      tabindex="-1"
+                      title="Close tab (Ctrl+W)"
+                      @onclick:stopPropagation="true"
+                      @onclick="() => Store.Dispatch(new CloseTabAction(Store.State.ActiveTabIndex))">
+                    ×
+                </span>
+            }
+        </button>
+
+        @* Inactive tab snapshots — sorted by TabIndex *@
+        @foreach (var snap in GetSortedSnapshots())
+        {
+            var capturedSnap = snap;
+            <button role="tab"
+                    aria-selected="false"
+                    tabindex="-1"
+                    class="tab-button"
+                    title="Switch to tab @(capturedSnap.TabIndex + 1)"
+                    @onclick="() => Store.Dispatch(new SwitchTabAction(capturedSnap.TabIndex))">
+                Tab @(capturedSnap.TabIndex + 1): @GetSnapshotLabel(capturedSnap)
+                <span class="tab-close"
+                      tabindex="-1"
+                      title="Close tab"
+                      @onclick:stopPropagation="true"
+                      @onclick="() => Store.Dispatch(new CloseTabAction(capturedSnap.TabIndex))">
+                    ×
+                </span>
+            </button>
+        }
+
+        @* New tab button *@
+        <button class="tab-new"
+                tabindex="-1"
+                title="New tab (Ctrl+T)"
+                aria-label="Open new chart tab"
+                @onclick="() => Store.Dispatch(new AddTabAction())">
+            +
+        </button>
+
+    </div>
+}
+
+@code {
+    private string GetActiveLabel()
+    {
+        var id = Store.State.Identity;
+        return string.IsNullOrEmpty(id.Symbol) ? "New Tab" : $"{id.Symbol} {id.Timeframe}";
+    }
+
+    private string GetSnapshotLabel(AccessibleTrader.Sdk.Models.TabSnapshot snap)
+    {
+        return string.IsNullOrEmpty(snap.Identity.Symbol) ? "New Tab" : $"{snap.Identity.Symbol} {snap.Identity.Timeframe}";
+    }
+
+    private IEnumerable<AccessibleTrader.Sdk.Models.TabSnapshot> GetSortedSnapshots()
+    {
+        return (Store.State.TabSnapshots ?? System.Collections.Immutable.ImmutableList<AccessibleTrader.Sdk.Models.TabSnapshot>.Empty)
+            .OrderBy(t => t.TabIndex);
+    }
+}

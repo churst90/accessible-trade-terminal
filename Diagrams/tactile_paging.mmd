@@ -1,0 +1,22 @@
+graph TD
+    subgraph Core Engine (.NET 10)
+        HB[History Buffer - Ohlcv Data]
+        VC[Virtual Canvas - 960x400]
+        VP[Viewport Manager]
+    end
+
+    subgraph Hardware Driver (MAUI Interop)
+        TD[ITactileDriver]
+        MTD[MonarchTactileDriver]
+        PD[Physical Device - 96x40]
+    end
+
+    HB -->|Render Full History| VC
+    VC -->|Paging Logic| VP
+    VP -->|Slice 96x40 Window| TD
+    TD -->|Push Bit-Array| MTD
+    MTD -->|USB/HID| PD
+    
+    PD -->|Buttons| MTD
+    MTD -->|Navigate Event| VP
+    VP -->|Update Window Offset| VC

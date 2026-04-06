@@ -1,0 +1,6 @@
+<api>
+  <acw-types partial-assembly-name="Xamarin.AndroidX.ViewPager2" module-name="Xamarin.AndroidX.ViewPager2.dll">
+    <type assembly-qualified-name="AndroidX.ViewPager2.Widget.ViewPager2+IPageTransformer, Xamarin.AndroidX.ViewPager2, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.viewpager2.widget.ViewPager2$PageTransformer" java-key="androidx.viewpager2.widget.ViewPager2$PageTransformer" managed-key="AndroidX.ViewPager2.Widget.ViewPager2.IPageTransformer" partial-assembly-qualified-name="AndroidX.ViewPager2.Widget.ViewPager2+IPageTransformer, Xamarin.AndroidX.ViewPager2" />
+    <type assembly-qualified-name="AndroidX.ViewPager2.Adapter.FragmentStateAdapter+FragmentTransactionCallback+IOnPostEventListener, Xamarin.AndroidX.ViewPager2, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.viewpager2.adapter.FragmentStateAdapter$FragmentTransactionCallback$OnPostEventListener" java-key="androidx.viewpager2.adapter.FragmentStateAdapter$FragmentTransactionCallback$OnPostEventListener" managed-key="AndroidX.ViewPager2.Adapter.FragmentStateAdapter.FragmentTransactionCallback.IOnPostEventListener" partial-assembly-qualified-name="AndroidX.ViewPager2.Adapter.FragmentStateAdapter+FragmentTransactionCallback+IOnPostEventListener, Xamarin.AndroidX.ViewPager2" />
+  </acw-types>
+</api>

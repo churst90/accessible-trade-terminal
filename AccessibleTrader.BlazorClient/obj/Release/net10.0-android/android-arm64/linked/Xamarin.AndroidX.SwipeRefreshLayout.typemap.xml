@@ -1,0 +1,14 @@
+<api type="release" assembly-name="Xamarin.AndroidX.SwipeRefreshLayout" mvid="5e779c1c9a6a44388440f534afc0002a">
+  <module assembly-name="Xamarin.AndroidX.SwipeRefreshLayout" mvid="5e779c1c9a6a44388440f534afc0002a" mvid-bytes="HJx3XmqaOESEQPU0r8AAKg==">
+    <duplicates>
+      <entry java-name="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnChildScrollUpCallback" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout/IOnChildScrollUpCallbackInvoker" token="33554458" />
+      <entry java-name="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnRefreshListener" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout/IOnRefreshListenerInvoker" token="33554460" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/swiperefreshlayout/widget/SwipeRefreshLayout" java-name="androidx/swiperefreshlayout/widget/SwipeRefreshLayout" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout" token="33554456" />
+      <entry key="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnChildScrollUpCallback" java-name="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnChildScrollUpCallback" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout/IOnChildScrollUpCallback" token="33554457" skip-in-java-to-managed="True" />
+      <entry key="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnRefreshListener" java-name="androidx/swiperefreshlayout/widget/SwipeRefreshLayout$OnRefreshListener" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout/IOnRefreshListener" token="33554459" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/swiperefreshlayout/widget/SwipeRefreshLayout_OnRefreshListenerImplementor" java-name="mono/androidx/swiperefreshlayout/widget/SwipeRefreshLayout_OnRefreshListenerImplementor" managed-type-name="AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout/IOnRefreshListenerImplementor" token="33554461" />
+    </types-scratch>
+  </module>
+</api>

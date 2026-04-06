@@ -1,0 +1,292 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@inject IShortcutManager ShortcutManager
+
+@* Help modal: combined keyboard shortcut reference and usage guide.
+   Content sources: SHORTCUTS.md (key bindings) + USER_GUIDE.md (conceptual sections).
+   Opens via OpenHelpEvent from CommandDispatcher (Alt+H shortcut). *@
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="help-title"
+             style="max-width:680px; max-height:80vh; overflow-y:auto;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="help-title" tabindex="-1">Help — Guide &amp; Keyboard Reference</h2>
+
+            <p style="color:var(--text-muted, #555); font-size:0.88rem; margin-top:0;">
+                Accessible Trade Terminal is a fully keyboard-driven chart platform for blind and visually impaired traders.
+                Use the sections below to learn how the platform works and what keys to press.
+            </p>
+
+            @* ── CONCEPTUAL SECTIONS (User Guide content) ────────────────────── *@
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Understanding the Soundscape</summary>
+                <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
+                    <p>The terminal uses a <strong>Hybrid Voice</strong> system. Your screen reader provides exact data values. The sonification engine provides the <em>shape</em> of the market.</p>
+                    <ul style="margin:4px 0 4px 1.2em;">
+                        <li><strong>High Pitch</strong> — High price. Low pitch = low price.</li>
+                        <li><strong>Gliding Tone (Continuous)</strong> — A trend or moving average; the pitch slides as price moves.</li>
+                        <li><strong>Short Beep (Discrete)</strong> — A single data point such as a Volume bar.</li>
+                        <li><strong>Square Wave</strong> — Point of Control (POC) on a Volume Profile.</li>
+                        <li><strong>Sawtooth Texture</strong> — Liquidity Heatmap data.</li>
+                        <li><strong>Chimes / Earcons</strong> — System events: order filled, connection lost, drawing anchor set, boundary reached.</li>
+                        <li><strong>Left/Right Panning</strong> — Position in time. Oldest bar = left channel; newest bar = right channel.</li>
+                    </ul>
+                    <p>Tip: Use <strong>F3</strong> to toggle sonification on/off. Use <strong>F7 / Shift+F7</strong> to adjust chart master volume.</p>
+                </div>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Volume Profile Navigation</summary>
+                <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
+                    <p>When you focus a Volume Profile (VPVR/VPFR/TPO) series using <strong>Page Up/Down</strong>:</p>
+                    <ul style="margin:4px 0 4px 1.2em;">
+                        <li><strong>Left/Right arrows are silenced</strong> — profiles are vertical distributions, not time series.</li>
+                        <li><strong>Up/Down arrows</strong> move through price bins. Each bin is announced with price range, volume, and percentage of session total.</li>
+                        <li><strong>Square Wave</strong> plays at the Point of Control (POC) — the price level with the most volume.</li>
+                        <li>Your screen reader announces when you enter the <strong>Value Area</strong> (the 70% distribution zone, between VAL and VAH).</li>
+                        <li>Bin types: LVN (220 Hz, sine), Normal (330 Hz), VAL (440 Hz), VAH (550 Hz), HVN (660 Hz, triangle), POC (880 Hz, sine + click transient).</li>
+                    </ul>
+                    <p>For Liquidity Heatmaps: Left/Right moves through time columns; Up/Down moves through price bins. Sawtooth waveform throughout.</p>
+                </div>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Drawing Tools Workflow</summary>
+                <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
+                    <p>All drawing tools use <strong>Sequential Anchoring</strong> — navigate to each point and press the shortcut. No holding keys required.</p>
+
+                    <p><strong>Trendline (Ctrl+Shift+T) — 2 anchors:</strong></p>
+                    <ol style="margin:2px 0 8px 1.2em;">
+                        <li>Navigate to the start point. Press <kbd>Ctrl+Shift+T</kbd>. Speech: "Anchor 1 set."</li>
+                        <li>Navigate to the end point. Press <kbd>Ctrl+Shift+T</kbd>. The line is drawn.</li>
+                    </ol>
+
+                    <p><strong>Fibonacci Retracement (Ctrl+Shift+F) — 2 anchors:</strong></p>
+                    <ol style="margin:2px 0 8px 1.2em;">
+                        <li>Navigate to the swing High. Press <kbd>Ctrl+Shift+F</kbd>.</li>
+                        <li>Navigate to the swing Low. Press <kbd>Ctrl+Shift+F</kbd>. Levels are drawn.</li>
+                    </ol>
+
+                    <p><strong>Risk/Reward Tool — 3 anchors:</strong></p>
+                    <ol style="margin:2px 0 8px 1.2em;">
+                        <li>Navigate to <strong>Entry</strong> price. Press the Risk/Reward shortcut. Speech: "Anchor 1 set."</li>
+                        <li>Navigate to <strong>Stop Loss</strong> level. Press again. Speech: "Entry set. Navigate to take profit."</li>
+                        <li>Navigate to <strong>Target</strong>. Press again. Speech announces your Risk-to-Reward ratio.</li>
+                    </ol>
+
+                    <p><strong>Anchored VWAP:</strong> Navigate to the anchor candle (e.g., a high-volume spike or news event). Press the AVWAP shortcut. A VWAP line projects forward from that point and can be navigated like any indicator.</p>
+
+                    <p>Press <kbd>Escape</kbd> at any time to cancel an in-progress drawing.</p>
+                </div>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Indicators &amp; Customization</summary>
+                <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
+                    <p>Press <strong>Alt+A</strong> (or the Indicators button in the toolbar) to open the Indicator search. Indicators are grouped by type:</p>
+                    <ul style="margin:4px 0 4px 1.2em;">
+                        <li><strong>Trend:</strong> Moving Averages (SMA, EMA, WMA), Ichimoku, ADX, PSAR.</li>
+                        <li><strong>Momentum:</strong> RSI, MACD, Stochastics, CCI, Williams %R.</li>
+                        <li><strong>Volatility:</strong> Bollinger Bands, ATR, Keltner Channels.</li>
+                        <li><strong>Volume:</strong> OBV, Chaikin, VWAP, Volume bars.</li>
+                        <li><strong>Profiles:</strong> Volume Profile (VPVR/VPFR), TPO/Market Profile.</li>
+                    </ul>
+                    <p>Once an indicator is on the chart, focus it with <strong>Page Up/Down</strong>. Press <strong>P</strong> to open its properties. Press <strong>H</strong> to toggle visibility. Press <strong>M</strong> to toggle audio mute. Press <strong>Delete</strong> to remove it.</p>
+                    <p>Use <strong>F5/Shift+F5</strong> to cycle the focused component's volume. <strong>F6/Shift+F6</strong> for the full series. <strong>F7/Shift+F7</strong> for chart master volume.</p>
+                </div>
+            </details>
+
+            @* ── KEYBOARD REFERENCE (Shortcut tables) ─────────────────────── *@
+
+            <details open style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Chart Navigation</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
+                    <tbody>
+                        <tr><td>← / →</td><td>Move cursor one bar left or right</td><td>Bar data (price, indicators)</td></tr>
+                        <tr><td>↑ / ↓</td><td>Switch component within the focused series</td><td>Component value</td></tr>
+                        <tr><td>Page Up / Page Down</td><td>Switch to previous or next series</td><td>Series name and component count</td></tr>
+                        <tr><td>Home</td><td>Jump to first visible bar (viewport start)</td><td>Bar data</td></tr>
+                        <tr><td>End</td><td>Jump to last visible bar (viewport end)</td><td>Bar data</td></tr>
+                        <tr><td>\</td><td>Snap to live (newest) bar</td><td>Bar data</td></tr>
+                        <tr><td>[ / ]</td><td>Pan viewport left or right</td><td>"Viewing X bars from…"</td></tr>
+                        <tr><td>- / =</td><td>Zoom out (more bars) / zoom in (fewer bars)</td><td>"Viewing X bars from…"</td></tr>
+                        <tr><td>Shift+[ / Shift+]</td><td>Decrease / increase panning step percentage</td><td>"Panning step: N percent"</td></tr>
+                        <tr><td>Ctrl+← / Ctrl+→</td><td>Jump to previous / next trendline crossing</td><td>"Trendline crossing" or "No crossing found"</td></tr>
+                        <tr><td>Alt+↑ / Alt+↓</td><td>Scroll indicator panes up or down</td><td>"Scroll panes up/down"</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+C</td><td>Focus chart area and speak context summary</td><td>Symbol + context summary</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Playback</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>Space</td><td>Play / stop entire chart (all visible series)</td></tr>
+                        <tr><td>Shift+Space</td><td>Play / stop focused series only</td></tr>
+                        <tr><td>Ctrl+Shift+Space</td><td>Play / stop focused component only</td></tr>
+                        <tr><td>Ctrl+Space</td><td>Pause / resume playback</td></tr>
+                        <tr><td>Shift+Escape</td><td>Stop playback immediately</td></tr>
+                        <tr><td>Shift+- / Shift+=</td><td>Decrease / increase playback speed</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Volume &amp; Audio</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
+                    <tbody>
+                        <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td><td>"Component volume N percent"</td></tr>
+                        <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td><td>"Series volume N percent"</td></tr>
+                        <tr><td>F7 / Shift+F7</td><td>Chart master volume up / down</td><td>"Chart volume N percent"</td></tr>
+                        <tr><td>M</td><td>Toggle audio mute on focused series</td><td>"[Series] muted / active"</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Accessibility &amp; Speech</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
+                    <tbody>
+                        <tr><td>F2</td><td>Toggle speech output on / off</td><td>"Speech on" / "Speech off"</td></tr>
+                        <tr><td>F3</td><td>Toggle sonification engine on / off</td><td>"Sound on" / "Sound off"</td></tr>
+                        <tr><td>F4</td><td>Speak current context snapshot</td><td>"Symbol on Provider, Timeframe"</td></tr>
+                        <tr><td>H</td><td>Toggle indicator visibility (hide / show)</td><td>"[Series] hidden / visible"</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">UI &amp; Settings</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>F1</td><td>Open Settings dialog</td></tr>
+                        <tr><td>Alt+H</td><td>Open this Help dialog</td></tr>
+                        <tr><td>Alt+A</td><td>Open Indicator search</td></tr>
+                        <tr><td>Alt+S</td><td>Open Strategy Manager</td></tr>
+                        <tr><td>Alt+O</td><td>Open Object Tree (series list)</td></tr>
+                        <tr><td>Alt+T</td><td>Open Trading Dashboard</td></tr>
+                        <tr><td>Alt+B</td><td>Open Order Book</td></tr>
+                        <tr><td>Alt+K</td><td>Manage API Keys</td></tr>
+                        <tr><td>Alt+D</td><td>Open Drawing Tools panel</td></tr>
+                        <tr><td>Alt+J</td><td>Open Alerts manager</td></tr>
+                        <tr><td>Alt+W</td><td>Open Sound Designer (patch library)</td></tr>
+                        <tr><td>Alt+,</td><td>Open Custom Scripts</td></tr>
+                        <tr><td>Alt+C</td><td>Toggle Heikin-Ashi candle mode</td></tr>
+                        <tr><td>Alt+L</td><td>Toggle log scale / linear scale</td></tr>
+                        <tr><td>P / Shift+F12</td><td>Open Properties for focused indicator</td></tr>
+                        <tr><td>Ctrl+Shift+D</td><td>Detailed bar summary (candle pattern + all indicators)</td></tr>
+                        <tr><td>Delete</td><td>Remove focused indicator</td></tr>
+                        <tr><td>Tab / Shift+Tab</td><td>Navigate toolbar controls</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Drawing Tools</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>Ctrl+Shift+T</td><td>Draw trend line (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+H</td><td>Draw horizontal level (1 anchor)</td></tr>
+                        <tr><td>Ctrl+Shift+V</td><td>Draw vertical line (1 anchor)</td></tr>
+                        <tr><td>Ctrl+Shift+C</td><td>Draw channel (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+F</td><td>Draw Fibonacci retracement (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+E</td><td>Draw Fibonacci extension (3 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+J</td><td>Draw angle Fibonacci (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+R</td><td>Draw rectangle (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+A</td><td>Draw Andrews' Pitchfork (3 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+G</td><td>Draw Gann Fan (1 anchor)</td></tr>
+                        <tr><td>Ctrl+Shift+B</td><td>Draw Gann Box (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+P</td><td>Draw Risk/Reward zone (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+W</td><td>Draw Anchored VWAP (1 anchor)</td></tr>
+                        <tr><td>Ctrl+Shift+M</td><td>Measure tool — reads distance and % change (2 anchors)</td></tr>
+                        <tr><td>Ctrl+Shift+L</td><td>Draw text label</td></tr>
+                        <tr><td>Escape</td><td>Cancel drawing in progress</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            @* ── Live Shortcut Reference (auto-generated from ShortcutManager) ─── *@
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">All Keyboard Shortcuts (Live — from current profile)</summary>
+                <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
+                    This table is generated live from the active shortcut profile (@ShortcutManager.CurrentProfile.Name).
+                    It always matches the actual key bindings in use, including any user customisations.
+                </p>
+                <table class="shortcuts-table" style="font-size:0.82rem;">
+                    <thead><tr><th>Key Combination</th><th>Command</th></tr></thead>
+                    <tbody>
+                        @foreach (var binding in ShortcutManager.GetAllBindings())
+                        {
+                            <tr>
+                                <td style="white-space:nowrap; font-family:monospace;">@binding.DisplayString</td>
+                                <td>@FormatCommandName(binding.Description)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+
+            <div class="modal-footer">
+                <button id="help-close" @onclick="Close">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenHelpEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "help-title"); } catch { }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    /// <summary>Converts a PascalCase SystemCommand name into readable text (e.g. "NavLeft" → "Nav Left").</summary>
+    private static string FormatCommandName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1]))
+                sb.Append(' ');
+            sb.Append(name[i]);
+        }
+        return sb.ToString();
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+}

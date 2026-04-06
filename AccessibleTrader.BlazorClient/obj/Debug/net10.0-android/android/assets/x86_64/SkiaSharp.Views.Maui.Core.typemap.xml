@@ -1,0 +1,8 @@
+<api type="debug" assembly-name="SkiaSharp.Views.Maui.Core" mvid="b621c3382f0347d8acdb607db848bc04">
+  <java-to-managed>
+    <entry java-name="crc64eaf685e082aef0e5/SKGLViewHandler_MauiSKGLTextureView" managed-name="SkiaSharp.Views.Maui.Handlers.SKGLViewHandler+MauiSKGLTextureView, SkiaSharp.Views.Maui.Core" managed-type-token-id="33554453" />
+  </java-to-managed>
+  <managed-to-java>
+    <entry java-name="crc64eaf685e082aef0e5/SKGLViewHandler_MauiSKGLTextureView" managed-name="SkiaSharp.Views.Maui.Handlers.SKGLViewHandler+MauiSKGLTextureView, SkiaSharp.Views.Maui.Core" managed-type-token-id="33554453" />
+  </managed-to-java>
+</api>

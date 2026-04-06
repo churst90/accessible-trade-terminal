@@ -1,0 +1,53 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@inject IEventBus EventBus
+@implements IDisposable
+
+<div class="status-bar" role="status" aria-live="polite">
+    <div class="status-content">
+        <span class="status-label">Last Feedback:</span>
+        <span class="status-text">@_lastMessage</span>
+    </div>
+</div>
+
+<style>
+    .status-bar {
+        height: 28px;
+        background: #1e1e1e;
+        color: #dcdcdc;
+        border-top: 1px solid #333;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 0.85rem;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .status-label {
+        color: #888;
+        margin-right: 8px;
+        font-weight: bold;
+    }
+    .status-text {
+        color: #4ec9b0;
+    }
+</style>
+
+@code {
+    private string _lastMessage = "Ready";
+    private IDisposable? _eventSub;
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<FeedbackRequestEvent>(ev => {
+            if (!string.IsNullOrEmpty(ev.Message))
+            {
+                _lastMessage = ev.Message;
+                InvokeAsync(StateHasChanged);
+            }
+        });
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+}

@@ -1,0 +1,541 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Sdk.Enums
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@inject IThemeService ThemeService
+@inject IDataExportService DataExporter
+@inject IWorkspaceLibraryService WorkspaceLibrary
+@inject ISeriesManagementService SeriesManager
+@inject IShortcutManager ShortcutService
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="settings-title"
+             style="max-width:660px;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="settings-title" tabindex="-1">Settings</h2>
+
+            @* ── Tab list ──────────────────────────────────────────────────── *@
+            <div role="tablist" aria-label="Settings categories"
+                 style="display:flex; gap:0; border-bottom:2px solid #bbb; margin-bottom:16px;">
+                @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "License", "About" })
+                {
+                    bool active = _activeTab == tab;
+                    <button role="tab"
+                            aria-selected="@active.ToString().ToLower()"
+                            tabindex="@(active ? 0 : -1)"
+                            id="tab-@tab.ToLower()"
+                            aria-controls="tabpanel-@tab.ToLower()"
+                            @onclick="() => _activeTab = tab"
+                            style="padding:6px 16px; border:none; border-bottom:@(active ? "3px solid #0078d4" : "3px solid transparent");
+                                   background:@(active ? "#e8f0ff" : "transparent");
+                                   font-weight:@(active ? "700" : "400");
+                                   color:#111; cursor:pointer;">
+                        @tab
+                    </button>
+                }
+            </div>
+
+            @* ── General tab ───────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-general"
+                 aria-labelledby="tab-general"
+                 hidden="@(_activeTab != "General")">
+
+                @* ── Speech ─────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Speech</legend>
+
+                    <div class="modal-row">
+                        <label for="s-speech-enabled">Speech enabled (F2)</label>
+                        <input id="s-speech-enabled" type="checkbox"
+                               checked="@Store.State.IsSpeechEnabled"
+                               @onchange="() => Store.Dispatch(new ToggleSpeechAction())" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-speak-timestamps">Speak timestamps</label>
+                        <input id="s-speak-timestamps" type="checkbox"
+                               checked="@Store.State.SpeakTimestamps"
+                               @onchange="e => _speakTimestamps = e.Value is bool b ? b : Store.State.SpeakTimestamps" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-read-headers">Read column headers</label>
+                        <input id="s-read-headers" type="checkbox"
+                               checked="@Store.State.ReadColumnHeaders"
+                               @onchange="e => _readHeaders = e.Value is bool b ? b : Store.State.ReadColumnHeaders" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-announce-bars">Announce new bars</label>
+                        <input id="s-announce-bars" type="checkbox"
+                               checked="@Store.State.AnnounceNewBars"
+                               @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
+                    </div>
+                </fieldset>
+
+                @* ── Sonification ────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Sonification</legend>
+
+                    <div class="modal-row">
+                        <label for="s-sonif-enabled">Sonification enabled (F3)</label>
+                        <input id="s-sonif-enabled" type="checkbox"
+                               checked="@Store.State.IsSonificationEnabled"
+                               @onchange="() => Store.Dispatch(new ToggleSonificationAction())" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-wasapi">WASAPI latency (ms)</label>
+                        <input id="s-wasapi" type="number" min="50" max="500" step="10"
+                               value="@Store.State.WasapiLatency"
+                               @onchange="e => _wasapiLatency = int.TryParse(e.Value?.ToString(), out int v) ? v : Store.State.WasapiLatency" />
+                    </div>
+                </fieldset>
+
+                @* ── Viewport ────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Viewport &amp; Navigation</legend>
+
+                    <div class="modal-row">
+                        <label for="s-granularity">Panning step (%)</label>
+                        <select id="s-granularity"
+                                value="@Store.State.PanningGranularity"
+                                @onchange="e => Store.Dispatch(new AdjustGranularityAction(
+                                    (int.TryParse(e.Value?.ToString(), out int gv) ? gv : 10) - Store.State.PanningGranularity))">
+                            @for (int g = 5; g <= 100; g += 5)
+                            {
+                                <option value="@g" selected="@(g == Store.State.PanningGranularity)">@g%</option>
+                            }
+                        </select>
+                        <span style="font-size:0.8rem; color:#555;">Shift+[ / Shift+] to adjust</span>
+                    </div>
+                </fieldset>
+
+                @* ── Keyboard Shortcuts (read-only reference) ────────────────── *@
+                <details style="margin-bottom:16px;">
+                    <summary style="cursor:pointer; font-weight:700; color:#111; padding:4px 0;">
+                        Keyboard Shortcuts Reference
+                    </summary>
+                    <table class="shortcuts-table" style="margin-top:10px;">
+                        <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                        <tbody>
+                            <tr><td>← →</td><td>Navigate bars</td></tr>
+                            <tr><td>↑ ↓</td><td>Switch component</td></tr>
+                            <tr><td>Page Up / Page Down</td><td>Switch series</td></tr>
+                            <tr><td>Home / End</td><td>Jump to viewport start/end</td></tr>
+                            <tr><td>\</td><td>Jump to live bar</td></tr>
+                            <tr><td>[ ]</td><td>Pan left / right</td></tr>
+                            <tr><td>- =</td><td>Zoom out / in</td></tr>
+                            <tr><td>Shift+[ ]</td><td>Decrease / increase pan step</td></tr>
+                            <tr><td>Shift+- =</td><td>Decrease / increase playback speed</td></tr>
+                            <tr><td>Space</td><td>Play chart</td></tr>
+                            <tr><td>Shift+Space</td><td>Play series</td></tr>
+                            <tr><td>F1</td><td>Help reference</td></tr>
+                            <tr><td>F2</td><td>Toggle speech</td></tr>
+                            <tr><td>F3</td><td>Toggle sonification</td></tr>
+                            <tr><td>F4</td><td>Context summary</td></tr>
+                            <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td></tr>
+                            <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td></tr>
+                            <tr><td>F7 / Shift+F7</td><td>Chart volume up / down</td></tr>
+                            <tr><td>F12</td><td>Settings (this dialog)</td></tr>
+                            <tr><td>Shift+F12</td><td>Properties</td></tr>
+                            <tr><td>H</td><td>Toggle indicator visibility</td></tr>
+                            <tr><td>Alt+H</td><td>Toggle liquidity heatmap</td></tr>
+                            <tr><td>M</td><td>Toggle indicator audio</td></tr>
+                            <tr><td>Ctrl+Shift+D</td><td>Deep dive detail fact</td></tr>
+                        </tbody>
+                    </table>
+                </details>
+
+                @* ── Data Export ─────────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Data Export</legend>
+                    <div class="modal-row">
+                        <span style="flex:1; font-size:0.9rem;">Export visible chart data (OHLCV + indicators) to CSV</span>
+                        <button @onclick="ExportDataAsync" aria-label="Export chart data to CSV">Export CSV</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_exportStatus))
+                    {
+                        <p role="status" style="color:#4c8; font-size:0.85rem; margin-top:6px;">@_exportStatus</p>
+                    }
+                </fieldset>
+
+                @* ── Settings Profiles ───────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Settings Profiles</legend>
+                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                        Export/import visual or audio profiles to share your configuration with other users.
+                        Visual profiles include theme, colors, and line styles. Audio profiles include waveforms, volumes, and frequencies.
+                    </p>
+                    <div class="modal-row">
+                        <span style="flex:1; font-size:0.9rem;">Visual profile (theme + colors)</span>
+                        <button @onclick="ExportVisualProfileAsync" aria-label="Export visual profile to file">Export Visual</button>
+                        <button @onclick="ImportVisualProfileAsync" aria-label="Import visual profile from file">Import Visual</button>
+                    </div>
+                    <div class="modal-row">
+                        <span style="flex:1; font-size:0.9rem;">Audio profile (waveforms + volumes)</span>
+                        <button @onclick="ExportAudioProfileAsync" aria-label="Export audio profile to file">Export Audio</button>
+                        <button @onclick="ImportAudioProfileAsync" aria-label="Import audio profile from file">Import Audio</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_profileStatus))
+                    {
+                        <p role="status" style="color:#4c8; font-size:0.85rem; margin-top:6px;">@_profileStatus</p>
+                    }
+                </fieldset>
+            </div>
+
+            @* ── Appearance tab ────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-appearance"
+                 aria-labelledby="tab-appearance"
+                 hidden="@(_activeTab != "Appearance")">
+
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Colors</legend>
+
+                    <div class="modal-row">
+                        <label for="s-bg-color">Background color</label>
+                        <input id="s-bg-color" type="color"
+                               value="@_backgroundColor"
+                               @onchange="e => _backgroundColor = e.Value?.ToString() ?? _backgroundColor"
+                               aria-label="Chart background color" />
+                    </div>
+
+                </fieldset>
+
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Theme</legend>
+
+                    <div class="modal-row">
+                        <label for="s-theme">Theme</label>
+                        <select id="s-theme"
+                                value="@_selectedTheme"
+                                @onchange="OnThemeChanged"
+                                aria-label="Application theme">
+                            <option value="HighContrastDark">High Contrast Dark</option>
+                            <option value="HighContrastLight">High Contrast Light</option>
+                            <option value="SoftDark">Soft Dark</option>
+                            <option value="Solarized">Solarized</option>
+                            <option value="Braille">Braille Optimized</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span style="font-size:0.85rem;color:#888;">
+                            Candle bullish/bearish colors are set per-indicator in the Properties dialog
+                            (Shift+F12 while the candle series is focused).
+                        </span>
+                    </div>
+                </fieldset>
+            </div>
+
+            @* ── Keyboard tab ─────────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-keyboard"
+                 aria-labelledby="tab-keyboard"
+                 hidden="@(_activeTab != "Keyboard")">
+
+                <p style="font-size:0.85rem; color:#555; margin-bottom:12px;">
+                    Click <strong>Rebind</strong> on any row, then press your new key combination.
+                    Escape cancels. Rebindings are saved immediately.
+                </p>
+
+                @if (_capturingCommand != null)
+                {
+                    <div role="status" aria-live="assertive"
+                         style="background:#1a3a5c; color:#fff; padding:10px 16px; border-radius:4px; margin-bottom:12px; font-weight:bold;">
+                        Press new key combination for: <em>@_capturingCommandName</em>
+                        <button style="margin-left:14px; padding:2px 10px;" @onclick="CancelCapture">Cancel</button>
+                    </div>
+                }
+
+                <table class="shortcuts-table" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; padding:4px 8px; border-bottom:2px solid #bbb;">Action</th>
+                            <th style="text-align:left; padding:4px 8px; border-bottom:2px solid #bbb;">Shortcut</th>
+                            <th style="text-align:center; padding:4px 8px; border-bottom:2px solid #bbb; width:70px;">Rebind</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var binding in _uniqueBindings)
+                        {
+                            bool isCapturing = _capturingCommand?.ToString() == binding.Description;
+                            <tr style="border-bottom:1px solid #eee; background:@(isCapturing ? "#1a3a5c" : "transparent");">
+                                <td style="padding:4px 8px; font-size:0.85rem; color:@(isCapturing ? "#fff" : "inherit");">@binding.Description</td>
+                                <td style="padding:4px 8px; font-size:0.85rem; font-family:monospace; color:@(isCapturing ? "#8cf" : "inherit");">
+                                    @(isCapturing ? "▶ waiting..." : binding.DisplayString)
+                                </td>
+                                <td style="padding:4px 8px; text-align:center;">
+                                    <button style="font-size:0.75rem; padding:2px 6px;"
+                                            @onclick="() => StartCapture(binding)"
+                                            disabled="@(_capturingCommand != null && !isCapturing)"
+                                            aria-label="Rebind @binding.Description">
+                                        @(isCapturing ? "…" : "Rebind")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @* ── License tab ───────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-license"
+                 aria-labelledby="tab-license"
+                 hidden="@(_activeTab != "License")">
+
+                <div style="padding:8px 0; color:#111; line-height:1.7; font-size:0.92rem;">
+                    <p><strong>Accessible Trade Terminal</strong></p>
+                    <p>Copyright &copy; 2026 Accessible Trader contributors.</p>
+                    <p>MIT License — Free to use, modify, and distribute with attribution.</p>
+                    <p>Full license text: <a href="https://opensource.org/licenses/MIT" target="_blank"
+                           style="color:#0078d4;">https://opensource.org/licenses/MIT</a></p>
+                </div>
+            </div>
+
+            @* ── About tab ─────────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-about"
+                 aria-labelledby="tab-about"
+                 hidden="@(_activeTab != "About")">
+
+                <table class="shortcuts-table" style="margin-top:4px;">
+                    <tbody>
+                        <tr><td>Version</td><td>1.0.0-alpha</td></tr>
+                        <tr><td>Platform</td><td>.NET 10 MAUI + Blazor Hybrid</td></tr>
+                        <tr><td>Chart Engine</td><td>SkiaSharp</td></tr>
+                        <tr><td>Audio Engine</td><td>64-voice polyphonic DSP (NAudio/WASAPI)</td></tr>
+                        <tr><td>Plugins</td><td>Binance, Alpaca, Bitstamp, Coinbase, Polygon, FRED</td></tr>
+                        <tr><td>Repository</td><td><a href="https://github.com/accessible-trader/accessible-trader" target="_blank" style="color:#0078d4;">GitHub</a></td></tr>
+                    </tbody>
+                </table>
+                <p style="margin-top:16px; color:#555; font-size:0.88rem; font-style:italic;">
+                    Built for blind and visually impaired traders.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button id="settings-close" @onclick="Close" aria-label="Close settings">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+    private string _activeTab = "General";
+
+    // Local copies for pending changes — General tab
+    private bool _speakTimestamps;
+    private bool _readHeaders;
+    private bool _announceBars;
+    private int _wasapiLatency;
+
+    // Appearance tab — derived from ThemeService.Current
+    private string _backgroundColor = "#000000";
+    private string _candleUpColor   = "#00cc44";
+    private string _candleDownColor = "#cc2200";
+    private string _selectedTheme   = "HighContrastDark";
+
+    private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenSettingsEvent>(_ => InvokeAsync(ShowAsync));
+        ThemeService.ThemeChanged += OnThemeServiceChanged;
+        ResetLocal();
+        _uniqueBindings = ShortcutService.GetAllBindings()
+            .GroupBy(b => b.Description)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private void OnThemeServiceChanged(object? sender, AccessibleTrader.Sdk.Theming.ChartTheme theme)
+    {
+        _candleUpColor   = SkColorToHex(theme.CandleBullishBody);
+        _candleDownColor = SkColorToHex(theme.CandleBearishBody);
+        _backgroundColor = SkColorToHex(theme.Background);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _selectedTheme = e.Value?.ToString() ?? _selectedTheme;
+        if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var themeType))
+        {
+            ThemeService.SetTheme(themeType);
+        }
+    }
+
+    private void ResetLocal()
+    {
+        _speakTimestamps = Store.State.SpeakTimestamps;
+        _readHeaders = Store.State.ReadColumnHeaders;
+        _announceBars = Store.State.AnnounceNewBars;
+        _wasapiLatency = Store.State.WasapiLatency;
+        _backgroundColor = SkColorToHex(ThemeService.Current.Background);
+        _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
+        _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
+        _selectedTheme   = ThemeService.Current.ThemeType.ToString();
+    }
+
+    private async Task ShowAsync()
+    {
+        ResetLocal();
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "settings-title"); } catch { }
+    }
+
+    private void Close()
+    {
+        // Apply all pending settings changes (General tab) as a single state update.
+        // Theme/appearance are applied immediately via ThemeService.SetTheme when changed.
+        Store.Dispatch(new UpdateSettingsAction(s => s with
+        {
+            SpeakTimestamps  = _speakTimestamps,
+            ReadColumnHeaders = _readHeaders,
+            AnnounceNewBars  = _announceBars,
+            WasapiLatency    = _wasapiLatency,
+            BackgroundColor  = _backgroundColor
+        }));
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    // ── Data Export ──────────────────────────────────────────────────────────
+
+    private string _exportStatus = "";
+
+    private async Task ExportDataAsync()
+    {
+        try
+        {
+            var state = Store.State;
+            if (state.Data == null || !state.Data.Any())
+            {
+                _exportStatus = "No chart data loaded.";
+                return;
+            }
+            string csv = await DataExporter.ExportToCsvAsync(
+                state.Data, state.ViewportStartIndex, state.ViewportLength, state.ActiveSeries);
+            if (string.IsNullOrEmpty(csv))
+            {
+                _exportStatus = "No data in viewport.";
+                return;
+            }
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadCsv",
+                $"chart_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv", csv);
+            _exportStatus = "Export complete.";
+        }
+        catch (Exception ex)
+        {
+            _exportStatus = $"Export failed: {ex.Message}";
+        }
+    }
+
+    // ── Settings Profiles ────────────────────────────────────────────────────
+
+    private string _profileStatus = "";
+
+    private async Task ExportVisualProfileAsync()
+    {
+        try
+        {
+            string json = WorkspaceLibrary.ExportVisualProfile(Store.State);
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadCsv", "visual_profile.json", json);
+            _profileStatus = "Visual profile exported.";
+        }
+        catch (Exception ex) { _profileStatus = $"Export failed: {ex.Message}"; }
+    }
+
+    private async Task ImportVisualProfileAsync()
+    {
+        try
+        {
+            string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
+            WorkspaceLibrary.ImportVisualProfile(json, Store);
+            _profileStatus = "Visual profile imported.";
+        }
+        catch (Exception ex) { _profileStatus = $"Import failed: {ex.Message}"; }
+    }
+
+    private async Task ExportAudioProfileAsync()
+    {
+        try
+        {
+            string json = WorkspaceLibrary.ExportAudioProfile(Store.State);
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadCsv", "audio_profile.json", json);
+            _profileStatus = "Audio profile exported.";
+        }
+        catch (Exception ex) { _profileStatus = $"Export failed: {ex.Message}"; }
+    }
+
+    private async Task ImportAudioProfileAsync()
+    {
+        try
+        {
+            string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
+            WorkspaceLibrary.ImportAudioProfile(json, Store, SeriesManager);
+            _profileStatus = "Audio profile imported.";
+        }
+        catch (Exception ex) { _profileStatus = $"Import failed: {ex.Message}"; }
+    }
+
+    // ── Keyboard Rebinding ───────────────────────────────────────────────────
+
+    private List<AccessibleTrader.Core.Services.ShortcutDisplayBinding> _uniqueBindings = new();
+    private AccessibleTrader.Core.Models.SystemCommand? _capturingCommand;
+    private string _capturingCommandName = "";
+    private DotNetObjectReference<SettingsModal>? _dotNetRef;
+
+    private async Task StartCapture(AccessibleTrader.Core.Services.ShortcutDisplayBinding binding)
+    {
+        if (!Enum.TryParse<AccessibleTrader.Core.Models.SystemCommand>(binding.Description, out var cmd)) return;
+        _capturingCommand = cmd;
+        _capturingCommandName = binding.Description;
+        StateHasChanged();
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await JSRuntime.InvokeVoidAsync("accessibleTrader.captureNextKey", _dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnKeyCaptured(string key, bool shift, bool ctrl, bool alt)
+    {
+        if (_capturingCommand == null) return;
+        ShortcutService.UpdateBinding(_capturingCommand.Value, key, shift, ctrl, alt);
+        _uniqueBindings = ShortcutService.GetAllBindings()
+            .GroupBy(b => b.Description)
+            .Select(g => g.First())
+            .ToList();
+        _capturingCommand = null;
+        _capturingCommandName = "";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void CancelCapture()
+    {
+        _capturingCommand = null;
+        _capturingCommandName = "";
+    }
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+        _eventSub?.Dispose();
+        ThemeService.ThemeChanged -= OnThemeServiceChanged;
+    }
+}

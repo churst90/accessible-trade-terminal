@@ -1,0 +1,129 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>AccessibleTrader.BlazorClient</name>
+    </assembly>
+    <members>
+        <member name="T:AccessibleTrader.BlazorClient.Components.ModalBase">
+             <summary>
+             Base class for all application modals. Enforces the ModalStateChangedEvent
+             contract so MainPage.xaml.cs can reliably hide/restore the native SkiaSharp
+             canvas whenever any modal is open.
+            
+             USAGE:
+               1. Add @inherits ModalBase to the modal's .razor file.
+               2. Remove the @inject IEventBus and @inject IJSRuntime directives — they are
+                  already injected by this base class.
+               3. Remove the private _isVisible field — it is declared here.
+               4. In ShowAsync(), call await ShowModalAsync("your-h2-element-id") to
+                  set _isVisible, publish the open event, and focus the heading.
+               5. In Close(), call CloseModal() to clear _isVisible and publish the close event.
+               6. If your modal has subscriptions, override Dispose() and call base.Dispose()
+                  to ensure _eventSub is cleaned up automatically.
+            
+             WHY NOT AN INTERFACE OR CONVENTION?
+               Forgetting EventBus.Publish(new ModalStateChangedEvent(false)) in Close() causes
+               the chart canvas to disappear until the app is restarted — a silent, hard-to-diagnose
+               bug. A base class makes the correct behaviour the path of least resistance.
+             </summary>
+        </member>
+        <member name="F:AccessibleTrader.BlazorClient.Components.ModalBase._isVisible">
+            <summary>Visibility state shared with the .razor template via @if (_isVisible).</summary>
+        </member>
+        <member name="F:AccessibleTrader.BlazorClient.Components.ModalBase._eventSub">
+            <summary>
+            Optional: assign the EventBus subscription token here so Dispose() cleans
+            it up automatically. Concrete classes with additional subscriptions should
+            override Dispose() and call base.Dispose().
+            </summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.ModalBase.ShowModalAsync(System.String)">
+            <summary>
+            Opens the modal: sets _isVisible, publishes ModalStateChangedEvent(true),
+            triggers a re-render, then shifts keyboard focus to the modal's heading element.
+            <para>
+            Always call this from your concrete ShowAsync() method. Perform any additional
+            data preparation BEFORE calling ShowModalAsync so the data is ready when Blazor
+            renders.
+            </para>
+            </summary>
+            <param name="headingElementId">
+            The HTML id of the modal's h2 heading element (e.g. "settings-title").
+            Screen readers announce this heading when focus lands on it, giving users
+            immediate context about which modal has opened.
+            </param>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.ModalBase.CloseModal">
+            <summary>
+            Closes the modal: clears _isVisible, publishes ModalStateChangedEvent(false),
+            and triggers a re-render.
+            </summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.ModalBase.Dispose">
+            <summary>
+            Disposes the base event subscription. Override in concrete classes that have
+            additional subscriptions; always call base.Dispose() in the override.
+            </summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.HelpModal.FormatCommandName(System.String)">
+            <summary>Converts a PascalCase SystemCommand name into readable text (e.g. "NavLeft" → "Nav Left").</summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.PropertiesModal.ResetToDefaults">
+            <summary>
+            Regenerates all component configs from fresh indicator metadata, clearing any stale
+            workspace overrides and user preferences. Useful when provider defaults have changed
+            (e.g. new waveform or color defaults in CipherB) and the running series is still using
+            an old workspace save.
+            </summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Components.Toolbar.ParseTimeframe(System.String)">
+            <summary>Parses a timeframe string like "4h", "15m", "1d" into mult+unit fields.</summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.ServiceCollectionExtensions.AddAccessibleTraderServices(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers all Accessible Trader services in dependency order.
+            Delegates to private domain-scoped helpers for readability and testability.
+            </summary>
+        </member>
+        <member name="T:AccessibleTrader.BlazorClient.Services.BlazorAudioDriver">
+            <summary>
+            Multi-platform audio driver.
+            Windows:          NAudio WASAPI output (pull model via ISampleProvider).
+            Android:          AudioTrack PCM-Float push loop on a dedicated background thread.
+            iOS / macCatalyst: AVAudioEngine + AVAudioSourceNode render callback (push model).
+            </summary>
+        </member>
+        <member name="T:AccessibleTrader.BlazorClient.Services.GlobalInputService">
+             <summary>
+             Bridges the JavaScript keyboard handler to the .NET input pipeline.
+            
+             WHY THIS EXISTS: Blazor's built-in keyboard events only fire when a focused
+             element is inside the WebView. For a keyboard-first app, we need global key
+             capture (F1–F12, arrows, etc.) regardless of focus. A window-level JS listener
+             calls back into this service via JSInvokable, and we forward to IInputService.
+             </summary>
+        </member>
+        <member name="M:AccessibleTrader.BlazorClient.Services.GlobalInputService.OnKeyUp(System.String)">
+            <summary>Called from JS keyup for navigation keys to stop the sustaining audio voice.</summary>
+        </member>
+        <member name="T:AccessibleTrader.BlazorClient.Services.MauiAppLogger">
+            <summary>
+            MAUI-specific implementation of IAppLogger.
+            Writes to ILogger for all severities and publishes AppErrorEvent to EventBus for severity >= Medium.
+            Deduplicates identical (message + source) pairs within a 3-second window.
+            </summary>
+        </member>
+        <member name="T:AccessibleTrader.BlazorClient.Services.TransparentBlazorWebViewHandler">
+            <summary>
+            Custom BlazorWebViewHandler that sets the native WebView's background to Transparent
+            as early as possible.
+            </summary>
+        </member>
+        <member name="T:AccessibleTrader.BlazorClient.Resource">
+            <summary>
+            Android Resource Designer class.
+            Exposes the Android Resource designer assembly into the project Namespace.
+            </summary>
+        </member>
+    </members>
+</doc>

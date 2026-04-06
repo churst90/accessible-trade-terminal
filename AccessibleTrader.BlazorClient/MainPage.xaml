@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:AccessibleTrader.BlazorClient"
+             xmlns:components="clr-namespace:AccessibleTrader.BlazorClient.Components"
+             xmlns:skia="clr-namespace:SkiaSharp.Views.Maui.Controls;assembly=SkiaSharp.Views.Maui.Controls"
+             x:Class="AccessibleTrader.BlazorClient.MainPage"
+             BackgroundColor="Black">
+
+    <!-- Two-layer stack:
+         Layer 0 (bottom): Native SkiaSharp canvas — chart drawing lives here.
+         Layer 1 (top):    BlazorWebView — toolbar, controls, ARIA live regions,
+                           keyboard bridge. Transparent so the chart shows through. -->
+    <Grid BackgroundColor="Black">
+        <!-- Layer 0 (bottom): BlazorWebView — toolbar, controls, modals, ARIA live regions,
+             keyboard bridge. Sits below the Skia canvas in the composition stack.
+             Modals become visible when MainPage temporarily hides the Skia canvas (ModalStateChangedEvent). -->
+        <BlazorWebView x:Name="blazorWebView"
+                       HostPage="wwwroot/index.html">
+            <BlazorWebView.RootComponents>
+                <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
+            </BlazorWebView.RootComponents>
+        </BlazorWebView>
+
+        <!-- Layer 1 (top): Native SkiaSharp canvas — chart drawing lives here.
+             InputTransparent="True" lets MAUI route pointer/touch events to the WebView.
+             Hidden temporarily while any modal is open so the WebView modals are reachable
+             visually and via pointer. Restored when the modal closes. -->
+        <skia:SKCanvasView x:Name="_chartCanvas"
+                           PaintSurface="OnCanvasPaint"
+                           InputTransparent="True"
+                           IgnorePixelScaling="True" />
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,368 @@
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.Sdk.Models
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IMarketOrchestrator MarketOrchestrator
+@implements IDisposable
+
+@* Main toolbar. All controls are flat Tab stops — no role="radiogroup" or nested
+   focus traps — so screen readers in both browse mode and application mode can
+   reach every control with Tab/Shift+Tab without switching interaction modes. *@
+<nav class="toolbar" style="flex-direction: column; gap: 4px;" role="toolbar" aria-label="Main Toolbar">
+
+    @* ── Row 1: Mode buttons | separator | Dialogs & Tools ─────────────────── *@
+    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+
+        @* ── Mode Selection ──────────────────────────────────────────────────
+           Plain buttons with aria-pressed replace radio inputs. These work identically
+           in NVDA/JAWS browse mode (no forms-mode switch required). *@
+        <button aria-pressed="@(Store.State.Mode == TerminalMode.Trading ? "true" : "false")"
+                title="Switch to Trading mode"
+                @onclick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Trading))">
+            Trading
+        </button>
+        <button aria-pressed="@(Store.State.Mode == TerminalMode.Analytics ? "true" : "false")"
+                title="Switch to Analytics mode"
+                @onclick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Analytics))">
+            Analytics
+        </button>
+
+        <div class="toolbar-separator" aria-hidden="true"></div>
+
+        @* ── Dialogs & Tools ──────────────────────────────────────────────── *@
+        <button title="Open series/object tree (Alt+O)"
+                aria-label="Object Tree"
+                @onclick="() => EventBus.Publish(new OpenObjectTreeEvent())">
+            Object Tree
+        </button>
+        <button title="Open trading dashboard (Alt+T)"
+                aria-label="Trading Dashboard"
+                @onclick="() => EventBus.Publish(new OpenTradingDashboardEvent())">
+            Trade
+        </button>
+        <button title="Open order book (Alt+B)"
+                aria-label="Order Book"
+                @onclick="() => EventBus.Publish(new OpenOrderBookEvent())">
+            Order Book
+        </button>
+        <button title="Open strategies (Alt+S)"
+                aria-label="Strategies"
+                @onclick="() => EventBus.Publish(new OpenStrategiesEvent())">
+            Strategies
+        </button>
+        <button title="Sound Designer — customise audio patches and earcons (Alt+W)"
+                aria-label="Sound Designer"
+                @onclick="() => EventBus.Publish(new OpenSoundDesignerEvent())">
+            Sound Designer
+        </button>
+        <button title="Open drawing tools (Alt+D)"
+                aria-label="Drawing Tools"
+                @onclick="() => EventBus.Publish(new OpenDrawingToolsEvent())">
+            Drawings
+        </button>
+        <button title="Manage API keys for data and trading providers (Alt+K)"
+                aria-label="API Keys"
+                @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">
+            API Keys
+        </button>
+        <button title="Manage price alerts (Alt+J)"
+                aria-label="Alerts"
+                @onclick="() => EventBus.Publish(new OpenAlertsEvent())">
+            Alerts
+        </button>
+        <button title="Open settings (F12)"
+                aria-label="Settings"
+                @onclick="() => EventBus.Publish(new OpenSettingsEvent())">
+            Settings
+        </button>
+        <button title="Open keyboard shortcut reference (F1)"
+                aria-label="Help"
+                @onclick="() => EventBus.Publish(new OpenHelpEvent())">
+            Help
+        </button>
+
+    </div>
+
+    @* ── Row 2: Market pipeline | separator | Visual toggles ─────────────── *@
+    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+
+        @* ── Market Pipeline ──────────────────────────────────────────────── *@
+        <label for="market-select">Market:</label>
+        <select id="market-select"
+                aria-label="Select market"
+                @onchange="OnMarketChanged"
+                value="@MarketOrchestrator.SelectedMarket">
+            @foreach (var m in MarketOrchestrator.AvailableMarkets)
+            {
+                <option value="@m" selected="@(m == MarketOrchestrator.SelectedMarket)">@m</option>
+            }
+        </select>
+
+        <label for="provider-select">Provider:</label>
+        <select id="provider-select"
+                aria-label="Select data provider"
+                @onchange="OnProviderChanged"
+                value="@MarketOrchestrator.SelectedProvider">
+            @foreach (var p in MarketOrchestrator.AvailableProviders)
+            {
+                <option value="@p" selected="@(p == MarketOrchestrator.SelectedProvider)">@p</option>
+            }
+        </select>
+
+        @* Sub-type (Spot / Futures) — only shown when provider supports multiple sub-types *@
+        @if (MarketOrchestrator.AvailableSubTypes.Count > 1)
+        {
+            <label for="subtype-select">Type:</label>
+            <select id="subtype-select"
+                    aria-label="Select market sub-type (Spot or Futures)"
+                    @onchange="OnSubTypeChanged"
+                    value="@MarketOrchestrator.SelectedSubType">
+                @foreach (var st in MarketOrchestrator.AvailableSubTypes)
+                {
+                    <option value="@st" selected="@(st == MarketOrchestrator.SelectedSubType)">@st</option>
+                }
+            </select>
+        }
+
+        <label for="symbol-select">Symbol:</label>
+        <select id="symbol-select"
+                aria-label="Select symbol"
+                @onchange="OnSymbolChanged"
+                value="@MarketOrchestrator.SelectedSymbol">
+            @foreach (var s in MarketOrchestrator.AvailableSymbols)
+            {
+                <option value="@s" selected="@(s == MarketOrchestrator.SelectedSymbol)">@s</option>
+            }
+        </select>
+
+        <div class="toolbar-separator" aria-hidden="true"></div>
+
+        @* ── Custom timeframe composer ────────────────────────────────────
+           Multiplier + unit inputs compose a timeframe string like "4h", "15m", "2w".
+           Quick-pick buttons (from AvailableTimeframes) fill the fields in one click. *@
+        <label for="tf-mult">Time:</label>
+        <input id="tf-mult"
+               type="number"
+               min="1"
+               max="999"
+               aria-label="Timeframe multiplier"
+               style="width:4rem;"
+               value="@_tfMult"
+               @onchange="OnTfMultChanged" />
+        <label for="tf-unit" class="sr-only">Timeframe unit</label>
+        <select id="tf-unit"
+                aria-label="Timeframe unit"
+                @onchange="OnTfUnitChanged"
+                value="@_tfUnit">
+            <option value="m" selected="@(_tfUnit == "m")">min</option>
+            <option value="h" selected="@(_tfUnit == "h")">hr</option>
+            <option value="d" selected="@(_tfUnit == "d")">day</option>
+            <option value="w" selected="@(_tfUnit == "w")">wk</option>
+            <option value="M" selected="@(_tfUnit == "M")">mo</option>
+        </select>
+        @if (MarketOrchestrator.AvailableTimeframes.Count > 0)
+        {
+            <div style="display:inline-flex; flex-wrap:wrap; gap:3px;">
+                @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
+                {
+                    <button style="padding:2px 5px; font-size:0.8rem;"
+                            aria-label="Set timeframe to @tf"
+                            title="Set timeframe to @tf"
+                            @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
+                }
+            </div>
+        }
+
+        <button class="primary"
+                aria-label="Load chart for selected symbol"
+                disabled="@(!CanLoad)"
+                @onclick="LoadChart">
+            Load
+        </button>
+
+        @if (_loadError != null)
+        {
+            <span role="alert" style="color: #f44; font-size: 0.85rem; margin-left: 8px;">@_loadError</span>
+        }
+
+        <div class="toolbar-separator" aria-hidden="true"></div>
+
+        @* ── Visual Toggles ──────────────────────────────────────────────── *@
+        <button aria-pressed="@IsHeatmapVisible"
+                title="Toggle Liquidity Heatmap (Alt+H)"
+                @onclick="AddHeatmap">
+            Heatmap
+        </button>
+        <button aria-pressed="@(Store.State.IsHeikinAshi ? "true" : "false")"
+                title="Toggle Heikin Ashi candles"
+                @onclick="() => Store.Dispatch(new ToggleHeikinAshiAction())">
+            Heikin Ashi
+        </button>
+        <button aria-pressed="@(Store.State.IsLogScale ? "true" : "false")"
+                title="Toggle logarithmic price scale"
+                @onclick="() => Store.Dispatch(new ToggleLogScaleAction())">
+            Log Scale
+        </button>
+
+    </div>
+
+</nav>
+
+@code {
+    private IDisposable? _pipelineSub;
+    private string? _loadError;
+
+    // ── Custom timeframe composer state ──────────────────────────────────
+    private int    _tfMult = 1;
+    private string _tfUnit = "h";
+    private string _tfString => $"{_tfMult}{_tfUnit}";
+
+    // Disable Load when no symbol is selected or the API-key sentinel is showing.
+    private bool CanLoad =>
+        !string.IsNullOrEmpty(MarketOrchestrator.SelectedSymbol)
+        && MarketOrchestrator.SelectedSymbol != AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
+
+    private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
+
+    protected override void OnInitialized()
+    {
+        // Re-render whenever market/provider/symbol/timeframe lists change.
+        _pipelineSub = MarketOrchestrator.PipelineUpdated
+            .Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        // Parse the existing SelectedTimeframe to seed the composer fields.
+        ParseTimeframe(MarketOrchestrator.SelectedTimeframe);
+
+        // Kick off the initial cascade (market → provider → symbol → timeframe).
+        _ = InitPipelineAsync();
+    }
+
+    /// <summary>Parses a timeframe string like "4h", "15m", "1d" into mult+unit fields.</summary>
+    private void ParseTimeframe(string? tf)
+    {
+        if (string.IsNullOrWhiteSpace(tf)) return;
+        var m = System.Text.RegularExpressions.Regex.Match(tf, @"^(\d+)([mhdwM])$");
+        if (m.Success && int.TryParse(m.Groups[1].Value, out int mult) && mult >= 1)
+        {
+            _tfMult = mult;
+            _tfUnit = m.Groups[2].Value;
+        }
+    }
+
+    private async Task InitPipelineAsync()
+    {
+        try
+        {
+            await MarketOrchestrator.RefreshPipelineAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Could not load market data.";
+            Console.Error.WriteLine($"Pipeline init failed: {ex.Message}");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async void OnMarketChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        MarketOrchestrator.SelectedMarket = e.Value?.ToString() ?? "";
+        // The orchestrator's setter kicks off the async cascade; await it here so
+        // any network/provider errors are surfaced to the user via _loadError.
+        try
+        {
+            await MarketOrchestrator.RefreshProvidersAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Failed to load providers for selected market.";
+            Console.Error.WriteLine($"Market change failed: {ex.Message}");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async void OnProviderChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        MarketOrchestrator.SelectedProvider = e.Value?.ToString() ?? "";
+        try
+        {
+            await MarketOrchestrator.RefreshSymbolsAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Failed to load symbols for selected provider.";
+            Console.Error.WriteLine($"Provider change failed: {ex.Message}");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async void OnSubTypeChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        MarketOrchestrator.SelectedSubType = e.Value?.ToString() ?? "Spot";
+        try
+        {
+            await MarketOrchestrator.RefreshSymbolsAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Failed to load symbols for selected type.";
+            Console.Error.WriteLine($"SubType change failed: {ex.Message}");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnSymbolChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        MarketOrchestrator.SelectedSymbol = e.Value?.ToString() ?? "";
+    }
+
+    private void OnTfMultChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        if (int.TryParse(e.Value?.ToString(), out int mult) && mult >= 1)
+            _tfMult = Math.Min(mult, 999);
+        MarketOrchestrator.SelectedTimeframe = _tfString;
+    }
+
+    private void OnTfUnitChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        _tfUnit = e.Value?.ToString() ?? "h";
+        MarketOrchestrator.SelectedTimeframe = _tfString;
+    }
+
+    private void ApplyQuickPickTimeframe(string tf)
+    {
+        _loadError = null;
+        ParseTimeframe(tf);
+        MarketOrchestrator.SelectedTimeframe = tf;
+    }
+
+    private void AddHeatmap()
+    {
+        EventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
+    }
+
+    private async Task LoadChart()
+    {
+        _loadError = null;
+        try
+        {
+            await MarketOrchestrator.LoadChartAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Chart load failed. Check provider settings.";
+            Console.Error.WriteLine($"LoadChart failed: {ex.Message}");
+        }
+    }
+
+    public void Dispose() {
+        _pipelineSub?.Dispose();
+    }
+}

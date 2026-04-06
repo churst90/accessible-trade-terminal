@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "PeX9/XH8Uyc=",
+  "success": true,
+  "projectFilePath": "D:\\Data\\Github\\accessible-trader\\AccessibleTrader.Sdk\\AccessibleTrader.Sdk.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\codyt\\.nuget\\packages\\communitytoolkit.mvvm\\8.2.2\\communitytoolkit.mvvm.8.2.2.nupkg.sha512",
+    "C:\\Users\\codyt\\.nuget\\packages\\skiasharp\\3.119.2\\skiasharp.3.119.2.nupkg.sha512",
+    "C:\\Users\\codyt\\.nuget\\packages\\skiasharp.nativeassets.macos\\3.119.2\\skiasharp.nativeassets.macos.3.119.2.nupkg.sha512",
+    "C:\\Users\\codyt\\.nuget\\packages\\skiasharp.nativeassets.win32\\3.119.2\\skiasharp.nativeassets.win32.3.119.2.nupkg.sha512",
+    "C:\\Users\\codyt\\.nuget\\packages\\system.reactive\\6.1.0\\system.reactive.6.1.0.nupkg.sha512"
+  ],
+  "logs": []
+}

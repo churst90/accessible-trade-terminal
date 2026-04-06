@@ -1,0 +1,132 @@
+<api>
+  <jcw-types>
+    <type name="Toolbar_NavigationOnClickEventDispatcher" package="androidx.appcompat.widget" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.Widget.Toolbar+NavigationOnClickEventDispatcher, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="android.view.View.OnClickListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="Toolbar_NavigationOnClickEventDispatcher" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+        <constructor name="Toolbar_NavigationOnClickEventDispatcher" method="n_.ctor:(Landroidx/appcompat/widget/Toolbar;)V:" jni_signature="(Landroidx/appcompat/widget/Toolbar;)V" managed_parameters="AndroidX.AppCompat.Widget.Toolbar, Xamarin.AndroidX.AppCompat" params="androidx.appcompat.widget.Toolbar p0" retval="void" is_dynamically_registered="True" super_call="" activate_call="p0" />
+      </constructors>
+      <methods>
+        <method name="onClick" method="n_onClick:(Landroid/view/View;)V:GetOnClick_Landroid_view_View_Handler:Android.Views.View+IOnClickListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" jni_signature="(Landroid/view/View;)V" params="android.view.View p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="Toolbar_OnMenuItemClickListenerImplementor" package="mono.androidx.appcompat.widget" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="androidx.appcompat.widget.Toolbar.OnMenuItemClickListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="Toolbar_OnMenuItemClickListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onMenuItemClick" method="n_onMenuItemClick:(Landroid/view/MenuItem;)Z:GetOnMenuItemClick_Landroid_view_MenuItem_Handler:AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(Landroid/view/MenuItem;)Z" params="android.view.MenuItem p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="SearchView_OnCloseListenerImplementor" package="mono.androidx.appcompat.widget" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.Widget.SearchView+IOnCloseListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="androidx.appcompat.widget.SearchView.OnCloseListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="SearchView_OnCloseListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onClose" method="n_onClose:()Z:GetOnCloseHandler:AndroidX.AppCompat.Widget.SearchView+IOnCloseListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="()Z" retval="boolean" is_dynamically_registered="True" />
+      </methods>
+    </type>
+    <type name="SearchView_OnQueryTextListenerImplementor" package="mono.androidx.appcompat.widget" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="androidx.appcompat.widget.SearchView.OnQueryTextListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="SearchView_OnQueryTextListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onQueryTextChange" method="n_onQueryTextChange:(Ljava/lang/String;)Z:GetOnQueryTextChange_Ljava_lang_String_Handler:AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(Ljava/lang/String;)Z" params="java.lang.String p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+        <method name="onQueryTextSubmit" method="n_onQueryTextSubmit:(Ljava/lang/String;)Z:GetOnQueryTextSubmit_Ljava_lang_String_Handler:AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(Ljava/lang/String;)Z" params="java.lang.String p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="SearchView_OnSuggestionListenerImplementor" package="mono.androidx.appcompat.widget" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="androidx.appcompat.widget.SearchView.OnSuggestionListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="SearchView_OnSuggestionListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onSuggestionClick" method="n_onSuggestionClick:(I)Z:GetOnSuggestionClick_IHandler:AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(I)Z" params="int p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+        <method name="onSuggestionSelect" method="n_onSuggestionSelect:(I)Z:GetOnSuggestionSelect_IHandler:AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(I)Z" params="int p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="AlertDialog_IDialogInterfaceOnClickListenerImplementor" package="androidx.appcompat.app" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnClickListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="android.content.DialogInterface.OnClickListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="AlertDialog_IDialogInterfaceOnClickListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onClick" method="n_onClick:(Landroid/content/DialogInterface;I)V:GetOnClick_Landroid_content_DialogInterface_IHandler:Android.Content.IDialogInterfaceOnClickListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" jni_signature="(Landroid/content/DialogInterface;I)V" params="android.content.DialogInterface p0, int p1" retval="void" is_dynamically_registered="True" super_call="p0, p1" activate_call="p0, p1" />
+      </methods>
+    </type>
+    <type name="AlertDialog_IDialogInterfaceOnCancelListenerImplementor" package="androidx.appcompat.app" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnCancelListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="android.content.DialogInterface.OnCancelListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="AlertDialog_IDialogInterfaceOnCancelListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onCancel" method="n_onCancel:(Landroid/content/DialogInterface;)V:GetOnCancel_Landroid_content_DialogInterface_Handler:Android.Content.IDialogInterfaceOnCancelListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" jni_signature="(Landroid/content/DialogInterface;)V" params="android.content.DialogInterface p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" package="androidx.appcompat.app" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnMultiChoiceClickListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="android.content.DialogInterface.OnMultiChoiceClickListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onClick" method="n_onClick:(Landroid/content/DialogInterface;IZ)V:GetOnClick_Landroid_content_DialogInterface_IZHandler:Android.Content.IDialogInterfaceOnMultiChoiceClickListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" jni_signature="(Landroid/content/DialogInterface;IZ)V" params="android.content.DialogInterface p0, int p1, boolean p2" retval="void" is_dynamically_registered="True" super_call="p0, p1, p2" activate_call="p0, p1, p2" />
+      </methods>
+    </type>
+    <type name="ActionBar_OnMenuVisibilityListenerImplementor" package="mono.androidx.appcompat.app" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="java.lang.Object" partial_assembly_qualified_name="AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListenerImplementor, Xamarin.AndroidX.AppCompat">
+      <implemented_interfaces>
+        <interface name="androidx.appcompat.app.ActionBar.OnMenuVisibilityListener" />
+      </implemented_interfaces>
+      <constructors>
+        <constructor name="ActionBar_OnMenuVisibilityListenerImplementor" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+      </constructors>
+      <methods>
+        <method name="onMenuVisibilityChanged" method="n_onMenuVisibilityChanged:(Z)V:GetOnMenuVisibilityChanged_ZHandler:AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListenerInvoker, Xamarin.AndroidX.AppCompat" jni_signature="(Z)V" params="boolean p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+  </jcw-types>
+  <acw-types partial-assembly-name="Xamarin.AndroidX.AppCompat" module-name="Xamarin.AndroidX.AppCompat.dll">
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+NavigationOnClickEventDispatcher, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.Toolbar_NavigationOnClickEventDispatcher" java-key="androidx.appcompat.widget.Toolbar_NavigationOnClickEventDispatcher" managed-key="AndroidX.AppCompat.Widget.Toolbar.NavigationOnClickEventDispatcher" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+NavigationOnClickEventDispatcher, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.Toolbar$OnMenuItemClickListener" java-key="androidx.appcompat.widget.Toolbar$OnMenuItemClickListener" managed-key="AndroidX.AppCompat.Widget.Toolbar.IOnMenuItemClickListener" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="mono.androidx.appcompat.widget.Toolbar_OnMenuItemClickListenerImplementor" java-key="mono.androidx.appcompat.widget.Toolbar_OnMenuItemClickListenerImplementor" managed-key="AndroidX.AppCompat.Widget.Toolbar.IOnMenuItemClickListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.Toolbar+IOnMenuItemClickListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.IDecorToolbar, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.DecorToolbar" java-key="androidx.appcompat.widget.DecorToolbar" managed-key="AndroidX.AppCompat.Widget.IDecorToolbar" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.IDecorToolbar, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnCloseListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.SearchView$OnCloseListener" java-key="androidx.appcompat.widget.SearchView$OnCloseListener" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnCloseListener" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnCloseListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnCloseListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="mono.androidx.appcompat.widget.SearchView_OnCloseListenerImplementor" java-key="mono.androidx.appcompat.widget.SearchView_OnCloseListenerImplementor" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnCloseListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnCloseListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.SearchView$OnQueryTextListener" java-key="androidx.appcompat.widget.SearchView$OnQueryTextListener" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnQueryTextListener" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="mono.androidx.appcompat.widget.SearchView_OnQueryTextListenerImplementor" java-key="mono.androidx.appcompat.widget.SearchView_OnQueryTextListenerImplementor" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnQueryTextListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnQueryTextListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.widget.SearchView$OnSuggestionListener" java-key="androidx.appcompat.widget.SearchView$OnSuggestionListener" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnSuggestionListener" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="mono.androidx.appcompat.widget.SearchView_OnSuggestionListenerImplementor" java-key="mono.androidx.appcompat.widget.SearchView_OnSuggestionListenerImplementor" managed-key="AndroidX.AppCompat.Widget.SearchView.IOnSuggestionListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.Widget.SearchView+IOnSuggestionListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnClickListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnClickListenerImplementor" java-key="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnClickListenerImplementor" managed-key="AndroidX.AppCompat.App.AlertDialog.IDialogInterfaceOnClickListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnClickListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnCancelListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnCancelListenerImplementor" java-key="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnCancelListenerImplementor" managed-key="AndroidX.AppCompat.App.AlertDialog.IDialogInterfaceOnCancelListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnCancelListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnMultiChoiceClickListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" java-key="androidx.appcompat.app.AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" managed-key="AndroidX.AppCompat.App.AlertDialog.IDialogInterfaceOnMultiChoiceClickListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.App.AlertDialog+IDialogInterfaceOnMultiChoiceClickListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.ActionBar$OnMenuVisibilityListener" java-key="androidx.appcompat.app.ActionBar$OnMenuVisibilityListener" managed-key="AndroidX.AppCompat.App.ActionBar.IOnMenuVisibilityListener" partial-assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListenerImplementor, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="mono.androidx.appcompat.app.ActionBar_OnMenuVisibilityListenerImplementor" java-key="mono.androidx.appcompat.app.ActionBar_OnMenuVisibilityListenerImplementor" managed-key="AndroidX.AppCompat.App.ActionBar.IOnMenuVisibilityListenerImplementor" partial-assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnMenuVisibilityListenerImplementor, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnNavigationListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.ActionBar$OnNavigationListener" java-key="androidx.appcompat.app.ActionBar$OnNavigationListener" managed-key="AndroidX.AppCompat.App.ActionBar.IOnNavigationListener" partial-assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+IOnNavigationListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+ITabListener, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.ActionBar$TabListener" java-key="androidx.appcompat.app.ActionBar$TabListener" managed-key="AndroidX.AppCompat.App.ActionBar.ITabListener" partial-assembly-qualified-name="AndroidX.AppCompat.App.ActionBar+ITabListener, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.ActionBarDrawerToggle+IDelegate, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.ActionBarDrawerToggle$Delegate" java-key="androidx.appcompat.app.ActionBarDrawerToggle$Delegate" managed-key="AndroidX.AppCompat.App.ActionBarDrawerToggle.IDelegate" partial-assembly-qualified-name="AndroidX.AppCompat.App.ActionBarDrawerToggle+IDelegate, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.App.IAppCompatCallback, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.app.AppCompatCallback" java-key="androidx.appcompat.app.AppCompatCallback" managed-key="AndroidX.AppCompat.App.IAppCompatCallback" partial-assembly-qualified-name="AndroidX.AppCompat.App.IAppCompatCallback, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.View.ActionMode+ICallback, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.view.ActionMode$Callback" java-key="androidx.appcompat.view.ActionMode$Callback" managed-key="AndroidX.AppCompat.View.ActionMode.ICallback" partial-assembly-qualified-name="AndroidX.AppCompat.View.ActionMode+ICallback, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.View.Menu.MenuBuilder+ICallback, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.view.menu.MenuBuilder$Callback" java-key="androidx.appcompat.view.menu.MenuBuilder$Callback" managed-key="AndroidX.AppCompat.View.Menu.MenuBuilder.ICallback" partial-assembly-qualified-name="AndroidX.AppCompat.View.Menu.MenuBuilder+ICallback, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuPresenterCallback, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.view.menu.MenuPresenter$Callback" java-key="androidx.appcompat.view.menu.MenuPresenter$Callback" managed-key="AndroidX.AppCompat.View.Menu.IMenuPresenterCallback" partial-assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuPresenterCallback, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuPresenter, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.view.menu.MenuPresenter" java-key="androidx.appcompat.view.menu.MenuPresenter" managed-key="AndroidX.AppCompat.View.Menu.IMenuPresenter" partial-assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuPresenter, Xamarin.AndroidX.AppCompat" />
+    <type assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuView, Xamarin.AndroidX.AppCompat, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="androidx.appcompat.view.menu.MenuView" java-key="androidx.appcompat.view.menu.MenuView" managed-key="AndroidX.AppCompat.View.Menu.IMenuView" partial-assembly-qualified-name="AndroidX.AppCompat.View.Menu.IMenuView, Xamarin.AndroidX.AppCompat" />
+  </acw-types>
+</api>

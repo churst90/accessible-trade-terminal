@@ -1,0 +1,605 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Strategies
+@using AccessibleTrader.Sdk.Interfaces
+@inject IStrategyEngine StrategyEngine
+@inject IStrategyRegistry StrategyRegistry
+@inject IStrategyBacktester Backtester
+@inject IRoslynScriptingService RoslynScripting
+@inject ISeriesManagementService SeriesManager
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+@if (_isVisible)
+{
+    @* Click outside the inner panel to close. *@
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="strategy-title"
+             @onclick:stopPropagation="true">
+
+            <h2 id="strategy-title" tabindex="-1">Strategy Manager</h2>
+
+            @* ── Tab navigation ────────────────────────────────────────────────── *@
+            <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;">
+                <button role="tab"
+                        id="tab-add"
+                        aria-selected="@(_activeTab == "add")"
+                        aria-controls="panel-add"
+                        @onclick='() => _activeTab = "add"'
+                        style="padding: 6px 14px; background: @(_activeTab == "add" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Add Strategy
+                </button>
+                <button role="tab"
+                        id="tab-active"
+                        aria-selected="@(_activeTab == "active")"
+                        aria-controls="panel-active"
+                        @onclick='() => _activeTab = "active"'
+                        style="padding: 6px 14px; background: @(_activeTab == "active" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Active (@StrategyEngine.ActiveStrategies.Count())
+                </button>
+                <button role="tab"
+                        id="tab-bt"
+                        aria-selected="@(_activeTab == "bt")"
+                        aria-controls="panel-bt"
+                        @onclick='() => _activeTab = "bt"'
+                        style="padding: 6px 14px; background: @(_activeTab == "bt" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Backtest
+                </button>
+                <button role="tab"
+                        id="tab-custom"
+                        aria-selected="@(_activeTab == "custom")"
+                        aria-controls="panel-custom"
+                        @onclick='() => _activeTab = "custom"'
+                        style="padding: 6px 14px; background: @(_activeTab == "custom" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Custom Script
+                </button>
+            </div>
+
+            @* ── Add new strategy ──────────────────────────────────────────────── *@
+            <section id="panel-add" role="tabpanel" aria-labelledby="tab-add"
+                     hidden="@(_activeTab != "add")" style="margin-top: 20px;">
+                <h3>Add Strategy</h3>
+
+                <div style="margin-top: 12px;">
+                    <label for="strategy-select">Strategy:</label>
+                    <select id="strategy-select"
+                            value="@_selectedStrategyId"
+                            @onchange="OnStrategySelected">
+                        @foreach (var s in _catalog)
+                        {
+                            <option value="@s.Id">@s.Name (@s.Complexity)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_selectedTemplate != null)
+                {
+                    <p style="margin: 8px 0; color: #888; font-size: 0.85rem;">
+                        @_selectedTemplate.Description
+                    </p>
+                }
+
+                @* Strategy parameters *@
+                @if (_selectedTemplate?.Parameters?.Any() == true)
+                {
+                    <fieldset style="border: 1px solid #bbb; padding: 12px 16px; margin-top: 12px;">
+                        <legend style="font-weight: 700; padding: 0 6px;">Parameters</legend>
+                        @foreach (var param in _selectedTemplate.Parameters)
+                        {
+                            <div class="modal-row">
+                                <label for="strat-param-@param.Name">@param.Description</label>
+                                <input id="strat-param-@param.Name"
+                                       type="number"
+                                       step="any"
+                                       value="@(_editParams.GetValueOrDefault(param.Name, Convert.ToDouble(param.DefaultValue)))"
+                                       @onchange="e => UpdateParam(param.Name, e.Value?.ToString())" />
+                            </div>
+                        }
+                    </fieldset>
+                }
+
+                <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label for="exec-mode">Execution mode:</label>
+                    <select id="exec-mode"
+                            value="@_executionMode"
+                            @onchange="OnModeChanged"
+                            aria-label="Strategy execution mode">
+                        <option value="@StrategyExecutionMode.Suggestion">Suggestion — signal only, no auto-trade</option>
+                        <option value="@StrategyExecutionMode.Auto">Auto — place orders automatically</option>
+                    </select>
+                    <button class="primary"
+                            @onclick="AddStrategy"
+                            aria-label="Add selected strategy to chart">
+                        Add Strategy
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_addMessage))
+                {
+                    <p role="status" style="margin-top: 8px; color: @(_addError ? "#f44" : "#4a4");">
+                        @_addMessage
+                    </p>
+                }
+            </section>
+
+            @* ── Active strategies ─────────────────────────────────────────────── *@
+            <section id="panel-active" role="tabpanel" aria-labelledby="tab-active"
+                     hidden="@(_activeTab != "active")" style="margin-top: 20px;">
+                <h3>Active Strategies</h3>
+
+                @if (StrategyEngine.ActiveStrategies.Any())
+                {
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #555;">
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Name</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Mode</th>
+                                <th scope="col" style="text-align: right; padding: 4px 8px;">Signals</th>
+                                <th scope="col" style="text-align: right; padding: 4px 8px;">Win Rate</th>
+                                <th scope="col" style="text-align: right; padding: 4px 8px;">P&amp;L</th>
+                                <th scope="col" style="text-align: right; padding: 4px 8px;">Drawdown</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var active in StrategyEngine.ActiveStrategies)
+                            {
+                                var m = active.Strategy.GetMetrics();
+                                <tr style="border-bottom: 1px solid #333;">
+                                    <td style="padding: 6px 8px;">
+                                        @active.Strategy.Name
+                                        @if (active.IsPaused)
+                                        {
+                                            <span style="color: #fa0; font-size: 0.8rem;"> (paused)</span>
+                                        }
+                                    </td>
+                                    <td style="padding: 6px 8px;">@active.ExecutionMode</td>
+                                    <td style="padding: 6px 8px; text-align: right;">@m.TotalSignals</td>
+                                    <td style="padding: 6px 8px; text-align: right;">
+                                        @(m.TotalSignals == 0 ? "—" : m.WinRate.ToString("P1"))
+                                    </td>
+                                    <td style="padding: 6px 8px; text-align: right;">
+                                        @(m.TotalSignals == 0 ? "—" : m.TotalPnL.ToString("F4"))
+                                    </td>
+                                    <td style="padding: 6px 8px; text-align: right;">
+                                        @(m.TotalSignals == 0 ? "—" : m.MaxDrawdown.ToString("P2"))
+                                    </td>
+                                    <td style="padding: 6px 8px; white-space: nowrap;">
+                                        <button @onclick="() => TogglePause(active.InstanceId, active.IsPaused)"
+                                                aria-label="@(active.IsPaused ? "Resume" : "Pause") @active.Strategy.Name strategy">
+                                            @(active.IsPaused ? "Resume" : "Pause")
+                                        </button>
+                                        <button @onclick="() => RemoveStrategy(active.InstanceId)"
+                                                aria-label="Remove @active.Strategy.Name strategy"
+                                                style="margin-left: 6px;">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p style="color: #888; margin-top: 10px;">
+                        No active strategies. Select a strategy above and click Add Strategy.
+                    </p>
+                }
+            </section>
+
+            @* ── Backtester ────────────────────────────────────────────────────── *@
+            <section id="panel-bt" role="tabpanel" aria-labelledby="tab-bt"
+                     hidden="@(_activeTab != "bt")" style="margin-top: 20px;">
+                <h3>Backtest</h3>
+                <p style="color: #888; font-size: 0.85rem; margin-bottom: 12px;">
+                    Runs the selected strategy against the currently loaded price data.
+                </p>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                    <div>
+                        <label for="bt-capital">Starting Capital:</label>
+                        <input id="bt-capital" type="number" step="any" min="1"
+                               value="@_btCapital"
+                               @onchange="e => double.TryParse(e.Value?.ToString(), out _btCapital)" />
+                    </div>
+                    <div>
+                        <label for="bt-commission">Commission (%):</label>
+                        <input id="bt-commission" type="number" step="0.01" min="0" max="5"
+                               value="@(_btCommission * 100)"
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btCommission = v / 100.0; }" />
+                    </div>
+                    <div>
+                        <label for="bt-slippage">Slippage (%):</label>
+                        <input id="bt-slippage" type="number" step="0.01" min="0" max="5"
+                               value="@(_btSlippage * 100)"
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btSlippage = v / 100.0; }" />
+                    </div>
+                    <button class="primary"
+                            @onclick="RunBacktestAsync"
+                            disabled="@(_btRunning || _catalog.Count == 0)"
+                            aria-label="Run backtest with current settings">
+                        @(_btRunning ? "Running…" : "Run Backtest")
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_btMessage))
+                {
+                    <p role="status" style="margin-top: 8px; color: @(_btError ? "#f44" : "#888");">
+                        @_btMessage
+                    </p>
+                }
+
+                @if (_btResult != null)
+                {
+                    var m = _btResult.Metrics;
+                    <div style="margin-top: 16px; background: #1a1a1a; border: 1px solid #333; padding: 14px 16px; border-radius: 4px;">
+                        <h4 style="margin: 0 0 10px 0;">Results</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; font-size: 0.9rem;">
+                            <div><strong>Trades:</strong> @m.TotalSignals</div>
+                            <div><strong>Win Rate:</strong> @(m.TotalSignals == 0 ? "—" : m.WinRate.ToString("P1"))</div>
+                            <div><strong>Total P&amp;L:</strong> @m.TotalPnL.ToString("F4")</div>
+                            <div><strong>Max Drawdown:</strong> @m.MaxDrawdown.ToString("P2")</div>
+                            <div><strong>Sharpe Ratio:</strong> @(double.IsNaN(m.SharpeRatio) ? "—" : m.SharpeRatio.ToString("F2"))</div>
+                        </div>
+                        @if (_btResult.Trades.Any())
+                        {
+                            <details style="margin-top: 12px;">
+                                <summary style="cursor: pointer; font-weight: 600;">Trade Log (@_btResult.Trades.Count trades)</summary>
+                                <div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                        <thead>
+                                            <tr style="border-bottom: 1px solid #444;">
+                                                <th scope="col" style="text-align: left; padding: 3px 6px;">Entry</th>
+                                                <th scope="col" style="text-align: left; padding: 3px 6px;">Side</th>
+                                                <th scope="col" style="text-align: right; padding: 3px 6px;">Entry $</th>
+                                                <th scope="col" style="text-align: right; padding: 3px 6px;">Exit $</th>
+                                                <th scope="col" style="text-align: right; padding: 3px 6px;">P&amp;L</th>
+                                                <th scope="col" style="text-align: left; padding: 3px 6px;">Exit Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var t in _btResult.Trades)
+                                            {
+                                                <tr style="border-bottom: 1px solid #2a2a2a; color: @(t.PnL.HasValue && t.PnL.Value >= 0 ? "#4a4" : "#f66");">
+                                                    <td style="padding: 3px 6px;">@t.EntryTime.ToString("MM/dd HH:mm")</td>
+                                                    <td style="padding: 3px 6px;">@t.Side</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@t.EntryPrice.ToString("F4")</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@(t.ExitPrice.HasValue ? t.ExitPrice.Value.ToString("F4") : "—")</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@(t.PnL.HasValue ? t.PnL.Value.ToString("F4") : "—")</td>
+                                                    <td style="padding: 3px 6px;">@t.ExitReason</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        }
+                    </div>
+                }
+            </section>
+
+            @* ── Custom C# Strategy script ─────────────────────────────────────── *@
+            <section id="panel-custom" role="tabpanel" aria-labelledby="tab-custom"
+                     hidden="@(_activeTab != "custom")" style="margin-top: 20px;">
+                <h3>Custom C# Strategy</h3>
+                <p style="color: #888; font-size: 0.85rem; margin-bottom: 10px;">
+                    Write a C# class that implements <code>ITradingStrategy</code> (from AccessibleTrader.Sdk).
+                    The class will be compiled at runtime and added to the strategy engine.
+                </p>
+
+                <details style="margin-bottom: 12px;">
+                    <summary style="cursor: pointer; color: #88aaff;">Show template</summary>
+                    <pre style="background:#111; padding:10px; font-size:0.8rem; overflow-x:auto; margin-top:6px; border-radius:4px; color:#ccc;">
+using System.Collections.Generic;
+using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Sdk.Models;
+
+public class MyStrategy : BaseStrategy
+{
+    public override string Id   => "my_strategy";
+    public override string Name => "My Custom Strategy";
+
+    protected override TradeSignal? OnBar(IReadOnlyList&lt;Ohlcv&gt; history, Dictionary&lt;string, object&gt; parameters)
+    {
+        // history[^1] = latest bar. Return Buy/Sell/null.
+        var last = history[^1];
+        if (last.Close > last.Open)
+            return CreateSignal(TradeSide.Buy, last.Close, "Bullish bar");
+        return null;
+    }
+}</pre>
+                </details>
+
+                <div style="margin-bottom: 8px;">
+                    <label for="custom-script-name" style="display:block; margin-bottom:4px;">Strategy Name (display):</label>
+                    <input id="custom-script-name"
+                           type="text"
+                           style="width: 100%; box-sizing: border-box;"
+                           placeholder="e.g. My Wave Strategy"
+                           value="@_customScriptName"
+                           @onchange="e => _customScriptName = e.Value?.ToString() ?? string.Empty" />
+                </div>
+
+                <label for="custom-script-code" style="display:block; margin-bottom:4px;">C# Code:</label>
+                <textarea id="custom-script-code"
+                          rows="14"
+                          style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.85rem; background: #111; color: #ccc; border: 1px solid #444; padding: 8px; border-radius: 4px; resize: vertical;"
+                          aria-label="Custom strategy C sharp code editor"
+                          value="@_customScriptCode"
+                          @oninput="e => _customScriptCode = e.Value?.ToString() ?? string.Empty">
+                </textarea>
+
+                <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label for="custom-exec-mode">Execution mode:</label>
+                    <select id="custom-exec-mode"
+                            value="@_customExecMode"
+                            @onchange="e => { if (Enum.TryParse<StrategyExecutionMode>(e.Value?.ToString(), out var m)) _customExecMode = m; }"
+                            aria-label="Custom strategy execution mode">
+                        <option value="@StrategyExecutionMode.Suggestion">Suggestion — signal only, no auto-trade</option>
+                        <option value="@StrategyExecutionMode.Auto">Auto — place orders automatically</option>
+                    </select>
+                    <button class="primary"
+                            @onclick="CompileAndAddCustomStrategyAsync"
+                            disabled="@_customCompiling"
+                            aria-label="Compile and add custom strategy">
+                        @(_customCompiling ? "Compiling…" : "Compile & Add")
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_customScriptMessage))
+                {
+                    <div role="status"
+                         style="margin-top: 10px; padding: 8px 12px; border-radius: 4px; background: @(_customScriptError ? "#3a0000" : "#003a00"); color: @(_customScriptError ? "#f88" : "#8f8"); font-size: 0.85rem; white-space: pre-wrap;">
+                        @_customScriptMessage
+                    </div>
+                }
+            </section>
+
+            <div style="margin-top: 28px; display: flex; justify-content: flex-end;">
+                <button @onclick="Close" aria-label="Close strategy manager dialog">Close</button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+    private string _activeTab = "add";
+
+    private IReadOnlyList<ITradingStrategy> _catalog = new List<ITradingStrategy>();
+    private string _selectedStrategyId = "";
+    private ITradingStrategy? _selectedTemplate;
+    private Dictionary<string, double> _editParams = new();
+    private StrategyExecutionMode _executionMode = StrategyExecutionMode.Suggestion;
+
+    private string? _addMessage;
+    private bool _addError;
+
+    // Backtester state
+    private double _btCapital    = 10000.0;
+    private double _btCommission = 0.001;
+    private double _btSlippage   = 0.0005;
+    private bool _btRunning;
+    private BacktestResult? _btResult;
+    private string? _btMessage;
+    private bool _btError;
+
+    // Custom script state
+    private string _customScriptCode = string.Empty;
+    private string _customScriptName = string.Empty;
+    private bool _customCompiling;
+    private string? _customScriptMessage;
+    private bool _customScriptError;
+    private StrategyExecutionMode _customExecMode = StrategyExecutionMode.Suggestion;
+
+    protected override void OnInitialized()
+    {
+        _catalog = StrategyRegistry.GetCatalog();
+        if (_catalog.Any())
+        {
+            _selectedStrategyId = _catalog[0].Id;
+            _selectedTemplate = _catalog[0];
+            PopulateDefaults();
+        }
+
+        _eventSub = EventBus.Subscribe<OpenStrategiesEvent>(_ =>
+            InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _addMessage = null;
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "strategy-title");
+        }
+        catch
+        {
+            // Focus is best-effort; dialog is still accessible via Tab.
+        }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    private void OnStrategySelected(ChangeEventArgs e)
+    {
+        _selectedStrategyId = e.Value?.ToString() ?? "";
+        _selectedTemplate = _catalog.FirstOrDefault(s => s.Id == _selectedStrategyId);
+        PopulateDefaults();
+        _addMessage = null;
+    }
+
+    private void OnModeChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<StrategyExecutionMode>(e.Value?.ToString(), out var mode))
+            _executionMode = mode;
+    }
+
+    private void PopulateDefaults()
+    {
+        _editParams = _selectedTemplate?.Parameters
+            .ToDictionary(p => p.Name, p => Convert.ToDouble(p.DefaultValue))
+            ?? new Dictionary<string, double>();
+    }
+
+    private void UpdateParam(string name, string? raw)
+    {
+        if (double.TryParse(raw,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double v))
+        {
+            _editParams[name] = v;
+        }
+    }
+
+    private void AddStrategy()
+    {
+        if (string.IsNullOrEmpty(_selectedStrategyId))
+        {
+            _addMessage = "Please select a strategy.";
+            _addError = true;
+            return;
+        }
+
+        var instance = StrategyRegistry.CreateInstance(_selectedStrategyId);
+        if (instance == null)
+        {
+            _addMessage = "Could not create strategy instance.";
+            _addError = true;
+            return;
+        }
+
+        var parameters = _editParams.ToDictionary(
+            kv => kv.Key,
+            kv => (object)kv.Value);
+
+        StrategyEngine.AddStrategy(instance, parameters, _executionMode);
+
+        _addMessage = $"{instance.Name} added ({_executionMode} mode).";
+        _addError = false;
+        StateHasChanged();
+    }
+
+    private void TogglePause(string instanceId, bool isPaused)
+    {
+        StrategyEngine.PauseStrategy(instanceId, !isPaused);
+        StateHasChanged();
+    }
+
+    private void RemoveStrategy(string instanceId)
+    {
+        StrategyEngine.RemoveStrategy(instanceId);
+        _addMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task RunBacktestAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedStrategyId))
+        {
+            _btMessage = "Please select a strategy first.";
+            _btError = true;
+            return;
+        }
+
+        var data = Store.State.Data;
+        if (data == null || data.Count < 10)
+        {
+            _btMessage = "Not enough price data loaded. Load a chart first.";
+            _btError = true;
+            return;
+        }
+
+        var instance = StrategyRegistry.CreateInstance(_selectedStrategyId);
+        if (instance == null)
+        {
+            _btMessage = "Could not create strategy instance.";
+            _btError = true;
+            return;
+        }
+
+        _btRunning = true;
+        _btResult  = null;
+        _btMessage  = null;
+        StateHasChanged();
+
+        try
+        {
+            var config = new BacktestConfig(_btCapital, _btCommission, _btSlippage);
+            _btResult = await Backtester.RunAsync(instance, data, config);
+            _btMessage = $"Backtest complete. {_btResult.SpeechSummary}";
+            _btError = false;
+        }
+        catch (Exception ex)
+        {
+            _btMessage = $"Backtest failed: {ex.Message}";
+            _btError = true;
+        }
+        finally
+        {
+            _btRunning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CompileAndAddCustomStrategyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_customScriptCode))
+        {
+            _customScriptMessage = "Please enter strategy code.";
+            _customScriptError = true;
+            return;
+        }
+
+        _customCompiling = true;
+        _customScriptMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await RoslynScripting.CompileStrategyAsync(_customScriptCode);
+            if (!result.Success)
+            {
+                _customScriptMessage = "Compilation errors:\n" + string.Join("\n", result.Errors);
+                _customScriptError = true;
+                return;
+            }
+
+            var strategy = result.Strategy!;
+            StrategyEngine.AddStrategy(strategy, new Dictionary<string, object>(), _customExecMode);
+
+            _customScriptMessage = $"Strategy '{strategy.Name}' compiled and added ({_customExecMode} mode).";
+            _customScriptError = false;
+            _activeTab = "active";
+        }
+        catch (Exception ex)
+        {
+            _customScriptMessage = $"Unexpected error: {ex.Message}";
+            _customScriptError = true;
+        }
+        finally
+        {
+            _customCompiling = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+}

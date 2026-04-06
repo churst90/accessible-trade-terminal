@@ -1,0 +1,10 @@
+<api type="release" assembly-name="Xamarin.AndroidX.CustomView" mvid="4352e74dafcb49348cd1ff5d133bbc79">
+  <module assembly-name="Xamarin.AndroidX.CustomView" mvid="4352e74dafcb49348cd1ff5d133bbc79" mvid-bytes="TedSQ8uvNEmM0f9dEzu8eQ==">
+    <duplicates>
+      <entry java-name="androidx/customview/widget/Openable" managed-type-name="AndroidX.CustomView.Widget.IOpenableInvoker" token="33554437" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/customview/widget/Openable" java-name="androidx/customview/widget/Openable" managed-type-name="AndroidX.CustomView.Widget.IOpenable" token="33554436" skip-in-java-to-managed="True" />
+    </types-scratch>
+  </module>
+</api>

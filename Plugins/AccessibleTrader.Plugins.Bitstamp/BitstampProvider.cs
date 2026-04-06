@@ -1,0 +1,510 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.WebSockets;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Trading;
+using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Interfaces;
+using Newtonsoft.Json.Linq;
+
+namespace AccessibleTrader.Plugins.Bitstamp
+{
+    public class BitstampProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider
+    {
+        private readonly HttpClient _httpClient;
+        private ClientWebSocket? _ws;
+        private CancellationTokenSource? _wsCts;
+        private string? _currentChannel;
+        private string? _orderBookChannel;
+        private string? _privateOrderChannel;
+        private bool _isSubscribed;
+        private DateTime _lastTickTime = DateTime.MinValue;
+        private readonly TimeSpan _tickThrottle = TimeSpan.FromMilliseconds(250);
+
+        private string? _lastMarket;
+        private string? _lastSymbol;
+        private string? _lastTimeframe;
+
+        private string? _apiKey;
+        private string? _apiSecret;
+        private string? _customerId;
+
+        private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
+        public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
+
+        private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
+
+        private const string BaseUrl = "https://www.bitstamp.net/api/v2";
+        private const string WsUrl   = "wss://ws.bitstamp.net";
+
+        public override string Name => "Bitstamp";
+        public override string Description => "Bitstamp Exchange Public Data";
+        public override List<MarketType> SupportedMarkets => new List<MarketType> { MarketType.Crypto };
+        public override bool SupportsSymbolSearch => true;
+        public override bool RequiresApiKey => false;
+        public override bool IsConfigured => true;
+        public override bool SupportsLiveUpdates => true;
+        public override ProviderEnvironment Environment => ProviderEnvironment.Live;
+        public override int MaxBarsPerRequest => 1000;
+        public override ProviderCapabilities Capabilities => ProviderCapabilities.None;
+
+        public override List<string> NativelySupportedTimeframes => new List<string>
+        {
+            StandardTimeframes.OneMinute, StandardTimeframes.ThreeMinutes, StandardTimeframes.FiveMinutes,
+            StandardTimeframes.FifteenMinutes, StandardTimeframes.ThirtyMinutes, StandardTimeframes.OneHour,
+            StandardTimeframes.TwoHours, StandardTimeframes.FourHours, StandardTimeframes.SixHours,
+            StandardTimeframes.TwelveHours, StandardTimeframes.OneDay, StandardTimeframes.ThreeDays
+        };
+
+        public bool IsConnected => _ws != null && _ws.State == WebSocketState.Open;
+        public override bool SupportsMarginTrading  => false;
+        public override bool SupportsFuturesTrading => false;
+        public override bool SupportsStopLoss       => false;
+        public override bool SupportsTakeProfit     => false;
+        public override double MaxLeverage          => 1.0;
+
+        private bool IsTradeConfigured => !string.IsNullOrEmpty(_apiKey) && !string.IsNullOrEmpty(_apiSecret);
+
+        public BitstampProvider()
+        {
+            _httpClient = new HttpClient();
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+        }
+
+        public override T? GetCapability<T>() where T : class
+        {
+            if (typeof(T) == typeof(IMarketDataProvider)) return this as T;
+            if (typeof(T) == typeof(ITradingProvider)) return this as T;
+            if (typeof(T) == typeof(IOrderBookProvider)) return this as T;
+            return null;
+        }
+
+        public override void Configure(Dictionary<string, string> config)
+        {
+            if (config.TryGetValue("ApiKey",     out var k)) _apiKey     = k;
+            if (config.TryGetValue("ApiSecret",  out var s)) _apiSecret  = s;
+            if (config.TryGetValue("CustomerId", out var c)) _customerId = c;
+        }
+
+        public override async Task EnsureConnectedAsync()
+        {
+            if (_ws != null && _ws.State == WebSocketState.Open) return;
+
+            await DisconnectAsync();
+            _wsCts = new CancellationTokenSource();
+            _ws    = new ClientWebSocket();
+
+            _connectionStateStream.OnNext(ConnectionState.Connecting);
+
+            try
+            {
+                await _ws.ConnectAsync(new Uri(WsUrl), _wsCts.Token);
+                _ = ReceiveLoop(_wsCts.Token);
+                StartHeartbeatLoop(_wsCts.Token);
+                _connectionStateStream.OnNext(ConnectionState.Connected);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp connection failed: {ex.Message}");
+                _connectionStateStream.OnNext(ConnectionState.Error);
+                throw;
+            }
+        }
+
+        public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
+        {
+            await EnsureConnectedAsync();
+
+            var cleanSymbol = symbol.Replace("/", "").Replace("-", "").ToLower()
+                                    .Replace("usdt", "usd");
+
+            string newChannel = $"live_trades_{cleanSymbol}";
+            string newBookChannel = $"diff_order_book_{cleanSymbol}";
+
+            if (_currentChannel == newChannel && _isSubscribed) return;
+
+            if (!string.IsNullOrEmpty(_currentChannel) && _isSubscribed)
+            {
+                await SendWsMessage($"{{\"event\":\"bts:unsubscribe\",\"data\":{{\"channel\":\"{_currentChannel}\"}}}}");
+                await SendWsMessage($"{{\"event\":\"bts:unsubscribe\",\"data\":{{\"channel\":\"{_orderBookChannel}\"}}}}");
+                _isSubscribed = false;
+            }
+
+            _currentChannel = newChannel;
+            _orderBookChannel = newBookChannel;
+            _lastMarket = market; _lastSymbol = symbol; _lastTimeframe = timeframe;
+            await SendWsMessage($"{{\"event\":\"bts:subscribe\",\"data\":{{\"channel\":\"{_currentChannel}\"}}}}");
+            await SendWsMessage($"{{\"event\":\"bts:subscribe\",\"data\":{{\"channel\":\"{_orderBookChannel}\"}}}}");
+
+            // Subscribe to private order events if API keys are present.
+            if (IsTradeConfigured)
+            {
+                _privateOrderChannel = $"private-my_orders-{cleanSymbol}";
+                await SubscribePrivateChannelAsync(_privateOrderChannel);
+            }
+        }
+
+        private async Task SubscribePrivateChannelAsync(string channel)
+        {
+            if (!IsTradeConfigured) return;
+            try
+            {
+                long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string nonce   = Guid.NewGuid().ToString("N");
+                string message = nonce + timestamp.ToString() + _apiKey;
+                using var hmac = new System.Security.Cryptography.HMACSHA256(
+                    Encoding.UTF8.GetBytes(_apiSecret!));
+                byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+                string sig  = BitConverter.ToString(hash).Replace("-", "").ToUpper();
+
+                var authMsg = new JObject
+                {
+                    ["event"] = "bts:subscribe",
+                    ["data"]  = new JObject
+                    {
+                        ["channel"] = channel,
+                        ["auth"]    = new JObject
+                        {
+                            ["key"]              = _apiKey,
+                            ["signature"]        = sig,
+                            ["nonce"]            = nonce,
+                            ["timestamp"]        = timestamp,
+                            ["valid_for_seconds"] = 900
+                        }
+                    }
+                };
+                await SendWsMessage(authMsg.ToString(Newtonsoft.Json.Formatting.None));
+            }
+            catch { /* non-critical */ }
+        }
+
+        public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol) => _orderBookSubject.AsObservable();
+
+        public override async Task DisconnectAsync()
+        {
+            _wsCts?.Cancel();
+            if (_ws != null)
+            {
+                if (_ws.State == WebSocketState.Open)
+                {
+                    try { await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None); } catch { }
+                }
+                _ws.Dispose();
+                _ws = null;
+            }
+            _isSubscribed        = false;
+            _currentChannel      = null;
+            _orderBookChannel    = null;
+            _privateOrderChannel = null;
+            _connectionStateStream.OnNext(ConnectionState.Disconnected);
+        }
+
+        private async Task SendWsMessage(string msg)
+        {
+            if (_ws == null || _ws.State != WebSocketState.Open) return;
+            var bytes = Encoding.UTF8.GetBytes(msg);
+            await _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, _wsCts?.Token ?? CancellationToken.None);
+        }
+
+        private void StartHeartbeatLoop(CancellationToken token)
+        {
+            _ = Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(30000, token);
+                    try { await SendWsMessage("{\"event\":\"bts:heartbeat\",\"data\":{}}"); } catch { }
+                }
+            }, token);
+        }
+
+        private async Task ReceiveLoop(CancellationToken token)
+        {
+            var buffer = new byte[1024 * 64]; 
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    if (_ws == null || _ws.State != WebSocketState.Open)
+                    {
+                        await Task.Delay(2000, token);
+                        await EnsureConnectedAsync();
+                        if (_lastMarket != null && _lastSymbol != null && _lastTimeframe != null && !_isSubscribed)
+                            await SetSubscriptionAsync(_lastMarket, _lastSymbol, _lastTimeframe);
+                        continue;
+                    }
+
+                    var ms = new MemoryStream();
+                    WebSocketReceiveResult result;
+                    do
+                    {
+                        result = await _ws.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+                        ms.Write(buffer, 0, result.Count);
+                    } while (!result.EndOfMessage);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        _connectionStateStream.OnNext(ConnectionState.Disconnected);
+                        continue;
+                    }
+
+                    ms.Seek(0, SeekOrigin.Begin);
+                    using var reader = new StreamReader(ms, Encoding.UTF8);
+                    var msg = await reader.ReadToEndAsync();
+
+                    if (string.IsNullOrWhiteSpace(msg)) continue;
+
+                    var json = JObject.Parse(msg);
+                    var ev   = json["event"]?.ToString();
+                    var channel = json["channel"]?.ToString();
+
+                    if (ev == "trade")
+                    {
+                        var data = json["data"];
+                        if (data == null) continue;
+
+                        var price  = data["price"]?.Value<double>() ?? 0;
+                        var amount = data["amount"]?.Value<double>() ?? 0;
+                        var tsToken = data["timestamp"]?.ToString();
+                        long.TryParse(tsToken?.Split('.')[0], out long timestamp);
+
+                        if (price > 0)
+                        {
+                            var now = DateTime.UtcNow;
+                            if (now - _lastTickTime >= _tickThrottle)
+                            {
+                                _lastTickTime = now;
+                                var bar = new Ohlcv(DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime, price, price, price, price, amount);
+                                // Drop bars with epoch/invalid timestamps (timestamp parse failed → stays 0).
+                                // A real trade can't have a date before 2009 (Bitcoin genesis).
+                                if (bar.Date < new DateTime(2009, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                                    continue;
+                                _liveStream.OnNext(bar);
+                            }
+                        }
+                    }
+                    else if (ev == "data" && channel != null && channel.StartsWith("diff_order_book_"))
+                    {
+                        var data = json["data"];
+                        if (data != null)
+                        {
+                            var symbol = channel.Replace("diff_order_book_", "").ToUpperInvariant();
+                            var bids = (data["bids"] as JArray)?.Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString()), double.Parse(b[1]!.ToString()))).ToList() ?? new();
+                            var asks = (data["asks"] as JArray)?.Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString()), double.Parse(a[1]!.ToString()))).ToList() ?? new();
+                            
+                            _orderBookSubject.OnNext(new OrderBookUpdate(symbol, bids, asks, 0, DateTime.UtcNow));
+                        }
+                    }
+                    else if ((ev == "order_changed" || ev == "order_deleted") &&
+                             channel != null && channel.StartsWith("private-my_orders-"))
+                    {
+                        var data = json["data"];
+                        if (data != null)
+                        {
+                            string orderId    = data["id"]?.ToString() ?? "";
+                            string pair       = channel.Replace("private-my_orders-", "").ToUpperInvariant();
+                            double filledQty  = data["amount"]?.Value<double>() ?? 0;
+                            double remaining  = data["amount_remaining"]?.Value<double>() ?? 0;
+                            double price      = data["price"]?.Value<double>() ?? 0;
+                            int    sideInt    = data["order_type"]?.Value<int>() ?? 0; // 0=buy, 1=sell
+
+                            OrderStatus status;
+                            if (ev == "order_deleted")
+                                status = remaining > 0.0000001 ? OrderStatus.Cancelled : OrderStatus.Filled;
+                            else
+                                status = remaining > 0.0000001 ? OrderStatus.PartialFill : OrderStatus.Filled;
+
+                            _orderUpdateSubject.OnNext(new OrderUpdate(
+                                orderId,
+                                pair,
+                                sideInt == 0 ? OrderSide.Buy : OrderSide.Sell,
+                                filledQty,
+                                price,
+                                remaining,
+                                status,
+                                StopTriggered: false,
+                                TakeProfitTriggered: false,
+                                DateTime.UtcNow));
+                        }
+                    }
+                    else if (ev == "bts:subscription_succeeded")
+                    {
+                        _isSubscribed = true;
+                    }
+                    else if (ev == "bts:request_reconnect")
+                    {
+                        _connectionStateStream.OnNext(ConnectionState.Disconnected);
+                        try { _ws?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnect requested", CancellationToken.None).GetAwaiter().GetResult(); } catch { }
+                        _ws?.Dispose();
+                        _ws = null;
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception) { await Task.Delay(5000, token); }
+            }
+        }
+
+        public override async Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => new List<string> { "Spot" };
+
+        public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")
+        {
+            try
+            {
+                var response = await _httpClient.GetStringAsync($"{BaseUrl}/trading-pairs-info/");
+                var arr = JArray.Parse(response);
+                return arr.Select(p => p["url_symbol"]?.ToString().ToUpper() ?? "").OrderBy(s => s).ToList();
+            }
+            catch { return new List<string>(); }
+        }
+
+        public override Task<List<string>> GetSupportedTimeframesAsync() => Task.FromResult(new List<string> { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "3d", "1w", "1M" });
+
+        public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
+        {
+            var cleanSymbol = request.Symbol.Replace("/", "").Replace("-", "").ToLower()
+                                            .Replace("usdt", "usd");
+
+            var step = AccessibleTrader.Sdk.Configuration.TimeframeUtility.ToSeconds(request.Timeframe);
+            if (step == -1) return (new List<Ohlcv>(), new List<(long, double)>());
+
+            int limit = Math.Min(request.Limit, 1000);
+            string url = $"{BaseUrl}/ohlc/{cleanSymbol}/?step={step}&limit={limit}";
+
+            if (request.Since.HasValue) url += $"&start={request.Since.Value / 1000}";
+            if (request.Until.HasValue) url += $"&end={request.Until.Value / 1000}";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode) return (new List<Ohlcv>(), new List<(long, double)>());
+
+                var jsonStr = await response.Content.ReadAsStringAsync();
+                var json    = JObject.Parse(jsonStr);
+                var ohlcArray = json["data"]?["ohlc"] as JArray;
+                if (ohlcArray == null) return (new List<Ohlcv>(), new List<(long, double)>());
+
+                var ohlcvList = ohlcArray.Select(item => new Ohlcv(
+                    DateTimeOffset.FromUnixTimeSeconds(long.Parse(item["timestamp"]?.ToString() ?? "0")).UtcDateTime,
+                    double.Parse(item["open"]?.ToString()   ?? "0"),
+                    double.Parse(item["high"]?.ToString()   ?? "0"),
+                    double.Parse(item["low"]?.ToString()    ?? "0"),
+                    double.Parse(item["close"]?.ToString()  ?? "0"),
+                    double.Parse(item["volume"]?.ToString() ?? "0")
+                )).Where(x => x.Open > 0 && x.High > 0 && x.Low > 0 && x.Close > 0).OrderBy(x => x.Date).ToList();
+
+                return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+            }
+            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+        }
+
+        public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
+        {
+            var cleanSymbol = symbol.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            try
+            {
+                var response = await _httpClient.GetStringAsync($"{BaseUrl}/order_book/{cleanSymbol}/");
+                var json = JObject.Parse(response);
+                var bids = (json["bids"] as JArray)?.Take(limit).Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString()), double.Parse(b[1]!.ToString()))).ToList() ?? new();
+                var asks = (json["asks"] as JArray)?.Take(limit).Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString()), double.Parse(a[1]!.ToString()))).ToList() ?? new();
+                return (bids, asks);
+            }
+            catch { return (new(), new()); }
+        }
+
+        async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)
+        {
+            var (bids, asks) = await GetOrderBookAsync(symbol, depth);
+            return new OrderBookSnapshot(symbol, bids, asks, 0, DateTime.UtcNow);
+        }
+
+        public async Task<List<Balance>> GetBalancesAsync()
+        {
+            if (!IsTradeConfigured) return new();
+            try
+            {
+                var response = await PostAuthenticatedAsync("/api/v2/balance/", new Dictionary<string, string>());
+                var json     = JObject.Parse(response);
+                var result   = new List<Balance>();
+                var currencies = json.Properties().Where(p => p.Name.EndsWith("_available")).Select(p => p.Name.Replace("_available", "")).ToList();
+
+                foreach (var cur in currencies)
+                {
+                    double avail = json[$"{cur}_available"]?.Value<double>() ?? 0;
+                    double res   = json[$"{cur}_reserved"]?.Value<double>() ?? 0;
+                    if (avail > 0 || res > 0) result.Add(new Balance(cur.ToUpper(), avail, res));
+                }
+                return result;
+            }
+            catch { return new(); }
+        }
+
+        public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
+
+        public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
+        {
+            if (!IsTradeConfigured) return new();
+            try
+            {
+                string endpoint = !string.IsNullOrEmpty(symbol) ? $"/api/v2/open_orders/{symbol.Replace("/", "").ToLower()}/" : "/api/v2/open_orders/all/";
+                var response = await PostAuthenticatedAsync(endpoint, new Dictionary<string, string>());
+                var arr = JArray.Parse(response);
+                return arr.Select(o => new OpenOrder(o["id"]?.ToString() ?? "", o["currency_pair"]?.ToString() ?? symbol ?? "", o["type"]?.ToString() == "0" ? OrderSide.Buy : OrderSide.Sell, OrderType.Limit, o["amount"]?.Value<double>() ?? 0, o["price"]?.Value<double>() ?? 0, "Open")).ToList();
+            }
+            catch { return new(); }
+        }
+
+        public async Task<string> PlaceOrderAsync(TradeSignal signal)
+        {
+            if (!IsTradeConfigured) return "PROVIDER_NOT_CONFIGURED";
+            try
+            {
+                var pair   = signal.Symbol.Replace("/", "").ToLower();
+                bool isMkt = signal.Type == OrderType.Market;
+                string endpoint = signal.Side == OrderSide.Buy ? $"/api/v2/buy/{(isMkt ? "market/" : "")}{pair}/" : $"/api/v2/sell/{(isMkt ? "market/" : "")}{pair}/";
+                var postData = new Dictionary<string, string> { ["amount"] = signal.Quantity.ToString("F8") };
+                if (signal.Type == OrderType.Limit && signal.Price.HasValue) postData["price"] = signal.Price.Value.ToString("F2");
+                var response = await PostAuthenticatedAsync(endpoint, postData);
+                var json     = JObject.Parse(response);
+                if (json["status"]?.ToString() == "error") return $"ORDER_FAILED:{json["reason"]}";
+                return json["id"]?.ToString() ?? "ORDER_SUBMITTED";
+            }
+            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+        }
+
+        public async Task<bool> CancelOrderAsync(string orderId, string symbol)
+        {
+            if (!IsTradeConfigured) return false;
+            try
+            {
+                var response = await PostAuthenticatedAsync("/api/v2/cancel_order/", new Dictionary<string, string> { ["id"] = orderId });
+                var json = JObject.Parse(response);
+                return json["status"]?.ToString() != "error";
+            }
+            catch { return false; }
+        }
+
+        public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
+
+        private async Task<string> PostAuthenticatedAsync(string endpoint, Dictionary<string, string> parameters)
+        {
+            string nonce   = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+            string message = nonce + (_customerId ?? "") + _apiKey;
+            using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(_apiSecret!));
+            byte[] hash     = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(message));
+            string signature = BitConverter.ToString(hash).Replace("-", "").ToUpper();
+            var postParams = new Dictionary<string, string>(parameters) { ["key"] = _apiKey!, ["signature"] = signature, ["nonce"] = nonce };
+            var content  = new System.Net.Http.FormUrlEncodedContent(postParams);
+            var response = await _httpClient.PostAsync($"https://www.bitstamp.net{endpoint}", content);
+            return await response.Content.ReadAsStringAsync();
+        }
+    }
+}

@@ -1,0 +1,13 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Lifecycle.LiveData.Core" mvid="338b214569334ac8a128275096d4d823">
+  <module assembly-name="Xamarin.AndroidX.Lifecycle.LiveData.Core" mvid="338b214569334ac8a128275096d4d823" mvid-bytes="RSGLMzNpyEqhKCdQltTYIw==">
+    <duplicates>
+      <entry java-name="androidx/lifecycle/Observer" managed-type-name="AndroidX.Lifecycle.IObserverInvoker" token="33554440" />
+      <entry java-name="androidx/lifecycle/LiveData" managed-type-name="AndroidX.Lifecycle.LiveDataInvoker" token="33554442" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/lifecycle/Observer" java-name="androidx/lifecycle/Observer" managed-type-name="AndroidX.Lifecycle.IObserver" token="33554439" skip-in-java-to-managed="True" />
+      <entry key="androidx/lifecycle/LiveData" java-name="androidx/lifecycle/LiveData" managed-type-name="AndroidX.Lifecycle.LiveData" token="33554441" />
+      <entry key="androidx/lifecycle/MutableLiveData" java-name="androidx/lifecycle/MutableLiveData" managed-type-name="AndroidX.Lifecycle.MutableLiveData" token="33554443" />
+    </types-scratch>
+  </module>
+</api>

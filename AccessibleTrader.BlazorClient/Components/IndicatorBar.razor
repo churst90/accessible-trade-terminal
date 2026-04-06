@@ -1,0 +1,63 @@
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+
+<div class="indicator-bar" role="toolbar" aria-label="Indicator Controls">
+
+    <label for="indicator-select">Focused Indicator:</label>
+    <select id="indicator-select"
+            aria-label="Select focused indicator"
+            value="@Store.State.FocusedSeriesId"
+            @onchange="OnSeriesChanged">
+        @foreach (var s in Store.State.ActiveSeries)
+        {
+            <option value="@s.Id">@s.FriendlyName</option>
+        }
+    </select>
+
+    @if (_focusedSeries != null)
+    {
+        @* Route through EventBus → ChartCommandManager so speech feedback fires. *@
+        <button aria-pressed="@(!_focusedSeries.IsVisible ? "true" : "false")"
+                title="Toggle visibility (H)"
+                aria-label="@(_focusedSeries.IsVisible ? "Hide " + _focusedSeries.FriendlyName : "Show " + _focusedSeries.FriendlyName)"
+                @onclick="() => EventBus.Publish(new ToggleHideEvent())">
+            @(_focusedSeries.IsVisible ? "Visible" : "Hidden")
+        </button>
+
+        <button aria-pressed="@(_focusedSeries.IsMuted ? "true" : "false")"
+                title="Toggle audio (M)"
+                aria-label="@(_focusedSeries.IsMuted ? "Unmute " + _focusedSeries.FriendlyName : "Mute " + _focusedSeries.FriendlyName)"
+                @onclick="() => EventBus.Publish(new ToggleMuteEvent())">
+            @(_focusedSeries.IsMuted ? "Muted" : "Audio On")
+        </button>
+    }
+
+    <div style="flex: 1;" aria-hidden="true"></div>
+
+    <button class="primary"
+            aria-label="Add indicator to chart"
+            @onclick="() => EventBus.Publish(new OpenAddIndicatorEvent())">
+        Add Indicator
+    </button>
+
+    <button aria-label="Custom Scripts (Alt+Comma)"
+            title="Custom Scripts (Alt+,)"
+            @onclick="() => EventBus.Publish(new OpenCustomScriptsEvent())">
+        Scripts
+    </button>
+
+</div>
+
+@code {
+    private ChartSeries? _focusedSeries =>
+        Store.State.ActiveSeries.FirstOrDefault(s => s.Id == Store.State.FocusedSeriesId);
+
+    private void OnSeriesChanged(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(id))
+            Store.Dispatch(new SelectSeriesAction(id));
+    }
+}

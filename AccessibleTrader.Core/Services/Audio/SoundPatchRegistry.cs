@@ -1,0 +1,142 @@
+using System.Collections.Concurrent;
+
+namespace AccessibleTrader.Core.Services.Audio
+{
+    /// <summary>
+    /// A named bell synthesis preset describing how to build a Ping-envelope voice:
+    /// waveform blend, harmonic content, decay, and optional detuned-pair parameters.
+    /// These are distinct from user-editable <see cref="AccessibleTrader.Sdk.Models.SoundPatch"/>
+    /// objects in <c>ISoundPatchLibrary</c>; registry patches are code-defined built-ins.
+    /// </summary>
+    public record SoundPatch(
+        /// <summary>"sine", "triangle", "sawtooth", or "square".</summary>
+        string BaseWaveform,
+        /// <summary>0–1: blend of 2nd (or Nth) harmonic into the fundamental. 0 = pure fundamental.</summary>
+        float HarmonicAmount,
+        /// <summary>Frequency multiplier for the blended harmonic. 2.0 = octave, 2.756 = bell minor-third.</summary>
+        float HarmonicFreqMultiplier,
+        /// <summary>Fallback decay in ms when ComponentConfig.DecayMs is null.</summary>
+        int DefaultDecayMs,
+        /// <summary>When true the sequencer fires two voices: primary + a detuned copy offset by DetuneIntervalHz.</summary>
+        bool IsDetuned,
+        /// <summary>Second-voice pitch offset in Hz above the primary voice (used only when IsDetuned = true).</summary>
+        float DetuneIntervalHz,
+        /// <summary>Delay in ms before the second detuned voice fires (0 = simultaneous, 40 = staggered).</summary>
+        int DetunedOffsetMs,
+        /// <summary>Waveform name at the positive/bullish end of a gradient blend (null if not gradient_blend).</summary>
+        string? GradientWaveformA,
+        /// <summary>Waveform name at the negative/bearish end of a gradient blend (null if not gradient_blend).</summary>
+        string? GradientWaveformB
+    );
+
+    /// <summary>
+    /// Registry of named bell synthesis patches used by AudioSequencer and NavigationSonifier.
+    /// Built-in patches are registered in the constructor; providers or tests can add custom patches
+    /// via <see cref="Register"/>.
+    /// </summary>
+    public interface ISoundPatchRegistry
+    {
+        /// <summary>Returns true and populates <paramref name="patch"/> when the ID is found.</summary>
+        bool TryGetPatch(string patchId, out SoundPatch patch);
+        /// <summary>Registers or replaces a patch by ID.</summary>
+        void Register(string patchId, SoundPatch patch);
+    }
+
+    /// <inheritdoc />
+    public class SoundPatchRegistry : ISoundPatchRegistry
+    {
+        private readonly ConcurrentDictionary<string, SoundPatch> _patches = new();
+
+        public SoundPatchRegistry()
+        {
+            RegisterBuiltins();
+        }
+
+        private void RegisterBuiltins()
+        {
+            // Clean bell — pure sine with slight octave harmonic, used for crossover signals.
+            Register("sine_bell", new SoundPatch(
+                BaseWaveform: "sine",
+                HarmonicAmount: 0.25f,
+                HarmonicFreqMultiplier: 2.0f,
+                DefaultDecayMs: 300,
+                IsDetuned: false,
+                DetuneIntervalHz: 0f,
+                DetunedOffsetMs: 0,
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Hollow structural bell — triangle fundamental with natural odd harmonics, used for divergences.
+            Register("triangle_bell", new SoundPatch(
+                BaseWaveform: "triangle",
+                HarmonicAmount: 0.0f,       // triangle already has natural odd harmonics
+                HarmonicFreqMultiplier: 2.0f,
+                DefaultDecayMs: 250,
+                IsDetuned: false,
+                DetuneIntervalHz: 0f,
+                DetunedOffsetMs: 0,
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Crisp boundary bell — triangle with 3rd harmonic crystalline overtone, used for SR dots.
+            Register("crystal_bell", new SoundPatch(
+                BaseWaveform: "triangle",
+                HarmonicAmount: 0.15f,
+                HarmonicFreqMultiplier: 3.0f,   // 3rd harmonic for crystalline overtone
+                DefaultDecayMs: 200,
+                IsDetuned: false,
+                DetuneIntervalHz: 0f,
+                DetunedOffsetMs: 0,
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Metallic pair — two simultaneous/staggered voices, used for Manipulation/Exhaustion.
+            Register("detuned_pair_bell", new SoundPatch(
+                BaseWaveform: "triangle",
+                HarmonicAmount: 0.2f,
+                HarmonicFreqMultiplier: 2.756f, // minor 3rd overtone
+                DefaultDecayMs: 320,
+                IsDetuned: true,
+                DetuneIntervalHz: 100f,         // second voice +100 Hz above primary
+                DetunedOffsetMs: 40,            // 40ms stagger before second voice fires
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Dual simultaneous tones 220 Hz apart — golden chord for Triple Confluence Buy.
+            // Both voices fire at the same time (DetunedOffsetMs=0) for a unified chord quality
+            // distinct from the staggered metallic character of detuned_pair_bell.
+            Register("dual_tone_bell", new SoundPatch(
+                BaseWaveform: "sine",
+                HarmonicAmount: 0.2f,
+                HarmonicFreqMultiplier: 2.0f,
+                DefaultDecayMs: 500,
+                IsDetuned: true,
+                DetuneIntervalHz: 220f,         // second voice at primary + 220 Hz (e.g. 440 + 220 = 660 Hz)
+                DetunedOffsetMs: 0,             // simultaneous — golden chord, not staggered metallic
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Gradient blend — timbre interpolates by value position (sine→bullish, sawtooth→bearish),
+            // used for Cipher A momentum gradient dots.
+            Register("gradient_blend", new SoundPatch(
+                BaseWaveform: "triangle",       // neutral/midpoint waveform
+                HarmonicAmount: 0.0f,
+                HarmonicFreqMultiplier: 2.0f,
+                DefaultDecayMs: 80,
+                IsDetuned: false,
+                DetuneIntervalHz: 0f,
+                DetunedOffsetMs: 0,
+                GradientWaveformA: "sine",      // bullish end: sine+triangle blend
+                GradientWaveformB: "sawtooth"   // bearish end: sawtooth+triangle blend
+            ));
+        }
+
+        /// <inheritdoc />
+        public bool TryGetPatch(string patchId, out SoundPatch patch) =>
+            _patches.TryGetValue(patchId, out patch!);
+
+        /// <inheritdoc />
+        public void Register(string patchId, SoundPatch patch) =>
+            _patches[patchId] = patch;
+    }
+}

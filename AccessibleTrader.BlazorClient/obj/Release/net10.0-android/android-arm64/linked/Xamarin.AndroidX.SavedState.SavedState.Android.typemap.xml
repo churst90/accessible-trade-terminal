@@ -1,0 +1,11 @@
+<api type="release" assembly-name="Xamarin.AndroidX.SavedState.SavedState.Android" mvid="b1e603ca40a04f809fcda2cfcd63e18d">
+  <module assembly-name="Xamarin.AndroidX.SavedState.SavedState.Android" mvid="b1e603ca40a04f809fcda2cfcd63e18d" mvid-bytes="ygPmsaBAgE+fzaLPzWPhjQ==">
+    <duplicates>
+      <entry java-name="androidx/savedstate/SavedStateRegistry$SavedStateProvider" managed-type-name="AndroidX.SavedState.SavedStateRegistry/ISavedStateProviderInvoker" token="33554437" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/savedstate/SavedStateRegistry" java-name="androidx/savedstate/SavedStateRegistry" managed-type-name="AndroidX.SavedState.SavedStateRegistry" token="33554435" />
+      <entry key="androidx/savedstate/SavedStateRegistry$SavedStateProvider" java-name="androidx/savedstate/SavedStateRegistry$SavedStateProvider" managed-type-name="AndroidX.SavedState.SavedStateRegistry/ISavedStateProvider" token="33554436" skip-in-java-to-managed="True" />
+    </types-scratch>
+  </module>
+</api>

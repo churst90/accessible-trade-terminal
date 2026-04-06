@@ -1,0 +1,82 @@
+<api type="release" assembly-name="Xamarin.AndroidX.AppCompat" mvid="adef5d67d75b41e496e21be667fbfa23">
+  <module assembly-name="Xamarin.AndroidX.AppCompat" mvid="adef5d67d75b41e496e21be667fbfa23" mvid-bytes="Z13vrVvX5EGW4hvmZ/v6Iw==">
+    <duplicates>
+      <entry java-name="androidx/appcompat/widget/Toolbar$OnMenuItemClickListener" managed-type-name="AndroidX.AppCompat.Widget.Toolbar/IOnMenuItemClickListenerInvoker" token="33554492" />
+      <entry java-name="androidx/appcompat/widget/DecorToolbar" managed-type-name="AndroidX.AppCompat.Widget.IDecorToolbarInvoker" token="33554507" />
+      <entry java-name="androidx/appcompat/widget/SearchView$OnCloseListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnCloseListenerInvoker" token="33554514" />
+      <entry java-name="androidx/appcompat/widget/SearchView$OnQueryTextListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnQueryTextListenerInvoker" token="33554518" />
+      <entry java-name="androidx/appcompat/widget/SearchView$OnSuggestionListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnSuggestionListenerInvoker" token="33554523" />
+      <entry java-name="androidx/appcompat/app/ActionBar$OnMenuVisibilityListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/IOnMenuVisibilityListenerInvoker" token="33554548" />
+      <entry java-name="androidx/appcompat/app/ActionBar$OnNavigationListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/IOnNavigationListenerInvoker" token="33554552" />
+      <entry java-name="androidx/appcompat/app/ActionBar$Tab" managed-type-name="AndroidX.AppCompat.App.ActionBar/TabInvoker" token="33554554" />
+      <entry java-name="androidx/appcompat/app/ActionBar$TabListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/ITabListenerInvoker" token="33554556" />
+      <entry java-name="androidx/appcompat/app/ActionBar" managed-type-name="AndroidX.AppCompat.App.ActionBarInvoker" token="33554560" />
+      <entry java-name="androidx/appcompat/app/ActionBarDrawerToggle$Delegate" managed-type-name="AndroidX.AppCompat.App.ActionBarDrawerToggle/IDelegateInvoker" token="33554563" />
+      <entry java-name="androidx/appcompat/app/AppCompatDelegate" managed-type-name="AndroidX.AppCompat.App.AppCompatDelegateInvoker" token="33554566" />
+      <entry java-name="androidx/appcompat/app/AppCompatCallback" managed-type-name="AndroidX.AppCompat.App.IAppCompatCallbackInvoker" token="33554569" />
+      <entry java-name="androidx/appcompat/view/ActionMode$Callback" managed-type-name="AndroidX.AppCompat.View.ActionMode/ICallbackInvoker" token="33554572" />
+      <entry java-name="androidx/appcompat/view/ActionMode" managed-type-name="AndroidX.AppCompat.View.ActionModeInvoker" token="33554573" />
+      <entry java-name="androidx/appcompat/view/menu/MenuBuilder$Callback" managed-type-name="AndroidX.AppCompat.View.Menu.MenuBuilder/ICallbackInvoker" token="33554576" />
+      <entry java-name="androidx/appcompat/view/menu/MenuPresenter$Callback" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuPresenterCallbackInvoker" token="33554578" />
+      <entry java-name="androidx/appcompat/view/menu/MenuPresenter" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuPresenterInvoker" token="33554580" />
+      <entry java-name="androidx/appcompat/view/menu/MenuView" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuViewInvoker" token="33554582" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/appcompat/graphics/drawable/DrawerArrowDrawable" java-name="androidx/appcompat/graphics/drawable/DrawerArrowDrawable" managed-type-name="AndroidX.AppCompat.Graphics.Drawable.DrawerArrowDrawable" token="33554486" />
+      <entry key="androidx/appcompat/widget/Toolbar" java-name="androidx/appcompat/widget/Toolbar" managed-type-name="AndroidX.AppCompat.Widget.Toolbar" token="33554487" />
+      <entry key="androidx/appcompat/widget/Toolbar_NavigationOnClickEventDispatcher" java-name="androidx/appcompat/widget/Toolbar_NavigationOnClickEventDispatcher" managed-type-name="AndroidX.AppCompat.Widget.Toolbar/NavigationOnClickEventDispatcher" token="33554488" />
+      <entry key="androidx/appcompat/widget/Toolbar$LayoutParams" java-name="androidx/appcompat/widget/Toolbar$LayoutParams" managed-type-name="AndroidX.AppCompat.Widget.Toolbar/LayoutParams" token="33554490" />
+      <entry key="androidx/appcompat/widget/Toolbar$OnMenuItemClickListener" java-name="androidx/appcompat/widget/Toolbar$OnMenuItemClickListener" managed-type-name="AndroidX.AppCompat.Widget.Toolbar/IOnMenuItemClickListener" token="33554491" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/appcompat/widget/Toolbar_OnMenuItemClickListenerImplementor" java-name="mono/androidx/appcompat/widget/Toolbar_OnMenuItemClickListenerImplementor" managed-type-name="AndroidX.AppCompat.Widget.Toolbar/IOnMenuItemClickListenerImplementor" token="33554494" />
+      <entry key="androidx/appcompat/widget/AppCompatAutoCompleteTextView" java-name="androidx/appcompat/widget/AppCompatAutoCompleteTextView" managed-type-name="AndroidX.AppCompat.Widget.AppCompatAutoCompleteTextView" token="33554498" />
+      <entry key="androidx/appcompat/widget/AppCompatButton" java-name="androidx/appcompat/widget/AppCompatButton" managed-type-name="AndroidX.AppCompat.Widget.AppCompatButton" token="33554499" />
+      <entry key="androidx/appcompat/widget/AppCompatCheckBox" java-name="androidx/appcompat/widget/AppCompatCheckBox" managed-type-name="AndroidX.AppCompat.Widget.AppCompatCheckBox" token="33554500" />
+      <entry key="androidx/appcompat/widget/AppCompatEditText" java-name="androidx/appcompat/widget/AppCompatEditText" managed-type-name="AndroidX.AppCompat.Widget.AppCompatEditText" token="33554501" />
+      <entry key="androidx/appcompat/widget/AppCompatImageButton" java-name="androidx/appcompat/widget/AppCompatImageButton" managed-type-name="AndroidX.AppCompat.Widget.AppCompatImageButton" token="33554502" />
+      <entry key="androidx/appcompat/widget/AppCompatImageView" java-name="androidx/appcompat/widget/AppCompatImageView" managed-type-name="AndroidX.AppCompat.Widget.AppCompatImageView" token="33554503" />
+      <entry key="androidx/appcompat/widget/AppCompatRadioButton" java-name="androidx/appcompat/widget/AppCompatRadioButton" managed-type-name="AndroidX.AppCompat.Widget.AppCompatRadioButton" token="33554504" />
+      <entry key="androidx/appcompat/widget/AppCompatTextView" java-name="androidx/appcompat/widget/AppCompatTextView" managed-type-name="AndroidX.AppCompat.Widget.AppCompatTextView" token="33554505" />
+      <entry key="androidx/appcompat/widget/DecorToolbar" java-name="androidx/appcompat/widget/DecorToolbar" managed-type-name="AndroidX.AppCompat.Widget.IDecorToolbar" token="33554506" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/widget/LinearLayoutCompat" java-name="androidx/appcompat/widget/LinearLayoutCompat" managed-type-name="AndroidX.AppCompat.Widget.LinearLayoutCompat" token="33554508" />
+      <entry key="androidx/appcompat/widget/LinearLayoutCompat$LayoutParams" java-name="androidx/appcompat/widget/LinearLayoutCompat$LayoutParams" managed-type-name="AndroidX.AppCompat.Widget.LinearLayoutCompat/LayoutParams" token="33554509" />
+      <entry key="androidx/appcompat/widget/ScrollingTabContainerView" java-name="androidx/appcompat/widget/ScrollingTabContainerView" managed-type-name="AndroidX.AppCompat.Widget.ScrollingTabContainerView" token="33554510" />
+      <entry key="androidx/appcompat/widget/ScrollingTabContainerView$VisibilityAnimListener" java-name="androidx/appcompat/widget/ScrollingTabContainerView$VisibilityAnimListener" managed-type-name="AndroidX.AppCompat.Widget.ScrollingTabContainerView/VisibilityAnimListener" token="33554511" />
+      <entry key="androidx/appcompat/widget/SearchView" java-name="androidx/appcompat/widget/SearchView" managed-type-name="AndroidX.AppCompat.Widget.SearchView" token="33554512" />
+      <entry key="androidx/appcompat/widget/SearchView$OnCloseListener" java-name="androidx/appcompat/widget/SearchView$OnCloseListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnCloseListener" token="33554513" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/appcompat/widget/SearchView_OnCloseListenerImplementor" java-name="mono/androidx/appcompat/widget/SearchView_OnCloseListenerImplementor" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnCloseListenerImplementor" token="33554516" />
+      <entry key="androidx/appcompat/widget/SearchView$OnQueryTextListener" java-name="androidx/appcompat/widget/SearchView$OnQueryTextListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnQueryTextListener" token="33554517" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/appcompat/widget/SearchView_OnQueryTextListenerImplementor" java-name="mono/androidx/appcompat/widget/SearchView_OnQueryTextListenerImplementor" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnQueryTextListenerImplementor" token="33554521" />
+      <entry key="androidx/appcompat/widget/SearchView$OnSuggestionListener" java-name="androidx/appcompat/widget/SearchView$OnSuggestionListener" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnSuggestionListener" token="33554522" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/appcompat/widget/SearchView_OnSuggestionListenerImplementor" java-name="mono/androidx/appcompat/widget/SearchView_OnSuggestionListenerImplementor" managed-type-name="AndroidX.AppCompat.Widget.SearchView/IOnSuggestionListenerImplementor" token="33554526" />
+      <entry key="androidx/appcompat/widget/SwitchCompat" java-name="androidx/appcompat/widget/SwitchCompat" managed-type-name="AndroidX.AppCompat.Widget.SwitchCompat" token="33554538" />
+      <entry key="androidx/appcompat/widget/TooltipCompat" java-name="androidx/appcompat/widget/TooltipCompat" managed-type-name="AndroidX.AppCompat.Widget.TooltipCompat" token="33554539" />
+      <entry key="androidx/appcompat/app/AlertDialog" java-name="androidx/appcompat/app/AlertDialog" managed-type-name="AndroidX.AppCompat.App.AlertDialog" token="33554540" />
+      <entry key="androidx/appcompat/app/AlertDialog$Builder" java-name="androidx/appcompat/app/AlertDialog$Builder" managed-type-name="AndroidX.AppCompat.App.AlertDialog/Builder" token="33554541" />
+      <entry key="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnClickListenerImplementor" java-name="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnClickListenerImplementor" managed-type-name="AndroidX.AppCompat.App.AlertDialog/IDialogInterfaceOnClickListenerImplementor" token="33554542" />
+      <entry key="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnCancelListenerImplementor" java-name="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnCancelListenerImplementor" managed-type-name="AndroidX.AppCompat.App.AlertDialog/IDialogInterfaceOnCancelListenerImplementor" token="33554543" />
+      <entry key="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" java-name="androidx/appcompat/app/AlertDialog_IDialogInterfaceOnMultiChoiceClickListenerImplementor" managed-type-name="AndroidX.AppCompat.App.AlertDialog/IDialogInterfaceOnMultiChoiceClickListenerImplementor" token="33554544" />
+      <entry key="androidx/appcompat/app/ActionBar" java-name="androidx/appcompat/app/ActionBar" managed-type-name="AndroidX.AppCompat.App.ActionBar" token="33554545" />
+      <entry key="androidx/appcompat/app/ActionBar$LayoutParams" java-name="androidx/appcompat/app/ActionBar$LayoutParams" managed-type-name="AndroidX.AppCompat.App.ActionBar/LayoutParams" token="33554546" />
+      <entry key="androidx/appcompat/app/ActionBar$OnMenuVisibilityListener" java-name="androidx/appcompat/app/ActionBar$OnMenuVisibilityListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/IOnMenuVisibilityListener" token="33554547" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/appcompat/app/ActionBar_OnMenuVisibilityListenerImplementor" java-name="mono/androidx/appcompat/app/ActionBar_OnMenuVisibilityListenerImplementor" managed-type-name="AndroidX.AppCompat.App.ActionBar/IOnMenuVisibilityListenerImplementor" token="33554550" />
+      <entry key="androidx/appcompat/app/ActionBar$OnNavigationListener" java-name="androidx/appcompat/app/ActionBar$OnNavigationListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/IOnNavigationListener" token="33554551" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/app/ActionBar$Tab" java-name="androidx/appcompat/app/ActionBar$Tab" managed-type-name="AndroidX.AppCompat.App.ActionBar/Tab" token="33554553" />
+      <entry key="androidx/appcompat/app/ActionBar$TabListener" java-name="androidx/appcompat/app/ActionBar$TabListener" managed-type-name="AndroidX.AppCompat.App.ActionBar/ITabListener" token="33554555" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/app/ActionBarDrawerToggle" java-name="androidx/appcompat/app/ActionBarDrawerToggle" managed-type-name="AndroidX.AppCompat.App.ActionBarDrawerToggle" token="33554561" />
+      <entry key="androidx/appcompat/app/ActionBarDrawerToggle$Delegate" java-name="androidx/appcompat/app/ActionBarDrawerToggle$Delegate" managed-type-name="AndroidX.AppCompat.App.ActionBarDrawerToggle/IDelegate" token="33554562" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/app/AppCompatActivity" java-name="androidx/appcompat/app/AppCompatActivity" managed-type-name="AndroidX.AppCompat.App.AppCompatActivity" token="33554564" />
+      <entry key="androidx/appcompat/app/AppCompatDelegate" java-name="androidx/appcompat/app/AppCompatDelegate" managed-type-name="AndroidX.AppCompat.App.AppCompatDelegate" token="33554565" />
+      <entry key="androidx/appcompat/app/AppCompatDialog" java-name="androidx/appcompat/app/AppCompatDialog" managed-type-name="AndroidX.AppCompat.App.AppCompatDialog" token="33554567" />
+      <entry key="androidx/appcompat/app/AppCompatCallback" java-name="androidx/appcompat/app/AppCompatCallback" managed-type-name="AndroidX.AppCompat.App.IAppCompatCallback" token="33554568" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/ActionMode" java-name="androidx/appcompat/view/ActionMode" managed-type-name="AndroidX.AppCompat.View.ActionMode" token="33554570" />
+      <entry key="androidx/appcompat/view/ActionMode$Callback" java-name="androidx/appcompat/view/ActionMode$Callback" managed-type-name="AndroidX.AppCompat.View.ActionMode/ICallback" token="33554571" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/menu/MenuBuilder" java-name="androidx/appcompat/view/menu/MenuBuilder" managed-type-name="AndroidX.AppCompat.View.Menu.MenuBuilder" token="33554574" />
+      <entry key="androidx/appcompat/view/menu/MenuBuilder$Callback" java-name="androidx/appcompat/view/menu/MenuBuilder$Callback" managed-type-name="AndroidX.AppCompat.View.Menu.MenuBuilder/ICallback" token="33554575" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/menu/MenuPresenter$Callback" java-name="androidx/appcompat/view/menu/MenuPresenter$Callback" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuPresenterCallback" token="33554577" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/menu/MenuPresenter" java-name="androidx/appcompat/view/menu/MenuPresenter" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuPresenter" token="33554579" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/menu/MenuView" java-name="androidx/appcompat/view/menu/MenuView" managed-type-name="AndroidX.AppCompat.View.Menu.IMenuView" token="33554581" skip-in-java-to-managed="True" />
+      <entry key="androidx/appcompat/view/menu/MenuItemImpl" java-name="androidx/appcompat/view/menu/MenuItemImpl" managed-type-name="AndroidX.AppCompat.View.Menu.MenuItemImpl" token="33554583" />
+      <entry key="androidx/appcompat/view/menu/SubMenuBuilder" java-name="androidx/appcompat/view/menu/SubMenuBuilder" managed-type-name="AndroidX.AppCompat.View.Menu.SubMenuBuilder" token="33554584" />
+    </types-scratch>
+  </module>
+</api>

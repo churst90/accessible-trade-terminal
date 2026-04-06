@@ -1,0 +1,18 @@
+<api>
+  <jcw-types>
+    <type name="MainActivity" package="crc64b36ab28a55ab41b9" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiAppCompatActivity" partial_assembly_qualified_name="AccessibleTrader.BlazorClient.MainActivity, AccessibleTrader.BlazorClient">
+      <constructors>
+        <constructor name="MainActivity" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+        <constructor name="MainActivity" method="n_.ctor:(I)V:" jni_signature="(I)V" managed_parameters="System.Int32, System.Private.CoreLib" params="int p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </constructors>
+      <methods>
+        <method name="dispatchKeyEvent" method="n_dispatchKeyEvent:(Landroid/view/KeyEvent;)Z:GetDispatchKeyEvent_Landroid_view_KeyEvent_Handler" jni_signature="(Landroid/view/KeyEvent;)Z" params="android.view.KeyEvent p0" retval="boolean" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </methods>
+    </type>
+    <type name="MainApplication" package="crc64b36ab28a55ab41b9" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiApplication" is_application="True" partial_assembly_qualified_name="AccessibleTrader.BlazorClient.MainApplication, AccessibleTrader.BlazorClient" application_constructor="MainApplication" />
+  </jcw-types>
+  <acw-types partial-assembly-name="AccessibleTrader.BlazorClient" module-name="AccessibleTrader.BlazorClient.dll">
+    <type assembly-qualified-name="AccessibleTrader.BlazorClient.MainActivity, AccessibleTrader.BlazorClient, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="accessibletrader.blazorclient.MainActivity" java-key="crc64b36ab28a55ab41b9.MainActivity" managed-key="AccessibleTrader.BlazorClient.MainActivity" partial-assembly-qualified-name="AccessibleTrader.BlazorClient.MainActivity, AccessibleTrader.BlazorClient" />
+    <type assembly-qualified-name="AccessibleTrader.BlazorClient.MainApplication, AccessibleTrader.BlazorClient, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="accessibletrader.blazorclient.MainApplication" java-key="crc64b36ab28a55ab41b9.MainApplication" managed-key="AccessibleTrader.BlazorClient.MainApplication" partial-assembly-qualified-name="AccessibleTrader.BlazorClient.MainApplication, AccessibleTrader.BlazorClient" />
+  </acw-types>
+</api>

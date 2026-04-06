@@ -1,0 +1,8 @@
+<api type="release" assembly-name="AccessibleTrader.BlazorClient" mvid="364b6a0bc07b440b92585c49405eacab">
+  <module assembly-name="AccessibleTrader.BlazorClient" mvid="364b6a0bc07b440b92585c49405eacab" mvid-bytes="C2pLNnvAC0SSWFxJQF6sqw==">
+    <types-scratch>
+      <entry key="crc64b36ab28a55ab41b9/MainActivity" java-name="crc64b36ab28a55ab41b9/MainActivity" managed-type-name="AccessibleTrader.BlazorClient.MainActivity" token="33554441" />
+      <entry key="crc64b36ab28a55ab41b9/MainApplication" java-name="crc64b36ab28a55ab41b9/MainApplication" managed-type-name="AccessibleTrader.BlazorClient.MainApplication" token="33554442" />
+    </types-scratch>
+  </module>
+</api>

@@ -1,0 +1,188 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@inject IIndicatorService IndicatorService
+@inject ISeriesManagementService SeriesManager
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    @* Click outside the inner panel to close. *@
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="modal-title"
+             @onclick:stopPropagation="true"
+             @ref="_dialogRef">
+
+            <h2 id="modal-title" tabindex="-1">Add Indicator</h2>
+
+            <div style="margin-top: 20px;">
+                <label for="indicator-category">Category:</label>
+                <select id="indicator-category" @onchange="OnCategoryChanged">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in _categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label for="indicator-name">Indicator:</label>
+                <select id="indicator-name"
+                        value="@_selectedIndicatorCode"
+                        @onchange="OnIndicatorChanged">
+                    @foreach (var ind in _filteredIndicators)
+                    {
+                        <option value="@ind.Code">@ind.Name</option>
+                    }
+                </select>
+            </div>
+
+            @* Parameters for selected indicator *@
+            @if (_selectedMeta?.Parameters?.Any() == true)
+            {
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-top:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Parameters</legend>
+                    @foreach (var param in _selectedMeta.Parameters)
+                    {
+                        <div class="modal-row">
+                            <label for="param-@param.Name">@(string.IsNullOrEmpty(param.DisplayName) ? param.Name : param.DisplayName)</label>
+                            <input id="param-@param.Name" type="number"
+                                   step="1"
+                                   value="@(_editParams.GetValueOrDefault(param.Name, param.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0))"
+                                   @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString())" />
+                        </div>
+                    }
+                </fieldset>
+            }
+
+            <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button @onclick="Close" aria-label="Cancel and close dialog">Cancel</button>
+                <button class="primary"
+                        @onclick="AddSelected"
+                        aria-label="Add selected indicator to chart">Add</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private ElementReference _dialogRef;
+    private string _selectedCategory = "";
+    private string _selectedIndicatorCode = "";
+    private List<string> _categories = new();
+    private List<IndicatorMetadata> _allIndicators = new();
+    private List<IndicatorMetadata> _filteredIndicators = new();
+    private IDisposable? _eventSub;
+
+    private IndicatorMetadata? _selectedMeta;
+    private Dictionary<string, double> _editParams = new();
+
+    protected override void OnInitialized()
+    {
+        // IndicatorService.GetAvailableIndicators() includes VPVR, VPFR, and TPO from
+        // ProfileIndicatorProvider (registered under "Volume Profile" category).
+        // Do NOT add synthetic duplicates here — use the registry as the sole source of truth.
+        _allIndicators = IndicatorService.GetAvailableIndicators().ToList();
+
+        _categories = _allIndicators.Select(i => i.Category).Distinct().OrderBy(c => c).ToList();
+        _filteredIndicators = _allIndicators;
+
+        if (_filteredIndicators.Any())
+        {
+            _selectedIndicatorCode = _filteredIndicators.First().Code;
+            UpdateSelectedMeta();
+        }
+
+        // InvokeAsync ensures StateHasChanged is called on the Blazor sync context
+        // even if this event is published from a non-Blazor thread.
+        _eventSub = EventBus.Subscribe<OpenAddIndicatorEvent>(_ =>
+            InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+
+        // Move keyboard focus to the dialog heading so screen readers announce the dialog title.
+        await Task.Yield(); // Yield so Blazor renders the dialog before we focus it.
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "modal-title");
+        }
+        catch
+        {
+            // Focus is best-effort; the dialog is still accessible via Tab.
+        }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs e)
+    {
+        _selectedCategory = e.Value?.ToString() ?? "";
+        _filteredIndicators = string.IsNullOrEmpty(_selectedCategory)
+            ? _allIndicators
+            : _allIndicators.Where(i => i.Category == _selectedCategory).ToList();
+
+        _selectedIndicatorCode = _filteredIndicators.FirstOrDefault()?.Code ?? "";
+        UpdateSelectedMeta();
+    }
+
+    private void OnIndicatorChanged(ChangeEventArgs e)
+    {
+        _selectedIndicatorCode = e.Value?.ToString() ?? "";
+        UpdateSelectedMeta();
+    }
+
+    private void UpdateSelectedMeta()
+    {
+        _selectedMeta = _allIndicators.FirstOrDefault(i => i.Code == _selectedIndicatorCode);
+        _editParams = _selectedMeta?.Parameters
+            .ToDictionary(
+                p => p.Name,
+                p => p.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0)
+            ?? new Dictionary<string, double>();
+    }
+
+    private void UpdateEditParam(string name, string? raw)
+    {
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double v))
+        {
+            _editParams[name] = v;
+        }
+    }
+
+    private void AddSelected()
+    {
+        var meta = _allIndicators.FirstOrDefault(i => i.Code == _selectedIndicatorCode);
+        if (meta == null) return;
+
+        // Use the user-edited parameters if available; fall back to metadata defaults.
+        var parameters = meta.Parameters.ToDictionary(
+            p => p.Name,
+            p => _editParams.TryGetValue(p.Name, out var edited)
+                ? edited
+                : (p.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0));
+
+        // RegisterSeriesFromMetadata preserves CloudFills and component styling from metadata.
+        SeriesManager.RegisterSeriesFromMetadata(meta, parameters);
+        Close();
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+}

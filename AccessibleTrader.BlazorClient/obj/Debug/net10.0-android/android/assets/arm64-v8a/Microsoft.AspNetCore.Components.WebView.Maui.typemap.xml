@@ -1,0 +1,16 @@
+<api type="debug" assembly-name="Microsoft.AspNetCore.Components.WebView.Maui" mvid="0924c7655c0b43c9a646fd7d1f9bbcad">
+  <java-to-managed>
+    <entry java-name="crc64d693e2d9159537db/AndroidWebKitWebViewManager_BlazorWebMessageCallback" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.AndroidWebKitWebViewManager+BlazorWebMessageCallback, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554464" />
+    <entry java-name="crc64d693e2d9159537db/BlazorAndroidWebView" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.BlazorAndroidWebView, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554445" />
+    <entry java-name="crc64d693e2d9159537db/BlazorWebChromeClient" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.BlazorWebChromeClient, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554446" />
+    <entry java-name="crc64d693e2d9159537db/WebKitWebViewClient" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.WebKitWebViewClient, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554448" />
+    <entry java-name="crc64d693e2d9159537db/WebKitWebViewClient_JavaScriptValueCallback" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.WebKitWebViewClient+JavaScriptValueCallback, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554469" />
+  </java-to-managed>
+  <managed-to-java>
+    <entry java-name="crc64d693e2d9159537db/AndroidWebKitWebViewManager_BlazorWebMessageCallback" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.AndroidWebKitWebViewManager+BlazorWebMessageCallback, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554464" />
+    <entry java-name="crc64d693e2d9159537db/BlazorAndroidWebView" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.BlazorAndroidWebView, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554445" />
+    <entry java-name="crc64d693e2d9159537db/BlazorWebChromeClient" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.BlazorWebChromeClient, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554446" />
+    <entry java-name="crc64d693e2d9159537db/WebKitWebViewClient" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.WebKitWebViewClient, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554448" />
+    <entry java-name="crc64d693e2d9159537db/WebKitWebViewClient_JavaScriptValueCallback" managed-name="Microsoft.AspNetCore.Components.WebView.Maui.WebKitWebViewClient+JavaScriptValueCallback, Microsoft.AspNetCore.Components.WebView.Maui" managed-type-token-id="33554469" />
+  </managed-to-java>
+</api>

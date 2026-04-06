@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Accessible Trade Terminal</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="AccessibleTrader.BlazorClient.styles.css" />
+    <link rel="icon" href="data:,">
+    <!-- Inline transparent background applied synchronously before app.css loads,
+         preventing the WebView2 white flash during Blazor bootstrap. -->
+    <style>
+        html, body, #app { background: transparent !important; }
+    </style>
+</head>
+
+<body>
+    <div id="app">Loading...</div>
+
+    <div id="blazor-error-ui" role="alert" aria-live="assertive" data-nosnippet>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss" role="button" tabindex="0" aria-label="Dismiss error">&#x2715;</span>
+    </div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="js/keyboard.js"></script>
+</body>
+
+</html>

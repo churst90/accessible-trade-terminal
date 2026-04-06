@@ -1,0 +1,458 @@
+@using System.IO
+@using System.IO.Compression
+@using System.Text.RegularExpressions
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.PineScript
+@using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Sdk.Models
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@inject IRoslynScriptingService ScriptingService
+@inject ISeriesManagementService SeriesManager
+@inject IWorkspaceStore Store
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="scripts-title"
+             style="max-width:820px; min-height:560px;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="scripts-title" tabindex="-1">Custom Scripts</h2>
+
+            <div style="display:flex; gap:16px; height:480px;">
+
+                @* ── Script List ─────────────────────────────────────────────── *@
+                <div style="width:200px; display:flex; flex-direction:column; gap:8px;">
+                    <h3 style="margin:0; font-size:0.9rem;">Scripts</h3>
+                    <div role="listbox" aria-label="Custom scripts"
+                         style="flex:1; overflow-y:auto; border:1px solid #555; border-radius:4px;">
+                        @foreach (var s in _scripts)
+                        {
+                            var sid = s.Id;
+                            <div role="option"
+                                 aria-selected="@(s.Id == _selectedId ? "true" : "false")"
+                                 tabindex="0"
+                                 style="padding:6px 10px; cursor:pointer; background:@(s.Id == _selectedId ? "#334" : "transparent");"
+                                 @onclick="() => SelectScript(sid)"
+                                 @onkeydown="e => OnScriptKeyDown(e, sid)">
+                                <div style="font-size:0.9rem;">@s.Name</div>
+                                <div style="font-size:0.75rem; color:@(s.IsEnabled ? "#8f8" : "#888");">
+                                    @(s.IsEnabled ? "Active" : "Saved")
+                                </div>
+                            </div>
+                        }
+                        @if (!_scripts.Any())
+                        {
+                            <div style="padding:10px; color:#888; font-style:italic;">No scripts yet</div>
+                        }
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button @onclick="NewScript" aria-label="New script">+ New</button>
+                        <button @onclick="DeleteScript" disabled="@(_selectedScript == null)"
+                                aria-label="Delete selected script" style="color:#f88;">Delete</button>
+                    </div>
+                </div>
+
+                @* ── Editor ──────────────────────────────────────────────────── *@
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px; overflow:hidden;">
+                    @if (_selectedScript != null)
+                    {
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label for="cs-name" style="white-space:nowrap;">Script Name</label>
+                            <input id="cs-name" type="text" style="flex:1;"
+                                   value="@_editName"
+                                   @onchange="e => _editName = e.Value?.ToString() ?? _editName" />
+                        </div>
+
+                        <textarea id="cs-code"
+                                  aria-label="Script code editor"
+                                  rows="16"
+                                  style="flex:1; width:100%; font-family:monospace; font-size:0.82rem; resize:none; background:#1a1a2e; color:#e0e0ff; border:1px solid #555; border-radius:4px; padding:8px;"
+                                  placeholder="@_codePlaceholder"
+                                  @bind="_editCode"
+                                  @bind:event="oninput"></textarea>
+
+                        @* Compile feedback ─────────────────────────────────── *@
+                        @if (_compileErrors.Length > 0)
+                        {
+                            <div role="alert" aria-live="assertive"
+                                 style="background:#2a0000; border:1px solid #f44; border-radius:4px; padding:8px; font-size:0.8rem; color:#f88; max-height:80px; overflow-y:auto;">
+                                @foreach (var err in _compileErrors)
+                                {
+                                    <div>@err</div>
+                                }
+                            </div>
+                        }
+                        @if (_compileSuccess)
+                        {
+                            <div role="status" aria-live="polite"
+                                 style="background:#002200; border:1px solid #4f4; border-radius:4px; padding:6px 10px; font-size:0.8rem; color:#8f8;">
+                                Compiled successfully. @(_compiledIndicator != null ? $"Indicator: {_compiledIndicator.DisplayName}" : "")
+                            </div>
+                        }
+
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button @onclick="SaveScript" aria-label="Save script">Save</button>
+                            <button @onclick="CompileScript" aria-label="Compile script">
+                                &#9881; Compile
+                            </button>
+                            @if (_compiledIndicator != null)
+                            {
+                                <button @onclick="AddToChart" aria-label="Add compiled indicator to chart" class="primary">
+                                    + Add to Chart
+                                </button>
+                            }
+                            <button @onclick="ExportAtpkg" aria-label="Export as .atpkg file">
+                                Export .atpkg
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <p style="color:#888; font-style:italic; margin-top:16px;">
+                            Select or create a script to edit.
+                        </p>
+                    }
+                </div>
+            </div>
+
+            @* ── Import ──────────────────────────────────────────────────────── *@
+            <details style="margin-top:12px;">
+                <summary style="cursor:pointer; font-weight:bold; padding:4px 0;">Import .atpkg</summary>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button @onclick="ImportAtpkgFromFile" aria-label="Import .atpkg file from disk">
+                            &#128194; Import from file…
+                        </button>
+                        <span style="font-size:0.8rem; color:#888;">— or paste legacy JSON below —</span>
+                    </div>
+                    <textarea rows="3" style="width:100%; font-family:monospace; font-size:0.8rem;"
+                              placeholder='Paste legacy .atpkg JSON: {"Name":"...","Code":"..."}'
+                              @bind="_importJson"></textarea>
+                    <div style="display:flex; gap:8px;">
+                        <button @onclick="ImportAtpkgJson">Import JSON</button>
+                        @if (!string.IsNullOrEmpty(_importFeedback))
+                        {
+                            <span role="status" aria-live="polite"
+                                  style="color:@(_importSuccess ? "#8f8" : "#f88"); font-size:0.85rem;">
+                                @_importFeedback
+                            </span>
+                        }
+                    </div>
+                </div>
+            </details>
+
+            @* ── Transpile from Pine Script ───────────────────────────────── *@
+            <details style="margin-top:8px;">
+                <summary style="cursor:pointer; font-weight:bold; padding:4px 0;">Transpile from Pine Script v5</summary>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+                    <textarea rows="6" style="width:100%; font-family:monospace; font-size:0.8rem;"
+                              placeholder="//@@version=5&#10;indicator(&quot;My Script&quot;)&#10;len = input(14, &quot;Length&quot;)&#10;value = ta.sma(close, len)&#10;plot(value, &quot;SMA&quot;)"
+                              @bind="_pineCode"></textarea>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button @onclick="TranspilePine" aria-label="Transpile Pine Script to C#">Transpile</button>
+                        @if (_transpileWarnings.Length > 0)
+                        {
+                            <span style="color:#fa0; font-size:0.8rem;">@_transpileWarnings.Length warning(s)</span>
+                        }
+                        @if (!string.IsNullOrEmpty(_transpileFeedback))
+                        {
+                            <span role="status" aria-live="polite"
+                                  style="color:@(_transpileOk ? "#8f8" : "#f88"); font-size:0.85rem;">
+                                @_transpileFeedback
+                            </span>
+                        }
+                    </div>
+                    @if (_transpileWarnings.Length > 0)
+                    {
+                        <div style="background:#1a1400; border:1px solid #fa0; border-radius:4px; padding:6px 10px; font-size:0.78rem; color:#fa0;">
+                            @foreach (var w in _transpileWarnings) { <div>&#9888; @w</div> }
+                        </div>
+                    }
+                </div>
+            </details>
+
+            <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+                <button @onclick="Close" aria-label="Close custom scripts">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+
+    private List<CustomScript> _scripts = new();
+    private string? _selectedId;
+    private CustomScript? _selectedScript;
+
+    private string _editName = "";
+    private string _editCode = "";
+    private string[] _compileErrors = Array.Empty<string>();
+    private bool _compileSuccess;
+    private ICustomIndicator? _compiledIndicator;
+
+    private string _importJson = "";
+    private string _importFeedback = "";
+    private bool _importSuccess;
+
+    // Pine transpiler
+    private string _pineCode = "";
+    private string _transpileFeedback = "";
+    private bool _transpileOk;
+    private string[] _transpileWarnings = Array.Empty<string>();
+
+    private const string _codePlaceholder =
+        "// Implement ICustomIndicator:\n" +
+        "// public class MyIndicator : ICustomIndicator {\n" +
+        "//     public string Id => \"MY_IND\";\n" +
+        "//     public string DisplayName => \"My Indicator\";\n" +
+        "//     public string[] ComponentNames => new[] { \"Value\" };\n" +
+        "//     public ComponentDisplayType[] DisplayTypes => new[] { ComponentDisplayType.Line };\n" +
+        "//     public Dictionary<string,double> DefaultParameters => new() { [\"Period\"] = 14 };\n" +
+        "//     public double[][] Calculate(ReadOnlySpan<Ohlcv> data, Dictionary<string,double> p) { ... }\n" +
+        "// }";
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenCustomScriptsEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "scripts-title"); } catch { }
+    }
+
+    private void OnScriptKeyDown(KeyboardEventArgs e, string id)
+    {
+        if (e.Key == "Enter" || e.Key == " ") SelectScript(id);
+    }
+
+    private void SelectScript(string id)
+    {
+        _selectedId = id;
+        _selectedScript = _scripts.FirstOrDefault(s => s.Id == id);
+        if (_selectedScript == null) return;
+        _editName = _selectedScript.Name;
+        _editCode = _selectedScript.Code;
+        _compileErrors = Array.Empty<string>();
+        _compileSuccess = false;
+        _compiledIndicator = null;
+    }
+
+    private void NewScript()
+    {
+        var s = new CustomScript(Guid.NewGuid().ToString(), "New Script", "", false);
+        _scripts.Add(s);
+        SelectScript(s.Id);
+    }
+
+    private void DeleteScript()
+    {
+        if (_selectedId == null) return;
+        _scripts.RemoveAll(s => s.Id == _selectedId);
+        _selectedId = null;
+        _selectedScript = null;
+        _compiledIndicator = null;
+        _compileErrors = Array.Empty<string>();
+        _compileSuccess = false;
+        if (_scripts.Any()) SelectScript(_scripts[0].Id);
+    }
+
+    private void SaveScript()
+    {
+        if (_selectedScript == null) return;
+        int idx = _scripts.FindIndex(s => s.Id == _selectedId);
+        if (idx < 0) return;
+        var updated = new CustomScript(_selectedScript.Id, _editName.Trim(), _editCode, _selectedScript.IsEnabled);
+        _scripts[idx] = updated;
+        _selectedScript = updated;
+    }
+
+    private async Task CompileScript()
+    {
+        _compileErrors = Array.Empty<string>();
+        _compileSuccess = false;
+        _compiledIndicator = null;
+        StateHasChanged();
+
+        var result = await ScriptingService.CompileIndicatorAsync(_editCode);
+        if (result.Success)
+        {
+            _compileSuccess = true;
+            _compiledIndicator = result.Indicator;
+        }
+        else
+        {
+            _compileErrors = result.Errors;
+        }
+    }
+
+    private void AddToChart()
+    {
+        if (_compiledIndicator == null) return;
+        SaveScript();
+        SeriesManager.AddCustomIndicator(_compiledIndicator, Store.State);
+        // Mark script as enabled
+        int idx = _scripts.FindIndex(s => s.Id == _selectedId);
+        if (idx >= 0)
+        {
+            _scripts[idx] = _scripts[idx] with { IsEnabled = true };
+            _selectedScript = _scripts[idx];
+        }
+    }
+
+    private async Task ExportAtpkg()
+    {
+        if (_selectedScript == null) return;
+        SaveScript();
+
+        // Build zip in memory: manifest.json + source.cs
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var manifest = new
+            {
+                Version = "1.0",
+                Name    = _editName,
+                Author  = "",
+                Type    = "indicator",
+            };
+            string manifestJson = Newtonsoft.Json.JsonConvert.SerializeObject(manifest, Newtonsoft.Json.Formatting.Indented);
+
+            var manifestEntry = zip.CreateEntry("manifest.json");
+            using (var w = new StreamWriter(manifestEntry.Open()))
+                w.Write(manifestJson);
+
+            var sourceEntry = zip.CreateEntry("source.cs");
+            using (var w = new StreamWriter(sourceEntry.Open()))
+                w.Write(_editCode);
+        }
+
+        string base64 = Convert.ToBase64String(ms.ToArray());
+        string filename = $"{_editName.Replace(' ', '_')}.atpkg";
+        await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadBlob", filename, base64, "application/zip");
+    }
+
+    private async Task ImportAtpkgFromFile()
+    {
+        _importFeedback = "";
+        _importSuccess = false;
+        try
+        {
+            string base64 = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsBase64", ".atpkg,.json");
+            byte[] zipBytes = Convert.FromBase64String(base64);
+
+            using var ms = new MemoryStream(zipBytes);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+
+            string? name = null, code = null;
+
+            var manifestEntry = zip.GetEntry("manifest.json");
+            if (manifestEntry != null)
+            {
+                using var r = new StreamReader(manifestEntry.Open());
+                var payload = Newtonsoft.Json.JsonConvert.DeserializeObject<AtpkgPayload>(r.ReadToEnd());
+                name = payload?.Name;
+            }
+
+            var sourceEntry = zip.GetEntry("source.cs");
+            if (sourceEntry != null)
+            {
+                using var r = new StreamReader(sourceEntry.Open());
+                code = r.ReadToEnd();
+            }
+
+            if (string.IsNullOrWhiteSpace(code))
+            { _importFeedback = "Invalid .atpkg — no source.cs found."; return; }
+
+            var s = new CustomScript(Guid.NewGuid().ToString(), name ?? "Imported Script", code, false);
+            _scripts.Add(s);
+            SelectScript(s.Id);
+            _importFeedback = $"Imported: {s.Name}";
+            _importSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _importFeedback = $"Import failed: {ex.Message}";
+        }
+    }
+
+    private void TranspilePine()
+    {
+        _transpileFeedback = "";
+        _transpileOk = false;
+        _transpileWarnings = Array.Empty<string>();
+
+        if (string.IsNullOrWhiteSpace(_pineCode))
+        { _transpileFeedback = "Pine code is empty."; return; }
+
+        var transpiler = new PineTranspiler();
+        var result = transpiler.Transpile(_pineCode);
+        _transpileWarnings = result.Warnings;
+
+        if (!result.Success)
+        { _transpileFeedback = "Transpile failed: " + string.Join("; ", result.Errors); return; }
+
+        // Create a new script entry with the generated C# code
+        var scriptName = Regex.Match(_pineCode, @"indicator\s*\([""']([^""']+)[""']").Groups[1].Value;
+        if (string.IsNullOrEmpty(scriptName)) scriptName = "Pine Script";
+        var s = new CustomScript(Guid.NewGuid().ToString(), scriptName, result.CSharpCode, false);
+        _scripts.Add(s);
+        SelectScript(s.Id);
+        _pineCode = "";
+        _transpileFeedback = $"Transpiled to C# — review and compile.";
+        _transpileOk = true;
+    }
+
+    private void ImportAtpkgJson()
+    {
+        if (string.IsNullOrWhiteSpace(_importJson)) return;
+        try
+        {
+            var pkg = Newtonsoft.Json.JsonConvert.DeserializeObject<AtpkgPayload>(_importJson);
+            if (pkg == null || string.IsNullOrWhiteSpace(pkg.Code))
+            { _importFeedback = "Invalid .atpkg — missing Code field."; _importSuccess = false; return; }
+
+            var s = new CustomScript(Guid.NewGuid().ToString(), pkg.Name ?? "Imported Script", pkg.Code, false);
+            _scripts.Add(s);
+            SelectScript(s.Id);
+            _importJson = "";
+            _importFeedback = $"Imported: {s.Name}";
+            _importSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _importFeedback = $"Parse error: {ex.Message}";
+            _importSuccess = false;
+        }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+
+    private class AtpkgPayload
+    {
+        public string? Version { get; set; }
+        public string? Name    { get; set; }
+        public string? Author  { get; set; }
+        public string? Code    { get; set; }
+    }
+}

@@ -1,0 +1,15 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Navigation.Runtime.Android" mvid="70a51b49971d4ee4a2f87d4b8aeb9c05">
+  <module assembly-name="Xamarin.AndroidX.Navigation.Runtime.Android" mvid="70a51b49971d4ee4a2f87d4b8aeb9c05" mvid-bytes="SRulcB2X5E6i+H1LiuucBQ==">
+    <duplicates>
+      <entry java-name="androidx/navigation/NavController$OnDestinationChangedListener" managed-type-name="AndroidX.Navigation.NavController/IOnDestinationChangedListenerInvoker" token="33554450" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/navigation/NavController" java-name="androidx/navigation/NavController" managed-type-name="AndroidX.Navigation.NavController" token="33554448" />
+      <entry key="androidx/navigation/NavController$OnDestinationChangedListener" java-name="androidx/navigation/NavController$OnDestinationChangedListener" managed-type-name="AndroidX.Navigation.NavController/IOnDestinationChangedListener" token="33554449" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/navigation/NavController_OnDestinationChangedListenerImplementor" java-name="mono/androidx/navigation/NavController_OnDestinationChangedListenerImplementor" managed-type-name="AndroidX.Navigation.NavController/IOnDestinationChangedListenerImplementor" token="33554452" />
+      <entry key="androidx/navigation/NavDeepLinkBuilder" java-name="androidx/navigation/NavDeepLinkBuilder" managed-type-name="AndroidX.Navigation.NavDeepLinkBuilder" token="33554456" />
+      <entry key="androidx/navigation/NavHostController" java-name="androidx/navigation/NavHostController" managed-type-name="AndroidX.Navigation.NavHostController" token="33554457" />
+      <entry key="androidx/navigation/NavInflater" java-name="androidx/navigation/NavInflater" managed-type-name="AndroidX.Navigation.NavInflater" token="33554458" />
+    </types-scratch>
+  </module>
+</api>

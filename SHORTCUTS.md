@@ -1,0 +1,199 @@
+# Accessible Trading Terminal — Keyboard Shortcuts
+
+All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Users can customise bindings via the Sound Designer or by editing the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json`.
+
+---
+
+## Time Navigation (X Axis)
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| Left Arrow | Move cursor one bar back in time | Bar data at new position |
+| Right Arrow | Move cursor one bar forward in time | Bar data at new position |
+| Home | Jump to leftmost bar in visible viewport | Bar data at start |
+| End | Jump to rightmost bar in visible viewport | Bar data at end |
+| Backslash (\) | Jump to the latest (live) bar | Bar data at live edge |
+| [ | Pan viewport left (older bars come into view) | "Viewing X bars from..." |
+| ] | Pan viewport right (newer bars come into view) | "Viewing X bars from..." |
+| Shift+[ | Decrease pan step size | — |
+| Shift+] | Increase pan step size | — |
+| - (minus) | Zoom out (more bars visible) | "Viewing X bars from..." |
+| = (equals) | Zoom in (fewer bars visible) | "Viewing X bars from..." |
+
+---
+
+## Pane and Component Navigation (Y Axis and Series)
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| Page Down | Move focus to next pane/series below | "{Series Name}" |
+| Page Up | Move focus to pane/series above | "{Series Name}" |
+| Down Arrow | Move to next component within focused series | "{Component Name}, {value}" |
+| Up Arrow | Move to previous component within focused series | "{Component Name}, {value}" |
+| Ctrl+Down | Cycle to next component within the same pane (wraps) | "{Component Name}, {value}" |
+| Ctrl+Up | Cycle to previous component within the same pane (wraps) | "{Component Name}, {value}" |
+| Alt+Down | Scroll indicator pane list down | "Scroll panes down" |
+| Alt+Up | Scroll indicator pane list up | "Scroll panes up" |
+| Ctrl+Page Down | Jump to first component of next sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
+| Ctrl+Page Up | Jump to first component of previous sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
+
+---
+
+## Context-Aware Jump Navigation (Ctrl+Left / Ctrl+Right)
+
+`Ctrl+Left` and `Ctrl+Right` perform a context-sensitive jump whose target depends on what component is currently focused. The behavior is determined by `CommandDispatcher.HandleTrendlineCrossJump`.
+
+| Focused Component Type | Jump Target |
+|------------------------|-------------|
+| Price candle or candle wick | Next bar where price crosses a drawn trendline |
+| Sparse marker (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square, ZeroDot) | Next bar where that component has a non-NaN signal value |
+| Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses the zero line |
+| Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone |
+| Moving average overlay (EMA, SMA, WMA, Spider Lines etc.) | Next bar where price (close) crosses the focused MA line |
+| Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
+| No focus / unknown | Next trendline crossing (fallback) |
+
+When no further event exists in the scan direction, speech announces: "No more [component name] signals in this direction."
+
+---
+
+## Playback
+
+| Key | Action | Notes |
+|-----|--------|-------|
+| Space | Play/Stop entire chart | All visible series, bar by bar |
+| Shift+Space | Play/Stop focused series | Only components of the focused indicator |
+| Ctrl+Shift+Space | Play/Stop focused component | Single component only |
+| Ctrl+Space | Pause / Resume active playback | Cursor syncs to pause point |
+| Shift+Escape | Force-stop all playback immediately | — |
+| Shift+= | Increase playback speed | — |
+| Shift+- | Decrease playback speed | — |
+
+---
+
+## Speech and Sonification
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| F2 | Toggle speech output on/off | "Speech output enabled/disabled" |
+| F3 | Toggle sonification (audio engine) on/off | "Sonification enabled/disabled" |
+| F4 | Announce context summary | "{Symbol} on {Provider}, {Timeframe}" |
+| Ctrl+Alt+Shift+C | Focus chart area + announce context summary | "{Symbol} context summary" |
+
+---
+
+## Volume Controls
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| F5 | Component volume up (+10%) | "Component volume N percent" |
+| Shift+F5 | Component volume down (-10%) | "Component volume N percent" |
+| F6 | Series volume up (+10%) | "Series volume N percent" |
+| Shift+F6 | Series volume down (-10%) | "Series volume N percent" |
+| F7 | Master chart volume up (+10%) | "Chart volume N percent" |
+| Shift+F7 | Master chart volume down (-10%) | "Chart volume N percent" |
+
+---
+
+## Indicator Visibility and Mute
+
+`H` and `M` respect the last interaction context. If you last pressed Up/Down (component navigation), they apply to the focused component. If you last pressed Left/Right (bar navigation), they apply to the whole series.
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
+| M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
+| 0 (zero) | Add a zero reference line to the focused indicator series | "Zero line added" |
+| Delete | Remove the focused indicator series (candles are protected) | Confirmation |
+
+---
+
+## Chart Display Toggles
+
+| Key | Action |
+|-----|--------|
+| Alt+C | Toggle Heikin-Ashi candle mode |
+| Alt+L | Toggle logarithmic (log) scale |
+| Alt+H | Toggle volume heatmap overlay |
+
+---
+
+## Indicator Management
+
+| Key | Action |
+|-----|--------|
+| Alt+A | Open the Add Indicator dialog |
+| P | Open indicator properties dialog (parameters, audio, visual settings) |
+| Shift+F12 | Open indicator properties dialog (alternative to P) |
+
+---
+
+## Analysis
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| Ctrl+Shift+D | Full candle pattern + indicator analysis for the current bar | Spoken summary |
+
+---
+
+## Drawing Tools — Coordinate Entry Mode
+
+All drawing shortcuts enter **Coordinate Entry mode**. In this mode:
+1. Speech announces: "Coordinate entry mode. Navigate to first anchor point and press Enter."
+2. Use Left/Right arrows to navigate to the desired bar.
+3. Press Enter to set the first anchor. Speech announces the price and timestamp of the anchor and prompts for the next step.
+4. Navigate to the second anchor bar (if required by the tool).
+5. Press Enter to complete the drawing. Speech confirms placement.
+6. Press Escape at any time to cancel placement and exit Coordinate Entry mode.
+
+| Key | Tool | Anchors Required |
+|-----|------|-----------------|
+| Ctrl+Shift+T | Trendline | 2 |
+| Ctrl+Shift+H | Horizontal line (price level) | 1 |
+| Ctrl+Shift+V | Vertical line (time marker) | 1 |
+| Ctrl+Shift+C | Price channel (two parallel lines) | 2 |
+| Ctrl+Shift+F | Fibonacci retracement | 2 (swing high and swing low) |
+| Ctrl+Shift+E | Fibonacci extension | 3 (move start, move end, pullback) |
+| Ctrl+Shift+L | Text label | 1 |
+| Ctrl+Shift+R | Rectangle | 2 (opposite corners) |
+| Ctrl+Shift+M | Measure / range tool | 2 |
+| Ctrl+Shift+A | Andrews' pitchfork | 3 |
+| Ctrl+Shift+G | Gann fan | 2 |
+| Ctrl+Shift+B | Gann box | 2 |
+| Ctrl+Shift+J | Angle / Fibonacci angle | 2 |
+| Ctrl+Shift+P | Risk/Reward tool | 2 (entry and stop loss) |
+| Ctrl+Shift+W | Anchored VWAP | 1 (the anchor bar) |
+
+| Key | Drawing Placement Action |
+|-----|--------------------------|
+| Enter / Return | Confirm anchor at current bar position |
+| Escape | Cancel active drawing / exit Coordinate Entry mode |
+
+---
+
+## Modals and Panels
+
+| Key | Opens |
+|-----|-------|
+| F1 | Help dialog (built-in keyboard reference) |
+| F12 | Settings dialog |
+| Alt+A | Add Indicator dialog |
+| Alt+O | Object tree (manage chart layers, indicators, drawings) |
+| Alt+J | Alerts manager |
+| Alt+K | API key manager |
+| Alt+T | Trading dashboard |
+| Alt+B | Order book |
+| Alt+S | Strategy manager |
+| Alt+W | Sound designer |
+| Alt+D | Drawing tools panel |
+| Alt+, | Custom scripts panel (PineScript / Roslyn) |
+
+---
+
+## Notes
+
+- **Tab** is not a shortcut in this application. Series switching uses Page Up / Page Down.
+- **Ctrl+I** is not assigned. The Add Indicator dialog is Alt+A.
+- **Ctrl+Shift+C** opens a Price Channel drawing — it is not a trendline shortcut. Trendlines use Ctrl+Shift+T.
+- The **P** key opens indicator properties regardless of whether you use it alone or as Shift+F12. Both route to the same `OpenProperties` command.
+- Drawing tools do **not** use a double-press model. Each tool is activated once and then uses Coordinate Entry mode (navigate + Enter) to set anchors.

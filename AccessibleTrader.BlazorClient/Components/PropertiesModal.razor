@@ -1,0 +1,587 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@using System.Collections.Immutable
+@inject IWorkspaceStore Store
+@inject ISeriesManagementService SeriesManager
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@inject IIndicatorPreferencesService IndicatorPrefs
+@inject IIndicatorService IndicatorService
+@inject IIndicatorModelFactory Factory
+@implements IDisposable
+
+@if (_isVisible && _series != null)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="props-title"
+             style="max-width:600px; min-height: 500px;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="props-title" tabindex="-1">Properties — @_series.FriendlyName</h2>
+
+            <div class="tabs-header" role="tablist">
+                <button role="tab" class="@(_activeTab == "General" ? "active" : "")" 
+                        aria-selected="@(_activeTab == "General" ? "true" : "false")"
+                        @onclick='() => _activeTab = "General"'>General</button>
+                <button role="tab" class="@(_activeTab == "Appearance" ? "active" : "")" 
+                        aria-selected="@(_activeTab == "Appearance" ? "true" : "false")"
+                        @onclick='() => _activeTab = "Appearance"'>Appearance</button>
+                <button role="tab" class="@(_activeTab == "Sonification" ? "active" : "")" 
+                        aria-selected="@(_activeTab == "Sonification" ? "true" : "false")"
+                        @onclick='() => _activeTab = "Sonification"'>Sonification</button>
+            </div>
+
+            <div class="tab-content" role="tabpanel">
+                @switch (_activeTab)
+                {
+                    case "General":
+                        <div class="scroll-area">
+                            @if (_params.Any())
+                            {
+                                <fieldset>
+                                    <legend>Indicator Parameters</legend>
+                                    @foreach (var key in _params.Keys.ToList())
+                                    {
+                                        <div class="modal-row">
+                                            <label for="prop-@key">@key</label>
+                                            <input id="prop-@key" type="number" step="any"
+                                                   value="@_params[key]"
+                                                   @onchange="e => UpdateParam(key, e.Value?.ToString())" />
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
+
+                            @if (_series.IsDrawing && _series.Drawing != null)
+                            {
+                                <fieldset>
+                                    <legend>Drawing Coordinates</legend>
+                                    @if (_drawingNeedsPrice1) {
+                                        <div class="modal-row">
+                                            <label>@_price1Label</label>
+                                            <input type="number" step="any" value="@_series.Drawing.AnchorPrice1" @onchange='e => UpdateDrawingPrice(1, e.Value?.ToString())' />
+                                        </div>
+                                    }
+                                    @if (_drawingNeedsDate1) {
+                                        <div class="modal-row">
+                                            <label>@_date1Label</label>
+                                            <input type="datetime-local" value='@_series.Drawing.AnchorDate1?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(1, e.Value?.ToString())' />
+                                        </div>
+                                    }
+                                    @if (_drawingNeedsPrice2) {
+                                        <div class="modal-row">
+                                            <label>@_price2Label</label>
+                                            <input type="number" step="any" value="@_series.Drawing.AnchorPrice2" @onchange='e => UpdateDrawingPrice(2, e.Value?.ToString())' />
+                                        </div>
+                                    }
+                                    @if (_drawingNeedsDate2) {
+                                        <div class="modal-row">
+                                            <label>@_date2Label</label>
+                                            <input type="datetime-local" value='@_series.Drawing.AnchorDate2?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(2, e.Value?.ToString())' />
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
+                        </div>
+                        break;
+
+                    case "Appearance":
+                        <div class="scroll-area">
+                            @foreach (var comp in _series.Components)
+                            {
+                                <fieldset>
+                                    <legend>Component: @comp.Name</legend>
+                                    @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle)
+                                    {
+                                        <div class="modal-row">
+                                            <label>Bullish Color</label>
+                                            <input type="color" value="@comp.ColorHex" @onchange='e => comp.ColorHex = e.Value?.ToString() ?? "#00CC44"' />
+                                        </div>
+                                        <div class="modal-row">
+                                            <label>Bearish Color</label>
+                                            <input type="color" value="@comp.ColorHexSecondary" @onchange='e => comp.ColorHexSecondary = e.Value?.ToString() ?? "#CC2200"' />
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="modal-row">
+                                            <label>Color</label>
+                                            <input type="color" value="@comp.ColorHex" @onchange='e => comp.ColorHex = e.Value?.ToString() ?? "#FFF"' />
+                                        </div>
+                                    }
+                                    <div class="modal-row">
+                                        <label>Thickness (@comp.Thickness.ToString("F1"))</label>
+                                        <input type="range" min="0.5" max="10" step="0.5" value="@comp.Thickness" @onchange='e => comp.Thickness = float.Parse(e.Value?.ToString() ?? "1")' />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>Dash Style</label>
+                                        <select value="@comp.DashStyle" @onchange='e => comp.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Solid")'>
+                                            @foreach (var style in Enum.GetValues<DashStyle>())
+                                            {
+                                                <option value="@style">@style</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>
+                                            <input type="checkbox" checked="@comp.IsVisible" @onchange="e => comp.IsVisible = (bool)(e.Value ?? true)" />
+                                            Visible
+                                        </label>
+                                    </div>
+
+                                    @* ── Color Rules ──────────────────────────────────────────── *@
+                                    <div style="margin-top:10px; border-top:1px solid #222; padding-top:8px;">
+                                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                                            <span style="font-size:0.78rem; color:#888; text-transform:uppercase; letter-spacing:0.05em;">
+                                                Color Rules <span style="font-weight:normal;">(first match wins, overrides static color)</span>
+                                            </span>
+                                            <button style="font-size:0.75rem; padding:2px 8px;"
+                                                    @onclick="() => AddColorRule(comp)"
+                                                    aria-label="Add color rule">+ Add</button>
+                                        </div>
+                                        @if (!comp.ColorRules.Any())
+                                        {
+                                            <p style="font-size:0.8rem; color:#555; margin:0 0 4px 0;">No rules — static color above is always used.</p>
+                                        }
+                                        @for (int ri = 0; ri < comp.ColorRules.Count; ri++)
+                                        {
+                                            var rIdx = ri;
+                                            var rule = comp.ColorRules[rIdx];
+                                            <div class="modal-row" style="flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:4px;">
+                                                <select aria-label="Color rule condition"
+                                                        value="@rule.Condition"
+                                                        @onchange='e => ReplaceColorRule(comp, rIdx, rule with { Condition = Enum.Parse<ColorCondition>(e.Value?.ToString() ?? "AboveZero") })'>
+                                                    @foreach (var cond in Enum.GetValues<ColorCondition>())
+                                                    {
+                                                        <option value="@cond" selected="@(rule.Condition == cond)">@cond</option>
+                                                    }
+                                                </select>
+                                                @if (rule.Condition is ColorCondition.AboveLevel or ColorCondition.BelowLevel)
+                                                {
+                                                    <input type="number" step="any" value="@rule.Level"
+                                                           style="width:65px;"
+                                                           aria-label="Level threshold"
+                                                           @onchange='e => ReplaceColorRule(comp, rIdx, rule with { Level = double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double lv) ? lv : 0.0 })' />
+                                                }
+                                                <input type="color" value="@rule.ColorHex"
+                                                       aria-label="Rule color"
+                                                       @onchange='e => ReplaceColorRule(comp, rIdx, rule with { ColorHex = e.Value?.ToString() ?? "#FFFFFF" })' />
+                                                <button style="padding:1px 6px; font-size:0.8rem;"
+                                                        aria-label="Remove rule"
+                                                        @onclick="() => RemoveColorRule(comp, rIdx)">✕</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </fieldset>
+                            }
+
+                            @if (_series.CloudFills.Any())
+                            {
+                                <fieldset>
+                                    <legend>Cloud Fills</legend>
+                                    @foreach (var fill in _series.CloudFills)
+                                    {
+                                        <div style="border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;">
+                                            <div class="modal-row" style="font-weight:bold; margin-bottom:4px;">
+                                                <span>@fill.DisplayName</span>
+                                                <label style="margin-left:auto;">
+                                                    <input type="checkbox" checked="@fill.IsVisible" @onchange="e => fill.IsVisible = (bool)(e.Value ?? true)" />
+                                                    Visible
+                                                </label>
+                                            </div>
+                                            <div class="modal-row">
+                                                <label>Bullish Fill</label>
+                                                <input type="color" value="@fill.BullishColorHex" @onchange='e => fill.BullishColorHex = e.Value?.ToString() ?? "#26A69A"' />
+                                            </div>
+                                            <div class="modal-row">
+                                                <label>Bearish Fill</label>
+                                                <input type="color" value="@fill.BearishColorHex" @onchange='e => fill.BearishColorHex = e.Value?.ToString() ?? "#EF5350"' />
+                                            </div>
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
+
+                            @if (_series.Levels.Any())
+                            {
+                                <fieldset>
+                                    <legend>Reference Levels</legend>
+                                    @foreach (var level in _series.Levels)
+                                    {
+                                        <div style="border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
+                                            <div class="modal-row" style="font-weight:bold; margin-bottom:4px;">
+                                                <span>@level.Name</span>
+                                                <label style="margin-left:auto;">
+                                                    <input type="checkbox" checked="@level.IsVisible"
+                                                           @onchange='e => level.IsVisible = (bool)(e.Value ?? true)' />
+                                                    Visible
+                                                </label>
+                                            </div>
+                                            <div class="modal-row">
+                                                <label>Value</label>
+                                                <input type="number" step="any" value="@level.Value"
+                                                       @onchange='e => { if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double v)) level.Value = v; }' />
+                                                <input type="color" value="@level.ColorHex"
+                                                       @onchange='e => level.ColorHex = e.Value?.ToString() ?? "#888"' />
+                                                <select value="@level.DashStyle" style="width:80px;"
+                                                        @onchange='e => level.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Dash")'>
+                                                    @foreach (var style in Enum.GetValues<DashStyle>()) { <option value="@style">@style</option> }
+                                                </select>
+                                            </div>
+                                            <div class="modal-row">
+                                                <label>
+                                                    <input type="checkbox" checked="@level.PlayEarcon"
+                                                           @onchange='e => level.PlayEarcon = (bool)(e.Value ?? false)' />
+                                                    Play Earcon on Crossing
+                                                </label>
+                                                @if (level.PlayEarcon)
+                                                {
+                                                    <label>Vol @((level.EarconVolume * 100).ToString("F0"))%</label>
+                                                    <input type="range" min="0" max="1" step="0.05" value="@level.EarconVolume"
+                                                           @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float ev)) level.EarconVolume = ev; }' />
+                                                }
+                                            </div>
+                                            <div class="modal-row">
+                                                <label>Zone Texture @((level.ZoneNoiseAmount * 100).ToString("F0"))%</label>
+                                                <input type="range" min="0" max="1" step="0.05" value="@level.ZoneNoiseAmount"
+                                                       @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float nv)) level.ZoneNoiseAmount = nv; }' />
+                                                <select value="@level.ZoneNoiseType" style="width:75px;"
+                                                        @onchange='e => level.ZoneNoiseType = e.Value?.ToString() ?? "pink"'>
+                                                    <option value="white">White</option>
+                                                    <option value="pink">Pink</option>
+                                                    <option value="brown">Brown</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
+                        </div>
+                        break;
+
+                    case "Sonification":
+                        <div class="scroll-area">
+                            <div class="modal-row">
+                                <label>Master Series Volume</label>
+                                <input type="range" min="0" max="1" step="0.05" value="@_series.Volume" @onchange='e => _series.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
+                                <span>@((_series.Volume * 100).ToString("F0"))%</span>
+                            </div>
+
+                            @foreach (var comp in _series.Components)
+                            {
+                                <fieldset>
+                                    <legend>Acoustics: @comp.Name</legend>
+                                    <div class="modal-row">
+                                        <label>Waveform (Instrument)</label>
+                                        <select value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
+                                            <option value="sine">Sine (Soft)</option>
+                                            <option value="triangle">Triangle (Mellow)</option>
+                                            <option value="sawtooth">Sawtooth (Bright)</option>
+                                            <option value="square">Square (Hollow)</option>
+                                        </select>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>Volume</label>
+                                        <input type="range" min="0" max="1" step="0.05" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
+                                        <span>@((comp.Volume * 100).ToString("F0"))%</span>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>Base Frequency (Hz)</label>
+                                        <input type="number" step="10" min="50" max="2000" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>Noise Texture (@(comp.NoiseAmount.ToString("F2")))</label>
+                                        <input type="range" min="0" max="1" step="0.05" value="@comp.NoiseAmount"
+                                               aria-label="Noise texture amount"
+                                               @onchange='e => comp.NoiseAmount = float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float nv) ? nv : 0f' />
+                                        <span style="min-width:32px;">@((comp.NoiseAmount * 100).ToString("F0"))%</span>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label>
+                                            <input type="checkbox" checked="@(!comp.IsMuted)" @onchange="e => comp.IsMuted = !(bool)(e.Value ?? true)" />
+                                            Audio Enabled
+                                        </label>
+                                    </div>
+                                </fieldset>
+                            }
+                        </div>
+                        break;
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button @onclick="Close">Cancel</button>
+                @if (_series != null && !_series.IsDrawing && !string.IsNullOrEmpty(_series.Config?.IndicatorCode))
+                {
+                    <button title="Save current appearance and sonification as persistent defaults for this indicator type"
+                            @onclick="SaveAsDefaults">Save as Defaults</button>
+                    <button title="Discard all customisations and reload fresh metadata defaults for this indicator"
+                            @onclick="ResetToDefaults">Reset to Defaults</button>
+                }
+                <button class="primary" @onclick="Apply">Apply Changes</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <p role="alert" class="error-text">@_error</p>
+            }
+        </div>
+    </div>
+}
+
+<style>
+    .tabs-header { display: flex; border-bottom: 1px solid #333; margin-bottom: 15px; }
+    .tabs-header button {
+        flex: 1; padding: 10px; background: transparent; border: none; border-bottom: 2px solid transparent;
+        color: #888; cursor: pointer; font-weight: bold;
+    }
+    .tabs-header button.active { color: #0078d4; border-bottom-color: #0078d4; }
+    
+    .tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .scroll-area { overflow-y: auto; padding-right: 10px; }
+    
+    fieldset { border: 1px solid #333; border-radius: 4px; padding: 10px; margin-bottom: 15px; }
+    legend { padding: 0 5px; color: #888; font-size: 0.8rem; text-transform: uppercase; }
+    
+    .modal-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .modal-row label { flex: 1; font-size: 0.9rem; }
+    .modal-row input[type="number"], .modal-row input[type="text"], .modal-row select { 
+        background: #222; border: 1px solid #444; color: #fff; padding: 4px; border-radius: 2px;
+    }
+    
+    .error-text { color: #f44; font-size: 0.85rem; margin-top: 10px; }
+</style>
+
+@code {
+    private bool _isVisible;
+    private string _activeTab = "General";
+    private ChartSeries? _series;
+    private Dictionary<string, double> _params = new();
+    private string? _error;
+    private IDisposable? _eventSub;
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenPropertiesEvent>(ev => InvokeAsync(() => ShowAsync(ev.SeriesId)));
+    }
+
+    private async Task ShowAsync(string? overrideId)
+    {
+        var id = overrideId ?? Store.State.FocusedSeriesId;
+        var original = Store.State.ActiveSeries.FirstOrDefault(s => s.Id == id);
+        if (original == null) return;
+
+        // Clone so changes are only applied when clicking "Apply"
+        _series = original.Clone();
+        
+        _params = _series.Parameters != null
+            ? new Dictionary<string, double>(_series.Parameters)
+            : new Dictionary<string, double>();
+        _error = null;
+        _activeTab = "General";
+
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "props-title"); } catch { }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    private void UpdateParam(string key, string? raw)
+    {
+        if (double.TryParse(raw, out double v)) _params[key] = v;
+    }
+
+    private void Apply()
+    {
+        if (_series == null) return;
+
+        _series.Parameters.Clear();
+        foreach (var kvp in _params) _series.Parameters[kvp.Key] = kvp.Value;
+
+        // Replace only the edited series in the full list — UpdateSeriesAction does a bulk
+        // replace of ActiveSeries, so passing a single-element list wipes all other series.
+        var updatedList = Store.State.ActiveSeries
+            .Select(s => s.Id == _series.Id ? _series : s)
+            .ToImmutableList();
+        Store.Dispatch(new UpdateSeriesAction(updatedList));
+        SeriesManager.PersistWorkspace();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"{_series.FriendlyName} properties applied"));
+        
+        // Trigger a recalculation if parameters changed
+        EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
+        
+        Close();
+    }
+
+    /// <summary>
+    /// Regenerates all component configs from fresh indicator metadata, clearing any stale
+    /// workspace overrides and user preferences. Useful when provider defaults have changed
+    /// (e.g. new waveform or color defaults in CipherB) and the running series is still using
+    /// an old workspace save.
+    /// </summary>
+    private void ResetToDefaults()
+    {
+        if (_series == null) return;
+        var indicatorCode = _series.Config?.IndicatorCode;
+        if (string.IsNullOrEmpty(indicatorCode)) return;
+
+        var meta = IndicatorService.GetAvailableIndicators()
+            .FirstOrDefault(m => m.Code == indicatorCode);
+        if (meta == null) return;
+
+        // Wipe persisted preferences so Layer 3 is empty → pure metadata defaults.
+        IndicatorPrefs.ClearPreferences(indicatorCode);
+
+        // Build parameter list from current series (preserves user-set periods etc.)
+        var paramList = _series.Parameters
+            .Select(kvp => (kvp.Key, kvp.Value.ToString()))
+            .ToList();
+
+        // CreateSeriesFromMetadata with no workspace overrides → Layer 1 only.
+        var freshSeries = Factory.CreateSeriesFromMetadata(
+            meta, _series.FriendlyName, _series.Pane ?? "", paramList,
+            new System.Collections.Generic.List<ComponentConfig>());
+
+        // Splice fresh component configs into the cloned series (preserves ID / pane / params).
+        if (_series.Config == null) return;
+        _series.Config.Components.Clear();
+        foreach (var c in freshSeries.Components)
+            _series.Config.Components.Add(c);
+
+        // Re-inject level defaults from the provider (prefs were cleared above so Layer 3 is empty).
+        SeriesManager.ResetLevelsToProviderDefaults(_series);
+
+        // Apply immediately — no need for user to click Apply.
+        var updatedList = Store.State.ActiveSeries
+            .Select(s => s.Id == _series.Id ? _series : s)
+            .ToImmutableList();
+        Store.Dispatch(new UpdateSeriesAction(updatedList));
+        SeriesManager.PersistWorkspace();
+        EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"{_series.FriendlyName} reset to defaults"));
+
+        StateHasChanged();
+    }
+
+    private void SaveAsDefaults()
+    {
+        if (_series == null) return;
+        var indicatorCode = _series.Config?.IndicatorCode;
+        if (string.IsNullOrEmpty(indicatorCode)) return;
+
+        // Build ComponentPreference list from the current (potentially edited) component state.
+        var prefs = _series.Components
+            .Where(c => c.DisplayType != ComponentDisplayType.Level)
+            .Select(c => new ComponentPreference
+            {
+                Name              = c.Name,
+                ColorHex          = c.ColorHex,
+                ColorHexSecondary = c.ColorHexSecondary,
+                Thickness         = c.Thickness,
+                DashStyle         = c.DashStyle,
+                Waveform          = c.Waveform,
+                EnvelopeType      = c.EnvelopeType,
+                Volume            = c.Volume,
+                FreqMultiplier    = c.FreqMultiplier,
+                BaseFrequency     = c.BaseFrequency,
+                NoiseAmount       = c.NoiseAmount,
+                IsVisible         = c.IsVisible,
+            })
+            .ToList();
+
+        IndicatorPrefs.SavePreferences(indicatorCode, prefs);
+
+        // Also persist the current level audio/display settings as type defaults for future fresh adds.
+        foreach (var level in _series.Levels)
+        {
+            IndicatorPrefs.SaveLevelPreference(indicatorCode, new LevelPreference
+            {
+                Name            = level.Name,
+                Value           = level.Value,
+                IsVisible       = level.IsVisible,
+                PlayEarcon      = level.PlayEarcon,
+                EarconVolume    = level.EarconVolume,
+                ZoneNoiseAmount = level.ZoneNoiseAmount,
+                ZoneNoiseType   = level.ZoneNoiseType,
+            });
+        }
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Defaults saved for {_series.FriendlyName}"));
+    }
+
+    // Color Rule helpers
+    private void AddColorRule(ComponentConfig comp)
+        => comp.ColorRules.Add(new ColorRule { Condition = ColorCondition.AboveZero, ColorHex = "#26A69A" });
+
+    private void ReplaceColorRule(ComponentConfig comp, int idx, ColorRule updated)
+        => comp.ColorRules[idx] = updated;
+
+    private void RemoveColorRule(ComponentConfig comp, int idx)
+        => comp.ColorRules.RemoveAt(idx);
+
+    // Drawing parameter helpers
+    private bool _drawingNeedsPrice1 => _series?.Drawing?.Type is DrawingType.HorizontalLine or DrawingType.TrendLine or DrawingType.Channel or DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.Rectangle;
+    private bool _drawingNeedsDate1  => _series?.Drawing?.Type is DrawingType.VerticalLine or DrawingType.TrendLine or DrawingType.Channel or DrawingType.Rectangle or DrawingType.TextLabel;
+    private bool _drawingNeedsPrice2 => _series?.Drawing?.Type is DrawingType.TrendLine or DrawingType.Channel or DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.Rectangle;
+    private bool _drawingNeedsDate2  => _series?.Drawing?.Type is DrawingType.TrendLine or DrawingType.Channel or DrawingType.Rectangle;
+
+    private string _price1Label => _series?.Drawing?.Type switch {
+        DrawingType.HorizontalLine => "Price",
+        DrawingType.FibRetracement or DrawingType.FibExtension => "Start Price",
+        DrawingType.Rectangle => "Top Price",
+        _ => "Start Price"
+    };
+    private string _date1Label  => _series?.Drawing?.Type switch {
+        DrawingType.VerticalLine => "Date",
+        DrawingType.Rectangle    => "Start Date",
+        DrawingType.TextLabel    => "Position Date",
+        _ => "Start Date"
+    };
+    private string _price2Label => _series?.Drawing?.Type switch {
+        DrawingType.FibRetracement or DrawingType.FibExtension => "End Price",
+        DrawingType.Rectangle => "Bottom Price",
+        _ => "End Price"
+    };
+    private string _date2Label  => _series?.Drawing?.Type switch {
+        DrawingType.Rectangle => "End Date",
+        _ => "End Date"
+    };
+
+    private void UpdateDrawingPrice(int anchor, string? raw)
+    {
+        if (_series?.Drawing == null) return;
+        if (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double v)) return;
+        var d = _series.Drawing;
+        if (anchor == 1) d.AnchorPrice1 = v;
+        else if (anchor == 2) d.AnchorPrice2 = v;
+        else if (anchor == 3) d.AnchorPrice3 = v;
+    }
+
+    private void UpdateDrawingDate(int anchor, string? raw)
+    {
+        if (_series?.Drawing == null) return;
+        if (!DateTime.TryParse(raw, out DateTime dt)) return;
+        var d = _series.Drawing;
+        if (anchor == 1) d.AnchorDate1 = dt;
+        else if (anchor == 2) d.AnchorDate2 = dt;
+    }
+
+    public void Dispose() => _eventSub?.Dispose();
+}

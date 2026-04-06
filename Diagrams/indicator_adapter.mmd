@@ -1,0 +1,33 @@
+classDiagram
+    class IIndicatorProvider {
+        <<interface>>
+        +Name: string
+        +GetIndicators() List~Metadata~
+        +Calculate(code, data, params) Dictionary~string, double[]~
+    }
+
+    class StockIndicatorProvider {
+        +Name: "Skender.Stock.Indicators"
+        +Calculate()
+    }
+
+    class ProfileIndicatorProvider {
+        +Name: "Profile.Indicators"
+        +Calculate()
+    }
+
+    class IndicatorService {
+        -List~IIndicatorProvider~ _providers
+        +CalculateIndicator(code, data, params) Dictionary~string, double[]~
+    }
+
+    class IndicatorOrchestrator {
+        -IndicatorEngine _engine
+        -WorkspaceStore _store
+        +OnNewData(data)
+    }
+
+    IndicatorOrchestrator o-- IndicatorService
+    IndicatorService o-- IIndicatorProvider
+    IIndicatorProvider <|-- StockIndicatorProvider
+    IIndicatorProvider <|-- ProfileIndicatorProvider

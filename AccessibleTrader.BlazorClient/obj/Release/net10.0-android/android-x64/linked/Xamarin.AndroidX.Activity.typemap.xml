@@ -1,0 +1,35 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Activity" mvid="9c93340773294992aefd5ce96f54f20c">
+  <module assembly-name="Xamarin.AndroidX.Activity" mvid="9c93340773294992aefd5ce96f54f20c" mvid-bytes="BzSTnClzkkmu/Vzpb1TyDA==">
+    <duplicates>
+      <entry java-name="androidx/activity/OnBackPressedCallback" managed-type-name="AndroidX.Activity.OnBackPressedCallbackInvoker" token="33554451" />
+      <entry java-name="androidx/activity/result/ActivityResultLauncher" managed-type-name="AndroidX.Activity.Result.ActivityResultLauncherInvoker" token="33554454" />
+      <entry java-name="androidx/activity/result/ActivityResultRegistry" managed-type-name="AndroidX.Activity.Result.ActivityResultRegistryInvoker" token="33554456" />
+      <entry java-name="androidx/activity/result/ActivityResultCallback" managed-type-name="AndroidX.Activity.Result.IActivityResultCallbackInvoker" token="33554458" />
+      <entry java-name="androidx/activity/result/contract/ActivityResultContract" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContractInvoker" token="33554462" />
+      <entry java-name="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$DefaultTab" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickVisualMedia/DefaultTabInvoker" token="33554467" />
+      <entry java-name="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$VisualMediaType" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickVisualMedia/IVisualMediaTypeInvoker" token="33554469" />
+      <entry java-name="androidx/activity/contextaware/OnContextAvailableListener" managed-type-name="AndroidX.Activity.ContextAware.IOnContextAvailableListenerInvoker" token="33554471" />
+    </duplicates>
+    <types-scratch>
+      <entry key="androidx/activity/BackEventCompat" java-name="androidx/activity/BackEventCompat" managed-type-name="AndroidX.Activity.BackEventCompat" token="33554443" />
+      <entry key="androidx/activity/ComponentActivity" java-name="androidx/activity/ComponentActivity" managed-type-name="AndroidX.Activity.ComponentActivity" token="33554444" />
+      <entry key="androidx/activity/ComponentDialog" java-name="androidx/activity/ComponentDialog" managed-type-name="AndroidX.Activity.ComponentDialog" token="33554448" />
+      <entry key="androidx/activity/FullyDrawnReporter" java-name="androidx/activity/FullyDrawnReporter" managed-type-name="AndroidX.Activity.FullyDrawnReporter" token="33554449" />
+      <entry key="androidx/activity/OnBackPressedCallback" java-name="androidx/activity/OnBackPressedCallback" managed-type-name="AndroidX.Activity.OnBackPressedCallback" token="33554450" />
+      <entry key="androidx/activity/OnBackPressedDispatcher" java-name="androidx/activity/OnBackPressedDispatcher" managed-type-name="AndroidX.Activity.OnBackPressedDispatcher" token="33554452" />
+      <entry key="androidx/activity/result/ActivityResultLauncher" java-name="androidx/activity/result/ActivityResultLauncher" managed-type-name="AndroidX.Activity.Result.ActivityResultLauncher" token="33554453" />
+      <entry key="androidx/activity/result/ActivityResultRegistry" java-name="androidx/activity/result/ActivityResultRegistry" managed-type-name="AndroidX.Activity.Result.ActivityResultRegistry" token="33554455" />
+      <entry key="androidx/activity/result/ActivityResultCallback" java-name="androidx/activity/result/ActivityResultCallback" managed-type-name="AndroidX.Activity.Result.IActivityResultCallback" token="33554457" skip-in-java-to-managed="True" />
+      <entry key="androidx/activity/result/PickVisualMediaRequest" java-name="androidx/activity/result/PickVisualMediaRequest" managed-type-name="AndroidX.Activity.Result.PickVisualMediaRequest" token="33554459" />
+      <entry key="androidx/activity/result/contract/ActivityResultContract" java-name="androidx/activity/result/contract/ActivityResultContract" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContract" token="33554460" />
+      <entry key="androidx/activity/result/contract/ActivityResultContract$SynchronousResult" java-name="androidx/activity/result/contract/ActivityResultContract$SynchronousResult" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContract/SynchronousResult" token="33554461" />
+      <entry key="androidx/activity/result/contract/ActivityResultContracts" java-name="androidx/activity/result/contract/ActivityResultContracts" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts" token="33554463" />
+      <entry key="androidx/activity/result/contract/ActivityResultContracts$PickMultipleVisualMedia" java-name="androidx/activity/result/contract/ActivityResultContracts$PickMultipleVisualMedia" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickMultipleVisualMedia" token="33554464" />
+      <entry key="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia" java-name="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickVisualMedia" token="33554465" />
+      <entry key="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$DefaultTab" java-name="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$DefaultTab" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickVisualMedia/DefaultTab" token="33554466" />
+      <entry key="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$VisualMediaType" java-name="androidx/activity/result/contract/ActivityResultContracts$PickVisualMedia$VisualMediaType" managed-type-name="AndroidX.Activity.Result.Contract.ActivityResultContracts/PickVisualMedia/IVisualMediaType" token="33554468" skip-in-java-to-managed="True" />
+      <entry key="androidx/activity/contextaware/OnContextAvailableListener" java-name="androidx/activity/contextaware/OnContextAvailableListener" managed-type-name="AndroidX.Activity.ContextAware.IOnContextAvailableListener" token="33554470" skip-in-java-to-managed="True" />
+      <entry key="mono/androidx/activity/contextaware/OnContextAvailableListenerImplementor" java-name="mono/androidx/activity/contextaware/OnContextAvailableListenerImplementor" managed-type-name="AndroidX.Activity.ContextAware.IOnContextAvailableListenerImplementor" token="33554473" />
+    </types-scratch>
+  </module>
+</api>

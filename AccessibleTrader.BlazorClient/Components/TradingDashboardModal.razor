@@ -1,0 +1,520 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Plugins
+@using AccessibleTrader.Sdk.Enums
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IOrderExecutionService OrderService
+@inject IApiKeyService ApiKeyService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="trade-title"
+             style="max-width:800px; min-height: 600px;"
+             @onclick:stopPropagation="true">
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="trade-title" tabindex="-1" style="margin: 0;">Trading Dashboard</h2>
+                
+                @if (_availableKeys.Any())
+                {
+                    <div class="key-selector">
+                        <label for="key-select" style="font-size: 0.8rem; color: #888; margin-right: 8px;">Switch API Key:</label>
+                        <select id="key-select" value="@_activeKeyNickname" @onchange="OnKeyChanged" style="padding: 4px; background: #222; color: #fff; border: 1px solid #444;">
+                            @foreach (var key in _availableKeys)
+                            {
+                                <option value="@key.Nickname">@key.Nickname (@key.Environment)</option>
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            @if (_tradingNotSupported)
+            {
+                <div class="alert-box warning" style="margin-top: 40px; text-align: center; padding: 30px;">
+                    <div style="font-size: 2rem; margin-bottom: 15px;">🚫</div>
+                    <h3>Trading Not Supported</h3>
+                    <p>The current provider <strong>@(Store.State.Identity.Provider ?? "Unknown")</strong> does not support order execution.</p>
+                    <p style="font-size: 0.85rem; color: #888; margin-top: 10px;">Please switch to a supported exchange (e.g., Binance, Coinbase, Alpaca) to enable trading features.</p>
+                </div>
+                <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
+                    <button @onclick="Close">Close</button>
+                </div>
+            }
+            else
+            {
+                @if (_isLiveEnvironment)
+                {
+                    <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk.</div>
+                }
+
+                <div class="dashboard-grid">
+                    @* Left Column: Market & Order Entry *@
+                    <div class="dash-col">
+                        <section class="panel">
+                            <h3>Market: @(Store.State.Identity.Symbol ?? "—")</h3>
+                            <div class="market-stats">
+                                <div class="stat"><span>Price</span><strong>@GetLastPrice()</strong></div>
+                                <div class="stat"><span>Env</span><strong>@(_availableKeys.Any() ? (_isLiveEnvironment ? "Live" : "Paper") : "None")</strong></div>
+                            </div>
+                        </section>
+
+                        <section class="panel order-entry">
+                            <h3>Place Order</h3>
+                            <div class="entry-row">
+                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' @onclick='() => _orderSide = "Buy"'>BUY</button>
+                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' @onclick='() => _orderSide = "Sell"'>SELL</button>
+                            </div>
+                            
+                            <div class="entry-row">
+                                <label>Quantity</label>
+                                <input type="number" step="0.01" @bind="_orderQty" />
+                            </div>
+
+                            <div class="entry-row">
+                                <label>Type</label>
+                                <select @bind="_orderType">
+                                    <option value="Market">Market</option>
+                                    <option value="Limit">Limit</option>
+                                </select>
+                            </div>
+
+                            @if (_orderType == "Limit")
+                            {
+                                <div class="entry-row">
+                                    <label>Limit Price</label>
+                                    <input type="number" step="any" @bind="_limitPrice" />
+                                </div>
+                            }
+
+                            <div class="entry-row">
+                                <label>Stop Loss</label>
+                                <input type="number" step="any" @bind="_stopLoss" placeholder="Optional" />
+                            </div>
+
+                            <div class="entry-row">
+                                <label>Take Profit</label>
+                                <input type="number" step="any" @bind="_takeProfit" placeholder="Optional" />
+                            </div>
+
+                            @if (_supportsMargin)
+                            {
+                                <div class="entry-row">
+                                    <label for="margin-type-select">Margin</label>
+                                    <select id="margin-type-select"
+                                            aria-label="Select margin type"
+                                            @bind="_marginType">
+                                        <option value="Cross">Cross</option>
+                                        <option value="Isolated">Isolated</option>
+                                    </select>
+                                </div>
+
+                                <div class="entry-row">
+                                    <label for="leverage-input">Leverage</label>
+                                    <input id="leverage-input" type="number" min="1" max="@_maxLeverage" step="1"
+                                           aria-label="Leverage multiplier"
+                                           @bind="_leverage" />
+                                    <span style="font-size:0.8rem; color:#888;">×&nbsp;(max @_maxLeverage)</span>
+                                </div>
+                            }
+
+                            <button class="submit-btn @(_orderSide.ToLower())" disabled="@(!CanSubmit)" @onclick="SubmitOrder">
+                                Submit @_orderSide Order
+                            </button>
+
+                            @if (!string.IsNullOrEmpty(_orderStatus))
+                            {
+                                <div class='status-msg @(_orderError ? "error" : "success")'>@_orderStatus</div>
+                            }
+                        </section>
+                    </div>
+
+                    @* Right Column: Order Book & Account *@
+                    <div class="dash-col">
+                        <section class="panel order-book" aria-labelledby="ob-heading-dash">
+                            <h3 id="ob-heading-dash">Order Book</h3>
+
+                            @if (_bookLoading)
+                            {
+                                <p aria-live="polite" style="font-size:0.85rem; color:#888;">Loading order book…</p>
+                            }
+                            else
+                            {
+                                <p style="font-size:0.8rem; color:#888; margin:0 0 6px;" aria-live="polite">
+                                    Spread: <strong>@GetSpread()</strong>
+                                </p>
+
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                    <section aria-labelledby="ob-asks-dash">
+                                        <h4 id="ob-asks-dash" style="font-size:0.8rem; color:#f44; margin:0 0 4px;">Asks</h4>
+                                        <table role="table" aria-label="Ask orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
+                                                    <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var ask in _asks.TakeLast(5))
+                                                {
+                                                    <tr>
+                                                        <td style="padding:2px 4px; color:#f44;">@ask.Price.ToString("G6")</td>
+                                                        <td style="padding:2px 4px; text-align:right;">@ask.Quantity.ToString("G4")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </section>
+
+                                    <section aria-labelledby="ob-bids-dash">
+                                        <h4 id="ob-bids-dash" style="font-size:0.8rem; color:#4f4; margin:0 0 4px;">Bids</h4>
+                                        <table role="table" aria-label="Bid orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
+                                                    <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var bid in _bids.Take(5))
+                                                {
+                                                    <tr>
+                                                        <td style="padding:2px 4px; color:#4f4;">@bid.Price.ToString("G6")</td>
+                                                        <td style="padding:2px 4px; text-align:right;">@bid.Quantity.ToString("G4")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </section>
+                                </div>
+                            }
+                        </section>
+
+                        <section class="panel account-data">
+                            <div class="tabs-mini">
+                                <button class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => _accountTab = "Balances"'>Balances</button>
+                                <button class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => _accountTab = "Positions"'>Positions</button>
+                                <button class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => _accountTab = "Orders"'>Orders</button>
+                            </div>
+                            
+                            <div class="account-content">
+                                @if (_accountTab == "Balances")
+                                {
+                                    <table class="mini-table">
+                                        @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
+                                        {
+                                            <tr><td>@b.Asset</td><td>@b.Free.ToString("F2")</td></tr>
+                                        }
+                                    </table>
+                                }
+                                else if (_accountTab == "Positions")
+                                {
+                                    <table class="mini-table">
+                                        @foreach (var p in _positions)
+                                        {
+                                            <tr><td>@p.Symbol</td><td>@p.Quantity.ToString("F2")</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@p.UnrealizedPnL.ToString("F1")</td></tr>
+                                        }
+                                    </table>
+                                }
+                                else if (_accountTab == "Orders")
+                                {
+                                    <table class="mini-table">
+                                        @foreach (var o in _openOrders)
+                                        {
+                                            <tr><td>@o.Side</td><td>@o.Price.ToString("F2")</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
+                                        }
+                                    </table>
+                                }
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button @onclick="RefreshAccount">Refresh</button>
+                    <button @onclick="Close">Close</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; padding: 12px; margin-bottom: 15px; }
+    .panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #888; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    
+    .market-stats { display: flex; gap: 20px; }
+    .stat { display: flex; flex-direction: column; }
+    .stat span { font-size: 0.75rem; color: #666; }
+    .stat strong { font-size: 1.1rem; color: #4ec9b0; }
+
+    .order-entry .entry-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .order-entry label { flex: 1; font-size: 0.85rem; }
+    .order-entry input, .order-entry select { background: #222; border: 1px solid #444; color: #fff; padding: 5px; border-radius: 3px; width: 120px; }
+
+    .side-btn { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; background: #333; color: #888; }
+    .side-btn.buy.active { background: #007d35; color: #fff; }
+    .side-btn.sell.active { background: #a50000; color: #fff; }
+
+    .submit-btn { width: 100%; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .submit-btn.buy { background: #008f3e; color: #fff; }
+    .submit-btn.sell { background: #c00; color: #fff; }
+    .submit-btn:disabled { background: #444; color: #777; cursor: not-allowed; }
+
+    .order-book .book-container { font-family: 'Consolas', monospace; font-size: 0.85rem; }
+    .book-half { display: flex; flex-direction: column; }
+    .book-row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .asks .price { color: #f44; }
+    .bids .price { color: #4f4; }
+    .book-spread { text-align: center; padding: 5px; background: #222; margin: 5px 0; color: #888; font-size: 0.8rem; }
+
+    .tabs-mini { display: flex; gap: 5px; margin-bottom: 10px; }
+    .tabs-mini button { background: transparent; border: none; color: #666; font-size: 0.8rem; cursor: pointer; padding: 2px 5px; }
+    .tabs-mini button.active { color: #0078d4; border-bottom: 1px solid #0078d4; }
+    
+    .mini-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .mini-table td { padding: 4px 0; border-bottom: 1px solid #222; }
+    .plus { color: #4f4; }
+    .minus { color: #f44; }
+
+    .alert-box { padding: 10px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
+    .alert-box.warning { background: #443300; color: #ffcc00; border: 1px solid #665500; }
+    .alert-box.danger { background: #440000; color: #ff4444; border: 1px solid #660000; }
+
+    .status-msg { margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 0.85rem; }
+    .status-msg.success { background: #003311; color: #4f4; }
+    .status-msg.error { background: #330000; color: #f44; }
+</style>
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+    private System.Threading.Timer? _refreshTimer;
+
+    // Order entry
+    private string _orderSide   = "Buy";
+    private double _orderQty    = 1.0;
+    private string _orderType   = "Market";
+    private double _limitPrice  = 0;
+    private double _stopLoss    = 0;
+    private double _takeProfit  = 0;
+    private string _marginType  = "Cross";
+    private double _leverage    = 1.0;
+    private string? _orderStatus;
+    private bool _orderError;
+
+    // Margin / leverage state
+    private bool   _supportsMargin;
+    private double _maxLeverage = 1.0;
+    private bool   _bookLoading;
+
+    // Account data
+    private List<Balance>   _balances   = new();
+    private List<Position>  _positions  = new();
+    private List<OpenOrder> _openOrders = new();
+    private List<OrderBookEntry> _bids = new();
+    private List<OrderBookEntry> _asks = new();
+    
+    private List<ApiKeyConfig> _availableKeys = new();
+    private string _activeKeyNickname = "";
+    
+    private string _accountTab = "Balances";
+    private bool _isLiveEnvironment;
+    private bool _tradingNotSupported;
+
+    private bool CanSubmit =>
+        _orderQty > 0
+        && !string.IsNullOrEmpty(Store.State.Identity.Symbol)
+        && !string.IsNullOrEmpty(Store.State.Identity.Provider);
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenTradingDashboardEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _orderStatus = null;
+        var provider = Store.State.Identity.Provider;
+        if (string.IsNullOrEmpty(provider)) return;
+
+        bool supported = await OrderService.SupportsTradingAsync(provider);
+        _tradingNotSupported = !supported;
+        
+        _availableKeys = await ApiKeyService.GetKeysForProviderAsync(provider);
+        var active = _availableKeys.FirstOrDefault(k => k.IsActive) ?? _availableKeys.FirstOrDefault();
+        _activeKeyNickname = active?.Nickname ?? "";
+
+        _supportsMargin = supported && await OrderService.SupportsMarginTradingAsync(provider);
+        _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
+        _leverage       = _supportsMargin ? Math.Min(_leverage, _maxLeverage) : 1.0;
+
+        _limitPrice  = GetCurrentPrice();
+        _isVisible   = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+
+        if (!supported) return;
+
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "trade-title"); } catch { }
+
+        await LoadAccountDataAsync();
+        
+        // Start background refresh for order book
+        _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshBookAsync), null, 0, 2000);
+    }
+
+    private async Task LoadAccountDataAsync()
+    {
+        var provider = Store.State.Identity.Provider;
+        if (string.IsNullOrEmpty(provider)) return;
+
+        _balances   = await OrderService.GetBalancesAsync(provider);
+        _positions  = await OrderService.GetPositionsAsync(provider);
+        _openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
+
+        var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
+        _isLiveEnvironment = activeKey?.Environment == "Live";
+
+        StateHasChanged();
+    }
+
+    private async Task RefreshBookAsync()
+    {
+        if (!_isVisible) return;
+        var provider = Store.State.Identity.Provider;
+        var symbol = Store.State.Identity.Symbol;
+        if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
+
+        _bookLoading = true;
+        StateHasChanged();
+
+        var (bids, asks) = await OrderService.GetOrderBookAsync(provider, symbol);
+        _bids = bids;
+        _asks = asks;
+        _bookLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task OnKeyChanged(ChangeEventArgs e)
+    {
+        _activeKeyNickname = e.Value?.ToString() ?? "";
+        await ApiKeyService.SetActiveKeyAsync(_activeKeyNickname);
+        
+        // Announce key change
+        var key = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Switched to API key {key?.Nickname} ({key?.Environment})", true));
+        
+        await LoadAccountDataAsync();
+    }
+
+    private async Task RefreshAccount() => await LoadAccountDataAsync();
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+        StateHasChanged();
+    }
+
+    private async Task SubmitOrder()
+    {
+        if (!CanSubmit) return;
+        _orderStatus = "Submitting…";
+        _orderError  = false;
+        StateHasChanged();
+
+        try
+        {
+            var side  = _orderSide == "Sell" ? OrderSide.Sell : OrderSide.Buy;
+            var type  = _orderType == "Limit" ? OrderType.Limit : OrderType.Market;
+            double? price = _orderType == "Limit" ? _limitPrice : null;
+            double? sl  = _stopLoss > 0 ? _stopLoss : null;
+            double? tp  = _takeProfit > 0 ? _takeProfit : null;
+            double? lev = _supportsMargin && _leverage > 1 ? _leverage : null;
+
+            // Parse sub-type from the market identity (e.g. "Crypto|Futures" → "Futures")
+            string? subType = null;
+            var marketKey = Store.State.Identity.Market ?? "";
+            if (marketKey.Contains("|"))
+                subType = marketKey.Split('|')[1];
+
+            var signal = new TradeSignal(
+                Symbol:     Store.State.Identity.Symbol!,
+                Side:       side,
+                Quantity:   _orderQty,
+                Type:       type,
+                Price:      price,
+                StopLoss:   sl,
+                TakeProfit: tp,
+                Leverage:   lev,
+                SubType:    subType,
+                MarginType: _supportsMargin ? _marginType : null);
+
+            string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
+
+            _orderError  = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
+            _orderStatus = _orderError ? $"Order rejected: {result}" : $"{_orderSide} order submitted.";
+
+            // COHERENT SPEECH ANNOUNCEMENT
+            EventBus.Publish(new FeedbackRequestEvent(_orderError ? FeedbackType.Error : FeedbackType.Info, _orderStatus, true));
+
+            if (!_orderError) await LoadAccountDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _orderError  = true;
+            _orderStatus = $"Order failed: {ex.Message}";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _orderStatus, true));
+        }
+    }
+
+    private async Task CancelOrder(string orderId, string symbol)
+    {
+        var provider = Store.State.Identity.Provider;
+        if (string.IsNullOrEmpty(provider)) return;
+
+        bool ok = await OrderService.CancelOrderAsync(provider, orderId, symbol);
+        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order cancelled" : $"Cancel failed", true));
+
+        if (ok) await LoadAccountDataAsync();
+    }
+
+    private string GetLastPrice()
+    {
+        var data = Store.State.Data;
+        if (data == null || !data.Any()) return "—";
+        return data[^1].Close.ToString("F2");
+    }
+
+    private double GetCurrentPrice()
+    {
+        if (Store.State.Data == null || !Store.State.Data.Any()) return 0;
+        return Store.State.Data.Last().Close;
+    }
+
+    private string GetSpread()
+    {
+        if (!_bids.Any() || !_asks.Any()) return "—";
+        double spread = _asks[0].Price - _bids[0].Price;
+        return spread.ToString("F2");
+    }
+
+    public void Dispose()
+    {
+        _eventSub?.Dispose();
+        _refreshTimer?.Dispose();
+    }
+}

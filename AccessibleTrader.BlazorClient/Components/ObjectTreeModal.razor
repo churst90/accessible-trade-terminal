@@ -1,0 +1,278 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="objtree-title"
+             style="max-width:600px; min-height: 400px;"
+             @onclick:stopPropagation="true">
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="objtree-title" tabindex="-1" style="margin: 0;">Object Tree</h2>
+                <button class="primary" @onclick="OpenStrategies" aria-label="Manage Strategies (Alt+S)">
+                    Manage Strategies
+                </button>
+            </div>
+
+            @if (!Store.State.ActiveSeries.Any())
+            {
+                <p style="color:#888; text-align: center; margin-top: 50px;">No series active on chart.</p>
+            }
+            else
+            {
+                <div class="tree-viewport" role="tree" aria-label="Chart Hierarchy">
+                    @{
+                        var panes = Store.State.ActiveSeries.GroupBy(s => s.Pane).OrderBy(p => p.Key);
+                    }
+
+                    @foreach (var pane in panes)
+                    {
+                        <details open class="pane-node">
+                            <summary class="pane-header" role="treeitem" aria-expanded="true">
+                                <span class="icon">📦</span> Pane: @pane.Key
+                            </summary>
+                            
+                            <div role="group" class="pane-content">
+                                @foreach (var series in pane)
+                                {
+                                    bool isFocused = series.Id == Store.State.FocusedSeriesId;
+                                    <div class="series-node @(isFocused ? "focused-series" : "")" 
+                                         role="treeitem" 
+                                         aria-selected="@(isFocused ? "true" : "false")">
+                                        
+                                        <details @onclick:stopPropagation="true" class="series-details">
+                                            <summary class="series-summary" @onclick="() => FocusSeries(series.Id)">
+                                                <span class="series-name">@series.FriendlyName</span>
+                                                <div class="series-actions">
+                                                    <button title="Toggle Visibility (H)" 
+                                                            @onclick:stopPropagation="true"
+                                                            @onclick="() => ToggleHide(series.Id)"
+                                                            aria-pressed="@(!series.IsVisible ? "true" : "false")">
+                                                        @(series.IsVisible ? "👁️" : "🚫")
+                                                    </button>
+                                                    <button title="Toggle Audio (M)" 
+                                                            @onclick:stopPropagation="true"
+                                                            @onclick="() => ToggleMute(series.Id)"
+                                                            aria-pressed="@(series.IsMuted ? "true" : "false")">
+                                                        @(series.IsMuted ? "🔇" : "🔊")
+                                                    </button>
+                                                    @if (series.Id != "candles")
+                                                    {
+                                                        <button title="Remove" class="danger-btn"
+                                                                @onclick:stopPropagation="true"
+                                                                @onclick="() => RemoveSeries(series.Id)">
+                                                            🗑️
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </summary>
+
+                                            <div role="group" class="component-list">
+                                                @foreach (var comp in series.Components)
+                                                {
+                                                    <div class="component-item" role="treeitem">
+                                                        <span class="comp-name">@comp.Name (@DisplayTypeName(comp.DisplayType))</span>
+                                                        <div class="comp-actions">
+                                                            <button title="Toggle Component Visibility" 
+                                                                    class="mini-btn"
+                                                                    @onclick:stopPropagation="true"
+                                                                    @onclick="() => ToggleCompHide(series.Id, comp.Name)">
+                                                                @(comp.IsVisible ? "👁️" : "🚫")
+                                                            </button>
+                                                            <button title="Toggle Component Audio" 
+                                                                    class="mini-btn"
+                                                                    @onclick:stopPropagation="true"
+                                                                    @onclick="() => ToggleCompMute(series.Id, comp.Name)">
+                                                                @(comp.IsMuted ? "🔇" : "🔊")
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </details>
+                                    </div>
+                                }
+                            </div>
+                        </details>
+                    }
+                </div>
+            }
+
+            <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
+                <div style="font-size: 0.8rem; color: #888; flex: 1;">
+                    Use Tab to navigate · Space/Enter to toggle groups or focus · Alt+S for Strategies
+                </div>
+                <button @onclick="Close" id="objtree-close">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .tree-viewport {
+        max-height: 500px;
+        overflow-y: auto;
+        background: #111;
+        padding: 10px;
+        border-radius: 4px;
+    }
+    .pane-node { margin-bottom: 10px; }
+    .pane-header {
+        padding: 8px;
+        background: #222;
+        cursor: pointer;
+        font-weight: bold;
+        border-radius: 4px;
+        color: #4ec9b0;
+    }
+    .pane-content { padding-left: 15px; margin-top: 5px; }
+    
+    .series-node {
+        margin: 4px 0;
+        border-radius: 4px;
+        border: 1px solid transparent;
+    }
+    .focused-series {
+        background: #1e2a3a;
+        border-color: #0078d4;
+    }
+    
+    .series-summary {
+        display: flex;
+        align-items: center;
+        padding: 6px;
+        cursor: pointer;
+        list-style: none;
+    }
+    .series-summary::-webkit-details-marker { display: none; }
+    
+    .series-name { flex: 1; font-weight: 500; }
+    .series-actions { display: flex; gap: 4px; }
+    
+    .component-list {
+        padding: 5px 10px 5px 30px;
+        background: #161616;
+        font-size: 0.9rem;
+    }
+    .component-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        border-bottom: 1px solid #222;
+    }
+    .comp-name { color: #aaa; }
+    .comp-actions { display: flex; gap: 2px; }
+
+    button.mini-btn {
+        padding: 2px 4px;
+        font-size: 0.7rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+    
+    button.danger-btn { color: #f44; background: transparent; border: none; cursor: pointer; }
+    button.danger-btn:hover { background: #311; }
+</style>
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+    private IDisposable? _stateSub;
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenObjectTreeEvent>(_ => InvokeAsync(ShowAsync));
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+    }
+
+    private async Task ShowAsync()
+    {
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "objtree-title"); } catch { }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    private void OpenStrategies()
+    {
+        Close();
+        EventBus.Publish(new OpenStrategiesEvent());
+    }
+
+    private void FocusSeries(string id) => Store.Dispatch(new SelectSeriesAction(id));
+
+    private void ToggleHide(string id)
+    {
+        Store.Dispatch(new SelectSeriesAction(id));
+        EventBus.Publish(new ToggleHideEvent());
+    }
+
+    private void ToggleMute(string id)
+    {
+        Store.Dispatch(new SelectSeriesAction(id));
+        EventBus.Publish(new ToggleMuteEvent());
+    }
+
+    private void ToggleCompHide(string seriesId, string compName)
+    {
+        Store.Dispatch(new ToggleHideAction(seriesId, compName));
+    }
+
+    private void ToggleCompMute(string seriesId, string compName)
+    {
+        Store.Dispatch(new ToggleMuteAction(seriesId, compName));
+    }
+
+    private static string DisplayTypeName(AccessibleTrader.Sdk.Models.ComponentDisplayType dt) => dt switch
+    {
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Line       => "Line",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Area       => "Area",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Oscillator => "Oscillator",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Histogram  => "Histogram",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar        => "Bar",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Dot        => "Dot",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Arrow      => "Arrow",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.StepLine   => "Step Line",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Gradient   => "Gradient",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Cloud      => "Cloud",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.Heatmap    => "Heatmap",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.ZeroArea   => "Oscillator",
+        AccessibleTrader.Sdk.Models.ComponentDisplayType.ZeroDot    => "Dot",
+        _                                                            => dt.ToString()
+    };
+
+    private void RemoveSeries(string id)
+    {
+        var s = Store.State.ActiveSeries.FirstOrDefault(x => x.Id == id);
+        if (s != null)
+        {
+            Store.Dispatch(new RemoveSeriesAction(id));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.Name} removed"));
+        }
+    }
+
+    public void Dispose()
+    {
+        _eventSub?.Dispose();
+        _stateSub?.Dispose();
+    }
+}

@@ -1,0 +1,12 @@
+<api type="release" assembly-name="Xamarin.AndroidX.Security.SecurityCrypto" mvid="bcc3cca012b04e93b8ce1169e58a025c">
+  <module assembly-name="Xamarin.AndroidX.Security.SecurityCrypto" mvid="bcc3cca012b04e93b8ce1169e58a025c" mvid-bytes="oMzDvLASk064zhFp5YoCXA==">
+    <types-scratch>
+      <entry key="androidx/security/crypto/EncryptedSharedPreferences" java-name="androidx/security/crypto/EncryptedSharedPreferences" managed-type-name="AndroidX.Security.Crypto.EncryptedSharedPreferences" token="33554434" />
+      <entry key="androidx/security/crypto/EncryptedSharedPreferences$PrefKeyEncryptionScheme" java-name="androidx/security/crypto/EncryptedSharedPreferences$PrefKeyEncryptionScheme" managed-type-name="AndroidX.Security.Crypto.EncryptedSharedPreferences/PrefKeyEncryptionScheme" token="33554435" />
+      <entry key="androidx/security/crypto/EncryptedSharedPreferences$PrefValueEncryptionScheme" java-name="androidx/security/crypto/EncryptedSharedPreferences$PrefValueEncryptionScheme" managed-type-name="AndroidX.Security.Crypto.EncryptedSharedPreferences/PrefValueEncryptionScheme" token="33554436" />
+      <entry key="androidx/security/crypto/MasterKey" java-name="androidx/security/crypto/MasterKey" managed-type-name="AndroidX.Security.Crypto.MasterKey" token="33554437" />
+      <entry key="androidx/security/crypto/MasterKey$Builder" java-name="androidx/security/crypto/MasterKey$Builder" managed-type-name="AndroidX.Security.Crypto.MasterKey/Builder" token="33554438" />
+      <entry key="androidx/security/crypto/MasterKey$KeyScheme" java-name="androidx/security/crypto/MasterKey$KeyScheme" managed-type-name="AndroidX.Security.Crypto.MasterKey/KeyScheme" token="33554439" />
+    </types-scratch>
+  </module>
+</api>
