@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\buildMultiTargeting\AccessibleTrader.BlazorClient.props" />
-</Project>

@@ -1,0 +1,78 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet
+**/packages/*
+!**/packages/build/
+*.nupkg
+**/[Pp]ackages/
+!**/[Pp]ackages/build/
+
+# MSBuild
+*.log
+[Tt]est[Rr]esult*/
+[Dd]ebugPublic/
+[Rr]eleases/
+[Bb]uild[Ll]og.*
+
+# .NET / MAUI
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.vspscc
+*.vssscc
+*.pidb
+*.svclog
+*.scc
+*.ncrunch*
+*.dwarf
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# User-specific
+*.DotSettings.user
+launchSettings.json
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/worktrees/
