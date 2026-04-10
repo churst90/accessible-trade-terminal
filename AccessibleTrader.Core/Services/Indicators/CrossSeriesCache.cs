@@ -124,7 +124,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     var bars = await _orch.FetchOhlcvAsync(
                         request.Market, request.Provider, request.Symbol, request.Timeframe,
-                        until: until, silent: true);
+                        until: until, silent: true).ConfigureAwait(false);
 
                     if (bars == null || bars.Count == 0) break;
 

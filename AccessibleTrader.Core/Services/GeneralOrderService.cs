@@ -48,7 +48,7 @@ namespace AccessibleTrader.Core.Services
             _orderStreamSub?.Dispose();
             _subscribedProvider = null;
 
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null) return;
 
             _subscribedProvider = providerName;
@@ -97,7 +97,7 @@ namespace AccessibleTrader.Core.Services
 
         private async Task<ITradingProvider?> GetTradingProviderAsync(string providerName)
         {
-            var provider = await _dataService.GetProviderAsync(providerName);
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             return provider as ITradingProvider;
         }
 
@@ -108,7 +108,7 @@ namespace AccessibleTrader.Core.Services
             _logger.LogInformation("Placing {Side} order for {Symbol} via {Provider}",
                 signal.Side, signal.Symbol, providerName);
 
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null)
             {
                 _errorCoordinator.ReportError($"Provider {providerName} does not support trading.", ErrorSeverity.Medium);
@@ -121,7 +121,7 @@ namespace AccessibleTrader.Core.Services
             }
             try
             {
-                var result = await tp.PlaceOrderAsync(signal);
+                var result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);
                 _errorCoordinator.ReportSuccess($"Order placed: {signal.Side} {signal.Quantity} {signal.Symbol}");
                 return result;
             }
@@ -134,11 +134,11 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return false;
             try
             {
-                return await tp.CancelOrderAsync(orderId, symbol);
+                return await tp.CancelOrderAsync(orderId, symbol).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -151,54 +151,54 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<List<Balance>> GetBalancesAsync(string providerName)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return new List<Balance>();
-            try { return await tp.GetBalancesAsync(); }
+            try { return await tp.GetBalancesAsync().ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "GetBalances failed"); return new List<Balance>(); }
         }
 
         public async Task<List<Position>> GetPositionsAsync(string providerName)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return new List<Position>();
-            try { return await tp.GetPositionsAsync(); }
+            try { return await tp.GetPositionsAsync().ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "GetPositions failed"); return new List<Position>(); }
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string providerName, string? symbol = null)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return new List<OpenOrder>();
-            try { return await tp.GetOpenOrdersAsync(symbol); }
+            try { return await tp.GetOpenOrdersAsync(symbol).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "GetOpenOrders failed"); return new List<OpenOrder>(); }
         }
 
         public async Task<double> GetMaxLeverageAsync(string providerName)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             return tp?.MaxLeverage ?? 1.0;
         }
 
         public async Task<double> SetLeverageAsync(string providerName, string symbol, double leverage)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return 1.0;
-            try { return await tp.SetLeverageAsync(symbol, leverage); }
+            try { return await tp.SetLeverageAsync(symbol, leverage).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "SetLeverage failed"); return 1.0; }
         }
 
         public async Task<bool> SupportsTradingAsync(string providerName)
         {
             if (string.IsNullOrEmpty(providerName)) return false;
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             return tp != null;
         }
 
         public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string providerName, string symbol, int depth = 10)
         {
-            var provider = await _dataService.GetProviderAsync(providerName);
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
-            try { return await provider.GetOrderBookAsync(symbol, depth); }
+            try { return await provider.GetOrderBookAsync(symbol, depth).ConfigureAwait(false); }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "GetOrderBook failed for {Symbol}", symbol);
@@ -209,13 +209,13 @@ namespace AccessibleTrader.Core.Services
         public async Task<List<TradeFill>> GetFillsAsync(string providerName, string? symbol = null, int limit = 50)
         {
             // Stub: no provider currently exposes GetFillsAsync. Returns empty list.
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             return new List<TradeFill>();
         }
 
         public async Task<bool> SupportsMarginTradingAsync(string providerName)
         {
-            var tp = await GetTradingProviderAsync(providerName);
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             return tp?.SupportsMarginTrading ?? false;
         }
     }

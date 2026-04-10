@@ -36,7 +36,7 @@ namespace AccessibleTrader.Sdk.Services
         /// </summary>
         public async Task WaitAsync(CancellationToken ct = default)
         {
-            await _semaphore.WaitAsync(ct);
+            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
             try
             {
                 var now = DateTime.UtcNow;
@@ -50,7 +50,7 @@ namespace AccessibleTrader.Sdk.Services
                 {
                     var waitTime = _window - (now - _windowStart);
                     if (waitTime > TimeSpan.Zero)
-                        await Task.Delay(waitTime, ct);
+                        await Task.Delay(waitTime, ct).ConfigureAwait(false);
                     _requestCount = 0;
                     _windowStart = DateTime.UtcNow;
                 }
@@ -91,17 +91,17 @@ namespace AccessibleTrader.Sdk.Services
         {
             for (int attempt = 0; ; attempt++)
             {
-                await WaitAsync(ct);
+                await WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    var result = await action();
+                    var result = await action().ConfigureAwait(false);
                     ReportSuccess();
                     return result;
                 }
                 catch when (attempt < maxRetries)
                 {
                     var backoff = ReportFailure();
-                    await Task.Delay(backoff, ct);
+                    await Task.Delay(backoff, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -111,7 +111,7 @@ namespace AccessibleTrader.Sdk.Services
         /// </summary>
         public async Task ExecuteAsync(Func<Task> action, int maxRetries = 3, CancellationToken ct = default)
         {
-            await ExecuteAsync(async () => { await action(); return true; }, maxRetries, ct);
+            await ExecuteAsync(async () => { await action().ConfigureAwait(false); return true; }, maxRetries, ct).ConfigureAwait(false);
         }
     }
 }

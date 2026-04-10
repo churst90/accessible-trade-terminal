@@ -8,8 +8,7 @@ using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Enums;
 using Microsoft.Extensions.Logging;
 using System.IO;
-using Polly;
-using Polly.CircuitBreaker;
+
 using AccessibleTrader.Core.Services.Accessibility;
 
 namespace AccessibleTrader.Core.Services
@@ -22,7 +21,6 @@ namespace AccessibleTrader.Core.Services
         private readonly ICacheService _cacheService;
         private readonly IApiKeyService _apiKeyService;
         private readonly IGlobalErrorCoordinator _errorCoordinator;
-        private readonly AsyncCircuitBreakerPolicy _circuitBreaker;
         private bool _isInitialized;
 
         public DataService(IPluginLoaderService pluginLoader, ILogger<DataService> logger, ICacheService cacheService, IApiKeyService apiKeyService, IGlobalErrorCoordinator errorCoordinator)
@@ -31,22 +29,6 @@ namespace AccessibleTrader.Core.Services
             _cacheService = cacheService;
             _apiKeyService = apiKeyService;
             _errorCoordinator = errorCoordinator;
-
-            _circuitBreaker = Policy
-                .Handle<Exception>()
-                .CircuitBreakerAsync(
-                    exceptionsAllowedBeforeBreaking: 5,
-                    durationOfBreak: TimeSpan.FromSeconds(10),
-                    onBreak: (ex, breakDelay) => {
-                        _errorCoordinator.ReportError($"Data provider circuit broken. Pausing requests for {breakDelay.TotalSeconds} seconds.", ErrorSeverity.High, ErrorCategory.Systemic);
-                    },
-                    onReset: () => {
-                        _errorCoordinator.ReportSuccess("Data provider connection restored.");
-                    },
-                    onHalfOpen: () => {
-                        _logger.LogInformation("Circuit breaker half-open. Testing connection...");
-                    }
-                );
         }
 
         public async Task InitializeAsync(IPluginLoaderService pluginLoader)
@@ -70,7 +52,7 @@ namespace AccessibleTrader.Core.Services
                 if (!Directory.Exists(userPath)) Directory.CreateDirectory(userPath);
                 LoadPluginsFromPath(pluginLoader, userPath);
                 
-                _logger.LogInformation($"Total Unique Loaded Data Providers: {_providers.Count}");
+                _logger.LogInformation("Total Unique Loaded Data Providers: {Count}.", _providers.Count);
                 _isInitialized = true;
             }
             catch (Exception ex)
@@ -96,7 +78,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error during plugin loading from {path}");
+                _logger.LogError(ex, "Error during plugin loading from {Path}.", path);
             }
         }
 
@@ -105,7 +87,7 @@ namespace AccessibleTrader.Core.Services
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
             if (provider == null) return;
 
-            var key = await _apiKeyService.GetKeyForProviderAsync(providerName, marketType);
+            var key = await _apiKeyService.GetKeyForProviderAsync(providerName, marketType).ConfigureAwait(false);
             if (key != null)
             {
                 var config = new Dictionary<string, string>
@@ -118,31 +100,31 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public async Task<List<string>> LoadAvailableMarketsAsync()
+        public Task<List<string>> LoadAvailableMarketsAsync()
         {
-            if (!_isInitialized) return new List<string>();
+            if (!_isInitialized) return Task.FromResult(new List<string>());
             var markets = new HashSet<MarketType>();
             foreach (var provider in _providers)
             {
                 foreach (var m in provider.SupportedMarkets) markets.Add(m);
             }
-            return markets.Select(m => m.ToString()).ToList();
+            return Task.FromResult(markets.Select(m => m.ToString()).ToList());
         }
 
-        public async Task<List<string>> LoadProvidersAsync()
+        public Task<List<string>> LoadProvidersAsync()
         {
-            if (!_isInitialized) return new List<string>();
-            return _providers.Select(p => p.Name).ToList();
+            if (!_isInitialized) return Task.FromResult(new List<string>());
+            return Task.FromResult(_providers.Select(p => p.Name).ToList());
         }
 
-        public async Task<List<string>> LoadProvidersByMarketTypeAsync(string marketType)
+        public Task<List<string>> LoadProvidersByMarketTypeAsync(string marketType)
         {
-            if (!_isInitialized) return new List<string>();
+            if (!_isInitialized) return Task.FromResult(new List<string>());
             if (Enum.TryParse<MarketType>(marketType, out var type))
             {
-                return _providers.Where(p => p.SupportedMarkets.Contains(type)).Select(p => p.Name).ToList();
+                return Task.FromResult(_providers.Where(p => p.SupportedMarkets.Contains(type)).Select(p => p.Name).ToList());
             }
-            return new List<string>();
+            return Task.FromResult(new List<string>());
         }
 
         public async Task<List<string>> GetSupportedSubTypesAsync(string providerName, string marketTypeStr)
@@ -153,7 +135,7 @@ namespace AccessibleTrader.Core.Services
 
             if (Enum.TryParse<MarketType>(marketTypeStr, out var marketType))
             {
-                return await provider.GetSupportedSubTypesAsync(marketType);
+                return await provider.GetSupportedSubTypesAsync(marketType).ConfigureAwait(false);
             }
             return new List<string> { "Spot" };
         }
@@ -168,29 +150,28 @@ namespace AccessibleTrader.Core.Services
             string marketTypeStr = parts[0];
             string subType = parts.Length > 1 ? parts[1] : "Spot";
 
-            await EnsureProviderConfiguredAsync(providerName, subType);
+            await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
 
             var cacheKey = $"symbols_{providerName}_{marketInfo}";
-            var cached = await _cacheService.GetAsync<List<string>>(cacheKey);
+            var cached = await _cacheService.GetAsync<List<string>>(cacheKey).ConfigureAwait(false);
             if (cached != null) return cached;
 
             try
             {
                 if (Enum.TryParse<MarketType>(marketTypeStr, out var marketType))
                 {
-                    return await _circuitBreaker.ExecuteAsync(async () => {
-                        var symbols = await provider.GetAvailableSymbolsAsync(marketType, subType)!;
-                        if (symbols != null && symbols.Any())
-                        {
-                            await _cacheService.SetAsync(cacheKey, symbols, TimeSpan.FromHours(24));
-                        }
-                        return symbols ?? new List<string>();
-                    });
+                    var symbols = await provider.GetAvailableSymbolsAsync(marketType, subType).ConfigureAwait(false);
+                    if (symbols != null && symbols.Any())
+                    {
+                        await _cacheService.SetAsync(cacheKey, symbols, TimeSpan.FromHours(24)).ConfigureAwait(false);
+                    }
+                    return symbols ?? new List<string>();
                 }
                 return new List<string>();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to load symbols for {Provider} ({Market}).", providerName, marketInfo);
                 return new List<string>();
             }
         }
@@ -205,44 +186,43 @@ namespace AccessibleTrader.Core.Services
             {
                 var parts = request.Market.Split('|');
                 string subType = parts.Length > 1 ? parts[1] : "Spot";
-                await EnsureProviderConfiguredAsync(providerName, subType);
+                await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
 
-                return await _circuitBreaker.ExecuteAsync(async () => {
-                    return await provider.FetchOhlcvAsync(request);
-                });
+                return await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to fetch OHLCV for {Symbol}.", request.Symbol);
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }
 
-        public async Task<List<MarketType>> GetSupportedMarketsForProviderAsync(string providerName)
+        public Task<List<MarketType>> GetSupportedMarketsForProviderAsync(string providerName)
         {
-            if (!_isInitialized) return new List<MarketType>();
+            if (!_isInitialized) return Task.FromResult(new List<MarketType>());
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-            return provider != null ? provider.SupportedMarkets : new List<MarketType>();
+            return Task.FromResult(provider != null ? provider.SupportedMarkets : new List<MarketType>());
         }
 
         public async Task<List<string>> GetSupportedTimeframesAsync(string providerName)
         {
             if (!_isInitialized) return new List<string>();
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-            return provider != null ? await provider.GetSupportedTimeframesAsync() : new List<string>();
+            return provider != null ? await provider.GetSupportedTimeframesAsync().ConfigureAwait(false) : new List<string>();
         }
 
-        public async Task<bool> IsProviderConfiguredAsync(string providerName)
+        public Task<bool> IsProviderConfiguredAsync(string providerName)
         {
-            if (!_isInitialized) return false;
+            if (!_isInitialized) return Task.FromResult(false);
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-            return provider != null ? provider.IsConfigured : false;
+            return Task.FromResult(provider?.IsConfigured ?? false);
         }
 
-        public async Task<bool> ProviderRequiresApiKeyAsync(string providerName)
+        public Task<bool> ProviderRequiresApiKeyAsync(string providerName)
         {
-            if (!_isInitialized) return false;
+            if (!_isInitialized) return Task.FromResult(false);
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-            return provider != null ? provider.RequiresApiKey : false;
+            return Task.FromResult(provider?.RequiresApiKey ?? false);
         }
 
         public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string providerName, string symbol, int limit = 10)
@@ -251,30 +231,29 @@ namespace AccessibleTrader.Core.Services
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
             if (provider == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
             
-            await EnsureProviderConfiguredAsync(providerName, "Spot");
-            
+            await EnsureProviderConfiguredAsync(providerName, "Spot").ConfigureAwait(false);
+
             try
             {
-                return await _circuitBreaker.ExecuteAsync(async () => {
-                    return await provider.GetOrderBookAsync(symbol, limit);
-                });
+                return await provider.GetOrderBookAsync(symbol, limit).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                 return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+                _logger.LogWarning(ex, "Failed to get order book for {Symbol} from {Provider}.", symbol, providerName);
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
             }
         }
 
-        public async Task<IMarketDataProvider?> GetProviderAsync(string name)
+        public Task<IMarketDataProvider?> GetProviderAsync(string name)
         {
-            if (!_isInitialized) return null;
-            return _providers.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (!_isInitialized) return Task.FromResult<IMarketDataProvider?>(null);
+            return Task.FromResult<IMarketDataProvider?>(_providers.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
         }
 
-        public async Task<IProviderPlugin?> GetPluginAsync(string name)
+        public Task<IProviderPlugin?> GetPluginAsync(string name)
         {
-            if (!_isInitialized) return null;
-            return _plugins.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (!_isInitialized) return Task.FromResult<IProviderPlugin?>(null);
+            return Task.FromResult<IProviderPlugin?>(_plugins.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
         }
     }
 }

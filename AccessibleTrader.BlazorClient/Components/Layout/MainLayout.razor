@@ -17,6 +17,7 @@
 *@
 @inject SetupSonifier _setupSonifier
 @inject StrategyAutoLoader _autoLoader
+@inject ILogger<MainLayout> _layoutLogger
 
 <div class="app-container">
 
@@ -114,7 +115,7 @@
             {
                 // Log silently; keyboard input may be partially unavailable but the
                 // app should still render rather than throw.
-                Console.Error.WriteLine($"Keyboard bridge init failed: {ex.Message}");
+                _layoutLogger.LogError(ex, "Keyboard bridge init failed.");
             }
 
             // Re-instantiate every saved strategy whose IsAutoActivate flag is true. Idempotent —
@@ -126,7 +127,7 @@
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"StrategyAutoLoader failed: {ex.Message}");
+                _layoutLogger.LogError(ex, "StrategyAutoLoader failed.");
             }
         }
     }

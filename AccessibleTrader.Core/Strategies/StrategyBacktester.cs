@@ -647,9 +647,7 @@ public class StrategyBacktester : IStrategyBacktester
             }
 
             writer.Flush();
-            string msg = $"[Backtest CSV] Wrote {trades.Count} trades to {path}";
-            System.Diagnostics.Debug.WriteLine(msg);
-            Console.WriteLine(msg);
+            System.Diagnostics.Debug.WriteLine($"[Backtest CSV] Wrote {trades.Count} trades to {path}");
         }
         catch (Exception ex)
         {

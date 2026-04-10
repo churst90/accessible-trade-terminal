@@ -1,10 +1,10 @@
 using System;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
-using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Theming;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Components.WebView;
 using SkiaSharp.Views.Maui;
 using SkiaSharp.Views.Maui.Controls;
@@ -17,10 +17,12 @@ public partial class MainPage : ContentPage
     private readonly ChartRenderer _renderer;
     private readonly IThemeService _themeService;
     private readonly IEventBus _eventBus;
+    private readonly ILogger<MainPage> _logger;
     private IDisposable? _stateSub;
     private IDisposable? _redrawSub;
     private IDisposable? _modalSub;
     private IDisposable? _titleSub;
+    private EventHandler<AccessibleTrader.Sdk.Theming.ChartTheme>? _themeChangedHandler;
     private int _openModalCount;
     private string _lastTitleSymbol = "";
 
@@ -29,7 +31,8 @@ public partial class MainPage : ContentPage
         ChartRenderer renderer,
         IAppStartupService startupService,
         IThemeService themeService,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        ILogger<MainPage> logger)
     {
         InitializeComponent();
 
@@ -37,12 +40,13 @@ public partial class MainPage : ContentPage
         _renderer = renderer;
         _themeService = themeService;
         _eventBus = eventBus;
+        _logger = logger;
 
         // Subscribe before the handler attaches so no initialization event can be missed.
         blazorWebView.BlazorWebViewInitialized += OnBlazorWebViewInitialized;
 
         // Initialize all self-wiring services and register default chart series.
-        Task.Run(async () => await startupService.InitializeAsync());
+        SafeFireAndForget.Run(startupService.InitializeAsync, _logger, "AppStartup");
     }
 
     protected override void OnHandlerChanged()
@@ -96,8 +100,9 @@ public partial class MainPage : ContentPage
         MainThread.BeginInvokeOnMainThread(() => _chartCanvas.InvalidateSurface());
 
         // Theme changes also require a full repaint.
-        _themeService.ThemeChanged += (_, _) =>
+        _themeChangedHandler = (_, _) =>
             MainThread.BeginInvokeOnMainThread(() => _chartCanvas.InvalidateSurface());
+        _themeService.ThemeChanged += _themeChangedHandler;
     }
 
     private void OnCanvasPaint(object? sender, SKPaintSurfaceEventArgs e)
@@ -188,5 +193,7 @@ public partial class MainPage : ContentPage
         _redrawSub?.Dispose();
         _modalSub?.Dispose();
         _titleSub?.Dispose();
+        if (_themeChangedHandler != null)
+            _themeService.ThemeChanged -= _themeChangedHandler;
     }
 }

@@ -233,5 +233,14 @@ namespace AccessibleTrader.Plugins.Fred
             "1y" => "a",
             _    => ""
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

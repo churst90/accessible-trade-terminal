@@ -332,5 +332,16 @@ namespace AccessibleTrader.Plugins.Polygon
             "1M"  => (1, "month"),
             _     => (1, "hour")
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _ws?.Dispose();
+                _orderBookSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

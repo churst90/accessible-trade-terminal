@@ -6,6 +6,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -20,6 +21,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IEventBus _eventBus;
         private readonly IOrderExecutionService _orderService;
         private readonly IAppLogger _logger;
+        private readonly ILogger<StrategyEngine> _msLogger;
         private readonly IDataManager _dataManager;
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
@@ -37,6 +39,7 @@ namespace AccessibleTrader.Core.Services
             IEventBus eventBus,
             IOrderExecutionService orderService,
             IAppLogger logger,
+            ILogger<StrategyEngine> msLogger,
             IDataManager dataManager,
             IWorkspaceStore store,
             IStrategyIndicatorCache indicatorCache)
@@ -44,6 +47,7 @@ namespace AccessibleTrader.Core.Services
             _eventBus       = eventBus;
             _orderService   = orderService;
             _logger         = logger;
+            _msLogger       = msLogger;
             _dataManager    = dataManager;
             _store          = store;
             _indicatorCache = indicatorCache;
@@ -87,7 +91,10 @@ namespace AccessibleTrader.Core.Services
 
                     if (active.ExecutionMode == StrategyExecutionMode.Auto)
                     {
-                        ExecuteSignalAsync(active, signal);
+                        SafeFireAndForget.Run(
+                            () => ExecuteSignalAsync(active, signal),
+                            _msLogger,
+                            $"ExecuteSignal_{active.Strategy.Name}");
                     }
                     else
                     {
@@ -102,7 +109,7 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private async void ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal)
+        private async Task ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal)
         {
             try
             {
@@ -120,7 +127,7 @@ namespace AccessibleTrader.Core.Services
                     TakeProfit: signal.TakeProfit
                 );
 
-                await _orderService.PlaceOrderAsync(providerName, tradeSignal);
+                await _orderService.PlaceOrderAsync(providerName, tradeSignal).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

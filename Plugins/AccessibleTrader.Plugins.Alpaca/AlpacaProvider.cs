@@ -562,5 +562,18 @@ namespace AccessibleTrader.Plugins.Alpaca
             "1M"  => "1Month",
             _     => "1Hour"
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _dataWs?.Dispose();
+                _tradeWs?.Dispose();
+                _orderUpdateSubject?.Dispose();
+                _orderBookSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

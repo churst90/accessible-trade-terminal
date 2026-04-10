@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             {
                 var bars = await _orchestrator.FetchOhlcvAsync(
                     market, provider, symbol, timeframe,
-                    since: null, limit: count, until: null, silent: true);
+                    since: null, limit: count, until: null, silent: true).ConfigureAwait(false);
 
                 if (bars == null)
                 {
@@ -108,11 +108,11 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             try
             {
-                var bars = await GetBarsAsync(market, provider, symbol, timeframe, count);
+                var bars = await GetBarsAsync(market, provider, symbol, timeframe, count).ConfigureAwait(false);
                 if (bars == null || bars.Count == 0) return;
 
                 var results = await _indicatorEngine.CalculateAsync(
-                    indicatorCode, bars, parameters ?? new Dictionary<string, object>(), default);
+                    indicatorCode, bars, parameters ?? new Dictionary<string, object>(), default).ConfigureAwait(false);
                 if (results != null && results.Count > 0)
                 {
                     _indCache[key] = results;

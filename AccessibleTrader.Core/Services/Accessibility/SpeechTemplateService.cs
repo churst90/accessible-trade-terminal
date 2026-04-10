@@ -79,7 +79,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                 }
             }
-            catch { /* Silently fallback to defaults */ }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"SpeechTemplateService: Failed to load templates: {ex.Message}"); }
         }
 
         public void SaveToDisk()
@@ -91,7 +91,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string json = JsonConvert.SerializeObject(_templates, Formatting.Indented);
                 File.WriteAllText(_filePath, json);
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"SpeechTemplateService: Failed to save templates: {ex.Message}"); }
         }
     }
 }

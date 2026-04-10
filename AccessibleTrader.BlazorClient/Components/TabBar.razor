@@ -10,7 +10,7 @@
 
 @if (Store.State.TabCount > 1)
 {
-    <div class="tab-bar" role="tablist" aria-label="Chart tabs">
+    <div class="tab-bar" role="tablist" aria-label="Chart tabs" aria-orientation="horizontal">
 
         @* Active tab *@
         <button role="tab"
@@ -21,13 +21,13 @@
             Tab @(Store.State.ActiveTabIndex + 1): @GetActiveLabel()
             @if (Store.State.TabCount > 1)
             {
-                <span class="tab-close"
-                      tabindex="-1"
-                      title="Close tab (Ctrl+W)"
-                      @onclick:stopPropagation="true"
-                      @onclick="() => Store.Dispatch(new CloseTabAction(Store.State.ActiveTabIndex))">
+                <button class="tab-close"
+                        tabindex="-1"
+                        aria-label="Close tab (Ctrl+W)"
+                        @onclick:stopPropagation="true"
+                        @onclick="() => Store.Dispatch(new CloseTabAction(Store.State.ActiveTabIndex))">
                     ×
-                </span>
+                </button>
             }
         </button>
 
@@ -35,20 +35,20 @@
         @foreach (var snap in GetSortedSnapshots())
         {
             var capturedSnap = snap;
-            <button role="tab"
+            <button @key="capturedSnap.TabIndex" role="tab"
                     aria-selected="false"
                     tabindex="-1"
                     class="tab-button"
                     title="Switch to tab @(capturedSnap.TabIndex + 1)"
                     @onclick="() => Store.Dispatch(new SwitchTabAction(capturedSnap.TabIndex))">
                 Tab @(capturedSnap.TabIndex + 1): @GetSnapshotLabel(capturedSnap)
-                <span class="tab-close"
-                      tabindex="-1"
-                      title="Close tab"
-                      @onclick:stopPropagation="true"
-                      @onclick="() => Store.Dispatch(new CloseTabAction(capturedSnap.TabIndex))">
+                <button class="tab-close"
+                        tabindex="-1"
+                        aria-label="Close tab"
+                        @onclick:stopPropagation="true"
+                        @onclick="() => Store.Dispatch(new CloseTabAction(capturedSnap.TabIndex))">
                     ×
-                </span>
+                </button>
             </button>
         }
 

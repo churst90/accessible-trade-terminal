@@ -235,7 +235,7 @@ namespace AccessibleTrader.Core.PineScript
                 foreach (var kv in pineVarToParam)
                 {
                     double def = parameters.TryGetValue(kv.Value, out double dv) ? dv : 0;
-                    sb.AppendLine($"        var {kv.Key} = (int)p.GetValueOrDefault(\"{kv.Value}\", {def.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
+                    sb.AppendLine($"        var {SanitizeIdent(kv.Key)} = (int)p.GetValueOrDefault(\"{EscapeString(kv.Value)}\", {def.ToString(System.Globalization.CultureInfo.InvariantCulture)});");
                 }
                 sb.AppendLine();
             }

@@ -211,12 +211,12 @@ namespace AccessibleTrader.Core.Services.Audio
                     int cloudSlot2 = 0;
                     FireCloudVoices(new[] { series }, i, state2.ViewportStartIndex, state2.ViewportStartIndex + state2.ViewportLength - 1, msPerBar, ref cloudSlot2);
 
-                    await Task.Delay((int)msPerBar, token);
+                    await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
                     // While paused, wait without incrementing
                     while (_store.State.IsPaused && !token.IsCancellationRequested)
                     {
-                        await Task.Delay(50, token);
+                        await Task.Delay(50, token).ConfigureAwait(false);
                     }
                 }
             }
@@ -327,10 +327,10 @@ namespace AccessibleTrader.Core.Services.Audio
                     int cloudSlot = 0;
                     FireCloudVoices(seriesList, i, state.ViewportStartIndex, state.ViewportStartIndex + state.ViewportLength - 1, msPerBar, ref cloudSlot);
 
-                    await Task.Delay((int)msPerBar, token);
+                    await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
                     while (_store.State.IsPaused && !token.IsCancellationRequested)
-                        await Task.Delay(50, token);
+                        await Task.Delay(50, token).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Linq;
 using System.Runtime.Loader;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -71,25 +72,31 @@ namespace AccessibleTrader.Core.Services
     public class PluginLoaderService : IPluginLoaderService
     {
         private readonly List<PluginLoadContext> _contexts = new();
+        private readonly ILogger<PluginLoaderService> _logger;
+
+        public PluginLoaderService(ILogger<PluginLoaderService> logger)
+        {
+            _logger = logger;
+        }
 
         public IEnumerable<T> LoadPlugins<T>(string directory) where T : class
         {
-            Console.WriteLine($"PluginLoaderService: Searching for plugins in {directory}...");
-            if (!Directory.Exists(directory)) 
+            _logger.LogDebug("Searching for plugins in {Directory}.", directory);
+            if (!Directory.Exists(directory))
             {
-                Console.WriteLine($"PluginLoaderService: Directory does not exist: {directory}");
+                _logger.LogDebug("Plugin directory does not exist: {Directory}.", directory);
                 return Enumerable.Empty<T>();
             }
 
             var plugins = new List<T>();
             var dlls = Directory.GetFiles(directory, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories);
-            Console.WriteLine($"PluginLoaderService: Found {dlls.Length} matching DLLs.");
+            _logger.LogDebug("Found {Count} matching plugin DLLs.", dlls.Length);
 
             foreach (var dll in dlls)
             {
                 try
                 {
-                    Console.WriteLine($"PluginLoaderService: Loading assembly from {dll}");
+                    _logger.LogDebug("Loading assembly from {Dll}.", dll);
                     var context = new PluginLoadContext(dll);
                     _contexts.Add(context);
 
@@ -102,11 +109,11 @@ namespace AccessibleTrader.Core.Services
                     }
                     catch (ReflectionTypeLoadException ex)
                     {
-                        Console.WriteLine($"PluginLoaderService: Partial type load for {Path.GetFileName(dll)}. Some types skipped.");
+                        _logger.LogWarning("Partial type load for {Dll}. Some types skipped.", Path.GetFileName(dll));
                         types = ex.Types.Where(t => t != null && typeof(T).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract).Cast<Type>();
                     }
 
-                    Console.WriteLine($"PluginLoaderService: Found {types.Count()} types implementing {typeof(T).Name} in {Path.GetFileName(dll)}");
+                    _logger.LogDebug("Found {Count} types implementing {Interface} in {Dll}.", types.Count(), typeof(T).Name, Path.GetFileName(dll));
 
                     foreach (var type in types)
                     {
@@ -115,18 +122,18 @@ namespace AccessibleTrader.Core.Services
                             if (Activator.CreateInstance(type) is T instance)
                             {
                                 plugins.Add(instance);
-                                Console.WriteLine($"PluginLoaderService: Successfully created instance of {type.FullName}");
+                                _logger.LogDebug("Created plugin instance: {Type}.", type.FullName);
                             }
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"PluginLoaderService: Failed to instantiate {type.Name} from {Path.GetFileName(dll)}: {ex.Message}");
+                            _logger.LogWarning(ex, "Failed to instantiate {Type} from {Dll}.", type.Name, Path.GetFileName(dll));
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"PluginLoaderService: Error loading DLL {dll}: {ex.Message}");
+                    _logger.LogError(ex, "Error loading plugin DLL {Dll}.", dll);
                 }
             }
 

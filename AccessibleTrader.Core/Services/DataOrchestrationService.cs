@@ -136,53 +136,45 @@ namespace AccessibleTrader.Core.Services
             _tickCts = new CancellationTokenSource();
             var token = _tickCts.Token;
 
-            _ = Task.Run(async () => {
-                try
+            SafeFireAndForget.Run(async () => {
+                var data = _dataManager.Data;
+                if (data == null || !data.Any()) return;
+
+                var activeSeries = _store.State.ActiveSeries;
+
+                // Fetch the live order book snapshot on every tick.
+                // This ensures the heatmap history service accumulates data regardless of
+                // whether the code path takes a full or incremental recalculation route.
+                var book = await _dataManager.GetOrderBookAsync().ConfigureAwait(false);
+
+                // A full recalc is needed when: forced, or any non-profile indicator series
+                // has no component data yet (newly added indicator, fresh market load).
+                // Profile/heatmap series rely on the history service and RecalculateAllAsync,
+                // so they are excluded from the "empty data" trigger below.
+                bool needsFull = forceFull || activeSeries.Any(s =>
+                    !string.IsNullOrEmpty(s.IndicatorCode) &&
+                    !s.IsProfile &&
+                    s.Data.ComponentData.Count == 0);
+
+                if (needsFull)
                 {
-                    var data = _dataManager.Data;
-                    if (data == null || !data.Any()) return;
-
-                    var activeSeries = _store.State.ActiveSeries;
-
-                    // Fetch the live order book snapshot on every tick.
-                    // This ensures the heatmap history service accumulates data regardless of
-                    // whether the code path takes a full or incremental recalculation route.
-                    var book = await _dataManager.GetOrderBookAsync();
-
-                    // A full recalc is needed when: forced, or any non-profile indicator series
-                    // has no component data yet (newly added indicator, fresh market load).
-                    // Profile/heatmap series rely on the history service and RecalculateAllAsync,
-                    // so they are excluded from the "empty data" trigger below.
-                    bool needsFull = forceFull || activeSeries.Any(s =>
-                        !string.IsNullOrEmpty(s.IndicatorCode) &&
-                        !s.IsProfile &&
-                        s.Data.ComponentData.Count == 0);
-
-                    if (needsFull)
-                    {
-                        // Add snapshot to history before the full recalc so the history query
-                        // inside RecalculateAllAsync includes the current live state.
-                        if (book.Bids?.Count > 0 || book.Asks?.Count > 0)
-                            _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, book.Bids ?? new(), book.Asks ?? new());
-                        await RecalculateAllAsync(data, token);
-                    }
-                    else
-                    {
-                        // RecalculateLastAsync handles its own AddSnapshot internally.
-                        await RecalculateLastAsync(data, token, book.Bids, book.Asks);
-                    }
+                    // Add snapshot to history before the full recalc so the history query
+                    // inside RecalculateAllAsync includes the current live state.
+                    if (book.Bids?.Count > 0 || book.Asks?.Count > 0)
+                        _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, book.Bids ?? new(), book.Asks ?? new());
+                    await RecalculateAllAsync(data, token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) { }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, "DataOrchestrationService tick processing failed");
+                    // RecalculateLastAsync handles its own AddSnapshot internally.
+                    await RecalculateLastAsync(data, token, book.Bids, book.Asks).ConfigureAwait(false);
                 }
-            }, token);
+            }, _logger, "TickProcessing");
         }
 
         public async Task RecalculateAllAsync(IReadOnlyList<Ohlcv> data, CancellationToken token)
         {
-            await _calcLock.WaitAsync(token);
+            await _calcLock.WaitAsync(token).ConfigureAwait(false);
             try
             {
                 var activeSeries = _store.State.ActiveSeries.ToList();
@@ -191,7 +183,7 @@ namespace AccessibleTrader.Core.Services
                 // PHASE 4: Retrieve historical order books for heatmap reconstruction
                 var history = _bookHistory.GetHistory(_dataManager.Identity.Symbol, data);
 
-                await _indicatorOrchestrator.RecalculateAllAsync(data, activeSeries, token, history);
+                await _indicatorOrchestrator.RecalculateAllAsync(data, activeSeries, token, history).ConfigureAwait(false);
                 _eventBus.Publish(new RedrawEvent());
             }
             catch (OperationCanceledException) { }
@@ -203,7 +195,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task RecalculateLastAsync(IReadOnlyList<Ohlcv> data, CancellationToken token, List<OrderBookEntry>? bids = null, List<OrderBookEntry>? asks = null)
         {
-            await _calcLock.WaitAsync(token);
+            await _calcLock.WaitAsync(token).ConfigureAwait(false);
             try
             {
                 var activeSeries = _store.State.ActiveSeries.ToList();
@@ -215,7 +207,7 @@ namespace AccessibleTrader.Core.Services
                     _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, bids, asks);
                 }
 
-                await _indicatorOrchestrator.RecalculateLastAsync(data, activeSeries, token, bids, asks);
+                await _indicatorOrchestrator.RecalculateLastAsync(data, activeSeries, token, bids, asks).ConfigureAwait(false);
                 _eventBus.Publish(new RedrawEvent());
             }
             catch (OperationCanceledException) { }

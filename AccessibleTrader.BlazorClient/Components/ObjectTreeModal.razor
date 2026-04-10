@@ -36,7 +36,7 @@
 
                     @foreach (var pane in panes)
                     {
-                        <details open class="pane-node">
+                        <details @key="pane.Key" open class="pane-node">
                             <summary class="pane-header" role="treeitem" aria-expanded="true">
                                 <span class="icon">📦</span> Pane: @pane.Key
                             </summary>
@@ -45,7 +45,7 @@
                                 @foreach (var series in pane)
                                 {
                                     bool isFocused = series.Id == Store.State.FocusedSeriesId;
-                                    <div class="series-node @(isFocused ? "focused-series" : "")" 
+                                    <div @key="series.Id" class="series-node @(isFocused ? "focused-series" : "")" 
                                          role="treeitem" 
                                          aria-selected="@(isFocused ? "true" : "false")">
                                         

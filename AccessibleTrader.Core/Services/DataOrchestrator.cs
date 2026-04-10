@@ -76,7 +76,7 @@ namespace AccessibleTrader.Core.Services
                     durationOfBreak: TimeSpan.FromSeconds(5),
                     onBreak: (ex, breakDelay) => 
                     {
-                        _logger.LogCritical($"CIRCUIT BROKEN: Suspending network requests for {breakDelay.TotalSeconds}s due to: {ex.Message}");
+                        _logger.LogCritical(ex, "CIRCUIT BROKEN: Suspending network requests for {BreakDelaySeconds}s.", breakDelay.TotalSeconds);
                         _eventBus.Publish(new ConnectionStatusEvent("GLOBAL_NETWORK", ConnectionState.Error, "Network connection lost. Circuit tripped."));
                         _stateMachine.Fire(DataTrigger.ErrorOccurred);
                     },
@@ -101,7 +101,7 @@ namespace AccessibleTrader.Core.Services
             // 3. Wrap them together
             _resiliencePolicy = Polly.Policy.WrapAsync(retryPolicy, _circuitBreaker);
 
-            _ = Task.Run(ProcessLiveStreamAsync);
+            SafeFireAndForget.Run(ProcessLiveStreamAsync, logger, "ProcessLiveStream");
         }
 
         private async Task ProcessLiveStreamAsync()
@@ -128,8 +128,8 @@ namespace AccessibleTrader.Core.Services
                 if (!silent) _stateMachine.Fire(DataTrigger.FetchHistoricalStarted);
                 
                 // Execute through the wrapped resilience shield
-                var results = await _resiliencePolicy.ExecuteAsync(() => 
-                    _historicalFetcher.FetchOhlcvAsync(market, provider, symbol, timeframe, since, limit, until));
+                var results = await _resiliencePolicy.ExecuteAsync(() =>
+                    _historicalFetcher.FetchOhlcvAsync(market, provider, symbol, timeframe, since, limit, until)).ConfigureAwait(false);
                 
                 if (!silent)
                 {
@@ -147,13 +147,13 @@ namespace AccessibleTrader.Core.Services
             catch (BrokenCircuitException)
             {
                 // Instant fail if circuit is open - prevents UI hanging on timeouts
-                _logger.LogWarning($"Fetch aborted: Circuit is OPEN for {symbol}");
+                _logger.LogWarning("Fetch aborted: Circuit is OPEN for {Symbol}.", symbol);
                 if (!silent) _stateMachine.Fire(DataTrigger.ErrorOccurred);
                 return new List<Ohlcv>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to fetch data for {symbol} after multiple attempts.");
+                _logger.LogError(ex, "Failed to fetch data for {Symbol} after multiple attempts.", symbol);
                 if (!silent)
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Failed to load data for {symbol} from {provider}. Please check connection."));
@@ -168,7 +168,7 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(DataTrigger.GapFillStarted);
             // Gap fill is deferred to the DataManager pipeline.
             
-            await _liveStreamManager.StartLiveStreamAsync(market, providerName, symbol, timeframe);
+            await _liveStreamManager.StartLiveStreamAsync(market, providerName, symbol, timeframe).ConfigureAwait(false);
             _stateMachine.Fire(DataTrigger.LiveStreamStarted);
         }
 
@@ -223,7 +223,7 @@ namespace AccessibleTrader.Core.Services
 
             protected override void OnTransitioned(DataState newState)
             {
-                _logger.LogInformation($"DataOrchestrator state changed to: {newState}");
+                _logger.LogInformation("DataOrchestrator state changed to: {NewState}.", newState);
 
                 // SILENT LIVE UPDATES: Only announce MAJOR transitions that the user is waiting for.
                 // We avoid announcing every tick-driven state change to keep the earcon noise low.

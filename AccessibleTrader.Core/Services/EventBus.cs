@@ -19,7 +19,7 @@ namespace AccessibleTrader.Core.Services
         IObservable<T> AsObservable<T>();
     }
 
-    public class EventBus : IEventBus
+    public class EventBus : IEventBus, IDisposable
     {
         private readonly ConcurrentDictionary<Type, object> _subjects = new();
 
@@ -38,6 +38,16 @@ namespace AccessibleTrader.Core.Services
         public IObservable<T> AsObservable<T>()
         {
             return GetSubject<T>().AsObservable();
+        }
+
+        public void Dispose()
+        {
+            foreach (var kvp in _subjects)
+            {
+                if (kvp.Value is IDisposable disposable)
+                    disposable.Dispose();
+            }
+            _subjects.Clear();
         }
 
         private Subject<T> GetSubject<T>()

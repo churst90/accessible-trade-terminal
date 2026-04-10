@@ -60,7 +60,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 if (_isFetching || _historyExhausted) return;
 
-                await _fetchLock.WaitAsync();
+                await _fetchLock.WaitAsync().ConfigureAwait(false);
                 try
                 {
                     if (_isFetching || _historyExhausted) return;
@@ -69,7 +69,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     int oldDataCount = _dataManager.Data.Count;
                     if (oldDataCount == 0) return;
 
-                    await _dataManager.PrependOlderDataAsync();
+                    await _dataManager.PrependOlderDataAsync().ConfigureAwait(false);
 
                     int newDataCount = _dataManager.Data.Count;
                     int addedCount = newDataCount - oldDataCount;

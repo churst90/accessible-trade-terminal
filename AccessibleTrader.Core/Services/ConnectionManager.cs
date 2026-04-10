@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Core.Services.Audio;
@@ -20,8 +21,8 @@ namespace AccessibleTrader.Core.Services
     /// </summary>
     public class ConnectionManager : IConnectionManager, IDisposable
     {
-        private readonly Dictionary<string, ConnectionState> _states = new();
-        private readonly Dictionary<string, IDisposable> _subscriptions = new();
+        private readonly ConcurrentDictionary<string, ConnectionState> _states = new();
+        private readonly ConcurrentDictionary<string, IDisposable> _subscriptions = new();
         private readonly IEventBus _eventBus;
 
         public ConnectionManager(IEventBus eventBus)
@@ -34,9 +35,9 @@ namespace AccessibleTrader.Core.Services
             if (_subscriptions.ContainsKey(provider.Name)) return;
 
             _states[provider.Name] = ConnectionState.Disconnected;
-            _subscriptions[provider.Name] = provider.ConnectionStateStream.Subscribe(state => 
+            _subscriptions[provider.Name] = provider.ConnectionStateStream.Subscribe(state =>
             {
-                var oldState = _states.ContainsKey(provider.Name) ? _states[provider.Name] : ConnectionState.Disconnected;
+                var oldState = _states.GetValueOrDefault(provider.Name, ConnectionState.Disconnected);
                 if (oldState != state)
                 {
                     _states[provider.Name] = state;
@@ -47,17 +48,16 @@ namespace AccessibleTrader.Core.Services
 
         public void UntrackProvider(IMarketDataProvider provider)
         {
-            if (_subscriptions.TryGetValue(provider.Name, out var sub))
+            if (_subscriptions.TryRemove(provider.Name, out var sub))
             {
                 sub.Dispose();
-                _subscriptions.Remove(provider.Name);
             }
-            _states.Remove(provider.Name);
+            _states.TryRemove(provider.Name, out _);
         }
 
         public ConnectionState GetState(string providerName)
         {
-            return _states.TryGetValue(providerName, out var state) ? state : ConnectionState.Disconnected;
+            return _states.GetValueOrDefault(providerName, ConnectionState.Disconnected);
         }
 
         private void NotifyStateChange(string providerName, ConnectionState oldState, ConnectionState newState)

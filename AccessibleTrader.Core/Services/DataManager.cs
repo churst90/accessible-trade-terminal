@@ -83,9 +83,9 @@ namespace AccessibleTrader.Core.Services
                 var identity = Identity;
                 if (string.IsNullOrEmpty(identity.Symbol)) return;
 
-                _logger.LogInformation($"DataManager: Refreshing data for {identity.Symbol} (Initial Load: 200 bars)");
+                _logger.LogInformation("DataManager: Refreshing data for {Symbol} (Initial Load: 200 bars).", identity.Symbol);
 
-                var newData = await _orchestrator.FetchOhlcvAsync(identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200);
+                var newData = await _orchestrator.FetchOhlcvAsync(identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200).ConfigureAwait(false);
 
                 // Bail out if a newer tab-switch refresh has superseded this one.
                 ct.ThrowIfCancellationRequested();
@@ -101,13 +101,13 @@ namespace AccessibleTrader.Core.Services
                     NotifyDataUpdate(isInitialLoad: true);
                     _initialLoadStream.OnNext(_cache);
 
-                    _ = Task.Run(async () => await StartLiveUpdates());
+                    SafeFireAndForget.Run(StartLiveUpdates, _logger, "StartLiveUpdates");
                 }
             }
             catch (OperationCanceledException) { /* Superseded by a newer tab-switch refresh — no-op */ }
             catch (Exception ex)
             {
-                _logger.LogError($"Refresh failed: {ex.Message}");
+                _logger.LogError(ex, "Refresh failed for {Symbol}.", Identity.Symbol);
                 ErrorOccurred?.Invoke(ex.Message);
             }
         }
@@ -116,7 +116,7 @@ namespace AccessibleTrader.Core.Services
         {
             if (snapshotData.Count == 0)
             {
-                await RefreshDataAsync(ct);
+                await RefreshDataAsync(ct).ConfigureAwait(false);
                 return;
             }
 
@@ -125,7 +125,7 @@ namespace AccessibleTrader.Core.Services
                 var identity = Identity;
                 if (string.IsNullOrEmpty(identity.Symbol)) return;
 
-                _logger.LogInformation($"DataManager: Restoring {snapshotData.Count} bars from snapshot for {identity.Symbol}");
+                _logger.LogInformation("DataManager: Restoring {Count} bars from snapshot for {Symbol}.", snapshotData.Count, identity.Symbol);
 
                 // Step 1 — Restore snapshot immediately so the store sees the full history
                 // without waiting for a network round-trip. IsInitialLoad=false so the
@@ -141,7 +141,7 @@ namespace AccessibleTrader.Core.Services
                 // while the tab was inactive without touching the preserved scrollback.
                 var lastKnownDate = snapshotData[^1].Date;
                 var recent = await _orchestrator.FetchOhlcvAsync(
-                    identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200);
+                    identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200).ConfigureAwait(false);
 
                 ct.ThrowIfCancellationRequested();
 
@@ -160,7 +160,7 @@ namespace AccessibleTrader.Core.Services
                             if (_cache.Count > MaxBarsInCache)
                                 _cache = _cache.RemoveFirst();
                         }
-                        _logger.LogInformation($"DataManager: Gap-filled {gapBars.Count} bars for {identity.Symbol}");
+                        _logger.LogInformation("DataManager: Gap-filled {Count} bars for {Symbol}.", gapBars.Count, identity.Symbol);
                     }
                     else
                     {
@@ -180,14 +180,14 @@ namespace AccessibleTrader.Core.Services
                 _eventBus.Publish(new IndicatorUpdatedEvent("__catchup__"));
 
                 // Step 4 — Start live updates to keep the tab current going forward.
-                _ = Task.Run(async () => await StartLiveUpdates());
+                SafeFireAndForget.Run(StartLiveUpdates, _logger, "StartLiveUpdates");
             }
             catch (OperationCanceledException) { /* Superseded by a newer tab-switch — no-op */ }
             catch (Exception ex)
             {
-                _logger.LogError($"CatchUp failed for {Identity.Symbol}: {ex.Message}");
+                _logger.LogError(ex, "CatchUp failed for {Symbol}.", Identity.Symbol);
                 // Fall back to a full refresh so the tab is never left in a broken state.
-                try { await RefreshDataAsync(default); } catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
+                try { await RefreshDataAsync(default).ConfigureAwait(false); } catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
             }
         }
 
@@ -211,7 +211,7 @@ namespace AccessibleTrader.Core.Services
             //   it checks the flag and fires one more prepend before returning.
             //   Ensures the most-recent scroll intent always executes without pileup.
             if (string.IsNullOrEmpty(Identity.Symbol)) return;
-            if (!await _prependLock.WaitAsync(0)) return;
+            if (!await _prependLock.WaitAsync(0).ConfigureAwait(false)) return;
             try
             {
 
@@ -222,11 +222,11 @@ namespace AccessibleTrader.Core.Services
 
                 long since = new DateTimeOffset(firstBar.Date).ToUnixTimeMilliseconds();
                 
-                _logger.LogInformation($"DataManager: Prepending 200 bars before {firstBar.Date}");
+                _logger.LogInformation("DataManager: Prepending 200 bars before {Date}.", firstBar.Date);
                 
                 var olderData = await _orchestrator.FetchOhlcvAsync(
-                    Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe, 
-                    limit: 200, until: since - 1);
+                    Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe,
+                    limit: 200, until: since - 1).ConfigureAwait(false);
 
                 if (olderData != null && olderData.Any())
                 {
@@ -237,7 +237,7 @@ namespace AccessibleTrader.Core.Services
                         while (_cache.Count > MaxBarsInCache)
                             _cache = _cache.RemoveLast();
                         _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
-                        _logger.LogInformation($"Prepended {uniqueOlder.Count} bars.");
+                        _logger.LogInformation("Prepended {Count} bars.", uniqueOlder.Count);
                         NotifyDataUpdate(false);
                     }
                 }
@@ -260,54 +260,46 @@ namespace AccessibleTrader.Core.Services
 
                 public async Task StartLiveUpdates()
         {
-            await StopLiveUpdatesAsync();
+            await StopLiveUpdatesAsync().ConfigureAwait(false);
             _liveCts = new CancellationTokenSource();
             var token = _liveCts.Token;
 
-            _ = Task.Run(async () =>
+            SafeFireAndForget.Run(async () =>
             {
-                try
+                await foreach (var tick in _orchestrator.LiveStream.ReadAllAsync(token))
                 {
-                    await foreach (var tick in _orchestrator.LiveStream.ReadAllAsync(token))
-                    {
-                        // Drop ticks that arrive while historical backfill is in progress.
-                        // The prepend operation replaces _cache wholesale; merging a live tick
-                        // during that window would corrupt the bar sequence.
-                        if (_store.State.DataStatus == DataStatus.LoadingHistorical)
-                            continue;
+                    // Drop ticks that arrive while historical backfill is in progress.
+                    // The prepend operation replaces _cache wholesale; merging a live tick
+                    // during that window would corrupt the bar sequence.
+                    if (_store.State.DataStatus == DataStatus.LoadingHistorical)
+                        continue;
 
-                        var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
-                        if (_cache.Count == 0 || tick.Date > lastBar.Date) {
-                            _cache = _cache.Append(tick);
-                            if (_cache.Count > 2000) _cache = _cache.RemoveFirst();
-                        } else {
-                            _cache = _cache.ReplaceLast(tick);
-                        }
-                        _store.Dispatch(new UpdateDataAction(_cache, false));
+                    var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
+                    if (_cache.Count == 0 || tick.Date > lastBar.Date) {
+                        _cache = _cache.Append(tick);
+                        if (_cache.Count > 2000) _cache = _cache.RemoveFirst();
+                    } else {
+                        _cache = _cache.ReplaceLast(tick);
                     }
+                    _store.Dispatch(new UpdateDataAction(_cache, false));
                 }
-                catch (OperationCanceledException) { }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Live updates loop failed.");
-                }
-            });
+            }, _logger, "LiveUpdatesLoop");
 
-            await _orchestrator.StartLiveStreamAsync(Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe);
+            await _orchestrator.StartLiveStreamAsync(Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe).ConfigureAwait(false);
         }
 
         public async Task StopLiveUpdatesAsync()
         {
             _liveCts?.Cancel(); _liveCts?.Dispose();
             _liveCts = null;
-            await _orchestrator.StopLiveStreamAsync();
+            await _orchestrator.StopLiveStreamAsync().ConfigureAwait(false);
         }
 
         public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync()
         {
             var dataService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<IDataService>(_serviceProvider);
             if (dataService == null) return (new(), new());
-            return await dataService.GetOrderBookAsync(Identity.Provider, Identity.Symbol);
+            return await dataService.GetOrderBookAsync(Identity.Provider, Identity.Symbol).ConfigureAwait(false);
         }
 
         public void Dispose()

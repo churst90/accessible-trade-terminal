@@ -67,7 +67,7 @@ namespace AccessibleTrader.Sdk.Services
             if (IsConnected) return;
             _cts?.Cancel();
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            await ConnectInternalAsync(_cts.Token);
+            await ConnectInternalAsync(_cts.Token).ConfigureAwait(false);
             _ = ReceiveLoopAsync(_cts.Token);
             if (_heartbeatInterval > TimeSpan.Zero)
                 _ = HeartbeatLoopAsync(_cts.Token);
@@ -77,9 +77,9 @@ namespace AccessibleTrader.Sdk.Services
         {
             _ws?.Dispose();
             _ws = new ClientWebSocket();
-            await _ws.ConnectAsync(new Uri(_url), ct);
+            await _ws.ConnectAsync(new Uri(_url), ct).ConfigureAwait(false);
             if (_onConnected != null)
-                await _onConnected(this);
+                await _onConnected(this).ConfigureAwait(false);
         }
 
         /// <summary>Send a text message. Safe to call from any thread.</summary>
@@ -87,7 +87,7 @@ namespace AccessibleTrader.Sdk.Services
         {
             if (_ws == null || _ws.State != WebSocketState.Open) return;
             var bytes = Encoding.UTF8.GetBytes(message);
-            await _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, ct);
+            await _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
         }
 
         /// <summary>Gracefully disconnect.</summary>
@@ -96,7 +96,7 @@ namespace AccessibleTrader.Sdk.Services
             _cts?.Cancel();
             if (_ws != null && _ws.State == WebSocketState.Open)
             {
-                try { await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None); }
+                try { await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None).ConfigureAwait(false); }
                 catch { /* best-effort */ }
             }
             _ws?.Dispose();
@@ -123,11 +123,11 @@ namespace AccessibleTrader.Sdk.Services
 
                         var delay = TimeSpan.FromMilliseconds(
                             _reconnectBaseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(reconnectAttempts, 6)));
-                        await Task.Delay(delay, ct);
+                        await Task.Delay(delay, ct).ConfigureAwait(false);
 
                         try
                         {
-                            await ConnectInternalAsync(ct);
+                            await ConnectInternalAsync(ct).ConfigureAwait(false);
                             reconnectAttempts = 0;
                         }
                         catch (Exception ex)
@@ -142,7 +142,7 @@ namespace AccessibleTrader.Sdk.Services
                     WebSocketReceiveResult result;
                     do
                     {
-                        result = await _ws!.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+                        result = await _ws!.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
                         ms.Write(buffer, 0, result.Count);
                     } while (!result.EndOfMessage);
 
@@ -177,12 +177,12 @@ namespace AccessibleTrader.Sdk.Services
             {
                 try
                 {
-                    await Task.Delay(_heartbeatInterval, ct);
+                    await Task.Delay(_heartbeatInterval, ct).ConfigureAwait(false);
                     if (_ws?.State == WebSocketState.Open)
                     {
                         // Send a WebSocket ping frame
                         var pingBytes = Encoding.UTF8.GetBytes("ping");
-                        await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, 0), WebSocketMessageType.Text, true, ct);
+                        await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, 0), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
                     }
                 }
                 catch (OperationCanceledException) { break; }

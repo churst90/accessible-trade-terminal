@@ -52,7 +52,7 @@ namespace AccessibleTrader.Core.Services
                 
                 // Expecting the script to return an IEnumerable<double> or IEnumerable<double?>
                 var script = CSharpScript.Create<object>(code, options, typeof(ScriptGlobals));
-                var result = await script.RunAsync(globals);
+                var result = await script.RunAsync(globals).ConfigureAwait(false);
 
                 if (result.ReturnValue is IEnumerable<double> doubleList)
                 {

@@ -57,7 +57,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to list workspace profiles: {ex.Message}");
+                _logger.LogError(ex, "Failed to list workspace profiles.");
                 return new List<string>();
             }
         }
@@ -69,11 +69,11 @@ namespace AccessibleTrader.Core.Services
                 string path = Path.Combine(_libraryDir, $"{name}.json");
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
                 File.WriteAllText(path, json);
-                _logger.LogInformation($"Workspace profile '{name}' saved.");
+                _logger.LogInformation("Workspace profile {Name} saved.", name);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to save workspace profile '{name}': {ex.Message}");
+                _logger.LogError(ex, "Failed to save workspace profile {Name}.", name);
             }
         }
 
@@ -171,7 +171,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to load workspace profile '{name}': {ex.Message}");
+                _logger.LogError(ex, "Failed to load workspace profile {Name}.", name);
                 return null;
             }
         }
@@ -185,7 +185,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to delete workspace profile '{name}': {ex.Message}");
+                _logger.LogError(ex, "Failed to delete workspace profile {Name}.", name);
             }
         }
 
@@ -200,7 +200,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to save alerts: {ex.Message}");
+                _logger.LogError(ex, "Failed to save alerts.");
             }
         }
 
@@ -215,7 +215,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to load alerts: {ex.Message}");
+                _logger.LogError(ex, "Failed to load alerts.");
                 return new List<AlertDefinition>();
             }
         }

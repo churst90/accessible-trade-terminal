@@ -23,7 +23,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
         private readonly IEventBus _eventBus;
         private readonly ILogger<BackfillManager> _logger;
-        private readonly BlockingCollection<BackfillTask> _queue = new();
+        private readonly BlockingCollection<BackfillTask> _queue = new(boundedCapacity: 100);
         private readonly CancellationTokenSource _cts = new();
 
         public BackfillManager(IDataService dataService, IDbContextFactory<AppDbContext> dbContextFactory, IEventBus eventBus, ILogger<BackfillManager> logger)
@@ -32,7 +32,7 @@ namespace AccessibleTrader.Core.Services
             _dbContextFactory = dbContextFactory;
             _eventBus = eventBus;
             _logger = logger;
-            Task.Run(ProcessQueue);
+            SafeFireAndForget.Run(ProcessQueue, logger, "BackfillProcessQueue");
         }
 
         public void QueueBackfill(string market, string provider, string symbol, DateTime start, DateTime end)
@@ -46,24 +46,24 @@ namespace AccessibleTrader.Core.Services
             {
                 try
                 {
-                    _logger.LogInformation($"Processing backfill for {task.Symbol} ({task.Start:yyyy-MM-dd} to {task.End:yyyy-MM-dd})");
+                    _logger.LogInformation("Processing backfill for {Symbol} ({Start} to {End}).", task.Symbol, task.Start.ToString("yyyy-MM-dd"), task.End.ToString("yyyy-MM-dd"));
                     
                     // Politeness: Wait between requests to avoid rate limits
-                    await Task.Delay(1000, _cts.Token);
+                    await Task.Delay(1000, _cts.Token).ConfigureAwait(false);
 
                     var request = new MarketDataRequest(task.Market, task.Symbol, "1m", 1000, new DateTimeOffset(task.Start).ToUnixTimeMilliseconds());
-                    
-                    var (bars, _) = await _dataService.FetchOhlcvAsync(task.Provider, request);
+
+                    var (bars, _) = await _dataService.FetchOhlcvAsync(task.Provider, request).ConfigureAwait(false);
                     
                     if (bars.Any())
                     {
-                        using var context = await _dbContextFactory.CreateDbContextAsync(_cts.Token);
+                        using var context = await _dbContextFactory.CreateDbContextAsync(_cts.Token).ConfigureAwait(false);
                         
                         foreach (var bar in bars)
                         {
                             var ts = new DateTimeOffset(bar.Date).ToUnixTimeMilliseconds();
                             
-                            var existing = await context.OhlcvData.FindAsync(new object[] { task.Market, task.Provider, task.Symbol, "1m", ts }, _cts.Token);
+                            var existing = await context.OhlcvData.FindAsync(new object[] { task.Market, task.Provider, task.Symbol, "1m", ts }, _cts.Token).ConfigureAwait(false);
 
                             if (existing == null)
                             {
@@ -91,8 +91,8 @@ namespace AccessibleTrader.Core.Services
                                 existing.Volume = bar.Volume;
                             }
                         }
-                        await context.SaveChangesAsync(_cts.Token);
-                        _logger.LogInformation($"Backfilled {bars.Count} bars for {task.Symbol}");
+                        await context.SaveChangesAsync(_cts.Token).ConfigureAwait(false);
+                        _logger.LogInformation("Backfilled {Count} bars for {Symbol}.", bars.Count, task.Symbol);
                         _eventBus.Publish<ChartEvent>(ChartEvent.BackfillComplete(task.Symbol));
                     }
                 }
@@ -102,7 +102,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Backfill task failed: {ex.Message}");
+                    _logger.LogError(ex, "Backfill task failed.");
                 }
             }
         }
@@ -110,7 +110,9 @@ namespace AccessibleTrader.Core.Services
         public void Dispose()
         {
             _cts.Cancel();
+            _queue.CompleteAdding();
             _queue.Dispose();
+            _cts.Dispose();
         }
 
         private class BackfillTask

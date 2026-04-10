@@ -370,5 +370,15 @@ namespace AccessibleTrader.Plugins.TwelveData
             "1M"  => TimeSpan.FromDays(30),
             _     => TimeSpan.FromHours(1)
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _ws?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

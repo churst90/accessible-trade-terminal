@@ -101,7 +101,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"IndicatorPrefs: failed to load {indicatorCode}: {ex.Message}");
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to load {IndicatorCode}.", indicatorCode);
                 return null;
             }
         }
@@ -116,7 +116,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"IndicatorPrefs: failed to save {indicatorCode}: {ex.Message}");
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to save {IndicatorCode}.", indicatorCode);
             }
         }
 
@@ -129,7 +129,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"IndicatorPrefs: failed to clear {indicatorCode}: {ex.Message}");
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to clear {IndicatorCode}.", indicatorCode);
             }
         }
 
@@ -143,7 +143,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"IndicatorPrefs: failed to load level prefs for {indicatorCode}: {ex.Message}");
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to load level prefs for {IndicatorCode}.", indicatorCode);
                 return new();
             }
         }
@@ -160,7 +160,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"IndicatorPrefs: failed to save level pref for {indicatorCode}: {ex.Message}");
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to save level pref for {IndicatorCode}.", indicatorCode);
             }
         }
 

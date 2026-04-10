@@ -72,7 +72,7 @@ namespace AccessibleTrader.Core.Services
                 _entries.AddLast(entry);
                 while (_entries.Count > MaxEntries) _entries.RemoveFirst();
             }
-            try { EntryAdded?.Invoke(entry); } catch { /* never let a journal subscriber crash a publisher */ }
+            try { EntryAdded?.Invoke(entry); } catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"JournalService subscriber threw: {ex.Message}"); }
         }
 
         public void AddSpeech(string text)

@@ -153,7 +153,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 asset = DetectAsset(medianClose);
                 if (asset == null)
                 {
-                    Console.Error.WriteLine($"  [COINMETRICS] Could not detect asset from median close {medianClose:0.00} — leaving all-NaN");
+                    System.Diagnostics.Trace.TraceWarning($"[COINMETRICS] Could not detect asset from median close {medianClose:0.00} — leaving all-NaN");
                     return;
                 }
             }

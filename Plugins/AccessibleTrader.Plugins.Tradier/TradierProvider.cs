@@ -618,5 +618,17 @@ namespace AccessibleTrader.Plugins.Tradier
             "1M"  => TimeSpan.FromDays(30),
             _     => TimeSpan.FromHours(1)
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _streamClient?.Dispose();
+                _streamCts?.Dispose();
+                _orderUpdateSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

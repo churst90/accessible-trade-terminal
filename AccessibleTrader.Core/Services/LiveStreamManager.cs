@@ -43,12 +43,12 @@ namespace AccessibleTrader.Core.Services
 
         public virtual async Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe)
         {
-            _logger.LogInformation($"LiveStreamManager: Requesting live stream for {symbol} @ {timeframe}");
+            _logger.LogInformation("LiveStreamManager: Requesting live stream for {Symbol} @ {Timeframe}.", symbol, timeframe);
             
-            var provider = await _dataService.GetProviderAsync(providerName);
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider == null) return;
 
-            await provider.EnsureConnectedAsync();
+            await provider.EnsureConnectedAsync().ConfigureAwait(false);
             
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
@@ -85,7 +85,7 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                await provider.SetSubscriptionAsync(market, symbol, timeframe);
+                await provider.SetSubscriptionAsync(market, symbol, timeframe).ConfigureAwait(false);
                 StartFallbackWatchdog(market, providerName, symbol, timeframe);
             }
             catch (Exception ex)
@@ -103,20 +103,20 @@ namespace AccessibleTrader.Core.Services
             _fallbackCts = new CancellationTokenSource();
             var token = _fallbackCts.Token;
 
-            _ = Task.Run(async () => 
+            SafeFireAndForget.Run(async () =>
             {
                 while (!token.IsCancellationRequested)
                 {
-                    await Task.Delay(15000, token);
-                    
+                    await Task.Delay(15000, token).ConfigureAwait(false);
+
                     if (DateTime.Now - _lastTickReceived > TimeSpan.FromSeconds(60) && !_fallbackAnnounced)
                     {
-                        _logger.LogWarning($"LiveStreamManager: Live stream for {provider} silent for 60s.");
+                        _logger.LogWarning("Live stream for {Provider} silent for 60s.", provider);
                         _errorCoordinator.ReportError($"{provider} stream delayed. Attempting reconnect.", ErrorSeverity.Low, ErrorCategory.Informational);
                         _fallbackAnnounced = true;
                     }
                 }
-            }, token);
+            }, _logger, "FallbackWatchdog");
         }
 
         private void StopFallbackPolling()
@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services
             _currentProviderSubscription = null;
             _currentErrorSubscription = null;
             _currentBucketCandle = null;
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public void Dispose()

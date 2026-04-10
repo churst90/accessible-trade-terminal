@@ -33,7 +33,7 @@ namespace AccessibleTrader.Core.Services
                 // Fallback to temp if local app data fails
                 _cacheDir = Path.Combine(Path.GetTempPath(), "AccessibleTraderCache");
                 if (!Directory.Exists(_cacheDir)) Directory.CreateDirectory(_cacheDir);
-                _logger.LogWarning($"Could not create primary cache dir, falling back to temp: {ex.Message}");
+                _logger.LogWarning(ex, "Could not create primary cache dir, falling back to temp.");
             }
         }
 
@@ -44,7 +44,7 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 var entry = JsonSerializer.Deserialize<CacheEntry<T>>(json);
                 
                 if (entry != null && entry.Expiration > DateTime.UtcNow)
@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Failed to read cache key {key}: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to read cache key {Key}.", key);
             }
             return default;
         }
@@ -72,19 +72,22 @@ namespace AccessibleTrader.Core.Services
                 };
                 
                 var json = JsonSerializer.Serialize(entry);
-                await File.WriteAllTextAsync(GetPath(key), json);
+                await File.WriteAllTextAsync(GetPath(key), json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to write cache key {key}: {ex.Message}");
+                _logger.LogError(ex, "Failed to write cache key {Key}.", key);
             }
         }
 
         private string GetPath(string key)
         {
-            var invalidChars = Path.GetInvalidFileNameChars();
-            var safeKey = new string(key.Select(c => invalidChars.Contains(c) ? '_' : c).ToArray());
-            return Path.Combine(_cacheDir, $"{safeKey}.json");
+            // Use a hash-based filename to avoid collisions when different keys
+            // sanitize to the same string (e.g. "key:1" and "key/1" → "key_1").
+            var hash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(key)))[..16];
+            return Path.Combine(_cacheDir, $"{hash}.json");
         }
 
         private class CacheEntry<T>

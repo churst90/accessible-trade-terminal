@@ -52,7 +52,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public async Task<Dictionary<string, double[]>> CalculateAsync(string code, IReadOnlyList<Ohlcv> data, Dictionary<string, object> parameters, CancellationToken ct)
         {
-            var (results, _) = await CalculateWithBandsAsync(code, data, parameters, ct);
+            var (results, _) = await CalculateWithBandsAsync(code, data, parameters, ct).ConfigureAwait(false);
             return results;
         }
 
@@ -74,7 +74,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     for (int i = 0; i < custom.ComponentNames.Length && i < arrays.Length; i++)
                         result[custom.ComponentNames[i]] = arrays[i];
                     return result;
-                }, ct);
+                }, ct).ConfigureAwait(false);
                 return (results, Array.Empty<ZoneBandConfig>());
             }
 
@@ -89,7 +89,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 buffer.Seal();
                 var zoneBands = buffer.ReadZoneBands(code);
                 return (buffer.GetResults(), zoneBands);
-            }, ct);
+            }, ct).ConfigureAwait(false);
         }
 
         public async Task<Dictionary<string, double>> CalculateIncrementalAsync(string code, IReadOnlyList<Ohlcv> data, Dictionary<string, object> parameters, Dictionary<string, double[]> previousResults, CancellationToken ct)
@@ -111,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (arr.Length > 0) lastValues[custom.ComponentNames[i]] = arr[^1];
                     }
                     return lastValues;
-                }, ct);
+                }, ct).ConfigureAwait(false);
             }
 
             return await Task.Run(() =>
@@ -119,7 +119,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // We use a temp buffer for just the last value.
                 var resultsDict = new Dictionary<string, double[]>();
                 var buffer = new IndicatorResultBuffer(resultsDict, data.Count);
-                
+
                 // Copy previous data if possible for the provider's context.
                 // All component names are registered here — seal the buffer afterwards so that
                 // UpdateLast() calling SetValue with a typo'd name throws instead of silently
@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 buffer.Seal();
 
                 _indicatorService.UpdateLast(code, data.ToArray(), parameters, buffer);
-                
+
                 var lastValues = new Dictionary<string, double>();
                 foreach (var kvp in resultsDict)
                 {
@@ -141,7 +141,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         lastValues[kvp.Key] = kvp.Value[^1];
                 }
                 return lastValues;
-            }, ct);
+            }, ct).ConfigureAwait(false);
         }
     }
 }

@@ -179,7 +179,7 @@ namespace AccessibleTrader.Core.Services
                             // Use gap-fill instead of a full 200-bar re-fetch.
                             // CatchUpFromSnapshotAsync restores the snapshot then appends
                             // only the bars that arrived while the tab was inactive.
-                            await _dataManager.CatchUpFromSnapshotAsync(capturedSnapshotData, cts.Token);
+                            await _dataManager.CatchUpFromSnapshotAsync(capturedSnapshotData, cts.Token).ConfigureAwait(false);
                         }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Tab catch-up failed: {ex.Message}"); }
                     });
@@ -193,7 +193,7 @@ namespace AccessibleTrader.Core.Services
                 .DistinctUntilChanged()
                 .Subscribe(_ => Task.Run(async () =>
                 {
-                    try { await RefreshPipelineAsync(); }
+                    try { await RefreshPipelineAsync().ConfigureAwait(false); }
                     catch { /* Swallow — mode switch failures are non-fatal */ }
                 }));
         }
@@ -207,7 +207,7 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(MarketTrigger.RefreshRequested);
             try 
             {
-                var allMarkets = await _dataService.LoadAvailableMarketsAsync();
+                var allMarkets = await _dataService.LoadAvailableMarketsAsync().ConfigureAwait(false);
                 var mode = _store.State.Mode;
 
                 // Analytics mode hosts every non-tradeable data category. New
@@ -230,7 +230,7 @@ namespace AccessibleTrader.Core.Services
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
                     _selectedMarket = _availableMarkets[0];
 
-                await RefreshProvidersAsync();
+                await RefreshProvidersAsync().ConfigureAwait(false);
                 _stateMachine.Fire(MarketTrigger.RefreshCompleted);
             }
             catch 
@@ -253,7 +253,7 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
-            _availableProviders = await _dataService.LoadProvidersByMarketTypeAsync(_selectedMarket);
+            _availableProviders = await _dataService.LoadProvidersByMarketTypeAsync(_selectedMarket).ConfigureAwait(false);
 
             // Ensure well-known providers appear in their canonical market even if the
             // data service returned an empty list (e.g., providers not yet configured).
@@ -283,7 +283,7 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(_selectedProvider) || !_availableProviders.Contains(_selectedProvider))
                 _selectedProvider = _availableProviders.FirstOrDefault() ?? "";
 
-            await RefreshSymbolsAsync();
+            await RefreshSymbolsAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -307,8 +307,8 @@ namespace AccessibleTrader.Core.Services
             // Pre-flight: if the provider requires an API key and none is configured,
             // show a descriptive sentinel in the symbol dropdown instead of silently
             // falling back to a hardcoded list that would mislead the user.
-            bool requiresKey = await _dataService.ProviderRequiresApiKeyAsync(_selectedProvider);
-            bool isConfigured = await _dataService.IsProviderConfiguredAsync(_selectedProvider);
+            bool requiresKey = await _dataService.ProviderRequiresApiKeyAsync(_selectedProvider).ConfigureAwait(false);
+            bool isConfigured = await _dataService.IsProviderConfiguredAsync(_selectedProvider).ConfigureAwait(false);
 
             if (requiresKey && !isConfigured)
             {
@@ -321,7 +321,7 @@ namespace AccessibleTrader.Core.Services
             }
 
             // Load sub-types (Spot/Futures/etc.) — only shown in the toolbar when count > 1.
-            _availableSubTypes = await _dataService.GetSupportedSubTypesAsync(_selectedProvider, _selectedMarket);
+            _availableSubTypes = await _dataService.GetSupportedSubTypesAsync(_selectedProvider, _selectedMarket).ConfigureAwait(false);
             if (_availableSubTypes.Count == 0) _availableSubTypes = new List<string> { "Spot" };
             if (!_availableSubTypes.Contains(_selectedSubType)) _selectedSubType = _availableSubTypes[0];
 
@@ -330,8 +330,8 @@ namespace AccessibleTrader.Core.Services
                 ? $"{_selectedMarket}|{_selectedSubType}"
                 : _selectedMarket;
 
-            _availableSymbols = await _dataService.LoadSymbolsAsync(marketKey, _selectedProvider);
-            _availableTimeframes = await _dataService.GetSupportedTimeframesAsync(_selectedProvider);
+            _availableSymbols = await _dataService.LoadSymbolsAsync(marketKey, _selectedProvider).ConfigureAwait(false);
+            _availableTimeframes = await _dataService.GetSupportedTimeframesAsync(_selectedProvider).ConfigureAwait(false);
 
             // Only fall back to a minimal hardcoded set for providers that genuinely have
             // no server-side symbol list (e.g. FRED uses well-known series codes).
@@ -372,7 +372,7 @@ namespace AccessibleTrader.Core.Services
             // instead of "Price". Falls back to OHLCV / raw symbol if the provider
             // lookup fails (e.g. plugin DLL missing); a stale lookup never crashes the
             // load path.
-            var providerForShape = await _dataService.GetProviderAsync(_selectedProvider);
+            var providerForShape = await _dataService.GetProviderAsync(_selectedProvider).ConfigureAwait(false);
             var dataShape = providerForShape?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
             var symbolDisplayName = providerForShape?.GetSymbolDisplayName(_selectedSymbol) ?? _selectedSymbol;
             // Q3: per-symbol render hints for analytics metrics (range/zones/display/speech).
@@ -404,7 +404,7 @@ namespace AccessibleTrader.Core.Services
             _dataManager.Identity = identity;
             try
             {
-                await _dataManager.RefreshDataAsync();
+                await _dataManager.RefreshDataAsync().ConfigureAwait(false);
                 _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Ready));
                 _stateMachine.Fire(MarketTrigger.ConnectionEstablished);
             }
@@ -421,7 +421,7 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(_selectedProvider)) return Sdk.Plugins.ProviderDataShape.Ohlcv;
             try
             {
-                var provider = await _dataService.GetProviderAsync(_selectedProvider);
+                var provider = await _dataService.GetProviderAsync(_selectedProvider).ConfigureAwait(false);
                 return provider?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
             }
             catch
@@ -457,7 +457,7 @@ namespace AccessibleTrader.Core.Services
 
             // Normal load — InitializeDefaultSeries will seed the correct core stack for
             // the new tab based on the target provider's shape.
-            await LoadChartAsync();
+            await LoadChartAsync().ConfigureAwait(false);
         }
 
         public void Dispose()

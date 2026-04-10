@@ -64,9 +64,9 @@ namespace AccessibleTrader.Core.Services
 
         public virtual async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)        
         {
-            _logger.LogInformation($"Orchestrating fetch for {market}:{providerName}:{symbol} @ {timeframe}");
+            _logger.LogInformation("Orchestrating fetch for {Market}:{ProviderName}:{Symbol} @ {Timeframe}.", market, providerName, symbol, timeframe);
             
-            var provider = await _dataService.GetProviderAsync(providerName);
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider == null) return new List<Ohlcv>();
 
             int localLimit = Math.Min((limit ?? 200) * 5, 1000);
@@ -77,7 +77,7 @@ namespace AccessibleTrader.Core.Services
                 // Currently, the DB only stores 1m bars for resampling.
                 if (timeframe == "1m")
                 {
-                    var local1mData = await FetchFromLocalCache(market, providerName, symbol, "1m", since, until, localLimit);
+                    var local1mData = await FetchFromLocalCache(market, providerName, symbol, "1m", since, until, localLimit).ConfigureAwait(false);
                     if (local1mData.Any())
                     {
                         return ApplyFinalFilters(local1mData, since, until, limit ?? 200);
@@ -86,7 +86,7 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Local cache fetch skipped: {ex.Message}");
+                _logger.LogWarning(ex, "Local cache fetch skipped.");
             }
 
             bool needsResample = !provider.NativelySupportedTimeframes.Contains(timeframe);
@@ -108,7 +108,7 @@ namespace AccessibleTrader.Core.Services
                 if (effectiveLimit < (limit ?? 200)) effectiveLimit = limit ?? 200;
                 if (effectiveLimit > provider.MaxBarsPerRequest) effectiveLimit = provider.MaxBarsPerRequest;
 
-                _logger.LogInformation($"Provider {providerName} does not support {timeframe} natively. Pivoting to {effectiveTimeframe} with limit {effectiveLimit}.");
+                _logger.LogInformation("Provider {ProviderName} does not support {Timeframe} natively. Pivoting to {EffectiveTimeframe} with limit {EffectiveLimit}.", providerName, timeframe, effectiveTimeframe, effectiveLimit);
             }
 
             var policy = GetProviderPolicy(providerName);
@@ -117,10 +117,10 @@ namespace AccessibleTrader.Core.Services
             {
                 var request = new MarketDataRequest(market, symbol, effectiveTimeframe, effectiveLimit, since, until);
                 
-                var (nativeBars, _) = await policy.ExecuteAsync(async () => 
+                var (nativeBars, _) = await policy.ExecuteAsync(async () =>
                 {
-                    return await _dataService.FetchOhlcvAsync(providerName, request);
-                });
+                    return await _dataService.FetchOhlcvAsync(providerName, request).ConfigureAwait(false);
+                }).ConfigureAwait(false);
 
                 if (nativeBars.Any())
                 {
@@ -135,7 +135,7 @@ namespace AccessibleTrader.Core.Services
                         // We check if it's less than 95% of expected interval to allow for slight provider jitter
                         if (expectedIntervalMs > 0 && actualIntervalMs > 0 && actualIntervalMs < (expectedIntervalMs * 0.95))
                         {
-                            _logger.LogWarning($"Data verification failed for {providerName}. Expected {timeframe} ({expectedIntervalMs}ms) but received ~{actualIntervalMs}ms. Forcing local resample.");
+                            _logger.LogWarning("Data verification failed for {ProviderName}. Expected {Timeframe} ({ExpectedIntervalMs}ms) but received ~{ActualIntervalMs}ms. Forcing local resample.", providerName, timeframe, expectedIntervalMs, actualIntervalMs);
                             actualNeedsResample = true;
                         }
                     }
@@ -150,11 +150,11 @@ namespace AccessibleTrader.Core.Services
             }
             catch (BrokenCircuitException)
             {
-                _logger.LogWarning($"Fetch request blocked for {providerName} because circuit is open.");
+                _logger.LogWarning("Fetch request blocked for {ProviderName} because circuit is open.", providerName);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Unhandled fetch error for {providerName}: {ex.Message}");
+                _logger.LogError(ex, "Unhandled fetch error for {ProviderName}.", providerName);
             }
 
             return new List<Ohlcv>();
@@ -162,14 +162,14 @@ namespace AccessibleTrader.Core.Services
 
         private async Task<List<Ohlcv>> FetchFromLocalCache(string market, string provider, string symbol, string timeframe, long? since, long? until, int? limit)
         {
-            using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+            using var dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
             var query = dbContext.OhlcvData
                 .Where(e => e.Market == market && e.Provider == provider && e.Symbol == symbol && e.Timeframe == timeframe);
 
             if (since.HasValue) query = query.Where(e => e.Timestamp >= since.Value);
             if (until.HasValue) query = query.Where(e => e.Timestamp <= until.Value); // INCLUSIVE FILTERING
 
-            var entities = await query.OrderBy(e => e.Timestamp).ToListAsync();
+            var entities = await query.OrderBy(e => e.Timestamp).ToListAsync().ConfigureAwait(false);
 
             var result = entities.Select(e => new Ohlcv
             {

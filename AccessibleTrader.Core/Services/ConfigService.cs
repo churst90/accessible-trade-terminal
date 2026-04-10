@@ -34,7 +34,7 @@ namespace AccessibleTrader.Core.Services
                     var json = File.ReadAllText(_configPath);
                     return JObject.Parse(json);
                 }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ConfigService.Load failed, returning default: {ex.Message}"); }
+                catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"ConfigService.Load failed, returning default: {ex.Message}"); }
             }
             return new JObject();
         }

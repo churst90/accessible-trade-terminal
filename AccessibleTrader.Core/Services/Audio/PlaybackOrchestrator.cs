@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Audio
 {
@@ -22,6 +23,7 @@ namespace AccessibleTrader.Core.Services.Audio
     {
         private readonly IAudioSequencer _sequencer;
         private readonly IAudioDriver _audioDriver;
+        private readonly ILogger<PlaybackOrchestrator> _logger;
         private readonly System.Reactive.Disposables.CompositeDisposable _subs = new();
         private CancellationTokenSource? _playbackCts;
 
@@ -31,10 +33,12 @@ namespace AccessibleTrader.Core.Services.Audio
 
         public PlaybackOrchestrator(
             IAudioSequencer sequencer,
-            IAudioDriver audioDriver)
+            IAudioDriver audioDriver,
+            ILogger<PlaybackOrchestrator> logger)
         {
             _sequencer = sequencer;
             _audioDriver = audioDriver;
+            _logger = logger;
 
             _subs.Add(_sequencer.PlaybackFinished.Subscribe(_ => PlaybackFinished?.Invoke()));
             _subs.Add(_sequencer.PointReached.Subscribe(idx => PlaybackPointReached?.Invoke(idx)));
@@ -58,11 +62,9 @@ namespace AccessibleTrader.Core.Services.Audio
                 if (playList.Count == 0) return;
 
                 int start = Math.Clamp(state.ViewportStartIndex, 0, state.Data.Count - 1);
-                _ = Task.Run(() => _sequencer.StartMultiSeriesPlaybackAsync(
-                    playList,
-                    state.Data.ToList(),
-                    start,
-                    _playbackCts.Token));
+                SafeFireAndForget.Run(
+                    () => _sequencer.StartMultiSeriesPlaybackAsync(playList, state.Data.ToList(), start, _playbackCts.Token),
+                    _logger, "MultiSeriesPlayback");
             }
             else
             {
@@ -80,12 +82,9 @@ namespace AccessibleTrader.Core.Services.Audio
                     ? Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1)
                     : -1;
 
-                _ = Task.Run(() => _sequencer.StartPlaybackAsync(
-                    series,
-                    state.Data.ToList(),
-                    start,
-                    _playbackCts.Token,
-                    componentFilter));
+                SafeFireAndForget.Run(
+                    () => _sequencer.StartPlaybackAsync(series, state.Data.ToList(), start, _playbackCts.Token, componentFilter),
+                    _logger, "SeriesPlayback");
             }
         }
 

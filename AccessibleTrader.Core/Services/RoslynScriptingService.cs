@@ -78,6 +78,10 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrWhiteSpace(code))
                 return new CompileResult(false, null, new[] { "Code is empty." });
 
+            var sandboxErrors = ValidateSandbox(code);
+            if (sandboxErrors.Length > 0)
+                return new CompileResult(false, null, sandboxErrors);
+
             // Wrap in using directives + namespace if the user hasn't
             string fullCode = BuildWrappedCode(code);
 
@@ -181,6 +185,10 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrWhiteSpace(code))
                 return new CompileStrategyResult(false, null, new[] { "Code is empty." });
 
+            var sandboxErrors = ValidateSandbox(code);
+            if (sandboxErrors.Length > 0)
+                return new CompileStrategyResult(false, null, sandboxErrors);
+
             string fullCode = BuildWrappedCode(code);
 
             try
@@ -276,7 +284,7 @@ namespace AccessibleTrader.Core.Services
 
                 var globals = new ScriptGlobals { Data = data };
                 var script  = CSharpScript.Create<object>(code, options, typeof(ScriptGlobals));
-                var result  = await script.RunAsync(globals);
+                var result  = await script.RunAsync(globals).ConfigureAwait(false);
 
                 if (result.ReturnValue is IEnumerable<double> doubles)
                     return new ScriptResult(true, doubles.Select(x => (double?)x).ToList());
@@ -308,6 +316,15 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        private static readonly string[] _blockedPatterns = new[]
+        {
+            "System.IO", "System.Net", "System.Reflection.Emit",
+            "System.Diagnostics.Process", "System.Runtime.InteropServices",
+            "Assembly.Load", "Assembly.GetType", "Type.GetType",
+            "Activator.CreateInstance", "AppDomain",
+            "DllImport", "Marshal.", "GCHandle",
+        };
+
         private static string BuildWrappedCode(string code)
         {
             // If code already has 'using' or 'namespace' declarations treat as full code.
@@ -322,6 +339,21 @@ namespace AccessibleTrader.Core.Services
             sb.AppendLine(code);
             sb.AppendLine("}");
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Checks user code for blocked API patterns that could bypass the sandbox.
+        /// Returns error messages for any violations found.
+        /// </summary>
+        internal static string[] ValidateSandbox(string code)
+        {
+            var violations = new List<string>();
+            foreach (var pattern in _blockedPatterns)
+            {
+                if (code.Contains(pattern, StringComparison.Ordinal))
+                    violations.Add($"Blocked API usage: '{pattern}' is not allowed in user scripts.");
+            }
+            return violations.ToArray();
         }
     }
 }

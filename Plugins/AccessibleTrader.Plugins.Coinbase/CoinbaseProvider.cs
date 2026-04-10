@@ -636,5 +636,17 @@ namespace AccessibleTrader.Plugins.Coinbase
             "1d"  => 86400,
             _     => 3600
         };
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _ws?.Dispose();
+                _orderUpdateSubject?.Dispose();
+                _orderBookSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

@@ -56,8 +56,8 @@ public sealed class ClaudeProvider : ILLMProvider
 
         var json    = JsonSerializer.Serialize(body);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var resp    = await http.PostAsync(ApiEndpoint, content, ct);
-        var raw     = await resp.Content.ReadAsStringAsync(ct);
+        var resp    = await http.PostAsync(ApiEndpoint, content, ct).ConfigureAwait(false);
+        var raw     = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
             throw new InvalidOperationException($"Claude API error {(int)resp.StatusCode}: {raw}");

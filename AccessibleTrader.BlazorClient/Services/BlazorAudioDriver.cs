@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
+using Microsoft.Extensions.Logging;
 
 #if WINDOWS
 using NAudio.Wave;
@@ -29,6 +30,7 @@ namespace AccessibleTrader.BlazorClient.Services
         IDisposable
     {
         private readonly AudioEngine _engine;
+        private readonly ILogger<BlazorAudioDriver> _logger;
         private bool _audioInitialized;
         private bool _disposed;
 
@@ -51,8 +53,9 @@ namespace AccessibleTrader.BlazorClient.Services
         public int SampleRate => _engine.SampleRate;
         public int Channels   => _engine.Channels;
 
-        public BlazorAudioDriver()
+        public BlazorAudioDriver(ILogger<BlazorAudioDriver> logger)
         {
+            _logger = logger;
             _engine = new AudioEngine();
             _engine.PointReached += index => PointReached?.Invoke(index);
 #if WINDOWS
@@ -74,7 +77,7 @@ namespace AccessibleTrader.BlazorClient.Services
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"AUDIO INIT ERROR (Windows): {ex.Message}");
+                _logger.LogError(ex, "Audio init failed (Windows).");
                 _wasapiOut = null;
             }
 
@@ -116,7 +119,7 @@ namespace AccessibleTrader.BlazorClient.Services
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"AUDIO INIT ERROR (Android): {ex.Message}");
+                _logger.LogError(ex, "Audio init failed (Android).");
                 _audioTrack = null;
             }
 
@@ -152,11 +155,11 @@ namespace AccessibleTrader.BlazorClient.Services
                 _avEngine.Connect(_sourceNode, _avEngine.MainMixerNode, format);
                 _avEngine.StartAndReturnError(out var error);
                 if (error != null)
-                    Console.Error.WriteLine($"AUDIO INIT ERROR (iOS/Mac): {error.LocalizedDescription}");
+                    _logger.LogError("Audio init failed (iOS/Mac): {Error}.", error.LocalizedDescription);
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"AUDIO INIT ERROR (iOS/Mac): {ex.Message}");
+                _logger.LogError(ex, "Audio init failed (iOS/Mac).");
                 _avEngine = null;
             }
 #endif

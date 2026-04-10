@@ -66,8 +66,13 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 int evictCount = (_buffer.Count >= MaxCapacity) ? 1 : 0;
+
+                // If evicting, remove the oldest entry from the lookup before adding
+                if (evictCount > 0 && _buffer.Count > 0)
+                    _lookup.Remove(_buffer[0].Date);
+
                 _buffer.Add(item);
-                RebuildLookup();
+                _lookup[item.Date] = _buffer.Count - 1;
 
                 if (evictCount > 0) ItemsEvicted?.Invoke(evictCount);
             }
@@ -77,14 +82,13 @@ namespace AccessibleTrader.Core.Services
         {
             lock (_lock)
             {
-                int listCount = items.Count();
+                var itemsList = items as IReadOnlyList<Ohlcv> ?? items.ToList();
+                int listCount = itemsList.Count;
                 int currentCount = _buffer.Count;
                 int evictCount = Math.Max(0, (currentCount + listCount) - MaxCapacity);
-                // Note: CircularBuffer might evict more if listCount > MaxCapacity, 
-                // but we clamp evictCount to the actual shift in indices.
                 if (evictCount > currentCount) evictCount = currentCount;
 
-                foreach (var item in items) _buffer.Add(item);
+                foreach (var item in itemsList) _buffer.Add(item);
                 RebuildLookup();
 
                 if (evictCount > 0) ItemsEvicted?.Invoke(evictCount);

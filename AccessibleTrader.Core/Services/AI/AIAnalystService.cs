@@ -62,7 +62,7 @@ public sealed class AIAnalystService : IAIAnalystService
 
         foreach (var p in _providers)
         {
-            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId);
+            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId).ConfigureAwait(false);
             if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ApiKey))
             {
                 provider = p;
@@ -82,7 +82,7 @@ public sealed class AIAnalystService : IAIAnalystService
             "Write for a visually impaired trader who uses text-to-speech — be clear, " +
             "use plain language, and avoid markdown formatting.";
 
-        return await provider.CompleteAsync(ReviewSystemPrompt, prompt, imageBase64: null, apiKey!, ct);
+        return await provider.CompleteAsync(ReviewSystemPrompt, prompt, imageBase64: null, apiKey!, ct).ConfigureAwait(false);
     }
 
     public async Task<string?> AnalyseAsync(CancellationToken ct = default)
@@ -93,7 +93,7 @@ public sealed class AIAnalystService : IAIAnalystService
 
         foreach (var p in _providers)
         {
-            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId);
+            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId).ConfigureAwait(false);
             if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ApiKey))
             {
                 provider = p;
@@ -117,7 +117,7 @@ public sealed class AIAnalystService : IAIAnalystService
         string? imageBase64 = CaptureChartSnapshot(state);
 
         // ── 4. Call LLM ───────────────────────────────────────────────────────────
-        return await provider.CompleteAsync(SystemPrompt, userMessage, imageBase64, apiKey!, ct);
+        return await provider.CompleteAsync(SystemPrompt, userMessage, imageBase64, apiKey!, ct).ConfigureAwait(false);
     }
 
     // ── Prompt construction ───────────────────────────────────────────────────────

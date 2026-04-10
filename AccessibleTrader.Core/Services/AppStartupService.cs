@@ -43,7 +43,7 @@ namespace AccessibleTrader.Core.Services
             // 1. Plugins & Data Services
             var dataService = _services.GetRequiredService<IDataService>();
             var pluginLoader = _services.GetRequiredService<IPluginLoaderService>();
-            await dataService.InitializeAsync(pluginLoader);
+            await dataService.InitializeAsync(pluginLoader).ConfigureAwait(false);
 
             // 2. Data Orchestration
             _services.GetRequiredService<IDataOrchestrationService>();

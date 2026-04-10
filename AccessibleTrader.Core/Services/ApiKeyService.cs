@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -18,28 +19,37 @@ namespace AccessibleTrader.Core.Services
         private readonly ILogger<ApiKeyService> _logger;
         private readonly ISecureStorageService _secureStorage;
         private List<ApiKeyMetadata> _cache = new();
+        private readonly SemaphoreSlim _loadLock = new(1, 1);
+        private bool _isLoaded;
 
         public ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage)
         {
             _logger = logger;
             _secureStorage = secureStorage;
             _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AccessibleTrader", "apikeys_meta.json");
-            _ = LoadAsync();
         }
 
-        private async Task LoadAsync()
+        private async Task EnsureLoadedAsync()
         {
+            if (_isLoaded) return;
+            await _loadLock.WaitAsync().ConfigureAwait(false);
             try
             {
+                if (_isLoaded) return;
                 if (File.Exists(_filePath))
                 {
-                    var json = await File.ReadAllTextAsync(_filePath);
+                    var json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
                     _cache = JsonSerializer.Deserialize<List<ApiKeyMetadata>>(json) ?? new List<ApiKeyMetadata>();
                 }
+                _isLoaded = true;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error loading API keys metadata: {ex.Message}");
+                _logger.LogError(ex, "Error loading API keys metadata from {Path}.", _filePath);
+            }
+            finally
+            {
+                _loadLock.Release();
             }
         }
 
@@ -51,23 +61,23 @@ namespace AccessibleTrader.Core.Services
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 
                 var json = JsonSerializer.Serialize(_cache, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_filePath, json);
+                await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error saving API keys metadata: {ex.Message}");
+                _logger.LogError(ex, "Error saving API keys metadata.");
             }
         }
 
         public async Task<List<ApiKeyConfig>> GetAllKeysAsync()
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var results = new List<ApiKeyConfig>();
             foreach (var meta in _cache)
             {
-                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key") ?? "";
-                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret") ?? "";
-                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase") ?? "";
+                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
+                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
+                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
                 results.Add(new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive));
             }
             return results;
@@ -75,14 +85,14 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<List<ApiKeyConfig>> GetKeysForProviderAsync(string provider)
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var metas = _cache.Where(k => k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase)).ToList();
             var results = new List<ApiKeyConfig>();
             foreach (var meta in metas)
             {
-                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key") ?? "";
-                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret") ?? "";
-                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase") ?? "";
+                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
+                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
+                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
                 results.Add(new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive));
             }
             return results;
@@ -90,23 +100,23 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<ApiKeyConfig?> GetKeyForProviderAsync(string provider, string marketType = "Spot")
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var meta = _cache.FirstOrDefault(k =>
                 k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.MarketType.Equals(marketType, StringComparison.OrdinalIgnoreCase));
 
             if (meta == null) return null;
 
-            string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key") ?? "";
-            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret") ?? "";
-            string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase") ?? "";
+            string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
+            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
+            string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
 
             return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
         }
 
         public async Task<ApiKeyConfig?> GetActiveKeyForProviderAsync(string provider, string environment = "Paper")
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var meta = _cache.FirstOrDefault(k =>
                 k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.Environment.Equals(environment, StringComparison.OrdinalIgnoreCase) &&
@@ -114,16 +124,16 @@ namespace AccessibleTrader.Core.Services
 
             if (meta == null) return null;
 
-            string key    = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key") ?? "";
-            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret") ?? "";
-            string pass   = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase") ?? "";
+            string key    = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
+            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
+            string pass   = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
 
             return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
         }
 
         public async Task SetActiveKeyAsync(string nickname)
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var target = _cache.FirstOrDefault(k => k.Nickname == nickname);
             if (target == null) return;
 
@@ -137,12 +147,12 @@ namespace AccessibleTrader.Core.Services
                     _cache[i] = m with { IsActive = m.Nickname == nickname };
                 }
             }
-            await SaveAsync();
+            await SaveAsync().ConfigureAwait(false);
         }
 
         public async Task SaveKeyAsync(ApiKeyConfig config)
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var existing = _cache.FirstOrDefault(k => k.Nickname == config.Nickname);
             if (existing != null) _cache.Remove(existing);
 
@@ -150,22 +160,22 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                await _secureStorage.SetAsync($"apikey_{config.Nickname}_key", config.ApiKey ?? "");
-                await _secureStorage.SetAsync($"apikey_{config.Nickname}_secret", config.ApiSecret ?? "");
-                await _secureStorage.SetAsync($"apikey_{config.Nickname}_passphrase", config.Passphrase ?? "");
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_key", config.ApiKey ?? "").ConfigureAwait(false);
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_secret", config.ApiSecret ?? "").ConfigureAwait(false);
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_passphrase", config.Passphrase ?? "").ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"SecureStorage write failed for '{config.Nickname}': {ex.Message}");
+                _logger.LogError(ex, "SecureStorage write failed for {Nickname}.", config.Nickname);
                 throw;
             }
 
-            await SaveAsync();
+            await SaveAsync().ConfigureAwait(false);
         }
 
         public async Task RemoveKeyAsync(string nickname)
         {
-            await LoadAsync();
+            await EnsureLoadedAsync().ConfigureAwait(false);
             var existing = _cache.FirstOrDefault(k => k.Nickname == nickname);
             if (existing != null)
             {
@@ -173,7 +183,7 @@ namespace AccessibleTrader.Core.Services
                 _secureStorage.Remove($"apikey_{nickname}_key");
                 _secureStorage.Remove($"apikey_{nickname}_secret");
                 _secureStorage.Remove($"apikey_{nickname}_passphrase");
-                await SaveAsync();
+                await SaveAsync().ConfigureAwait(false);
             }
         }
     }

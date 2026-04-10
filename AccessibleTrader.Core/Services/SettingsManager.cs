@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using AccessibleTrader.Core.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -20,10 +21,12 @@ namespace AccessibleTrader.Core.Services
     public class SettingsManager : ISettingsManager
     {
         private readonly string _filepath;
+        private readonly ILogger<SettingsManager> _logger;
         private JObject _settings;
 
-        public SettingsManager(IPlatformPathService pathService)
+        public SettingsManager(IPlatformPathService pathService, ILogger<SettingsManager> logger)
         {
+            _logger = logger;
             _filepath = Path.Combine(pathService.AppDataDirectory, "settings.json");
             _settings = LoadSettings();
         }
@@ -32,22 +35,22 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                Console.WriteLine($"SettingsManager: Loading settings from {_filepath}...");
+                _logger.LogDebug("Loading settings from {Path}.", _filepath);
                 if (File.Exists(_filepath))
                 {
                     var json = File.ReadAllText(_filepath);
                     var settings = JsonConvert.DeserializeObject<JObject>(json) ?? new JObject();
-                    Console.WriteLine("SettingsManager: Settings loaded successfully from JSON.");
+                    _logger.LogDebug("Settings loaded successfully from JSON.");
                     return settings;
                 }
                 else
                 {
-                    Console.WriteLine("SettingsManager: Settings file not found. Using defaults.");
+                    _logger.LogDebug("Settings file not found. Using defaults.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SettingsManager ERROR: {ex.Message}");
+                _logger.LogError(ex, "Failed to load settings from {Path}.", _filepath);
             }
             return new JObject();
         }

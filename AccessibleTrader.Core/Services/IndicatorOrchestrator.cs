@@ -153,7 +153,7 @@ namespace AccessibleTrader.Core.Services
                             }
                         }
 
-                        var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct);
+                        var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                         buffer = _mapper.MapResultsToBuffer(s, results, data.Count);
                         // Apply dynamic zone bands if the provider wrote any via buffer.WriteZoneBands().
                         if (zoneBands.Count > 0)
@@ -215,7 +215,7 @@ namespace AccessibleTrader.Core.Services
                 // recalculation rather than the scalar incremental update.
                 if (s.RequiresFullRecalcOnTick)
                 {
-                    await RecalculateSeriesFullAsync(s, data, ct);
+                    await RecalculateSeriesFullAsync(s, data, ct).ConfigureAwait(false);
                     continue;
                 }
 
@@ -237,7 +237,7 @@ namespace AccessibleTrader.Core.Services
                     try
                     {
                         var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
-                        var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct);
+                        var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
 
                         foreach (var kvp in results)
                         {
@@ -302,7 +302,7 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
-                var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct);
+                var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                 var buffer = _mapper.MapResultsToBuffer(s, results, data.Count);
                 _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
                 // Apply dynamic zone bands if the provider wrote any via buffer.WriteZoneBands().

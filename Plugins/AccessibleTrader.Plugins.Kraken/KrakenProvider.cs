@@ -765,5 +765,18 @@ namespace AccessibleTrader.Plugins.Kraken
         };
 
         private static int MapRestInterval(string tf) => MapWsInterval(tf);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _publicWs?.Dispose();
+                _authWs?.Dispose();
+                _orderUpdateSubject?.Dispose();
+                _orderBookSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

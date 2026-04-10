@@ -3,9 +3,11 @@
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
+@using Microsoft.Extensions.Logging
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IMarketOrchestrator MarketOrchestrator
+@inject ILogger<Toolbar> Logger
 @implements IDisposable
 
 @* ── Per-tab "mode" helper: true when the current tab is showing an OHLCV
@@ -327,7 +329,7 @@
         catch (Exception ex)
         {
             _loadError = "Could not load market data.";
-            Console.Error.WriteLine($"Pipeline init failed: {ex.Message}");
+            Logger.LogError(ex, "Pipeline init failed.");
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -345,7 +347,7 @@
         catch (Exception ex)
         {
             _loadError = "Failed to load providers for selected market.";
-            Console.Error.WriteLine($"Market change failed: {ex.Message}");
+            Logger.LogError(ex, "Market change failed.");
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -361,7 +363,7 @@
         catch (Exception ex)
         {
             _loadError = "Failed to load symbols for selected provider.";
-            Console.Error.WriteLine($"Provider change failed: {ex.Message}");
+            Logger.LogError(ex, "Provider change failed.");
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -377,7 +379,7 @@
         catch (Exception ex)
         {
             _loadError = "Failed to load symbols for selected type.";
-            Console.Error.WriteLine($"SubType change failed: {ex.Message}");
+            Logger.LogError(ex, "SubType change failed.");
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -468,7 +470,7 @@
         catch (Exception ex)
         {
             // Pre-flight failure is non-fatal — fall through to a normal load.
-            Console.Error.WriteLine($"LoadChart preflight failed: {ex.Message}");
+            Logger.LogWarning(ex, "LoadChart preflight failed.");
         }
 
         await DoLoadChartAsync();
@@ -483,7 +485,7 @@
         catch (Exception ex)
         {
             _loadError = "Chart load failed. Check provider settings.";
-            Console.Error.WriteLine($"LoadChart failed: {ex.Message}");
+            Logger.LogError(ex, "LoadChart failed.");
         }
     }
 
@@ -503,7 +505,7 @@
         catch (Exception ex)
         {
             _loadError = "Failed to open in new tab.";
-            Console.Error.WriteLine($"LoadChartInNewTabAsync failed: {ex.Message}");
+            Logger.LogError(ex, "LoadChartInNewTabAsync failed.");
         }
     }
 

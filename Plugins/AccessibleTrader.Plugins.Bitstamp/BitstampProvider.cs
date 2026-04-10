@@ -505,5 +505,17 @@ namespace AccessibleTrader.Plugins.Bitstamp
             var response = await _httpClient.PostAsync($"https://www.bitstamp.net{endpoint}", content);
             return await response.Content.ReadAsStringAsync();
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _httpClient?.Dispose();
+                _ws?.Dispose();
+                _orderUpdateSubject?.Dispose();
+                _orderBookSubject?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

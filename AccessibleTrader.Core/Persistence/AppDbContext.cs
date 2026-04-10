@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.IO;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -31,7 +32,12 @@ namespace AccessibleTrader.Core.Persistence
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseSqlite("Data Source=trader_local.db");
+                var dbDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "AccessibleTrader");
+                if (!Directory.Exists(dbDir)) Directory.CreateDirectory(dbDir);
+                var dbPath = Path.Combine(dbDir, "trader_local.db");
+                optionsBuilder.UseSqlite($"Data Source={dbPath}");
             }
         }
 
