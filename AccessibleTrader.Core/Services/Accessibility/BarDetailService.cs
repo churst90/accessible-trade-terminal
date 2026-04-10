@@ -25,7 +25,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (state.Data == null || state.Data.Count == 0) return;
             
-            var seriesId = state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+            var seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (series == null) return;
 
@@ -47,6 +47,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             sb.Append($"{bar.Date:HH:mm}: ");
 
             // If it's the primary candle series, add candle pattern details
+            // Pattern/type details only apply to true OHLCV series. Price-line primary
+            // series (analytics providers) deliberately skip this block — a single-value
+            // point has no wicks, body, or multi-bar pattern to describe.
             if (series.Id == CoreSeriesIds.Candles || series.IndicatorCode == "CANDLES")
             {
                 string trend = bar.Close >= bar.Open ? "Bullish" : "Bearish";

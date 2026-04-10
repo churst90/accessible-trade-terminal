@@ -34,11 +34,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // 1. DYNAMIC VOLUME & PANNING
             float baseVolume = comp.Volume * (series.IsMuted || comp.IsMuted || !series.IsVisible || !comp.IsVisible ? 0 : series.Volume) * chartVolume;
             
-            double pan = 0;
-            if (viewportWidth > 1)
-            {
-                pan = Math.Clamp((2.0 * (double)relativeIndex / (viewportWidth - 1)) - 1.0, -1.0, 1.0);
-            }
+            double pan = AudioConstants.CalculatePan(relativeIndex, viewportWidth);
             
             // 2. RANGE NORMALIZATION
             double rangeSpan = Math.Max(0.01, viewportRange.Max - viewportRange.Min);

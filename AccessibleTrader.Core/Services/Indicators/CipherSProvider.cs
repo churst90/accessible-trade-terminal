@@ -172,9 +172,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             var smoothPct = new double[n];
             for (int i = 0; i < n; i++) phase[i] = smoothPct[i] = double.NaN;
 
-            // Scratch array for sorting window closes — allocated once, reused per bar.
-            var scratch = new double[windowBars];
-
             // ── Pass 1: Raw channel position per bar ──────────────────────────
             // Robust extremes: sort window closes, clip to 5th/95th percentile so
             // single-bar spikes (flash crashes, thin-volume ATH wicks) don't anchor
@@ -187,10 +184,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 int wStart = Math.Max(0, i - windowBars + 1);
                 int wLen   = i - wStart + 1;
 
+                var scratch = new double[wLen];
                 for (int j = wStart; j <= i; j++)
                     scratch[j - wStart] = (double)data[j].Close;
 
-                Array.Sort(scratch, 0, wLen);
+                Array.Sort(scratch);
 
                 // For wLen < 20 the percentile indices collapse gracefully toward 0 / wLen-1.
                 int    loIdx = (int)(wLen * 0.05);
@@ -244,7 +242,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var scratch = new double[wLen];
             for (int j = wStart; j <= i; j++)
                 scratch[j - wStart] = (double)data[j].Close;
-            Array.Sort(scratch);
+            Array.Sort(scratch, 0, wLen);
 
             int    loIdx = (int)(wLen * 0.05);
             int    hiIdx = Math.Min(wLen - 1, (int)(wLen * 0.95));
@@ -416,7 +414,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 intervals.Add(troughs[i] - troughs[i - 1]);
 
             intervals.Sort();
-            medianInterval = intervals[intervals.Count / 2];
+            int mid = intervals.Count / 2;
+            medianInterval = intervals.Count % 2 == 1
+                ? intervals[mid]
+                : (intervals[mid - 1] + intervals[mid]) / 2;
 
             return troughs.Count;
         }

@@ -29,7 +29,7 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 
 ### Multi-Source Data Engine
 
-- **Provider Architecture:** Decoupled plugin system. Six providers: **Binance** (Spot+Futures, WebSocket), **Alpaca** (REST, Stocks+Crypto), **Bitstamp** (REST+WebSocket), **Coinbase** (REST, JWT auth pending), **Polygon** (data-only, Stocks/Forex), **FRED** (Federal Reserve macroeconomic data).
+- **Provider Architecture:** Decoupled plugin system. **Trading/Data providers:** Binance (Spot+Futures, WebSocket), Bitstamp (REST+WebSocket), Coinbase (REST, JWT auth), Alpaca (REST, Stocks+Crypto), Polygon (Stocks/Forex), Kraken, Finnhub, Oanda, Tradier, TwelveData, InteractiveBrokers. **Analytics providers:** FRED (macroeconomic), CoinGecko (dominance/market cap), AlternativeMe (Fear & Greed), Glassnode (on-chain), OkxDerivatives (funding/OI), BinanceDerivatives, CoinMetrics (MVRV/on-chain).
 - **Resilient Pipeline:** Polly exponential backoff, circuit breakers (10 failures → 5s break), and automatic reconnection.
 - **Zero-Allocation Math:** `readonly record struct Ohlcv` for all price data. Indicator hot-paths use `double[]` arrays with `double.NaN` for missing values.
 - **State Machine:** `DataOrchestrator` manages `DataState` lifecycle: `Initializing → HistoricalFilling → GapFilling → LiveStreaming → Faulted`.
@@ -76,15 +76,36 @@ Press `Alt+H` in the application to open the full Help dialog. Key bindings:
 - `Home/End` — Jump to viewport start/end. `\` — Jump to live edge.
 - `[ / ]` — Pan viewport. `- / =` — Zoom in/out.
 - `Space` — Play chart. `Shift+Space` — Play series. `Ctrl+Shift+Space` — Play component. `Ctrl+Space` — Pause/resume.
-- `F1` — Settings. `F2` — Toggle speech. `F3` — Toggle sonification. `F4` — Context summary.
+- `F1` — Help. `F2` — Toggle speech. `F3` — Toggle sonification. `F4` — Context summary. `F12` — Settings.
 - `F5/Shift+F5` — Component volume up/down. `F6/Shift+F6` — Series volume. `F7/Shift+F7` — Master volume.
 - `Alt+Up/Down` — Scroll indicator pane list when more panes are open than fit on screen.
 - `Ctrl+Alt+Shift+C` — Focus chart + announce context summary.
 - `Alt+C` — Toggle Heikin-Ashi candles. `Alt+L` — Toggle log scale.
+- `Ctrl+Alt+Shift+J` — Open the Journal modal (review/copy every spoken phrase, alert, strategy setup, error from this session).
 
-## Current Status (2026-04-05)
+## Current Status (2026-04-09)
 
-**Phases 0–9 + Phase 10-A through 10-G + Improvement Plan Phases B–L all complete. Build: 0 errors, 0 warnings. Tests: 236/236 passing.**
+**Phases 0–11 complete. Analytics provider subsystem (SingleValueLine shape) shipped. Candles/Volume/Price refactored into independent series with shape-driven reconciliation. Full codebase audit completed and all findings resolved. Build: 0 errors, 0 warnings. 252 tests passing.**
+
+### Phase 11 — Strategy Composer & Risk-Managed Setups (complete)
+
+A user-buildable signal composer that combines indicator signals from any registered indicator into a reward/risk-gated buy/sell strategy with TP ladders, dropout detection, and full audio + speech narration. Shipped across 7 focused sessions (A → C → Hardening → Correctness Pass → D → Complete pass). End-to-end functional in both live and backtest modes.
+
+**What you can do as a user today:**
+
+- **Build a setup via the Build Setup tab** in the Strategy Manager modal. Tree-based condition editor (`role="tree"` ARIA) with cascading combo boxes for each leaf: indicator → component → operator (gated by `SignalKind`) → value → optional timeframe → optional second descriptor for cross-line operators. Add AND/OR/NOT groups to build arbitrary boolean expressions. Configure the risk plan: stop source (8 kinds including swing low / ATR / Ichimoku Kijun / Kumo / Cipher SR support / VPVR LVN), TP ladder (default 3 rungs at 1R / 2R / 3R), sizing mode, R:R minimum gate, entry trigger (immediate / pullback / breakout / N-candle confirm).
+- **Hear the spec read aloud** before saving — `NarrateSpec()` walks the tree and emits a plain-English sentence covering every condition + risk plan field.
+- **Preview a backtest inline** with R-multiple metrics, warmup gating, and the warmup-aware backtester from Session A.
+- **Save / Load / Export / Import** strategies. Library lives at `{AppData}/strategies.json`; export drops a `.atstrat` file in `{AppData}/exports/`.
+- **Add to Engine** marks the spec `IsAutoActivate=true` so the `StrategyAutoLoader` re-instantiates it on the next app launch — **strategies survive restart**.
+- **Receive setup alerts** via three distinct earcons: `setup_long_bell` / `setup_short_bell` for the main confirmation, `PlaySetupArmed` for entry-armed waiting state, `PlaySetupEntryReached` for entry zone hit. Speech announces the rationale (side, score, stop, first target, R:R, notes). Re-fires on each confirming bar at lower volume; announces individual leaf dropouts (*"Cipher A wave cross dropped off"*).
+- **Review every fired setup** via the **Journal Modal (`Ctrl+Alt+Shift+J`)** — persistent ring-buffer review surface for every TTS phrase, alert, strategy setup, and error this session. Filterable, copyable from a screen-reader-friendly monospace text area.
+- **Ask the AI Analyst to review your day** via the new "Review setups today" button. Builds a structured prompt from today's journal entries + matching strategy specs, calls the configured LLM (Claude / OpenAI / Ollama), displays + speaks the response, mirrors the review back into the journal for later re-reading.
+- **Backtest with full correctness**: warmup gate, R-multiple metrics, real `WorkspaceState` (so `ConfigurableStrategy` actually evaluates indicator references), per-bar VPVR profile-state replay (`BacktestConfig.ReplayProfiles=true` default), no future-leak.
+- **Multi-timeframe leaves**: any leaf can carry an optional `Timeframe` field. `ConfigurableStrategy.Initialize` fire-and-forgets HTF bar + indicator pre-warm via `IMultiTimeframeDataService` so the synchronous evaluator can read indicator-on-HTF results on the hot path.
+- **Modal input trap** is automatic for any modal that publishes `ModalStateChangedEvent` — chart navigation no longer leaks through arrow keys when a modal is open. F1 / F2 / F3 stay in the allowlist for accessibility toggles.
+
+See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BASE.md` section 12.5 for the pipeline diagram.
 
 ### Completed Phases
 
@@ -160,5 +181,5 @@ Built with **.NET 10 MAUI Blazor Hybrid**.
 - **Core:** `AccessibleTrader.Core` — Business logic, custom DSP engine, Orchestrators.
 - **UI:** `AccessibleTrader.BlazorClient` — MAUI host, Blazor WebView, SkiaSharp rendering (SKCanvasView).
 - **SDK:** `AccessibleTrader.Sdk` — Plugin contracts and immutable performance models.
-- **Plugins:** `Plugins/` — Six independent exchange/data providers.
-- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (236 tests, all passing).
+- **Plugins:** `Plugins/` — 17+ exchange, data, and analytics provider plugins.
+- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (252 tests, all passing).

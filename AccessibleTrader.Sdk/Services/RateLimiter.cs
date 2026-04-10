@@ -1,0 +1,117 @@
+using System;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AccessibleTrader.Sdk.Services
+{
+    /// <summary>
+    /// Token-bucket rate limiter with exponential backoff for API calls.
+    /// Each provider creates its own instance with exchange-specific limits.
+    /// </summary>
+    public sealed class RateLimiter
+    {
+        private readonly SemaphoreSlim _semaphore = new(1, 1);
+        private readonly int _maxRequestsPerWindow;
+        private readonly TimeSpan _window;
+        private int _requestCount;
+        private DateTime _windowStart;
+        private int _consecutiveFailures;
+
+        /// <summary>
+        /// Creates a rate limiter.
+        /// </summary>
+        /// <param name="maxRequestsPerWindow">Maximum requests allowed in <paramref name="window"/>.</param>
+        /// <param name="window">Sliding window duration.</param>
+        public RateLimiter(int maxRequestsPerWindow, TimeSpan window)
+        {
+            _maxRequestsPerWindow = maxRequestsPerWindow;
+            _window = window;
+            _windowStart = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Waits until a request slot is available, then returns.
+        /// Throws <see cref="OperationCanceledException"/> if <paramref name="ct"/> fires.
+        /// </summary>
+        public async Task WaitAsync(CancellationToken ct = default)
+        {
+            await _semaphore.WaitAsync(ct);
+            try
+            {
+                var now = DateTime.UtcNow;
+                if (now - _windowStart >= _window)
+                {
+                    _requestCount = 0;
+                    _windowStart = now;
+                }
+
+                if (_requestCount >= _maxRequestsPerWindow)
+                {
+                    var waitTime = _window - (now - _windowStart);
+                    if (waitTime > TimeSpan.Zero)
+                        await Task.Delay(waitTime, ct);
+                    _requestCount = 0;
+                    _windowStart = DateTime.UtcNow;
+                }
+
+                _requestCount++;
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Call after a successful request to reset the backoff counter.
+        /// </summary>
+        public void ReportSuccess()
+        {
+            Interlocked.Exchange(ref _consecutiveFailures, 0);
+        }
+
+        /// <summary>
+        /// Call after a failed request. Returns the recommended backoff delay
+        /// using exponential backoff with jitter (base 500ms, max 30s).
+        /// </summary>
+        public TimeSpan ReportFailure()
+        {
+            int failures = Interlocked.Increment(ref _consecutiveFailures);
+            double baseMs = 500 * Math.Pow(2, Math.Min(failures - 1, 6)); // max ~32s
+            double jitter = baseMs * 0.2 * Random.Shared.NextDouble();
+            return TimeSpan.FromMilliseconds(Math.Min(baseMs + jitter, 30_000));
+        }
+
+        /// <summary>
+        /// Executes <paramref name="action"/> with rate limiting and automatic retry
+        /// on failure with exponential backoff (up to <paramref name="maxRetries"/> attempts).
+        /// </summary>
+        public async Task<T> ExecuteAsync<T>(Func<Task<T>> action, int maxRetries = 3, CancellationToken ct = default)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                await WaitAsync(ct);
+                try
+                {
+                    var result = await action();
+                    ReportSuccess();
+                    return result;
+                }
+                catch when (attempt < maxRetries)
+                {
+                    var backoff = ReportFailure();
+                    await Task.Delay(backoff, ct);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Executes a void action with rate limiting and automatic retry.
+        /// </summary>
+        public async Task ExecuteAsync(Func<Task> action, int maxRetries = 3, CancellationToken ct = default)
+        {
+            await ExecuteAsync(async () => { await action(); return true; }, maxRetries, ct);
+        }
+    }
+}

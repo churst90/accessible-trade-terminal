@@ -219,6 +219,19 @@ namespace AccessibleTrader.Core.Services
                     continue;
                 }
 
+                // INTERNAL MAPPING (CANDLES/VOLUME/PRICE) — core series whose components
+                // declare a DataMapping (e.g. "close", "volume") read directly from the OHLCV
+                // buffer. This mirrors the RecalculateAllAsync branch and avoids routing
+                // through the indicator engine, which returns empty results for core series
+                // (CoreIndicatorProvider.UpdateLast is a no-op) and would overwrite the last
+                // bar's value with 0.0, making the Price line invisible.
+                if (s.Components.Any(c => !string.IsNullOrEmpty(c.DataMapping)))
+                {
+                    var mapped = _mapper.MapInternalDataToBuffer(s, data);
+                    _store.Dispatch(new UpdateSeriesDataAction(s.Id, mapped));
+                    continue;
+                }
+
                 if (!string.IsNullOrEmpty(s.IndicatorCode))
                 {
                     try

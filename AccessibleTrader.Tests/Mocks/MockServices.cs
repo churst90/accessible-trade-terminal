@@ -107,6 +107,9 @@ namespace AccessibleTrader.Tests.Mocks
         public void PlayConnectionState(ConnectionState state) { }
         public void PlayInfo() { }
         public void PlayNewBar() { }
+        public void PlaySetupBell(OrderSide side, bool isLeg) { }
+        public void PlaySetupArmed(OrderSide side) { }
+        public void PlaySetupEntryReached(OrderSide side) { }
     }
 
     public class MockStylingService : IStylingService

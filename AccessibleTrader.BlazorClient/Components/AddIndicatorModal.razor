@@ -43,7 +43,10 @@
                 </select>
             </div>
 
-            @* Parameters for selected indicator *@
+            @* Parameters for selected indicator. The input type branches on DataType:
+               string parameters render as text inputs (provider names, symbol selections);
+               numeric parameters render as the standard number input. Both flow through the
+               same _editParams dictionary as object values, formatted by SeriesManagementService.FormatParam. *@
             @if (_selectedMeta?.Parameters?.Any() == true)
             {
                 <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-top:16px;">
@@ -52,10 +55,19 @@
                     {
                         <div class="modal-row">
                             <label for="param-@param.Name">@(string.IsNullOrEmpty(param.DisplayName) ? param.Name : param.DisplayName)</label>
-                            <input id="param-@param.Name" type="number"
-                                   step="1"
-                                   value="@(_editParams.GetValueOrDefault(param.Name, param.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0))"
-                                   @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString())" />
+                            @if (param.DataType == typeof(string))
+                            {
+                                <input id="param-@param.Name" type="text"
+                                       value="@(_editParams.TryGetValue(param.Name, out var sv) ? sv?.ToString() ?? string.Empty : param.DefaultValue?.ToString() ?? string.Empty)"
+                                       @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: true)" />
+                            }
+                            else
+                            {
+                                <input id="param-@param.Name" type="number"
+                                       step="1"
+                                       value="@(GetNumericDisplay(param))"
+                                       @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: false)" />
+                            }
                         </div>
                     }
                 </fieldset>
@@ -82,7 +94,10 @@
     private IDisposable? _eventSub;
 
     private IndicatorMetadata? _selectedMeta;
-    private Dictionary<string, double> _editParams = new();
+    // Object-typed so the modal can hold both numeric and string parameter values for any
+    // indicator. Numeric inputs parse to double; string inputs pass through as string.
+    // The downstream factory accepts the mixed dictionary via SeriesManagementService.FormatParam.
+    private Dictionary<string, object> _editParams = new();
 
     protected override void OnInitialized()
     {
@@ -151,15 +166,53 @@
     private void UpdateSelectedMeta()
     {
         _selectedMeta = _allIndicators.FirstOrDefault(i => i.Code == _selectedIndicatorCode);
+        // Initialize the edit dictionary from each parameter's default. String parameters
+        // hold their default string directly; numeric parameters convert to double via the
+        // safe IConvertible path that previously broke on string DefaultValues.
         _editParams = _selectedMeta?.Parameters
             .ToDictionary(
                 p => p.Name,
-                p => p.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0)
-            ?? new Dictionary<string, double>();
+                p => InitialEditValue(p))
+            ?? new Dictionary<string, object>();
     }
 
-    private void UpdateEditParam(string name, string? raw)
+    private static object InitialEditValue(IndicatorParameterMetadata p)
     {
+        if (p.DataType == typeof(string))
+            return p.DefaultValue?.ToString() ?? string.Empty;
+        if (p.DefaultValue is IConvertible c)
+        {
+            try { return c.ToDouble(System.Globalization.CultureInfo.InvariantCulture); }
+            catch { return 0.0; }
+        }
+        return 0.0;
+    }
+
+    // Used by the numeric-input render path. We need this as a method (not a ternary in the
+    // markup) because TryGetValue with an `out object` doesn't compose cleanly into a Razor
+    // expression that also defaults to a double.
+    private string GetNumericDisplay(IndicatorParameterMetadata p)
+    {
+        if (_editParams.TryGetValue(p.Name, out var val) && val is IConvertible c)
+        {
+            try { return c.ToDouble(System.Globalization.CultureInfo.InvariantCulture).ToString("G", System.Globalization.CultureInfo.InvariantCulture); }
+            catch { /* fall through to default */ }
+        }
+        if (p.DefaultValue is IConvertible dc)
+        {
+            try { return dc.ToDouble(System.Globalization.CultureInfo.InvariantCulture).ToString("G", System.Globalization.CultureInfo.InvariantCulture); }
+            catch { return "0"; }
+        }
+        return "0";
+    }
+
+    private void UpdateEditParam(string name, string? raw, bool isString)
+    {
+        if (isString)
+        {
+            _editParams[name] = raw ?? string.Empty;
+            return;
+        }
         if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture, out double v))
         {
@@ -177,9 +230,10 @@
             p => p.Name,
             p => _editParams.TryGetValue(p.Name, out var edited)
                 ? edited
-                : (p.DefaultValue is IConvertible c ? c.ToDouble(null) : 0.0));
+                : (p.DefaultValue ?? (object)0.0));
 
-        // RegisterSeriesFromMetadata preserves CloudFills and component styling from metadata.
+        // RegisterSeriesFromMetadata preserves CloudFills and component styling from metadata,
+        // and now accepts mixed numeric/string parameter values through FormatParam.
         SeriesManager.RegisterSeriesFromMetadata(meta, parameters);
         Close();
     }

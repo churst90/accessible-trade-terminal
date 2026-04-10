@@ -283,6 +283,7 @@ label {
 
 .modal-content select,
 .modal-content input[type="text"],
+.modal-content input[type="password"],
 .modal-content input[type="number"],
 .modal-content input[type="range"] {
     background: #fff;
@@ -375,34 +376,6 @@ label {
 
 .shortcuts-table tr:nth-child(even) {
     background: #e8e8e8;
-}
-
-/* Trading dashboard */
-.trade-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-}
-
-.trade-stat {
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    padding: 10px 14px;
-}
-
-.trade-stat .stat-label {
-    font-size: 0.78rem;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.trade-stat .stat-value {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #111;
-    margin-top: 2px;
 }
 
 /* ── Blazor Error UI ───────────────────────────────────────────────────────── */

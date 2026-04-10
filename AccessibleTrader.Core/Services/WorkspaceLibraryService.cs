@@ -16,6 +16,12 @@ namespace AccessibleTrader.Core.Services
         void SaveProfile(string name, WorkspaceConfiguration config);
         WorkspaceConfiguration? LoadProfile(string name);
         void DeleteProfile(string name);
+
+        /// <summary>
+        /// Captures the full current workspace state (all tabs) into a named profile on disk.
+        /// </summary>
+        void SaveWorkspaceProfile(string name, IWorkspaceStore store);
+
         /// <summary>Persists the current alert definitions to disk.</summary>
         void SaveAlerts(IEnumerable<AlertDefinition> alerts);
         /// <summary>Loads saved alert definitions from disk. Returns an empty list if none saved.</summary>
@@ -44,8 +50,9 @@ namespace AccessibleTrader.Core.Services
             {
                 return Directory.GetFiles(_libraryDir, "*.json")
                     .Select(Path.GetFileNameWithoutExtension)
-                    .Where(x => x != null)
+                    .Where(x => x != null && x != "alerts")
                     .Cast<string>()
+                    .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
             catch (Exception ex)
@@ -68,6 +75,88 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogError($"Failed to save workspace profile '{name}': {ex.Message}");
             }
+        }
+
+        public void SaveWorkspaceProfile(string name, IWorkspaceStore store)
+        {
+            var state = store.State;
+
+            var config = new WorkspaceConfiguration
+            {
+                Mode = state.Mode,
+                SelectedMarketType = state.SelectedMarketType,
+                ActiveTabIndex = state.ActiveTabIndex,
+                Tabs = new List<TabConfiguration>()
+            };
+
+            // Capture the active tab.
+            config.Tabs.Add(CreateTabConfig(state));
+
+            // Capture all inactive tab snapshots.
+            if (state.TabSnapshots != null)
+            {
+                foreach (var snap in state.TabSnapshots.OrderBy(s => s.TabIndex))
+                {
+                    config.Tabs.Add(CreateTabConfigFromSnapshot(snap));
+                }
+            }
+
+            // Sort tabs by their original index so the saved order matches the tab bar.
+            // The active tab's index is state.ActiveTabIndex; snapshots carry their own TabIndex.
+            // We inserted active first then snapshots, so re-sort by index.
+            var sortedTabs = new List<TabConfiguration>(config.Tabs.Count);
+            // Build a mapping: active tab at ActiveTabIndex, snapshots at their indices.
+            var indexedTabs = new SortedDictionary<int, TabConfiguration>();
+            indexedTabs[state.ActiveTabIndex] = config.Tabs[0]; // active tab
+            for (int i = 1; i < config.Tabs.Count; i++)
+            {
+                var snap = state.TabSnapshots![i - 1];
+                indexedTabs[snap.TabIndex] = config.Tabs[i];
+            }
+            config.Tabs = indexedTabs.Values.ToList();
+
+            // Remap ActiveTabIndex to the position in the sorted list.
+            config.ActiveTabIndex = config.Tabs.IndexOf(indexedTabs[state.ActiveTabIndex]);
+
+            SaveProfile(name, config);
+        }
+
+        private static TabConfiguration CreateTabConfig(WorkspaceState state)
+        {
+            return new TabConfiguration
+            {
+                Market = state.Identity.Market,
+                Provider = state.Identity.Provider,
+                Symbol = state.Identity.Symbol,
+                Timeframe = state.Identity.Timeframe,
+                ViewportStartIndex = state.ViewportStartIndex,
+                ViewportLength = state.ViewportLength,
+                IsHeikinAshi = state.IsHeikinAshi,
+                IsLogScale = state.IsLogScale,
+                Series = state.ActiveSeries.Select(s => s.Config).ToList(),
+                PaneHeightRatios = state.PaneHeightRatios != null
+                    ? new Dictionary<string, float>(state.PaneHeightRatios)
+                    : new()
+            };
+        }
+
+        private static TabConfiguration CreateTabConfigFromSnapshot(TabSnapshot snap)
+        {
+            return new TabConfiguration
+            {
+                Market = snap.Identity.Market,
+                Provider = snap.Identity.Provider,
+                Symbol = snap.Identity.Symbol,
+                Timeframe = snap.Identity.Timeframe,
+                ViewportStartIndex = snap.ViewportStartIndex,
+                ViewportLength = snap.ViewportLength,
+                IsHeikinAshi = snap.IsHeikinAshi,
+                IsLogScale = snap.IsLogScale,
+                Series = snap.ActiveSeries.Select(s => s.Config).ToList(),
+                PaneHeightRatios = snap.PaneHeightRatios != null
+                    ? new Dictionary<string, float>(snap.PaneHeightRatios)
+                    : new()
+            };
         }
 
         public WorkspaceConfiguration? LoadProfile(string name)
@@ -229,7 +318,6 @@ namespace AccessibleTrader.Core.Services
                     }
                 }
             }
-            seriesService.PersistWorkspace();
         }
     }
 }

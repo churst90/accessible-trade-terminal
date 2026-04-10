@@ -145,13 +145,21 @@ namespace AccessibleTrader.Core.Services
             await LoadAsync();
             var existing = _cache.FirstOrDefault(k => k.Nickname == config.Nickname);
             if (existing != null) _cache.Remove(existing);
-            
+
             _cache.Add(new ApiKeyMetadata(config.Provider, config.Nickname, config.MarketType, config.Environment, config.IsActive));
-            
-            await _secureStorage.SetAsync($"apikey_{config.Nickname}_key", config.ApiKey ?? "");
-            await _secureStorage.SetAsync($"apikey_{config.Nickname}_secret", config.ApiSecret ?? "");
-            await _secureStorage.SetAsync($"apikey_{config.Nickname}_passphrase", config.Passphrase ?? "");
-            
+
+            try
+            {
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_key", config.ApiKey ?? "");
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_secret", config.ApiSecret ?? "");
+                await _secureStorage.SetAsync($"apikey_{config.Nickname}_passphrase", config.Passphrase ?? "");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"SecureStorage write failed for '{config.Nickname}': {ex.Message}");
+                throw;
+            }
+
             await SaveAsync();
         }
 

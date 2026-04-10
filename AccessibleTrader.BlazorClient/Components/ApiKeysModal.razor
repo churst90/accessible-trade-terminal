@@ -126,20 +126,44 @@
 
                 <div class="modal-row">
                     <label for="key-apikey">API Key</label>
-                    <input id="key-apikey" type="password"
-                           @bind="_newApiKey" aria-label="API key" />
+                    <div style="display:flex; gap:4px; flex:1;">
+                        <input id="key-apikey" type="@(_showApiKey ? "text" : "password")"
+                               @bind="_newApiKey" aria-label="API key" style="flex:1;" />
+                        <button type="button" @onclick="() => _showApiKey = !_showApiKey"
+                                @onclick:stopPropagation="true"
+                                aria-label="@(_showApiKey ? "Hide API key" : "Show API key")"
+                                style="min-width:54px;">
+                            @(_showApiKey ? "Hide" : "Show")
+                        </button>
+                    </div>
                 </div>
 
                 <div class="modal-row">
                     <label for="key-secret">API Secret</label>
-                    <input id="key-secret" type="password"
-                           @bind="_newApiSecret" aria-label="API secret" />
+                    <div style="display:flex; gap:4px; flex:1;">
+                        <input id="key-secret" type="@(_showSecret ? "text" : "password")"
+                               @bind="_newApiSecret" aria-label="API secret" style="flex:1;" />
+                        <button type="button" @onclick="() => _showSecret = !_showSecret"
+                                @onclick:stopPropagation="true"
+                                aria-label="@(_showSecret ? "Hide API secret" : "Show API secret")"
+                                style="min-width:54px;">
+                            @(_showSecret ? "Hide" : "Show")
+                        </button>
+                    </div>
                 </div>
 
                 <div class="modal-row">
                     <label for="key-pass">Passphrase</label>
-                    <input id="key-pass" type="password" placeholder="Optional"
-                           @bind="_newPassphrase" aria-label="Passphrase (optional)" />
+                    <div style="display:flex; gap:4px; flex:1;">
+                        <input id="key-pass" type="@(_showPassphrase ? "text" : "password")" placeholder="Optional"
+                               @bind="_newPassphrase" aria-label="Passphrase (optional)" style="flex:1;" />
+                        <button type="button" @onclick="() => _showPassphrase = !_showPassphrase"
+                                @onclick:stopPropagation="true"
+                                aria-label="@(_showPassphrase ? "Hide passphrase" : "Show passphrase")"
+                                style="min-width:54px;">
+                            @(_showPassphrase ? "Hide" : "Show")
+                        </button>
+                    </div>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_formError))
@@ -177,6 +201,9 @@
     private string _newApiSecret   = "";
     private string _newPassphrase  = "";
     private string? _formError;
+    private bool _showApiKey;
+    private bool _showSecret;
+    private bool _showPassphrase;
 
     private static readonly List<string> _knownProviders = new()
     {
@@ -224,46 +251,73 @@
             return;
         }
 
-        var config = new ApiKeyConfig(
-            Provider:    _newProvider,
-            Nickname:    _newNickname,
-            ApiKey:      _newApiKey,
-            ApiSecret:   _newApiSecret,
-            Passphrase:  _newPassphrase,
-            MarketType:  _newMarketType,
-            Environment: _newEnvironment,
-            IsActive:    false);
+        try
+        {
+            var config = new ApiKeyConfig(
+                Provider:    _newProvider,
+                Nickname:    _newNickname,
+                ApiKey:      _newApiKey,
+                ApiSecret:   _newApiSecret,
+                Passphrase:  _newPassphrase,
+                MarketType:  _newMarketType,
+                Environment: _newEnvironment,
+                IsActive:    false);
 
-        await ApiKeyService.SaveKeyAsync(config);
-        _keys = await ApiKeyService.GetAllKeysAsync();
+            await ApiKeyService.SaveKeyAsync(config);
+            _keys = await ApiKeyService.GetAllKeysAsync();
 
-        // Reset form
-        _newNickname = "";
-        _newApiKey = "";
-        _newApiSecret = "";
-        _newPassphrase = "";
-        _formError = null;
-        StateHasChanged();
+            // Reset form
+            _newNickname = "";
+            _newApiKey = "";
+            _newApiSecret = "";
+            _newPassphrase = "";
+            _showApiKey = false;
+            _showSecret = false;
+            _showPassphrase = false;
+            _formError = null;
+            StateHasChanged();
 
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Profile {config.Nickname} saved"));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"Profile {config.Nickname} saved"));
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Failed to save profile: {ex.Message}";
+            StateHasChanged();
+        }
     }
 
     private async Task SetActive(string nickname)
     {
-        await ApiKeyService.SetActiveKeyAsync(nickname);
-        _keys = await ApiKeyService.GetAllKeysAsync();
-        StateHasChanged();
+        try
+        {
+            await ApiKeyService.SetActiveKeyAsync(nickname);
+            _keys = await ApiKeyService.GetAllKeysAsync();
+            StateHasChanged();
 
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{nickname} set as active"));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"{nickname} set as active"));
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Failed to activate profile: {ex.Message}";
+            StateHasChanged();
+        }
     }
 
     private async Task Remove(string nickname)
     {
-        await ApiKeyService.RemoveKeyAsync(nickname);
-        _keys = await ApiKeyService.GetAllKeysAsync();
-        StateHasChanged();
+        try
+        {
+            await ApiKeyService.RemoveKeyAsync(nickname);
+            _keys = await ApiKeyService.GetAllKeysAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Failed to remove profile: {ex.Message}";
+            StateHasChanged();
+        }
     }
 
     private string GetKeyLabel(ApiKeyConfig k)

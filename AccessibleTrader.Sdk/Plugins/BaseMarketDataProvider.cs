@@ -7,8 +7,9 @@ using AccessibleTrader.Sdk.Interfaces;
 
 namespace AccessibleTrader.Sdk.Plugins
 {
-    public abstract class BaseMarketDataProvider : IMarketDataProvider, IProviderPlugin
+    public abstract class BaseMarketDataProvider : IMarketDataProvider, IProviderPlugin, IDisposable
     {
+        private bool _disposed;
         protected readonly Subject<Ohlcv> _liveStream = new();
         public IObservable<Ohlcv> LiveStream => _liveStream;
 
@@ -29,6 +30,43 @@ namespace AccessibleTrader.Sdk.Plugins
         public abstract int MaxBarsPerRequest { get; }
         public abstract List<string> NativelySupportedTimeframes { get; }
         public virtual Enums.ProviderCapabilities Capabilities => Enums.ProviderCapabilities.None;
+
+        // ── Data shape + symbol label (declared here so derived plugins can use ──
+        //    `public override` and have the override actually resolve through the
+        //    interface vtable). These members exist as default interface methods on
+        //    IMarketDataProvider, but a derived class shadow-property does NOT
+        //    override a default interface method in C# — the interface default
+        //    still fires when the provider is accessed through an IMarketDataProvider
+        //    reference (which is what MarketOrchestrator does via GetProviderAsync).
+        //    Declaring them as `virtual` here anchors them in the concrete class
+        //    hierarchy so overrides propagate correctly.
+
+        /// <summary>
+        /// Natural rendering shape for this provider's data. Defaults to
+        /// <see cref="ProviderDataShape.Ohlcv"/>. Analytics providers that emit a
+        /// single-value time series should override to
+        /// <see cref="ProviderDataShape.SingleValueLine"/>.
+        /// </summary>
+        public virtual ProviderDataShape DataShape => ProviderDataShape.Ohlcv;
+
+        /// <summary>
+        /// Human-readable label for the given symbol, used as the Price series
+        /// FriendlyName on analytics charts. Defaults to returning the raw symbol;
+        /// analytics providers should override with per-symbol mappings like
+        /// "FNG_INDEX" → "Fear &amp; Greed Index".
+        /// </summary>
+        public virtual string GetSymbolDisplayName(string symbol) => symbol;
+
+        /// <summary>
+        /// Optional per-symbol render hints (range, reference zones, display type,
+        /// speech template, color). Defaults to null (no hints). See
+        /// <see cref="SymbolRenderHints"/> for full documentation. Anchored as
+        /// virtual here so derived-class overrides resolve through the
+        /// IMarketDataProvider interface vtable — declaring it directly on the
+        /// plugin class (without this virtual anchor) would be a shadow property
+        /// that the default interface method hides.
+        /// </summary>
+        public virtual SymbolRenderHints? GetSymbolRenderHints(string symbol) => null;
 
         // ── Capability discovery ──────────────────────────────────────────────────
 
@@ -58,6 +96,13 @@ namespace AccessibleTrader.Sdk.Plugins
         public virtual double MaxLeverage          => 1.0;
 
         public abstract void Configure(Dictionary<string, string> config);
+
+        /// <summary>
+        /// Default key validation returns success. Providers that require keys should override.
+        /// </summary>
+        public virtual Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
+            => Task.FromResult((true, "No API key required"));
+
         public abstract Task EnsureConnectedAsync();
         public abstract Task SetSubscriptionAsync(string market, string symbol, string timeframe);
         public abstract Task DisconnectAsync();
@@ -70,6 +115,27 @@ namespace AccessibleTrader.Sdk.Plugins
         protected string CleanSymbol(string symbol)
         {
             return symbol?.Replace("/", "").Replace("-", "").ToUpper() ?? string.Empty;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                _liveStream.OnCompleted();
+                _liveStream.Dispose();
+                _errorStream.OnCompleted();
+                _errorStream.Dispose();
+                _connectionStateStream.OnCompleted();
+                _connectionStateStream.Dispose();
+            }
+            _disposed = true;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

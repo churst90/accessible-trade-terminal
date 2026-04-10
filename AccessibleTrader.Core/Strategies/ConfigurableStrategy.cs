@@ -1,0 +1,491 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Strategies;
+using AccessibleTrader.Core.Strategies.BuiltIn;
+using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Strategies;
+
+namespace AccessibleTrader.Core.Strategies;
+
+/// <summary>
+/// The signal-composer-driven strategy. Wraps a <see cref="StrategySpec"/> (condition tree +
+/// risk plan + side + execution mode) and runs it through the existing <c>IStrategyEngine</c>
+/// pipeline. Owns the per-setup state machine:
+///
+///   Inactive + conditions true →
+///     resolve risk → if R:R gate clears
+///       → if EntryTrigger.Immediate → transition to Active, emit StrategySignal,
+///                                     publish SetupConfirmedEvent
+///       → else                      → transition to Armed, publish SetupArmedEvent
+///                                     (no order yet — waiting for entry trigger)
+///   Armed    + conditions true →
+///     check entry trigger this bar
+///       → fired  → transition to Active, emit StrategySignal,
+///                  publish SetupEntryReachedEvent
+///       → not fired → publish SetupReconfirmedEvent (heartbeat)
+///   Armed    + conditions false →
+///     transition back to Inactive (dropouts already published below)
+///   Active   + conditions true  →
+///     publish SetupReconfirmedEvent (no new order — engine dedup would block anyway)
+///   Active   + conditions false →
+///     transition back to Inactive
+///
+/// The Inactive→Armed→Active path is the user's "I see the setup forming, now I know
+/// when I can actually enter" loop. Per the user directive, setups have NO time-based
+/// expiration — Armed remains valid indefinitely until either the trigger fires or the
+/// underlying conditions invalidate.
+/// </summary>
+public class ConfigurableStrategy : BaseStrategy
+{
+    private enum SetupState { Inactive, Armed, Active }
+
+    private readonly StrategySpec _spec;
+    private readonly IConditionEvaluator _evaluator;
+    private readonly IRiskPlanResolver _resolver;
+    private readonly ISignalCatalog _catalog;
+    private readonly IEventBus _eventBus;
+    private readonly IMultiTimeframeDataService? _mtf;
+    private readonly string _instanceId;
+
+    // Setup state machine.
+    private SetupState _state = SetupState.Inactive;
+    private int  _barsSinceFirstConfirm;
+    private int  _barsSinceArmed;
+    private ResolvedRiskPlan? _armedPlan;
+    private Dictionary<string, bool> _lastLeafResults = new();
+
+    // Cached at construction: true when every leaf in the spec uses a one-bar transient operator
+    // (Fired, CrossesAbove/Below, CrossesAbove/BelowLine, ChangesDirection, PriceBreaks/Rejects
+    // Level, WickIntoLvn). For these trees the "true" state is structurally a single-bar pulse,
+    // which has two consequences:
+    //
+    //  (1) An EntryTrigger of anything other than Immediate is unsatisfiable — by the next bar
+    //      the conditions are already false again, so the Armed→Active path can never fire and
+    //      the strategy produces zero trades. We auto-promote to Immediate execution.
+    //
+    //  (2) The natural per-bar drop-off is not an actionable "setup is losing strength" event —
+    //      it's just how pulse markers work. Publishing SetupDroppedEvent every single bar
+    //      after a pulse fires produces the constant "X dropped off" speech the user reported.
+    //      We suppress dropout publication for pure-pulse trees.
+    //
+    // FiredWithin is excluded from the "pulse" set because it explicitly debounces over N bars
+    // and is the documented workaround for users who want a persistent setup window.
+    private readonly bool _isPurePulseTree;
+
+    public override string Id => _spec.Id;
+    public override string Name => _spec.Name;
+    public override string Description => _spec.Description;
+    public override StrategyComplexityLevel Complexity => StrategyComplexityLevel.Advanced;
+
+    // ConfigurableStrategy is configured entirely via its constructor — no parameter dialog.
+    // The builder UI (Session D) produces the StrategySpec directly.
+    public override IReadOnlyList<StrategyParameter> Parameters { get; } = Array.Empty<StrategyParameter>();
+
+    public ConfigurableStrategy(
+        StrategySpec spec,
+        IConditionEvaluator evaluator,
+        IRiskPlanResolver resolver,
+        ISignalCatalog catalog,
+        IEventBus eventBus,
+        string instanceId,
+        IMultiTimeframeDataService? mtf = null)
+    {
+        _spec       = spec;
+        _evaluator  = evaluator;
+        _resolver   = resolver;
+        _catalog    = catalog;
+        _eventBus   = eventBus;
+        _instanceId = instanceId;
+        _mtf        = mtf;
+        _isPurePulseTree = IsPurePulseTree(spec.Conditions);
+    }
+
+    private static bool IsPurePulseTree(ConditionNode node)
+    {
+        switch (node)
+        {
+            case ConditionLeaf l:
+                return l.Operator switch
+                {
+                    LeafOperator.Fired             => true,
+                    LeafOperator.CrossesAbove      => true,
+                    LeafOperator.CrossesBelow      => true,
+                    LeafOperator.CrossesAboveLine  => true,
+                    LeafOperator.CrossesBelowLine  => true,
+                    LeafOperator.ChangesDirection  => true,
+                    LeafOperator.PriceBreaksLevel  => true,
+                    LeafOperator.PriceRejectsLevel => true,
+                    LeafOperator.WickIntoLvn       => true,
+                    _ => false
+                };
+            case ConditionGroup g:
+                if (g.Children.Count == 0) return false;
+                foreach (var c in g.Children)
+                    if (!IsPurePulseTree(c)) return false;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public override void Initialize(IReadOnlyList<Ohlcv> history, WorkspaceState state, IDictionary<string, object> parameterValues)
+    {
+        // No parameters — spec is fully specified at construction time.
+        _state = SetupState.Inactive;
+        _barsSinceFirstConfirm = 0;
+        _barsSinceArmed = 0;
+        _armedPlan = null;
+        _lastLeafResults = new Dictionary<string, bool>();
+
+        // Pre-warm HTF indicator computation cache for every (Timeframe, IndicatorCode) pair the
+        // spec references. Fire-and-forget: the synchronous evaluator will read these on the hot
+        // path once the cache populates. Until then, HTF leaves fall through to active-TF.
+        if (_mtf == null)
+        {
+            // Check if the spec actually needs HTF data — warn if so, since results will silently degrade.
+            var htfCheck = new HashSet<string>();
+            CollectHtfTimeframes(_spec.Conditions, htfCheck);
+            if (htfCheck.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ConfigurableStrategy] WARNING: Strategy '{_spec.Name}' ({_spec.Id}) references HTF timeframes " +
+                    $"[{string.Join(", ", htfCheck)}] but IMultiTimeframeDataService is null. " +
+                    "HTF leaves will silently fall through to active-timeframe data.");
+            }
+        }
+        if (_mtf != null)
+        {
+            string market   = state.Identity.Market   ?? string.Empty;
+            string provider = state.Identity.Provider ?? string.Empty;
+            string symbol   = state.Identity.Symbol   ?? string.Empty;
+            int prewarmCount = System.Math.Max(200, history?.Count ?? 200);
+
+            var seenIndicator = new HashSet<(string tf, string code)>();
+            var seenTimeframe = new HashSet<string>();
+            CollectHtfPairs(_spec.Conditions, seenIndicator, seenTimeframe);
+
+            // Indicator pre-warm: each unique (timeframe, indicatorCode) gets one async compute.
+            foreach (var (tf, code) in seenIndicator)
+            {
+                _ = _mtf.PrewarmIndicatorAsync(
+                    market, provider, symbol, tf, code,
+                    new Dictionary<string, object>(), prewarmCount);
+            }
+
+            // Bar-only pre-warm: each unique HTF that ANY leaf references (even price-only leaves
+            // that don't need an indicator computation) gets a raw bar fetch. Without this, the
+            // first few bars after strategy add evaluate against an empty MTF bar cache and the
+            // price-only HTF path falls through to active-TF data with the one-time warning.
+            // GetBarsAsync is idempotent — if the bar cache for this (provider|symbol|tf) is
+            // already populated and fresh, the call is a no-op. Carryover from Session B.
+            foreach (var tf in seenTimeframe)
+            {
+                _ = _mtf.GetBarsAsync(market, provider, symbol, tf, prewarmCount);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Walks the condition tree collecting unique timeframe strings from leaves that have a
+    /// non-null Timeframe. Lightweight version of CollectHtfPairs used only for the null-MTF
+    /// warning — no catalog lookup needed.
+    /// </summary>
+    private static void CollectHtfTimeframes(ConditionNode node, HashSet<string> sink)
+    {
+        switch (node)
+        {
+            case ConditionLeaf leaf when !string.IsNullOrEmpty(leaf.Timeframe):
+                sink.Add(leaf.Timeframe!);
+                break;
+            case ConditionGroup g:
+                foreach (var c in g.Children) CollectHtfTimeframes(c, sink);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Walks the condition tree collecting unique (Timeframe, IndicatorCode) pairs from leaves
+    /// that have a Timeframe set. Used by Initialize to pre-warm the HTF indicator cache.
+    /// </summary>
+    private void CollectHtfPairs(ConditionNode node,
+        HashSet<(string tf, string code)> indicatorSink,
+        HashSet<string> timeframeSink)
+    {
+        switch (node)
+        {
+            case ConditionLeaf leaf when !string.IsNullOrEmpty(leaf.Timeframe):
+            {
+                timeframeSink.Add(leaf.Timeframe!);
+                var desc = _catalog.GetById(leaf.SignalDescriptorId);
+                if (desc != null && !string.IsNullOrEmpty(desc.IndicatorCode))
+                    indicatorSink.Add((leaf.Timeframe!, desc.IndicatorCode));
+                break;
+            }
+            case ConditionGroup g:
+            {
+                foreach (var c in g.Children) CollectHtfPairs(c, indicatorSink, timeframeSink);
+                break;
+            }
+        }
+    }
+
+    public override StrategySignal? OnBar(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state)
+    {
+        // During backtest replay we still run the full state machine (so trades are simulated
+        // correctly) but we skip every IEventBus publication — otherwise SetupSonifier speaks
+        // thousands of Armed/Dropped/Reconfirm events for replayed bars. The backtester stamps
+        // this flag in StrategyBacktester.Run.
+        bool publishEvents = !state.IsBacktesting;
+
+        var eval = _evaluator.Evaluate(_spec.Conditions, history, state);
+
+        // Detect leaves that flipped true→false since the previous bar — these are "dropouts"
+        // even if the overall tree is still true (e.g. an OR group with one false child).
+        var droppedLabels = new List<string>();
+        foreach (var (leafId, wasTrue) in _lastLeafResults)
+        {
+            bool nowTrue = eval.LeafResults.TryGetValue(leafId, out var v) && v;
+            if (wasTrue && !nowTrue)
+            {
+                // Resolve a friendly label by walking the tree for the leaf and looking up its descriptor.
+                var leaf = FindLeaf(_spec.Conditions, leafId);
+                if (leaf != null)
+                {
+                    var desc = _catalog.GetById(leaf.SignalDescriptorId);
+                    droppedLabels.Add(desc?.DisplayLabel ?? leafId);
+                }
+            }
+        }
+
+        // Pure-pulse trees drop off by definition every bar after they fire — publishing a
+        // SetupDroppedEvent for that natural expiry produces the constant "X dropped off"
+        // speech the user reported. The pulse already fired the BuildSignal path on the
+        // previous bar; nothing has been "lost" in a way the user needs to hear about.
+        if (droppedLabels.Count > 0 && !_isPurePulseTree && publishEvents)
+        {
+            _eventBus.Publish(new SetupDroppedEvent(
+                StrategyName: _spec.Name,
+                InstanceId:   _instanceId,
+                DroppedLeafLabels: droppedLabels,
+                SetupStillActive: eval.OverallTrue && _state != SetupState.Inactive));
+        }
+
+        _lastLeafResults = new Dictionary<string, bool>(eval.LeafResults);
+
+        if (!eval.OverallTrue)
+        {
+            // Conditions no longer satisfied — exit any active/armed setup quietly (the dropout
+            // event above already announces which leaves caused it).
+            _state = SetupState.Inactive;
+            _barsSinceFirstConfirm = 0;
+            _barsSinceArmed = 0;
+            _armedPlan = null;
+            return null;
+        }
+
+        // Armed: waiting for the entry trigger to fire. Check it on every bar where conditions
+        // still hold; if the trigger fires, transition to Active and emit the signal. Otherwise
+        // emit a heartbeat reconfirm (per user directive: ongoing audio confirmation while waiting).
+        if (_state == SetupState.Armed && _armedPlan != null)
+        {
+            _barsSinceArmed++;
+            if (EntryTriggerFired(_spec.Risk.Entry, _spec.Side, history))
+            {
+                _state = SetupState.Active;
+                _barsSinceFirstConfirm = 0;
+                double trig = ResolveTriggerPrice(_spec.Risk.Entry, history);
+                if (publishEvents) _eventBus.Publish(new SetupEntryReachedEvent(
+                    StrategyName: _spec.Name,
+                    InstanceId:   _instanceId,
+                    Side:         _spec.Side,
+                    TriggerPrice: trig,
+                    BarsArmed:    _barsSinceArmed));
+                return BuildSignal(_armedPlan, eval, $"Entry trigger fired at {trig:F4}.");
+            }
+            // Trigger not yet fired — heartbeat reconfirm so the user knows the setup is still alive.
+            if (publishEvents) _eventBus.Publish(new SetupReconfirmedEvent(
+                StrategyName: _spec.Name,
+                InstanceId:   _instanceId,
+                Side:         _spec.Side,
+                BarsSinceFirstConfirm: _barsSinceArmed));
+            return null;
+        }
+
+        // Active: conditions still true on a previously-fired setup — heartbeat reconfirm only.
+        if (_state == SetupState.Active)
+        {
+            _barsSinceFirstConfirm++;
+            if (publishEvents) _eventBus.Publish(new SetupReconfirmedEvent(
+                StrategyName: _spec.Name,
+                InstanceId:   _instanceId,
+                Side:         _spec.Side,
+                BarsSinceFirstConfirm: _barsSinceFirstConfirm));
+            return null;
+        }
+
+        // Inactive + conditions true → first-time confirmation. Resolve the risk plan; abort
+        // silently if it fails the R:R gate or references unimplemented Phase-4 stop/target sources.
+        var resolved = _resolver.Resolve(_spec.Risk, _spec.Side, history, state);
+        if (resolved == null) return null;
+
+        // EntryTrigger.Immediate → transition straight to Active and emit the order.
+        // Anything else → transition to Armed and wait for the trigger on subsequent bars.
+        //
+        // Pure-pulse trees are auto-promoted to Immediate regardless of the configured entry
+        // trigger: a one-bar pulse cannot satisfy the Armed→Active path (the conditions are
+        // false again by the next bar) so a non-Immediate trigger guarantees zero trades. Fire
+        // on the same bar the pulse appears.
+        bool effectiveImmediate = _spec.Risk.Entry.Kind == EntryTriggerKind.Immediate
+                                  || _isPurePulseTree;
+        if (effectiveImmediate)
+        {
+            _state = SetupState.Active;
+            _barsSinceFirstConfirm = 0;
+
+            string normalizedScore = eval.MaxScore > 0
+                ? (eval.Score / eval.MaxScore).ToString("F2")
+                : "1.00";
+
+            string rationale =
+                $"{(_spec.Side == OrderSide.Buy ? "Long" : "Short")} setup, score {normalizedScore}. " +
+                $"Stop {resolved.StopPrice:F4}, first target {resolved.TpPrices[0]:F4} (R:R {resolved.RewardRiskRatio:F2}). " +
+                resolved.Notes;
+
+            if (publishEvents) _eventBus.Publish(new SetupConfirmedEvent(
+                StrategyName: _spec.Name,
+                InstanceId:   _instanceId,
+                Side:         _spec.Side,
+                Rationale:    rationale,
+                ResolvedPlan: resolved));
+
+            return BuildSignal(resolved, eval, rationale);
+        }
+        else
+        {
+            _state = SetupState.Armed;
+            _barsSinceArmed = 0;
+            _armedPlan = resolved;
+            if (publishEvents) _eventBus.Publish(new SetupArmedEvent(
+                StrategyName: _spec.Name,
+                InstanceId:   _instanceId,
+                Side:         _spec.Side,
+                TriggerDescription: DescribeTrigger(_spec.Risk.Entry),
+                ResolvedPlan: resolved));
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Build the StrategySignal record from a resolved plan + evaluation. Used by both the
+    /// Immediate path and the Armed→Active path so the order shape is identical regardless of
+    /// when in the state machine the entry actually fired. Carries the full TP ladder + close
+    /// portions in the optional record fields so <c>StrategyBacktester</c> can simulate
+    /// partial-close exits — the single <see cref="StrategySignal.TakeProfit"/> field stays
+    /// populated with the first rung for back-compat with the live broker order path.
+    /// </summary>
+    private StrategySignal BuildSignal(ResolvedRiskPlan resolved, ConditionEvaluation eval, string rationale)
+    {
+        return new StrategySignal(
+            Side:       _spec.Side,
+            OrderType:  OrderType.Market,
+            Quantity:   resolved.Quantity,
+            LimitPrice: null,
+            StopLoss:   resolved.StopPrice,
+            TakeProfit: resolved.TpPrices[0],
+            Rationale:  rationale,
+            Confidence: eval.MaxScore > 0 ? eval.Score / eval.MaxScore : 1.0,
+            TpLadder:        resolved.TpPrices,
+            TpClosePortions: resolved.ClosePortions
+        );
+    }
+
+    /// <summary>
+    /// Returns true if the entry trigger has fired on the most recent bar. The current bar's
+    /// high/low range is what we test against — once price has touched the trigger level,
+    /// we consider the order placed at that price.
+    /// </summary>
+    private static bool EntryTriggerFired(EntryTrigger trigger, OrderSide side, IReadOnlyList<Ohlcv> history)
+    {
+        if (history.Count == 0) return false;
+        var bar = history[^1];
+        switch (trigger.Kind)
+        {
+            case EntryTriggerKind.Immediate:
+                return true;
+
+            case EntryTriggerKind.OnPullbackToLevel:
+                // Long: price retraced down to the level. Short: price retraced up to the level.
+                return side == OrderSide.Buy
+                    ? bar.Low  <= trigger.LevelPrice
+                    : bar.High >= trigger.LevelPrice;
+
+            case EntryTriggerKind.OnBreakoutOf:
+                // Long: price broke above the level. Short: price broke below the level.
+                return side == OrderSide.Buy
+                    ? bar.High >= trigger.LevelPrice
+                    : bar.Low  <= trigger.LevelPrice;
+
+            case EntryTriggerKind.OnNextNCandleClose:
+                // After at least N bars have passed and the most recent N bars all closed
+                // in setup direction. Conservative: requires unbroken confirmation.
+                if (history.Count < trigger.NCandles) return false;
+                for (int i = history.Count - trigger.NCandles; i < history.Count; i++)
+                {
+                    var b = history[i];
+                    bool inDir = side == OrderSide.Buy ? b.Close > b.Open : b.Close < b.Open;
+                    if (!inDir) return false;
+                }
+                return true;
+
+            default:
+                return true;
+        }
+    }
+
+    private static double ResolveTriggerPrice(EntryTrigger trigger, IReadOnlyList<Ohlcv> history)
+    {
+        if (history.Count == 0) return 0.0;
+        switch (trigger.Kind)
+        {
+            case EntryTriggerKind.OnPullbackToLevel:
+            case EntryTriggerKind.OnBreakoutOf:
+                return trigger.LevelPrice;
+            default:
+                return history[^1].Close;
+        }
+    }
+
+    private static string DescribeTrigger(EntryTrigger trigger)
+    {
+        return trigger.Kind switch
+        {
+            EntryTriggerKind.OnPullbackToLevel  => $"Waiting for pullback to {trigger.LevelPrice:F4}.",
+            EntryTriggerKind.OnBreakoutOf       => $"Waiting for breakout of {trigger.LevelPrice:F4}.",
+            EntryTriggerKind.OnNextNCandleClose => $"Waiting for {trigger.NCandles} confirming candle closes.",
+            _ => "Entry pending."
+        };
+    }
+
+    private static ConditionLeaf? FindLeaf(ConditionNode node, string id)
+    {
+        switch (node)
+        {
+            case ConditionLeaf l when l.Id == id:
+                return l;
+            case ConditionGroup g:
+                foreach (var c in g.Children)
+                {
+                    var found = FindLeaf(c, id);
+                    if (found != null) return found;
+                }
+                return null;
+            default:
+                return null;
+        }
+    }
+}

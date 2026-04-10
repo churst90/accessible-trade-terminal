@@ -13,11 +13,12 @@ namespace AccessibleTrader.Core.Models
         OpenHelp,           // Alt+H
         OpenApiKeys,        // Alt+K
         OpenAlerts,         // Alt+A
-        OpenIndicators,     // Alt+I
+        OpenIndicators,     // Alt+A
         OpenDrawingTools,
         OpenStrategies,     // Alt+S
         OpenCustomScripts,  // Alt+,
         OpenSoundDesigner,  // Alt+W
+        OpenJournal,        // Ctrl+Alt+Shift+J: open the alert / speech journal modal
         ContextSummary,
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
         
@@ -87,13 +88,13 @@ namespace AccessibleTrader.Core.Models
         DrawAnchoredVwap,   // Ctrl+Shift+W
         DrawMeasure,        // Ctrl+Shift+M
         DrawGannBox,        // Ctrl+Shift+B
-        DrawPitchfork,      // Ctrl+Shift+K
+        DrawPitchfork,      // Ctrl+Shift+A
         DrawAngleFib,       // Ctrl+Shift+J
         
         // Series Management
         RemoveSelectedSeries, // Delete: remove the currently focused indicator series
-        SelectNextSeries,     // Ctrl+Down: cycle focus to the next series
-        SelectPrevSeries,     // Ctrl+Up: cycle focus to the previous series
+        SelectNextSeries,     // cycle focus to the next series (no default binding)
+        SelectPrevSeries,     // cycle focus to the previous series (no default binding)
 
         // Detail / Drawing
         DetailedPointSummary, // Ctrl+Shift+D: speak full candle pattern analysis
@@ -114,6 +115,10 @@ namespace AccessibleTrader.Core.Models
 
         // AI Analyst
         OpenAIAnalyst,   // Ctrl+Alt+Shift+A: open AI Technical Analyst
+
+        // Workspace management
+        SaveWorkspace,   // Ctrl+Alt+Shift+W: save workspace profile
+        LoadWorkspace,   // Ctrl+Alt+W: load workspace profile
 
         // Sub-pane navigation
         NavSubPaneNext,        // Ctrl+PageDown: jump to first component of next sub-pane

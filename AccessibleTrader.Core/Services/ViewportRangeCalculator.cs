@@ -23,8 +23,38 @@ namespace AccessibleTrader.Core.Services
             if (!visibleBars.Any()) return new ViewportRangeResult((0, 100), ImmutableDictionary<string, (double Min, double Max)>.Empty);
 
             // ── Main Range (Price Action) ────────────────────────────────────
+            // Data-driven bounds from the OHLCV buffer. For analytics tabs where
+            // O=H=L=C (SingleValueLine provider), Low/High collapse to the scalar
+            // min/max — still correct.
             double mainMin = visibleBars.Min(b => (double)b.Low);
             double mainMax = visibleBars.Max(b => (double)b.High);
+
+            // Expand main range to include any reference levels on main-pane series
+            // (e.g. analytics hint-injected FNG 25/50/75 zones). Otherwise the pane
+            // auto-scales too tight and the zones clip off-screen.
+            foreach (var s in state.ActiveSeries)
+            {
+                string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
+                if (paneName != "Main") continue;
+                foreach (var lvl in s.Levels)
+                {
+                    if (!lvl.IsVisible) continue;
+                    if (lvl.Value < mainMin) mainMin = lvl.Value;
+                    if (lvl.Value > mainMax) mainMax = lvl.Value;
+                }
+            }
+
+            // Hint-driven range clamp: if any main-pane series declares RangeMin/RangeMax
+            // (from SymbolRenderHints on an analytics load), use those as hard bounds.
+            // This keeps bounded metrics like FNG fixed at 0–100 even when current data
+            // is a subset of the range. Applied before the buffer expansion below.
+            foreach (var s in state.ActiveSeries)
+            {
+                string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
+                if (paneName != "Main") continue;
+                if (s.Config.RangeMin.HasValue) mainMin = s.Config.RangeMin.Value;
+                if (s.Config.RangeMax.HasValue) mainMax = s.Config.RangeMax.Value;
+            }
 
             double mainRange = mainMax - mainMin;
             if (mainRange < 0.000001) { mainMin -= 1.0; mainMax += 1.0; }

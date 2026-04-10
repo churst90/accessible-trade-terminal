@@ -54,7 +54,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     return;
                 }
 
-                var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == (state.FocusedSeriesId ?? "candles"));
+                var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == (state.FocusedSeriesId ?? state.PrimarySeriesId));
                 var strategy = _navRegistry.GetStrategy(focusedSeries);
 
                 switch (command)

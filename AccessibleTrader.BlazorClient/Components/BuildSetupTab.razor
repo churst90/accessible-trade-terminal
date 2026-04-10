@@ -1,0 +1,1330 @@
+@*
+    Build Setup tab — the no-code strategy composer UI for Phase 11 Session D.
+
+    Layout (top to bottom):
+        1. Spec name + side (Long/Short) + description
+        2. Condition tree — ARIA tree (role=tree, treeitem) with cascading combo-box leaf editor
+           below the tree. Selecting a leaf populates the editor; selecting a group lets the
+           user change its AND/OR/NOT operator. Add-Group / Add-Leaf / Delete buttons sit
+           next to each node so structural editing is just Tab + Enter.
+        3. Risk plan — stop source, TP ladder, sizing, R:R minimum, entry trigger, equity.
+        4. Save / Load / Add to Engine actions.
+
+    The mutable in-memory model (`EditableNode` + `_risk*` fields) is converted to a
+    `StrategySpec` record on Save and persisted via `IStrategyLibrary.Upsert`. Loading an
+    existing spec walks the inverse path. "Add to Engine" registers the current spec as a
+    live `ConfigurableStrategy` via `IConfigurableStrategyFactory` + `IStrategyEngine`.
+*@
+
+@using AccessibleTrader.Sdk.Strategies
+@using AccessibleTrader.Sdk.Plugins
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Core.Services
+@inject ISignalCatalog SignalCatalog
+@inject IStrategyLibrary Library
+@inject IConfigurableStrategyFactory Factory
+@inject IStrategyEngine Engine
+@inject ISpeechManager Speech
+@inject IStrategyBacktester Backtester
+@inject IBacktestWarmupAnalyzer WarmupAnalyzer
+@inject IWorkspaceStore Store
+@inject IPlatformPathService Paths
+@implements IDisposable
+
+<div role="tabpanel" aria-labelledby="tab-build">
+
+    @* ── Spec metadata ───────────────────────────────────────────────────────── *@
+    <fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Strategy Identity</legend>
+
+        <div class="modal-row">
+            <label for="bs-name">Name:</label>
+            <input id="bs-name" type="text" style="width: 60%;"
+                   value="@_name"
+                   @onchange="e => _name = e.Value?.ToString() ?? string.Empty"
+                   placeholder="My Long Setup" />
+        </div>
+
+        <div class="modal-row">
+            <label for="bs-desc">Description:</label>
+            <input id="bs-desc" type="text" style="width: 60%;"
+                   value="@_description"
+                   @onchange="e => _description = e.Value?.ToString() ?? string.Empty"
+                   placeholder="Optional free-form description" />
+        </div>
+
+        <div class="modal-row">
+            <label for="bs-side">Side:</label>
+            <select id="bs-side"
+                    value="@_side"
+                    @onchange="e => { if (Enum.TryParse<OrderSide>(e.Value?.ToString(), out var s)) _side = s; }">
+                <option value="@OrderSide.Buy">Long (Buy)</option>
+                <option value="@OrderSide.Sell">Short (Sell)</option>
+            </select>
+        </div>
+    </fieldset>
+
+    @* ── Condition tree ─────────────────────────────────────────────────────── *@
+    <fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Conditions</legend>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+            <button type="button" @onclick="AddRootGroup" aria-label="Add root condition group">
+                + Group at root
+            </button>
+            <button type="button" @onclick="AddRootLeaf" aria-label="Add root condition leaf">
+                + Leaf at root
+            </button>
+            <button type="button" @onclick="ClearTree" aria-label="Clear all conditions">
+                Clear all
+            </button>
+        </div>
+
+        @if (_root == null)
+        {
+            <p style="color:#888; font-size: 0.85rem;">
+                No conditions yet. Add a root group (AND / OR / NOT) and then add leaves inside it.
+            </p>
+        }
+        else
+        {
+            <ul role="tree" aria-label="Strategy condition tree"
+                style="list-style: none; padding-left: 0; margin: 0;">
+                @RenderNode(_root, 1)
+            </ul>
+        }
+    </fieldset>
+
+    @* ── Leaf editor ─────────────────────────────────────────────────────────── *@
+    @if (_selectedNode != null && !_selectedNode.IsGroup)
+    {
+        <fieldset style="border: 1px solid #4a8; padding: 10px 14px; margin-bottom: 14px;">
+            <legend style="font-weight: 700; padding: 0 6px;">Edit Leaf</legend>
+
+            <div class="modal-row">
+                <label for="leaf-indicator">Indicator:</label>
+                <select id="leaf-indicator"
+                        value="@SelectedIndicatorCode"
+                        @onchange="OnIndicatorChanged">
+                    <option value="">— Select indicator —</option>
+                    @foreach (var indCode in IndicatorCodes)
+                    {
+                        <option value="@indCode">
+                            @indCode @(IsIndicatorLoadedOnChart(indCode) ? "" : "(not on chart)")
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(SelectedIndicatorCode) && !IsIndicatorLoadedOnChart(SelectedIndicatorCode))
+            {
+                <div role="alert" aria-live="polite"
+                     style="margin: 4px 0 8px 0; padding: 6px 10px; background: #3a2a00; border: 1px solid #aa6; color: #ffd; font-size: 0.85rem;">
+                    ⚠ <strong>@SelectedIndicatorCode is not on this chart.</strong>
+                    The strategy will silently never fire on this leaf until you add it via Alt+A (Add Indicator).
+                </div>
+            }
+
+            <div class="modal-row">
+                <label for="leaf-component">Component:</label>
+                <select id="leaf-component"
+                        value="@_selectedNode.SignalDescriptorId"
+                        @onchange="OnComponentChanged">
+                    <option value="">— Select component —</option>
+                    @foreach (var d in DescriptorsForSelectedIndicator)
+                    {
+                        <option value="@d.Id">@d.DisplayLabel (@d.Kind)</option>
+                    }
+                </select>
+            </div>
+
+            @if (NeedsSecondDescriptor)
+            {
+                @* Cross-line operators need a second descriptor — the line being crossed.
+                   Same dropdown shape as the primary component picker but bound to
+                   _selectedNode.SecondSignalDescriptorId. *@
+                <div class="modal-row">
+                    <label for="leaf-second-component">Crosses against:</label>
+                    <select id="leaf-second-component"
+                            value="@(_selectedNode.SecondSignalDescriptorId ?? string.Empty)"
+                            @onchange="e => _selectedNode.SecondSignalDescriptorId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                        <option value="">— Select second component —</option>
+                        @foreach (var d in DescriptorsForSelectedIndicator.Where(x => x.Id != _selectedNode.SignalDescriptorId))
+                        {
+                            <option value="@d.Id">@d.DisplayLabel</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="modal-row">
+                <label for="leaf-operator">Operator:</label>
+                <select id="leaf-operator"
+                        value="@_selectedNode.Operator"
+                        @onchange="OnOperatorChanged">
+                    @foreach (var op in OperatorsForSelectedKind)
+                    {
+                        <option value="@op">@op</option>
+                    }
+                </select>
+            </div>
+
+            @if (NeedsValue)
+            {
+                <div class="modal-row">
+                    <label for="leaf-value">Value:</label>
+                    <input id="leaf-value" type="number" step="any"
+                           value="@_selectedNode.Value"
+                           @onchange="e => double.TryParse(e.Value?.ToString(), out _selectedNode.Value)" />
+                </div>
+            }
+
+            @if (NeedsValue2)
+            {
+                <div class="modal-row">
+                    <label for="leaf-value2">Upper bound:</label>
+                    <input id="leaf-value2" type="number" step="any"
+                           value="@(_selectedNode.Value2 ?? 0)"
+                           @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _selectedNode.Value2 = v; }" />
+                </div>
+            }
+
+            @if (NeedsWithinN)
+            {
+                <div class="modal-row">
+                    <label for="leaf-within">Within last N bars:</label>
+                    <input id="leaf-within" type="number" step="1" min="1"
+                           value="@_selectedNode.WithinNBars"
+                           @onchange="e => int.TryParse(e.Value?.ToString(), out _selectedNode.WithinNBars)" />
+                </div>
+            }
+
+            <div class="modal-row">
+                <label for="leaf-tf">Timeframe (HTF):</label>
+                <select id="leaf-tf"
+                        value="@(_selectedNode.Timeframe ?? string.Empty)"
+                        @onchange="e => _selectedNode.Timeframe = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                    <option value="">— Active chart TF —</option>
+                    <option value="5m">5 minute</option>
+                    <option value="15m">15 minute</option>
+                    <option value="30m">30 minute</option>
+                    <option value="1h">1 hour</option>
+                    <option value="4h">4 hour</option>
+                    <option value="1d">1 day</option>
+                    <option value="1w">1 week</option>
+                </select>
+            </div>
+
+            <div class="modal-row">
+                <label for="leaf-score">Score weight (0..1):</label>
+                <input id="leaf-score" type="number" step="0.05" min="0" max="1"
+                       value="@_selectedNode.Score"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _selectedNode.Score)" />
+            </div>
+        </fieldset>
+    }
+    else if (_selectedNode != null && _selectedNode.IsGroup)
+    {
+        <fieldset style="border: 1px solid #4a8; padding: 10px 14px; margin-bottom: 14px;">
+            <legend style="font-weight: 700; padding: 0 6px;">Edit Group</legend>
+            <div class="modal-row">
+                <label for="grp-logic">Combine children with:</label>
+                <select id="grp-logic"
+                        value="@_selectedNode.Logic"
+                        @onchange="e => { if (Enum.TryParse<LogicOperator>(e.Value?.ToString(), out var l)) _selectedNode.Logic = l; }">
+                    <option value="@LogicOperator.And">AND — every child must be true</option>
+                    <option value="@LogicOperator.Or">OR — at least one child must be true</option>
+                    <option value="@LogicOperator.Not">NOT — invert the (single) child</option>
+                </select>
+            </div>
+            <p style="color:#888; font-size:0.8rem;">
+                @_selectedNode.Children.Count child node(s).
+            </p>
+        </fieldset>
+    }
+
+    @* ── Risk plan ───────────────────────────────────────────────────────────── *@
+    <fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Risk Plan</legend>
+
+        <div class="modal-row">
+            <label for="risk-stopkind">Stop source:</label>
+            <select id="risk-stopkind"
+                    value="@_stopKind"
+                    @onchange="e => { if (Enum.TryParse<StopSourceKind>(e.Value?.ToString(), out var k)) _stopKind = k; }">
+                @foreach (var k in Enum.GetValues<StopSourceKind>())
+                {
+                    <option value="@k">@k</option>
+                }
+            </select>
+        </div>
+
+        @if (_stopKind == StopSourceKind.PercentOfPrice)
+        {
+            <div class="modal-row">
+                <label for="risk-stoppct">Stop percent:</label>
+                <input id="risk-stoppct" type="number" step="0.05" min="0"
+                       value="@_stopPercent"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _stopPercent)" />
+            </div>
+        }
+        else if (_stopKind == StopSourceKind.AtrMultiple)
+        {
+            <div class="modal-row">
+                <label for="risk-atrper">ATR period:</label>
+                <input id="risk-atrper" type="number" step="1" min="1"
+                       value="@_stopAtrPeriod"
+                       @onchange="e => int.TryParse(e.Value?.ToString(), out _stopAtrPeriod)" />
+            </div>
+            <div class="modal-row">
+                <label for="risk-atrmult">ATR multiple:</label>
+                <input id="risk-atrmult" type="number" step="0.1" min="0.1"
+                       value="@_stopAtrMultiple"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _stopAtrMultiple)" />
+            </div>
+        }
+        else if (_stopKind == StopSourceKind.BelowSwingLow)
+        {
+            <div class="modal-row">
+                <label for="risk-lookback">Swing lookback bars:</label>
+                <input id="risk-lookback" type="number" step="1" min="1"
+                       value="@_stopLookback"
+                       @onchange="e => int.TryParse(e.Value?.ToString(), out _stopLookback)" />
+            </div>
+        }
+        else if (_stopKind == StopSourceKind.Fixed)
+        {
+            <div class="modal-row">
+                <label for="risk-fixed">Fixed stop price:</label>
+                <input id="risk-fixed" type="number" step="any"
+                       value="@_stopFixed"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _stopFixed)" />
+            </div>
+        }
+
+        <div class="modal-row">
+            <label for="risk-buffer">Stop buffer (price units):</label>
+            <input id="risk-buffer" type="number" step="any" min="0"
+                   value="@_stopBuffer"
+                   @onchange="e => double.TryParse(e.Value?.ToString(), out _stopBuffer)" />
+        </div>
+
+        @* TP ladder *@
+        <div style="margin-top: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <strong>Take-profit ladder:</strong>
+                <button type="button" @onclick="AddTpRung" aria-label="Add take-profit rung">+ Rung</button>
+            </div>
+            @for (int i = 0; i < _tpRungs.Count; i++)
+            {
+                int idx = i;
+                var rung = _tpRungs[idx];
+                <div class="modal-row" style="border: 1px solid #333; padding: 6px; margin-bottom: 4px;">
+                    <span>TP@(idx + 1):</span>
+                    <select value="@rung.Kind"
+                            @onchange="e => { if (Enum.TryParse<TargetSourceKind>(e.Value?.ToString(), out var k)) rung.Kind = k; }">
+                        @foreach (var k in Enum.GetValues<TargetSourceKind>())
+                        {
+                            <option value="@k">@k</option>
+                        }
+                    </select>
+                    @if (rung.Kind == TargetSourceKind.RiskRewardMultiple)
+                    {
+                        <label>R:</label>
+                        <input type="number" step="0.1" min="0.1" style="width: 60px;"
+                               value="@rung.Multiple"
+                               @onchange="e => double.TryParse(e.Value?.ToString(), out rung.Multiple)" />
+                    }
+                    else if (rung.Kind == TargetSourceKind.PercentOfPrice)
+                    {
+                        <label>%:</label>
+                        <input type="number" step="0.1" min="0" style="width: 60px;"
+                               value="@rung.PercentValue"
+                               @onchange="e => double.TryParse(e.Value?.ToString(), out rung.PercentValue)" />
+                    }
+                    else if (rung.Kind == TargetSourceKind.Fixed)
+                    {
+                        <label>Price:</label>
+                        <input type="number" step="any" style="width: 80px;"
+                               value="@rung.FixedPrice"
+                               @onchange="e => double.TryParse(e.Value?.ToString(), out rung.FixedPrice)" />
+                    }
+                    else if (rung.Kind == TargetSourceKind.FibExtension)
+                    {
+                        <label>Fib:</label>
+                        <input type="number" step="0.1" min="1" style="width: 60px;"
+                               value="@rung.FibLevel"
+                               @onchange="e => double.TryParse(e.Value?.ToString(), out rung.FibLevel)" />
+                    }
+                    <label>Close fraction:</label>
+                    <input type="number" step="0.05" min="0" max="1" style="width: 60px;"
+                           value="@rung.ClosePortion"
+                           @onchange="e => double.TryParse(e.Value?.ToString(), out rung.ClosePortion)" />
+                    <button type="button" @onclick="() => _tpRungs.RemoveAt(idx)" aria-label="Remove rung @(idx+1)">×</button>
+                </div>
+            }
+        </div>
+
+        <div class="modal-row" style="margin-top: 10px;">
+            <label for="risk-minrr">Minimum R:R gate:</label>
+            <input id="risk-minrr" type="number" step="0.1" min="0"
+                   value="@_minRR"
+                   @onchange="e => double.TryParse(e.Value?.ToString(), out _minRR)" />
+        </div>
+
+        <div class="modal-row">
+            <label for="risk-sizing">Sizing mode:</label>
+            <select id="risk-sizing"
+                    value="@_sizingMode"
+                    @onchange="e => { if (Enum.TryParse<SizingMode>(e.Value?.ToString(), out var m)) _sizingMode = m; }">
+                @foreach (var m in Enum.GetValues<SizingMode>())
+                {
+                    <option value="@m">@m</option>
+                }
+            </select>
+        </div>
+
+        @if (_sizingMode == SizingMode.FixedRiskPercent)
+        {
+            <div class="modal-row">
+                <label for="risk-pct">Risk % of equity:</label>
+                <input id="risk-pct" type="number" step="0.001" min="0" max="0.1"
+                       value="@_riskPercent"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _riskPercent)" />
+            </div>
+        }
+        else if (_sizingMode == SizingMode.FixedRiskCash)
+        {
+            <div class="modal-row">
+                <label for="risk-cash">Risk cash:</label>
+                <input id="risk-cash" type="number" step="any" min="0"
+                       value="@_riskCash"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _riskCash)" />
+            </div>
+        }
+        else
+        {
+            <div class="modal-row">
+                <label for="risk-qty">Fixed quantity:</label>
+                <input id="risk-qty" type="number" step="any" min="0"
+                       value="@_fixedQty"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _fixedQty)" />
+            </div>
+        }
+
+        <div class="modal-row">
+            <label for="risk-equity">Notional equity (backtest):</label>
+            <input id="risk-equity" type="number" step="any" min="0"
+                   value="@_equity"
+                   @onchange="e => double.TryParse(e.Value?.ToString(), out _equity)" />
+        </div>
+
+        <div class="modal-row">
+            <label for="risk-entrykind">Entry trigger:</label>
+            <select id="risk-entrykind"
+                    value="@_entryKind"
+                    @onchange="e => { if (Enum.TryParse<EntryTriggerKind>(e.Value?.ToString(), out var k)) _entryKind = k; }">
+                @foreach (var k in Enum.GetValues<EntryTriggerKind>())
+                {
+                    <option value="@k">@k</option>
+                }
+            </select>
+        </div>
+
+        @if (_entryKind == EntryTriggerKind.OnPullbackToLevel || _entryKind == EntryTriggerKind.OnBreakoutOf)
+        {
+            <div class="modal-row">
+                <label for="risk-entrylevel">Trigger level price:</label>
+                <input id="risk-entrylevel" type="number" step="any"
+                       value="@_entryLevelPrice"
+                       @onchange="e => double.TryParse(e.Value?.ToString(), out _entryLevelPrice)" />
+            </div>
+        }
+        else if (_entryKind == EntryTriggerKind.OnNextNCandleClose)
+        {
+            <div class="modal-row">
+                <label for="risk-entrync">N candles to confirm:</label>
+                <input id="risk-entrync" type="number" step="1" min="1"
+                       value="@_entryNCandles"
+                       @onchange="e => int.TryParse(e.Value?.ToString(), out _entryNCandles)" />
+            </div>
+        }
+    </fieldset>
+
+    @* ── Save / Load / Add to Engine ─────────────────────────────────────────── *@
+    <fieldset style="border: 1px solid #555; padding: 10px 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Save &amp; Run</legend>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <button type="button" class="primary" @onclick="SaveSpec" aria-label="Save current strategy spec to library">
+                Save spec
+            </button>
+            <button type="button" @onclick="NewSpec" aria-label="Start a new empty strategy">
+                New
+            </button>
+
+            <label for="bs-load">Load existing:</label>
+            <select id="bs-load" value="@_loadedId" @onchange="OnLoadChanged">
+                <option value="">— Select —</option>
+                @foreach (var s in Library.All)
+                {
+                    <option value="@s.Id">@s.Name</option>
+                }
+            </select>
+
+            @if (!string.IsNullOrEmpty(_loadedId))
+            {
+                <button type="button" @onclick="DeleteSpec" aria-label="Delete loaded spec">
+                    Delete loaded
+                </button>
+            }
+
+            <button type="button" class="primary" @onclick="AddToEngine" aria-label="Register current strategy with the engine and auto-activate on next launch">
+                Add to Engine
+            </button>
+
+            <button type="button" @onclick="ReadAloud" aria-label="Speak the full strategy specification aloud">
+                🔊 Read aloud
+            </button>
+
+            <button type="button" @onclick="RunPreview" aria-label="Run a quick backtest preview against the loaded chart">
+                Preview
+            </button>
+
+            <button type="button" @onclick="ExportToFile" aria-label="Export the current spec to a .atstrat file in app data">
+                Export
+            </button>
+
+            <button type="button" @onclick="ImportFromFile" aria-label="Import the most recent .atstrat file from app data">
+                Import latest
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_previewSummary))
+        {
+            <div role="region" aria-label="Preview results"
+                 style="margin-top: 10px; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333; font-family: Consolas,'Courier New',monospace; font-size: 0.85rem; white-space: pre-wrap;">
+                @_previewSummary
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <p role="status" style="margin-top: 8px; color: @(_isError ? "#f66" : "#6c6");">
+                @_message
+            </p>
+        }
+    </fieldset>
+</div>
+
+@code {
+    // ── Editable model ────────────────────────────────────────────────────────
+
+    /// <summary>Mutable mirror of <c>ConditionNode</c>. Records are immutable so we use a class
+    /// for two-way Blazor binding; converted to/from the Sdk record on Save/Load.</summary>
+    private class EditableNode
+    {
+        public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
+        public bool IsGroup { get; set; }
+
+        // Group state
+        public LogicOperator Logic { get; set; } = LogicOperator.And;
+        public List<EditableNode> Children { get; set; } = new();
+
+        // Leaf state
+        public string SignalDescriptorId = string.Empty;
+        public LeafOperator Operator = LeafOperator.Fired;
+        public double Value;
+        public double? Value2;
+        public int WithinNBars = 1;
+        public double Score = 1.0;
+        public string? Timeframe;
+        public string? SecondSignalDescriptorId; // for CrossesAboveLine / CrossesBelowLine
+    }
+
+    private class EditableTpRung
+    {
+        public TargetSourceKind Kind = TargetSourceKind.RiskRewardMultiple;
+        public double Multiple = 2.0;
+        public double PercentValue = 1.0;
+        public double FixedPrice;
+        public double FibLevel = 1.618;
+        public double ClosePortion = 0.34;
+    }
+
+    // ── Spec metadata ─────────────────────────────────────────────────────────
+
+    private string _name = string.Empty;
+    private string _description = string.Empty;
+    private OrderSide _side = OrderSide.Buy;
+
+    // ── Tree state ────────────────────────────────────────────────────────────
+
+    private EditableNode? _root;
+    private EditableNode? _selectedNode;
+
+    // ── Risk plan state ───────────────────────────────────────────────────────
+
+    private StopSourceKind _stopKind = StopSourceKind.AtrMultiple;
+    private double _stopPercent = 0.5;
+    private int _stopAtrPeriod = 14;
+    private double _stopAtrMultiple = 1.5;
+    private int _stopLookback = 20;
+    private double _stopFixed;
+    private double _stopBuffer;
+
+    private List<EditableTpRung> _tpRungs = new()
+    {
+        new() { Kind = TargetSourceKind.RiskRewardMultiple, Multiple = 1.0, ClosePortion = 0.34 },
+        new() { Kind = TargetSourceKind.RiskRewardMultiple, Multiple = 2.0, ClosePortion = 0.33 },
+        new() { Kind = TargetSourceKind.RiskRewardMultiple, Multiple = 3.0, ClosePortion = 0.33 }
+    };
+
+    private SizingMode _sizingMode = SizingMode.FixedRiskPercent;
+    private double _riskPercent = 0.005;
+    private double _riskCash = 100.0;
+    private double _fixedQty = 1.0;
+    private double _equity = 10000.0;
+    private double _minRR = 1.5;
+
+    private EntryTriggerKind _entryKind = EntryTriggerKind.Immediate;
+    private double _entryLevelPrice;
+    private int _entryNCandles = 1;
+
+    // ── Save / Load state ─────────────────────────────────────────────────────
+
+    private string _loadedId = string.Empty;
+    private string? _message;
+    private bool _isError;
+    private string? _previewSummary;
+
+    // Preview is currently triggered manually via the Preview button (no auto-debounce on edits).
+    // The debounce timer field is kept around for a future enhancement that would auto-run the
+    // preview after the user has been idle for ~800ms — that needs careful UX work to avoid
+    // thrashing the backtester on long charts. Suppressed never-assigned warning via the
+    // pragma so the field stays as a clear hook for future polish.
+#pragma warning disable CS0649
+    private System.Threading.Timer? _previewTimer;
+#pragma warning restore CS0649
+
+    // ── Computed values for the leaf editor ───────────────────────────────────
+
+    private string SelectedIndicatorCode =>
+        _selectedNode?.SignalDescriptorId is { } id && !string.IsNullOrEmpty(id)
+            ? SignalCatalog.GetById(id)?.IndicatorCode ?? string.Empty
+            : string.Empty;
+
+    private IEnumerable<string> IndicatorCodes =>
+        SignalCatalog.All
+            .Select(d => d.IndicatorCode)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct(System.StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c);
+
+    /// <summary>True when the given indicator code is currently loaded on the active chart
+    /// (case-insensitive match against `state.ActiveSeries.IndicatorCode`). The leaf editor
+    /// uses this to warn the user before they reference an indicator that won't fire because
+    /// the evaluator can't find its data — which was the silent-fail symptom that hit Cipher B.</summary>
+    private bool IsIndicatorLoadedOnChart(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return false;
+        return Store.State.ActiveSeries.Any(s =>
+            string.Equals(s.IndicatorCode, code, System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    private IEnumerable<SignalDescriptor> DescriptorsForSelectedIndicator
+    {
+        get
+        {
+            string code = SelectedIndicatorCode;
+            if (string.IsNullOrEmpty(code)) return Enumerable.Empty<SignalDescriptor>();
+            return SignalCatalog.GetForIndicator(code);
+        }
+    }
+
+    /// <summary>Operator dropdown — gated by the SignalKind of the currently-selected component
+    /// so the user can only pick valid combinations. Marker components show fire-style operators;
+    /// continuous lines show threshold/cross operators; clouds show cloud operators; level-aware
+    /// operators are always shown so they can be tested against any descriptor.</summary>
+    private IEnumerable<LeafOperator> OperatorsForSelectedKind
+    {
+        get
+        {
+            if (_selectedNode == null) return Enumerable.Empty<LeafOperator>();
+            var desc = SignalCatalog.GetById(_selectedNode.SignalDescriptorId);
+            var kind = desc?.Kind;
+
+            var fire = new[] { LeafOperator.Fired, LeafOperator.FiredWithin };
+            var num  = new[] { LeafOperator.GreaterThan, LeafOperator.LessThan, LeafOperator.Between,
+                               LeafOperator.CrossesAbove, LeafOperator.CrossesBelow,
+                               LeafOperator.ChangesDirection };
+            var cloud = new[] { LeafOperator.AboveCloud, LeafOperator.BelowCloud, LeafOperator.InsideCloud };
+            var level = new[] { LeafOperator.PriceRejectsLevel, LeafOperator.PriceBreaksLevel,
+                                LeafOperator.PriceInsideValueArea, LeafOperator.PriceOutsideValueArea,
+                                LeafOperator.BarClosesAbovePoc, LeafOperator.BarClosesBelowPoc,
+                                LeafOperator.WickIntoLvn };
+
+            return kind switch
+            {
+                SignalKind.MarkerFire => fire.Concat(level),
+                SignalKind.Cloud      => cloud.Concat(level),
+                SignalKind.Oscillator => num.Concat(level),
+                SignalKind.Line       => num.Concat(level),
+                _ => num.Concat(level)
+            };
+        }
+    }
+
+    private bool NeedsValue =>
+        _selectedNode != null && _selectedNode.Operator switch
+        {
+            LeafOperator.GreaterThan or LeafOperator.LessThan or LeafOperator.Between
+                or LeafOperator.CrossesAbove or LeafOperator.CrossesBelow
+                or LeafOperator.PriceRejectsLevel or LeafOperator.PriceBreaksLevel => true,
+            _ => false
+        };
+
+    private bool NeedsValue2 =>
+        _selectedNode != null && _selectedNode.Operator == LeafOperator.Between;
+
+    private bool NeedsWithinN =>
+        _selectedNode != null && (_selectedNode.Operator == LeafOperator.FiredWithin
+                               || _selectedNode.Operator == LeafOperator.PriceRejectsLevel);
+
+    /// <summary>True when the selected leaf's operator needs a second signal descriptor —
+    /// currently the cross-line operators that pair two indicator components.</summary>
+    private bool NeedsSecondDescriptor =>
+        _selectedNode != null
+        && (_selectedNode.Operator == LeafOperator.CrossesAboveLine
+         || _selectedNode.Operator == LeafOperator.CrossesBelowLine);
+
+    // ── Tree rendering ────────────────────────────────────────────────────────
+
+    private RenderFragment RenderNode(EditableNode node, int level) => __builder =>
+    {
+        bool isSelected = _selectedNode != null && _selectedNode.Id == node.Id;
+        string label = NodeLabel(node);
+
+        <li role="treeitem"
+            aria-level="@level"
+            aria-selected="@(isSelected ? "true" : "false")"
+            aria-expanded="@(node.IsGroup ? (node.Children.Count > 0 ? "true" : "false") : null)"
+            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444");">
+
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <button type="button"
+                        @onclick="() => SelectNode(node)"
+                        aria-label="Select @label"
+                        style="background: @(isSelected ? "#264" : "transparent"); color: #ddd; border: 1px solid #555; padding: 2px 8px; cursor: pointer;">
+                    @label
+                </button>
+
+                @if (node.IsGroup)
+                {
+                    <button type="button" @onclick="() => AddChildLeaf(node)" aria-label="Add leaf inside @label">+ leaf</button>
+                    <button type="button" @onclick="() => AddChildGroup(node)" aria-label="Add subgroup inside @label">+ group</button>
+                }
+
+                <button type="button" @onclick="() => DeleteNode(node)" aria-label="Delete @label">×</button>
+            </div>
+
+            @if (node.IsGroup && node.Children.Count > 0)
+            {
+                <ul role="group" style="list-style: none; padding-left: 18px; margin: 0; border-left: 1px dotted #444;">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderNode(child, level + 1)
+                    }
+                </ul>
+            }
+        </li>
+    };
+
+    private string NodeLabel(EditableNode node)
+    {
+        if (node.IsGroup)
+        {
+            return $"{node.Logic} group ({node.Children.Count})";
+        }
+        var desc = SignalCatalog.GetById(node.SignalDescriptorId);
+        string descPart = desc?.DisplayLabel ?? "(unset)";
+        string opPart = node.Operator.ToString();
+        string tfPart = string.IsNullOrEmpty(node.Timeframe) ? "" : $" [{node.Timeframe}]";
+        return $"{descPart} — {opPart}{tfPart}";
+    }
+
+    // ── Tree mutation ────────────────────────────────────────────────────────
+
+    private void AddRootGroup()
+    {
+        _root = new EditableNode { IsGroup = true, Logic = LogicOperator.And };
+        _selectedNode = _root;
+    }
+
+    private void AddRootLeaf()
+    {
+        _root = new EditableNode { IsGroup = false };
+        _selectedNode = _root;
+    }
+
+    private void AddChildLeaf(EditableNode parent)
+    {
+        if (!parent.IsGroup) return;
+        var leaf = new EditableNode { IsGroup = false };
+        parent.Children.Add(leaf);
+        _selectedNode = leaf;
+    }
+
+    private void AddChildGroup(EditableNode parent)
+    {
+        if (!parent.IsGroup) return;
+        var group = new EditableNode { IsGroup = true, Logic = LogicOperator.And };
+        parent.Children.Add(group);
+        _selectedNode = group;
+    }
+
+    private void DeleteNode(EditableNode node)
+    {
+        if (_root == null) return;
+        if (node == _root)
+        {
+            _root = null;
+            _selectedNode = null;
+            return;
+        }
+        // Walk the tree to find the parent and remove the node from its children list.
+        if (RemoveFromTree(_root, node))
+        {
+            if (_selectedNode == node) _selectedNode = null;
+        }
+    }
+
+    private bool RemoveFromTree(EditableNode current, EditableNode target)
+    {
+        if (!current.IsGroup) return false;
+        if (current.Children.Remove(target)) return true;
+        foreach (var c in current.Children)
+            if (RemoveFromTree(c, target)) return true;
+        return false;
+    }
+
+    private void SelectNode(EditableNode node) => _selectedNode = node;
+
+    private void ClearTree()
+    {
+        _root = null;
+        _selectedNode = null;
+    }
+
+    // ── Leaf editor handlers ─────────────────────────────────────────────────
+
+    private void OnIndicatorChanged(ChangeEventArgs e)
+    {
+        if (_selectedNode == null) return;
+        // Selecting a different indicator clears the component selection so the user has to
+        // pick a fresh component from the new indicator's list. Otherwise the dropdown shows
+        // the old component name even though it doesn't belong to the newly selected indicator.
+        string code = e.Value?.ToString() ?? string.Empty;
+        var first = SignalCatalog.GetForIndicator(code).FirstOrDefault();
+        _selectedNode.SignalDescriptorId = first?.Id ?? string.Empty;
+        // Reset operator to a sensible default for the new component's kind.
+        _selectedNode.Operator = first?.Kind == SignalKind.MarkerFire
+            ? LeafOperator.Fired
+            : LeafOperator.GreaterThan;
+    }
+
+    private void OnComponentChanged(ChangeEventArgs e)
+    {
+        if (_selectedNode == null) return;
+        _selectedNode.SignalDescriptorId = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnOperatorChanged(ChangeEventArgs e)
+    {
+        if (_selectedNode == null) return;
+        if (Enum.TryParse<LeafOperator>(e.Value?.ToString(), out var op))
+            _selectedNode.Operator = op;
+    }
+
+    // ── TP ladder mutation ───────────────────────────────────────────────────
+
+    private void AddTpRung() => _tpRungs.Add(new EditableTpRung { Multiple = _tpRungs.Count + 1.0, ClosePortion = 0.33 });
+
+    // ── Save / Load / Run ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when every leaf in the tree uses a one-bar transient operator
+    /// (Fired, CrossesAbove/Below, etc.). Such trees are structurally a single-bar pulse:
+    /// they cannot satisfy any non-Immediate entry trigger and the engine auto-promotes
+    /// them to Immediate execution. We surface a UX warning here so the user understands
+    /// the behavior rather than wondering why their OnPullbackToLevel trigger is being
+    /// silently overridden. Mirrors ConfigurableStrategy.IsPurePulseTree.
+    /// </summary>
+    private static bool IsPurePulseTree(EditableNode? n)
+    {
+        if (n == null) return false;
+        if (n.IsGroup)
+        {
+            if (n.Children.Count == 0) return false;
+            foreach (var c in n.Children)
+                if (!IsPurePulseTree(c)) return false;
+            return true;
+        }
+        return n.Operator switch
+        {
+            LeafOperator.Fired             => true,
+            LeafOperator.CrossesAbove      => true,
+            LeafOperator.CrossesBelow      => true,
+            LeafOperator.CrossesAboveLine  => true,
+            LeafOperator.CrossesBelowLine  => true,
+            LeafOperator.ChangesDirection  => true,
+            LeafOperator.PriceBreaksLevel  => true,
+            LeafOperator.PriceRejectsLevel => true,
+            LeafOperator.WickIntoLvn       => true,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Builds an advisory string explaining the pulse-only situation, or null when there's
+    /// nothing to flag. Returned text is appended to _message after a successful save.
+    /// </summary>
+    private string? BuildPulseOnlyAdvisory()
+    {
+        if (!IsPurePulseTree(_root)) return null;
+        if (_entryKind == EntryTriggerKind.Immediate)
+        {
+            return "Note: every condition is a one-bar pulse. The strategy will fire on the bar " +
+                   "the pulse appears (Immediate). Consider AND-ing a persistent gate (e.g. WT < -53) " +
+                   "if you want fewer, higher-quality entries.";
+        }
+        return "Warning: every condition is a one-bar pulse, so the configured entry trigger " +
+               $"({_entryKind}) cannot be satisfied — by the next bar the conditions are already " +
+               "false again. The engine will auto-promote this strategy to Immediate execution. " +
+               "To use a deferred trigger, AND a persistent condition (e.g. an oscillator threshold) " +
+               "into the tree so the setup stays armed long enough to wait for the trigger.";
+    }
+
+    private void SaveSpec()
+    {
+        try
+        {
+            var spec = BuildSpec();
+            Library.Upsert(spec);
+            _loadedId = spec.Id;
+            var advisory = BuildPulseOnlyAdvisory();
+            _message = advisory == null
+                ? $"Saved '{spec.Name}'."
+                : $"Saved '{spec.Name}'. {advisory}";
+            _isError = false;
+        }
+        catch (System.Exception ex)
+        {
+            _message = $"Save failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private void NewSpec()
+    {
+        _name = string.Empty;
+        _description = string.Empty;
+        _side = OrderSide.Buy;
+        _root = null;
+        _selectedNode = null;
+        _loadedId = string.Empty;
+        _message = "New strategy.";
+        _isError = false;
+    }
+
+    private void OnLoadChanged(ChangeEventArgs e)
+    {
+        string id = e.Value?.ToString() ?? string.Empty;
+        if (string.IsNullOrEmpty(id)) return;
+        var spec = Library.GetById(id);
+        if (spec == null) return;
+        LoadFromSpec(spec);
+        _loadedId = id;
+        _message = $"Loaded '{spec.Name}'.";
+        _isError = false;
+    }
+
+    private void DeleteSpec()
+    {
+        if (string.IsNullOrEmpty(_loadedId)) return;
+        Library.Remove(_loadedId);
+        _message = "Deleted.";
+        _isError = false;
+        NewSpec();
+    }
+
+    private void AddToEngine()
+    {
+        try
+        {
+            // Build the spec with IsAutoActivate=true so StrategyAutoLoader picks it up on the
+            // next app launch — strategies survive restart this way.
+            var spec = BuildSpec() with { IsAutoActivate = true };
+            Library.Upsert(spec);
+            _loadedId = spec.Id;
+
+            // Duplicate-add guard: if the engine already has an instance of this spec (the user
+            // is editing + re-adding) remove the old instance first so we don't end up running
+            // two copies side by side. Match by Strategy.Id == spec.Id (ConfigurableStrategy uses
+            // the spec id as its Id).
+            var existing = Engine.ActiveStrategies
+                .Where(a => string.Equals(a.Strategy.Id, spec.Id, System.StringComparison.OrdinalIgnoreCase))
+                .Select(a => a.InstanceId)
+                .ToList();
+            foreach (var id in existing)
+                Engine.RemoveStrategy(id);
+
+            var strategy = Factory.Create(spec);
+            Engine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode);
+            var advisory = BuildPulseOnlyAdvisory();
+            string baseMsg = existing.Count > 0
+                ? $"'{spec.Name}' updated in engine ({spec.ExecutionMode}). Will auto-activate on restart."
+                : $"'{spec.Name}' added to engine ({spec.ExecutionMode}). Will auto-activate on restart.";
+            _message = advisory == null ? baseMsg : $"{baseMsg} {advisory}";
+            _isError = false;
+        }
+        catch (System.Exception ex)
+        {
+            _message = $"Add failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    // ── Read aloud / Live preview / Export / Import ──────────────────────────
+
+    /// <summary>Speaks the entire strategy spec as a plain-English sentence so the user can
+    /// verify their build by ear before saving.</summary>
+    private void ReadAloud()
+    {
+        try
+        {
+            string sentence = NarrateSpec();
+            Speech.Speak(sentence, interrupt: true);
+            _message = "Spoke spec.";
+            _isError = false;
+        }
+        catch (System.Exception ex)
+        {
+            _message = $"Read aloud failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private string NarrateSpec()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append(_side == OrderSide.Buy ? "Long " : "Short ");
+        sb.Append("setup. ");
+        if (!string.IsNullOrEmpty(_name)) sb.Append(_name).Append(". ");
+
+        sb.Append("Conditions: ");
+        if (_root == null) sb.Append("none defined. ");
+        else NarrateNode(_root, sb);
+
+        sb.Append(" Stop: ").Append(_stopKind);
+        if (_stopKind == StopSourceKind.PercentOfPrice)
+            sb.Append(" at ").Append(_stopPercent.ToString("F2")).Append(" percent");
+        else if (_stopKind == StopSourceKind.AtrMultiple)
+            sb.Append(" at ").Append(_stopAtrMultiple.ToString("F1")).Append(" times ATR period ").Append(_stopAtrPeriod);
+        else if (_stopKind == StopSourceKind.BelowSwingLow)
+            sb.Append(" below ").Append(_stopLookback).Append(" bar swing");
+
+        sb.Append(". Take profit ladder: ");
+        if (_tpRungs.Count == 0) sb.Append("none. ");
+        else
+        {
+            for (int i = 0; i < _tpRungs.Count; i++)
+            {
+                var r = _tpRungs[i];
+                sb.Append("rung ").Append(i + 1).Append(" ").Append(r.Kind);
+                if (r.Kind == TargetSourceKind.RiskRewardMultiple)
+                    sb.Append(" ").Append(r.Multiple.ToString("F1")).Append(" R");
+                sb.Append(", close ").Append((r.ClosePortion * 100).ToString("F0")).Append(" percent. ");
+            }
+        }
+
+        sb.Append("Minimum reward to risk ").Append(_minRR.ToString("F1")).Append(". ");
+        if (_sizingMode == SizingMode.FixedRiskPercent)
+            sb.Append("Risking ").Append((_riskPercent * 100).ToString("F2")).Append(" percent of equity per trade. ");
+
+        sb.Append("Entry trigger: ").Append(_entryKind);
+        if (_entryKind == EntryTriggerKind.OnPullbackToLevel || _entryKind == EntryTriggerKind.OnBreakoutOf)
+            sb.Append(" at ").Append(_entryLevelPrice.ToString("F4"));
+        sb.Append(".");
+
+        return sb.ToString();
+    }
+
+    private void NarrateNode(EditableNode node, System.Text.StringBuilder sb)
+    {
+        if (node.IsGroup)
+        {
+            if (node.Children.Count == 0) { sb.Append("empty group. "); return; }
+            sb.Append("(");
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                if (i > 0) sb.Append(" ").Append(node.Logic).Append(" ");
+                NarrateNode(node.Children[i], sb);
+            }
+            sb.Append(")");
+        }
+        else
+        {
+            var desc = SignalCatalog.GetById(node.SignalDescriptorId);
+            sb.Append(desc?.DisplayLabel ?? "(unset)").Append(" ").Append(node.Operator);
+            if (NeedsValueForOperator(node.Operator))
+                sb.Append(" ").Append(node.Value.ToString("F2"));
+            if (!string.IsNullOrEmpty(node.Timeframe))
+                sb.Append(" on ").Append(node.Timeframe);
+        }
+    }
+
+    private static bool NeedsValueForOperator(LeafOperator op) =>
+        op == LeafOperator.GreaterThan || op == LeafOperator.LessThan || op == LeafOperator.Between
+        || op == LeafOperator.CrossesAbove || op == LeafOperator.CrossesBelow;
+
+    /// <summary>Runs a backtest preview against the loaded chart's data using the warmup-aware
+    /// backtester. ReplayProfiles is disabled for the fast preview path to keep iteration cheap;
+    /// the proper Backtest tab honors ReplayProfiles=true for full correctness.</summary>
+    private async Task RunPreview()
+    {
+        try
+        {
+            var spec = BuildSpec();
+            var data = Store.State.Data;
+            if (data == null || data.Count < 10)
+            {
+                _previewSummary = "No chart loaded — load a chart first to run preview.";
+                return;
+            }
+
+            int warmup = WarmupAnalyzer.RecommendedWarmup(spec);
+            var config = new BacktestConfig(
+                StartingCapital: spec.Risk.NotionalEquity,
+                CommissionRate: 0.001,
+                SlippagePercent: 0.0005,
+                WarmupBars: warmup,
+                ReplayProfiles: false);
+
+            var strategy = Factory.Create(spec);
+            var result = await Backtester.RunAsync(strategy, data, config, Store.State);
+
+            string r = double.IsNaN(result.AverageR) ? "—" : result.AverageR.ToString("F2");
+            string pf = double.IsNaN(result.ProfitFactor) ? "—" : result.ProfitFactor.ToString("F2");
+            _previewSummary =
+                $"Trades: {result.Metrics.TotalSignals}\n" +
+                $"Win rate: {(result.Metrics.TotalSignals == 0 ? "—" : result.Metrics.WinRate.ToString("P1"))}\n" +
+                $"Total P&L: {result.Metrics.TotalPnL:F2}\n" +
+                $"Avg R: {r}    Profit factor: {pf}\n" +
+                $"Max drawdown: {result.Metrics.MaxDrawdown:P1}\n" +
+                $"Warmup / Evaluated: {result.WarmupBars} / {result.EvaluatedBars} bars";
+        }
+        catch (System.Exception ex)
+        {
+            _previewSummary = $"Preview failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>Exports the current spec to a .atstrat file in {AppData}/exports/.</summary>
+    private void ExportToFile()
+    {
+        try
+        {
+            var spec = BuildSpec();
+            string dir = System.IO.Path.Combine(Paths.AppDataDirectory, "exports");
+            System.IO.Directory.CreateDirectory(dir);
+            string safeName = string.Concat(spec.Name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-'));
+            if (string.IsNullOrEmpty(safeName)) safeName = spec.Id;
+            string path = System.IO.Path.Combine(dir, $"{safeName}.atstrat");
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+            System.IO.File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(spec, options));
+            _message = $"Exported to {path}";
+            _isError = false;
+        }
+        catch (System.Exception ex)
+        {
+            _message = $"Export failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    /// <summary>Imports the most-recently-modified .atstrat file from {AppData}/exports/.</summary>
+    private void ImportFromFile()
+    {
+        try
+        {
+            string dir = System.IO.Path.Combine(Paths.AppDataDirectory, "exports");
+            if (!System.IO.Directory.Exists(dir))
+            {
+                _message = "No exports folder yet — nothing to import.";
+                _isError = true;
+                return;
+            }
+            var files = System.IO.Directory.GetFiles(dir, "*.atstrat");
+            if (files.Length == 0)
+            {
+                _message = "No .atstrat files found in exports folder.";
+                _isError = true;
+                return;
+            }
+            string latest = files.OrderByDescending(System.IO.File.GetLastWriteTime).First();
+            string json = System.IO.File.ReadAllText(latest);
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var spec = System.Text.Json.JsonSerializer.Deserialize<StrategySpec>(json, options);
+            if (spec == null) throw new System.Exception("Deserialization returned null.");
+            LoadFromSpec(spec);
+            _loadedId = spec.Id;
+            _message = $"Imported from {System.IO.Path.GetFileName(latest)}. Click Save Spec to add to library.";
+            _isError = false;
+        }
+        catch (System.Exception ex)
+        {
+            _message = $"Import failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        _previewTimer?.Dispose();
+    }
+
+    // ── Spec ↔ Editable conversion ───────────────────────────────────────────
+
+    private StrategySpec BuildSpec()
+    {
+        if (_root == null)
+            throw new System.InvalidOperationException("Add at least one condition before saving.");
+        if (string.IsNullOrWhiteSpace(_name))
+            throw new System.InvalidOperationException("Strategy name is required.");
+
+        var conditions = ToConditionNode(_root);
+
+        var stop = new StopSource(
+            Kind: _stopKind,
+            PercentValue: _stopPercent,
+            AtrPeriod: _stopAtrPeriod,
+            AtrMultiple: _stopAtrMultiple,
+            LookbackBars: _stopLookback,
+            FixedPrice: _stopFixed,
+            BufferTicks: _stopBuffer);
+
+        var ladder = _tpRungs.Select(r => new TpLadderRung(
+            Kind: r.Kind,
+            Multiple: r.Multiple,
+            PercentValue: r.PercentValue,
+            FixedPrice: r.FixedPrice,
+            FibLevel: r.FibLevel,
+            ClosePortion: r.ClosePortion)).ToList();
+
+        var sizing = new PositionSizing(_sizingMode, _riskPercent, _fixedQty, _riskCash);
+        var entry = new EntryTrigger(_entryKind, _entryLevelPrice, _entryNCandles);
+
+        var risk = new RiskPlan(
+            Stop: stop,
+            TpLadder: ladder,
+            Sizing: sizing,
+            Entry: entry,
+            MinRewardRiskRatio: _minRR,
+            StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+            NotionalEquity: _equity);
+
+        string id = string.IsNullOrEmpty(_loadedId) ? System.Guid.NewGuid().ToString("N") : _loadedId;
+
+        return new StrategySpec(
+            Id: id,
+            Name: _name,
+            Description: _description,
+            Side: _side,
+            Conditions: conditions,
+            Risk: risk,
+            ExecutionMode: StrategyExecutionMode.Suggestion,
+            CreatedUtc: System.DateTime.UtcNow,
+            UpdatedUtc: System.DateTime.UtcNow);
+    }
+
+    private ConditionNode ToConditionNode(EditableNode n)
+    {
+        if (n.IsGroup)
+            return new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList());
+        return new ConditionLeaf(n.Id, n.SignalDescriptorId, n.Operator, n.Value, n.Value2,
+                                 n.WithinNBars, n.Score, n.Timeframe, n.SecondSignalDescriptorId);
+    }
+
+    private void LoadFromSpec(StrategySpec spec)
+    {
+        _name = spec.Name;
+        _description = spec.Description;
+        _side = spec.Side;
+        _root = FromConditionNode(spec.Conditions);
+        _selectedNode = null;
+
+        _stopKind = spec.Risk.Stop.Kind;
+        _stopPercent = spec.Risk.Stop.PercentValue;
+        _stopAtrPeriod = spec.Risk.Stop.AtrPeriod;
+        _stopAtrMultiple = spec.Risk.Stop.AtrMultiple;
+        _stopLookback = spec.Risk.Stop.LookbackBars;
+        _stopFixed = spec.Risk.Stop.FixedPrice;
+        _stopBuffer = spec.Risk.Stop.BufferTicks;
+
+        _tpRungs = spec.Risk.TpLadder.Select(r => new EditableTpRung
+        {
+            Kind = r.Kind, Multiple = r.Multiple, PercentValue = r.PercentValue,
+            FixedPrice = r.FixedPrice, FibLevel = r.FibLevel, ClosePortion = r.ClosePortion
+        }).ToList();
+
+        _sizingMode = spec.Risk.Sizing.Mode;
+        _riskPercent = spec.Risk.Sizing.RiskPercent;
+        _fixedQty = spec.Risk.Sizing.FixedQuantity;
+        _riskCash = spec.Risk.Sizing.RiskCash;
+
+        _minRR = spec.Risk.MinRewardRiskRatio;
+        _equity = spec.Risk.NotionalEquity;
+
+        _entryKind = spec.Risk.Entry.Kind;
+        _entryLevelPrice = spec.Risk.Entry.LevelPrice;
+        _entryNCandles = spec.Risk.Entry.NCandles;
+    }
+
+    private EditableNode FromConditionNode(ConditionNode n)
+    {
+        if (n is ConditionGroup g)
+        {
+            return new EditableNode
+            {
+                Id = g.Id,
+                IsGroup = true,
+                Logic = g.Logic,
+                Children = g.Children.Select(FromConditionNode).ToList()
+            };
+        }
+        if (n is ConditionLeaf l)
+        {
+            return new EditableNode
+            {
+                Id = l.Id,
+                IsGroup = false,
+                SignalDescriptorId = l.SignalDescriptorId,
+                Operator = l.Operator,
+                Value = l.Value,
+                Value2 = l.Value2,
+                WithinNBars = l.WithinNBars,
+                Score = l.Score,
+                Timeframe = l.Timeframe,
+                SecondSignalDescriptorId = l.SecondSignalDescriptorId
+            };
+        }
+        return new EditableNode();
+    }
+}

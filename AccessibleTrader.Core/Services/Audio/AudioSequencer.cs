@@ -38,19 +38,6 @@ namespace AccessibleTrader.Core.Services.Audio
         /// </summary>
         public const int SlotsPerSeries = 8;
 
-        // Marker display types whose NaN/non-NaN value determines signal presence.
-        // Ping-envelope components of these types are skipped when NaN — only fire on actual signal bars.
-        private static readonly HashSet<ComponentDisplayType> MarkerDisplayTypes = new()
-        {
-            ComponentDisplayType.Dot,
-            ComponentDisplayType.ZeroDot,
-            ComponentDisplayType.Arrow,
-            ComponentDisplayType.Diamond,
-            ComponentDisplayType.TriangleUp,
-            ComponentDisplayType.TriangleDown,
-            ComponentDisplayType.Square,
-            ComponentDisplayType.Cross,
-        };
 
         private readonly IAudioDriver _audioDriver;
         private readonly ISonificationStrategy _strategy;
@@ -162,7 +149,7 @@ namespace AccessibleTrader.Core.Services.Audio
                         // Pivot dots (Cipher SR) and signal dots only fire their voice on actual signal bars.
                         // When audioPt.Volume == 0 for a Ping marker, skip rather than emitting a silent click.
                         if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
-                            && MarkerDisplayTypes.Contains(comp.DisplayType)
+                            && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
                             && audioPt.Volume <= 0)
                             continue;
 
@@ -285,7 +272,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
                             // NaN guard for Ping-envelope marker components during multi-series playback.
                             if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
-                                && MarkerDisplayTypes.Contains(comp.DisplayType)
+                                && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
                                 && audioPt.Volume <= 0)
                                 continue;
 

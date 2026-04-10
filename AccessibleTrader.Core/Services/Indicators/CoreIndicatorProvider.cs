@@ -18,29 +18,48 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             return new List<IndicatorMetadata>
             {
+                // ── CANDLES ───────────────────────────────────────────────────────────
+                // Component order is upper_wick → body → lower_wick to match the visual
+                // top-down layout of a candlestick. Component Name is the machine id used
+                // by lookups/config persistence (snake_case, lowercase); DisplayName is
+                // what speech and the UI read aloud. Default focus lands on body — the
+                // reducer (WorkspaceStore.SelectSeriesAction) looks for a component with
+                // Role=Body and selects it instead of index 0.
                 new IndicatorMetadata {
-                    Code = "CANDLES", Name = "Candlesticks", Category = "Core", DefaultPane = "Main",
+                    Code = "CANDLES", Name = "Candles", Category = "Core", DefaultPane = "Main",
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata {
-                            Name = "Candle Body", Role = ComponentRole.Body, DisplayType = ComponentDisplayType.Candle, DataMapping = "close",
+                            Name = "upper_wick", DisplayName = "Upper Wick",
+                            Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Wick, DataMapping = "high",
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350", DefaultThickness = 1f
                         },
                         new IndicatorComponentMetadata {
-                            Name = "Upper Wick", Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Wick, DataMapping = "high",
+                            Name = "body", DisplayName = "Body",
+                            Role = ComponentRole.Body, DisplayType = ComponentDisplayType.Candle, DataMapping = "close",
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350", DefaultThickness = 1f
                         },
                         new IndicatorComponentMetadata {
-                            Name = "Lower Wick", Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Wick, DataMapping = "low",
+                            Name = "lower_wick", DisplayName = "Lower Wick",
+                            Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Wick, DataMapping = "low",
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350", DefaultThickness = 1f
                         },
                     }
                 },
+                // ── PRICE ─────────────────────────────────────────────────────────────
+                // Single-line price series. Used as the primary data sink for analytics
+                // providers (ProviderDataShape.SingleValueLine) that emit one value per
+                // bar. For OHLCV providers it's an optional reference line. The component
+                // is named "line" and its DataMapping default is "close" — future work
+                // can expose a Source parameter (open/close/hl2/hlc3/ohlc4) that updates
+                // DataMapping dynamically to let users switch the source column.
                 new IndicatorMetadata {
-                    Code = "PRICE", Name = "Close Price", Category = "Core", DefaultPane = "Main",
+                    Code = "PRICE", Name = "Price", Category = "Core", DefaultPane = "Main",
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata {
-                            Name = "Close", Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Line, DataMapping = "close",
+                            Name = "line", DisplayName = "Price",
+                            Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Line, DataMapping = "close",
                             DefaultColorHex = "#FFFFFF", DefaultThickness = 1f,
+                            DefaultPitchMapping = PitchMapping.Value,
                             SpeechTemplate = "{name}. {type}. {value:F2}."
                         }
                     }

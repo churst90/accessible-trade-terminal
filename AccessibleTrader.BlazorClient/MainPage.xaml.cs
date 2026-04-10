@@ -20,7 +20,9 @@ public partial class MainPage : ContentPage
     private IDisposable? _stateSub;
     private IDisposable? _redrawSub;
     private IDisposable? _modalSub;
+    private IDisposable? _titleSub;
     private int _openModalCount;
+    private string _lastTitleSymbol = "";
 
     public MainPage(
         IWorkspaceStore store,
@@ -70,9 +72,27 @@ public partial class MainPage : ContentPage
                 _chartCanvas.IsVisible = _openModalCount == 0;
             }));
         
+        // Update native window title when chart identity changes.
+        _titleSub = _store.StateStream.Subscribe(state =>
+        {
+            var sym = state.Identity.Symbol ?? "";
+            if (sym != _lastTitleSymbol)
+            {
+                _lastTitleSymbol = sym;
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    var window = Application.Current?.Windows.FirstOrDefault();
+                    if (window != null)
+                    {
+                        window.Title = string.IsNullOrEmpty(sym)
+                            ? "Accessible Trade Terminal"
+                            : $"Accessible Trade Terminal: {state.Identity.Symbol} {state.Identity.Timeframe} on {state.Identity.Provider}";
+                    }
+                });
+            }
+        });
+
         // Force the first paint now that the native canvas is attached.
-        // InitializeDefaultSeries() ran in the constructor before this subscription existed,
-        // so without this explicit call the canvas stays at its default blank state.
         MainThread.BeginInvokeOnMainThread(() => _chartCanvas.InvalidateSurface());
 
         // Theme changes also require a full repaint.
@@ -167,5 +187,6 @@ public partial class MainPage : ContentPage
         _stateSub?.Dispose();
         _redrawSub?.Dispose();
         _modalSub?.Dispose();
+        _titleSub?.Dispose();
     }
 }

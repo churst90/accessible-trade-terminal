@@ -111,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string nodeLabel = ProfileBinClassifier.GetLabel(nodeType);
 
                 // Percentage of total session volume for context.
-                double totalVol = allBins.Sum(b => b.TotalVolume);
+                double totalVol = allBins.Where(b => !double.IsNaN(b.TotalVolume)).Sum(b => b.TotalVolume);
                 double pct = totalVol > 0 ? bin.TotalVolume / totalVol * 100.0 : 0;
 
                 if (bin.TpoLetters.Any())
@@ -204,13 +204,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Helpers ──────────────────────────────────────────────────────────────
 
-        // Phase names for CandleColor display type (Cipher S and any future sentiment overlays).
-        // Index 0 = Max Fear … 10 = Max Euphoria.  Matches CipherSProvider.PhaseNames exactly.
-        private static readonly string[] _phaseNames =
-        {
-            "Max Fear", "Fear", "Concern", "Caution", "Mild Caution",
-            "Neutral", "Mild Greed", "Greed", "High Greed", "Extreme Greed", "Max Euphoria"
-        };
 
         /// <summary>
         /// Maps ComponentDisplayType to a TTS-friendly lowercase string.
@@ -286,8 +279,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     double rawPhase = GetPointValue(series, pt, comp.Name, dataIndex);
                     if (double.IsNaN(rawPhase)) return $"{comp.DisplayName}: warming up.";
-                    int phaseIdx = Math.Clamp((int)Math.Round(rawPhase), 0, _phaseNames.Length - 1);
-                    return $"{comp.DisplayName}. {_phaseNames[phaseIdx]}.";
+                    int phaseIdx = Math.Clamp((int)Math.Round(rawPhase), 0, AudioConstants.PhaseNames.Length - 1);
+                    return $"{comp.DisplayName}. {AudioConstants.PhaseNames[phaseIdx]}.";
                 }
 
                 double val = GetPointValue(series, pt, comp.Name, dataIndex);
@@ -355,12 +348,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                 }
 
-                return tmpl
+                string result = tmpl
                     .Replace("{gradient_speech}", gradientSpeech)
                     .Replace("{name}", comp.DisplayName)
-                    .Replace("{type}", FriendlyTypeName(comp.DisplayType))
-                    .Replace("{value:F1}", valF1)
-                    .Replace("{value:F2}", valF2)
+                    .Replace("{type}", FriendlyTypeName(comp.DisplayType));
+
+                // Generic {value:Fn} format handler — catches F0, F1, F2, F3, ... so providers
+                // can use any precision without adding a new Replace() line here.
+                result = System.Text.RegularExpressions.Regex.Replace(
+                    result,
+                    @"\{value:F(\d+)\}",
+                    m =>
+                    {
+                        int digits = int.Parse(m.Groups[1].Value);
+                        return double.IsNaN(val) ? "no data" : val.ToString("F" + digits);
+                    });
+
+                return result
                     .Replace("{value}",   valF2)
                     .Replace("{trend}", trend)
                     .Replace("{zone}", zone);

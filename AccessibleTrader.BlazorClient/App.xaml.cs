@@ -12,7 +12,7 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		var window = new Window(_mainPage) { Title = "Accessible Trader Terminal" };
+		var window = new Window(_mainPage) { Title = "Accessible Trade Terminal" };
         window.Destroying += (s, e) => {
             Application.Current?.Quit();
         };

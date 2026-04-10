@@ -61,6 +61,14 @@ namespace AccessibleTrader.Core.Services.Rendering
         public static SKColor GetPhaseColor(int phaseIndex)
             => PhaseColors[Math.Clamp(phaseIndex, 0, PhaseColors.Length - 1)];
 
+        // Phase 4 (2026-04-09): the degenerate-OHLCV detection hack
+        // (IsDegenerateOhlcv + RenderCandlesAsLine) was removed after analytics
+        // providers stopped masquerading as OHLCV. Single-value analytics providers
+        // now seed a real Price indicator (CoreSeriesIds.Price) instead of faking a
+        // Candles series with O=H=L=C, so there's no degenerate input reaching this
+        // file. If you're digging for that fallback in git history, search for
+        // "IsDegenerateOhlcv" before commit d5e2f325's descendants.
+
         public static void RenderCandles(RenderContext ctx, ChartSeries series, SKPaint paint, double[]? phaseData = null)
         {
             var data = ctx.Data;
@@ -77,6 +85,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 SKColor.TryParse(bodyComp.ColorHex, out bullish);
                 SKColor.TryParse(bodyComp.ColorHexSecondary, out bearish);
             }
+
+            // Wick color: read from the wick components' own ColorHex so users can style
+            // wicks independently from the candle body via the Properties modal.
+            var wickComp = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Wick);
+            SKColor wickColor = SKColors.Gray;
+            if (wickComp != null && !string.IsNullOrEmpty(wickComp.ColorHex))
+                SKColor.TryParse(wickComp.ColorHex, out wickColor);
+            float wickThickness = wickComp?.Thickness ?? 1f;
 
             bool hasPhaseOverride = phaseData != null && phaseData.Length > 0;
 
@@ -110,7 +126,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // Wick — hidden when a phase override is active (wicks clutter the color view;
                 // OHLC range is conveyed via sonification and speech).
                 if (!hasPhaseOverride)
-                    ctx.Canvas.DrawLine(x, yHigh, x, yLow, paint);
+                {
+                    using var wickPaint = new SKPaint { Color = wickColor, Style = SKPaintStyle.Stroke, StrokeWidth = wickThickness };
+                    ctx.Canvas.DrawLine(x, yHigh, x, yLow, wickPaint);
+                }
 
                 // Body
                 float top = Math.Min(yOpen, yClose);
@@ -257,8 +276,14 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float spacing  = barWidth * 0.1f;
 
-            using var upPaint   = new SKPaint { Color = new SKColor(68, 187, 68, 180), Style = SKPaintStyle.Fill };
-            using var downPaint = new SKPaint { Color = new SKColor(204, 0, 0, 180),   Style = SKPaintStyle.Fill };
+            var upColor = SKColors.Green;
+            var downColor = new SKColor(204, 0, 0);
+            if (!string.IsNullOrEmpty(comp.ColorHex) && SKColor.TryParse(comp.ColorHex, out var parsedUp))
+                upColor = parsedUp;
+            if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
+                downColor = parsedDown;
+            using var upPaint   = new SKPaint { Color = upColor.WithAlpha(180), Style = SKPaintStyle.Fill };
+            using var downPaint = new SKPaint { Color = downColor.WithAlpha(180), Style = SKPaintStyle.Fill };
 
             bool useCandleDirection = comp.ColorSource == ColorSource.PriceAction;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;

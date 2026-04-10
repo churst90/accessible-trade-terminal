@@ -65,7 +65,7 @@
                                                             aria-pressed="@(series.IsMuted ? "true" : "false")">
                                                         @(series.IsMuted ? "🔇" : "🔊")
                                                     </button>
-                                                    @if (series.Id != "candles")
+                                                    @if (series.Id != CoreSeriesIds.Candles && series.Id != CoreSeriesIds.Price)
                                                     {
                                                         <button title="Remove" class="danger-btn"
                                                                 @onclick:stopPropagation="true"

@@ -187,6 +187,22 @@ All drawing shortcuts enter **Coordinate Entry mode**. In this mode:
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
+| Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |
+
+---
+
+---
+
+## Journal Modal (Ctrl+Alt+Shift+J)
+
+The Journal is the persistent review surface for everything the application has spoken or alerted on during the current session. It is the primary tool for reviewing setups that scrolled past in speech.
+
+- The modal is a console-style text area (monospace, screen-reader friendly). Tab into it to read or copy any line.
+- Filter buttons partition the buffer by category: All / Speech / Alerts / Setups / Errors / Backtests.
+- "Copy visible" puts the currently filtered view onto the clipboard.
+- "Clear" empties the in-memory ring buffer.
+- The buffer holds up to 2000 entries. Newest entries are at the bottom.
+- Composite-strategy setups appear with their full reasoned rationale: side, score, stop price, first target, R:R, and stop placement notes — exactly the form needed to review *why* a setup fired.
 
 ---
 

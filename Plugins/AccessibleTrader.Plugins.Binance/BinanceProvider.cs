@@ -3,20 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Services;
 using Binance.Net.Clients;
 
 namespace AccessibleTrader.Plugins.Binance
 {
-    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider
+    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
     {
         private readonly BinanceRestClient _client;
-        private BinanceRestClient? _tradingClient;  // Authenticated client for trading; null until Configure() provides keys
+        private BinanceRestClient? _tradingClient;
         private BinanceSocketClient? _socketClient;
         private IDisposable? _currentSubscription;
         private string? _currentSymbol;
@@ -26,9 +28,17 @@ namespace AccessibleTrader.Plugins.Binance
         private string? _apiSecret;
         private bool _isTestnet = false;
 
-        // Order update stream — pushed from the Binance user data WebSocket stream.
+        // Rate limiter: Binance allows 1200 requests/minute for REST
+        private readonly RateLimiter _rateLimiter = new(1200, TimeSpan.FromMinutes(1));
+
+        // Order update stream
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
+
+        // Order book streaming
+        private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
+        private IDisposable? _orderBookSubscription;
+        private string? _orderBookSymbol;
 
         // User data stream lifecycle
         private string? _listenKey;
@@ -38,21 +48,19 @@ namespace AccessibleTrader.Plugins.Binance
         public override string Description => "Live Binance Exchange Data (Spot & Futures)";
         public override List<MarketType> SupportedMarkets => new List<MarketType> { MarketType.Crypto };
         public override bool SupportsSymbolSearch => true;
-        public override bool RequiresApiKey => false;   // Public market data requires no key
+        public override bool RequiresApiKey => false;
         public override bool IsConfigured => true;
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => _isTestnet ? ProviderEnvironment.Paper : ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
-        public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.TrailingStop | ProviderCapabilities.OCO;
+        public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth | ProviderCapabilities.TrailingStop | ProviderCapabilities.OCO | ProviderCapabilities.Leverage | ProviderCapabilities.Brackets;
 
-        // Binance supports up to 125× leverage on perpetual futures
         public override bool SupportsMarginTrading  => true;
         public override bool SupportsFuturesTrading => true;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 125.0;
 
-        // ITradingProvider — trading connection is live when API keys have been configured
         public bool IsConnected => !string.IsNullOrEmpty(_apiKey);
 
         public override List<string> NativelySupportedTimeframes => new List<string>
@@ -73,6 +81,7 @@ namespace AccessibleTrader.Plugins.Binance
         {
             if (typeof(T) == typeof(IMarketDataProvider)) return this as T;
             if (typeof(T) == typeof(ITradingProvider)) return this as T;
+            if (typeof(T) == typeof(IOrderBookProvider)) return this as T;
             return null;
         }
 
@@ -84,8 +93,6 @@ namespace AccessibleTrader.Plugins.Binance
 
             if (!string.IsNullOrEmpty(_apiKey))
             {
-                // Create a separate authenticated REST client for trading operations so the
-                // public market-data client (_client) is not mutated after construction.
                 _tradingClient = new BinanceRestClient(opts =>
                 {
                     opts.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(
@@ -94,9 +101,19 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
-        // ── Active client helpers ────────────────────────────────────────────
+        public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
+        {
+            if (string.IsNullOrEmpty(_apiKey)) return (true, "No API key provided (public data only)");
+            try
+            {
+                var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
+                return result.Success
+                    ? (true, "API key validated successfully")
+                    : (false, $"Key validation failed: {result.Error?.Message}");
+            }
+            catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+        }
 
-        /// <summary>Returns the authenticated trading client, or the public client as fallback.</summary>
         private BinanceRestClient TradingClient => _tradingClient ?? _client;
 
         // --- Connection & Subscription Management ---
@@ -107,7 +124,6 @@ namespace AccessibleTrader.Plugins.Binance
             _socketClient = new BinanceSocketClient();
             _connectionStateStream.OnNext(ConnectionState.Connected);
 
-            // Start user data stream if API keys have been configured.
             if (!string.IsNullOrEmpty(_apiKey))
                 await StartUserDataStreamAsync();
         }
@@ -149,7 +165,6 @@ namespace AccessibleTrader.Plugins.Binance
                     onAccountPositionMessage: null,
                     onAccountBalanceUpdate: null);
 
-                // Keepalive every 25 minutes (stream expires after 60 min without keepalive).
                 _keepAliveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(25).TotalMilliseconds);
                 _keepAliveTimer.Elapsed += async (_, _) =>
                 {
@@ -185,7 +200,6 @@ namespace AccessibleTrader.Plugins.Binance
                 {
                     var kline = data.Data.Data;
                     var bar = new Ohlcv(kline.OpenTime, (double)kline.OpenPrice, (double)kline.HighPrice, (double)kline.LowPrice, (double)kline.ClosePrice, (double)kline.Volume);
-                    // Filter subscribe-confirmation frames: all-zero OHLCV with zero/epoch timestamp.
                     if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
                         && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
                         return;
@@ -206,7 +220,6 @@ namespace AccessibleTrader.Plugins.Binance
                 {
                     var kline = data.Data.Data;
                     var bar = new Ohlcv(kline.OpenTime, (double)kline.OpenPrice, (double)kline.HighPrice, (double)kline.LowPrice, (double)kline.ClosePrice, (double)kline.Volume);
-                    // Filter subscribe-confirmation frames: all-zero OHLCV with zero/epoch timestamp.
                     if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
                         && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
                         return;
@@ -228,6 +241,10 @@ namespace AccessibleTrader.Plugins.Binance
             _keepAliveTimer?.Stop();
             _keepAliveTimer?.Dispose();
             _keepAliveTimer = null;
+
+            _orderBookSubscription?.Dispose();
+            _orderBookSubscription = null;
+            _orderBookSymbol = null;
 
             if (_socketClient != null)
             {
@@ -257,16 +274,19 @@ namespace AccessibleTrader.Plugins.Binance
         {
             try
             {
-                if (subType.Equals("Futures", StringComparison.OrdinalIgnoreCase))
+                return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var result = await _client.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
-                    return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
-                }
-                else
-                {
-                    var result = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
-                    return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
-                }
+                    if (subType.Equals("Futures", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var result = await _client.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+                        return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
+                    }
+                    else
+                    {
+                        var result = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
+                        return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
+                    }
+                });
             }
             catch { return new List<string>(); }
         }
@@ -282,16 +302,19 @@ namespace AccessibleTrader.Plugins.Binance
 
             try
             {
-                DateTime? startTime = request.Since != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime : null;
-                DateTime? endTime   = request.Until != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime : null;
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    DateTime? startTime = request.Since != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime : null;
+                    DateTime? endTime   = request.Until != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime : null;
 
-                var result = isFutures
-                    ? await _client.UsdFuturesApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit)
-                    : await _client.SpotApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit);
+                    var result = isFutures
+                        ? await _client.UsdFuturesApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit)
+                        : await _client.SpotApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit);
 
-                if (!result.Success || result.Data == null) return (new List<Ohlcv>(), new List<(long, double)>());
-                var ohlcv = result.Data.Select(k => new Ohlcv(k.OpenTime.ToUniversalTime(), (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice, (double)k.Volume)).ToList();
-                return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+                    if (!result.Success || result.Data == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    var ohlcv = result.Data.Select(k => new Ohlcv(k.OpenTime.ToUniversalTime(), (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice, (double)k.Volume)).ToList();
+                    return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+                });
             }
             catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
         }
@@ -299,12 +322,60 @@ namespace AccessibleTrader.Plugins.Binance
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
         {
             var cleanSymbol = CleanSymbol(symbol);
-            var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(cleanSymbol, limit);
-            if (!result.Success || result.Data == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
-            return (
-                result.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList(),
-                result.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList()
-            );
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(cleanSymbol, limit);
+                    if (!result.Success || result.Data == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+                    return (
+                        result.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList(),
+                        result.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList()
+                    );
+                });
+            }
+            catch { return (new List<OrderBookEntry>(), new List<OrderBookEntry>()); }
+        }
+
+        // ── IOrderBookProvider ─────────────────────────────────────────────────
+
+        async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)
+        {
+            var (bids, asks) = await GetOrderBookAsync(symbol, depth);
+            return new OrderBookSnapshot(symbol, bids, asks, 0, DateTime.UtcNow);
+        }
+
+        public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol)
+        {
+            var cleanSymbol = CleanSymbol(symbol);
+            if (_orderBookSymbol == cleanSymbol && _orderBookSubscription != null)
+                return _orderBookSubject.AsObservable();
+
+            _orderBookSubscription?.Dispose();
+            _orderBookSymbol = cleanSymbol;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (_socketClient == null) await EnsureConnectedAsync();
+                    var subResult = await _socketClient!.SpotApi.ExchangeData.SubscribeToPartialOrderBookUpdatesAsync(
+                        cleanSymbol, 20, 1000, data =>
+                        {
+                            var bids = data.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList();
+                            var asks = data.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList();
+                            _orderBookSubject.OnNext(new OrderBookUpdate(cleanSymbol, bids, asks, 0, DateTime.UtcNow));
+                        });
+
+                    if (subResult.Success)
+                        _orderBookSubscription = (IDisposable)subResult.Data;
+                    else
+                        _errorStream.OnNext($"Binance order book subscription failed: {subResult.Error?.Message}");
+                }
+                catch (Exception ex) { _errorStream.OnNext($"Binance order book error: {ex.Message}"); }
+            });
+
+            return _orderBookSubject.AsObservable();
         }
 
         // ── ITradingProvider implementation ─────────────────────────────────
@@ -314,12 +385,15 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return new();
             try
             {
-                var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
-                if (!result.Success || result.Data == null) return new();
-                return result.Data.Balances
-                    .Where(b => b.Available > 0 || b.Locked > 0)
-                    .Select(b => new Balance(b.Asset, (double)b.Available, (double)b.Locked))
-                    .ToList();
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
+                    if (!result.Success || result.Data == null) return new List<Balance>();
+                    return result.Data.Balances
+                        .Where(b => b.Available > 0 || b.Locked > 0)
+                        .Select(b => new Balance(b.Asset, (double)b.Available, (double)b.Locked))
+                        .ToList();
+                });
             }
             catch { return new(); }
         }
@@ -329,19 +403,22 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return new();
             try
             {
-                var result = await TradingClient.UsdFuturesApi.Account.GetPositionInformationAsync();
-                if (!result.Success || result.Data == null) return new();
-                return result.Data
-                    .Where(p => p.Quantity != 0)
-                    .Select(p => new Position(
-                        p.Symbol,
-                        (double)Math.Abs(p.Quantity),
-                        (double)p.EntryPrice,
-                        (double)(Math.Abs(p.Quantity) * p.MarkPrice),
-                        (double)p.UnrealizedPnl,
-                        (double)p.Leverage,
-                        (double)p.LiquidationPrice))
-                    .ToList();
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var result = await TradingClient.UsdFuturesApi.Account.GetPositionInformationAsync();
+                    if (!result.Success || result.Data == null) return new List<Position>();
+                    return result.Data
+                        .Where(p => p.Quantity != 0)
+                        .Select(p => new Position(
+                            p.Symbol,
+                            (double)Math.Abs(p.Quantity),
+                            (double)p.EntryPrice,
+                            (double)(Math.Abs(p.Quantity) * p.MarkPrice),
+                            (double)p.UnrealizedPnl,
+                            (double)p.Leverage,
+                            (double)p.LiquidationPrice))
+                        .ToList();
+                });
             }
             catch { return new(); }
         }
@@ -351,19 +428,22 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return new();
             try
             {
-                var result = symbol != null
-                    ? await TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol))
-                    : await TradingClient.SpotApi.Trading.GetOpenOrdersAsync();
-                if (!result.Success || result.Data == null) return new();
-                return result.Data.Select(o => new OpenOrder(
-                    o.Id.ToString(),
-                    o.Symbol,
-                    o.Side == global::Binance.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                    MapOrderType(o.Type),
-                    (double)o.Quantity,
-                    (double)o.Price,
-                    o.Status.ToString()
-                )).ToList();
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var result = symbol != null
+                        ? await TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol))
+                        : await TradingClient.SpotApi.Trading.GetOpenOrdersAsync();
+                    if (!result.Success || result.Data == null) return new List<OpenOrder>();
+                    return result.Data.Select(o => new OpenOrder(
+                        o.Id.ToString(),
+                        o.Symbol,
+                        o.Side == global::Binance.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                        MapOrderType(o.Type),
+                        (double)o.Quantity,
+                        (double)o.Price,
+                        o.Status.ToString()
+                    )).ToList();
+                });
             }
             catch { return new(); }
         }
@@ -374,74 +454,130 @@ namespace AccessibleTrader.Plugins.Binance
             bool isFutures = string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase);
             try
             {
-                var symbol = CleanSymbol(signal.Symbol);
-                var side   = signal.Side == OrderSide.Buy
-                    ? global::Binance.Net.Enums.OrderSide.Buy
-                    : global::Binance.Net.Enums.OrderSide.Sell;
-
-                if (isFutures)
+                return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    // ── Futures order ────────────────────────────────────────────
-                    var futType = signal.Type switch
+                    var symbol = CleanSymbol(signal.Symbol);
+                    var side   = signal.Side == OrderSide.Buy
+                        ? global::Binance.Net.Enums.OrderSide.Buy
+                        : global::Binance.Net.Enums.OrderSide.Sell;
+
+                    if (isFutures)
                     {
-                        OrderType.Limit       => global::Binance.Net.Enums.FuturesOrderType.Limit,
-                        OrderType.StopMarket  => global::Binance.Net.Enums.FuturesOrderType.StopMarket,
-                        OrderType.StopLimit   => global::Binance.Net.Enums.FuturesOrderType.Stop,
-                        _                     => global::Binance.Net.Enums.FuturesOrderType.Market
-                    };
+                        var futType = signal.Type switch
+                        {
+                            OrderType.Limit            => global::Binance.Net.Enums.FuturesOrderType.Limit,
+                            OrderType.StopMarket       => global::Binance.Net.Enums.FuturesOrderType.StopMarket,
+                            OrderType.StopLimit        => global::Binance.Net.Enums.FuturesOrderType.Stop,
+                            OrderType.TakeProfitMarket => global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
+                            OrderType.TakeProfitLimit  => global::Binance.Net.Enums.FuturesOrderType.TakeProfit,
+                            _                          => global::Binance.Net.Enums.FuturesOrderType.Market
+                        };
 
-                    // Apply leverage before placing order if requested.
-                    if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
-                        await SetLeverageAsync(symbol, signal.Leverage.Value);
+                        if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
+                            await SetLeverageAsync(symbol, signal.Leverage.Value);
 
-                    var r = await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                        symbol, side, futType,
-                        quantity: (decimal)signal.Quantity,
-                        price: signal.Price.HasValue && futType != global::Binance.Net.Enums.FuturesOrderType.Market ? (decimal?)signal.Price.Value : null,
-                        stopPrice: signal.StopLoss.HasValue ? (decimal?)signal.StopLoss.Value : null,
-                        timeInForce: futType == global::Binance.Net.Enums.FuturesOrderType.Market ? null : global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                        newClientOrderId: signal.ClientOid);
-
-                    if (!r.Success) return $"ORDER_FAILED:{r.Error?.Message}";
-
-                    // Attach take-profit OCO order if requested.
-                    if (signal.TakeProfit.HasValue)
-                    {
-                        var tpSide = side == global::Binance.Net.Enums.OrderSide.Buy
-                            ? global::Binance.Net.Enums.OrderSide.Sell
-                            : global::Binance.Net.Enums.OrderSide.Buy;
-                        await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                            symbol, tpSide, global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
+                        var r = await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
+                            symbol, side, futType,
                             quantity: (decimal)signal.Quantity,
-                            stopPrice: (decimal)signal.TakeProfit.Value,
-                            timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled);
-                    }
-
-                    return r.Data.Id.ToString();
-                }
-                else
-                {
-                    // ── Spot order ───────────────────────────────────────────────
-                    if (signal.Type == OrderType.Market)
-                    {
-                        var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                            symbol, side, global::Binance.Net.Enums.SpotOrderType.Market,
-                            quantity: (decimal)signal.Quantity,
+                            price: signal.Price.HasValue && futType != global::Binance.Net.Enums.FuturesOrderType.Market ? (decimal?)signal.Price.Value : null,
+                            stopPrice: signal.StopLoss.HasValue ? (decimal?)signal.StopLoss.Value : null,
+                            timeInForce: futType == global::Binance.Net.Enums.FuturesOrderType.Market ? null : global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
                             newClientOrderId: signal.ClientOid);
-                        return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+
+                        if (!r.Success) return $"ORDER_FAILED:{r.Error?.Message}";
+
+                        // Attach take-profit if requested
+                        if (signal.TakeProfit.HasValue)
+                        {
+                            var tpSide = side == global::Binance.Net.Enums.OrderSide.Buy
+                                ? global::Binance.Net.Enums.OrderSide.Sell
+                                : global::Binance.Net.Enums.OrderSide.Buy;
+                            await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
+                                symbol, tpSide, global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
+                                quantity: (decimal)signal.Quantity,
+                                stopPrice: (decimal)signal.TakeProfit.Value,
+                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled);
+                        }
+
+                        // Attach stop-loss as a separate order if not included in the primary order
+                        if (signal.StopLoss.HasValue && futType == global::Binance.Net.Enums.FuturesOrderType.Market)
+                        {
+                            var slSide = side == global::Binance.Net.Enums.OrderSide.Buy
+                                ? global::Binance.Net.Enums.OrderSide.Sell
+                                : global::Binance.Net.Enums.OrderSide.Buy;
+                            await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
+                                symbol, slSide, global::Binance.Net.Enums.FuturesOrderType.StopMarket,
+                                quantity: (decimal)signal.Quantity,
+                                stopPrice: (decimal)signal.StopLoss.Value,
+                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled);
+                        }
+
+                        return r.Data.Id.ToString();
                     }
-                    else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
+                    else
                     {
-                        var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                            symbol, side, global::Binance.Net.Enums.SpotOrderType.Limit,
-                            quantity: (decimal)signal.Quantity,
-                            price: (decimal)signal.Price.Value,
-                            timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                            newClientOrderId: signal.ClientOid);
-                        return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        // ── Spot order ───────────────────────────────────────────────
+                        if (signal.Type == OrderType.Market)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.Market,
+                                quantity: (decimal)signal.Quantity,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.Limit,
+                                quantity: (decimal)signal.Quantity,
+                                price: (decimal)signal.Price.Value,
+                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        else if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.StopLoss,
+                                quantity: (decimal)signal.Quantity,
+                                stopPrice: (decimal)signal.StopLoss.Value,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        else if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.StopLossLimit,
+                                quantity: (decimal)signal.Quantity,
+                                price: (decimal)signal.Price.Value,
+                                stopPrice: (decimal)signal.StopLoss.Value,
+                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        else if (signal.Type == OrderType.TakeProfitMarket && signal.TakeProfit.HasValue)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.TakeProfit,
+                                quantity: (decimal)signal.Quantity,
+                                stopPrice: (decimal)signal.TakeProfit.Value,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        else if (signal.Type == OrderType.TakeProfitLimit && signal.TakeProfit.HasValue && signal.Price.HasValue)
+                        {
+                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
+                                symbol, side, global::Binance.Net.Enums.SpotOrderType.TakeProfitLimit,
+                                quantity: (decimal)signal.Quantity,
+                                price: (decimal)signal.Price.Value,
+                                stopPrice: (decimal)signal.TakeProfit.Value,
+                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
+                                newClientOrderId: signal.ClientOid);
+                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                        }
+                        return "ORDER_FAILED:Unsupported order type";
                     }
-                    return "ORDER_FAILED:Unsupported order type";
-                }
+                });
             }
             catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
         }
@@ -451,8 +587,8 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return false;
             try
             {
-                var r = await TradingClient.SpotApi.Trading.CancelOrderAsync(
-                    CleanSymbol(symbol), long.Parse(orderId));
+                var r = await _rateLimiter.ExecuteAsync(async () =>
+                    await TradingClient.SpotApi.Trading.CancelOrderAsync(CleanSymbol(symbol), long.Parse(orderId)));
                 return r.Success;
             }
             catch { return false; }

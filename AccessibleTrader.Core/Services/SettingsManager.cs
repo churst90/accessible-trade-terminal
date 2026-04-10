@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using AccessibleTrader.Core.Configuration;
@@ -64,8 +65,9 @@ namespace AccessibleTrader.Core.Services
                 }
                 return current;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"SettingsManager: failed to read key '{keyPath}', returning default: {ex.Message}");
                 return defaultValue;
             }
         }

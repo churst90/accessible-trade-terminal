@@ -50,8 +50,7 @@ namespace AccessibleTrader.Core.Services
 
             _dataManager.DataUpdated += OnDataUpdated;
 
-            // Listen for user strategy confirmations
-            _subscriptions.Add(_eventBus.Subscribe<StrategyConfirmedEvent>(OnStrategyConfirmed));
+            // (StrategyConfirmedEvent subscription removed — event was never published)
         }
 
         private void OnDataUpdated()
@@ -101,17 +100,6 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogError($"Strategy '{active.Strategy.Name}' threw: {ex.Message}", nameof(StrategyEngine), ex);
                 }
             }
-        }
-
-        private void OnStrategyConfirmed(StrategyConfirmedEvent e)
-        {
-            if (!_pendingSignals.TryGetValue(e.InstanceId, out var signal)) return;
-            _pendingSignals.Remove(e.InstanceId);
-
-            var active = _activeStrategies.FirstOrDefault(a => a.InstanceId == e.InstanceId);
-            if (active == null) return;
-
-            ExecuteSignalAsync(active, signal);
         }
 
         private async void ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal)

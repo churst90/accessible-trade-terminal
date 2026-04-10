@@ -2,9 +2,12 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Strategies
 @using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Core.Services.Strategies
 @inject IStrategyEngine StrategyEngine
-@inject IStrategyRegistry StrategyRegistry
 @inject IStrategyBacktester Backtester
+@inject IBacktestWarmupAnalyzer WarmupAnalyzer
+@inject IStrategyLibrary StrategyLibrary
+@inject IConfigurableStrategyFactory Factory
 @inject IRoslynScriptingService RoslynScripting
 @inject ISeriesManagementService SeriesManager
 @inject IWorkspaceStore Store
@@ -27,12 +30,20 @@
             @* ── Tab navigation ────────────────────────────────────────────────── *@
             <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;">
                 <button role="tab"
-                        id="tab-add"
-                        aria-selected="@(_activeTab == "add")"
-                        aria-controls="panel-add"
-                        @onclick='() => _activeTab = "add"'
-                        style="padding: 6px 14px; background: @(_activeTab == "add" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
-                    Add Strategy
+                        id="tab-library"
+                        aria-selected="@(_activeTab == "library")"
+                        aria-controls="panel-library"
+                        @onclick='() => _activeTab = "library"'
+                        style="padding: 6px 14px; background: @(_activeTab == "library" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Library (@StrategyLibrary.All.Count)
+                </button>
+                <button role="tab"
+                        id="tab-build"
+                        aria-selected="@(_activeTab == "build")"
+                        aria-controls="panel-build"
+                        @onclick='() => _activeTab = "build"'
+                        style="padding: 6px 14px; background: @(_activeTab == "build" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Build Setup
                 </button>
                 <button role="tab"
                         id="tab-active"
@@ -60,69 +71,86 @@
                 </button>
             </div>
 
-            @* ── Add new strategy ──────────────────────────────────────────────── *@
-            <section id="panel-add" role="tabpanel" aria-labelledby="tab-add"
-                     hidden="@(_activeTab != "add")" style="margin-top: 20px;">
-                <h3>Add Strategy</h3>
-
-                <div style="margin-top: 12px;">
-                    <label for="strategy-select">Strategy:</label>
-                    <select id="strategy-select"
-                            value="@_selectedStrategyId"
-                            @onchange="OnStrategySelected">
-                        @foreach (var s in _catalog)
-                        {
-                            <option value="@s.Id">@s.Name (@s.Complexity)</option>
-                        }
-                    </select>
-                </div>
-
-                @if (_selectedTemplate != null)
+            @* ── Build Setup tab — no-code composer (Phase 11 Session D) ───────── *@
+            <section id="panel-build" role="tabpanel" aria-labelledby="tab-build"
+                     hidden="@(_activeTab != "build")" style="margin-top: 20px;">
+                @if (_activeTab == "build")
                 {
-                    <p style="margin: 8px 0; color: #888; font-size: 0.85rem;">
-                        @_selectedTemplate.Description
+                    <BuildSetupTab />
+                }
+            </section>
+
+            @* ── Library tab ──────────────────────────────────────────────────── *@
+            <section id="panel-library" role="tabpanel" aria-labelledby="tab-library"
+                     hidden="@(_activeTab != "library")" style="margin-top: 20px;">
+                <h3>Strategy Library</h3>
+                <p style="color: #888; font-size: 0.85rem;">
+                    Specs you've built in the Build Setup tab. Start a spec to begin running it
+                    against live data; on next launch, every started spec is automatically restored.
+                    Stopped specs remain in the library as templates you can edit and re-run later.
+                </p>
+
+                @if (StrategyLibrary.All.Count == 0)
+                {
+                    <p style="color: #888; margin-top: 16px;">
+                        No saved strategies yet. Switch to <strong>Build Setup</strong> to compose one.
                     </p>
                 }
-
-                @* Strategy parameters *@
-                @if (_selectedTemplate?.Parameters?.Any() == true)
+                else
                 {
-                    <fieldset style="border: 1px solid #bbb; padding: 12px 16px; margin-top: 12px;">
-                        <legend style="font-weight: 700; padding: 0 6px;">Parameters</legend>
-                        @foreach (var param in _selectedTemplate.Parameters)
-                        {
-                            <div class="modal-row">
-                                <label for="strat-param-@param.Name">@param.Description</label>
-                                <input id="strat-param-@param.Name"
-                                       type="number"
-                                       step="any"
-                                       value="@(_editParams.GetValueOrDefault(param.Name, Convert.ToDouble(param.DefaultValue)))"
-                                       @onchange="e => UpdateParam(param.Name, e.Value?.ToString())" />
-                            </div>
-                        }
-                    </fieldset>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #555;">
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Name</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Side</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Status</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Description</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var spec in StrategyLibrary.All)
+                            {
+                                bool isActive = StrategyEngine.ActiveStrategies.Any(a =>
+                                    string.Equals(a.Strategy.Id, spec.Id, StringComparison.OrdinalIgnoreCase));
+                                <tr style="border-bottom: 1px solid #333;">
+                                    <td style="padding: 6px 8px;">@spec.Name</td>
+                                    <td style="padding: 6px 8px;">@spec.Side</td>
+                                    <td style="padding: 6px 8px; color: @(isActive ? "#6f6" : "#888");">
+                                        @(isActive ? "Active" : "Stopped")
+                                    </td>
+                                    <td style="padding: 6px 8px; color: #aaa;">@spec.Description</td>
+                                    <td style="padding: 6px 8px; white-space: nowrap;">
+                                        @if (isActive)
+                                        {
+                                            <button @onclick="() => StopSpec(spec.Id)"
+                                                    aria-label="Stop @spec.Name and clear auto-activate flag">
+                                                Stop
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button @onclick="() => StartSpec(spec.Id)"
+                                                    aria-label="Start @spec.Name and mark auto-activate so it runs on next launch">
+                                                Start
+                                            </button>
+                                        }
+                                        <button @onclick="() => DeleteSpec(spec.Id)"
+                                                aria-label="Permanently delete @spec.Name from the library"
+                                                style="margin-left: 6px;">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 }
 
-                <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <label for="exec-mode">Execution mode:</label>
-                    <select id="exec-mode"
-                            value="@_executionMode"
-                            @onchange="OnModeChanged"
-                            aria-label="Strategy execution mode">
-                        <option value="@StrategyExecutionMode.Suggestion">Suggestion — signal only, no auto-trade</option>
-                        <option value="@StrategyExecutionMode.Auto">Auto — place orders automatically</option>
-                    </select>
-                    <button class="primary"
-                            @onclick="AddStrategy"
-                            aria-label="Add selected strategy to chart">
-                        Add Strategy
-                    </button>
-                </div>
-
-                @if (!string.IsNullOrEmpty(_addMessage))
+                @if (!string.IsNullOrEmpty(_libraryMessage))
                 {
-                    <p role="status" style="margin-top: 8px; color: @(_addError ? "#f44" : "#4a4");">
-                        @_addMessage
+                    <p role="status" style="margin-top: 8px; color: @(_libraryError ? "#f44" : "#4a4");">
+                        @_libraryMessage
                     </p>
                 }
             </section>
@@ -188,7 +216,8 @@
                 else
                 {
                     <p style="color: #888; margin-top: 10px;">
-                        No active strategies. Select a strategy above and click Add Strategy.
+                        No active strategies. Switch to the <strong>Library</strong> tab and click
+                        Start on a saved spec, or compose a new one in <strong>Build Setup</strong>.
                     </p>
                 }
             </section>
@@ -198,10 +227,23 @@
                      hidden="@(_activeTab != "bt")" style="margin-top: 20px;">
                 <h3>Backtest</h3>
                 <p style="color: #888; font-size: 0.85rem; margin-bottom: 12px;">
-                    Runs the selected strategy against the currently loaded price data.
+                    Runs the selected library spec against the currently loaded price data with
+                    full TP / stop / VPVR replay correctness.
                 </p>
 
                 <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                    <div>
+                        <label for="bt-spec">Strategy:</label>
+                        <select id="bt-spec"
+                                value="@_btSelectedSpecId"
+                                @onchange="e => _btSelectedSpecId = e.Value?.ToString() ?? string.Empty">
+                            <option value="">— Select a saved spec —</option>
+                            @foreach (var s in StrategyLibrary.All)
+                            {
+                                <option value="@s.Id">@s.Name (@s.Side)</option>
+                            }
+                        </select>
+                    </div>
                     <div>
                         <label for="bt-capital">Starting Capital:</label>
                         <input id="bt-capital" type="number" step="any" min="1"
@@ -220,9 +262,51 @@
                                value="@(_btSlippage * 100)"
                                @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btSlippage = v / 100.0; }" />
                     </div>
+                    <div>
+                        <label for="bt-warmup">Warmup bars:</label>
+                        <input id="bt-warmup" type="number" step="10" min="0" max="2000"
+                               value="@_btWarmup"
+                               title="Bars at the start of the data range that are fed to the strategy but generate no signals — lets indicators converge before evaluation begins."
+                               @onchange="e => int.TryParse(e.Value?.ToString(), out _btWarmup)" />
+                        <button type="button" @onclick="AutoWarmup"
+                                aria-label="Auto-detect recommended warmup from the selected ConfigurableStrategy spec"
+                                title="Walks the spec's condition tree, queries each indicator's stability window, and sets warmup to max × 1.2.">
+                            Auto
+                        </button>
+                    </div>
+                    <div>
+                        <label for="bt-startdate">Start date (optional):</label>
+                        <input id="bt-startdate" type="date"
+                               value="@(_btStartDate?.ToString("yyyy-MM-dd"))"
+                               title="Bars before this date are dropped from the run entirely. Leave blank to use the earliest loaded bar."
+                               @onchange="e => _btStartDate = ParseDate(e.Value?.ToString())" />
+                    </div>
+                    <div>
+                        <label for="bt-enddate">End date (optional):</label>
+                        <input id="bt-enddate" type="date"
+                               value="@(_btEndDate?.ToString("yyyy-MM-dd"))"
+                               title="Bars after this date are dropped from the run entirely. Leave blank to use the latest loaded bar."
+                               @onchange="e => _btEndDate = ParseDate(e.Value?.ToString())" />
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button type="button" @onclick="WalkForwardFirstHalf"
+                                aria-label="Set date range to the first half of the loaded data for walk-forward testing"
+                                title="Splits the loaded chart data in half by time and sets the date range to the earlier half. Run the backtest, note the metrics, then click 'Last half' and run again to compare across regimes.">
+                            Walk-fwd: first half
+                        </button>
+                        <button type="button" @onclick="WalkForwardLastHalf"
+                                aria-label="Set date range to the last half of the loaded data for walk-forward testing"
+                                title="Sets the date range to the later half of the loaded data. Pair with 'first half' to detect time-localized edge decay.">
+                            Walk-fwd: last half
+                        </button>
+                        <button type="button" @onclick="ClearDateRange"
+                                aria-label="Clear the date range filter and use all loaded bars">
+                            Clear range
+                        </button>
+                    </div>
                     <button class="primary"
                             @onclick="RunBacktestAsync"
-                            disabled="@(_btRunning || _catalog.Count == 0)"
+                            disabled="@(_btRunning || string.IsNullOrEmpty(_btSelectedSpecId))"
                             aria-label="Run backtest with current settings">
                         @(_btRunning ? "Running…" : "Run Backtest")
                     </button>
@@ -246,6 +330,7 @@
                             <div><strong>Total P&amp;L:</strong> @m.TotalPnL.ToString("F4")</div>
                             <div><strong>Max Drawdown:</strong> @m.MaxDrawdown.ToString("P2")</div>
                             <div><strong>Sharpe Ratio:</strong> @(double.IsNaN(m.SharpeRatio) ? "—" : m.SharpeRatio.ToString("F2"))</div>
+                            <div><strong>Bars used:</strong> @(_btResult.WarmupBars + _btResult.EvaluatedBars) total (@_btResult.WarmupBars warmup + @_btResult.EvaluatedBars evaluated)</div>
                         </div>
                         @if (_btResult.Trades.Any())
                         {
@@ -372,21 +457,20 @@ public class MyStrategy : BaseStrategy
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
-    private string _activeTab = "add";
+    private string _activeTab = "library";
 
-    private IReadOnlyList<ITradingStrategy> _catalog = new List<ITradingStrategy>();
-    private string _selectedStrategyId = "";
-    private ITradingStrategy? _selectedTemplate;
-    private Dictionary<string, double> _editParams = new();
-    private StrategyExecutionMode _executionMode = StrategyExecutionMode.Suggestion;
-
-    private string? _addMessage;
-    private bool _addError;
+    // Library tab status messages
+    private string? _libraryMessage;
+    private bool _libraryError;
 
     // Backtester state
+    private string _btSelectedSpecId = string.Empty;
     private double _btCapital    = 10000.0;
     private double _btCommission = 0.001;
     private double _btSlippage   = 0.0005;
+    private int    _btWarmup     = 200;
+    private DateTime? _btStartDate;
+    private DateTime? _btEndDate;
     private bool _btRunning;
     private BacktestResult? _btResult;
     private string? _btMessage;
@@ -402,21 +486,13 @@ public class MyStrategy : BaseStrategy
 
     protected override void OnInitialized()
     {
-        _catalog = StrategyRegistry.GetCatalog();
-        if (_catalog.Any())
-        {
-            _selectedStrategyId = _catalog[0].Id;
-            _selectedTemplate = _catalog[0];
-            PopulateDefaults();
-        }
-
         _eventSub = EventBus.Subscribe<OpenStrategiesEvent>(_ =>
             InvokeAsync(ShowAsync));
     }
 
     private async Task ShowAsync()
     {
-        _addMessage = null;
+        _libraryMessage = null;
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true));
         StateHasChanged();
@@ -438,64 +514,104 @@ public class MyStrategy : BaseStrategy
         StateHasChanged();
     }
 
-    private void OnStrategySelected(ChangeEventArgs e)
-    {
-        _selectedStrategyId = e.Value?.ToString() ?? "";
-        _selectedTemplate = _catalog.FirstOrDefault(s => s.Id == _selectedStrategyId);
-        PopulateDefaults();
-        _addMessage = null;
-    }
+    // ── Library tab handlers ─────────────────────────────────────────────────
 
-    private void OnModeChanged(ChangeEventArgs e)
+    /// <summary>
+    /// Activate a saved spec — instantiate via the factory, register with the engine, and flip
+    /// the spec's <c>IsAutoActivate</c> flag so it survives the next app restart. Removes any
+    /// existing engine instance with the same spec ID first to avoid duplicates (this was the
+    /// silent bug where editing+re-adding a spec left two copies running).
+    /// </summary>
+    private void StartSpec(string specId)
     {
-        if (Enum.TryParse<StrategyExecutionMode>(e.Value?.ToString(), out var mode))
-            _executionMode = mode;
-    }
-
-    private void PopulateDefaults()
-    {
-        _editParams = _selectedTemplate?.Parameters
-            .ToDictionary(p => p.Name, p => Convert.ToDouble(p.DefaultValue))
-            ?? new Dictionary<string, double>();
-    }
-
-    private void UpdateParam(string name, string? raw)
-    {
-        if (double.TryParse(raw,
-                System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out double v))
+        try
         {
-            _editParams[name] = v;
-        }
-    }
+            var spec = StrategyLibrary.GetById(specId);
+            if (spec == null)
+            {
+                _libraryMessage = "Spec not found in library.";
+                _libraryError = true;
+                return;
+            }
 
-    private void AddStrategy()
-    {
-        if (string.IsNullOrEmpty(_selectedStrategyId))
+            RemoveExistingInstancesOfSpec(specId);
+
+            var strategy = Factory.Create(spec);
+            StrategyEngine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode);
+            StrategyLibrary.Upsert(spec with { IsAutoActivate = true });
+
+            _libraryMessage = $"'{spec.Name}' started ({spec.ExecutionMode}). Will auto-activate on restart.";
+            _libraryError = false;
+        }
+        catch (Exception ex)
         {
-            _addMessage = "Please select a strategy.";
-            _addError = true;
-            return;
+            _libraryMessage = $"Start failed: {ex.Message}";
+            _libraryError = true;
         }
-
-        var instance = StrategyRegistry.CreateInstance(_selectedStrategyId);
-        if (instance == null)
-        {
-            _addMessage = "Could not create strategy instance.";
-            _addError = true;
-            return;
-        }
-
-        var parameters = _editParams.ToDictionary(
-            kv => kv.Key,
-            kv => (object)kv.Value);
-
-        StrategyEngine.AddStrategy(instance, parameters, _executionMode);
-
-        _addMessage = $"{instance.Name} added ({_executionMode} mode).";
-        _addError = false;
         StateHasChanged();
     }
+
+    /// <summary>
+    /// Stop a running spec — remove every engine instance whose strategy id matches, and clear
+    /// the spec's IsAutoActivate flag so it doesn't come back on next launch. The spec stays in
+    /// the library; only the running instance is removed.
+    /// </summary>
+    private void StopSpec(string specId)
+    {
+        try
+        {
+            RemoveExistingInstancesOfSpec(specId);
+            var spec = StrategyLibrary.GetById(specId);
+            if (spec != null)
+            {
+                StrategyLibrary.Upsert(spec with { IsAutoActivate = false });
+            }
+            _libraryMessage = "Stopped.";
+            _libraryError = false;
+        }
+        catch (Exception ex)
+        {
+            _libraryMessage = $"Stop failed: {ex.Message}";
+            _libraryError = true;
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Permanently delete a spec from the library. If currently active, also stops it first.
+    /// </summary>
+    private void DeleteSpec(string specId)
+    {
+        try
+        {
+            RemoveExistingInstancesOfSpec(specId);
+            StrategyLibrary.Remove(specId);
+            _libraryMessage = "Deleted.";
+            _libraryError = false;
+        }
+        catch (Exception ex)
+        {
+            _libraryMessage = $"Delete failed: {ex.Message}";
+            _libraryError = true;
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Helper: remove every engine instance whose Strategy.Id matches the given spec id.
+    /// Used by Start (dedupe before adding), Stop, and Delete.
+    /// </summary>
+    private void RemoveExistingInstancesOfSpec(string specId)
+    {
+        var matches = StrategyEngine.ActiveStrategies
+            .Where(a => string.Equals(a.Strategy.Id, specId, StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.InstanceId)
+            .ToList();
+        foreach (var id in matches)
+            StrategyEngine.RemoveStrategy(id);
+    }
+
+    // ── Active tab handlers ──────────────────────────────────────────────────
 
     private void TogglePause(string instanceId, bool isPaused)
     {
@@ -503,18 +619,117 @@ public class MyStrategy : BaseStrategy
         StateHasChanged();
     }
 
+    /// <summary>
+    /// Remove a running strategy from the engine. If it corresponds to a library spec
+    /// (Strategy.Id matches a saved spec), also flips IsAutoActivate=false so the strategy
+    /// doesn't come back on next launch — fixes the silent "I removed it but it's still here
+    /// after restart" bug.
+    /// </summary>
     private void RemoveStrategy(string instanceId)
     {
+        var active = StrategyEngine.ActiveStrategies.FirstOrDefault(a => a.InstanceId == instanceId);
+        if (active != null)
+        {
+            var spec = StrategyLibrary.GetById(active.Strategy.Id);
+            if (spec != null)
+            {
+                StrategyLibrary.Upsert(spec with { IsAutoActivate = false });
+            }
+        }
         StrategyEngine.RemoveStrategy(instanceId);
-        _addMessage = null;
+        _libraryMessage = null;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Auto-detect the recommended warmup for the currently-selected backtest spec by walking
+    /// its condition tree and asking each referenced indicator for its stability window.
+    /// Now resolves the actual selected spec (not a name-match fallback like the previous version).
+    /// </summary>
+    private void AutoWarmup()
+    {
+        if (string.IsNullOrEmpty(_btSelectedSpecId))
+        {
+            _btMessage = "Select a strategy from the dropdown first.";
+            _btError = true;
+            return;
+        }
+        var spec = StrategyLibrary.GetById(_btSelectedSpecId);
+        if (spec == null)
+        {
+            _btMessage = "Selected spec not found in library.";
+            _btError = true;
+            return;
+        }
+        int recommended = WarmupAnalyzer.RecommendedWarmup(spec);
+        _btWarmup = recommended;
+        _btMessage = $"Warmup auto-set to {recommended} bars based on '{spec.Name}'.";
+        _btError = false;
+    }
+
+    /// <summary>Parse a date input value (yyyy-MM-dd) safely. Empty/invalid → null.</summary>
+    private static DateTime? ParseDate(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return DateTime.TryParse(raw, out var d) ? d : (DateTime?)null;
+    }
+
+    /// <summary>
+    /// Compute the date that splits the loaded chart data exactly in half by bar count.
+    /// Returns null when there's no data loaded. Used by the walk-forward helpers below to
+    /// drop the user into a "first half" / "last half" window without making them pick dates
+    /// manually — the most common walk-forward operation.
+    /// </summary>
+    private DateTime? GetMidpointDate()
+    {
+        var data = Store.State.Data;
+        if (data == null || data.Count < 4) return null;
+        return data[data.Count / 2].Date;
+    }
+
+    private void WalkForwardFirstHalf()
+    {
+        var data = Store.State.Data;
+        if (data == null || data.Count < 4)
+        {
+            _btMessage = "Load a chart first — need at least 4 bars to split.";
+            _btError = true;
+            return;
+        }
+        _btStartDate = data[0].Date;
+        _btEndDate   = data[data.Count / 2].Date;
+        _btMessage   = $"Walk-forward range: first half ({_btStartDate:yyyy-MM-dd} to {_btEndDate:yyyy-MM-dd}).";
+        _btError     = false;
+    }
+
+    private void WalkForwardLastHalf()
+    {
+        var data = Store.State.Data;
+        if (data == null || data.Count < 4)
+        {
+            _btMessage = "Load a chart first — need at least 4 bars to split.";
+            _btError = true;
+            return;
+        }
+        _btStartDate = data[data.Count / 2].Date;
+        _btEndDate   = data[data.Count - 1].Date;
+        _btMessage   = $"Walk-forward range: last half ({_btStartDate:yyyy-MM-dd} to {_btEndDate:yyyy-MM-dd}).";
+        _btError     = false;
+    }
+
+    private void ClearDateRange()
+    {
+        _btStartDate = null;
+        _btEndDate   = null;
+        _btMessage   = "Date range cleared. Backtest will use all loaded bars.";
+        _btError     = false;
     }
 
     private async Task RunBacktestAsync()
     {
-        if (string.IsNullOrEmpty(_selectedStrategyId))
+        if (string.IsNullOrEmpty(_btSelectedSpecId))
         {
-            _btMessage = "Please select a strategy first.";
+            _btMessage = "Please select a saved strategy spec first.";
             _btError = true;
             return;
         }
@@ -527,10 +742,10 @@ public class MyStrategy : BaseStrategy
             return;
         }
 
-        var instance = StrategyRegistry.CreateInstance(_selectedStrategyId);
-        if (instance == null)
+        var spec = StrategyLibrary.GetById(_btSelectedSpecId);
+        if (spec == null)
         {
-            _btMessage = "Could not create strategy instance.";
+            _btMessage = "Selected spec not found in library.";
             _btError = true;
             return;
         }
@@ -542,8 +757,15 @@ public class MyStrategy : BaseStrategy
 
         try
         {
-            var config = new BacktestConfig(_btCapital, _btCommission, _btSlippage);
-            _btResult = await Backtester.RunAsync(instance, data, config);
+            var instance = Factory.Create(spec);
+            // The proper Backtest tab honors profile replay for full correctness — the
+            // Build Setup Preview button uses ReplayProfiles=false for the fast iteration path.
+            var config = new BacktestConfig(
+                _btCapital, _btCommission, _btSlippage, _btWarmup,
+                ReplayProfiles: true,
+                StartDate: _btStartDate,
+                EndDate: _btEndDate);
+            _btResult = await Backtester.RunAsync(instance, data, config, Store.State);
             _btMessage = $"Backtest complete. {_btResult.SpeechSummary}";
             _btError = false;
         }

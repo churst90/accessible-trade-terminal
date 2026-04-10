@@ -52,7 +52,7 @@ namespace AccessibleTrader.Core.Services
                 try
                 {
                     var state = _store.State;
-                    var seriesId = state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+                    var seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
                     var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
                     if (s == null && ev.Scope != "CHART") return;
 
@@ -98,7 +98,7 @@ namespace AccessibleTrader.Core.Services
                         _sonificationManager.SetMasterVolume(volume);
                     }
 
-                    _seriesManager.PersistWorkspace();
+                    // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new FeedbackRequestEvent(
                         FeedbackType.VolumeChange, $"{targetName} volume {direction} to {volume:P0}"));
                 }
@@ -113,7 +113,7 @@ namespace AccessibleTrader.Core.Services
                 try
                 {
                     var state = _store.State;
-                    var seriesId = ev.SeriesId ?? state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+                    var seriesId = ev.SeriesId ?? state.FocusedSeriesId ?? state.PrimarySeriesId;
                     var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
                     if (s == null) return;
 
@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services
                         bool nowMuted = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.IsMuted ?? false;
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowMuted ? "muted" : "unmuted")}"));
                     }
-                    _seriesManager.PersistWorkspace();
+                    // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());
                 }
                 catch (Exception ex)
@@ -147,7 +147,7 @@ namespace AccessibleTrader.Core.Services
                 try
                 {
                     var state = _store.State;
-                    var seriesId = ev.SeriesId ?? state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+                    var seriesId = ev.SeriesId ?? state.FocusedSeriesId ?? state.PrimarySeriesId;
                     var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
                     if (s == null) return;
 
@@ -167,7 +167,7 @@ namespace AccessibleTrader.Core.Services
                         bool nowHidden = !(_store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.IsVisible ?? true);
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowHidden ? "hidden" : "visible")}"));
                     }
-                    _seriesManager.PersistWorkspace();
+                    // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());
                 }
                 catch (Exception ex)
@@ -191,7 +191,7 @@ namespace AccessibleTrader.Core.Services
                     if (series != null)
                     {
                         _store.Dispatch(new RemoveSeriesAction(id));
-                        _seriesManager.PersistWorkspace();
+                        // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{series.Name} deleted"));
                         _eventBus.Publish(new RedrawEvent());
                     }

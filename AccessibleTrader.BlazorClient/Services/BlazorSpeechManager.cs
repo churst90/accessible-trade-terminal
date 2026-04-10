@@ -3,12 +3,15 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using AccessibleTrader.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.BlazorClient.Services
 {
     public class BlazorSpeechManager : ISpeechManager, IDisposable
     {
         private readonly ILogger<BlazorSpeechManager> _logger;
+        private readonly IServiceProvider _services;
+        private IJournalService? _journal; // resolved lazily to avoid construction-order coupling
         private bool? _isNvdaAvailable;
         private string _queuedText = string.Empty;
 
@@ -31,11 +34,26 @@ namespace AccessibleTrader.BlazorClient.Services
             } 
         }
 
-        public BlazorSpeechManager(ILogger<BlazorSpeechManager> logger)
+        public BlazorSpeechManager(ILogger<BlazorSpeechManager> logger, IServiceProvider services)
         {
             _logger = logger;
+            _services = services;
             // Immediate check, then background monitor
             _isNvdaAvailable = CheckNvdaNative();
+        }
+
+        private IJournalService? Journal
+        {
+            get
+            {
+                // Lazy resolve so we don't force JournalService construction during ctor.
+                if (_journal == null)
+                {
+                    try { _journal = _services.GetService(typeof(IJournalService)) as IJournalService; }
+                    catch { /* journal is best-effort — never break speech */ }
+                }
+                return _journal;
+            }
         }
 
         private bool CheckNvdaNative()
@@ -55,6 +73,10 @@ namespace AccessibleTrader.BlazorClient.Services
         public void Speak(string text, bool interrupt = false)
         {
             if (string.IsNullOrWhiteSpace(text) || !IsSpeechEnabled) return;
+
+            // Mirror every spoken phrase into the journal so it can be reviewed/copied later.
+            // Done before the NVDA call so even speech that's interrupted is captured.
+            try { Journal?.AddSpeech(text); } catch { /* never let journal break speech */ }
 
             // Always try NVDA first
             if (_isNvdaAvailable == true)

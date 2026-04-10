@@ -287,6 +287,10 @@ namespace AccessibleTrader.Core.Services
             // AI Analyst
             s.Add(new(SystemCommand.OpenAIAnalyst, "A", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+A
 
+            // Workspace management
+            s.Add(new(SystemCommand.SaveWorkspace, "W", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+W
+            s.Add(new(SystemCommand.LoadWorkspace, "W", Ctrl: true, Alt: true));               // Ctrl+Alt+W
+
             // Sub-pane navigation (jump between panes)
             s.Add(new(SystemCommand.NavSubPaneNext, "PAGEDOWN", Ctrl: true)); // Ctrl+PageDown
             s.Add(new(SystemCommand.NavSubPanePrev, "PAGEUP",   Ctrl: true)); // Ctrl+PageUp
@@ -301,6 +305,7 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenStrategies,    "S",     Alt: true)); // Alt+S
             s.Add(new(SystemCommand.OpenCustomScripts, ",",     Alt: true)); // Alt+,
             s.Add(new(SystemCommand.OpenSoundDesigner, "W",     Alt: true)); // Alt+W
+            s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
 
             LoadProfile(p);
         }

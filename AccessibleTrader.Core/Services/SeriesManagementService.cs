@@ -16,7 +16,11 @@ namespace AccessibleTrader.Core.Services
         /// Registers a series from full metadata, preserving CloudFills and component styling.
         /// Prefer this over <see cref="RegisterSeries"/> when adding indicators from the UI.
         /// </summary>
-        void RegisterSeriesFromMetadata(IndicatorMetadata meta, Dictionary<string, double>? parameters = null);
+        // Parameters are now object-typed so the modal can pass strings (provider names,
+        // symbol selections) for cross-series indicators. The implementation formats each
+        // value via FormatParam below — doubles use invariant "G", ints use plain text,
+        // strings pass through unchanged. Existing callers that pass null continue to work.
+        void RegisterSeriesFromMetadata(IndicatorMetadata meta, Dictionary<string, object>? parameters = null);
         /// <summary>
         /// Restores a series from a previously-saved <see cref="SeriesConfig"/> (e.g. loaded
         /// from a workspace profile). The config is used as-is so user-customised colors,
@@ -122,9 +126,12 @@ namespace AccessibleTrader.Core.Services
                 config.FriendlyName = $"{n} {pStr}";
             }
 
-            // Ensure components are populated
-            if (codeUp == "PRICE" && !c.Any()) c = new List<string> { "Upper Wick", "Lower Wick", "Candle Body" };
-            if (codeUp == "VOLUME" && !c.Any()) c = new List<string> { "Volume" };
+            // Ensure components are populated. Uses the new snake_case machine names
+            // introduced in Phase 2; also accepts legacy names ("Upper Wick", etc.) in
+            // the DataMapping fallback below so old SeriesConfig payloads still resolve.
+            if (codeUp == "CANDLES" && !c.Any()) c = new List<string> { "upper_wick", "body", "lower_wick" };
+            if (codeUp == "PRICE"   && !c.Any()) c = new List<string> { "line" };
+            if (codeUp == "VOLUME"  && !c.Any()) c = new List<string> { "Volume" };
             if (!c.Any()) c = new List<string> { "Default" };
 
             foreach (var componentName in c)
@@ -132,9 +139,12 @@ namespace AccessibleTrader.Core.Services
                 var comp = _modelFactory.CreateComponentConfig(indicatorCode, componentName);
                 if (seriesId == CoreSeriesIds.Price || seriesId == CoreSeriesIds.Candles)
                 {
-                    if (componentName == "Upper Wick") comp.DataMapping = "high";
-                    else if (componentName == "Lower Wick") comp.DataMapping = "low";
-                    else if (componentName == "Candle Body" || componentName == "Close") comp.DataMapping = "close";
+                    // New machine names first, then legacy names for backwards compat
+                    // with workspaces saved before the Phase 2 rename.
+                    if      (componentName == "upper_wick" || componentName == "Upper Wick") comp.DataMapping = "high";
+                    else if (componentName == "lower_wick" || componentName == "Lower Wick") comp.DataMapping = "low";
+                    else if (componentName == "body" || componentName == "line"
+                          || componentName == "Candle Body" || componentName == "Close")    comp.DataMapping = "close";
                 }
                 if (seriesId == CoreSeriesIds.Volume && (componentName == "Volume" || componentName == "Bars")) comp.DataMapping = "volume";
                 
@@ -160,7 +170,6 @@ namespace AccessibleTrader.Core.Services
             InjectDefaultLevels(series, codeUp, config.Parameters ?? new());
 
             _store.Dispatch(new AddSeriesAction(series));
-            PersistWorkspace();
 
             if (codeUp != "CANDLES" && codeUp != "PRICE" && codeUp != "VOLUME")
             {
@@ -168,7 +177,7 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public void RegisterSeriesFromMetadata(IndicatorMetadata meta, Dictionary<string, double>? parameters = null)
+        public void RegisterSeriesFromMetadata(IndicatorMetadata meta, Dictionary<string, object>? parameters = null)
         {
             string indicatorCode = meta.Code;
             string codeUp = indicatorCode.ToUpperInvariant();
@@ -195,13 +204,15 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            // Convert parameters dictionary to factory tuple list.
-            var paramList = parameters?.Select(kvp => (kvp.Key, kvp.Value.ToString("G"))).ToList()
+            // Convert parameters dictionary to factory tuple list. FormatParam handles the
+            // object → string conversion for each supported parameter type.
+            var paramList = parameters?.Select(kvp => (kvp.Key, FormatParam(kvp.Value))).ToList()
                             ?? new List<(string, string)>();
 
-            // Build instance name (include parameter values when present).
+            // Build instance name (include parameter values when present). For string-typed
+            // parameters this gives a readable instance name like "Funding Rate BTC-USDT-SWAP".
             string instanceName = parameters?.Any() == true
-                ? $"{meta.Name} {string.Join(" ", parameters.Values.Select(v => v.ToString("G")))}"
+                ? $"{meta.Name} {string.Join(" ", parameters.Values.Select(FormatParam))}"
                 : meta.Name;
 
             string pane = meta.DefaultPane ?? _stylingService.GetPane(indicatorCode);
@@ -230,8 +241,6 @@ namespace AccessibleTrader.Core.Services
                 if (currentRatios != null && currentRatios.ContainsKey(series.Config.Pane))
                     _store.Dispatch(new SetPaneHeightRatiosAction(currentRatios.Remove(series.Config.Pane)));
             }
-
-            PersistWorkspace();
 
             if (codeUp != "CANDLES" && codeUp != "PRICE" && codeUp != "VOLUME")
                 _eventBus.Publish(new IndicatorUpdatedEvent(series.Config.Id));
@@ -331,6 +340,24 @@ namespace AccessibleTrader.Core.Services
 
         private static bool IsCoreCode(string code) =>
             code.ToUpperInvariant() is "CANDLES" or "PRICE" or "VOLUME" or "HEATMAP";
+
+        /// <summary>
+        /// Format a parameter value for the factory tuple list. Numeric values use invariant
+        /// "G" formatting, strings pass through unchanged. Used by the modal-driven add path
+        /// since the introduction of string-typed parameters for cross-series indicators.
+        /// </summary>
+        private static string FormatParam(object? v) => v switch
+        {
+            null     => string.Empty,
+            string s => s,
+            double d => d.ToString("G", System.Globalization.CultureInfo.InvariantCulture),
+            float f  => f.ToString("G", System.Globalization.CultureInfo.InvariantCulture),
+            int i    => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            long l   => l.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            bool b   => b ? "true" : "false",
+            IConvertible c => c.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _        => v.ToString() ?? string.Empty
+        };
 
         public void PersistWorkspace()
         {

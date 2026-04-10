@@ -119,10 +119,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 : (state.PaneRanges.TryGetValue(series.Pane, out var pr) ? pr : state.ViewportRange);
 
             // REACTIVE PANNING: Position relative to viewport
-            double relativePos = state.ViewportLength > 1
-                ? (double)(state.CurrentDataIndex - state.ViewportStartIndex) / (state.ViewportLength - 1)
-                : 0.5;
-            float pan = (float)(relativePos * 2.0 - 1.0); // Map 0..1 to -1..1
+            float pan = (float)AudioConstants.CalculatePan(state.CurrentDataIndex - state.ViewportStartIndex, state.ViewportLength);
 
             // When Heikin-Ashi is active, transform the raw bar so that pitch/direction
             // reflect the HA close/open values (which match the visual candle colours).
@@ -296,7 +293,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
             _audioDriver.StopVoice(SLOT_NAV_START);
             _audioDriver.SetVoice(SLOT_NAV_START, freq, vol, 0f, wave, false, dur, binIndex,
-                click ? "Percussive" : "Sustain", click);
+                click ? "Ping" : "Sustain", click); // "Ping" is the short percussive envelope; AudioEngine doesn't recognize "Percussive"
         }
 
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
@@ -447,10 +444,7 @@ namespace AccessibleTrader.Core.Services.Audio
             });
 
             // Compute reactive pan matching SyncNavigationSlots — position relative to viewport.
-            double relativePos = state.ViewportLength > 1
-                ? (double)(dataIndex - state.ViewportStartIndex) / (state.ViewportLength - 1)
-                : 0.5;
-            float clusterPan = (float)(relativePos * 2.0 - 1.0);
+            float clusterPan = (float)AudioConstants.CalculatePan(dataIndex - state.ViewportStartIndex, state.ViewportLength);
 
             // Fire on slots 3–7 (up to 5 cluster ticks).
             int maxTicks = Math.Min(signals.Count, 5);

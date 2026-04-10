@@ -469,6 +469,7 @@
             string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
             WorkspaceLibrary.ImportVisualProfile(json, Store);
             _profileStatus = "Visual profile imported.";
+            StateHasChanged();
         }
         catch (Exception ex) { _profileStatus = $"Import failed: {ex.Message}"; }
     }
@@ -491,6 +492,7 @@
             string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
             WorkspaceLibrary.ImportAudioProfile(json, Store, SeriesManager);
             _profileStatus = "Audio profile imported.";
+            StateHasChanged();
         }
         catch (Exception ex) { _profileStatus = $"Import failed: {ex.Message}"; }
     }

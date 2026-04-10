@@ -6,8 +6,15 @@
     <Project Path="Plugins/AccessibleTrader.Plugins.Coinbase/AccessibleTrader.Plugins.Coinbase.csproj" />
     <Project Path="Plugins/AccessibleTrader.Plugins.Fred/AccessibleTrader.Plugins.Fred.csproj" />
     <Project Path="Plugins/AccessibleTrader.Plugins.Polygon/AccessibleTrader.Plugins.Polygon.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Kraken/AccessibleTrader.Plugins.Kraken.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.InteractiveBrokers/AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.TwelveData/AccessibleTrader.Plugins.TwelveData.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Tradier/AccessibleTrader.Plugins.Tradier.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Oanda/AccessibleTrader.Plugins.Oanda.csproj" />
+    <Project Path="Plugins/AccessibleTrader.Plugins.Finnhub/AccessibleTrader.Plugins.Finnhub.csproj" />
   </Folder>
   <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
   <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
   <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />
+  <Project Path="AccessibleTrader.StrategyLab/AccessibleTrader.StrategyLab.csproj" />
 </Solution>

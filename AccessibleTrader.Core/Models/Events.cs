@@ -81,6 +81,9 @@ namespace AccessibleTrader.Core.Models
     public record OpenCustomScriptsEvent();
     public record OpenSoundDesignerEvent();
     public record OpenAIAnalystEvent();
+    public record OpenSaveWorkspaceEvent();
+    public record OpenLoadWorkspaceEvent();
+    public record OpenJournalEvent();
     /// <summary>
     /// Fired by any modal when it opens (IsOpen=true) or closes (IsOpen=false).
     /// MainPage subscribes to hide/restore the native SkiaSharp canvas so modals
@@ -108,6 +111,69 @@ namespace AccessibleTrader.Core.Models
 
     // ── Strategy Events ───────────────────────────────────────────────────────
     public record StrategySignalEvent(string StrategyName, StrategySignal Signal, string InstanceId);
-    public record StrategyConfirmedEvent(string InstanceId);
-    public record StrategyDismissedEvent(string InstanceId);
+
+    // ── Composite Setup State Events ──────────────────────────────────────────
+    /// <summary>
+    /// Fired when a <c>ConfigurableStrategy</c> sees its full condition tree evaluate true
+    /// for the first time and the <c>ResolvedRiskPlan</c> clears the minimum reward/risk gate.
+    /// SetupSonifier rings <c>setup_long_bell</c> or <c>setup_short_bell</c> and speaks the rationale.
+    /// </summary>
+    public record SetupConfirmedEvent(
+        string StrategyName,
+        string InstanceId,
+        AccessibleTrader.Sdk.Plugins.OrderSide Side,
+        string Rationale,
+        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan);
+
+    /// <summary>
+    /// Fired on every subsequent bar where an already-active setup's conditions still hold.
+    /// SetupSonifier replays the setup bell at reduced volume and speaks a brief
+    /// "still confirmed" message — the user wanted ongoing audio confirmation per their
+    /// session A directive.
+    /// </summary>
+    public record SetupReconfirmedEvent(
+        string StrategyName,
+        string InstanceId,
+        AccessibleTrader.Sdk.Plugins.OrderSide Side,
+        int BarsSinceFirstConfirm);
+
+    /// <summary>
+    /// Fired when one or more leaves of an active setup flip from true to false. Carries the
+    /// human-readable labels of the dropped leaves so the user hears exactly which condition
+    /// failed (e.g. "Cipher A wave cross dropped off"). The setup itself may or may not still
+    /// be active depending on the tree's logic.
+    /// </summary>
+    public record SetupDroppedEvent(
+        string StrategyName,
+        string InstanceId,
+        IReadOnlyList<string> DroppedLeafLabels,
+        bool SetupStillActive);
+
+    /// <summary>
+    /// Fired by <c>ConfigurableStrategy</c> when a setup's conditions clear and the resolved
+    /// risk plan passes the R:R gate, but the entry trigger (e.g. OnPullbackToLevel) has not
+    /// yet fired. The strategy enters the "Armed" state and waits for the entry trigger
+    /// before emitting an actual order signal. SetupSonifier announces this with a lighter
+    /// "armed" earcon distinct from the main setup bell — the user knows the setup is real
+    /// but they aren't in a position yet.
+    /// </summary>
+    public record SetupArmedEvent(
+        string StrategyName,
+        string InstanceId,
+        AccessibleTrader.Sdk.Plugins.OrderSide Side,
+        string TriggerDescription,
+        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan);
+
+    /// <summary>
+    /// Fired the moment the entry trigger of an Armed setup actually fires (e.g. price
+    /// pulled back to the configured level). The order is placed on this bar; SetupSonifier
+    /// plays an "entry reached" earcon (slightly brighter than Armed but lighter than the
+    /// main setup bell) and announces the trigger price.
+    /// </summary>
+    public record SetupEntryReachedEvent(
+        string StrategyName,
+        string InstanceId,
+        AccessibleTrader.Sdk.Plugins.OrderSide Side,
+        double TriggerPrice,
+        int BarsArmed);
 }

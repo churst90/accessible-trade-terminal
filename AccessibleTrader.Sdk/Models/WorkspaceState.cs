@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.Sdk.Models
 {
@@ -42,7 +43,23 @@ namespace AccessibleTrader.Sdk.Models
         bool IsCoordinateEntryMode,
         DrawingType? PendingDrawingTool,
         int CoordinateEntryAnchorCount,
-        int CoordinateEntryAnchor1Index
+        int CoordinateEntryAnchor1Index,
+        // ── Primary series indirection ────────────────────────────────────────
+        // The series id that keyboard nav, speech, sonification, and rendering
+        // treat as "the main data" of this chart. Set by WorkspaceInitializer
+        // based on provider shape (OHLCV → candles; SingleValueLine → price).
+        // Decouples consumers from hardcoding CoreSeriesIds.Candles.
+        string PrimarySeriesId = "candles",
+        // ── Current provider data shape (per-tab) ────────────────────────────
+        // Mirrors the active provider's ProviderDataShape so the reconciler can
+        // detect shape changes (OHLCV ↔ SingleValueLine) and UI code can gate
+        // trading-specific controls. Default matches pre-refactor behavior.
+        ProviderDataShape CurrentDataShape = ProviderDataShape.Ohlcv,
+        // ── Human-readable label for the active symbol ───────────────────────
+        // Resolved via IMarketDataProvider.GetSymbolDisplayName at load time.
+        // Used to label the Price series on analytics tabs so speech/UI reads
+        // "Fear and Greed Index" instead of generic "Price".
+        string SymbolDisplayName = ""
     );
 
     public record WorkspaceState(
@@ -122,9 +139,39 @@ namespace AccessibleTrader.Sdk.Models
         /// Frozen snapshots of inactive tabs. The active tab's state lives directly
         /// in WorkspaceState fields; inactive tabs are stored here until re-activated.
         /// </summary>
-        ImmutableList<TabSnapshot> TabSnapshots = default!,
+        ImmutableList<TabSnapshot>? TabSnapshots = null,
         /// <summary>Zero-based index of the currently active tab.</summary>
-        int ActiveTabIndex = 0
+        int ActiveTabIndex = 0,
+        /// <summary>
+        /// True when this state is being passed through the offline backtester replay loop.
+        /// Strategies that publish setup/audio events to the live IEventBus check this flag
+        /// and skip publication during backtest — otherwise replaying 3,000+ bars floods
+        /// SetupSonifier with bell/speech events meant for live trading.
+        /// </summary>
+        bool IsBacktesting = false,
+        /// <summary>
+        /// The series id that keyboard nav, speech, sonification, and rendering treat
+        /// as "the main data" of this chart. Set by WorkspaceInitializer based on the
+        /// provider's data shape (OHLCV → candles; SingleValueLine → price). Consumers
+        /// should prefer this over hardcoding CoreSeriesIds.Candles.
+        /// </summary>
+        string PrimarySeriesId = "candles",
+        /// <summary>
+        /// Mirrors the active provider's declared <see cref="ProviderDataShape"/> on
+        /// the current tab. Used by the reconciler in <c>WorkspaceInitializer</c> to
+        /// detect shape changes (which cause stripping of all non-core series) and by
+        /// the UI layer to hide trading-only controls on analytics tabs. Defaults to
+        /// <see cref="ProviderDataShape.Ohlcv"/> for backwards compatibility.
+        /// </summary>
+        ProviderDataShape CurrentDataShape = ProviderDataShape.Ohlcv,
+        /// <summary>
+        /// Human-readable label for the currently-loaded symbol, resolved via
+        /// <see cref="IMarketDataProvider.GetSymbolDisplayName"/>. Flows into the
+        /// Price series FriendlyName + component DisplayName on analytics tabs so
+        /// the user hears "Fear and Greed Index, 47" instead of "Price, 47".
+        /// Empty string until the first load completes.
+        /// </summary>
+        string SymbolDisplayName = ""
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -165,7 +212,10 @@ namespace AccessibleTrader.Sdk.Models
             InitStatus: InitializationStatus.Booting,
             DataStatus: DataStatus.Idle,
             TabSnapshots: ImmutableList<TabSnapshot>.Empty,
-            ActiveTabIndex: 0
+            ActiveTabIndex: 0,
+            PrimarySeriesId: "candles",
+            CurrentDataShape: ProviderDataShape.Ohlcv,
+            SymbolDisplayName: ""
         );
 
         /// <summary>Number of open tabs (active tab + inactive snapshots).</summary>
@@ -186,6 +236,20 @@ namespace AccessibleTrader.Sdk.Models
     public record ToggleSpeechAction() : WorkspaceAction;
     public record ToggleSonificationAction() : WorkspaceAction;
     public record SelectSeriesAction(string SeriesId) : WorkspaceAction;
+    /// <summary>
+    /// Sets the workspace's <see cref="WorkspaceState.PrimarySeriesId"/> — the series id that
+    /// keyboard nav / speech / audio / render fallbacks treat as the chart's "main data".
+    /// Dispatched by <c>WorkspaceInitializer</c> based on the provider's data shape.
+    /// </summary>
+    public record SetPrimarySeriesIdAction(string SeriesId) : WorkspaceAction;
+    /// <summary>
+    /// Sets the per-tab <see cref="WorkspaceState.CurrentDataShape"/> and
+    /// <see cref="WorkspaceState.SymbolDisplayName"/> together. Dispatched by
+    /// <c>WorkspaceInitializer</c> after reconciling the core series stack so the
+    /// reducer sees the new shape/label atomically. Pairing them in one action avoids
+    /// the intermediate "shape updated but display name stale" state.
+    /// </summary>
+    public record SetProviderContextAction(ProviderDataShape DataShape, string SymbolDisplayName) : WorkspaceAction;
     public record SelectComponentAction(int ComponentIndex) : WorkspaceAction;
     public record SelectBinAction(int BinIndex) : WorkspaceAction;
     public record SetInteractionContextAction(InteractionContext Context) : WorkspaceAction;

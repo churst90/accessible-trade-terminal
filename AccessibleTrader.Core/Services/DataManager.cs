@@ -187,7 +187,7 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogError($"CatchUp failed for {Identity.Symbol}: {ex.Message}");
                 // Fall back to a full refresh so the tab is never left in a broken state.
-                try { await RefreshDataAsync(default); } catch { }
+                try { await RefreshDataAsync(default); } catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
             }
         }
 
@@ -234,6 +234,8 @@ namespace AccessibleTrader.Core.Services
                     if (uniqueOlder.Any())
                     {
                         _cache = _cache.PrependRange(uniqueOlder);
+                        while (_cache.Count > MaxBarsInCache)
+                            _cache = _cache.RemoveLast();
                         _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
                         _logger.LogInformation($"Prepended {uniqueOlder.Count} bars.");
                         NotifyDataUpdate(false);

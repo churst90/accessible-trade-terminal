@@ -17,4 +17,12 @@ public interface IAIAnalystService
     /// Throws <see cref="System.Exception"/> on network/provider failure.
     /// </summary>
     Task<string?> AnalyseAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Sends a free-form prompt to the configured <c>ILLMProvider</c> and returns its response.
+    /// Used by callers like the "Review my setups today" feature in <c>AIAnalystModal</c>, which
+    /// build their own structured prompt from journal entries + strategies.json before invoking
+    /// the analyst. Returns null if no LLM provider is configured.
+    /// </summary>
+    Task<string?> AskAsync(string prompt, CancellationToken ct = default);
 }

@@ -100,8 +100,12 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                     using var paint = _stylingService.GetPaint(comp, ctx.Density);
 
-                    if (s.Id == CoreSeriesIds.Candles && comp.Name == "Candle Body")
+                    if (s.Id == CoreSeriesIds.Candles && comp.Name == "body")
                     {
+                        // Candles body renders as real OHLCV candlesticks. Analytics
+                        // providers (single-value) no longer reach this branch: after the
+                        // Phase 4 refactor they seed the PRICE series instead of CANDLES,
+                        // so there's nothing degenerate to detect or re-route here.
                         StandardRenderers.RenderCandles(ctx, s, paint, candlePhaseData);
                     }
                     else
@@ -158,6 +162,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                                 // Handled by the pre-scan above: the phase array is passed to
                                 // RenderCandles which applies it to the main candle series.
                                 // No per-component rendering needed here.
+                                break;
+                            default:
+                                // Intentional no-op: unknown display types are silently skipped
+                                // for forward compatibility (e.g. new types added by plugins).
                                 break;
                         }
                     }

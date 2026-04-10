@@ -252,6 +252,88 @@ All modals focus the `h2` heading on open (`tabindex="-1"` on `h2`, `focusElemen
 
 ---
 
+## 12.5. Strategy Composer Pipeline (Phase 11, 2026-04-07)
+
+A user-buildable signal composer that combines indicator components from any registered indicator into a reward/risk-gated buy/sell strategy. Lives alongside the existing built-in / Roslyn / Composite strategy paths and uses the same `IStrategyEngine` for execution.
+
+### Pipeline diagram
+
+```
+   IIndicatorProvider.GetIndicators()
+              │
+              ▼
+        ISignalCatalog                      ─── Walks every provider at startup,
+              │                                  emits one SignalDescriptor per
+              │                                  IndicatorComponentMetadata.
+              │
+              ▼
+   StrategySpec (persisted to strategies.json)
+              │   ├── ConditionNode tree (ConditionLeaf / ConditionGroup, AND/OR/NOT)
+              │   ├── RiskPlan (StopSource / TpLadderRung[] / PositionSizing /
+              │   │              EntryTrigger / MinRewardRiskRatio / NotionalEquity)
+              │   └── Side / ExecutionMode
+              │
+              ▼
+   IConfigurableStrategyFactory.Create(spec)
+              │
+              ▼
+   ConfigurableStrategy.OnBar(newBar, history, state)
+              │
+              │   1. IConditionEvaluator.Evaluate(tree, history, state)
+              │      → ConditionEvaluation { OverallTrue, LeafResults, Score }
+              │      (no AND short-circuit — every leaf evaluated for dropout map)
+              │
+              │   2. Diff LeafResults vs _lastLeafResults
+              │      → publish SetupDroppedEvent for any flipped-off leaves
+              │
+              │   3. State machine
+              │      ├── inactive + true  → IRiskPlanResolver.Resolve
+              │      │                       → null = silent drop (R:R gate fail or Phase-4 stub)
+              │      │                       → emit StrategySignal,
+              │      │                          publish SetupConfirmedEvent
+              │      ├── active + true    → publish SetupReconfirmedEvent
+              │      └── active + false   → silent transition to inactive
+              │
+              ▼
+   IStrategyEngine                          ─── Existing 30s-dedup pipeline +
+              │                                  StrategySignalEvent publication.
+              │                                  Auto mode → IOrderExecutionService.
+              │
+              ├──→ JournalService           ─── Subscribes to StrategySignalEvent,
+              │                                  records full rationale (side, score,
+              │                                  stop, first target, R:R, notes).
+              │
+              └──→ SetupSonifier            ─── Subscribes to SetupConfirmed/
+                                                Reconfirmed/Dropped events.
+                                                Confirmed = full bell + speech.
+                                                Reconfirmed = quieter bell + heartbeat.
+                                                Dropped = speech only ("X dropped off").
+```
+
+### Audio surfaces
+
+- `IEarconService.PlaySetupBell(OrderSide side, bool reconfirmation)` — long = sine 440 + perfect-fifth 660 + octave 880; short = triangle 220 + sub-fifth 165 + low octave 110. Reconfirmation halves duration and drops to ~40% volume so confirming bars don't fatigue.
+- `setup_long_bell` / `setup_short_bell` patches in `SoundPatchRegistry` are the per-bar playback-pipeline equivalents (used by `AudioSequencer` when a strategy signal happens to land on a played bar). The earcon is the one-shot equivalent for live state-machine transitions.
+
+### Speech / Journal surfaces
+
+- `JournalService` (Ctrl+Alt+Shift+J) is the persistent ring-buffer review surface. Subscribes to `StrategySignalEvent`, `AlertFiredEvent`, `AppErrorEvent`. `BlazorSpeechManager.Speak()` mirrors every TTS phrase via lazy `IServiceProvider` resolution. JournalModal renders the buffer in a screen-reader-friendly monospace `<textarea readonly>` with category filter buttons and copy-visible.
+- A confirmed setup speaks like: *"Long setup, score 0.82. Stop 1.0795, first target 1.0930 (R:R 2.00). Stop below 20-bar swing extreme at 1.0795."* — every piece of information the trader needs to act and to review.
+
+### Why ConditionEvaluator doesn't AND short-circuit
+
+The per-leaf result map is what makes dropout detection possible. If AND short-circuited, a leaf later in the children list would never be re-evaluated when an earlier leaf is false, and `_lastLeafResults` would have stale data, breaking the "Cipher A wave cross dropped off" announcement. The cost is small (every leaf evaluated each bar) and the correctness gain is essential.
+
+### Why RiskPlanResolver returns null silently on failure
+
+A setup that fails the R:R gate or references a Phase-4 (S/R / volume profile) stop source isn't an error — it's a *bad setup* that the user shouldn't be alerted about. Silent drop means the bell never rings, the journal never gets an entry, the order is never placed. The correct user experience is "the strategy doesn't fire" rather than "the strategy keeps spamming errors." Phase-4 stop/target sources will fire normally once Session C wires the level providers.
+
+### Where Multi-Timeframe plugs in (Session B)
+
+`ConditionLeaf.Timeframe` is already on every leaf as an optional string. `ConditionEvaluator.EvaluateLeaf` currently falls through to active-TF data regardless of `Timeframe`. Session B replaces the active-series lookup with a `(timeframe == null ? activeSeries : multiTimeframeService.GetSeries(symbol, timeframe))` branch. The indicator engine's cache key gets a TF dimension. Session B is also where the adaptive backtester history fetch and R-multiple metrics ship.
+
+---
+
 ## 13. Improvement Plan Reference (2026-03-26 Session)
 
 The current codebase is operating under a 4-phase improvement plan approved 2026-03-26:

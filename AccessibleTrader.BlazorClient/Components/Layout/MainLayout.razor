@@ -3,10 +3,20 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.BlazorClient.Services
+@using AccessibleTrader.Core.Services.Strategies
 @inject IWorkspaceStore Store
 @inject ISpeechManager SpeechManager
 @inject GlobalInputService InputService
 @inject IJSRuntime JSRuntime
+@*
+    SetupSonifier is a singleton that subscribes to SetupConfirmed/Reconfirmed/Dropped
+    events on construction. Injecting it into MainLayout forces DI to construct it at
+    app start so the subscriptions are wired before any composite strategy can fire.
+    StrategyAutoLoader is also resolved here for the same reason — its LoadAll() runs
+    once on first render to re-instantiate every IsAutoActivate strategy from the library.
+*@
+@inject SetupSonifier _setupSonifier
+@inject StrategyAutoLoader _autoLoader
 
 <div class="app-container">
 
@@ -42,6 +52,9 @@
     <CustomScriptsModal />
     <SoundDesignerModal />
     <AIAnalystModal />
+    <SaveWorkspaceModal />
+    <LoadWorkspaceModal />
+    <JournalModal />
 
     @* ARIA LIVE DOUBLE BUFFER:
        Two assertive regions swap on each speech call so that identical strings are
@@ -103,6 +116,18 @@
                 // app should still render rather than throw.
                 Console.Error.WriteLine($"Keyboard bridge init failed: {ex.Message}");
             }
+
+            // Re-instantiate every saved strategy whose IsAutoActivate flag is true. Idempotent —
+            // calling LoadAll() a second time is a no-op. Wrapped in try/catch so a single bad
+            // spec can never block the app from finishing initial render.
+            try
+            {
+                _autoLoader.LoadAll();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"StrategyAutoLoader failed: {ex.Message}");
+            }
         }
     }
 
@@ -111,7 +136,7 @@
         var identity = Store.State.Identity;
         if (string.IsNullOrEmpty(identity.Symbol))
             return "Accessible Trade Terminal";
-        return $"{identity.Symbol} {identity.Timeframe} — {identity.Provider}";
+        return $"Accessible Trade Terminal: {identity.Symbol} {identity.Timeframe} on {identity.Provider}";
     }
 
     public void Dispose()

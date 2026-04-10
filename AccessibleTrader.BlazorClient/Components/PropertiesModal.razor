@@ -95,7 +95,8 @@
                             {
                                 <fieldset>
                                     <legend>Component: @comp.Name</legend>
-                                    @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle)
+                                    @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle
+                                        || comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar)
                                     {
                                         <div class="modal-row">
                                             <label>Bullish Color</label>

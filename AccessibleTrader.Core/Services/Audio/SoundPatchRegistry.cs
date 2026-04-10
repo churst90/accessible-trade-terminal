@@ -116,6 +116,37 @@ namespace AccessibleTrader.Core.Services.Audio
                 GradientWaveformA: null,
                 GradientWaveformB: null));
 
+            // Quality long setup — bright ascending chord (sine + perfect 5th above), long sustain.
+            // Used by composite strategies / signal composer to mark a high-quality long setup.
+            // Distinct from sine_bell (single tone) and dual_tone_bell (Triple Confluence golden chord)
+            // by its long 700ms decay and rising perfect-fifth interval (220 Hz above the fundamental
+            // when fundamental = 440 Hz, giving the major triad open quality of a "go" bell).
+            Register("setup_long_bell", new SoundPatch(
+                BaseWaveform: "sine",
+                HarmonicAmount: 0.30f,
+                HarmonicFreqMultiplier: 3.0f,   // octave + perfect fifth (12th) for shimmer
+                DefaultDecayMs: 700,
+                IsDetuned: true,
+                DetuneIntervalHz: 220f,         // perfect fifth above 440 Hz fundamental
+                DetunedOffsetMs: 0,             // simultaneous bright chord
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
+            // Quality short setup — heavy descending tone (triangle + minor 3rd below + low octave),
+            // long sustain. Used by composite strategies / signal composer to mark a high-quality
+            // short setup. Distinct from setup_long_bell by its triangle base, descending interval,
+            // and a -150 Hz second voice (sounds like a tolling low bell, signalling weight/risk).
+            Register("setup_short_bell", new SoundPatch(
+                BaseWaveform: "triangle",
+                HarmonicAmount: 0.35f,
+                HarmonicFreqMultiplier: 0.5f,   // octave below for low-bell weight
+                DefaultDecayMs: 700,
+                IsDetuned: true,
+                DetuneIntervalHz: -150f,        // descending minor-3rd-ish under fundamental
+                DetunedOffsetMs: 60,            // brief stagger gives a "two-toll" character
+                GradientWaveformA: null,
+                GradientWaveformB: null));
+
             // Gradient blend — timbre interpolates by value position (sine→bullish, sawtooth→bearish),
             // used for Cipher A momentum gradient dots.
             Register("gradient_blend", new SoundPatch(

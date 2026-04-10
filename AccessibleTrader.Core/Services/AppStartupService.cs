@@ -56,10 +56,20 @@ namespace AccessibleTrader.Core.Services
             _services.GetRequiredService<IHistoryBufferCoordinator>();
             _services.GetRequiredService<IAccessibilityFeedbackCoordinator>();
 
-            // 5. Initial Workspace State
-            _services.GetRequiredService<IWorkspaceInitializer>().InitializeDefaultSeries();
+            // 5. Workspace Initializer — resolve so it's available for chart load and
+            //    workspace restore, but do NOT seed default series on boot.
+            //    The app launches with a blank workspace; series are created when the
+            //    user loads a chart or restores a saved workspace.
+            _services.GetRequiredService<IWorkspaceInitializer>();
 
-            // 6. Announce any platform features that are stubbed on the current target.
+            // 6. Strategy Auto-Loader — activate any library specs marked IsAutoActivate.
+            //    Must run after data services are ready (steps 1-2) so strategies can
+            //    resolve their indicator references. Idempotent — safe if MainLayout also
+            //    calls LoadAll().
+            var autoLoader = _services.GetService<Strategies.StrategyAutoLoader>();
+            autoLoader?.LoadAll();
+
+            // 7. Announce any platform features that are stubbed on the current target.
             // This converts silent no-ops into audible warnings so users and testers can
             // identify missing capabilities without needing to read source code.
             WarnAboutUnimplementedPlatformFeatures();

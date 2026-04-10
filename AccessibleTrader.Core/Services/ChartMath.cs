@@ -74,15 +74,18 @@ namespace AccessibleTrader.Core.Services
             }
 
             // MAPPING: Fallback for primary price series where components are virtual.
-            // Maps candle parts (High, Low, etc.) to their logical names.
+            // Maps candle parts (High, Low, etc.) to their logical names. Accepts both
+            // the new snake_case machine names (body/upper_wick/lower_wick/line) and the
+            // legacy display-style names (Candle Body/Upper Wick/Lower Wick/Close) so
+            // saved workspaces predating the Phase 2 rename still resolve correctly.
             if (series.Id == "price" || series.Id == "candles")
             {
                 return component.Name switch
                 {
                     "Open" => point.Open,
-                    "High" or "Upper Wick" => point.High,
-                    "Low" or "Lower Wick" => point.Low,
-                    "Close" or "Candle Body" => point.Close,
+                    "High" or "upper_wick" or "Upper Wick" => point.High,
+                    "Low"  or "lower_wick" or "Lower Wick" => point.Low,
+                    "Close" or "body" or "line" or "Candle Body" => point.Close,
                     "Volume" => point.Volume,
                     _ => point.Close
                 };

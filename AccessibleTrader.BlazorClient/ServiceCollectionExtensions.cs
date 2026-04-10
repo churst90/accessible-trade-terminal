@@ -9,6 +9,7 @@ using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
+using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Persistence;
@@ -148,6 +149,18 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
             services.AddSingleton<IIndicatorProvider, CipherCProvider>();
             services.AddSingleton<IIndicatorProvider, CipherSProvider>();
+            services.AddSingleton<IIndicatorProvider, LoukasCyclesProvider>();
+            // Shared cross-series cache backing FundingRate / OpenInterest / FearGreed /
+            // CrowdingIndex. Single instance, holds all per-key caches and in-flight tasks
+            // so independent indicators that share a source don't double-fetch.
+            services.AddSingleton<ICrossSeriesCache, CrossSeriesCache>();
+            services.AddSingleton<IIndicatorProvider, FundingRateProvider>();
+            services.AddSingleton<IIndicatorProvider, OpenInterestProvider>();
+            services.AddSingleton<IIndicatorProvider, FearGreedProvider>();
+            services.AddSingleton<IIndicatorProvider, CrowdingIndexProvider>();
+            services.AddSingleton<IIndicatorProvider, PulseProvider>();
+            services.AddSingleton<IIndicatorProvider, RegimeProvider>();
+            services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
 
             // Runtime custom indicator registry — stores Roslyn/Pine compiled ICustomIndicator instances.
             services.AddSingleton<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
@@ -206,8 +219,44 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();
-            services.AddSingleton<IStrategyRegistry, BuiltInStrategyRegistry>();
             services.AddSingleton<IStrategyBacktester, StrategyBacktester>();
+
+            // Composite signal-composer pipeline (Session A foundation):
+            //   SignalCatalog walks every IIndicatorProvider at startup → flat SignalDescriptor list.
+            //   ConditionEvaluator + RiskPlanResolver compute setup state per bar.
+            //   ConfigurableStrategyFactory wires those into a ConfigurableStrategy from a StrategySpec.
+            //   StrategyLibrary persists user-built specs to strategies.json.
+            //   SetupSonifier renders SetupConfirmed/Reconfirmed/Dropped events to bell+speech.
+            services.AddSingleton<ISignalCatalog, SignalCatalog>();
+            services.AddSingleton<IConditionEvaluator, ConditionEvaluator>();
+            services.AddSingleton<IRiskPlanResolver, RiskPlanResolver>();
+            services.AddSingleton<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
+            services.AddSingleton<IStrategyLibrary, JsonStrategyLibrary>();
+            services.AddSingleton<SetupSonifier>();
+
+            // Session B additions:
+            services.AddSingleton<IMultiTimeframeDataService, MultiTimeframeDataService>();
+            services.AddSingleton<IBacktestWarmupAnalyzer, BacktestWarmupAnalyzer>();
+
+            // Session C — Level providers + aggregator. RiskPlanResolver and ConditionEvaluator
+            // optionally inject ILevelService to resolve Phase-4 stop/target sources (BelowSupport,
+            // BelowKijun, BelowKumo, NextResistance) and the new leaf operators (PriceRejectsLevel,
+            // PriceBreaksLevel). Each provider owns one level source — drop a new provider class
+            // into Core/Services/Strategies/Levels/ and add it here to extend the system.
+            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.DrawnHorizontalLevelProvider>();
+            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.SwingPivotLevelProvider>();
+            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.IchimokuLevelProvider>();
+            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.CipherSrLevelProvider>();
+            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.VolumeProfileLevelProvider>();
+            services.AddSingleton<ILevelService, LevelService>();
+
+            // Backtest profile cache: lets the backtester replay VPVR/TPO bins per bar so
+            // VolumeProfileLevelProvider doesn't future-leak the workspace's final profile state.
+            services.AddSingleton<IBacktestProfileCache, BacktestProfileCache>();
+
+            // Strategy auto-loader: walks IStrategyLibrary at app startup and registers every
+            // spec marked IsAutoActivate with the engine. Eagerly resolved via MainLayout.
+            services.AddSingleton<StrategyAutoLoader>();
             services.AddSingleton<ScriptingService>();
             services.AddSingleton<IRoslynScriptingService, RoslynScriptingService>();
 
@@ -288,6 +337,11 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<INotificationHub, NotificationHub>();
             services.AddSingleton<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
             services.AddSingleton<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
+
+            // Journal — captures every TTS phrase, alert, strategy signal, and error
+            // for review in the JournalModal (Ctrl+J). Singleton so it can be queried
+            // by the modal at any time.
+            services.AddSingleton<IJournalService, JournalService>();
 
             return services;
         }

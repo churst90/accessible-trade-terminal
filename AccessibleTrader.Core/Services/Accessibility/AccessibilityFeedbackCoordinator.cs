@@ -244,6 +244,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!state.IsSpeechEnabled || !state.AnnounceNewBars) return;
             if (state.IsPlaying) return;
 
+            // Per-user feedback (2026-04-09): intra-bar pattern updates were firing in
+            // real time regardless of auto-narration state, which breaks the convention
+            // that continuous verbal output requires the user to have explicitly
+            // enabled narration. The finalized-bar announcement (OnNewBar) stays gated
+            // only on AnnounceNewBars — that's a single event-at-close notification,
+            // not continuous narration. Intra-bar "still forming" updates, however,
+            // are continuous and must respect the Candles series' IsAutoNarrated flag.
+            var candles = state.ActiveSeries.FirstOrDefault(s => s.Id == state.PrimarySeriesId)
+                       ?? state.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles);
+            if (candles == null || !candles.IsAutoNarrated) return;
+
             // Debounce: don't announce more often than PatternDebounce.
             if (DateTime.UtcNow - _lastPatternAnnouncement < PatternDebounce) return;
 

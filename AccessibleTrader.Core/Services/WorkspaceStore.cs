@@ -232,7 +232,13 @@ namespace AccessibleTrader.Core.Services
                 ToggleSonificationAction => state with { IsSonificationEnabled = !state.IsSonificationEnabled },
 
                 // ── SERIES FOCUS ────────────────────────────────────────────────
-                SelectSeriesAction a => state with { FocusedSeriesId = a.SeriesId, FocusedComponentIndex = 0 },
+                // Selecting a series sets focus to its "primary" component. For most
+                // indicators that's component 0, but for series with a Body-role
+                // component (Candles) we land on the body so wick-wick-body navigation
+                // starts where the user's attention belongs. See GetDefaultComponentIndex.
+                SelectSeriesAction a => state with { FocusedSeriesId = a.SeriesId, FocusedComponentIndex = GetDefaultComponentIndex(state, a.SeriesId) },
+                SetPrimarySeriesIdAction a => state with { PrimarySeriesId = a.SeriesId },
+                SetProviderContextAction a => state with { CurrentDataShape = a.DataShape, SymbolDisplayName = a.SymbolDisplayName },
                 SelectComponentAction a => state with { FocusedComponentIndex = a.ComponentIndex },
                 SelectBinAction a => state with { FocusedBinIndex = a.BinIndex },
 
@@ -326,6 +332,25 @@ namespace AccessibleTrader.Core.Services
 
                 _ => state
             };
+        }
+
+        /// <summary>
+        /// Resolves the default focused component index when a user or code path selects a
+        /// series. For an indicator with a Body-role component (e.g. Candles), the body is
+        /// the natural landing spot — the wicks flanking it are secondary. For everything
+        /// else we land on index 0. Called by the SelectSeriesAction reducer case.
+        /// </summary>
+        private static int GetDefaultComponentIndex(WorkspaceState state, string seriesId)
+        {
+            var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
+            if (s == null || s.Components.Count == 0) return 0;
+
+            for (int i = 0; i < s.Components.Count; i++)
+            {
+                if (s.Components[i].Role == ComponentRole.Body)
+                    return i;
+            }
+            return 0;
         }
 
         private static string? GetEffectiveComponentName(WorkspaceState state, string? actionSeriesId, string? actionCompName)
@@ -611,7 +636,10 @@ namespace AccessibleTrader.Core.Services
             IsCoordinateEntryMode: false, // Always reset CE mode on tab switch
             PendingDrawingTool: null,
             CoordinateEntryAnchorCount: 0,
-            CoordinateEntryAnchor1Index: -1
+            CoordinateEntryAnchor1Index: -1,
+            PrimarySeriesId: s.PrimarySeriesId,
+            CurrentDataShape: s.CurrentDataShape,
+            SymbolDisplayName: s.SymbolDisplayName
         );
 
         /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.</summary>
@@ -640,7 +668,10 @@ namespace AccessibleTrader.Core.Services
             IsCoordinateEntryMode = false,
             PendingDrawingTool = null,
             CoordinateEntryAnchorCount = 0,
-            CoordinateEntryAnchor1Index = -1
+            CoordinateEntryAnchor1Index = -1,
+            PrimarySeriesId = snap.PrimarySeriesId,
+            CurrentDataShape = snap.CurrentDataShape,
+            SymbolDisplayName = snap.SymbolDisplayName
         };
 
         private static string GetTabLabel(ChartIdentity identity) =>
@@ -683,7 +714,10 @@ namespace AccessibleTrader.Core.Services
                 IsCoordinateEntryMode: false,
                 PendingDrawingTool: null,
                 CoordinateEntryAnchorCount: 0,
-                CoordinateEntryAnchor1Index: -1
+                CoordinateEntryAnchor1Index: -1,
+                PrimarySeriesId: "candles",
+                CurrentDataShape: Sdk.Plugins.ProviderDataShape.Ohlcv,
+                SymbolDisplayName: ""
             )) with
             {
                 TabSnapshots = newSnapshots,

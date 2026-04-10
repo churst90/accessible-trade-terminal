@@ -68,7 +68,7 @@ namespace AccessibleTrader.Core.Services.Audio
             {
                 // Series scope: all components of the focused series play simultaneously.
                 // Component scope: only the focused component of the focused series plays.
-                string seriesId = state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+                string seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
                 var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId)
                           ?? state.ActiveSeries.FirstOrDefault();
                 if (series == null) return;

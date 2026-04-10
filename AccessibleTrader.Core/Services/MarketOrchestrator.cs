@@ -38,6 +38,24 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>Load chart data for the currently selected symbol/timeframe/provider.</summary>
         Task LoadChartAsync();
+
+        /// <summary>
+        /// Peeks at the currently-selected provider's declared <see cref="Sdk.Plugins.ProviderDataShape"/>
+        /// without triggering a data fetch. Used by the toolbar to pre-flight whether
+        /// clicking Load Chart would cause a shape-change strip, so the user can be
+        /// warned and offered the "Open in New Tab" alternative before losing work.
+        /// Returns <see cref="Sdk.Plugins.ProviderDataShape.Ohlcv"/> if the provider lookup fails.
+        /// </summary>
+        Task<Sdk.Plugins.ProviderDataShape> GetSelectedProviderDataShapeAsync();
+
+        /// <summary>
+        /// Opens a new tab, sets the currently-selected market/provider/symbol/timeframe
+        /// on it, and loads the chart — without touching the previously active tab. This
+        /// is the "Open in New Tab" path from the shape-change warning dialog: the user
+        /// can preview an analytics metric without losing their trading tab's indicators
+        /// or drawings. Preserves all toolbar selections before returning.
+        /// </summary>
+        Task LoadChartInNewTabAsync();
     }
 
     public class MarketOrchestrator : IMarketOrchestrator, IDisposable
@@ -163,7 +181,7 @@ namespace AccessibleTrader.Core.Services
                             // only the bars that arrived while the tab was inactive.
                             await _dataManager.CatchUpFromSnapshotAsync(capturedSnapshotData, cts.Token);
                         }
-                        catch { /* Non-fatal: tab switch failure is silent */ }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Tab catch-up failed: {ex.Message}"); }
                     });
                 }
             });
@@ -192,14 +210,21 @@ namespace AccessibleTrader.Core.Services
                 var allMarkets = await _dataService.LoadAvailableMarketsAsync();
                 var mode = _store.State.Mode;
 
+                // Analytics mode hosts every non-tradeable data category. New
+                // categories (Derivatives = funding/OI, Sentiment = fear-greed, etc.)
+                // join Economic + OnChain here so the Analytics radio button surfaces
+                // the full data-source taxonomy in the market dropdown.
+                bool IsAnalyticsCategory(string m) =>
+                    m == "Economic" || m == "OnChain" || m == "Derivatives" || m == "Sentiment";
+
                 _availableMarkets = mode == TerminalMode.Analytics
-                    ? allMarkets.Where(m => m == "Economic" || m == "OnChain").ToList()
-                    : allMarkets.Where(m => m != "Economic" && m != "OnChain").ToList();
+                    ? allMarkets.Where(IsAnalyticsCategory).ToList()
+                    : allMarkets.Where(m => !IsAnalyticsCategory(m)).ToList();
 
                 // Fallback: ensure at least a minimal market list is present.
                 if (_availableMarkets.Count == 0)
                     _availableMarkets.AddRange(mode == TerminalMode.Analytics
-                        ? new[] { "Economic" }
+                        ? new[] { "Economic", "OnChain", "Derivatives", "Sentiment" }
                         : new[] { "Crypto", "Forex", "Stock" });
 
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
@@ -238,8 +263,16 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase");
                     break;
                 case "Economic":
-                case "OnChain":
                     EnsureContains(_availableProviders, "Fred");
+                    break;
+                case "OnChain":
+                    EnsureContains(_availableProviders, "Glassnode", "CoinGecko");
+                    break;
+                case "Derivatives":
+                    EnsureContains(_availableProviders, "OkxDerivatives", "BinanceDerivatives");
+                    break;
+                case "Sentiment":
+                    EnsureContains(_availableProviders, "AlternativeMe");
                     break;
                 case "Stock":
                 case "Forex":
@@ -332,9 +365,25 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(_selectedSymbol))
                 throw new InvalidOperationException("No symbol selected.");
 
-            // On a fresh tab (no series yet), seed the default series (Candles / Volume / Price)
-            // before loading data. WorkspaceInitializer's guard makes this a no-op on existing tabs.
-            _workspaceInitializer.InitializeDefaultSeries();
+            // Resolve the selected provider so we can pass its declared data shape AND
+            // its symbol display name to the reconciler. Shape drives which core series
+            // get seeded (Candles+Volume+Price vs Price-only); the display name labels
+            // the Price series on analytics tabs so speech reads "Fear and Greed Index"
+            // instead of "Price". Falls back to OHLCV / raw symbol if the provider
+            // lookup fails (e.g. plugin DLL missing); a stale lookup never crashes the
+            // load path.
+            var providerForShape = await _dataService.GetProviderAsync(_selectedProvider);
+            var dataShape = providerForShape?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+            var symbolDisplayName = providerForShape?.GetSymbolDisplayName(_selectedSymbol) ?? _selectedSymbol;
+            // Q3: per-symbol render hints for analytics metrics (range/zones/display/speech).
+            // Null = provider declared no hints → Price series renders as plain line. See
+            // SymbolRenderHints for the full field documentation.
+            var renderHints = providerForShape?.GetSymbolRenderHints(_selectedSymbol);
+
+            // Reconcile the core series stack against the new shape, relabel the Price
+            // series on analytics tabs, and apply any render hints. See WorkspaceInitializer
+            // for the full shape-change / same-shape / first-load matrix.
+            _workspaceInitializer.InitializeDefaultSeries(dataShape, symbolDisplayName, renderHints);
 
             _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
             _stateMachine.Fire(MarketTrigger.ConnectionStarted);
@@ -365,6 +414,50 @@ namespace AccessibleTrader.Core.Services
                 _stateMachine.Fire(MarketTrigger.ErrorOccurred);
                 throw;
             }
+        }
+
+        public async Task<Sdk.Plugins.ProviderDataShape> GetSelectedProviderDataShapeAsync()
+        {
+            if (string.IsNullOrEmpty(_selectedProvider)) return Sdk.Plugins.ProviderDataShape.Ohlcv;
+            try
+            {
+                var provider = await _dataService.GetProviderAsync(_selectedProvider);
+                return provider?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+            }
+            catch
+            {
+                return Sdk.Plugins.ProviderDataShape.Ohlcv;
+            }
+        }
+
+        public async Task LoadChartInNewTabAsync()
+        {
+            // Capture the currently-selected market/provider/symbol/timeframe before we
+            // add the new tab. AddTabAction is synchronous but the snapshot/restore dance
+            // happens inside the reducer and may race with MarketOrchestrator's own state
+            // if we're not careful. Capturing first keeps all selections stable.
+            var targetMarket    = _selectedMarket;
+            var targetSubType   = _selectedSubType;
+            var targetProvider  = _selectedProvider;
+            var targetSymbol    = _selectedSymbol;
+            var targetTimeframe = _selectedTimeframe;
+
+            // AddTabAction creates a blank tab and makes it active. The previous tab's
+            // state is saved into a TabSnapshot and will be restored if the user switches
+            // back — so the trading tab's indicators and drawings are never lost.
+            _store.Dispatch(new AddTabAction());
+
+            // The new tab starts empty; re-apply the toolbar selections (the orchestrator's
+            // fields are global, not per-tab, so they already match what the user picked).
+            _selectedMarket    = targetMarket;
+            _selectedSubType   = targetSubType;
+            _selectedProvider  = targetProvider;
+            _selectedSymbol    = targetSymbol;
+            _selectedTimeframe = targetTimeframe;
+
+            // Normal load — InitializeDefaultSeries will seed the correct core stack for
+            // the new tab based on the target provider's shape.
+            await LoadChartAsync();
         }
 
         public void Dispose()

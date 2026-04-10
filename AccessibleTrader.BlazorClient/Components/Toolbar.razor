@@ -2,10 +2,17 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Plugins
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IMarketOrchestrator MarketOrchestrator
 @implements IDisposable
+
+@* ── Per-tab "mode" helper: true when the current tab is showing an OHLCV
+    trading provider (candles/volume/price). On analytics tabs (SingleValueLine),
+    trading-only controls — Strategies, Drawings, Heatmap, Heikin Ashi, Log Scale
+    — are hidden because they don't apply to scalar metrics. The check reads
+    state.CurrentDataShape, which is set by WorkspaceInitializer on every load. *@
 
 @* Main toolbar. All controls are flat Tab stops — no role="radiogroup" or nested
    focus traps — so screen readers in both browse mode and application mode can
@@ -47,21 +54,28 @@
                 @onclick="() => EventBus.Publish(new OpenOrderBookEvent())">
             Order Book
         </button>
-        <button title="Open strategies (Alt+S)"
-                aria-label="Strategies"
-                @onclick="() => EventBus.Publish(new OpenStrategiesEvent())">
-            Strategies
-        </button>
+        @* Strategies and Drawings are trading-only — hidden on analytics tabs. *@
+        @if (IsTradingTab)
+        {
+            <button title="Open strategies (Alt+S)"
+                    aria-label="Strategies"
+                    @onclick="() => EventBus.Publish(new OpenStrategiesEvent())">
+                Strategies
+            </button>
+        }
         <button title="Sound Designer — customise audio patches and earcons (Alt+W)"
                 aria-label="Sound Designer"
                 @onclick="() => EventBus.Publish(new OpenSoundDesignerEvent())">
             Sound Designer
         </button>
-        <button title="Open drawing tools (Alt+D)"
-                aria-label="Drawing Tools"
-                @onclick="() => EventBus.Publish(new OpenDrawingToolsEvent())">
-            Drawings
-        </button>
+        @if (IsTradingTab)
+        {
+            <button title="Open drawing tools (Alt+D)"
+                    aria-label="Drawing Tools"
+                    @onclick="() => EventBus.Publish(new OpenDrawingToolsEvent())">
+                Drawings
+            </button>
+        }
         <button title="Manage API keys for data and trading providers (Alt+K)"
                 aria-label="API Keys"
                 @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">
@@ -72,6 +86,21 @@
                 @onclick="() => EventBus.Publish(new OpenAlertsEvent())">
             Alerts
         </button>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+
+        <button title="Save current workspace layout (Ctrl+Alt+Shift+W)"
+                aria-label="Save Workspace"
+                @onclick="() => EventBus.Publish(new OpenSaveWorkspaceEvent())">
+            Save Workspace
+        </button>
+        <button title="Load a saved workspace layout (Ctrl+Alt+W)"
+                aria-label="Load Workspace"
+                @onclick="() => EventBus.Publish(new OpenLoadWorkspaceEvent())">
+            Load Workspace
+        </button>
+
+        <div class="toolbar-separator" aria-hidden="true"></div>
+
         <button title="Open settings (F12)"
                 aria-label="Settings"
                 @onclick="() => EventBus.Publish(new OpenSettingsEvent())">
@@ -189,26 +218,64 @@
 
         <div class="toolbar-separator" aria-hidden="true"></div>
 
-        @* ── Visual Toggles ──────────────────────────────────────────────── *@
-        <button aria-pressed="@IsHeatmapVisible"
-                title="Toggle Liquidity Heatmap (Alt+H)"
-                @onclick="AddHeatmap">
-            Heatmap
-        </button>
-        <button aria-pressed="@(Store.State.IsHeikinAshi ? "true" : "false")"
-                title="Toggle Heikin Ashi candles"
-                @onclick="() => Store.Dispatch(new ToggleHeikinAshiAction())">
-            Heikin Ashi
-        </button>
-        <button aria-pressed="@(Store.State.IsLogScale ? "true" : "false")"
-                title="Toggle logarithmic price scale"
-                @onclick="() => Store.Dispatch(new ToggleLogScaleAction())">
-            Log Scale
-        </button>
+        @* ── Visual Toggles (trading-only) ───────────────────────────────── *@
+        @if (IsTradingTab)
+        {
+            <button aria-pressed="@IsHeatmapVisible"
+                    title="Toggle Liquidity Heatmap (Alt+H)"
+                    @onclick="AddHeatmap">
+                Heatmap
+            </button>
+            <button aria-pressed="@(Store.State.IsHeikinAshi ? "true" : "false")"
+                    title="Toggle Heikin Ashi candles"
+                    @onclick="() => Store.Dispatch(new ToggleHeikinAshiAction())">
+                Heikin Ashi
+            </button>
+            <button aria-pressed="@(Store.State.IsLogScale ? "true" : "false")"
+                    title="Toggle logarithmic price scale"
+                    @onclick="() => Store.Dispatch(new ToggleLogScaleAction())">
+                Log Scale
+            </button>
+        }
 
     </div>
 
 </nav>
+
+@* ── Shape-change confirmation dialog ─────────────────────────────────────
+    Shown when the user clicks Load and the new provider's shape differs from
+    the current tab's shape AND the current tab has non-core content (indicators
+    or drawings) that would be stripped. Gives three options: Continue (destructive
+    — strip everything non-core and load), Open in New Tab (preserves the current
+    tab and loads into a fresh one), or Cancel. Inline rather than a separate
+    modal component to keep the change surgical. *@
+@if (_showSwitchWarning)
+{
+    <div role="alertdialog" aria-labelledby="switchWarnTitle" aria-describedby="switchWarnBody"
+         style="position:fixed; top:30%; left:50%; transform:translateX(-50%);
+                background:#222; color:#eee; padding:16px 20px; border:2px solid #ff8c00;
+                border-radius:6px; z-index:9999; max-width:480px; box-shadow:0 4px 20px rgba(0,0,0,0.6);">
+        <h3 id="switchWarnTitle" style="margin-top:0; color:#ff8c00;">Switching to analytics</h3>
+        <p id="switchWarnBody" style="margin:8px 0;">
+            This provider returns scalar metric data, not OHLCV. Loading it on the current
+            tab will remove @_stripCount indicator(s) and drawing(s). Trading-mode tools
+            don't apply to analytics metrics.
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+            <button class="primary" @onclick="ConfirmSwitchDestructive"
+                    title="Strip indicators and drawings, then load">
+                Continue (strip &amp; load)
+            </button>
+            <button @onclick="ConfirmSwitchNewTab"
+                    title="Open the analytics view in a new tab so the current tab is preserved">
+                Open in New Tab
+            </button>
+            <button @onclick="CancelSwitch" title="Don't load — keep current tab as is">
+                Cancel
+            </button>
+        </div>
+    </div>
+}
 
 @code {
     private IDisposable? _pipelineSub;
@@ -348,9 +415,67 @@
         EventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
     }
 
+    // ── Shape-change confirmation state ────────────────────────────────
+    private bool _showSwitchWarning;
+    private int  _stripCount;
+
+    /// <summary>
+    /// True when the current tab is a trading/OHLCV view. Used to gate trading-only
+    /// toolbar controls (Strategies, Drawings, Heatmap, Heikin Ashi, Log Scale) —
+    /// none of which make sense when the user is looking at a scalar analytics metric.
+    /// </summary>
+    private bool IsTradingTab => Store.State.CurrentDataShape == ProviderDataShape.Ohlcv;
+
+    /// <summary>
+    /// Counts non-core series on the current tab — user-added indicators and drawings
+    /// that would be stripped by a shape-change reconcile. Core stack (Candles, Volume,
+    /// Price, Heatmap, VPVR, TPO) is excluded because that's either reconciled separately
+    /// or isn't in scope for the warning.
+    /// </summary>
+    private int CountNonCoreSeries()
+    {
+        var core = new HashSet<string> {
+            CoreSeriesIds.Candles, CoreSeriesIds.Volume, CoreSeriesIds.Price,
+            CoreSeriesIds.Heatmap, CoreSeriesIds.VolumeProfile, CoreSeriesIds.MarketProfile
+        };
+        return Store.State.ActiveSeries.Count(s => !core.Contains(s.Id));
+    }
+
     private async Task LoadChart()
     {
         _loadError = null;
+
+        // Pre-flight: is this a shape-change load that would strip user content?
+        // Only prompt when the new provider is SingleValueLine (analytics) AND the
+        // current tab is OHLCV AND the tab has at least one non-core series. Going
+        // the other direction (analytics → trading) is less destructive because an
+        // analytics tab typically has nothing but the Price series.
+        try
+        {
+            var newShape = await MarketOrchestrator.GetSelectedProviderDataShapeAsync();
+            bool shapeChange = newShape != Store.State.CurrentDataShape;
+            int nonCoreCount = CountNonCoreSeries();
+
+            if (shapeChange && newShape == ProviderDataShape.SingleValueLine && nonCoreCount > 0)
+            {
+                // Show the warning; the user picks Continue / New Tab / Cancel below.
+                _stripCount = nonCoreCount;
+                _showSwitchWarning = true;
+                StateHasChanged();
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Pre-flight failure is non-fatal — fall through to a normal load.
+            Console.Error.WriteLine($"LoadChart preflight failed: {ex.Message}");
+        }
+
+        await DoLoadChartAsync();
+    }
+
+    private async Task DoLoadChartAsync()
+    {
         try
         {
             await MarketOrchestrator.LoadChartAsync();
@@ -360,6 +485,32 @@
             _loadError = "Chart load failed. Check provider settings.";
             Console.Error.WriteLine($"LoadChart failed: {ex.Message}");
         }
+    }
+
+    private async Task ConfirmSwitchDestructive()
+    {
+        _showSwitchWarning = false;
+        await DoLoadChartAsync();
+    }
+
+    private async Task ConfirmSwitchNewTab()
+    {
+        _showSwitchWarning = false;
+        try
+        {
+            await MarketOrchestrator.LoadChartInNewTabAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Failed to open in new tab.";
+            Console.Error.WriteLine($"LoadChartInNewTabAsync failed: {ex.Message}");
+        }
+    }
+
+    private void CancelSwitch()
+    {
+        _showSwitchWarning = false;
+        StateHasChanged();
     }
 
     public void Dispose() {

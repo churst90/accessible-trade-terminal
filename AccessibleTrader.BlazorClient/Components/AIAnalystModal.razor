@@ -1,8 +1,13 @@
 @using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Strategies
 @using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Sdk.Strategies
 @inherits ModalBase
 @inject IAIAnalystService AIAnalyst
 @inject ISpeechManager SpeechManager
+@inject IJournalService Journal
+@inject IStrategyLibrary StrategyLibrary
 
 @if (_isVisible)
 {
@@ -40,6 +45,13 @@
                 @if (!_isAnalysing && !string.IsNullOrEmpty(_analysisText))
                 {
                     <button @onclick="RunAnalysis">Re-analyse</button>
+                }
+                @if (!_isAnalysing)
+                {
+                    <button @onclick="ReviewSetupsAsync"
+                            aria-label="Review the strategy setups that fired today by reading the journal and asking the AI">
+                        Review setups today
+                    </button>
                 }
                 <button @onclick="Close" aria-label="Close AI Analyst dialog">Close</button>
             </div>
@@ -93,6 +105,97 @@
         {
             _errorMessage = $"Analysis failed: {ex.Message}";
             SpeechManager.Speak("AI analysis failed. " + ex.Message, interrupt: true);
+        }
+        finally
+        {
+            _isAnalysing = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// "Review my setups today" — builds a structured prompt from today's journal entries
+    /// (strategy signals, setup confirmations / reconfirmations / dropouts) and the relevant
+    /// strategy specs from the library, then asks the LLM to identify what worked, what failed,
+    /// and any patterns. Result is displayed in the modal AND added to the journal as an Info
+    /// entry so the user can review it later via Ctrl+Alt+Shift+J.
+    /// </summary>
+    private async Task ReviewSetupsAsync()
+    {
+        _analysisText = "";
+        _errorMessage = "";
+        _isAnalysing = true;
+        StateHasChanged();
+
+        try
+        {
+            // 1. Filter the journal to today's strategy-related entries.
+            var today = DateTime.Now.Date;
+            var entries = Journal.Snapshot()
+                .Where(e => e.Timestamp.Date == today
+                            && (e.Kind == JournalEntryKind.StrategySignal
+                             || e.Kind == JournalEntryKind.Alert))
+                .ToList();
+
+            if (entries.Count == 0)
+            {
+                _errorMessage = "No strategy setups have fired today yet — nothing to review.";
+                SpeechManager.Speak("No setups today.", interrupt: true);
+                return;
+            }
+
+            // 2. Collect the unique source strategy names referenced by today's entries, then
+            // pull the matching specs from the library so the LLM can see what conditions and
+            // risk plans drove each fired setup.
+            var sourceNames = entries.Select(e => e.Source).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var specs = StrategyLibrary.All
+                .Where(s => sourceNames.Contains(s.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
+            // 3. Build the prompt body. Keep it structured so the LLM can scan it.
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Review {entries.Count} strategy events from today ({today:yyyy-MM-dd}):");
+            sb.AppendLine();
+            sb.AppendLine("=== Strategy Specs Active Today ===");
+            foreach (var spec in specs)
+            {
+                sb.AppendLine($"- {spec.Name} ({spec.Side}): {spec.Description}");
+                sb.AppendLine($"  Min R:R = {spec.Risk.MinRewardRiskRatio:F1}, Stop = {spec.Risk.Stop.Kind}, " +
+                              $"Sizing = {spec.Risk.Sizing.Mode} ({spec.Risk.Sizing.RiskPercent:P1})");
+            }
+            sb.AppendLine();
+            sb.AppendLine("=== Today's Journal ===");
+            foreach (var e in entries)
+            {
+                sb.AppendLine($"[{e.Timestamp:HH:mm}] {e.Kind} {e.Source}: {e.Text}");
+            }
+            sb.AppendLine();
+            sb.AppendLine("Please review and respond.");
+
+            // 4. Send to the analyst.
+            var result = await AIAnalyst.AskAsync(sb.ToString());
+            if (result == null)
+            {
+                _errorMessage = "No AI API key is configured. Add a Claude, OpenAI, or Ollama key in Settings → API Keys.";
+                SpeechManager.Speak("No AI key configured.", interrupt: true);
+                return;
+            }
+
+            _analysisText = result;
+            SpeechManager.Speak(result, interrupt: true);
+
+            // Mirror the review into the journal so the user can re-read it later.
+            Journal.Add(new JournalEntry(
+                Timestamp: DateTime.Now,
+                Kind: JournalEntryKind.Info,
+                Source: "AI Analyst",
+                Symbol: null,
+                Text: "Setup review: " + result));
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Review failed: {ex.Message}";
+            SpeechManager.Speak("Review failed.", interrupt: true);
         }
         finally
         {

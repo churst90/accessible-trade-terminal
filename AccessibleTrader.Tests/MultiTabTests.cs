@@ -226,7 +226,7 @@ namespace AccessibleTrader.Tests
                     new TabSnapshot(1, ChartIdentity.Empty,
                         TimeSeriesBuffer<Ohlcv>.Empty,
                         ImmutableList<ChartSeries>.Empty,
-                        0, null, 0, -1, -1, 0, 100, (0, 0),
+                        0, null, 0, -1, -1, 0, 100, 20, (0, 0),
                         ImmutableDictionary<string, (double, double)>.Empty,
                         false, false, InteractionContext.Series, null, 0,
                         InitializationStatus.Booting, DataStatus.Idle,

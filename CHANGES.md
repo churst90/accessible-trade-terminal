@@ -4,6 +4,730 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-09] — Candles/Volume/Price refactor + analytics tab overhaul
+
+A multi-session refactor that turns the hardcoded "always seed Candles+Volume+Price" data stack into a provider-shape-driven reconciler. Analytics providers (FRED, CoinGecko, AlternativeMe, Glassnode, OkxDerivatives, BinanceDerivatives) now render as proper bounded oscillators with reference zones and OB/OS sonification instead of degenerate "doji candles" stubs. The refactor also fixed a latent C# default-interface-method bug that had been silently overriding every analytics provider's `DataShape` declaration to `Ohlcv`.
+
+### Phase 0–1: PrimarySeriesId indirection
+
+`WorkspaceState.PrimarySeriesId` (new field) replaces the hardcoded `CoreSeriesIds.Candles` fallback in 6 consumers (`ChartCommandManager`, `BarDetailService`, `PlaybackOrchestrator`, `NavigationFeedbackManager`, `IndicatorCrossingEngine`, `NavigationEngine`). Pure refactor — zero behavior change. Plumbed through `TabSnapshot` so per-tab primary survives tab switches.
+
+### Phase 2–3: Candles/Volume/Price as first-class indicators
+
+`CoreIndicatorProvider.cs` rewrites the CANDLES metadata with snake_case machine names (`upper_wick`, `body`, `lower_wick`) and human-readable `DisplayName` fields. Component order is upper → body → lower (matches visual layout). Default focus lands on body via a new `WorkspaceStore.GetDefaultComponentIndex` reducer helper that scans for `Role=Body`. The Price component is renamed `line` (DisplayName `"Price"`).
+
+10 lookup sites updated for the rename (WorkspaceFactory, ChartMath, DataLayer, SeriesManagementService) with legacy name fallbacks for saved-workspace compatibility.
+
+`AccessibilityFeedbackCoordinator.OnIntraBarUpdate` now gates intra-bar pattern speech on the Candles series's `IsAutoNarrated` flag (per user feedback: "if I want to hear it update in real-time I'll enable narration"). The bar-close `OnNewBar` path is unchanged — still gated only on `AnnounceNewBars`.
+
+### Phase 4: Provider-shape branching
+
+`WorkspaceInitializer.InitializeDefaultSeries` now branches on `ProviderDataShape`:
+- `Ohlcv` → seed Candles + Volume + Price, primary = Candles
+- `SingleValueLine` → seed Price only, primary = Price
+
+Deleted: `StandardRenderers.IsDegenerateOhlcv`, `RenderCandlesAsLine`, and the `DataLayer` gate that called them. Analytics providers no longer pretend to have candles, so the hack has nothing to fix.
+
+### Phase 5: Save/load migration
+
+`MigrateSeriesConfig` now renames legacy component strings (`"Candle Body"` → `body`, etc.) when loading saved workspaces. New `SetPrimaryAndFocusFromRestore` helper picks the primary series based on what was actually restored: Candles → Price → first active.
+
+### Reconciliation fix
+
+The Phase 4 guard-and-return pattern was broken for provider switches: it short-circuited on "is Price/Candles already in the tab?" before evaluating shape, so switching from OHLCV to single-value left stale candles+volume around. Replaced with a real reconciler that:
+1. Computes the desired core stack via shared `ResolveDesiredCoreStack(ProviderDataShape)` helper
+2. On shape change: strips ALL series (core AND non-core — user indicators/drawings don't survive a mode change because they're meaningless on a different data type)
+3. On same-shape: only strips core series that don't belong (idempotent — user indicators preserved during normal symbol/provider swaps within a mode)
+4. Adds missing desired core series fresh
+5. Sets PrimarySeriesId + focus
+
+### Symbol naming + mode separation (Q1 + Q2)
+
+`IMarketDataProvider.GetSymbolDisplayName(symbol)` — new optional method, default returns the raw symbol. 6 analytics plugins override with per-symbol labels: FNG → "Fear & Greed Index", `GLOBAL_BTC_DOM` → "BTC Dominance", `BTCUSDT_FUNDING` → "BTC/USDT Funding Rate", `M2SL` → "M2 Money Supply", `BTC_HASH_RATE` → "BTC Hash Rate", etc.
+
+The label flows through `MarketOrchestrator.LoadChartAsync` → `InitializeDefaultSeries` → `ApplyPriceSeriesLabel` which sets:
+- `Config.Name` (read by `NavigationFeedbackManager` for speech — was being missed)
+- `Config.FriendlyName` (read by render/UI labels)
+- Component `DisplayName` (per-component speech)
+
+`WorkspaceState.CurrentDataShape` + `SymbolDisplayName` fields added (with `SetProviderContextAction` reducer). Plumbed through `TabSnapshot`.
+
+**Toolbar UI gating** via `IsTradingTab` property reading `state.CurrentDataShape == Ohlcv`: Strategies, Drawings, Heatmap, Heikin Ashi, Log Scale buttons hidden on analytics tabs.
+
+**Toolbar warning dialog**: When the user clicks Load and the new provider is `SingleValueLine` AND the current tab has user-added indicators/drawings, an inline `role=alertdialog` panel offers three options: Continue (strip & load) / Open in New Tab / Cancel. New `IMarketOrchestrator.LoadChartInNewTabAsync()` opens a fresh tab with the same toolbar selections, preserving the trading tab as a `TabSnapshot`.
+
+### Default interface method gotcha — fixed
+
+Latent bug: `IMarketDataProvider.DataShape` had a C# default interface implementation (`=> Ohlcv`). The 6 analytics plugins declared `public ProviderDataShape DataShape => SingleValueLine;` as plain class properties on `BaseMarketDataProvider`-derivatives. These were **shadow properties, not overrides**: when `MarketOrchestrator` accessed `providerForShape?.DataShape` via the `IMarketDataProvider?` return from `GetProviderAsync`, C# interface dispatch resolved through the interface vtable to the default implementation, not the plugin's shadow. Every analytics provider was silently reporting `Ohlcv` at runtime — that's why the reconciler never took the `SingleValueLine` branch.
+
+Fix: declared `DataShape` and `GetSymbolDisplayName` as `public virtual` members on `BaseMarketDataProvider`. All 6 plugins now use `public override`. **Lesson for future plugin authors: never add new members to `IMarketDataProvider` with default implementations without also declaring them as `virtual` in `BaseMarketDataProvider`.**
+
+### Q3: SymbolRenderHints — analytics rendering
+
+New `SymbolRenderHints` record + `IMarketDataProvider.GetSymbolRenderHints(symbol)` optional method (default null). Lets analytics providers declare per-symbol semantics:
+- `RangeMin` / `RangeMax` — hard pane bounds (FNG always 0–100, BTC dominance 0–100, funding ±1%)
+- `ReferenceLevels` — horizontal lines with optional `PlayEarcon` + `ZoneNoiseAmount` for OB/OS sonification (AudioZoneHelper picks up levels named "Overbought"/"Oversold" automatically)
+- `DisplayType` — Line / Oscillator / Histogram override
+- `SpeechTemplate` — per-value speech format with {name}/{value:Fn}/{zone} placeholders
+- `ColorHex` — line color override
+
+`WorkspaceInitializer.ApplyRenderHints` applies hints to the Price series after seeding. `ViewportRangeCalculator` reads `SeriesConfig.RangeMin/RangeMax` (new fields) when computing main pane auto-scale, and now also expands main range to include reference levels (previously only indicator-pane levels were honored).
+
+Implemented hints for: AlternativeMe FNG (0–100, fear/neutral/greed zones), CoinGecko BTC dominance (0–100, alt-season/mid/BTC-led zones), CoinGecko ETH dominance (0–30%), OKX funding rates (±1%, ±0.05% OB/OS zones). Other providers can be filled in incrementally; null hints fall through to plain-line rendering.
+
+### Speech formatter generic format handler
+
+`SpeechFormatter` now supports `{value:Fn}` for any digit count via regex (was hardcoded F1/F2). Fixes the `:f0` speech leak from CoinMetrics Active Addresses / Hash Rate templates.
+
+---
+
+## [2026-04-08] — Cross-Series Session 2: Shared cache refactor + CrowdingIndex + modal string params + v9 strategy
+
+Continuation of the cross-series indicator work. The previous session built the per-provider cache pattern to ship the first three cross-series indicators; this session refactored it into a proper shared service ("do it right the first time, not a static fix" per user instruction), shipped the first composite cross-series indicator (CrowdingIndex), fixed the AddIndicatorModal string-parameter limitation end-to-end, and added v9 — the first strategy to leaf on cross-series signals.
+
+### Shared `ICrossSeriesCache` service
+
+New: `AccessibleTrader.Core/Services/Indicators/CrossSeriesCache.cs` (~200 lines).
+
+- **`CrossSeriesRequest`** record: `(Market, Provider, Symbol, Timeframe, MaxPages)`. Cache key drops MaxPages so a 10-page funding fetch and a 1-page funding fetch share the cached result.
+- **`ICrossSeriesCache.GetOrFetch(request)`** — synchronous read with bounded fetch on miss. Hot path is a `ConcurrentDictionary` lookup; cold path joins (or starts) a `Task.Run` background fetch and waits up to 5 seconds. Empty list = either fetch failed or no data exists.
+- **Walk-back pagination** built into the service: configurable via `MaxPages`, with no-progress guard, partial-page early-stop, and dedupe-by-timestamp. Each successive page asks for bars older than the oldest seen so far. Previously duplicated in FundingRateProvider; now lives in one place.
+- **`CrossSeriesForwardFill.Fill(ticks, bars, output)`** — pure helper for forward-filling cached time-series values onto a chart bar timeline by timestamp. Used identically by all four cross-series indicators.
+
+Registered as a singleton in `ServiceCollectionExtensions.cs:152`. All four cross-series indicators share one instance — no duplicate fetches when a user loads FundingRate, OpenInterest, and CrowdingIndex on the same chart.
+
+### Three providers refactored (FundingRate, OpenInterest, FearGreed)
+
+Each lost ~150 lines of fetch boilerplate. Each now has only:
+- Constructor takes `ICrossSeriesCache`
+- A single `static readonly CrossSeriesRequest` constant declaring its source
+- `Calculate` calls `_xs.GetOrFetch(...)`, then `CrossSeriesForwardFill.Fill(...)`, then post-processes the populated buffer into marker components
+
+Behavior is identical to the previous session — same first-paint correctness, same forward-fill semantics, same cache reuse semantics — just much less code per provider.
+
+### `CrowdingIndexProvider` — first composite cross-series indicator
+
+New: `AccessibleTrader.Core/Services/Indicators/CrowdingIndexProvider.cs` (~310 lines). Code: `CROWDING_INDEX`. Sub-pane `Pane_CROWDING`.
+
+**Math:**
+```
+funding_z   = (funding[i] − rolling_mean) / rolling_stdev   (30-bar window)
+oi_delta    = oi[i] − oi[i−1]
+oi_delta_z  = (oi_delta[i] − rolling_mean) / rolling_stdev  (30-bar window)
+price_dir   = sign(close[i] − close[i−1])
+crowding[i] = funding_z + price_dir × oi_delta_z
+```
+
+The `price_dir` multiplier is the trick: it flips the OI delta z-score sign depending on price direction so the composite always reads positive for "longs crowded" and negative for "shorts crowded" regardless of which side is moving the market.
+
+**Components:** Crowding Score (oscillator line), Long Crowded (red dot ≥+2σ — squeeze risk down), Short Crowded (cyan dot ≤−2σ — squeeze risk up). Reference levels at ±2 (extreme), ±1 (mild), 0.
+
+**Why it's genuinely orthogonal to Cipher:** all Cipher components, RSI, MACD, etc. are arithmetic transformations of OHLCV — auto-correlated by construction. Crowding Index reads two completely separate exchange-internal datasets (funding payments, contract counts) that aren't computable from price history at any lookback. The cross-source agreement that triggers a Long/Short Crowded marker is information v7-v8 cannot see.
+
+### AddIndicatorModal string parameter support — full plumbing fix
+
+Three-file change:
+
+- **`ISeriesManagementService.RegisterSeriesFromMetadata`** signature changed from `Dictionary<string, double>?` to `Dictionary<string, object>?`
+- **`SeriesManagementService` implementation** uses a new `FormatParam(object?)` helper handling double / float / int / long / bool / string / IConvertible / null cleanly. The factory tuple list and the instance-name builder both go through it.
+- **`AddIndicatorModal.razor`** branches input render on `param.DataType`:
+  - `typeof(string)` → `<input type="text">` with string `_editParams`
+  - everything else → existing `<input type="number">` path
+  
+  `_editParams` is now `Dictionary<string, object>`. Helpers `InitialEditValue` (safely initializes from default for either type) and `GetNumericDisplay` (read-side helper for the numeric input value attribute, since Razor can't compose `TryGetValue<object>` with a double fallback in expression form).
+
+The original modal-breaking gotcha (`InvalidCastException` from `string.ToDouble()` causing the modal to appear stuck on Loukas Cycles with frozen category dropdown and unresponsive close button) is fixed at the root: string `DefaultValue`s no longer pass through the numeric path.
+
+**Existing callers** (`WorkspaceInitializer.cs:87-89`) pass null for parameters so the signature change is transparent. The cross-series providers shipped this session still expose only numeric parameters with hardcoded source/symbol constants — multi-asset string-parameter indicators are deferred until ETH/SOL coverage is actually requested.
+
+### v9 strategy spec — first cross-series leaf
+
+`BuiltInStrategySeeds.BuildV9CrossSeriesConfluence()`. ID: `builtin.long.v9-cross-series-confluence`.
+
+**Score budget designed so pure-Cipher mathematically cannot reach the threshold:**
+
+| Cipher leaves (max 5.0)         | Score |   | Cross-series leaves (max 6.5)   | Score |
+|---------------------------------|-------|---|---------------------------------|-------|
+| Cipher B Oversold Crossover     | 1.0   |   | Funding Rate < -0.005           | 1.5   |
+| Cipher A Buy Signal             | 1.0   |   | FNG Sentiment < 25              | 1.5   |
+| Cipher C Bottom Triple          | 1.5   |   | OI Divergence                   | 1.5   |
+| Cipher B Anchor Wave < -53      | 1.5   |   | Crowding Short Crowded          | 2.0   |
+
+**Score threshold: 5.5.** Pure Cipher max = 5.0 → cannot reach. Adding any single cross-series leaf clears the gate. Pure cross-series (6.5) can fire on its own when all four non-price sources agree, representing the rare "everything is washed out" extreme worth catching.
+
+**Same risk plan as v7/v8** (ATR(14)×2 stop, 1.5R/3R ladder, BE after TP1, 0.5% risk per trade) for clean A/B comparison. The whole experiment is about whether cross-series leaves move the needle, not about risk parameter tuning.
+
+**REQUIRES on the chart:** Cipher A, Cipher B, Cipher C, Funding Rate, Open Interest, Fear and Greed, Crowding Index. Cross-series indicators auto-fetch through the shared cache — no extra configuration. Recommended: BTC/USDT 1h on Bitstamp, backtest range constrained to roughly the last 90 days (OKX history depth).
+
+**Moment of truth for the strategy thesis.** v2-v8 all walked forward to break-even because price-derived indicators are auto-correlated. v9 is the first attempt to test whether non-price orthogonal data restores edge. Once Glassnode is purchased and deep history is available, the same v9 spec walk-forwards over years instead of months — but we want the recent-data verdict first before paying.
+
+### Files
+
+- **NEW** `AccessibleTrader.Core/Services/Indicators/CrossSeriesCache.cs` (~200 lines)
+- **NEW** `AccessibleTrader.Core/Services/Indicators/CrowdingIndexProvider.cs` (~310 lines)
+- **REFACTORED** `AccessibleTrader.Core/Services/Indicators/FundingRateProvider.cs` — now ~250 lines (was ~360)
+- **REFACTORED** `AccessibleTrader.Core/Services/Indicators/OpenInterestProvider.cs` — now ~270 lines (was ~340)
+- **REFACTORED** `AccessibleTrader.Core/Services/Indicators/FearGreedProvider.cs` — now ~250 lines (was ~310)
+- **EDIT** `AccessibleTrader.Core/Services/SeriesManagementService.cs` — `RegisterSeriesFromMetadata` signature object-typed, added `FormatParam` helper
+- **EDIT** `AccessibleTrader.BlazorClient/Components/AddIndicatorModal.razor` — branch input render on DataType, `_editParams` is `Dictionary<string, object>`
+- **EDIT** `AccessibleTrader.BlazorClient/ServiceCollectionExtensions.cs:152-156` — registered `ICrossSeriesCache` singleton + `CrowdingIndexProvider`
+- **EDIT** `AccessibleTrader.Core/Services/Strategies/BuiltInStrategySeeds.cs` — added `LongV9CrossSeriesConfluenceId` const, `BuildV9CrossSeriesConfluence` method, yield in `GetAllSeeds`
+- **EDIT** `TODO.md` — Phase 12 Session 2 marked DONE, Session 3 (v9 backtest) now next, Session 4 (Glassnode) deferred
+- **EDIT** `MEMORY.md` (auto-memory) — added Session 2 topic file pointer
+
+### Build status
+
+- Core: 0 errors, 0 warnings
+- BlazorClient: needs app close + VS rebuild (DLL lock when app is running)
+- Tests: not run; no test files were touched, expected to still pass at 252
+
+---
+
+## [2026-04-08] — Cross-Series Indicators: FundingRate, OpenInterest, FearGreed + OkxDerivatives plugin
+
+First cross-series indicator architecture in the codebase. Three indicators built on top of it. New OkxDerivatives plugin added because Binance Futures REST is geo-blocked from US/UK/parts of EU (Bybit also CloudFront-blocked from the same regions; OKX public REST remains reachable).
+
+### New plugin
+
+- **`Plugins/AccessibleTrader.Plugins.OkxDerivatives/`** — funding rate history (`/api/v5/public/funding-rate-history`) + open interest history (`/api/v5/rubik/stat/contracts/open-interest-volume`). Symbol convention `BTC-USDT-SWAP_FUNDING` / `BTC-USDT-SWAP_OI`, same `_FUNDING`/`_OI` suffix scheme as BinanceDerivatives so future indicators don't care which provider produced the data. Funding values multiplied by 100 to match BinanceDerivatives' percent-per-8h units. Pagination semantics: `after=<ts>` returns OLDER bars, `before=<ts>` returns NEWER bars (the OKX docs are confusingly named, easy to invert). Wired in `BlazorClient.csproj` ProjectReferences and `MarketOrchestrator.cs:254`. Both Binance and OKX kept seeded for the Derivatives category — Binance is not removed.
+
+### Cross-series indicator architecture (the pattern)
+
+`IIndicatorProvider.Calculate` is synchronous and zero-allocation by contract. It cannot `await`. The pattern shipped in this session:
+
+1. **Per-symbol cache** as a static field on the provider class. Sorted ascending by timestamp. Populated once per session per (provider, symbol).
+2. **Background fetch** kicked off from inside Calculate via `Task.Run(...)` fire-and-forget. Guarded by a `SemaphoreSlim` to debounce concurrent triggers and a `_fetchedOnce` flag to prevent storms.
+3. **Forward-fill** in Calculate: walks the cache, assigns each chart bar the most recent cache value whose timestamp is ≤ the bar timestamp. Bars older than the oldest cached tick stay NaN.
+4. **Speech overrides** via `IIndicatorProvider.GetComponentSpeech` because the default `SpeechTemplate` path doesn't handle NaN gracefully (it tries to format `{value:F4}` on a NaN double and the literal template gets read aloud, producing the "Funding value F 4 percent" symptom that bit us during testing).
+
+First paint shows NaN; second paint (after the background fetch lands) shows real values. Identical to how live-streaming indicators behave on their first tick.
+
+### New indicators (all in `AccessibleTrader.Core/Services/Indicators/`)
+
+- **`FundingRateProvider`** (`FUNDING_RATE`, sub-pane `Pane_FUNDING`): Funding Rate line + Extreme Long (≥+0.05%/8h, red) + Extreme Short (≤−0.05%/8h, cyan) + Sign Flip dots. Reference levels at ±0.05/±0.01/0. **Pagination walk-back** loops up to 10 pages (~333 days, well past OKX's actual ~3-month depth) with no-progress guard, partial-page early-stop, and dedupe-by-timestamp. Hardcoded source `OkxDerivatives` + symbol `BTC-USDT-SWAP_FUNDING` (see "Modal limitation" below).
+- **`OpenInterestProvider`** (`OPEN_INTEREST`, sub-pane `Pane_OPEN_INTEREST`): OI Value line + OI Delta histogram + OI Spike dot (>2σ rolling-30-bar stdev) + **OI Divergence dot** (5-bar price/OI direction disagree, both moves material >0.3% price / >0.5% OI). The Divergence component is the most actionable signal here — captures rallies-without-positioning (likely fades) and selloffs-without-positioning (capitulation bottoms). `GetComponentSpeech` reads the *direction* of the divergence so the listener immediately knows whether it's a possible reversal-up or possible squeeze-top. Single-page fetch (OKX rubik OI is hard-capped).
+- **`FearGreedProvider`** (`FEAR_GREED`, sub-pane `Pane_FEAR_GREED`): Sentiment line + Extreme Fear (≤20) + Extreme Greed (≥80) + Sentiment Flip dots. Reference levels at 20/40/50/60/80. Single-call fetch — alternative.me serves the full daily history (back to 2018) in one ~3000-point response. Categorical labels in speech ("extreme fear", "fear", "neutral", "greed", "extreme greed") alongside the raw number.
+
+All three registered in `ServiceCollectionExtensions.cs:152-154`.
+
+### Gotcha — `AddIndicatorModal.razor` string-parameter limitation
+
+`AddIndicatorModal.razor:55-57` hardcodes `<input type="number">` and force-converts every parameter via `IConvertible.ToDouble`. `string` implements IConvertible but `"OkxDerivatives".ToDouble(null)` throws `InvalidCastException`, which causes the modal to break catastrophically: only one indicator visible regardless of category, category dropdown frozen, close button unresponsive. Hit during initial development of FundingRateProvider when it had `Source` and `Symbol` string parameters.
+
+**Workaround:** all three cross-series indicators expose only numeric parameters, source/symbol hardcoded as constants in Calculate. **Real fix pending** in TODO.md Phase 12 Session 2: teach the modal to render `<input type="text">` for `typeof(string)` parameters.
+
+### What this enables
+
+The architecture is now in place to leaf strategies on non-price data. v9 (planned) is the first strategy that combines Cipher leaves with `FUNDING_RATE.Extreme Long`, `OPEN_INTEREST.OI Divergence`, and `FEAR_GREED.Extreme Fear`. Score-gate threshold high enough that pure-Cipher cannot reach it. Walk-forward against v7 baseline. Moment of truth for the strategy thesis.
+
+### Files
+
+- **NEW** `Plugins/AccessibleTrader.Plugins.OkxDerivatives/OkxDerivativesProvider.cs` (~280 lines) + `.csproj`
+- **NEW** `AccessibleTrader.Core/Services/Indicators/FundingRateProvider.cs` (~360 lines)
+- **NEW** `AccessibleTrader.Core/Services/Indicators/OpenInterestProvider.cs` (~340 lines)
+- **NEW** `AccessibleTrader.Core/Services/Indicators/FearGreedProvider.cs` (~310 lines)
+- **EDIT** `AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj` — added OkxDerivatives ProjectReference
+- **EDIT** `AccessibleTrader.Core/Services/MarketOrchestrator.cs:254` — Derivatives seeds OkxDerivatives + BinanceDerivatives
+- **EDIT** `AccessibleTrader.BlazorClient/ServiceCollectionExtensions.cs:152-154` — registered all three providers
+- **EDIT** `TODO.md` — added PHASE 12 with sessions 1-5
+- **EDIT** `MEMORY.md` (auto-memory) — added cross-series indicator topic file
+
+### Build status
+
+- Core: 0 errors, 0 warnings
+- OkxDerivatives plugin: 0 errors, 0 warnings
+- BlazorClient: needs app close + VS rebuild (DLL lock). Tests not run this session.
+
+---
+
+## [2026-04-07] — Strategy Research Session: v2-v6 walk-forward + system gap audit + v7 plan
+
+A long research session dedicated to building, testing, and walk-forward-validating multiple Cipher-based long strategies on BTC/USDT 1d Bitstamp. Six strategy variants tested. Only v2 survived. Code audit revealed major unused capabilities. Plan documented for v7 (score-based confluence) plus required system upgrades.
+
+### Strategies built and seeded into the library
+
+`BuiltInStrategySeeds` static seeder + `IStrategyLibrary.EnsureSeeded` called from `JsonStrategyLibrary.Reload()`. Idempotent on stable IDs — never overwrites user edits, never reseeds the same ID twice. Bumping version suffix forces re-seed for new variants.
+
+- **v2 — Crypto Face Market Cipher Long (`builtin.cryptoface.long.v2`)**: OR-of-three-pulses (Cipher B blue dot, gold cross, Cipher A buy signal) with `FiredWithin(7)` window, ATR(14)×2 stop, 1.5R/3R ladder, breakeven after TP1, 0.5% risk. **Walked forward stable** (BTC first half PF ~1.9, second half PF ~1.5). Generalized to ETH 1d (PF 1.58). Failed on BTC 4h (PF 0.96). Failed on SOL 1d (n=13 too small). **The only mechanical baseline worth deploying.**
+- **v3 — Full Crypto Face stage gates (`builtin.cryptoface.long.v3`)**: Anchor < -53 + Trigger > 0 + Money Flow < 0 stage gates + entry pulse. ~26 trades, PF 2.12, Avg R 0.34. *Worse* than v2 — the literal stage gates over-fit to deep washouts and miss trend-continuation entries. Empirically refuted the "buy red MF" thesis.
+- **v4 r1 (broken HTF leaf)**: Used `weekly Cipher B WT > 0` true HTF leaf — produced 0 trades because of the future-leak bug in `EvaluateHtfIndicatorLeaf`. Left in library as a teaching example.
+- **v4 r2 — Anchor Wave proxy (`builtin.cryptoface.long.v4-claude.r2`)**: Replaced HTF leaf with active-TF `Anchor Wave > 0`, kept Trigger > 0 sequencing, added third TP rung at 6R, divergences upweighted. Full backtest: **27 trades, WR 77.8%, Avg R 0.86, PF 7.03, DD 0.7%** — looked spectacular. **Walk-forward decimated it**: first half WR 78.6% / Avg R 0.58, second half WR 50% / Avg R 0.06 / **negative total return**. The 6R runner rung amplified first-half luck on BTC's 2017 bull run.
+- **v5 — Cipher SR support entries (`builtin.long.v5-cipher-sr`)**: Single-hypothesis test of `PriceRejectsLevel` price-location gate + entry pulse. **Walk-forward failed**: first half PF ~1.55, second half PF ~0.62 with WR collapsing 26 points to 36% and DD 5.2%. Partly fixable — strategy treats stale 200-bar-old pivots equivalently to fresh ones because `PriceRejectsLevel` ignores the `Strength` field that `CipherSrLevelProvider` already computes.
+- **v6 — Cipher C cycle bottom (`builtin.long.v6-cipher-c-cycle`)**: Bottom Triple/Double + entry pulse. **No edge in either half** — first half PF ~1.0, second half ~0.7. Either Cipher C cycle math doesn't latch onto BTC daily, or my use of the tier markers was wrong, or the cycle is publicly arbitraged.
+
+### Walk-forward UI added to Backtest tab
+
+`BacktestConfig` extended with optional `StartDate` and `EndDate` (nullable DateTime). `StrategyBacktester.Run` slices the data list by date range as the *first* step before any other processing — warmup, indicator setup, and strategy lifecycle all see the narrower window, no leak from the discarded prefix into the run.
+
+`StrategyModal.razor` Backtest tab gets:
+- Start date / End date inputs (`<input type="date">`)
+- **"Walk-fwd: first half"** / **"Walk-fwd: last half"** buttons that compute the temporal midpoint of the loaded chart data and populate the date range with one click
+- **"Clear range"** button to wipe the filter
+- Status messages explaining the active window
+
+This is the test that saved v4 from being deployed — the headline PF 7.03 was almost entirely first-half profit.
+
+### `WorkspaceState.IsBacktesting` flag — stops SetupSonifier flooding during backtest replay
+
+New optional field on `WorkspaceState`. `StrategyBacktester.Run` stamps `state with { IsBacktesting = true }` before the replay loop. `ConfigurableStrategy.OnBar` gates ALL `_eventBus.Publish` calls (`SetupArmedEvent`, `SetupConfirmedEvent`, `SetupReconfirmedEvent`, `SetupDroppedEvent`, `SetupEntryReachedEvent`) on `!state.IsBacktesting`. The state machine still runs identically, signals still get returned, trades still get simulated — just nothing reaches the live audio bus.
+
+Before this fix, running a Cipher B mixed-condition strategy through backtest would speak the dropout/armed events for thousands of replayed bars in a few seconds. The user reported hearing all components and "dropped off" repeatedly during backtests; this fix eliminates it.
+
+### `ConfigurableStrategy` pure-pulse tree detection (two related fixes)
+
+`IsPurePulseTree(ConditionNode)` static helper detects when every leaf in the spec uses a one-bar transient operator (`Fired`/`CrossesAbove`/`CrossesBelow`/`CrossesAboveLine`/`CrossesBelowLine`/`ChangesDirection`/`PriceBreaksLevel`/`PriceRejectsLevel`/`WickIntoLvn`). `FiredWithin` is excluded — it's the persistent-window workaround.
+
+Cached at construction as `_isPurePulseTree`. Used by `OnBar` for two behaviors:
+
+1. **Drop-off suppression**: pure-pulse trees skip `SetupDroppedEvent` publication on the natural bar-N+1 pulse expiry. The pulse already fired the BuildSignal path on the previous bar; nothing has been "lost." Eliminates the "cipher A buy signal dropped off" speech the user reported on every pulse-only strategy.
+
+2. **Auto-promote to Immediate**: a pulse-only tree with `EntryTriggerKind != Immediate` is unsatisfiable (the conditions are gone by the next bar so the Armed→Active path can never fire). Auto-promotes to Immediate execution on the same bar regardless of configured trigger.
+
+### `BuildSetupTab` pulse-only advisory
+
+Mirror of the engine's `IsPurePulseTree` check, plus `BuildPulseOnlyAdvisory()` that returns explanatory text appended to `_message` after `SaveSpec` and `AddToEngine`. Two messages depending on the configured trigger — friendly note for Immediate ("consider AND-ing a persistent gate"), explicit warning for non-Immediate ("the engine will auto-promote because your trigger cannot be satisfied").
+
+### `BuiltInStrategySeeds` static seeder
+
+New file `AccessibleTrader.Core/Services/Strategies/BuiltInStrategySeeds.cs`. Provides `EnsureSeeded(IStrategyLibrary)` which inserts any seeded spec whose stable ID isn't already in the library. Wired into `JsonStrategyLibrary.Reload()` so auto-seed runs on every library load. Five seeds shipped this session (v2 / v3 / v4-r2 / v5 / v6), with v4-r1 left in the library as a teaching example.
+
+### Documented but NOT yet implemented (the v7 plan)
+
+The session's most important output is the v7 design and the system improvements required to build it. **None of these are coded yet** — they're the prioritized work for the next session.
+
+**Required system upgrades before v7:**
+
+1. **Score-based root operator** (~2-3h). New `LogicOperator.Score` value + `ConditionGroup.ScoreThreshold` field. `ConditionEvaluator` aggregates true children's scores, returns `total >= threshold`. The `Score` field exists on every leaf today but is only used for reporting — adding the threshold operator unlocks the actual "weight of evidence" design pattern.
+
+2. **Pivot strength + touch count filters on level operators** (~1h). Add `MinLevelStrength` parameter to `PriceRejectsLevel` / `PriceBreaksLevel` so strategies can require recent (Strength > 0.7) and validated levels rather than treating all levels in the 200-bar lookback equivalently. `CipherSrLevelProvider` already computes the strength field; only the operator code needs the filter.
+
+3. **HTF future-leak bug fix** (~2-3h). `EvaluateHtfIndicatorLeaf` reads `htfData[^1]` unconditionally on every backtest bar. Fix: pair HTF data arrays with their bar timestamps, find the index where HTF timestamp ≤ `history[^1].Date`, clip the read. Unlocks every future strategy that wants true higher-timeframe leaves. The active-TF path has explicit clipping; the HTF path was never written backtest-correct.
+
+4. **VPVR backtest replay end-to-end verification** (~3-4h). `IBacktestProfileCache` exists with the intent of bar-by-bar profile snapshots, but per the source comment is "the most important pending S/R correctness item." Need to verify the cache is actually populated during replay and that `VolumeProfileLevelProvider` reads from cache (not workspace state) in backtest mode. Without this any VPVR-gated strategy has hidden future-leak.
+
+5. **Rolling-window score aggregation** (user's specific design refinement). Signals firing on different bars across a 3-5 candle window should still contribute to the score. `FiredWithin(N)` already does this for pulse signals. Need a `TrueWithin(N)` operator for persistent conditions (e.g. "WT > 0 was true on any of the last 5 bars"). Combined with score-based gating, every leaf contributes its score if true under its temporal window — captures the "bullish divergence Monday + blue dot Wednesday + support touch Thursday = good setup" pattern that boolean AND with same-bar requirement misses.
+
+**v7 spec design:** weighted-score confluence combining Cipher B pulses (1.0 each) + Cipher A pulses (1.0) + gold cross / divergences (2.0 each) + Cipher SR support with strength filter (1.5) + VPVR value area / POC / LVN wick (1.0–1.5) + HTF Cipher B uptrend (1.5 once HTF bug is fixed). Threshold ~4.0. No single condition required; trades fire on any combination of orthogonal evidence.
+
+### Documentation
+
+- `project_strategy_research_2026_04_07.md` — full session memory entry covering walk-forward results table, decay pattern analysis, indicator code audit findings, v7 plan, and the required system upgrades. Linked from `MEMORY.md`.
+
+### What this session is NOT
+
+- v7 has not been built. The infrastructure for it (score-based gating, level strength filter, HTF fix, rolling-window aggregation) is documented as the next session's work, not implemented.
+- v2 has not been deployed. Recommendation is paper-trade in Suggestion mode for 30+ days while v7 infrastructure is built.
+- The HTF future-leak bug is documented but not fixed.
+- The Score-field-as-firing-mechanism gap is documented but not closed.
+
+---
+
+## [2026-04-07] — Phase 11 Audit Fixes: TP/SL exits, Library tab, 5 supporting fixes
+
+User audit triggered by Cipher B 0-trades backtest revealed 7 issues. The biggest is that the backtester had **never honored TP or stop-loss exits** since Session A — every ConfigurableStrategy backtest was either showing 0 trades (conditions never fired) or showing the trade-from-entry-to-end-of-data P&L (which on choppy data was often near zero). This session ships all 7 fixes.
+
+### Fixed: Backtester now honors TP/SL exits with TP ladder partial closes
+
+`StrategySignal` extended with optional `TpLadder` and `TpClosePortions` record parameters. `ConfigurableStrategy.BuildSignal` populates them from `ResolvedRiskPlan`. `StrategyBacktester.Run` rewritten:
+
+- Per-bar **exit check before strategy evaluation**: stop hit takes priority (conservative worst-case when both could hit), then TP rung loop (multiple rungs can fire on a fast spike). Each closed portion generates its own `BacktestTrade` row.
+- Stop moves to entry price (breakeven) automatically after the first TP rung clears, so the runner is risk-free.
+- Strategy.OnBar runs *after* the exit check so a position can exit and re-enter on the same bar.
+- End-of-data force-close only fires when there's still remaining quantity past every TP rung.
+
+This is the single most important backtester correctness fix in Phase 11. R-multiple metrics, profit factor, drawdown, and win rate are all now meaningful for the first time.
+
+### Fixed: Catalog/chart mismatch silent failure (the Cipher B problem)
+
+`ConditionEvaluator.EvaluateLeaf` now uses `StringComparison.OrdinalIgnoreCase` for the series lookup. Without it, an indicator code like `CIPHER_B` in the catalog wouldn't match `CipherB` on the active chart series and the leaf would silently evaluate false forever — exactly the symptom the user hit.
+
+`BuildSetupTab` leaf editor now annotates indicator dropdown entries with `(not on chart)` when they aren't loaded, and shows a yellow alert box below the dropdown explaining how to fix it (Alt+A → Add Indicator).
+
+### Removed: Legacy SMA / RSI / Bollinger strategy templates
+
+Deleted `SmaCrossoverStrategy`, `RsiOversoldStrategy`, `BollingerBreakoutStrategy`. They predate the entire ConfigurableStrategy + StrategySpec pipeline and were superseded by the no-code Build Setup tab. `BuiltInStrategyRegistry` reduced to an empty stub; the interface stays for back-compat with `IStrategyEngine`.
+
+### Refactored: "Add Strategy" tab → "Library" tab
+
+The first tab in the Strategy Manager modal now shows `IStrategyLibrary.All` with per-row **Start** / **Stop** / **Delete** actions. Status column shows green "Active" when the engine has a matching instance.
+
+- **Start** activates the spec via the factory + engine and flips `IsAutoActivate=true`. Removes any existing instance with the same id first to prevent duplicates.
+- **Stop** removes from the engine and clears `IsAutoActivate`. Spec stays in the library as a template.
+- **Delete** removes from the library entirely (also stops if currently active).
+
+The legacy parameter editor + execution mode dropdown + Add Strategy button are gone. New private methods: `StartSpec`, `StopSpec`, `DeleteSpec`, `RemoveExistingInstancesOfSpec` helper.
+
+### Refactored: Backtest tab uses library specs
+
+New strategy dropdown populated from `IStrategyLibrary.All`. New `_btSelectedSpecId` state. `RunBacktestAsync` resolves the spec, calls `Factory.Create`, runs with `BacktestConfig.ReplayProfiles=true` (the proper correctness path; the Build Setup Preview button uses `false` for fast iteration). `AutoWarmup` now uses the actual selected spec instead of name-matching.
+
+### Fixed: Active tab Remove now clears `IsAutoActivate`
+
+`RemoveStrategy(instanceId)` looks up the active strategy, finds the matching library spec by id, sets `IsAutoActivate=false`, then removes from the engine. Closes the bug where Remove just took the strategy off the engine but it came back on next launch via `StrategyAutoLoader`.
+
+### Fixed: Warmup label cosmetic
+
+Backtest results display changed from `"Warmup / Evaluated: 579 / 2200 bars"` (looks like a fraction) to `"Bars used: 2779 total (579 warmup + 2200 evaluated)"`.
+
+### Fixed: Duplicate-add guard
+
+`BuildSetupTab.AddToEngine` now removes any existing engine instance with the same `Strategy.Id == spec.Id` before adding the new one. Closes the silent bug where editing + re-adding a spec left two copies running.
+
+### Phase 11 status going forward
+
+Every issue from the user audit is closed. The remaining items are polish, not correctness:
+- Live mode TP ladder execution (broker-side bracket order plumbing)
+- Active tab metrics for Suggestion-mode strategies (BaseStrategy.GetMetrics is fill-based, not signal-based)
+- TreeView expand/collapse + arrow-key navigation polish
+- Custom Script tab Roslyn strategies aren't persisted in the library
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Phase 11 Complete: D2 Polish + Session E (StrategyAutoLoader + AI Review)
+
+Closes every Session D2 polish item AND ships Session E (per-restart strategy persistence + AI Analyst review-my-setups). **Phase 11 is end-to-end complete.**
+
+### Added: Cross-line operators wired end-to-end
+
+- `ConditionLeaf.SecondSignalDescriptorId` optional record parameter — the line being crossed.
+- `ConditionEvaluator.CrossesLine` (previously a no-op stub) now resolves the second descriptor via the catalog, reads its component data with the same future-leak clipping as the primary path, and applies standard MA-cross semantics.
+- BuildSetupTab leaf editor conditionally shows a second-component combo box when `CrossesAboveLine` or `CrossesBelowLine` is selected. Filters out the primary descriptor so the user can't pick the same component twice.
+
+### Added: HTF bar pre-warm
+
+`ConfigurableStrategy.CollectHtfPairs` rewritten to populate two sinks: indicator pairs (for `PrewarmIndicatorAsync`, already shipped Session B) AND raw timeframes (for `GetBarsAsync`, new). `Initialize` fires both fire-and-forget so price-only HTF leaves don't fall through to active-TF data on the first few bars after strategy add. Carryover from Session B.
+
+### Added: BuildSetupTab — Read aloud / Preview / Export / Import
+
+- **Read aloud button** — `NarrateSpec()` walks the editable tree recursively and emits a plain-English sentence (groups parenthesized with the logic operator, leaves with descriptor + operator + optional value + optional timeframe). Risk plan summary appended (stop, TP ladder, R:R minimum, sizing, entry trigger). `ISpeechManager.Speak(sentence, interrupt: true)` renders. Mirrors automatically into the journal via the existing speech manager hook.
+- **Preview button** — runs the warmup-aware backtester against the loaded chart with `BacktestConfig.ReplayProfiles=false` for fast iteration. Inline monospace block shows trades / win rate / total P&L / avg R / profit factor / max drawdown / warmup vs evaluated bars.
+- **Export to file** — serializes the current spec to `{AppData}/exports/{SafeName}.atstrat` via System.Text.Json.
+- **Import latest** — reads the most-recently-modified `.atstrat` file from `{AppData}/exports/`, loads it into the editor (doesn't auto-save — the user clicks Save Spec to merge into the library).
+
+### Added: StrategyModal Backtest tab — Auto warmup button
+
+New "Auto" button next to the warmup field. Resolves the currently-selected strategy via name match against `IStrategyLibrary.All`, calls `IBacktestWarmupAnalyzer.RecommendedWarmup(spec)`, and sets the warmup input to the result. Falls back gracefully when the library is empty.
+
+### Added: `StrategySpec.IsAutoActivate` + `StrategyAutoLoader` — per-restart persistence
+
+- New `IsAutoActivate` boolean field on `StrategySpec` (default false). The builder UI's "Add to Engine" button uses `with { IsAutoActivate = true }` to flip it on before persisting. Saved-but-not-activated specs remain in the library as templates.
+- New `StrategyAutoLoader` singleton service. `LoadAll()` walks `IStrategyLibrary.All`, filters to `IsAutoActivate == true`, instantiates each via `IConfigurableStrategyFactory.Create`, and registers via `IStrategyEngine.AddStrategy`. Idempotent. Each spec wrapped in try/catch so a single bad spec can never block startup.
+- Eagerly resolved via `@inject` in `MainLayout.razor`. `OnAfterRenderAsync(firstRender)` calls `_autoLoader.LoadAll()` once after the keyboard bridge initialises.
+
+**Live strategies now survive app restart.** A user adds a setup via the Build Setup tab → IsAutoActivate is set → spec persists to `strategies.json` → next launch the auto-loader re-instantiates and registers it with the engine.
+
+### Added: AI Analyst — "Review my setups today"
+
+- New `IAIAnalystService.AskAsync(string prompt, CancellationToken)` method. Free-form prompt path that picks the same configured LLM provider as `AnalyseAsync` but skips the chart snapshot. Uses a setup-review system prompt distinct from the technical-analysis prompt so the LLM frames its response as a coaching review rather than a forecast.
+- New "Review setups today" button in `AIAnalystModal.razor`.
+- `ReviewSetupsAsync()` handler filters the journal to today's `StrategySignal` / `Alert` entries, collects the unique source strategy names, pulls matching specs from `IStrategyLibrary.All`, builds a structured prompt with two sections ("Strategy Specs Active Today" and "Today's Journal"), calls `AskAsync`, displays the response, speaks it via `ISpeechManager`, and **mirrors the review back into the journal** as a `JournalEntryKind.Info` entry with source "AI Analyst" so the user can re-read it later via Ctrl+Alt+Shift+J.
+- Empty-day case: shows "No strategy setups have fired today yet — nothing to review" instead of calling the LLM.
+
+### Phase 11 final status
+
+Every layer is complete in both live and backtest mode. A user can:
+- Build composite strategies from any indicator's signals via the no-code Build Setup tab
+- Combine conditions in arbitrary AND/OR/NOT trees with HTF + cross-line operators
+- Pull stops/targets from drawn lines, swing pivots, Cipher SR, Ichimoku Kijun/Kumo, or VPVR/TPO POC/VAH/VAL/HVN/LVN
+- Gate setups on minimum reward/risk
+- Hear specs read aloud, preview backtest results inline, export/import for sharing
+- Add to engine → persist via IsAutoActivate → survive restart
+- Review every fired setup via Ctrl+Alt+Shift+J or AI Analyst "Review setups today"
+- Backtest with R-multiple metrics, warmup gating, VPVR profile-state replay, and real workspace state
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Session D: Builder UI + Modal Input Trap Fix
+
+### Fixed: Modal input trap (long-standing usability bug)
+
+Arrow keys pressed inside any modal were leaking through the global JS keyboard bridge into chart navigation. The chart cursor moved while the user was trying to navigate the modal. Root cause: `CommandDispatcher` had a `_isChartActive` gate but only listened to `ChartFocusEvent` / `DeactivateEvent` — it never subscribed to `ModalStateChangedEvent` (only `MainPage.xaml.cs` listened, just to hide the Skia canvas).
+
+**Fix:** `CommandDispatcher` now subscribes to `ModalStateChangedEvent` and tracks `_openModalCount` (Interlocked-incremented because modals can stack). At the top of `Dispatch`, when `_openModalCount > 0`, every command is suppressed *except* a small allowlist (F1 OpenHelp, F2 ToggleSpeech, F3 ToggleSonification) so accessibility toggles still work from inside modals. `IsAnyModalOpen` exposed as a public property. Modal-internal navigation (Tab, arrow keys inside form fields, list/tree navigation, Escape) is handled by Blazor + the browser without going through this dispatcher.
+
+### Added: Build Setup tab in StrategyModal
+
+New no-code strategy composer UI at `Components/BuildSetupTab.razor` (~700 lines), hosted by a new "Build Setup" tab in `StrategyModal.razor` between "Add Strategy" and "Active". Lazy-mounted via `@if (_activeTab == "build")` so the heavy component only constructs when actually shown.
+
+**Layout:**
+1. Strategy Identity fieldset — name, description, side (Long/Short)
+2. Conditions fieldset with ARIA tree (`role="tree"` + nested `role="treeitem"` + `aria-level` + `aria-expanded` + `aria-selected`) replacing the rejected nested-list pattern. Toolbar buttons add root group / root leaf / clear all. Each tree node has 1–3 inline buttons: select label, `+ leaf` / `+ group` (groups only), `×` delete. Children render inside `<ul role="group">`. Same pattern family as the Object Tree at Alt+O.
+3. Edit Leaf / Edit Group fieldset — appears when a node is selected. Cascading combo boxes for leaves: Indicator → Component → Operator → Value → optional Upper Bound → optional Within-N-Bars → Timeframe → Score weight. Operator dropdown gated by the descriptor's `SignalKind` (MarkerFire shows fire-style ops, Cloud shows cloud ops, Oscillator/Line show numeric ops; level operators always available). Group editor shows a single Logic dropdown (AND / OR / NOT) and the child count.
+4. Risk Plan fieldset — full UI for all 8 stop sources, TP ladder editor (default 3 rungs at 1R / 2R / 3R with 1/3 close each, add/remove rungs, per-rung kind selection), R:R minimum gate, sizing mode + parameters, notional equity, entry trigger + parameters.
+5. Save & Run fieldset — Save spec, New, Load existing dropdown (lists `IStrategyLibrary.All`), Delete loaded, **Add to Engine** (saves spec then calls `IConfigurableStrategyFactory.Create` + `IStrategyEngine.AddStrategy`).
+
+**Editable model:** `EditableNode` mutable class wraps `ConditionNode` for two-way Blazor binding (records are immutable). `EditableTpRung` mirrors `TpLadderRung`. Round-trip via `BuildSpec()` and `LoadFromSpec()`.
+
+### Razor gotcha worth documenting
+
+**`@code` is a reserved Razor directive.** The variable name `code` in `@foreach (var code in IndicatorCodes)` followed by `<option value="@code">` was being parsed as the `@code` block directive — compiler errors were *"The 'code' directive must appear at the start of the line"*, extremely confusing. Renamed to `indCode`. Lesson: never use `code`, `model`, `using`, `inject`, `inherits`, `attribute`, `implements`, `page`, `layout`, or `namespace` as variable names in Razor markup.
+
+### Phase 11 status going into Session E
+
+The user can now build a strategy via UI, save it, load it, and register it as a live `ConfigurableStrategy`. Every code path from condition tree to risk plan to backtest is functional in both live and backtest modes. Pending:
+- Per-tab strategy persistence on app load (Session E)
+- AI Analyst "review my setups" integration (Session E)
+- Live preview / read-aloud / auto-warmup / CrossesAboveLine second descriptor refs / export-import (Session D2 polish, none blocking)
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Path A Correctness Pass: Backtest Plumbing, VPVR Replay, HTF Indicator Pre-warm
+
+A correctness sweep before moving to Session D. Closes every Phase-11 future-leak, makes `ConfigurableStrategy` actually backtest-able for the first time, and wires the long-pending HTF indicator computation through a pre-warm cache.
+
+### Fixed: `ConditionEvaluator` main-path future-leak
+
+The evaluator was reading `data[^1]` from the full `series.GetComponentData(name)` array — exactly the same future-leak the Session C hardening pass had fixed for `IchimokuLevelProvider` and `CipherSrLevelProvider`, but on the *primary* indicator-based leaf evaluation path. In backtest mode the strategy at bar 100 was seeing the indicator's final value at every historical bar. Now reads `data[Math.Min(history.Count, data.Length) - 1]`. `FiredWithin` and `DirectionChanged` helpers gain a `historyCount` parameter so their windowed scans respect the bar-i view too. In live mode `history.Count == data.Length` so the clip is a no-op.
+
+### Fixed: `StrategyBacktester` was passing `WorkspaceState.Initial`
+
+`IStrategyBacktester.RunAsync` gains an optional `WorkspaceState? state = null` parameter (default null preserves source compat for tests). The backtester now uses the passed state for `strategy.Initialize` and `strategy.OnBar`. `StrategyModal.RunBacktestAsync` updated to pass `Store.State`. Without this fix, **`ConfigurableStrategy` backtests were silently broken** — the strategy reads `state.ActiveSeries` via `ConditionEvaluator` and the dummy state has none.
+
+### Added: `IBacktestProfileCache` + per-bar VPVR replay
+
+New `IBacktestProfileCache` interface (Core/Services/Strategies/) and singleton `BacktestProfileCache` impl. `VolumeProfileLevelProvider` ctor takes optional cache injection — when active (i.e. mid-backtest), the provider reads bar-i bin snapshots from the cache instead of falling through to live `series.ProfileBins`.
+
+`StrategyBacktester` ctor takes optional `IProfileService` and `IBacktestProfileCache`. Before the bar loop it builds a list of distinct profile indicator codes (`VPVR` / `VPFR` / `TPO`) present in the live workspace state. If `BacktestConfig.ReplayProfiles` (new flag, default **true**) is set and the list is non-empty, every bar iteration recomputes profile bins from `historyBuffer[0..i]` via `IProfileService.CalculateVolumeProfile` / `CalculateMarketProfile` and stashes the snapshot in the cache. The level provider then reads the bar-i view, eliminating the future-leak. Cache is cleared in a `try/finally` so `IsActive` always drops back to false on completion.
+
+`ReplayProfiles=true` is non-trivially expensive (one profile compute per bar per profile indicator). Disable for fast iteration on strategies that don't gate on POC/VA/HVN/LVN levels.
+
+### Added: HTF indicator pre-warm
+
+`IMultiTimeframeDataService` extended with:
+
+```csharp
+Task PrewarmIndicatorAsync(market, provider, symbol, timeframe, indicatorCode, parameters, count);
+Dictionary<string, double[]>? GetCachedIndicator(provider, symbol, timeframe, indicatorCode);
+```
+
+`MultiTimeframeDataService` implementation injects `IIndicatorEngine` and uses `CalculateAsync` (returns `Dictionary<string, double[]>` in one shot — no manual `IIndicatorResultBuffer` plumbing). Result dictionaries cache keyed by `(provider|symbol|timeframe|indicatorCode)`.
+
+`ConfigurableStrategy.Initialize` walks the spec's condition tree, collects unique `(Timeframe, IndicatorCode)` pairs from leaves, and fires `_mtf.PrewarmIndicatorAsync(...)` fire-and-forget for each. `ConfigurableStrategyFactory` injects `IMultiTimeframeDataService` and passes it through to `ConfigurableStrategy`'s new optional ctor parameter.
+
+`ConditionEvaluator.EvaluateLeaf` HTF branch now checks the indicator cache first via `GetCachedIndicator`. If a result dictionary exists for the leaf's `IndicatorCode` and contains the leaf's `ComponentName`, the new `EvaluateHtfIndicatorLeaf` helper applies the leaf operator against the HTF component array (Fired / FiredWithin / GreaterThan / LessThan / Between / CrossesAbove / CrossesBelow / ChangesDirection). Otherwise it falls through to the existing price-only HTF path.
+
+Pre-warm is fire-and-forget — until the async fetch + compute completes (typically a few seconds), HTF indicator-based leaves fall through with the existing one-time debug warning. No backpressure gate; if you need "wait until pre-warm complete" semantics, add it in Session E.
+
+### Phase 11 status going into Session D
+
+Every layer is now functionally complete in both live AND backtest mode. The remaining work is purely user-facing UI (Session D builder) and lifecycle (Session E persistence + AI Analyst).
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Session C Hardening: VPVR Levels, Future-Leak Fix, Phase-4 Completeness
+
+S/R completeness pass before moving onto Session D (builder UI). Addresses every Phase-4 resolver and operator that was stubbed in the initial Session C plus the backtest future-leak in indicator-derived level providers.
+
+### Fixed: Future-leak in `IchimokuLevelProvider` and `CipherSrLevelProvider`
+
+Both providers read `series.GetComponentData(name)` and walked the full array for the most recent non-NaN value, ignoring the strategy's current bar index. In live mode this is correct (`history.Count == data.Length`); in backtest mode the strategy at bar 100 was seeing Ichimoku Kijun and Cipher SR pivot values from bars in the future. Both providers now clip the scan to `min(history.Count, data.Length)`. `SwingPivotLevelProvider` was already correct (operates only on the history slice the backtester passes in), and `DrawnHorizontalLevelProvider` is unaffected (reads current user drawings, which represent live trader intent in either mode).
+
+### Added: `VolumeProfileLevelProvider`
+
+New level provider walking `series.ProfileBins` (which is populated eagerly by `IndicatorOrchestrator.Calculate`, not render-time only as previously believed) for every active VPVR / VPFR / TPO series. Emits:
+
+- **POC** bin → `LevelKind.Poc` (strength 0.9)
+- **VAH** = max `PriceMid` of `IsValueArea` bins → `LevelKind.Vah` (strength 0.75)
+- **VAL** = min `PriceMid` of `IsValueArea` bins → `LevelKind.Val` (strength 0.75)
+- **HVNs** (`IsValueArea && TotalVolume > mean × 1.3`) → `LevelKind.Hvn` (strength 0.65)
+- **LVNs** (`IsSinglePrint || TotalVolume < mean × 0.4`) → `LevelKind.Lvn` (strength 0.65)
+
+HVN / LVN thresholds match `ProfileBinClassifier` so the strategy view matches the existing navigation/sonification classification.
+
+### Added: 5 newly-functional `RiskPlanResolver` sources
+
+- **`StopSourceKind.BelowLvn`** — long: `NearestBelow(entry, kindFilter: Lvn)` + buffer. LVNs are breakout-acceleration zones — stops below them rarely re-test.
+- **`TargetSourceKind.NextHvn`** — long: nearest HVN above entry. HVNs act as price magnets that often stall impulse legs.
+- **`TargetSourceKind.Poc`** — direction-neutral mean-reversion target. Long: nearest POC above. Short: nearest POC below.
+- **`TargetSourceKind.Vah`** — long: nearest VAH above. Short: nearest VAL below (the enum name generalises to "value-area boundary in the trade direction").
+- **`TargetSourceKind.FibExtension`** — pure history-derived: finds the lowest low and highest high in the last 50 bars, validates the impulse direction, projects `entry + range × FibLevel` (default 1.618). Independent of `ILevelService`.
+
+`BuildNotes` extended with the `BelowLvn` rationale line.
+
+### Added: 3 newly-functional `ConditionEvaluator` leaf operators
+
+- **`PriceInsideValueArea`** — current close is between any matched VAH/VAL pair from any volume-profile source. Pairs by stripping `" VAH"`/`" VAL"` from source labels — multiple profiles can contribute pairs simultaneously.
+- **`PriceOutsideValueArea`** — symmetric inverse.
+- **`WickIntoLvn`** — current bar's wick crossed any LVN (`bar.Low <= lvl.Price <= bar.High`). Tests the bar even when its close didn't cross — the "intrabar LVN test" primitive that close-only operators can't express.
+
+### Phase 11 status going into Session D
+
+All Sdk types, all level providers (5), all stop sources (8), all target sources (8), all leaf operators (16) shipped. The remaining gaps are:
+
+- **Backtester VPVR profile-state replay** — `VolumeProfileLevelProvider` reads `series.ProfileBins` which is computed against the workspace's current viewport. In backtest mode the bins reflect the final profile state at every historical bar — strategies gating on POC / Value Area / HVN / LVN will future-leak. **The biggest pending correctness item.** Recommended fix documented in memory: an `IBacktestProfileCache` ambient that the provider checks before falling through to live `ProfileBins`.
+- **HTF indicator computation** (carryover from Session B) — sync `IIndicatorRunner` or pre-warm cache for indicator-based HTF leaves.
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Session C: Level Providers, S/R-aware Stops/Targets, Level Leaf Operators
+
+### Added: `PriceLevel` + `LevelKind` enum
+
+New `AccessibleTrader.Sdk.Strategies.PriceLevel` record (Price, Kind, Strength, Source) representing a runtime price coordinate surfaced by an `ILevelProvider`. Named **`PriceLevel`** rather than `LevelDescriptor` to avoid collision with the existing `Sdk.Models.LevelDescriptor` (indicator default reference levels). Kinds: Support, Resistance, Pivot, Poc, Vah, Val, Hvn, Lvn, Vwap, Kijun, KumoTop, KumoBottom.
+
+### Added: `ILevelProvider` + `ILevelService` aggregator
+
+`ILevelProvider` is plurally DI-registered. Each provider owns one source of levels. `ILevelService` aggregates and exposes `GetAllLevels`, `NearestBelow(price, kindFilter?)`, `NearestAbove(price, kindFilter?)`. New providers drop into `Core/Services/Strategies/Levels/` and add a single DI line — the rest of the system picks them up automatically.
+
+### Added: 4 concrete level providers
+
+- **`DrawnHorizontalLevelProvider`** — reads `state.ActiveSeries.Where(s => s.IsDrawing).Select(s => s.Drawing)` and emits HorizontalLine, TrendLine endpoint, Rectangle edge, and RiskReward anchor prices as Support (below current price) or Resistance (above). Strength 0.8.
+- **`SwingPivotLevelProvider`** — algorithmic swing-high / swing-low detection from raw OHLCV with `LookbackBars=5` (configurable), capped at `MaxPivots=12` newest-first. The fallback when no other source is present. Strength 0.5.
+- **`IchimokuLevelProvider`** — exposes Kijun-sen, KumoTop (max of Senkou A/B), KumoBottom (min) when the Ichimoku indicator is loaded. Strength 0.7.
+- **`CipherSrLevelProvider`** — walks the Cipher SR `Resistance` / `Support` component arrays for the last 200 bars and emits one PriceLevel per non-NaN entry. Strength scales linearly from 0.4 (oldest) to 0.9 (newest) — recent pivots outrank ancient ones for current trade decisions.
+
+### Added: RiskPlanResolver Phase-4 stop + target sources
+
+`RiskPlanResolver` now optionally injects `ILevelService` (default null preserves test isolation). The previously-stub Phase-4 sources are now functional:
+
+- **`StopSourceKind.BelowSupport`** — long: nearest level below entry from any provider. Short: nearest above. Returns null if no level qualifies.
+- **`StopSourceKind.BelowKijun`** — picks the Kijun-kind level via `FirstLevelOfKind`.
+- **`StopSourceKind.BelowKumo`** — long: KumoBottom level. Short: KumoTop level.
+- **`TargetSourceKind.NextResistance`** — long: nearest above. Short: nearest below.
+- `BufferTicks` is honored — adds a small safety margin beyond the resolved level price.
+- `BelowLvn`, `NextHvn`, `Poc`, `Vah`, `FibExtension` still return null pending VPVR/TPO integration.
+
+### Added: ConditionEvaluator new leaf operators
+
+`ConditionEvaluator` now optionally injects `ILevelService`. New leaf operators:
+
+- **`PriceRejectsLevel`** — within the last `WithinNBars` bars, did any level get touched within `Value` fractional tolerance (default 0.1%) and did the current close land on the rejection side? Support kinds require close-above; resistance kinds require close-below. The bounce/rejection primitive.
+- **`PriceBreaksLevel`** — this bar's open and close straddle a level (open below + close above = breakout up; mirror for down). The breakout primitive.
+- **`BarClosesAbovePoc` / `BarClosesBelowPoc`** — wired but currently no provider exposes `LevelKind.Poc`; will start firing when VPVR ships.
+
+### Pending after Session C
+
+- **VPVR / TPO level provider** — will plug `Poc` / `Vah` / `Val` / `Hvn` / `Lvn` levels into the existing infrastructure. Tricky because VPVR is currently computed at render time, not in the indicator orchestrator.
+- **Profile-state replay in the backtester** — the most important pending correctness item: any S/R-based strategy that uses VPVR levels will future-leak in backtests until this is fixed.
+- **HTF indicator computation** (carryover from Session B) — sync `IIndicatorRunner` or pre-warm cache so HTF leaves can reference indicators, not just price comparisons.
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Session B: MTF Foundation, R-Multiple Metrics, Entry-Armed State Machine
+
+### Added: `IMultiTimeframeDataService`
+
+Wraps `IDataOrchestrator.FetchOhlcvAsync` (already cache-backed via SQLite + Polly) with an in-memory `(provider|symbol|timeframe)` cache. Bar-size-proportional TTL: 15s for minute bars, 60s for hours, 5min for days, 15min for weeks. `GetBarsAsync` populates; `GetCachedBars` is the sync hot-path read used by `ConditionEvaluator` (strategies cannot await).
+
+### Added: HTF leaf routing in `ConditionEvaluator` (price-only subset)
+
+When a `ConditionLeaf.Timeframe` is set, the evaluator looks up cached HTF bars and evaluates price-comparison operators (`GreaterThan`, `LessThan`, `Between`, `CrossesAbove`, `CrossesBelow`) directly against the HTF Ohlcv. Indicator-on-HTF computation (e.g. "1H Cipher A buy signal") falls through to active-TF data with a one-time warning — that wiring lands in Session C.
+
+### Added: Backtester R-multiple metrics + per-trade hold time
+
+- `BacktestTrade` extended with `StopPrice` (nullable, captured from the entry signal) and `BarsInTrade` (int).
+- `BacktestResult` extended with `AverageR`, `Expectancy`, `ProfitFactor`, `AverageBarsInTrade`, `LongestLosingStreak`. `ConfigurableStrategy` (which emits `StopLoss` in its signal) gets meaningful R values; legacy SMA/RSI/BB strategies render as "—" because their signals don't carry stops.
+- `StrategyBacktester` tracks `openStop` and `openBarIndex` per position. Per-trade R = `reward / |entry - stop|`. Profit factor, average bars-in-trade, longest losing streak computed in a single pass over the trade list. Speech summary appends "Average R: 1.45." when known.
+
+### Added: `IBacktestWarmupAnalyzer`
+
+Walks a `StrategySpec`'s condition tree, collects unique indicator codes via `ISignalCatalog`, queries each provider's `GetStabilityWindow`, returns `max × 1.2` safety multiplier (or floor, whichever is larger). Caller is expected to set `BacktestConfig.WarmupBars` from the recommendation — keeps explicit user control. `ReferencedIndicators(spec)` sibling helper exposes the list for future builder-UI badges.
+
+### Added: Entry-armed state machine in `ConfigurableStrategy`
+
+Three-state machine (`Inactive` / `Armed` / `Active`) supports non-Immediate `EntryTrigger`s. The user's question — "now I see the setup, how long do I wait before I can enter?" — is answered by the Armed state: conditions are confirmed, the bell rings the lighter "armed" earcon, speech narrates the trigger ("Waiting for pullback to 1.0840"), and the strategy waits indefinitely (no expiration per the user's directive) until the trigger fires. On each bar where conditions still hold, a heartbeat `SetupReconfirmedEvent` is published. When the trigger fires, the strategy transitions to Active, emits the `StrategySignal`, publishes `SetupEntryReachedEvent`, and the brighter "entry reached" earcon plays.
+
+Trigger evaluation:
+- `OnPullbackToLevel` — long: `bar.Low <= LevelPrice`; short: `bar.High >= LevelPrice`
+- `OnBreakoutOf` — long: `bar.High >= LevelPrice`; short: `bar.Low <= LevelPrice`
+- `OnNextNCandleClose` — last N bars all closed in setup direction
+
+### Added: New events
+
+- `SetupArmedEvent(StrategyName, InstanceId, Side, TriggerDescription, ResolvedPlan)`
+- `SetupEntryReachedEvent(StrategyName, InstanceId, Side, TriggerPrice, BarsArmed)`
+
+### Added: New earcons
+
+- `IEarconService.PlaySetupArmed(side)` — clean two-tone fifth at moderate volume (long: 660+990 sine; short: 330+220 triangle).
+- `IEarconService.PlaySetupEntryReached(side)` — brighter three-tone chord just above the main setup-bell frequencies, telegraphing "in trade" rather than "setup forming".
+- `SetupSonifier` subscribes to both new events with appropriate speech.
+
+### Changed: Journal modal shortcut
+
+Corrected from `Ctrl+J` to **`Ctrl+Alt+Shift+J`** at user request. Updated in `ShortcutManager`, `SystemCommand` enum comment, `SHORTCUTS.md`, `README.md`, `TODO.md`, and memory.
+
+### Documentation
+
+- `SHORTCUTS.md` gains a Journal Modal section explaining filtering, copying, and how strategy setups appear in the buffer.
+- `TODO.md` Phase 11 section documents Session A (done), Session B (done as of this commit), and the pending Sessions C–E with explicit deliverable lists.
+- `CODEBASE_KNOWLEDGE_BASE.md` section 12.5 — strategy composer pipeline diagram, audio surfaces, journal surfaces, key design rationale.
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
+## [2026-04-07] — Session A: Signal Composer Foundation + Multi-Timeframe Foundation
+
+### Added: Signal Composer pipeline (no UI yet — Session D)
+
+A new strategy authoring backbone designed to let the user combine indicator signals from any registered indicator into a composite buy/sell setup. The data model + services + persistence + audio/speech wiring all ship in this session; the no-code builder UI lands in Session D.
+
+**Sdk types** (`AccessibleTrader.Sdk/Strategies/`):
+- `SignalDescriptor` + `SignalKind` enum (`MarkerFire`, `Oscillator`, `Line`, `Cloud`, `Level`, `Pattern`). Stable IDs `{IndicatorCode}.{ComponentName}`.
+- `ConditionTree.cs` — `ConditionNode` (abstract record, polymorphic JSON via `JsonPolymorphic` discriminator `$kind`), `ConditionLeaf`, `ConditionGroup`, `LogicOperator` (And/Or/Not), `LeafOperator` (12 ops including Fired, FiredWithin, GreaterThan, LessThan, Between, CrossesAbove/Below, ChangesDirection, AboveCloud/BelowCloud/InsideCloud), `ConditionEvaluation` (overall + per-leaf bool dict + score/maxScore for partial-match awareness).
+- `RiskPlan.cs` — `StopSource` (PercentOfPrice, AtrMultiple, BelowSwingLow, Fixed implemented; BelowSupport / BelowKijun / BelowKumo / BelowLvn defined as Phase 4 stubs returning null), `TpLadderRung` (TP ladder, default 1/3 close fractions), `PositionSizing` (FixedRiskPercent default 0.5% of equity, FixedRiskCash, FixedQuantity), `EntryTrigger` (only Immediate honored; OnPullbackToLevel / OnBreakoutOf / OnNextNCandleClose are Session B/E), `MinRewardRiskRatio` gate (default 1.5) below which the bell never rings, `StopAdjustOnTp1.MoveToBreakeven` default, `ResolvedRiskPlan` output (entry, stop, TP prices, close portions, qty, R:R, risk cash, notes).
+- `StrategySpec` — top-level serializable record (Id, Name, Description, Side, Conditions, Risk, ExecutionMode, timestamps).
+
+**Core services** (`AccessibleTrader.Core/Services/Strategies/`):
+- `ISignalCatalog` + `SignalCatalog` — walks every registered `IIndicatorProvider.GetIndicators()` at construction, classifies each component into a `SignalKind` based on `ComponentDisplayType`, indexed by ID and indicator code.
+- `IConditionEvaluator` + `ConditionEvaluator` — pure function `(tree, history, state) → ConditionEvaluation`. Deliberately does NOT short-circuit AND so the per-leaf result map is fully populated for downstream dropout detection.
+- `IRiskPlanResolver` + `RiskPlanResolver` — implements 4 stop sources (PercentOfPrice / AtrMultiple with Wilder ATR / BelowSwingLow / Fixed) and 3 target sources (RiskRewardMultiple / PercentOfPrice / Fixed). Returns null on R:R gate failure or unimplemented Phase-4 source — silent drop, no noisy errors.
+- `IConfigurableStrategyFactory` + `ConfigurableStrategyFactory` — wires evaluator/resolver/catalog/event bus into a `ConfigurableStrategy` from a `StrategySpec`.
+- `IStrategyLibrary` + `JsonStrategyLibrary` — persists `List<StrategySpec>` to `strategies.json` in app-data dir using System.Text.Json polymorphic serialization. Survives missing/empty/corrupt files by starting empty.
+- `SetupSonifier` — singleton subscribing to the 3 setup events; routes confirmations to `IEarconService.PlaySetupBell` + `ISpeechManager.Speak`. Eagerly resolved via MainLayout `@inject` so its event subscriptions wire before any composite strategy can fire.
+
+**Strategy** (`AccessibleTrader.Core/Strategies/`):
+- `ConfigurableStrategy : BaseStrategy` — owns the per-setup state machine. Inactive→Active emits `StrategySignal` + `SetupConfirmedEvent`. Active+true emits `SetupReconfirmedEvent` (no new signal — engine 30s dedup blocks anyway). Leaf flips emit `SetupDroppedEvent` with friendly labels resolved from the catalog. Active→False transitions silently to inactive.
+
+**New events** in `Models/Events.cs`:
+- `SetupConfirmedEvent(StrategyName, InstanceId, Side, Rationale, ResolvedPlan)` — first-time confirmation, carries the full `ResolvedRiskPlan`.
+- `SetupReconfirmedEvent(StrategyName, InstanceId, Side, BarsSinceFirstConfirm)` — every subsequent confirming bar.
+- `SetupDroppedEvent(StrategyName, InstanceId, DroppedLeafLabels, SetupStillActive)` — one or more leaves flipped off.
+
+**Audio** — `IEarconService.PlaySetupBell(OrderSide side, bool reconfirmation)` added. Long = bright ascending sine chord (440 + 660 perfect-fifth + 880 octave shimmer). Short = heavy descending triangle chord (220 + 165 sub-fifth + 110 low octave). Reconfirmation drops volume to ~40% and duration by half so ongoing matches don't fatigue the listener while still providing audible heartbeat confirmation.
+
+### Added: Speech / Alert / Setup Journal (Ctrl+Alt+Shift+J)
+
+A persistent ring-buffer review surface for everything the app has spoken or alerted on during the session.
+
+- `IJournalService` + `JournalService` (Core/Services). 2000-entry ring buffer. Auto-subscribes on construction to `StrategySignalEvent`, `AlertFiredEvent`, and `AppErrorEvent`.
+- `JournalEntry(Timestamp, Kind, Source, Symbol, Text)` and `JournalEntryKind` enum: Speech / Info / Alert / StrategySignal / Backtest / Error.
+- TTS speech is mirrored into the journal via `BlazorSpeechManager.Speak()` calling `Journal.AddSpeech()` (lazy `IServiceProvider` resolution to avoid construction-order coupling).
+- `JournalModal.razor` — console-style modal, monospace `<textarea readonly>` so screen-reader text-selection and copy work natively. Filter buttons (All / Speech / Alerts / Setups / Errors / Backtests). Copy-visible button → clipboard. Clear button → empties buffer. Live updates via `EntryAdded` event while open.
+- Wired through `OpenJournalEvent` (Events.cs), `SystemCommand.OpenJournal`, **Ctrl+Alt+Shift+J** binding (corrected from initial Ctrl+J), CommandDispatcher case, registered in `ServiceCollectionExtensions.AddAccessibilityServices`, modal added to MainLayout.
+
+### Added: Quality-setup bell patches in `SoundPatchRegistry`
+
+- `setup_long_bell` — sine + perfect-fifth detune (220 Hz above 440), 700ms decay, simultaneous bright "go" chord. Distinct from sine_bell and dual_tone_bell by long sustain and rising perfect-fifth interval.
+- `setup_short_bell` — triangle + sub-octave (-150 Hz), 700ms decay, 60ms staggered "two-toll" character. Distinct from setup_long_bell by triangle base, descending interval, and tolling low-bell quality.
+
+### Added: Backtester warmup gate
+
+- `BacktestConfig.WarmupBars` (default 200). `BacktestResult.WarmupBars` and `BacktestResult.EvaluatedBars` extended.
+- `StrategyBacktester.Run()` clamps warmup to `data.Count - 2`, still feeds every bar to the strategy so caches/state converge, but drops signals where `i < warmupBars`. Without this, indicators with long settling periods (Ichimoku ~78, SMA(200), Cipher C stability window 66) emitted unreliable warmup-period signals that skewed metrics.
+- StrategyModal Backtest tab gains a warmup input field. Results display shows "Warmup / Evaluated: X / Y bars". Speech summary appends warmup info.
+
+### Added: Multi-timeframe foundation (Session A scope)
+
+- `ConditionLeaf.Timeframe` optional string field on every condition leaf (null = chart's active TF). Schema-only — full HTF data fetching is Session B. Forward-compatible: existing strategies persist with `Timeframe = null` and load identically.
+
+**Build: 0 errors, 0 warnings.**
+
+---
+
 ## [2026-04-05] — Cipher S Revamp + Viewport Right Margin
 
 ### Changed: Cipher S — High-low channel normalization (algorithm v5)

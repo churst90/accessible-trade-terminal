@@ -13,31 +13,35 @@ using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Services;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Alpaca
 {
-    public class AlpacaProvider : BaseMarketDataProvider, ITradingProvider
+    public class AlpacaProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
         private string? _apiSecret;
         private const string StockDataUrl = "https://data.alpaca.markets/v2";
-
-        // Order update stream — pushed from the Alpaca WebSocket trading stream.
-        private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
-        public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
-
         private const string CryptoDataUrl = "https://data.alpaca.markets/v1beta3/crypto";
         private string _tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
 
-        // Live data WebSocket (replaces polling timer)
-        private ClientWebSocket? _dataWs;
-        private CancellationTokenSource? _dataWsCts;
+        // Rate limiter: Alpaca allows 200 requests/minute
+        private readonly RateLimiter _rateLimiter = new(200, TimeSpan.FromMinutes(1));
 
-        // Trading update WebSocket (for order fill events)
-        private ClientWebSocket? _tradeWs;
-        private CancellationTokenSource? _tradeWsCts;
+        // Order update stream
+        private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
+        public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
+
+        // Order book streaming
+        private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
+
+        // Live data WebSocket
+        private ReconnectingWebSocket? _dataWs;
+
+        // Trading update WebSocket
+        private ReconnectingWebSocket? _tradeWs;
 
         private string? _currentSymbol;
         private string? _currentTimeframe;
@@ -52,14 +56,21 @@ namespace AccessibleTrader.Plugins.Alpaca
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment { get; } = ProviderEnvironment.Paper;
         public override int MaxBarsPerRequest => 10000;
-        public override ProviderCapabilities Capabilities => ProviderCapabilities.None;
-        
-        public override List<string> NativelySupportedTimeframes => new List<string> 
-        { 
-            StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes, 
-            StandardTimeframes.OneHour, StandardTimeframes.OneDay, StandardTimeframes.OneWeek, StandardTimeframes.OneMonth 
+        public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.Brackets;
+
+        public override List<string> NativelySupportedTimeframes => new List<string>
+        {
+            StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes,
+            StandardTimeframes.OneHour, StandardTimeframes.OneDay, StandardTimeframes.OneWeek, StandardTimeframes.OneMonth
         };
+
         public bool IsConnected => IsConfigured;
+
+        public override bool SupportsMarginTrading  => false;
+        public override bool SupportsFuturesTrading => false;
+        public override bool SupportsStopLoss       => true;
+        public override bool SupportsTakeProfit     => true;
+        public override double MaxLeverage          => 1.0;
 
         public AlpacaProvider()
         {
@@ -70,6 +81,7 @@ namespace AccessibleTrader.Plugins.Alpaca
         {
             if (typeof(T) == typeof(IMarketDataProvider)) return this as T;
             if (typeof(T) == typeof(ITradingProvider)) return this as T;
+            if (typeof(T) == typeof(IOrderBookProvider)) return this as T;
             return null;
         }
 
@@ -78,7 +90,6 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (config.TryGetValue("ApiKey", out var key)) _apiKey = key;
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
 
-            // Switch to live trading endpoint when explicitly configured.
             if (config.TryGetValue("Environment", out var env) && env == "Live")
                 _tradingBaseUrl = "https://api.alpaca.markets/v2";
 
@@ -90,6 +101,20 @@ namespace AccessibleTrader.Plugins.Alpaca
             }
         }
 
+        public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
+        {
+            if (!IsConfigured) return (false, "API key not configured");
+            try
+            {
+                var response = await _httpClient.GetAsync($"{_tradingBaseUrl}/account");
+                if (response.IsSuccessStatusCode)
+                    return (true, "API key validated successfully");
+                var body = await response.Content.ReadAsStringAsync();
+                return (false, $"Key validation failed ({response.StatusCode}): {body}");
+            }
+            catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+        }
+
         public override Task EnsureConnectedAsync()
         {
             if (IsConfigured) _connectionStateStream.OnNext(ConnectionState.Connected);
@@ -98,224 +123,146 @@ namespace AccessibleTrader.Plugins.Alpaca
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
-            if (_currentSymbol == symbol && _currentTimeframe == timeframe && _dataWs?.State == WebSocketState.Open) return;
+            if (_currentSymbol == symbol && _currentTimeframe == timeframe && _dataWs?.IsConnected == true) return;
 
-            _currentSymbol   = symbol;
+            _currentSymbol    = symbol;
             _currentTimeframe = timeframe;
-            _currentMarket   = market;
+            _currentMarket    = market;
 
-            // Cancel any existing data stream
-            _dataWsCts?.Cancel();
-            _dataWsCts = new CancellationTokenSource();
-
-            await ConnectDataStreamAsync(market, symbol, _dataWsCts.Token);
-
-            // If configured for trading, ensure the trading update stream is running
-            if (IsConfigured && _tradeWs?.State != WebSocketState.Open)
-            {
-                _tradeWsCts?.Cancel();
-                _tradeWsCts = new CancellationTokenSource();
-                _ = Task.Run(() => ConnectTradeStreamAsync(_tradeWsCts.Token));
-            }
-        }
-
-        private async Task ConnectDataStreamAsync(string market, string symbol, CancellationToken ct)
-        {
-            _dataWs?.Dispose();
-            _dataWs = new ClientWebSocket();
+            // Set up data stream with auto-reconnect
+            if (_dataWs != null) { await _dataWs.DisconnectAsync(); _dataWs.Dispose(); }
 
             bool isCrypto = market.Contains("Crypto", StringComparison.OrdinalIgnoreCase);
             string wsUrl = isCrypto
                 ? "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
                 : "wss://stream.data.alpaca.markets/v2/stocks";
 
-            try
-            {
-                await _dataWs.ConnectAsync(new Uri(wsUrl), ct);
+            var cleanSymbol = CleanSymbol(symbol);
 
-                // Authenticate
-                var auth = new JObject
+            _dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnConnected(async ws =>
                 {
-                    ["action"] = "auth",
-                    ["key"]    = _apiKey,
-                    ["secret"] = _apiSecret
-                };
-                await SendWsAsync(_dataWs, auth.ToString(), ct);
+                    var auth = new JObject { ["action"] = "auth", ["key"] = _apiKey, ["secret"] = _apiSecret };
+                    await ws.SendAsync(auth.ToString());
+                    // Small delay to allow auth to process
+                    await Task.Delay(500);
+                    var sub = new JObject { ["action"] = "subscribe", ["bars"] = new JArray { cleanSymbol } };
+                    await ws.SendAsync(sub.ToString());
+                })
+                .OnMessage(HandleDataMessage)
+                .OnError(err => _errorStream.OnNext($"Alpaca data: {err}"))
+                .OnDisconnected(() => _connectionStateStream.OnNext(ConnectionState.Disconnected));
 
-                // Subscribe to minute bars
-                var cleanSymbol = CleanSymbol(symbol);
-                var sub = new JObject
-                {
-                    ["action"] = "subscribe",
-                    ["bars"]   = new JArray { cleanSymbol }
-                };
-                await SendWsAsync(_dataWs, sub.ToString(), ct);
+            await _dataWs.ConnectAsync();
+            _connectionStateStream.OnNext(ConnectionState.Connected);
 
-                _connectionStateStream.OnNext(ConnectionState.Connected);
-                _ = Task.Run(() => DataReceiveLoopAsync(ct), ct);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Alpaca data stream error: {ex.Message}");
-                _connectionStateStream.OnNext(ConnectionState.Error);
-            }
+            // Start trading stream if not already running
+            if (IsConfigured && _tradeWs?.IsConnected != true)
+                await StartTradeStreamAsync();
         }
 
-        private async Task DataReceiveLoopAsync(CancellationToken ct)
+        private void HandleDataMessage(string msg)
         {
-            var buffer = new byte[1024 * 16];
-            var ms = new System.IO.MemoryStream();
             try
             {
-                while (!ct.IsCancellationRequested && _dataWs?.State == WebSocketState.Open)
+                var arr = JArray.Parse(msg);
+                foreach (var item in arr)
                 {
-                    ms.SetLength(0);
-                    WebSocketReceiveResult result;
-                    do
+                    string? ev = item["T"]?.ToString();
+                    if (ev == "b")
                     {
-                        result = await _dataWs.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
-                        if (result.MessageType == WebSocketMessageType.Close) return;
-                        ms.Write(buffer, 0, result.Count);
-                    } while (!result.EndOfMessage);
-
-                    var msg = Encoding.UTF8.GetString(ms.ToArray());
-                    if (string.IsNullOrWhiteSpace(msg)) continue;
-                    var arr = JArray.Parse(msg);
-
-                    foreach (var item in arr)
-                    {
-                        string? ev = item["T"]?.ToString();
-                        if (ev == "b") // Minute bar
-                        {
-                            var bar = new Ohlcv(
-                                item["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.UtcNow,
-                                item["o"]?.Value<double>() ?? 0,
-                                item["h"]?.Value<double>() ?? 0,
-                                item["l"]?.Value<double>() ?? 0,
-                                item["c"]?.Value<double>() ?? 0,
-                                item["v"]?.Value<double>() ?? 0);
-                            // Filter subscribe-confirmation frames: all-zero OHLCV with zero/epoch timestamp.
-                            if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
-                                && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
-                                continue;
-                            _liveStream.OnNext(bar);
-                        }
+                        var bar = new Ohlcv(
+                            item["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.UtcNow,
+                            item["o"]?.Value<double>() ?? 0,
+                            item["h"]?.Value<double>() ?? 0,
+                            item["l"]?.Value<double>() ?? 0,
+                            item["c"]?.Value<double>() ?? 0,
+                            item["v"]?.Value<double>() ?? 0);
+                        if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
+                            && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
+                            continue;
+                        _liveStream.OnNext(bar);
                     }
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                if (!ct.IsCancellationRequested)
-                    _errorStream.OnNext($"Alpaca data stream receive error: {ex.Message}");
-            }
-            finally { ms.Dispose(); }
+            catch { /* malformed */ }
         }
 
-        private async Task ConnectTradeStreamAsync(CancellationToken ct)
+        private async Task StartTradeStreamAsync()
         {
-            _tradeWs?.Dispose();
-            _tradeWs = new ClientWebSocket();
+            if (_tradeWs != null) { await _tradeWs.DisconnectAsync(); _tradeWs.Dispose(); }
 
             string wsUrl = _tradingBaseUrl.Contains("paper")
                 ? "wss://paper-api.alpaca.markets/stream"
                 : "wss://api.alpaca.markets/stream";
 
+            _tradeWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnConnected(async ws =>
+                {
+                    var auth = new JObject
+                    {
+                        ["action"] = "authenticate",
+                        ["data"]   = new JObject { ["key_id"] = _apiKey, ["secret_key"] = _apiSecret }
+                    };
+                    await ws.SendAsync(auth.ToString());
+                    await Task.Delay(500);
+                    var listen = new JObject
+                    {
+                        ["action"] = "listen",
+                        ["data"]   = new JObject { ["streams"] = new JArray { "trade_updates" } }
+                    };
+                    await ws.SendAsync(listen.ToString());
+                })
+                .OnMessage(HandleTradeMessage)
+                .OnError(err => _errorStream.OnNext($"Alpaca trade stream: {err}"));
+
+            await _tradeWs.ConnectAsync();
+        }
+
+        private void HandleTradeMessage(string msg)
+        {
             try
             {
-                await _tradeWs.ConnectAsync(new Uri(wsUrl), ct);
-
-                var auth = new JObject
+                var json = JObject.Parse(msg);
+                if (json["stream"]?.ToString() == "trade_updates")
                 {
-                    ["action"] = "authenticate",
-                    ["data"]   = new JObject { ["key_id"] = _apiKey, ["secret_key"] = _apiSecret }
-                };
-                await SendWsAsync(_tradeWs, auth.ToString(), ct);
+                    var data = json["data"];
+                    if (data == null) return;
+                    var evt   = data["event"]?.ToString();
+                    var order = data["order"];
+                    if (order == null) return;
 
-                var listen = new JObject
-                {
-                    ["action"] = "listen",
-                    ["data"]   = new JObject { ["streams"] = new JArray { "trade_updates" } }
-                };
-                await SendWsAsync(_tradeWs, listen.ToString(), ct);
-
-                var buffer = new byte[1024 * 16];
-                var ms = new System.IO.MemoryStream();
-                while (!ct.IsCancellationRequested && _tradeWs.State == WebSocketState.Open)
-                {
-                    ms.SetLength(0);
-                    WebSocketReceiveResult result;
-                    do
+                    var status = evt switch
                     {
-                        result = await _tradeWs.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
-                        if (result.MessageType == WebSocketMessageType.Close) return;
-                        ms.Write(buffer, 0, result.Count);
-                    } while (!result.EndOfMessage);
+                        "fill"         => OrderStatus.Filled,
+                        "partial_fill" => OrderStatus.PartialFill,
+                        "canceled"     => OrderStatus.Cancelled,
+                        "rejected"     => OrderStatus.Rejected,
+                        _              => OrderStatus.Triggered
+                    };
 
-                    var msg  = Encoding.UTF8.GetString(ms.ToArray());
-                    var json = JObject.Parse(msg);
-
-                    if (json["stream"]?.ToString() == "trade_updates")
-                    {
-                        var data = json["data"];
-                        if (data == null) continue;
-                        var evt    = data["event"]?.ToString();
-                        var order  = data["order"];
-                        if (order == null) continue;
-
-                        var status = evt switch
-                        {
-                            "fill"         => OrderStatus.Filled,
-                            "partial_fill" => OrderStatus.PartialFill,
-                            "canceled"     => OrderStatus.Cancelled,
-                            "rejected"     => OrderStatus.Rejected,
-                            _              => OrderStatus.Triggered
-                        };
-
-                        _orderUpdateSubject.OnNext(new OrderUpdate(
-                            order["id"]?.ToString() ?? "",
-                            order["symbol"]?.ToString() ?? "",
-                            order["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                            double.TryParse(order["filled_qty"]?.ToString(), out double fq) ? fq : 0,
-                            double.TryParse(order["filled_avg_price"]?.ToString(), out double fp) ? fp : 0,
-                            0,
-                            status,
-                            false,
-                            false,
-                            DateTime.UtcNow));
-                    }
+                    _orderUpdateSubject.OnNext(new OrderUpdate(
+                        order["id"]?.ToString() ?? "",
+                        order["symbol"]?.ToString() ?? "",
+                        order["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                        double.TryParse(order["filled_qty"]?.ToString(), out double fq) ? fq : 0,
+                        double.TryParse(order["filled_avg_price"]?.ToString(), out double fp) ? fp : 0,
+                        double.TryParse(order["qty"]?.ToString(), out double tq) ? tq - fq : 0,
+                        status, false, false, DateTime.UtcNow));
                 }
-                ms.Dispose();
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                if (!ct.IsCancellationRequested)
-                    _errorStream.OnNext($"Alpaca trade stream error: {ex.Message}");
-            }
+            catch { /* malformed */ }
         }
 
-        private static async Task SendWsAsync(ClientWebSocket ws, string message, CancellationToken ct)
+        public override async Task DisconnectAsync()
         {
-            var bytes = Encoding.UTF8.GetBytes(message);
-            await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, ct);
-        }
-
-        public override Task DisconnectAsync()
-        {
-            _dataWsCts?.Cancel();
-            _dataWs?.Dispose();
-            _dataWs = null;
-
-            _tradeWsCts?.Cancel();
-            _tradeWs?.Dispose();
-            _tradeWs = null;
+            if (_dataWs != null) { await _dataWs.DisconnectAsync(); _dataWs.Dispose(); _dataWs = null; }
+            if (_tradeWs != null) { await _tradeWs.DisconnectAsync(); _tradeWs.Dispose(); _tradeWs = null; }
 
             _currentSymbol    = null;
             _currentTimeframe = null;
             _currentMarket    = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
-            return Task.CompletedTask;
         }
 
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
@@ -325,21 +272,32 @@ namespace AccessibleTrader.Plugins.Alpaca
             var symbol = CleanSymbol(request.Symbol);
             var timeframe = MapTimeframe(request.Timeframe);
             int limit = Math.Min(request.Limit, 1000);
-            
-            string url = isCrypto ? $"{CryptoDataUrl}/us/bars?symbols={symbol}&timeframe={timeframe}" : $"{StockDataUrl}/stocks/{symbol}/bars?timeframe={timeframe}";
+
+            string url = isCrypto
+                ? $"{CryptoDataUrl}/us/bars?symbols={symbol}&timeframe={timeframe}"
+                : $"{StockDataUrl}/stocks/{symbol}/bars?timeframe={timeframe}";
             url += $"&limit={limit}";
             if (request.Since.HasValue) url += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
             if (request.Until.HasValue) url += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
 
             try
             {
-                var response = await _httpClient.GetStringAsync(url);
-                var json = JObject.Parse(response);
-                JArray? bars = isCrypto ? json["bars"]?[symbol] as JArray : json["bars"] as JArray;
-                if (bars == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var response = await _httpClient.GetStringAsync(url);
+                    var json = JObject.Parse(response);
+                    JArray? bars = isCrypto ? json["bars"]?[symbol] as JArray : json["bars"] as JArray;
+                    if (bars == null) return (new List<Ohlcv>(), new List<(long, double)>());
 
-                var ohlcvList = bars.Select(b => new Ohlcv(b["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.MinValue, b["o"]?.Value<double>() ?? 0, b["h"]?.Value<double>() ?? 0, b["l"]?.Value<double>() ?? 0, b["c"]?.Value<double>() ?? 0, b["v"]?.Value<double>() ?? 0)).OrderBy(x => x.Date).ToList();
-                return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+                    var ohlcvList = bars.Select(b => new Ohlcv(
+                        b["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.MinValue,
+                        b["o"]?.Value<double>() ?? 0,
+                        b["h"]?.Value<double>() ?? 0,
+                        b["l"]?.Value<double>() ?? 0,
+                        b["c"]?.Value<double>() ?? 0,
+                        b["v"]?.Value<double>() ?? 0)).OrderBy(x => x.Date).ToList();
+                    return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+                });
             }
             catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
         }
@@ -349,82 +307,115 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return new List<string>();
             try
             {
-                // Crypto uses the crypto assets endpoint; everything else uses the assets endpoint
-                // filtered to active, tradeable US equities.
-                string url = market == MarketType.Crypto
-                    ? "https://api.alpaca.markets/v2/assets?asset_class=crypto&status=active"
-                    : "https://api.alpaca.markets/v2/assets?asset_class=us_equity&status=active&tradable=true";
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    string url = market == MarketType.Crypto
+                        ? "https://api.alpaca.markets/v2/assets?asset_class=crypto&status=active"
+                        : "https://api.alpaca.markets/v2/assets?asset_class=us_equity&status=active&tradable=true";
 
-                var req = new HttpRequestMessage(HttpMethod.Get, url);
-                req.Headers.Add("APCA-API-KEY-ID",     _apiKey);
-                req.Headers.Add("APCA-API-SECRET-KEY", _apiSecret);
+                    var req = new HttpRequestMessage(HttpMethod.Get, url);
+                    req.Headers.Add("APCA-API-KEY-ID",     _apiKey);
+                    req.Headers.Add("APCA-API-SECRET-KEY", _apiSecret);
 
-                var response = await _httpClient.SendAsync(req);
-                response.EnsureSuccessStatusCode();
+                    var response = await _httpClient.SendAsync(req);
+                    response.EnsureSuccessStatusCode();
 
-                var json    = await response.Content.ReadAsStringAsync();
-                var assets  = JArray.Parse(json);
-                return assets
-                    .Select(a => a["symbol"]?.ToString() ?? "")
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .OrderBy(s => s)
-                    .ToList();
+                    var json   = await response.Content.ReadAsStringAsync();
+                    var assets = JArray.Parse(json);
+                    return assets
+                        .Select(a => a["symbol"]?.ToString() ?? "")
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .OrderBy(s => s)
+                        .ToList();
+                });
             }
             catch { return new List<string>(); }
         }
+
         public override async Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => new List<string> { "Spot" };
         public override async Task<List<string>> GetSupportedTimeframesAsync() => NativelySupportedTimeframes;
+
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
         {
             if (!IsConfigured) return (new(), new());
             var cleanSymbol = CleanSymbol(symbol);
-            
-            // Only crypto order books supported in this simple version
-            string url = $"{CryptoDataUrl}/us/orderbooks?symbols={cleanSymbol}";
+
+            // Determine if this is a crypto or stock symbol
+            bool isCrypto = _currentMarket?.Contains("Crypto", StringComparison.OrdinalIgnoreCase) == true;
+
             try
             {
-                var response = await _httpClient.GetStringAsync(url);
-                var json = JObject.Parse(response);
-                var book = json["orderbooks"]?[cleanSymbol];
-                if (book == null) return (new(), new());
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    if (isCrypto)
+                    {
+                        string url = $"{CryptoDataUrl}/us/orderbooks?symbols={cleanSymbol}";
+                        var response = await _httpClient.GetStringAsync(url);
+                        var json = JObject.Parse(response);
+                        var book = json["orderbooks"]?[cleanSymbol];
+                        if (book == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
 
-                var bids = (book["b"] as JArray)?
-                    .Take(limit)
-                    .Select(b => new OrderBookEntry(double.Parse(b["p"]!.ToString()), double.Parse(b["s"]!.ToString())))
-                    .ToList() ?? new();
+                        var bids = (book["b"] as JArray)?.Take(limit)
+                            .Select(b => new OrderBookEntry(double.Parse(b["p"]!.ToString()), double.Parse(b["s"]!.ToString())))
+                            .ToList() ?? new();
+                        var asks = (book["a"] as JArray)?.Take(limit)
+                            .Select(a => new OrderBookEntry(double.Parse(a["p"]!.ToString()), double.Parse(a["s"]!.ToString())))
+                            .ToList() ?? new();
+                        return (bids, asks);
+                    }
+                    else
+                    {
+                        // Stock: use latest quote (NBBO) as a 1-level order book
+                        string url = $"{StockDataUrl}/stocks/{cleanSymbol}/quotes/latest";
+                        var response = await _httpClient.GetStringAsync(url);
+                        var json = JObject.Parse(response);
+                        var quote = json["quote"];
+                        if (quote == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
 
-                var asks = (book["a"] as JArray)?
-                    .Take(limit)
-                    .Select(a => new OrderBookEntry(double.Parse(a["p"]!.ToString()), double.Parse(a["s"]!.ToString())))
-                    .ToList() ?? new();
+                        double bidPx  = quote["bp"]?.Value<double>() ?? 0;
+                        double bidSz  = quote["bs"]?.Value<double>() ?? 0;
+                        double askPx  = quote["ap"]?.Value<double>() ?? 0;
+                        double askSz  = quote["as"]?.Value<double>() ?? 0;
 
-                return (bids, asks);
+                        var bids = bidPx > 0 ? new List<OrderBookEntry> { new(bidPx, bidSz) } : new List<OrderBookEntry>();
+                        var asks = askPx > 0 ? new List<OrderBookEntry> { new(askPx, askSz) } : new List<OrderBookEntry>();
+                        return (bids, asks);
+                    }
+                });
             }
             catch { return (new(), new()); }
         }
-        
-        // ── ITradingProvider ─────────────────────────────────────────────────────
 
-        /// <summary>Alpaca supports margin on crypto but not traditional leverage multiples.</summary>
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => false;
-        public override double MaxLeverage          => 1.0;
+        // ── IOrderBookProvider ──────────────────────────────────────────────
+
+        async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)
+        {
+            var (bids, asks) = await GetOrderBookAsync(symbol, depth);
+            return new OrderBookSnapshot(symbol, bids, asks, 0, DateTime.UtcNow);
+        }
+
+        public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol) => _orderBookSubject.AsObservable();
+
+        // ── ITradingProvider ─────────────────────────────────────────────────────
 
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConfigured) return new();
             try
             {
-                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
-                var json = JObject.Parse(response);
-                double equity      = json["equity"]?.Value<double>() ?? 0;
-                double cash        = json["cash"]?.Value<double>() ?? 0;
-                double buyingPower = json["buying_power"]?.Value<double>() ?? 0;
-                return new List<Balance>
+                return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    new("USD", cash, equity - cash),
-                    new("Buying Power", buyingPower, 0)
-                };
+                    var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
+                    var json = JObject.Parse(response);
+                    double equity      = json["equity"]?.Value<double>() ?? 0;
+                    double cash        = json["cash"]?.Value<double>() ?? 0;
+                    double buyingPower = json["buying_power"]?.Value<double>() ?? 0;
+                    return new List<Balance>
+                    {
+                        new("USD", cash, equity - cash),
+                        new("Buying Power", buyingPower, 0)
+                    };
+                });
             }
             catch { return new(); }
         }
@@ -434,15 +425,18 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return new();
             try
             {
-                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
-                var arr = JArray.Parse(response);
-                return arr.Select(p => new Position(
-                    p["symbol"]?.ToString() ?? "",
-                    p["qty"]?.Value<double>() ?? 0,
-                    p["avg_entry_price"]?.Value<double>() ?? 0,
-                    p["market_value"]?.Value<double>() ?? 0,
-                    p["unrealized_pl"]?.Value<double>() ?? 0
-                )).ToList();
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
+                    var arr = JArray.Parse(response);
+                    return arr.Select(p => new Position(
+                        p["symbol"]?.ToString() ?? "",
+                        p["qty"]?.Value<double>() ?? 0,
+                        p["avg_entry_price"]?.Value<double>() ?? 0,
+                        p["market_value"]?.Value<double>() ?? 0,
+                        p["unrealized_pl"]?.Value<double>() ?? 0
+                    )).ToList();
+                });
             }
             catch { return new(); }
         }
@@ -452,19 +446,24 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return new();
             try
             {
-                string url = $"{_tradingBaseUrl}/orders?status=open";
-                if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
-                var response = await _httpClient.GetStringAsync(url);
-                var arr = JArray.Parse(response);
-                return arr.Select(o => new OpenOrder(
-                    o["id"]?.ToString() ?? "",
-                    o["symbol"]?.ToString() ?? "",
-                    o["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                    MapAlpacaOrderType(o["type"]?.ToString() ?? "market"),
-                    o["qty"]?.Value<double>() ?? 0,
-                    o["limit_price"]?.Value<double>() ?? 0,
-                    o["status"]?.ToString() ?? ""
-                )).ToList();
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    string url = $"{_tradingBaseUrl}/orders?status=open";
+                    if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
+                    var response = await _httpClient.GetStringAsync(url);
+                    var arr = JArray.Parse(response);
+                    return arr.Select(o => new OpenOrder(
+                        o["id"]?.ToString() ?? "",
+                        o["symbol"]?.ToString() ?? "",
+                        o["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                        MapAlpacaOrderType(o["type"]?.ToString() ?? "market"),
+                        o["qty"]?.Value<double>() ?? 0,
+                        o["limit_price"]?.Value<double>() ?? 0,
+                        o["status"]?.ToString() ?? "",
+                        o["stop_price"]?.Value<double>(),
+                        null
+                    )).ToList();
+                });
             }
             catch { return new(); }
         }
@@ -474,35 +473,58 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                var body = new JObject
+                return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    ["symbol"]        = signal.Symbol,
-                    ["qty"]           = signal.Quantity.ToString("F4"),
-                    ["side"]          = signal.Side == OrderSide.Buy ? "buy" : "sell",
-                    ["type"]          = signal.Type == OrderType.Limit ? "limit" : "market",
-                    ["time_in_force"] = "gtc"
-                };
-                if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                    body["limit_price"] = signal.Price.Value;
-                if (signal.StopLoss.HasValue)
-                {
-                    body["order_class"] = "bracket";
-                    body["stop_loss"] = new JObject { ["stop_price"] = signal.StopLoss.Value };
-                }
-                if (signal.TakeProfit.HasValue)
-                {
-                    if (!body.ContainsKey("order_class")) body["order_class"] = "bracket";
-                    body["take_profit"] = new JObject { ["limit_price"] = signal.TakeProfit.Value };
-                }
-                if (!string.IsNullOrEmpty(signal.ClientOid))
-                    body["client_order_id"] = signal.ClientOid;
+                    var body = new JObject
+                    {
+                        ["symbol"]        = signal.Symbol,
+                        ["qty"]           = signal.Quantity.ToString("F4"),
+                        ["side"]          = signal.Side == OrderSide.Buy ? "buy" : "sell",
+                        ["time_in_force"] = "gtc"
+                    };
 
-                var content = new System.Net.Http.StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync($"{_tradingBaseUrl}/orders", content);
-                var responseStr = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{responseStr}";
-                var json = JObject.Parse(responseStr);
-                return json["id"]?.ToString() ?? "ORDER_SUBMITTED";
+                    // Determine order type
+                    if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
+                    {
+                        body["type"] = "stop";
+                        body["stop_price"] = signal.StopLoss.Value;
+                    }
+                    else if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
+                    {
+                        body["type"] = "stop_limit";
+                        body["stop_price"] = signal.StopLoss.Value;
+                        body["limit_price"] = signal.Price.Value;
+                    }
+                    else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
+                    {
+                        body["type"] = "limit";
+                        body["limit_price"] = signal.Price.Value;
+                    }
+                    else
+                    {
+                        body["type"] = "market";
+                    }
+
+                    // Bracket orders with SL/TP
+                    if (signal.StopLoss.HasValue || signal.TakeProfit.HasValue)
+                    {
+                        body["order_class"] = "bracket";
+                        if (signal.StopLoss.HasValue)
+                            body["stop_loss"] = new JObject { ["stop_price"] = signal.StopLoss.Value };
+                        if (signal.TakeProfit.HasValue)
+                            body["take_profit"] = new JObject { ["limit_price"] = signal.TakeProfit.Value };
+                    }
+
+                    if (!string.IsNullOrEmpty(signal.ClientOid))
+                        body["client_order_id"] = signal.ClientOid;
+
+                    var content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
+                    var response = await _httpClient.PostAsync($"{_tradingBaseUrl}/orders", content);
+                    var responseStr = await response.Content.ReadAsStringAsync();
+                    if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{responseStr}";
+                    var json = JObject.Parse(responseStr);
+                    return json["id"]?.ToString() ?? "ORDER_SUBMITTED";
+                });
             }
             catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
         }
@@ -512,13 +534,13 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return false;
             try
             {
-                var response = await _httpClient.DeleteAsync($"{_tradingBaseUrl}/orders/{orderId}");
+                var response = await _rateLimiter.ExecuteAsync(async () =>
+                    await _httpClient.DeleteAsync($"{_tradingBaseUrl}/orders/{orderId}"));
                 return response.IsSuccessStatusCode;
             }
             catch { return false; }
         }
 
-        /// <summary>Alpaca does not support leverage multipliers; always returns 1.0.</summary>
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
 
         private static OrderType MapAlpacaOrderType(string type) => type switch
@@ -529,6 +551,16 @@ namespace AccessibleTrader.Plugins.Alpaca
             _             => OrderType.Market
         };
 
-        private string MapTimeframe(string tf) => tf switch { "1m" => "1Min", "5m" => "5Min", "15m" => "15Min", "1h" => "1Hour", "1d" => "1Day", "1w" => "1Week", "1M" => "1Month", _ => "1Hour" };
+        private string MapTimeframe(string tf) => tf switch
+        {
+            "1m"  => "1Min",
+            "5m"  => "5Min",
+            "15m" => "15Min",
+            "1h"  => "1Hour",
+            "1d"  => "1Day",
+            "1w"  => "1Week",
+            "1M"  => "1Month",
+            _     => "1Hour"
+        };
     }
 }

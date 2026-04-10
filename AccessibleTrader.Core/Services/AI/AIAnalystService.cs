@@ -45,6 +45,46 @@ public sealed class AIAnalystService : IAIAnalystService
         _providers     = providers;
     }
 
+    /// <summary>
+    /// Free-form prompt path used by callers like the "Review my setups today" feature in
+    /// <c>AIAnalystModal</c>. Picks the same configured LLM provider as <see cref="AnalyseAsync"/>
+    /// but skips the chart snapshot and the structured prompt builder — the caller has already
+    /// built the prompt body it wants to send (typically from journal entries + strategies.json).
+    /// Uses a setup-review system prompt distinct from the technical-analysis system prompt so
+    /// the LLM frames its response as a review rather than a forecast.
+    /// </summary>
+    public async Task<string?> AskAsync(string prompt, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(prompt)) return null;
+
+        ILLMProvider? provider = null;
+        string? apiKey = null;
+
+        foreach (var p in _providers)
+        {
+            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId);
+            if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ApiKey))
+            {
+                provider = p;
+                apiKey = cfg.ApiKey;
+                break;
+            }
+        }
+        if (provider == null) return null;
+
+        const string ReviewSystemPrompt =
+            "You are an expert trading coach reviewing the user's recent strategy setups. " +
+            "You will be given a structured list of strategy specifications and the journal of " +
+            "setups that fired today. " +
+            "Provide a concise review (3 to 6 bullet points) covering: which setups worked, " +
+            "which failed and why, any patterns in the failures, and one or two specific " +
+            "improvements the user could make to their strategy specs. " +
+            "Write for a visually impaired trader who uses text-to-speech — be clear, " +
+            "use plain language, and avoid markdown formatting.";
+
+        return await provider.CompleteAsync(ReviewSystemPrompt, prompt, imageBase64: null, apiKey!, ct);
+    }
+
     public async Task<string?> AnalyseAsync(CancellationToken ct = default)
     {
         // ── 1. Find the first configured LLM key ─────────────────────────────────

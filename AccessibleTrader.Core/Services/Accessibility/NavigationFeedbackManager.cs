@@ -202,6 +202,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Zone proximity and additional signal speech are only meaningful when price is the navigation context.
             // Computed here so all code paths below share the same value without re-evaluation.
             bool focusedOnCandleSeries = string.IsNullOrEmpty(state.FocusedSeriesId)
+                || state.FocusedSeriesId == state.PrimarySeriesId
                 || state.FocusedSeriesId == CoreSeriesIds.Candles
                 || state.FocusedSeriesId == CoreSeriesIds.Price;
 
@@ -434,12 +435,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// current bar when a CandleColor overlay (e.g. Cipher S) is active. Returns null when no
         /// such overlay is loaded or when the phase data is not yet available for this bar.
         /// </summary>
-        private static readonly string[] _phaseNames =
-        {
-            "Max Fear", "Fear", "Concern", "Caution", "Mild Caution",
-            "Neutral", "Mild Greed", "Greed", "High Greed", "Extreme Greed", "Max Euphoria"
-        };
-
         private static string? GetActiveCandlePhase(WorkspaceState state, int dataIndex)
         {
             foreach (var os in state.ActiveSeries)
@@ -452,8 +447,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (phaseData == null || dataIndex < 0 || dataIndex >= phaseData.Length) continue;
                 double raw = phaseData[dataIndex];
                 if (double.IsNaN(raw)) continue;
-                int phase = Math.Clamp((int)Math.Round(raw), 0, _phaseNames.Length - 1);
-                return _phaseNames[phase];
+                int phase = Math.Clamp((int)Math.Round(raw), 0, AudioConstants.PhaseNames.Length - 1);
+                return AudioConstants.PhaseNames[phase];
             }
             return null;
         }
@@ -568,7 +563,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (double.IsNaN(zoneVal) || zoneVal <= 0) continue;
 
                     // Tolerance: zone is "near" if within ZoneProximityPct of the bar's price range.
-                    double tolerance = zoneVal * ZoneProximityPct;
+                    double tolerance = Math.Abs(zoneVal) * ZoneProximityPct;
                     bool inRange = bar.High + tolerance >= zoneVal && bar.Low - tolerance <= zoneVal;
                     if (!inRange) continue;
 

@@ -28,7 +28,20 @@ public record StrategySignal(
     double? StopLoss,
     double? TakeProfit,
     string Rationale,
-    double Confidence
+    double Confidence,
+    /// <summary>
+    /// Optional take-profit ladder beyond the single <see cref="TakeProfit"/> price. When set,
+    /// the backtester closes <see cref="TpClosePortions"/>[i] of the position when price reaches
+    /// each ladder rung in order, and (if configured) moves the stop to breakeven after TP1. The
+    /// single <see cref="TakeProfit"/> field is preserved for back-compat with the broker order
+    /// path which doesn't yet handle multi-leg bracket orders.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<double>? TpLadder = null,
+    /// <summary>
+    /// Per-rung close fractions matching <see cref="TpLadder"/>. Sum should be ≤ 1.0 — any
+    /// remainder rides past TP3 until end-of-data or stop.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<double>? TpClosePortions = null
 );
 
 public record StrategyMetrics(

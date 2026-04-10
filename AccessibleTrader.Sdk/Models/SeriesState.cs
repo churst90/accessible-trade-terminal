@@ -33,6 +33,20 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Horizontal zone bands centred on a carry-forward level value. Visual-only — not navigable or audible.</summary>
         public List<ZoneBandConfig> ZoneBands { get; set; } = new();
 
+        // ── Per-series pane range overrides (analytics provider hints) ────────────
+        /// <summary>
+        /// Hard lower bound for this series's pane auto-scale. When set, ViewportRangeCalculator
+        /// clamps the pane's min to this value, so a bounded metric like FNG always shows 0–100
+        /// even if current data is 10–90. Populated from SymbolRenderHints.RangeMin on analytics
+        /// loads. Null = use data-driven auto-scale (default for OHLCV and unbounded metrics).
+        /// </summary>
+        public double? RangeMin { get; set; }
+
+        /// <summary>
+        /// Hard upper bound for this series's pane auto-scale. See <see cref="RangeMin"/>.
+        /// </summary>
+        public double? RangeMax { get; set; }
+
         public SeriesConfig Clone()
         {
             var c = new SeriesConfig
@@ -40,7 +54,8 @@ namespace AccessibleTrader.Sdk.Models
                 Id = Id, Name = Name, FriendlyName = FriendlyName, IndicatorCode = IndicatorCode,
                 Pane = Pane, IsMuted = IsMuted, Volume = Volume, IsVisible = IsVisible,
                 IsAutoNarrated = IsAutoNarrated,
-                SpeakHeaderFirst = SpeakHeaderFirst, IncludeTimestamp = IncludeTimestamp
+                SpeakHeaderFirst = SpeakHeaderFirst, IncludeTimestamp = IncludeTimestamp,
+                RangeMin = RangeMin, RangeMax = RangeMax
             };
             foreach (var comp in Components) c.Components.Add(comp.Clone());
             foreach (var level in Levels) c.Levels.Add(level.Clone());

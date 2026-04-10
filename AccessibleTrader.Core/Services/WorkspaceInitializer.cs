@@ -6,20 +6,44 @@ using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.Core.Services
 {
     public interface IWorkspaceInitializer
     {
-        void InitializeDefaultSeries();
-        /// <summary>Saves the current series layout to the default workspace profile.</summary>
-        void SaveWorkspace();
+        /// <summary>
+        /// Reconciles the active tab's core series stack to match the provider's data shape.
+        /// Seeded set varies by <paramref name="dataShape"/>:
+        ///   • Ohlcv (default) → Candles + Volume + Price (the historical price-chart stack)
+        ///   • SingleValueLine → Price only (a single Line component for analytics metrics)
+        ///
+        /// On a shape change (e.g. switching from a trading provider to an analytics one),
+        /// ALL non-core series — user-added indicators AND drawings — are stripped so the
+        /// new tab reflects the new mode cleanly. Same-shape reloads are idempotent and
+        /// preserve user content. The caller should capture the desired label via
+        /// <see cref="IMarketDataProvider.GetSymbolDisplayName"/> and pass it through so
+        /// the Price series gets a human-readable FriendlyName on analytics tabs.
+        /// </summary>
+        /// <param name="dataShape">The NEW provider's declared data shape.</param>
+        /// <param name="symbolDisplayName">Human-readable label for the active symbol
+        /// (e.g. "Fear &amp; Greed Index"). Empty string falls back to generic naming.</param>
+        /// <param name="renderHints">Optional per-symbol render/sonification hints from
+        /// the provider. When non-null, applied to the Price series on SingleValueLine
+        /// loads: range clamp, reference levels, display type, speech template, color.
+        /// Null means "use defaults" — OHLCV and unbounded analytics metrics pass null.</param>
+        void InitializeDefaultSeries(ProviderDataShape dataShape = ProviderDataShape.Ohlcv, string symbolDisplayName = "", SymbolRenderHints? renderHints = null);
+
+        /// <summary>
+        /// Restores a full workspace from a saved profile configuration.
+        /// Rebuilds all tabs' series through the factory so current metadata
+        /// defaults (waveforms, colors, envelope types) are always applied.
+        /// </summary>
+        void RestoreWorkspace(WorkspaceConfiguration config);
     }
 
     public class WorkspaceInitializer : IWorkspaceInitializer
     {
-        private const string DefaultProfileName = "default";
-
         private readonly ISeriesManagementService _seriesService;
         private readonly IWorkspaceStore _store;
         private readonly IWorkspaceLibraryService _library;
@@ -37,84 +61,457 @@ namespace AccessibleTrader.Core.Services
             _indicatorService = indicatorService;
         }
 
-        public void InitializeDefaultSeries()
+        /// <summary>
+        /// The three "core" series ids that make up the provider-owned stack. Everything
+        /// else (EMAs, RSIs, drawings, cross-series indicators) is considered user-owned
+        /// and survives provider switches. This list is the authoritative definition of
+        /// "what the provider dictates" — <see cref="ResolveDesiredCoreStack"/> picks a
+        /// subset based on the provider's declared shape and the reconciler removes any
+        /// core series that aren't in the desired subset.
+        /// </summary>
+        private static readonly string[] CoreStackIds =
         {
-            if (_store.State.ActiveSeries.Any(s => s.Id == CoreSeriesIds.Candles)) return;
+            CoreSeriesIds.Candles,
+            CoreSeriesIds.Volume,
+            CoreSeriesIds.Price,
+        };
 
-            // Try to restore the previously-saved workspace layout.
-            var saved = _library.LoadProfile(DefaultProfileName);
-            if (saved?.Series?.Count > 0)
+        /// <summary>
+        /// Returns the core series ids that should exist on the chart for a given provider
+        /// data shape, plus the id that should become the primary/focused series. This is
+        /// the single source of truth for "what does this provider produce?" — called by
+        /// both the fresh-load path (InitializeDefaultSeries) and the workspace-restore
+        /// path so both routes make identical decisions.
+        /// </summary>
+        /// <param name="dataShape">The provider's declared data shape.</param>
+        /// <returns>
+        /// A tuple containing the desired core series ids in seed order and the id that
+        /// should be set as <see cref="WorkspaceState.PrimarySeriesId"/>.
+        /// </returns>
+        public static (string[] Desired, string PrimaryId) ResolveDesiredCoreStack(ProviderDataShape dataShape)
+        {
+            return dataShape switch
             {
-                // Migration: obtain current indicator metadata to merge any new cloud fills
-                // and remove any stale Cloud-type components (now handled by CloudFills).
-                var allMeta = _indicatorService.GetAvailableIndicators();
+                // Single-value analytics providers (FRED, CoinGecko, CoinMetrics,
+                // AlternativeMe FNG, Glassnode, OKX funding, Binance Derivatives, etc.)
+                // have no candles and no volume — only a one-point-per-bar scalar series.
+                // Seeding Candles/Volume for these produced the "three series showing the
+                // same value" bug users reported after Phase 4: the guards let stale OHLCV
+                // series survive a provider switch and the sync path happily re-populated
+                // them against the new scalar buffer.
+                ProviderDataShape.SingleValueLine => (
+                    new[] { CoreSeriesIds.Price },
+                    CoreSeriesIds.Price),
 
-                foreach (var config in saved.Series)
-                {
-                    MigrateSeriesConfig(config, allMeta);
-                    // Smart restore: rebuilds indicator series through the factory so current
-                    // metadata defaults (waveforms, colors, envelope types) are always applied.
-                    // Core series (Candles/Price/Volume/Heatmap) and unknown indicators fall
-                    // back to direct config restore inside RestoreSeriesFromSaved.
-                    var meta = allMeta.FirstOrDefault(m =>
-                        m.Code.Equals(config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
-                    _seriesService.RestoreSeriesFromSaved(config, meta);
-                }
+                // Default: a real OHLCV market data provider (exchange spot, perps, etc.)
+                // gets the full Candles + Volume + Price stack with Candles as primary.
+                _ => (
+                    new[] { CoreSeriesIds.Candles, CoreSeriesIds.Volume, CoreSeriesIds.Price },
+                    CoreSeriesIds.Candles),
+            };
+        }
 
-                // Restore persisted pane height ratios if any were saved.
-                var savedRatios = saved.PaneHeightRatios?.Count > 0
-                    ? new Dictionary<string, float>(saved.PaneHeightRatios)
-                    : new Dictionary<string, float>();
+        public void InitializeDefaultSeries(ProviderDataShape dataShape = ProviderDataShape.Ohlcv, string symbolDisplayName = "", SymbolRenderHints? renderHints = null)
+        {
+            // Provider-shape-driven reconciliation. Called on every chart load. Must be
+            // idempotent (same shape twice = no-op) and must morph the core stack on a
+            // shape change without clobbering user content that still makes sense.
+            //
+            // Rules by scenario:
+            //
+            //   (1) Same shape, same or different symbol (e.g. Bitstamp BTC → Bitstamp ETH,
+            //       or Bitstamp → Binance both OHLCV):
+            //       → Core stack already matches → no series mutations.
+            //       → User-added EMAs/RSI/drawings stay put. Only the data buffer swaps.
+            //
+            //   (2) Shape change (OHLCV → SingleValueLine, or vice versa):
+            //       → Strip ALL non-core series (user indicators + drawings). They belong
+            //         to the old mode; they don't make sense on the new one. The caller
+            //         (Toolbar.LoadChart) should have already warned the user and offered
+            //         the "Open in New Tab" alternative.
+            //       → Swap the core stack to match the new shape's desired set.
+            //       → Update PrimarySeriesId + focus.
+            //
+            //   (3) First load on a blank tab:
+            //       → ActiveSeries is empty → steps (2)'s logic runs trivially and seeds
+            //         the full core stack for the new shape.
+            //
+            // The shape-change detection reads state.CurrentDataShape (set by the previous
+            // SetProviderContextAction dispatch — defaults to Ohlcv for fresh tabs, which
+            // means the very first analytics load on a fresh tab correctly triggers no
+            // "strip" pass but still seeds only Price).
 
-                // Set default pane height for Cipher B if not already saved.
-                // 0.35 gives Cipher B a generous initial allocation so oscillators are clearly visible.
-                if (saved.Series.Any(c => c.Pane == "Pane_CIPHER_B") && !savedRatios.ContainsKey("Pane_CIPHER_B"))
-                    savedRatios["Pane_CIPHER_B"] = 0.35f;
+            var oldShape = _store.State.CurrentDataShape;
+            bool shapeChanged = oldShape != dataShape && _store.State.ActiveSeries.Count > 0;
 
-                // Clamp any saved ratio that was dragged below a minimum viable height.
-                // 0.15 (15% of total height) ensures every pane — including Cipher B — remains
-                // readable. The overflow guard in ChartRenderer then rebalances if the total
-                // exceeds the available canvas height.
-                const float MinRatioFloor = 0.15f;
-                foreach (var key in savedRatios.Keys.ToList())
-                    savedRatios[key] = Math.Max(savedRatios[key], MinRatioFloor);
+            var (desired, primaryId) = ResolveDesiredCoreStack(dataShape);
+            var desiredSet = new HashSet<string>(desired, StringComparer.Ordinal);
 
-                if (savedRatios.Count > 0)
-                    _store.Dispatch(new SetPaneHeightRatiosAction(savedRatios.ToImmutableDictionary()));
+            // 1. If the shape changed, strip EVERYTHING — non-core series (user indicators
+            //    and drawings) AND core series (Candles/Volume/Price). Stripping core too is
+            //    deliberate: we observed a bug where preserving the Price series across an
+            //    analytics ↔ trading transition left stale data buffers (1 bar from FNG)
+            //    that the UpdateData sync couldn't reconcile cleanly with a fresh 200-bar
+            //    OHLCV buffer, causing Volume and Price to render only the first/last bar.
+            //    Re-creating Price fresh sidesteps the entire class of buffer-state-leak
+            //    bugs that come from reusing series instances across different shapes.
+            //    Same-shape reloads (Bitstamp BTC → Bitstamp ETH) skip this whole branch
+            //    so user indicators are preserved as before.
+            if (shapeChanged)
+            {
+                var allIdsToRemove = _store.State.ActiveSeries
+                    .Select(s => s.Id)
+                    .ToList();
+
+                foreach (var id in allIdsToRemove)
+                    _store.Dispatch(new RemoveSeriesAction(id));
             }
             else
             {
-                // No saved profile — create the defaults via metadata so the correct factory path
-                // (CreateSeriesFromMetadata) is always used, applying Default* color/audio hints.
-                var allMeta = _indicatorService.GetAvailableIndicators();
-                var candlesMeta = allMeta.FirstOrDefault(m => m.Code.Equals("CANDLES", StringComparison.OrdinalIgnoreCase));
-                var volumeMeta  = allMeta.FirstOrDefault(m => m.Code.Equals("VOLUME",  StringComparison.OrdinalIgnoreCase));
-                var priceMeta   = allMeta.FirstOrDefault(m => m.Code.Equals("PRICE",   StringComparison.OrdinalIgnoreCase));
+                // Same-shape path: still strip core series that don't belong to the new
+                // shape (defensive — in practice this is a no-op when shape is unchanged,
+                // but the check is cheap and protects against edge cases like a tab that
+                // somehow ended up with a mismatched core stack from save/load migration).
+                var toRemove = _store.State.ActiveSeries
+                    .Where(s => CoreStackIds.Contains(s.Id) && !desiredSet.Contains(s.Id))
+                    .Select(s => s.Id)
+                    .ToList();
 
-                if (candlesMeta != null) _seriesService.RegisterSeriesFromMetadata(candlesMeta);
-                if (volumeMeta  != null) _seriesService.RegisterSeriesFromMetadata(volumeMeta);
-                if (priceMeta   != null) _seriesService.RegisterSeriesFromMetadata(priceMeta);
-                SaveWorkspace();
+                foreach (var id in toRemove)
+                    _store.Dispatch(new RemoveSeriesAction(id));
             }
 
-            // Default focus to candles for immediate keyboard/speech feedback.
-            _store.Dispatch(new SelectSeriesAction(CoreSeriesIds.Candles));
+            // 3. Add any desired core series that are missing. Metadata lookup cached
+            //    per call to avoid scanning the indicator list more than once.
+            var allMeta = _indicatorService.GetAvailableIndicators();
+            IndicatorMetadata? MetaFor(string code) =>
+                allMeta.FirstOrDefault(m => m.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var id in desired)
+            {
+                if (_store.State.ActiveSeries.Any(s => s.Id == id)) continue;
+
+                IndicatorMetadata? meta = id switch
+                {
+                    CoreSeriesIds.Candles => MetaFor("CANDLES"),
+                    CoreSeriesIds.Volume  => MetaFor("VOLUME"),
+                    CoreSeriesIds.Price   => MetaFor("PRICE"),
+                    _                      => null,
+                };
+                if (meta != null) _seriesService.RegisterSeriesFromMetadata(meta);
+            }
+
+            // 4. On SingleValueLine providers, relabel the Price series with the symbol
+            //    display name (e.g. "Fear & Greed Index"). For OHLCV we leave the Candles
+            //    series with its metadata-derived name ("Candles") — the bar value speech
+            //    already includes the symbol elsewhere via the title bar, and relabeling
+            //    Candles → "BTC/USDT" would redundantly echo it. We DO reset the Price
+            //    series's name on OHLCV transitions in case it was previously labeled with
+            //    an analytics symbol (otherwise speech would say "Fear & Greed Index" while
+            //    actually navigating Bitstamp BTC/USDT data).
+            if (dataShape == ProviderDataShape.SingleValueLine && !string.IsNullOrWhiteSpace(symbolDisplayName))
+            {
+                ApplyPriceSeriesLabel(symbolDisplayName);
+                // Q3: apply per-symbol render hints to the Price series if the provider
+                // supplied them. The hint-application mutates Config fields and dispatches
+                // UpdateSeriesAction to propagate the changes through the store.
+                if (renderHints != null)
+                    ApplyRenderHints(renderHints);
+            }
+            else if (dataShape == ProviderDataShape.Ohlcv)
+            {
+                // Reset Price series to its metadata default ("Price") if it carried an
+                // analytics label across a previous shape transition. With the Phase 6
+                // strip-all-on-shape-change rule above, this branch is technically dead
+                // because Price gets recreated fresh on every shape change — but the
+                // defensive reset costs nothing and keeps the contract explicit.
+                ApplyPriceSeriesLabel("Price");
+            }
+
+            // 5. Atomically update shape + display name on state. This also triggers the
+            //    UI re-render that hides/shows trading-only controls based on shape.
+            _store.Dispatch(new SetProviderContextAction(dataShape, symbolDisplayName));
+
+            // 6. Set PrimarySeriesId + focus. Reducer picks the body component on Candles
+            //    via GetDefaultComponentIndex so wick-body-wick nav starts centered.
+            _store.Dispatch(new SetPrimarySeriesIdAction(primaryId));
+            _store.Dispatch(new SelectSeriesAction(primaryId));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Series));
         }
 
-        public void SaveWorkspace()
+        /// <summary>
+        /// Rewrites the Price series' machine name (<see cref="SeriesConfig.Name"/>),
+        /// friendly name, and its single line component's DisplayName to
+        /// <paramref name="label"/>. The series id stays <see cref="CoreSeriesIds.Price"/>
+        /// so lookups keep working. Used for analytics tabs so speech reads "Fear and Greed
+        /// Index, 47" instead of "Price, 47".
+        ///
+        /// IMPORTANT: speech uses <c>ChartSeries.Name</c> which is <c>Config.Name</c> (NOT
+        /// FriendlyName — see NavigationFeedbackManager.cs:176). Setting only FriendlyName
+        /// silently fails for the speech path. Both fields are set here so render-side
+        /// (FriendlyName) and speech-side (Name) stay in sync.
+        ///
+        /// Uses UpdateSeriesAction with an in-place mutation because the existing series
+        /// architecture treats FriendlyName/Name/DisplayName as mutable metadata rather
+        /// than part of the reducer-managed immutable state.
+        /// </summary>
+        private void ApplyPriceSeriesLabel(string label)
         {
-            var state = _store.State;
-            var config = new WorkspaceConfiguration
+            var price = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Price);
+            if (price == null) return;
+
+            price.Config.Name = label;          // ← what NavigationFeedbackManager reads for speech
+            price.Config.FriendlyName = label;  // ← what render/UI labels show
+            var line = price.Components.FirstOrDefault();
+            if (line != null) line.DisplayName = label;
+
+            // Trigger a re-render/speech refresh by dispatching an UpdateSeriesAction
+            // with the (now-mutated) list — the reducer swaps ActiveSeries wholesale so
+            // components observing state see the label change.
+            _store.Dispatch(new UpdateSeriesAction(_store.State.ActiveSeries));
+        }
+
+        /// <summary>
+        /// Applies a <see cref="SymbolRenderHints"/> bundle to the Price series. Called on
+        /// SingleValueLine loads when the provider supplied hints. Each non-null field is
+        /// copied to the corresponding config location:
+        ///
+        ///   • RangeMin/RangeMax    → <see cref="SeriesConfig.RangeMin"/> / RangeMax
+        ///                            (ViewportRangeCalculator clamps main pane to these)
+        ///   • ReferenceLevels      → converted to LevelConfig and appended to Config.Levels
+        ///                            (ViewportRangeCalculator expands main range to include
+        ///                            them; AudioZoneHelper maps "Overbought"/"Oversold"
+        ///                            names to OB/OS sonification behavior)
+        ///   • DisplayType          → component.DisplayType (Oscillator routes through the
+        ///                            oscillator audio profile)
+        ///   • SpeechTemplate       → component.SpeechTemplate (used by SpeechFormatter for
+        ///                            the value readout — supports {name}/{value}/{zone})
+        ///   • ColorHex             → component.ColorHex (line color override)
+        ///
+        /// Existing reference levels (there shouldn't be any on a fresh Price series, but
+        /// the reconciler's strip-all-on-shape-change rule guarantees it) are cleared first
+        /// so repeated loads don't accumulate duplicates.
+        /// </summary>
+        private void ApplyRenderHints(SymbolRenderHints hints)
+        {
+            var price = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Price);
+            if (price == null) return;
+
+            // Range clamp — consumed by ViewportRangeCalculator.
+            if (hints.RangeMin.HasValue) price.Config.RangeMin = hints.RangeMin;
+            if (hints.RangeMax.HasValue) price.Config.RangeMax = hints.RangeMax;
+
+            // Reference levels — clear any stale and add fresh. Convert from the immutable
+            // LevelDescriptor record to mutable LevelConfig so users can toggle them in
+            // the Properties modal without the hint being re-applied.
+            if (hints.ReferenceLevels != null && hints.ReferenceLevels.Count > 0)
             {
-                Series = state.ActiveSeries
-                    .Select(s => s.Config)
-                    .ToList(),
-                PaneHeightRatios = state.PaneHeightRatios != null
-                    ? new System.Collections.Generic.Dictionary<string, float>(state.PaneHeightRatios)
-                    : new()
-            };
-            _library.SaveProfile(DefaultProfileName, config);
+                price.Config.Levels.Clear();
+                foreach (var lvl in hints.ReferenceLevels)
+                {
+                    price.Config.Levels.Add(new LevelConfig
+                    {
+                        Name            = lvl.Name,
+                        Value           = lvl.Value,
+                        ColorHex        = lvl.ColorHex,
+                        DashStyle       = lvl.Dash,
+                        PlayEarcon      = lvl.PlayEarcon,
+                        EarconVolume    = lvl.EarconVolume,
+                        ZoneNoiseAmount = lvl.ZoneNoiseAmount,
+                        ZoneNoiseType   = lvl.ZoneNoiseType,
+                    });
+                }
+            }
+
+            // Component-level overrides — display type, speech template, color.
+            var line = price.Components.FirstOrDefault();
+            if (line != null)
+            {
+                if (hints.DisplayType.HasValue)         line.DisplayType     = hints.DisplayType.Value;
+                if (!string.IsNullOrEmpty(hints.SpeechTemplate)) line.SpeechTemplate = hints.SpeechTemplate!;
+                if (!string.IsNullOrEmpty(hints.ColorHex))       line.ColorHex       = hints.ColorHex!;
+            }
+
+            // Propagate the mutations through the store so observers re-render and speech
+            // picks up the new templates.
+            _store.Dispatch(new UpdateSeriesAction(_store.State.ActiveSeries));
+        }
+
+        // NOTE on restore-path reconciliation:
+        //   RestoreWorkspace rebuilds the saved series verbatim (after MigrateSeriesConfig
+        //   rewrites legacy component names). It does NOT look up the provider's current
+        //   data shape to strip incompatible core series — doing so would require making
+        //   restore async, which cascades through LoadWorkspaceModal and the app startup
+        //   path for little benefit. Instead, reconciliation happens lazily on the next
+        //   LoadChartAsync call: InitializeDefaultSeries (above) is idempotent, shape-
+        //   aware, and removes any stale core series in a single pass. Worst case the
+        //   user sees a brief moment of stale Candles after loading a workspace until
+        //   they click Load Chart — at which point the reconciler fixes it.
+        //   If a future change adds an async restore path that CAN look up the provider,
+        //   share the ResolveDesiredCoreStack helper to keep the two paths in sync.
+        public void RestoreWorkspace(WorkspaceConfiguration config)
+        {
+            if (config == null) return;
+
+            var allMeta = _indicatorService.GetAvailableIndicators();
+
+            if (config.IsMultiTab)
+            {
+                RestoreMultiTabWorkspace(config, allMeta);
+            }
+            else
+            {
+                // Legacy single-tab format
+                RestoreLegacySingleTab(config, allMeta);
+            }
+        }
+
+        private void RestoreMultiTabWorkspace(WorkspaceConfiguration config, List<IndicatorMetadata> allMeta)
+        {
+            // Restore the first tab's series into the active workspace state.
+            // Additional tabs are added via AddTabAction + SwitchTabAction.
+            if (config.Tabs.Count == 0) return;
+
+            // Restore the active tab first (the one at config.ActiveTabIndex).
+            int activeIdx = Math.Clamp(config.ActiveTabIndex, 0, config.Tabs.Count - 1);
+            var activeTab = config.Tabs[activeIdx];
+
+            // Set identity for the active tab
+            if (!string.IsNullOrEmpty(activeTab.Symbol))
+            {
+                _store.Dispatch(new SetIdentityAction(new ChartIdentity
+                {
+                    Market = activeTab.Market,
+                    Provider = activeTab.Provider,
+                    Symbol = activeTab.Symbol,
+                    Timeframe = activeTab.Timeframe
+                }));
+            }
+
+            // Restore display toggles
+            if (activeTab.IsHeikinAshi != _store.State.IsHeikinAshi)
+                _store.Dispatch(new ToggleHeikinAshiAction());
+            if (activeTab.IsLogScale != _store.State.IsLogScale)
+                _store.Dispatch(new ToggleLogScaleAction());
+
+            // Restore series
+            RestoreSeriesFromTab(activeTab, allMeta);
+
+            // Restore pane height ratios
+            RestorePaneHeightRatios(activeTab.PaneHeightRatios);
+
+            // Now add the remaining tabs as snapshots.
+            for (int i = 0; i < config.Tabs.Count; i++)
+            {
+                if (i == activeIdx) continue;
+                var tab = config.Tabs[i];
+
+                // Open a new tab (saves current to snapshot, creates blank active)
+                _store.Dispatch(new AddTabAction());
+
+                // Set identity for this tab
+                if (!string.IsNullOrEmpty(tab.Symbol))
+                {
+                    _store.Dispatch(new SetIdentityAction(new ChartIdentity
+                    {
+                        Market = tab.Market,
+                        Provider = tab.Provider,
+                        Symbol = tab.Symbol,
+                        Timeframe = tab.Timeframe
+                    }));
+                }
+
+                // Restore display toggles
+                if (tab.IsHeikinAshi != _store.State.IsHeikinAshi)
+                    _store.Dispatch(new ToggleHeikinAshiAction());
+                if (tab.IsLogScale != _store.State.IsLogScale)
+                    _store.Dispatch(new ToggleLogScaleAction());
+
+                // Restore series
+                RestoreSeriesFromTab(tab, allMeta);
+
+                // Restore pane ratios
+                RestorePaneHeightRatios(tab.PaneHeightRatios);
+            }
+
+            // Switch back to the originally active tab.
+            if (config.Tabs.Count > 1)
+            {
+                _store.Dispatch(new SwitchTabAction(activeIdx));
+            }
+
+            // Set the primary series and focus based on what actually got restored.
+            // Workspaces saved before Phase 4 may not contain a Candles series (single-
+            // value analytics tabs), so we can't assume Candles exists — fall back to
+            // Price, then to whatever the first active series is.
+            SetPrimaryAndFocusFromRestore();
+        }
+
+        private void RestoreLegacySingleTab(WorkspaceConfiguration config, List<IndicatorMetadata> allMeta)
+        {
+            if (config.Series?.Count > 0)
+            {
+                foreach (var seriesConfig in config.Series)
+                {
+                    MigrateSeriesConfig(seriesConfig, allMeta);
+                    var meta = allMeta.FirstOrDefault(m =>
+                        m.Code.Equals(seriesConfig.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+                    _seriesService.RestoreSeriesFromSaved(seriesConfig, meta);
+                }
+
+                RestorePaneHeightRatios(config.PaneHeightRatios);
+            }
+
+            SetPrimaryAndFocusFromRestore();
+        }
+
+        /// <summary>
+        /// Chooses the primary series id for a newly-restored workspace and sets focus on it.
+        /// Preference order: CANDLES (OHLCV workspaces) → PRICE (single-value analytics) →
+        /// the first active series as a last resort. This replaces the old assumption that
+        /// CANDLES always exists and is always the focus target.
+        /// </summary>
+        private void SetPrimaryAndFocusFromRestore()
+        {
+            var active = _store.State.ActiveSeries;
+            string? primaryId = null;
+            if      (active.Any(s => s.Id == CoreSeriesIds.Candles)) primaryId = CoreSeriesIds.Candles;
+            else if (active.Any(s => s.Id == CoreSeriesIds.Price))   primaryId = CoreSeriesIds.Price;
+            else if (active.Count > 0)                                primaryId = active[0].Id;
+
+            if (primaryId == null) return;
+
+            _store.Dispatch(new SetPrimarySeriesIdAction(primaryId));
+            _store.Dispatch(new SelectSeriesAction(primaryId));
+            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Series));
+        }
+
+        private void RestoreSeriesFromTab(TabConfiguration tab, List<IndicatorMetadata> allMeta)
+        {
+            if (tab.Series?.Count > 0)
+            {
+                foreach (var seriesConfig in tab.Series)
+                {
+                    MigrateSeriesConfig(seriesConfig, allMeta);
+                    var meta = allMeta.FirstOrDefault(m =>
+                        m.Code.Equals(seriesConfig.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+                    _seriesService.RestoreSeriesFromSaved(seriesConfig, meta);
+                }
+            }
+        }
+
+        private void RestorePaneHeightRatios(Dictionary<string, float>? savedRatios)
+        {
+            if (savedRatios == null || savedRatios.Count == 0) return;
+
+            var ratios = new Dictionary<string, float>(savedRatios);
+
+            // Clamp any saved ratio below a minimum viable height.
+            const float MinRatioFloor = 0.15f;
+            foreach (var key in ratios.Keys.ToList())
+                ratios[key] = Math.Max(ratios[key], MinRatioFloor);
+
+            _store.Dispatch(new SetPaneHeightRatiosAction(ratios.ToImmutableDictionary()));
         }
 
         /// <summary>
@@ -126,6 +523,28 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private static void MigrateSeriesConfig(SeriesConfig config, List<IndicatorMetadata> allMeta)
         {
+            // Phase 5 (2026-04-09): rename legacy Candles/Price component names to the
+            // new snake_case machine names introduced in Phase 2. Old workspaces saved
+            // "Candle Body" / "Upper Wick" / "Lower Wick" / "Close" as component Names;
+            // new metadata uses body / upper_wick / lower_wick / line. Rewriting here
+            // keeps the saved state compatible without a schema version bump. DataMapping
+            // is regenerated by the factory on restore so we only need to touch Name.
+            string codeUp = config.IndicatorCode?.ToUpperInvariant() ?? "";
+            if (codeUp == "CANDLES" || codeUp == "PRICE")
+            {
+                foreach (var comp in config.Components)
+                {
+                    comp.Name = comp.Name switch
+                    {
+                        "Candle Body" => "body",
+                        "Upper Wick"  => "upper_wick",
+                        "Lower Wick"  => "lower_wick",
+                        "Close"       => "line",
+                        _             => comp.Name
+                    };
+                }
+            }
+
             // Remove stale Cloud-type components (they are now handled by CloudFills).
             var cloudComps = config.Components
                 .Where(c => c.DisplayType == ComponentDisplayType.Cloud)

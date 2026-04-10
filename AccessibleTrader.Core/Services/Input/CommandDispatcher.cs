@@ -37,6 +37,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IndicatorCrossingEngine _crossingEngine;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
+        private readonly IDisposable _modalSub;
 
         // Chart focus gate: navigation and drawing commands require the chart to be active.
         // Starts true so keyboard navigation works immediately on app start without requiring
@@ -45,6 +46,13 @@ namespace AccessibleTrader.Core.Services.Input
         private volatile bool _isChartActive = true;
         private Timer? _deactivateDebounce;
         private const int DEACTIVATE_DEBOUNCE_MS = 50;
+
+        // Modal stack counter. Modals can stack (Strategy modal opens Help modal etc.) so we
+        // count opens and decrements on closes; the gate stays closed as long as count > 0.
+        // Without this, arrow keys pressed inside a modal leak through the global JS keyboard
+        // bridge into chart navigation — the user reported this as "modals don't trap input."
+        // Modals already publish ModalStateChangedEvent on open/close; we just subscribe here.
+        private int _openModalCount;
 
         public CommandDispatcher(
             IEventBus eventBus,
@@ -70,7 +78,29 @@ namespace AccessibleTrader.Core.Services.Input
                         _ => _isChartActive = false,
                         null, DEACTIVATE_DEBOUNCE_MS, Timeout.Infinite);
                 });
+
+            // Modal input trap: when ANY modal is open, suppress every chart command so the
+            // user's keystrokes belong to the modal rather than leaking into chart navigation.
+            // Modals already publish ModalStateChangedEvent on open/close — we just count.
+            _modalSub = _eventBus.AsObservable<ModalStateChangedEvent>()
+                .Subscribe(e =>
+                {
+                    if (e.IsOpen)
+                        System.Threading.Interlocked.Increment(ref _openModalCount);
+                    else
+                        System.Threading.Interlocked.Decrement(ref _openModalCount);
+                    if (_openModalCount < 0) _openModalCount = 0;
+                });
         }
+
+        /// <summary>
+        /// True when at least one modal is currently open. Used by <see cref="Dispatch"/> to
+        /// suppress every chart command so the modal owns the keyboard. The modal handles its
+        /// own internal navigation (Tab between fields, Up/Down inside lists or trees, Escape
+        /// to close) via standard Blazor / browser keydown semantics — none of which goes
+        /// through this dispatcher.
+        /// </summary>
+        public bool IsAnyModalOpen => _openModalCount > 0;
 
         public void SetChartActive(bool active)
         {
@@ -83,12 +113,27 @@ namespace AccessibleTrader.Core.Services.Input
         {
             _focusSub.Dispose();
             _blurSub.Dispose();
+            _modalSub.Dispose();
             _deactivateDebounce?.Dispose();
         }
 
         public void Dispatch(SystemCommand command)
         {
             if (command == SystemCommand.None) return;
+
+            // Modal input trap: when any modal is open, every chart command is suppressed so
+            // the user's keystrokes are owned by the modal. Tab / Shift+Tab / arrow keys inside
+            // forms / Escape close are all handled by Blazor and the browser without going
+            // through this dispatcher. The few global commands that should still work while a
+            // modal is open (Escape to close, F2 toggle speech) are explicitly allowlisted below.
+            if (_openModalCount > 0)
+            {
+                bool allowedWhileModalOpen =
+                    command == SystemCommand.ToggleSpeech       ||  // F2 — global accessibility toggle
+                    command == SystemCommand.ToggleSonification ||  // F3 — same
+                    command == SystemCommand.OpenHelp;              // F1 — help is always reachable
+                if (!allowedWhileModalOpen) return;
+            }
 
             // Sub-pane navigation — needs chart data and focus gate, handled after those gates.
             if (command == SystemCommand.NavSubPaneNext || command == SystemCommand.NavSubPanePrev)
@@ -132,6 +177,9 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenCustomScripts: _eventBus.Publish(new OpenCustomScriptsEvent()); return;
                 case SystemCommand.OpenSoundDesigner: _eventBus.Publish(new OpenSoundDesignerEvent()); return;
                 case SystemCommand.OpenAIAnalyst: _eventBus.Publish(new OpenAIAnalystEvent()); return;
+                case SystemCommand.OpenJournal: _eventBus.Publish(new OpenJournalEvent()); return;
+                case SystemCommand.SaveWorkspace: _eventBus.Publish(new OpenSaveWorkspaceEvent()); return;
+                case SystemCommand.LoadWorkspace: _eventBus.Publish(new OpenLoadWorkspaceEvent()); return;
                 case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
                 case SystemCommand.AddReferenceLevel:
                 {

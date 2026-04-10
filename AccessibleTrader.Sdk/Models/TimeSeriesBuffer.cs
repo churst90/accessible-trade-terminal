@@ -111,5 +111,13 @@ namespace AccessibleTrader.Sdk.Models
             Array.Copy(_data, 1, newArray, 0, Count - 1);
             return new TimeSeriesBuffer<T>(newArray, Count - 1);
         }
+
+        public TimeSeriesBuffer<T> RemoveLast()
+        {
+            if (Count == 0) return this;
+            var newArray = new T[_data.Length];
+            Array.Copy(_data, 0, newArray, 0, Count - 1);
+            return new TimeSeriesBuffer<T>(newArray, Count - 1);
+        }
     }
 }

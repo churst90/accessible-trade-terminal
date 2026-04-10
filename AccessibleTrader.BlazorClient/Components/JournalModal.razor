@@ -1,0 +1,197 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@inject IJournalService Journal
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+@*
+    Journal modal — console-style review surface for everything the app has said
+    or alerted on this session. Opened with Ctrl+J. The blind trader's primary
+    use case: "what was that alert that just spoke past me?" — open the journal,
+    Tab into the text region, copy the line. Filter buttons partition the buffer
+    by category so the noisy speech stream can be hidden when reviewing alerts.
+*@
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="journal-title"
+             style="max-width: 900px; width: 90vw;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="journal-title" tabindex="-1">Journal</h2>
+            <p style="color:#888; font-size:0.85rem; margin: 4px 0 12px 0;">
+                History of every spoken phrase, alert, strategy signal and error this session.
+                Use the filter buttons to narrow the view, then Tab into the text area to read
+                or copy lines with your screen reader. Newest entry is at the bottom.
+            </p>
+
+            @* ── Filter bar ──────────────────────────────────────────────────── *@
+            <div role="toolbar" aria-label="Journal filters"
+                 style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                @foreach (var (label, kind, key) in _filters)
+                {
+                    <button type="button"
+                            @onclick="() => SetFilter(kind)"
+                            aria-pressed="@(_filter == kind ? "true" : "false")"
+                            style="padding:4px 10px; cursor:pointer; border-radius:4px; border:1px solid #555;
+                                   background:@(_filter == kind ? "#2a4a7f" : "transparent"); color:#ccc;">
+                        @label (@CountFor(kind))
+                    </button>
+                }
+                <span style="flex:1"></span>
+                <button type="button" @onclick="CopyAll"
+                        aria-label="Copy all visible journal entries to clipboard"
+                        style="padding:4px 10px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer;">
+                    Copy visible
+                </button>
+                <button type="button" @onclick="ClearJournal"
+                        aria-label="Clear the entire journal"
+                        style="padding:4px 10px; border-radius:4px; border:1px solid #844; background:transparent; color:#f88; cursor:pointer;">
+                    Clear
+                </button>
+            </div>
+
+            @* ── Console text area ─────────────────────────────────────────────
+                Rendered as a real <textarea> so screen readers expose it as
+                multi-line editable text and the standard copy/select shortcuts work.
+                readonly so the buffer can't be mutated by the user — they review and copy.
+            *@
+            <textarea id="journal-text"
+                      readonly
+                      aria-label="Journal entries"
+                      rows="20"
+                      style="width:100%; box-sizing:border-box; font-family:Consolas,'Courier New',monospace;
+                             font-size:0.85rem; background:#0b0b0b; color:#cfcfcf; border:1px solid #333;
+                             padding:10px; border-radius:4px; resize:vertical; white-space:pre;">@_renderedText</textarea>
+
+            <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:#666; font-size:0.8rem;">
+                    @_visibleCount of @Journal.Capacity max entries
+                </span>
+                <button @onclick="Close" aria-label="Close journal dialog">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private IDisposable? _eventSub;
+    private JournalEntryKind? _filter; // null = all
+    private string _renderedText = string.Empty;
+    private int _visibleCount;
+
+    // (label, kind, hotkey hint) — kind=null means "All".
+    private readonly (string Label, JournalEntryKind? Kind, string Key)[] _filters = new[]
+    {
+        ("All",        (JournalEntryKind?)null,                  "1"),
+        ("Speech",     (JournalEntryKind?)JournalEntryKind.Speech,         "2"),
+        ("Alerts",     (JournalEntryKind?)JournalEntryKind.Alert,          "3"),
+        ("Setups",     (JournalEntryKind?)JournalEntryKind.StrategySignal, "4"),
+        ("Errors",     (JournalEntryKind?)JournalEntryKind.Error,          "5"),
+        ("Backtests",  (JournalEntryKind?)JournalEntryKind.Backtest,       "6"),
+    };
+
+    protected override void OnInitialized()
+    {
+        _eventSub = EventBus.Subscribe<OpenJournalEvent>(_ =>
+            InvokeAsync(ShowAsync));
+
+        // Live update — when a new entry is appended while the modal is open, re-render.
+        Journal.EntryAdded += OnEntryAdded;
+    }
+
+    private void OnEntryAdded(JournalEntry _)
+    {
+        if (!_isVisible) return;
+        InvokeAsync(() =>
+        {
+            Render();
+            StateHasChanged();
+        });
+    }
+
+    private async Task ShowAsync()
+    {
+        _isVisible = true;
+        Render();
+        EventBus.Publish(new ModalStateChangedEvent(true));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "journal-title"); } catch { }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false));
+        StateHasChanged();
+    }
+
+    private void SetFilter(JournalEntryKind? kind)
+    {
+        _filter = kind;
+        Render();
+    }
+
+    private int CountFor(JournalEntryKind? kind)
+    {
+        var snap = Journal.Snapshot();
+        return kind == null ? snap.Count : snap.Count(e => e.Kind == kind);
+    }
+
+    private void Render()
+    {
+        var snap = Journal.Snapshot();
+        var visible = _filter == null ? snap : snap.Where(e => e.Kind == _filter.Value);
+        var sb = new System.Text.StringBuilder();
+        int n = 0;
+        foreach (var e in visible)
+        {
+            // [HH:MM:SS] KIND  source  symbol  text
+            sb.Append('[').Append(e.Timestamp.ToString("HH:mm:ss")).Append("] ");
+            sb.Append(KindLabel(e.Kind).PadRight(7)).Append(' ');
+            if (!string.IsNullOrEmpty(e.Source)) sb.Append(e.Source).Append("  ");
+            if (!string.IsNullOrEmpty(e.Symbol)) sb.Append('(').Append(e.Symbol).Append(") ");
+            sb.AppendLine(e.Text);
+            n++;
+        }
+        _renderedText = sb.ToString();
+        _visibleCount = n;
+    }
+
+    private static string KindLabel(JournalEntryKind k) => k switch
+    {
+        JournalEntryKind.Speech         => "SPEECH",
+        JournalEntryKind.Info           => "INFO",
+        JournalEntryKind.Alert          => "ALERT",
+        JournalEntryKind.StrategySignal => "SETUP",
+        JournalEntryKind.Backtest       => "BTEST",
+        JournalEntryKind.Error          => "ERROR",
+        _                               => "—"
+    };
+
+    private async Task CopyAll()
+    {
+        try { await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _renderedText); }
+        catch { /* clipboard may be unavailable on some platforms */ }
+    }
+
+    private void ClearJournal()
+    {
+        Journal.Clear();
+        Render();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _eventSub?.Dispose();
+        Journal.EntryAdded -= OnEntryAdded;
+    }
+}
