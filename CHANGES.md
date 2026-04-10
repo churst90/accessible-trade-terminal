@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-10] — Full codebase audit + bug fixes + documentation overhaul
+
+### Sonification & Rendering Fixes
+- **Price line sonification**: Added `DefaultPitchMapping = PitchMapping.Value` to Price component — tone now varies with value instead of flat constant.
+- **Price line rendering**: Fixed `RecalculateLastAsync` routing core series (Price/Candles/Volume) through the indicator engine instead of `MapInternalDataToBuffer`. The engine's no-op `UpdateLast` overwrote the last bar with 0.0 every tick, making the Price line invisible.
+- **Volume bar colors**: `RenderDirectionalBars` was using hardcoded green/red — now reads `comp.ColorHex`/`ColorHexSecondary`. PropertiesModal exposes Bullish/Bearish color pickers for Bar display type.
+- **Candle wick styling**: Renderer now reads wick color/thickness from wick components instead of the body paint. Wicks get their own single color picker in Properties.
+
+### Codebase Audit (44 findings, all resolved)
+- **Critical (11)**: CipherS array corruption (2 bugs), OpenInterest bounds check, FRED locale date parsing, BaseMarketDataProvider IDisposable, WorkspaceState `default!`, 3 swallowed exceptions now log.
+- **Medium (19)**: Audio constants consolidated (MarkerDisplayTypes, PhaseNames, CalculatePan), zone proximity Math.Abs fix, profile speech NaN guard, DataLayer default case, Percussive→Ping envelope, StrategyAutoLoader wired into AppStartupService, ConfigurableStrategy MTF null warning, backtest cache safety, Bitstamp date check, Coinbase L2 null guard, cache trim after prepend, tab-switch logging, SettingsModal StateHasChanged after import.
+- **Low (14)**: Dead code deleted (CompositeStrategy, BuiltInStrategyRegistry, StrategyConfirmedEvent/DismissedEvent, dead CSS), SettingsManager bare catch logged, CipherS median fixed, shared pan calculation.
+
+### Documentation
+- README: provider count 6→17, test count 236→252, F1=Help (not Settings), status date updated.
+- HelpModal: F1 description corrected.
+- SystemCommand: stale shortcut comments fixed (DrawPitchfork, OpenIndicators, SelectNext/PrevSeries).
+- TODO.md: Added Analytics Provider Build-Out roadmap with BGeometrics, CoinMetrics live API, IAnalyticsDataResolver, ApiKeysModal updates.
+
+### Analytics Data Research
+- Verified free data landscape: BGeometrics (154+ BTC metrics free), CoinMetrics Community (9 assets MVRV free), OKX/Binance public derivatives (free), CoinGlass/CryptoQuant/Glassnode (no free API access).
+- Mapped coverage gaps by asset (ETH missing SOPR/NVT, SOL/AVAX no on-chain, KAS no data, TAO derivatives only).
+
+**Build**: 0/0. **Tests**: 252/252.
+
+---
+
 ## [2026-04-09] — Candles/Volume/Price refactor + analytics tab overhaul
 
 A multi-session refactor that turns the hardcoded "always seed Candles+Volume+Price" data stack into a provider-shape-driven reconciler. Analytics providers (FRED, CoinGecko, AlternativeMe, Glassnode, OkxDerivatives, BinanceDerivatives) now render as proper bounded oscillators with reference zones and OB/OS sonification instead of degenerate "doji candles" stubs. The refactor also fixed a latent C# default-interface-method bug that had been silently overriding every analytics provider's `DataShape` declaration to `Ohlcv`.

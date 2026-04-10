@@ -4,6 +4,42 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## NEXT UP — Analytics Provider Build-Out (2026-04-10)
+
+### BGeometrics Provider Plugin (Priority 1)
+- [ ] New plugin: `AccessibleTrader.Plugins.BGeometrics`
+- [ ] 154+ BTC on-chain metrics for free: MVRV (overall/STH/LTH/Z-Score), SOPR (overall/STH/LTH/adjusted), NVT (signal/Z-score), Realized Price, NUPL, CDD, Hodl Waves, Exchange Flows, S2F, Reserve Risk, Puell Multiple, Funding Rate, Open Interest, Basis, Active Addresses, Supply metrics
+- [ ] API base: `https://bitcoin-data.com/v1/{metric}` — daily resolution, full history
+- [ ] BTC only — register as analytics provider with `ProviderDataShape.SingleValueLine`
+
+### CoinMetrics Live API Provider (Priority 2)
+- [ ] Convert offline StrategyLab fetch to live REST provider
+- [ ] Community API: `https://community-api.coinmetrics.io/v4` — no key required
+- [ ] MVRV + Active Addresses free for 9 assets: BTC, ETH, LTC, DOGE, ADA, XRP, DOT, LINK, UNI
+- [ ] Rate limit: 10 req/6s (~1.6 RPS)
+
+### IAnalyticsDataResolver Service (Priority 3)
+- [ ] Maps metric name → best available source based on user's API keys
+- [ ] Priority chain: paid source (if key exists) → free source (automatic fallback)
+- [ ] Makes cross-series indicators source-agnostic (remove hardcoded provider references)
+- [ ] Seamless UX: user picks metric, resolver finds data transparently
+
+### ApiKeysModal Updates (Priority 4)
+- [ ] Add analytics providers to known providers list: Glassnode, CoinGlass, CoinGecko
+- [ ] Currently only lists: Alpaca, Binance, Bitstamp, Coinbase, Polygon, FRED, Custom
+
+### Plugin Directory Documentation (Priority 5)
+- [ ] PLUGIN_AUTHORING.md: add deployment section (where to drop DLLs, 3 scan locations)
+- [ ] Troubleshooting section for common plugin loading failures
+- [ ] Performance guidance for hot-path indicators
+
+### Data Landscape Reference
+Free: BGeometrics (BTC 154+ metrics), CoinMetrics Community (9 assets MVRV), OKX public (307 perps funding/OI), Binance public (derivatives), Alternative.me (FNG), CoinGecko (dominance), FRED (macro).
+Paid only: CoinGlass ($29+/mo, no free tier), CryptoQuant ($109+/mo for API), Glassnode (API requires paid plan + add-on).
+Gaps: ETH missing SOPR/NVT/exchange flows (paid only). SOL/AVAX no on-chain metrics free. KAS no data anywhere. TAO derivatives only (OKX).
+
+---
+
 ## PHASE 11 — Strategy Composer & Risk-Managed Setups (multi-session)
 
 A user-buildable signal composer that combines indicator components from any registered indicator, evaluates them as an AND/OR/NOT condition tree, gates the result on a reward/risk plan with TP ladders, and announces every step (initial setup, re-confirmation, dropouts) through bells and speech. The output is reviewable in the Journal modal (Ctrl+Alt+Shift+J).
