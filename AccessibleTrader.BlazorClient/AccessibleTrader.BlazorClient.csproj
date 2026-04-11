@@ -85,23 +85,31 @@
     <ItemGroup>
       <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
       <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Binance\AccessibleTrader.Plugins.Binance.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Fred\AccessibleTrader.Plugins.Fred.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Polygon\AccessibleTrader.Plugins.Polygon.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.InteractiveBrokers\AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.TwelveData\AccessibleTrader.Plugins.TwelveData.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Tradier\AccessibleTrader.Plugins.Tradier.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Oanda\AccessibleTrader.Plugins.Oanda.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Finnhub\AccessibleTrader.Plugins.Finnhub.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Glassnode\AccessibleTrader.Plugins.Glassnode.csproj" />
-      <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
+      <!-- Providers (tradeable market data) -->
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Binance\AccessibleTrader.Plugins.Binance.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Finnhub\AccessibleTrader.Plugins.Finnhub.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Fmp\AccessibleTrader.Plugins.Fmp.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.InteractiveBrokers\AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Oanda\AccessibleTrader.Plugins.Oanda.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Polygon\AccessibleTrader.Plugins.Polygon.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Tradier\AccessibleTrader.Plugins.Tradier.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.TwelveData\AccessibleTrader.Plugins.TwelveData.csproj" />
+      <!-- Analytics (non-tradeable data: on-chain, derivatives, sentiment, economic) -->
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Etherscan\AccessibleTrader.Plugins.Etherscan.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Fred\AccessibleTrader.Plugins.Fred.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Glassnode\AccessibleTrader.Plugins.Glassnode.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Mempool\AccessibleTrader.Plugins.Mempool.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
     </ItemGroup>
 
 </Project>

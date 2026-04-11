@@ -54,17 +54,24 @@ services.AddSingleton<IIndicatorProvider, CipherSrProvider>();
 // etc.
 ```
 
-**Third-party / external plugins** are loaded at startup from three directories by
-`PluginLoaderService` (via `DataService.InitializeAsync`):
+**Third-party / external indicator plugins** are auto-discovered at startup from:
 
-1. The application base execution directory (where MAUI flattens DLLs at publish time).
-2. A `Plugins/` subdirectory of the base execution directory.
-3. `%LOCALAPPDATA%\AccessibleTrader\Plugins\` — the user drop-in folder (created if absent).
+1. `{BaseDir}/Plugins/Indicators/` — the built-in indicators plugin directory.
+2. `%LOCALAPPDATA%\AccessibleTrader\Plugins\Indicators\` — the user drop-in folder.
 
 The loader scans for DLLs matching the pattern `AccessibleTrader.Plugins.*.dll` using
 `Assembly.LoadFrom` inside an isolated `AssemblyLoadContext`. Any concrete class in
 those DLLs that implements `IIndicatorProvider` is instantiated via
 `Activator.CreateInstance` and registered into the `IIndicatorService` provider list.
+
+### Directory Structure
+
+```
+Plugins/
+  Providers/    ← Data providers (see PROVIDER_AUTHORING.md)
+  Analytics/    ← Analytics data providers
+  Indicators/   ← Drop-in indicator plugins (this guide)
+```
 
 **Plugin DLL naming convention:** `AccessibleTrader.Plugins.<YourName>.dll`
 

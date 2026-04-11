@@ -17,9 +17,9 @@
   <ItemGroup>
     <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
-    <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
-    <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
-    <ProjectReference Include="..\Plugins\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
   </ItemGroup>
 
 </Project>
