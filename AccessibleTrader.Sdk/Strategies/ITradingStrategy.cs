@@ -41,7 +41,16 @@ public record StrategySignal(
     /// Per-rung close fractions matching <see cref="TpLadder"/>. Sum should be ≤ 1.0 — any
     /// remainder rides past TP3 until end-of-data or stop.
     /// </summary>
-    System.Collections.Generic.IReadOnlyList<double>? TpClosePortions = null
+    System.Collections.Generic.IReadOnlyList<double>? TpClosePortions = null,
+    /// <summary>
+    /// Stop adjustment mode after TP1 fires. MoveToBreakeven (default) moves stop to entry.
+    /// TrailByAtr trails the stop by ATR × <see cref="TrailAtrMultiple"/> each bar.
+    /// </summary>
+    StopAdjustOnTp1 StopAdjust = StopAdjustOnTp1.MoveToBreakeven,
+    /// <summary>ATR period for TrailByAtr stop adjustment (default 14).</summary>
+    int TrailAtrPeriod = 14,
+    /// <summary>ATR multiplier for TrailByAtr stop adjustment (default 1.5).</summary>
+    double TrailAtrMultiple = 1.5
 );
 
 public record StrategyMetrics(

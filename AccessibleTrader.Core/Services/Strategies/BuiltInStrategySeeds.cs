@@ -145,6 +145,59 @@ namespace AccessibleTrader.Core.Services.Strategies
         // changes. ONE variable, ONE hypothesis, ONE test.
         public const string LongV12AnchorFilteredBlueDotId = "builtin.long.v12-anchor-filtered-blue-dot";
 
+        // v13 — Blue Dot + Faber regime filter (post MCB-rewrite survivor). The 2026-04-11
+        // Cipher B rewrite invalidated v12's Anchor-sign thesis (the new Anchor Wave
+        // calculation no longer discriminates), but a fresh stress-test sweep on the
+        // rewritten indicator found a new winner: AND-gating the blue dot with
+        // REGIME.AboveSma200 > 0 lifts BTC daily H1 from +0.55R/65% WR (47 trades) to
+        // +0.65R/70% WR, and H2 from +0.35R/48% to +0.50R/67%. Trade count drops to ~19
+        // total (from 47) but the win-rate consistency is the headline change. v13 is
+        // the first post-rewrite spec to test as a real candidate, not a diagnostic.
+        public const string LongV13BlueDotSma200Id = "builtin.long.v13-blue-dot-sma200";
+
+        // v13s — symmetric short companion: Bearish Divergence + REGIME.AboveSma200 < 0
+        // (price below SMA200). On the new Cipher B, Bearish Divergence showed clean
+        // directional asymmetry on BTC daily (long: -0.58R / -0.83R, short: +0.42R /
+        // +0.32R both halves) — the only Cipher B signal with a real short edge that
+        // survived the long/short asymmetry test. Adding the regime filter for shorts
+        // mirrors v13's long structure for clean A/B comparison.
+        public const string ShortV13BearDivBelowSma200Id = "builtin.short.v13-bear-div-below-sma200";
+
+        // v14 — Hidden Bull Continuation + SMA200 (the second post-rewrite survivor).
+        // Hidden Bull Continuation passed strict bootstrap CI on BTC 4h H1 (20 trades,
+        // +1.005R, CIlo +0.34) in the 2026-04-11 isolation diagnostic — the only
+        // Cipher B trend-continuation signal to clear that bar. The SMA200 gate is
+        // mechanical mirror of v13 for clean comparison; "trend continuation in an
+        // uptrend" is the canonical use of the signal so the gate is well-motivated
+        // rather than fitted.
+        public const string LongV14HiddenBullSma200Id = "builtin.long.v14-hidden-bull-sma200";
+
+        // v15 — Blue Dot AND Bullish Divergence (within 5 bars). The two highest-
+        // R survivors as confluence: blue dot picks the moment of the WT cross at
+        // OS, bullish divergence confirms that price made a lower low while WT
+        // made a higher low (the structural reason the cross is meaningful, not
+        // random noise). Should be much rarer than either alone but with much
+        // higher per-trade R.
+        public const string LongV15BlueDotBullDivId = "builtin.long.v15-blue-dot-bull-div";
+
+        // v16 — Trilogy Long. The "real MCB methodology" confluence: Cipher A Buy
+        // Signal + Cipher B Blue Dot + Cipher SR Support all firing within small
+        // windows of each other. This is how Crypto Face teaches MCB — A provides
+        // tape read, B provides oscillator read, SR provides structure. High-
+        // conviction setups require all three orthogonal dimensions to agree.
+        public const string LongV16TrilogyId = "builtin.long.v16-trilogy";
+
+        // v16s — Trilogy Short. Symmetric mirror: Cipher A Sell + Cipher B Red +
+        // Cipher SR Resistance. First real short setup that uses orthogonal
+        // confluence instead of a single oscillator signal.
+        public const string ShortV16TrilogyId = "builtin.short.v16-trilogy";
+
+        // v17 — Gold Trilogy. Cipher A Buy Signal + Cipher B Gold Dot + Cipher SR
+        // Support. Tests the speculation that real MCB's gold dot takes Cipher A's
+        // state as a hidden input — if true, this spec should produce cleaner
+        // entries than v16 (which uses the blue dot) at the cost of rarity.
+        public const string LongV17GoldTrilogyId = "builtin.long.v17-gold-trilogy";
+
         // Pulse Long V2 — the cleanest pure-Pulse long signal produced as of 2026-04-09.
         // GreenDotV2 from PulseProvider: slope-confirmed RSI(14) midline cross + Regime
         // (SMA200 + slope) == +1 + ADX(14) ≥ 20 (lookback). Cross-instrument validated:
@@ -210,6 +263,13 @@ namespace AccessibleTrader.Core.Services.Strategies
             yield return BuildBareBullPulseLong();
             yield return BuildPulseLongV2();
             yield return BuildPulseReversalLong();
+            yield return BuildV13BlueDotSma200();
+            yield return BuildV13ShortBearDivBelowSma200();
+            yield return BuildV14HiddenBullSma200();
+            yield return BuildV15BlueDotBullDiv();
+            yield return BuildV16TrilogyLong();
+            yield return BuildV16TrilogyShort();
+            yield return BuildV17GoldTrilogy();
         }
 
         // ─────────────────────────────────────────────────────────────────────────────
@@ -2479,6 +2539,446 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "complement across the cycle rather than competing for setups. " +
                     "REQUIRES: Pulse AND Cipher_C loaded on the chart. Risk plan: ATR(14)×2 " +
                     "stop, 1.5R/3R TP ladder, BE after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v13 — Blue Dot + Faber regime filter (long).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV13BlueDotSma200()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v13-blue-dot",
+                SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var aboveSma = new ConditionLeaf(
+                Id: "v13-above-sma200",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v13-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { blueDot, aboveSma });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV13BlueDotSma200Id,
+                Name: "v13 — Blue Dot + SMA200",
+                Description:
+                    "Cipher B Oversold Crossover (blue dot) AND price above SMA(200) at " +
+                    "entry. The first survivor on the post-rewrite Cipher B: BTC daily H1 " +
+                    "+0.65R/70% WR, H2 +0.50R/67% WR vs bare blue dot's +0.55/+0.35 with " +
+                    "65/48% WR. The regime gate halves trade count (47→19 on a 4000-bar " +
+                    "BTC daily snapshot) but the WR consistency is the real win — H2 jumps " +
+                    "from coin-flip to 2-of-3. REQUIRES: Cipher B and Regime Filter " +
+                    "indicators loaded on the chart. Risk: ATR(14)x2 stop, 1.5R/3R ladder, " +
+                    "BE after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v13s — Bearish Divergence + below-SMA200 regime gate (short).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV13ShortBearDivBelowSma200()
+        {
+            var bearDiv = new ConditionLeaf(
+                Id: "v13s-bear-div",
+                SignalDescriptorId: "CIPHER_B.Bearish Divergence",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            // Above SMA200 (NOT below). Bear divergences form at price tops while price
+            // is still in an uptrend — the divergence is the early-warning that the trend
+            // is exhausting. Filtering for *price above SMA200* catches the canonical
+            // "shorting strength" setup. The first v13s draft used below-SMA200 — the
+            // initial intuition (shorts go in downtrends) didn't survive the data: bear
+            // div + below SMA200 fires almost never because by the time price is below
+            // SMA200 the rally has already ended.
+            var aboveSma = new ConditionLeaf(
+                Id: "v13s-above-sma200",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v13s-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { bearDiv, aboveSma });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV13BearDivBelowSma200Id,
+                Name: "v13s — Bear Divergence + above SMA200 (short tops in uptrend)",
+                Description:
+                    "Cipher B Bearish Divergence AND price still ABOVE SMA(200) at " +
+                    "entry. The classic 'shorting strength' setup: bear divergences form " +
+                    "at price tops while the trend is still up — the divergence is the " +
+                    "early-warning that exhaustion is happening BEFORE price has rolled " +
+                    "over below the trend MA. Bearish Divergence on BTC daily showed " +
+                    "clean directional asymmetry on the rewritten Cipher B (as a short: " +
+                    "+0.42R/+0.32R both halves; as a long: −0.58R/−0.83R) so the edge " +
+                    "isn't drift-explained. REQUIRES: Cipher B and Regime Filter loaded. " +
+                    "Same risk plan as v13 (ATR(14)×2 stop, 1.5R/3R ladder, BE after " +
+                    "TP1, 0.5% risk).",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v14 — Hidden Bull Continuation + SMA200 (long).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV14HiddenBullSma200()
+        {
+            var hidBull = new ConditionLeaf(
+                Id: "v14-hid-bull",
+                SignalDescriptorId: "CIPHER_B.Hidden Bull Continuation",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var aboveSma = new ConditionLeaf(
+                Id: "v14-above-sma200",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v14-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { hidBull, aboveSma });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV14HiddenBullSma200Id,
+                Name: "v14 — Hidden Bull Continuation + SMA200",
+                Description:
+                    "Cipher B Hidden Bull Continuation AND price above SMA(200). " +
+                    "Hidden Bull Continuation passed strict bootstrap CI on BTC 4h " +
+                    "H1 in the post-rewrite isolation diagnostic (20 trades, +1.005R, " +
+                    "CIlo +0.34) — the only Cipher B trend-continuation signal to do " +
+                    "so. The SMA200 gate aligns the signal's intent (continue an " +
+                    "uptrend) with regime confirmation. REQUIRES: Cipher B and Regime " +
+                    "Filter loaded. Risk: ATR(14)x2 stop, 1.5R/3R ladder, BE after " +
+                    "TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v15 — Blue Dot AND Bullish Divergence within 5 bars (long confluence).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV15BlueDotBullDiv()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v15-blue-dot",
+                SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var bullDiv = new ConditionLeaf(
+                Id: "v15-bull-div",
+                SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 5,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v15-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { blueDot, bullDiv });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV15BlueDotBullDivId,
+                Name: "v15 — Blue Dot + Bullish Divergence (confluence)",
+                Description:
+                    "Cipher B Oversold Crossover (blue dot) AND a Bullish Divergence " +
+                    "fired within the last 5 bars. The two highest-R Cipher B long " +
+                    "signals as a confluence stack: blue dot picks the entry moment, " +
+                    "bullish divergence confirms the structural reason — price made a " +
+                    "lower low while WT made a higher low. Expected to be MUCH rarer " +
+                    "than either alone but with substantially higher per-trade R. " +
+                    "REQUIRES: Cipher B loaded. Risk: ATR(14)x2 stop, 1.5R/3R ladder, " +
+                    "BE after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v16 — Trilogy Long (A + B + SR confluence).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV16TrilogyLong()
+        {
+            var aBuy = new ConditionLeaf(
+                Id: "v16-a-buy",
+                SignalDescriptorId: "CIPHER_A.Buy Signal",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 5,
+                Score: 1.0);
+
+            var bBlueDot = new ConditionLeaf(
+                Id: "v16-b-blue",
+                SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var srSupport = new ConditionLeaf(
+                Id: "v16-sr-support",
+                SignalDescriptorId: "CIPHER_SR.Support",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 3,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v16-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { aBuy, bBlueDot, srSupport });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV16TrilogyId,
+                Name: "v16 — Trilogy Long (A + B + SR)",
+                Description:
+                    "Real MCB methodology confluence. Cipher A Buy Signal within 5 " +
+                    "bars AND Cipher B Blue Dot AND Cipher SR Support within 3 bars. " +
+                    "Three orthogonal confirmations: A reads the tape, B reads the " +
+                    "oscillator cycle, SR reads structural price levels. Expected to " +
+                    "be rare but high-conviction. REQUIRES: Cipher A, Cipher B, and " +
+                    "Cipher SR loaded. Risk: ATR(14)x2 stop, 1.5R/3R ladder, BE " +
+                    "after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v16s — Trilogy Short (A + B + SR confluence).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV16TrilogyShort()
+        {
+            var aSell = new ConditionLeaf(
+                Id: "v16s-a-sell",
+                SignalDescriptorId: "CIPHER_A.Sell Signal",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 5,
+                Score: 1.0);
+
+            var bRedDot = new ConditionLeaf(
+                Id: "v16s-b-red",
+                SignalDescriptorId: "CIPHER_B.Overbought Crossover",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var srResistance = new ConditionLeaf(
+                Id: "v16s-sr-resistance",
+                SignalDescriptorId: "CIPHER_SR.Resistance",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 3,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v16s-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { aSell, bRedDot, srResistance });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV16TrilogyId,
+                Name: "v16s — Trilogy Short (A + B + SR)",
+                Description:
+                    "Symmetric short mirror of v16. Cipher A Sell Signal within 5 " +
+                    "bars AND Cipher B Red Dot AND Cipher SR Resistance within 3 " +
+                    "bars. First short spec that uses orthogonal confluence instead " +
+                    "of a single oscillator signal — v13s (bear-div + regime filter) " +
+                    "failed walk-forward across all tested assets, so confluence is " +
+                    "the path forward on shorts. REQUIRES: Cipher A, B, and SR loaded. " +
+                    "Risk: ATR(14)x2 stop, 1.5R/3R ladder, BE after TP1, 0.5% risk.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v17 — Gold Trilogy (A + B Gold + SR). Tests the speculation that real
+        // MCB's gold dot takes Cipher A state as a hidden input. If true, the
+        // A Buy Signal should correlate with the gold dot firings — this spec
+        // just makes that correlation explicit at the strategy layer.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV17GoldTrilogy()
+        {
+            var aBuy = new ConditionLeaf(
+                Id: "v17-a-buy",
+                SignalDescriptorId: "CIPHER_A.Buy Signal",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 5,
+                Score: 1.0);
+
+            var bGold = new ConditionLeaf(
+                Id: "v17-b-gold",
+                SignalDescriptorId: "CIPHER_B.Triple Confluence Buy",
+                Operator: LeafOperator.Fired,
+                Score: 1.0);
+
+            var srSupport = new ConditionLeaf(
+                Id: "v17-sr-support",
+                SignalDescriptorId: "CIPHER_SR.Support",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 3,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v17-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { aBuy, bGold, srSupport });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV17GoldTrilogyId,
+                Name: "v17 — Gold Trilogy (A + B Gold + SR)",
+                Description:
+                    "Cipher A Buy Signal within 5 bars AND Cipher B Gold Dot AND " +
+                    "Cipher SR Support within 3 bars. Tests the speculation that real " +
+                    "MCB's gold dot takes Cipher A state as a hidden input. Expected " +
+                    "to be VERY rare (gold dots + A Buy + SR Support all aligning is a " +
+                    "4-variable conjunction) but the per-trade R should be the highest " +
+                    "in the suite. REQUIRES: Cipher A, B, and SR loaded. Risk: " +
+                    "ATR(14)x2 stop, 1.5R/3R ladder, BE after TP1, 0.5% risk.",
                 Side: OrderSide.Buy,
                 Conditions: root,
                 Risk: risk,

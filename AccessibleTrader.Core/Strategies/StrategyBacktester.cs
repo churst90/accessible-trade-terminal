@@ -132,6 +132,9 @@ public class StrategyBacktester : IStrategyBacktester
         var openTpPrices    = new Queue<double>();
         var openTpPortions  = new Queue<double>();
         bool stopMovedToBreakeven = false;
+        StopAdjustOnTp1 openStopAdjust = StopAdjustOnTp1.MoveToBreakeven;
+        int openTrailAtrPeriod = 14;
+        double openTrailAtrMultiple = 1.5;
         int winningTrades = 0;
 
         // v11 diagnostic: feature snapshot captured at the entry decision bar of the open
@@ -270,11 +273,22 @@ public class StrategyBacktester : IStrategyBacktester
                 openRemainingQty -= closeQty;
                 equityCurve.Add((bar.Date, equity));
 
-                // Move stop to breakeven after the first TP rung clears, so the runner is
-                // protected for free. Matches StopAdjustOnTp1.MoveToBreakeven semantics.
+                // Adjust stop after the first TP rung clears based on the signal's StopAdjust mode.
                 if (!stopMovedToBreakeven)
                 {
-                    openStop = openEntryPrice;
+                    switch (openStopAdjust)
+                    {
+                        case StopAdjustOnTp1.MoveToBreakeven:
+                            openStop = openEntryPrice;
+                            break;
+                        case StopAdjustOnTp1.TrailByAtr:
+                            // Initial trail: entry + ATR trail distance (will be updated each bar below).
+                            openStop = openEntryPrice;
+                            break;
+                        case StopAdjustOnTp1.None:
+                            // Leave stop where it is.
+                            break;
+                    }
                     stopMovedToBreakeven = true;
                 }
 
@@ -287,6 +301,38 @@ public class StrategyBacktester : IStrategyBacktester
                     stopMovedToBreakeven = false;
                     break;
                 }
+            }
+
+            // ── ATR TRAIL ─────────────────────────────────────────────────────
+            // After TP1 fires with TrailByAtr mode, update the trailing stop each bar.
+            // The stop ratchets forward (longs) / backward (shorts) but never retreats.
+            if (openSide.HasValue && stopMovedToBreakeven && openStopAdjust == StopAdjustOnTp1.TrailByAtr
+                && openStop.HasValue && i >= openTrailAtrPeriod)
+            {
+                // Compute Wilder's ATR over the trailing period.
+                double atrSum = 0;
+                for (int a = i - openTrailAtrPeriod + 1; a <= i; a++)
+                {
+                    double tr = data[a].High - data[a].Low;
+                    if (a > 0)
+                    {
+                        tr = Math.Max(tr, Math.Abs(data[a].High - data[a - 1].Close));
+                        tr = Math.Max(tr, Math.Abs(data[a].Low  - data[a - 1].Close));
+                    }
+                    atrSum += tr;
+                }
+                double atr = atrSum / openTrailAtrPeriod;
+                double trailDistance = atr * openTrailAtrMultiple;
+
+                double newStop = openSide.Value == OrderSide.Buy
+                    ? bar.Close - trailDistance
+                    : bar.Close + trailDistance;
+
+                // Ratchet: only move the stop in the favorable direction.
+                if (openSide.Value == OrderSide.Buy && newStop > openStop.Value)
+                    openStop = newStop;
+                else if (openSide.Value == OrderSide.Sell && newStop < openStop.Value)
+                    openStop = newStop;
             }
 
             // ── STRATEGY EVALUATION ───────────────────────────────────────────
@@ -350,6 +396,9 @@ public class StrategyBacktester : IStrategyBacktester
                 openStop = signal.StopLoss;
                 openBarIndex = i + 1;
                 stopMovedToBreakeven = false;
+                openStopAdjust = signal.StopAdjust;
+                openTrailAtrPeriod = signal.TrailAtrPeriod;
+                openTrailAtrMultiple = signal.TrailAtrMultiple;
 
                 // v11 diagnostic: capture every numeric indicator component value at the
                 // DECISION bar (i, not i+1 — the signal was generated reading bar i's data

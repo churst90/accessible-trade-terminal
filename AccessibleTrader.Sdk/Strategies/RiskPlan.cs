@@ -25,7 +25,11 @@ public enum StopSourceKind
     /// <summary>[Phase 4] Stop placed below the Ichimoku Kumo cloud (longs).</summary>
     BelowKumo,
     /// <summary>[Phase 4] Stop placed below the nearest Low-Volume Node from VPVR (longs).</summary>
-    BelowLvn
+    BelowLvn,
+    /// <summary>Stop placed at an indicator component's latest value (e.g. EMA(20), Kijun-sen).
+    /// Longs: stop goes BELOW the component value (minus buffer). Shorts: mirror ABOVE.
+    /// Requires <see cref="StopSource.IndicatorCode"/> and <see cref="StopSource.ComponentName"/>.</summary>
+    BelowComponent
 }
 
 /// <param name="Kind">Which placement algorithm to use.</param>
@@ -43,7 +47,11 @@ public record StopSource(
     double AtrMultiple = 1.5,
     int LookbackBars = 20,
     double FixedPrice = 0.0,
-    double BufferTicks = 0.0
+    double BufferTicks = 0.0,
+    /// <summary>Indicator code for BelowComponent (e.g. "SPIDER_LINES", "ICHIMOKU", "EMA").</summary>
+    string IndicatorCode = "",
+    /// <summary>Component name within the indicator (e.g. "EMA 20", "Kijun-sen").</summary>
+    string ComponentName = ""
 );
 
 /// <summary>
@@ -67,7 +75,10 @@ public enum TargetSourceKind
     /// <summary>[Phase 4] Volume profile VAH (Value Area High).</summary>
     Vah,
     /// <summary>[Phase 4] Fibonacci extension level computed from recent swing.</summary>
-    FibExtension
+    FibExtension,
+    /// <summary>Target at an indicator component's latest value (e.g. "exit at EMA 50").
+    /// Requires <see cref="TpLadderRung.IndicatorCode"/> and <see cref="TpLadderRung.ComponentName"/>.</summary>
+    AtComponent
 }
 
 /// <summary>
@@ -86,7 +97,11 @@ public record TpLadderRung(
     double PercentValue = 1.0,
     double FixedPrice = 0.0,
     double FibLevel = 1.618,
-    double ClosePortion = 0.34
+    double ClosePortion = 0.34,
+    /// <summary>Indicator code for AtComponent (e.g. "SPIDER_LINES", "ICHIMOKU").</summary>
+    string IndicatorCode = "",
+    /// <summary>Component name within the indicator (e.g. "EMA 50", "Senkou Span A").</summary>
+    string ComponentName = ""
 );
 
 /// <summary>

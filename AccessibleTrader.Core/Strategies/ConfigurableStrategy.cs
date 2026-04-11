@@ -400,7 +400,10 @@ public class ConfigurableStrategy : BaseStrategy
             Rationale:  rationale,
             Confidence: eval.MaxScore > 0 ? eval.Score / eval.MaxScore : 1.0,
             TpLadder:        resolved.TpPrices,
-            TpClosePortions: resolved.ClosePortions
+            TpClosePortions: resolved.ClosePortions,
+            StopAdjust:      _spec.Risk.StopAdjust,
+            TrailAtrPeriod:  _spec.Risk.Stop.AtrPeriod,
+            TrailAtrMultiple: _spec.Risk.Stop.AtrMultiple
         );
     }
 

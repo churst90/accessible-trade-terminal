@@ -163,6 +163,20 @@ namespace AccessibleTrader.Core.Services.Strategies
                     return lvl.Price + sign * s.BufferTicks;
                 }
 
+                case StopSourceKind.BelowComponent:
+                {
+                    // Read the latest value of the referenced indicator component from
+                    // the workspace's active series list. Longs: stop below the value;
+                    // shorts: mirror above. If the component is missing or NaN we return
+                    // NaN so the resolver rejects the plan with a clear reason.
+                    double compVal = ReadLatestComponent(state, s.IndicatorCode, s.ComponentName);
+                    if (double.IsNaN(compVal)) return double.NaN;
+
+                    // For a long, the stop must be BELOW the component (subtract buffer).
+                    // For a short, ABOVE (add buffer). sign is -1 for longs, +1 for shorts.
+                    return compVal + sign * Math.Abs(s.BufferTicks);
+                }
+
                 default:
                     return double.NaN;
             }
@@ -231,9 +245,55 @@ namespace AccessibleTrader.Core.Services.Strategies
                     return ComputeFibExtension(history, side, r.FibLevel);
                 }
 
+                case TargetSourceKind.AtComponent:
+                {
+                    // Target lives at the referenced indicator component's latest value.
+                    // Example: "exit long when price reaches EMA 50". The target is only valid
+                    // if it's on the profit side of entry — a TP at EMA 50 below a long entry
+                    // is nonsensical and gets rejected here.
+                    double compVal = ReadLatestComponent(state, r.IndicatorCode, r.ComponentName);
+                    if (double.IsNaN(compVal)) return double.NaN;
+
+                    if (side == OrderSide.Buy && compVal <= entry)  return double.NaN;
+                    if (side == OrderSide.Sell && compVal >= entry) return double.NaN;
+                    return compVal;
+                }
+
                 default:
                     return double.NaN;
             }
+        }
+
+        /// <summary>
+        /// Looks up the latest (most-recent-bar) value of an indicator component from
+        /// the workspace's active series list. Returns NaN if the series/component
+        /// doesn't exist or its data buffer is empty. Used by BelowComponent /
+        /// AtComponent stop and target sources.
+        /// </summary>
+        private static double ReadLatestComponent(WorkspaceState state, string indicatorCode, string componentName)
+        {
+            if (string.IsNullOrWhiteSpace(indicatorCode) || string.IsNullOrWhiteSpace(componentName))
+                return double.NaN;
+
+            foreach (var series in state.ActiveSeries)
+            {
+                if (!string.Equals(series.IndicatorCode, indicatorCode, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var arr = series.GetComponentData(componentName);
+                if (arr == null || arr.Length == 0) return double.NaN;
+
+                // Walk backward past any trailing NaN bars so live-updating pre-warm
+                // gaps don't break the read. Bounded scan (last 10 bars) for safety.
+                int scanLimit = Math.Max(1, arr.Length - 10);
+                for (int i = arr.Length - 1; i >= scanLimit; i--)
+                {
+                    if (!double.IsNaN(arr[i])) return arr[i];
+                }
+                return double.NaN;
+            }
+
+            return double.NaN;
         }
 
         // ── Sizing ────────────────────────────────────────────────────────────
@@ -339,6 +399,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 StopSourceKind.BelowKijun     => $"Stop {sideWord} Ichimoku Kijun at {stop:F4}",
                 StopSourceKind.BelowKumo      => $"Stop {sideWord} Ichimoku Kumo at {stop:F4}",
                 StopSourceKind.BelowLvn       => $"Stop {sideWord} nearest volume profile LVN at {stop:F4}",
+                StopSourceKind.BelowComponent => $"Stop {sideWord} {s.IndicatorCode} {s.ComponentName} at {stop:F4}",
                 _                             => $"Stop at {stop:F4}"
             };
         }

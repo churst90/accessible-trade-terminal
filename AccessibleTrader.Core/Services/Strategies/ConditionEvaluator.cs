@@ -23,6 +23,15 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly ILevelService? _levels;
         private static bool _htfWarningLogged;
 
+        /// <summary>
+        /// Records the most recent HTF-data gap encountered during evaluation, for UI surfacing.
+        /// Cleared at the start of each Evaluate call. When non-empty, at least one HTF leaf
+        /// could not resolve its data and returned false — meaning the strategy's signal is
+        /// safer than the old "fall through to active-TF" behaviour but incomplete. UI layers
+        /// read this to warn users their strategy is not operating at full fidelity.
+        /// </summary>
+        public string? LastHtfDegradation { get; private set; }
+
         public ConditionEvaluator(
             ISignalCatalog catalog,
             IMultiTimeframeDataService? mtf = null,
@@ -41,6 +50,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             var leafResults = new Dictionary<string, bool>();
             double score = 0.0;
             double maxScore = 0.0;
+            LastHtfDegradation = null;
 
             bool overall = EvaluateNode(root, history, state, leafResults, ref score, ref maxScore);
 
@@ -181,14 +191,23 @@ namespace AccessibleTrader.Core.Services.Strategies
                 {
                     return EvaluateHtfPriceLeaf(leaf, htfBars, htfEndExclusive);
                 }
+
+                // Neither cached indicator nor cached bars are available for this HTF leaf.
+                // The previous behaviour was to fall through to active-timeframe data here,
+                // silently degrading the strategy — a backtest on a 1h/daily spec would run
+                // the daily leaf against 1h bars and report wrong results with no warning.
+                //
+                // New behaviour: return FALSE and record the degradation. The leaf does not
+                // evaluate true until HTF data arrives. Strategies will simply not fire until
+                // pre-warm completes, which is conservative and correct.
+                string msg = $"HTF leaf '{leaf.Id}' on timeframe '{leaf.Timeframe}' has no cached data — leaf returning false until pre-warm completes.";
+                LastHtfDegradation = msg;
                 if (!_htfWarningLogged)
                 {
                     _htfWarningLogged = true;
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[ConditionEvaluator] HTF leaf '{leaf.Id}' on timeframe '{leaf.Timeframe}': " +
-                        "no cached HTF bars or indicator data yet — fire IMultiTimeframeDataService " +
-                        "PrewarmIndicatorAsync from the strategy's Initialize. Falling through to active-TF data.");
+                    System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {msg} Fire IMultiTimeframeDataService PrewarmIndicatorAsync from the strategy's Initialize to resolve.");
                 }
+                return false;
             }
 
             // Resolve component data from the workspace's active series.
@@ -728,23 +747,53 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         private bool PriceVsCloud(IReadOnlyList<Ohlcv> history, WorkspaceState state, SignalDescriptor desc, int sign)
         {
-            // Cloud comparison requires Upper/Lower component names which live on the indicator
-            // metadata; for Session A we approximate by using the named component as the upper
-            // boundary and a sibling component named like "*Lower" / "*B" as the lower. If we
-            // can't find both, fall back to "Above" returning the bar's close > component value.
             if (history.Count == 0) return false;
             double close = history[^1].Close;
             var series = state.ActiveSeries.FirstOrDefault(s => s.IndicatorCode == desc.IndicatorCode);
             if (series == null) return false;
-            var upper = series.GetComponentData(desc.ComponentName);
-            if (upper == null || upper.Length == 0) return false;
-            double u = upper[^1];
-            if (double.IsNaN(u)) return false;
+
+            // Find a cloud fill that references the signal's component as either boundary.
+            // This gives us both the upper and lower component names from the indicator's
+            // DefaultCloudFills metadata (e.g., Ichimoku: Senkou Span A / Senkou Span B).
+            var fill = series.CloudFills.FirstOrDefault(f =>
+                f.UpperComponentName == desc.ComponentName ||
+                f.LowerComponentName == desc.ComponentName);
+
+            if (fill != null)
+            {
+                var upperData = series.GetComponentData(fill.UpperComponentName);
+                var lowerData = series.GetComponentData(fill.LowerComponentName);
+                if (upperData.Length > 0 && lowerData.Length > 0)
+                {
+                    double u = upperData[^1];
+                    double l = lowerData[^1];
+                    if (!double.IsNaN(u) && !double.IsNaN(l))
+                    {
+                        // Normalise so hi >= lo regardless of which span is above.
+                        double hi = Math.Max(u, l);
+                        double lo = Math.Min(u, l);
+                        return sign switch
+                        {
+                            +1 => close > hi,
+                            -1 => close < lo,
+                             0 => close >= lo && close <= hi,
+                             _ => false
+                        };
+                    }
+                }
+            }
+
+            // Fallback: no cloud fill found, or component data unavailable.
+            // Use the named component as a single boundary (AboveCloud / BelowCloud only).
+            var compData = series.GetComponentData(desc.ComponentName);
+            if (compData.Length == 0) return false;
+            double val = compData[^1];
+            if (double.IsNaN(val)) return false;
             return sign switch
             {
-                +1 => close > u,
-                -1 => close < u,
-                _  => false // proper "inside" needs both bounds — Session B
+                +1 => close > val,
+                -1 => close < val,
+                 _ => false  // InsideCloud requires both bounds — can't evaluate with one
             };
         }
     }
