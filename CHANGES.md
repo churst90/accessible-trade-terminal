@@ -4,6 +4,294 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-11] — Cipher B MCB-fidelity pass + trilogy strategies
+
+Four-session deep work on Market Cipher B accuracy, visual fidelity, and
+strategy confluence with Cipher A and Cipher SR.
+
+### Cipher B indicator overhaul
+
+**Money Flow rewritten to canonical body/range formula** — replaced the
+previous `RSI(hlc3 × volume)` approximation with the reverse-engineered MCB
+formula: `SMA((close − open) / max(high − low, tick), 60) × 175`, clamped
+±100. Works on volumeless instruments (forex, CFDs, illiquid assets). Visual
+amplitude is signed-sqrt expanded so daily-TF body averages (typically ±0.1)
+map to readable ±50 oscillator range.
+
+**WT Histogram replaced VWAP histogram.** The previous "rolling VWAP
+deviation" columns were replaced with `WT1 − WT2` MACD-style histogram
+columns, flipping at the exact WT crossover bars — which is the only way
+public clones could match real MCB's histogram behavior.
+
+**K-of-N gold dot gate** (default 3 of 4). Strict AND of `(RSI<OS, green
+reversal bar, ADX>gate, ATR>floor)` was too brittle and produced 0 gold dots
+on multi-year datasets. K-of-N confluence with the cross + sustained OS
+confirmation produces 2-6x more gold dots without losing the "confluence
+signal" character. Parameter: `GoldMinConfluence` (1-4, default 3).
+
+**Divergence depth gate** — both pivots must exceed ±35 (TF-scaled 25 to 40)
+for regular bull/bear divergences to fire. Filters shallow-pivot noise.
+Hidden continuations are unconstrained by design (they fire on shallower
+second pivots).
+
+**Alternate cross-based divergence detector** — parallel pass walking
+consecutive WT cross-up (near OS) and cross-down (near OB) events, flagging
+pairs where price made a new extreme but WT didn't. Catches 2-bar swing
+divergences the pivot-based detector misses.
+
+**Anchor suppression on Blue/Red dots** — locks out Blue when the Anchor
+Wave is strongly bearish (`AnchorPolarity=−1 AND |AnchorWave|>40`), and Red
+when strongly bullish. Prevents counter-trend entries against a clear
+higher-TF regime. Parameters: `UseAnchorSuppression` (bool, default on),
+`AnchorSuppressDepth` (default 40).
+
+**Timeframe-aware gates** — bar interval is detected from the data's median
+sample spacing and used to scale ADX gate, ATR floor, RSI threshold, MF
+window, pivot bars, divergence depth, and divergence conviction across five
+buckets (intraday-fast/intraday/intraday-slow/daily/weekly+). Daily uses the
+original tuned values; intraday buckets scale gates looser; weekly+ scales
+tighter. Parameter: `TfAware` (bool, default on).
+
+**Rolling-percentile OB/OS** — adaptive OB/OS thresholds via
+`RollingQuantile` helper. Fixed mode emits `±OBLevel`; Percentile mode emits
+rolling quantile envelopes over `AdaptiveLookback` bars with a minimum floor
+to prevent whipsaw in compressed regimes. New params: `ThresholdMode`,
+`AdaptiveLookback`, `UpperPercentile`, `LowerPercentile`,
+`MinThresholdFloor`.
+
+**2-bar signal confirmation + cooldown** — Blue/Red dots require WT1 to
+have stayed past OS/OB for `ConfirmBars` (default 2) consecutive bars
+before firing, with a same-side cooldown of `CooldownBars` (default = auto
+= `WT1Period`). Eliminates multi-cross noise at the extreme.
+
+**Components dropped** (19 → 15 base + 2 hidden zones): CompLaguerreRSI,
+CompStochK, CompStochD, CompTrigger, old CompVWAP (replaced by WtHistogram).
+
+**Components added**: CompWtHistogram, CompAdaptiveOb, CompAdaptiveOs,
+CompAnchorPolarity (hidden ternary +1/0/−1 for HTF strategy gating),
+CompZoneCeiling, CompZoneFloor (constant ±100 anchors for OB/OS zone cloud
+fills — rendering work ongoing).
+
+### Visual polish
+
+- Anchor cloud opacity bumped from `#33...` (20%) to `#88...` (53%) — clouds
+  now readable at a glance for regime identification
+- WT Histogram colors saturated (`#00FF7F` / `#FF2D55`, no alpha) — crisp
+  green/red columns instead of washed-out hues
+- Gold dot thickness 6→8 (biggest single dot in the hierarchy)
+- Blue/Red dots at 5, divergence diamonds at 3.5, hidden continuation dots
+  at 3 — proper size hierarchy matching real MCB
+- MF signed-sqrt amplitude mapping for visible daily wave
+- OB/OS zone background shading shipped via CloudFillConfig with invisible
+  Zone Ceiling (+100) / Zone Floor (−100) anchors — rendering bug
+  confirmed, bands not visible on chart yet, needs renderer-layer fix
+
+### Strategy seeds (new)
+
+- `builtin.long.v13-blue-dot-sma200` — Blue Dot + above SMA(200). Post-
+  rewrite headline long survivor. BTC 1d: 22 trades, 59% WR, +0.417R,
+  Sharpe 3.93, PF 2.06, walk-forward H2 +0.500R. ETH 1d +0.491R, SOL 1d
+  +0.701R.
+- `builtin.long.v14-hidden-bull-sma200` — Hidden Bull Continuation + above
+  SMA(200). **Strongest single spec produced.** BTC 4h: 25 trades, 64% WR,
+  +0.785R, Sharpe 6.21, PF 4.04, walk-forward H2 survivor. ETH 1d: 16
+  trades, 75% WR, +0.937R, Sharpe 9.24.
+- `builtin.long.v15-blue-dot-bull-div` — Blue Dot AND Bullish Divergence
+  within 5 bars. High R per trade (+1.48R) but sample is small (2-8 trades).
+  Confluence "purity" spec.
+- `builtin.short.v13-bear-div-below-sma200` — originally "below SMA200",
+  flipped to above SMA200 after tests showed bear divs form at tops in
+  uptrends, not downtrends. Does NOT survive walk-forward on any tested
+  asset. Tentatively deprecated, kept for reference.
+
+### Strategy seeds (retired)
+
+- `builtin.long.v12-anchor-filtered-blue-dot` — v12 thesis (Anchor Wave
+  sign filter on blue dot) was invalidated by the MCB rewrite. The new
+  Anchor Wave calculation no longer discriminates as v12 required. Removed
+  from `GetAllSeeds()` but kept in source for reference.
+
+### Per-signal isolation diagnostic — confirmed survivors (strict 95% CI)
+
+- **Bullish Divergence BTC 1d** — both halves strict-CI passing. 4 H1
+  trades +1.481R, 6 H2 trades +1.486R. Only Cipher B signal to survive
+  CI on both halves on any asset.
+- **Gold Dot BTC 1d** (pre K-of-N, post clv-fix) — H1 strict-CI with 6
+  trades +1.481R. K-of-N loosen doubled density but flattened CI to
+  straddling zero.
+- **Hidden Bull Continuation BTC 4h** — H1 strict-CI with 20 trades
+  +1.005R. Underpins v14.
+- **Hidden Bull Continuation ETH 1d** — H1 strict-CI with 12 trades
+  +0.777R.
+- **Blue Dot BTC 1d post-anchor-suppression** — H1 strict-CI with 20
+  trades +0.655R. Anchor suppression eliminated the counter-trend trades
+  that had dragged the H1 CI below zero.
+
+### Strategy engine fixes
+
+- `RiskPlanResolver` — added `StopSourceKind.BelowComponent` and
+  `TargetSourceKind.AtComponent` handlers. Reads latest non-NaN value from
+  `state.ActiveSeries` for indicator-tied stops/targets.
+- `ConditionEvaluator` HTF degradation — HTF leaves now return FALSE when
+  HTF data unavailable (previously fell through to active-TF, masking bugs).
+  Added `LastHtfDegradation` for UI surfacing.
+
+### StrategyLab harness
+
+- `LabHost.Build()` now registers `ILoggerFactory` — fixes DI regression
+  from 2026-04-10 logging overhaul that broke all lab commands.
+- `DiagnosticCommand` supports `--side long|short` flag for testing signals
+  in both directions to distinguish real edge from secular drift.
+
+### Schwab provider plugin
+
+- Full OAuth2 auth-code flow, loopback HttpListener at
+  `https://127.0.0.1:8443/callback`, thread-safe refresh, token persisted
+  at `%APPDATA%\AccessibleTrader\schwab_refresh_token.json`.
+- Polling live updates, 120 req/min rate limiter, 401→refresh→retry inside
+  `SendWithAuthAsync`.
+- EQUITY MARKET/LIMIT/STOP/STOP_LIMIT orders. Options, brackets, OCO out
+  of scope for v1.
+- Wired into `AccessibleTrader.slnx`, `BlazorClient.csproj`, and
+  `ApiKeysModal.razor` provider list.
+
+### Other custom indicator improvements
+
+- **Cipher A**: WMA(4) instead of SMA(4), 2-bar cross confirmation, Chaikin
+  CLV magnitude weighting, pivot lag disclosure in divergence speech.
+- **Cipher C**: Fisher saturation correction + ADX<20 gate on Shallow
+  Peak/Trough.
+- **Cipher S**: AdaptiveSmoothing parameter (rolling variance of rawPct →
+  alpha 0.25..0.70).
+- **Cipher SR**: ATR-scaled adaptive break threshold (`AdaptiveBreak` /
+  `AtrPeriod` params).
+- **Crowding Index**: staleness guard (consecutive-duplicate detection),
+  2.0σ rationale documented, `MaxStaleBars` parameter.
+- **Regime Filter**: ternary `RegimeState` component (+1/0/−1) visible by
+  default.
+- **Ichimoku**: `KumoPolarity` component + 2-bar confirmed `TkBull`/`TkBear`
+  markers.
+- **Spider Lines**: `FastMode` parameter (HMA vs EMA) + quantitative
+  `StackingScore` component.
+
+### Known issues / remaining work
+
+- **OB/OS zone shading rendering** — CloudFillConfig approach produces
+  data but fills don't render on the chart. Needs renderer-layer
+  investigation.
+- **Divergence line rendering** — real MCB draws a slanted line connecting
+  the two pivots. Currently only a diamond marker at the 2nd pivot.
+  Renderer feature, deferred.
+- **Cross-pane Anchor cloud** — real MCB tints the price-pane background
+  with the anchor regime color. Currently anchor cloud only in oscillator
+  pane.
+- **v13s walk-forward failure** — bear-divergence short strategy does not
+  survive walk-forward on any tested asset.
+- **Bearish setups on Cipher B alone remain structurally weak.** No strict-
+  CI short survivor other than Hidden Bear Continuation BTC 1d H1 (2 trades
+  — sample too small).
+
+---
+
+## [2026-04-10 Session 2] — Plugin restructure, cloud components, MA flexibility, strategy fixes
+
+### Plugin Directory Restructure
+- Reorganized `Plugins/` into `Providers/` (12 tradeable), `Analytics/` (11 non-tradeable), `Indicators/` (drop-in auto-discovery).
+- Updated all 23 plugin csproj references, solution file, BlazorClient project references, StrategyLab references.
+- Dynamic indicator plugin discovery: `IndicatorService.LoadIndicatorPlugins()` scans `Plugins/Indicators/` and `%LOCALAPPDATA%\AccessibleTrader\Plugins\Indicators\` at startup.
+
+### Cloud Component Architecture
+- **ComponentDisplayType.Cloud promoted to navigable component.** Clouds now participate in all three output channels (visual, audio, speech).
+- **NavigationSonifier**: Cloud-aware navigation — sine + triangle blend, width-mapped volume, bullish/bearish frequency switching.
+- **SpeechFormatter**: Cloud components announce direction, width, and price position ("MA Cloud, bullish, width 2.47. Price inside.").
+- **AutoNarrationService**: Cloud entry/exit detection — "Price entered MA Cloud." / "Price exited MA Cloud."
+- **AudioSequencer**: Cloud playback via `PlayCloudComponent()` with sustain envelope and series-aware slot allocation. Fixed slot collision between cloud and price/volume series.
+
+### MACloudProvider (replaces EmaFillProvider)
+- Supports 6 MA types per line: EMA, SMA, WMA, HMA, DEMA, TEMA.
+- FastType/SlowType string parameters allow any combination (e.g., Bull Market Support Band = 20-week SMA + 21-week EMA).
+- MAs are internal data arrays (`__` prefix), not components — single navigable Cloud component.
+- `MovingAverageHelper` shared utility replaces 3 duplicate `Ema()` implementations.
+- `EmaFillProvider` class retained as backward-compatibility alias.
+
+### IAnalyticsDataResolver
+- Maps 30 canonical metrics to best available provider based on API key availability.
+- Prefers free providers, falls back to paid if configured. Registered in DI.
+
+### Strategy Engine Fixes
+- **InsideCloud operator**: Fixed stub in `ConditionEvaluator.PriceVsCloud` — now reads both CloudFillConfig bounds, normalizes hi/lo, evaluates `close >= lo && close <= hi`.
+- **TrailByAtr stop adjustment**: `StrategySignal` carries StopAdjust/TrailAtrPeriod/TrailAtrMultiple. Backtester computes Wilder's ATR each bar and ratchets stop in favorable direction after TP1.
+
+### LiveStreamManager Auto-Reconnect
+- Watchdog now tears down subscription, disconnects, reconnects, and re-subscribes on 60s silence.
+- Up to 5 attempts with escalating severity. Successful ticks reset counter.
+
+### PropertiesModal Improvements
+- Per-component dropdown filter when indicator has >3 components (Appearance + Sonification tabs).
+- Parameter validation: `IndicatorParameterMetadata` gains MinValue/MaxValue/Step. PropertiesModal shows DisplayName, Description, clamps values.
+
+### ApiKeysModal
+- Expanded known providers from 7 to 19 (all providers listed alphabetically).
+
+### Documentation
+- `PROVIDER_AUTHORING.md` — complete guide for building data provider plugins.
+- `PLUGIN_AUTHORING.md` — updated with new directory structure and indicator auto-discovery.
+
+---
+
+## [2026-04-10] — Code quality overhaul + 8 new provider plugins
+
+### New Provider Plugins (8)
+- **FMP** — Financial Modeling Prep: stocks, crypto, forex, commodities, indices OHLCV with intraday (1m–1d). 70,000+ securities.
+- **FMP Analytics** — Fundamentals time series: P/E, revenue, EPS, ROE, margins, earnings surprises, sector performance, economic calendar. 42 popular tickers × 36 metrics.
+- **BGeometrics** — 154+ BTC on-chain metrics: MVRV, SOPR, NVT, NUPL, CDD, Hodl Waves, S2F, Reserve Risk, Puell Multiple, Realized Price, Funding Rate, OI. Free, no auth.
+- **DefiLlama** — DeFi TVL by chain (10 chains) and protocol (8 top protocols), stablecoin supply (USDT/USDC/DAI/total). Free, no auth.
+- **CoinMetrics** — Multi-asset on-chain: MVRV, active addresses, hash rate, exchange flows, supply for 9 assets (BTC/ETH/LTC/DOGE/ADA/XRP/DOT/LINK/UNI). 117 symbols. Free, no auth.
+- **Mempool** — Bitcoin mempool stats, hash rate, difficulty, block fees/rewards/sizes/fee rates. Free, no auth.
+- **Etherscan** — ETH gas prices (safe/fast/propose), total supply, ETH price, node count. Free API key.
+- Total provider count: 17 → **25**.
+
+### Code Quality & Safety Overhaul (60+ files)
+- **SafeFireAndForget helper** — replaces all bare `_ = Task.Run(...)` patterns. Unobserved exceptions are now logged instead of crashing silently. Applied across DataOrchestrator, DataManager, BackfillManager, StrategyEngine, DataOrchestrationService, LiveStreamManager, PlaybackOrchestrator, MainPage.
+- **async void → async Task** — StrategyEngine.ExecuteSignalAsync changed to proper Task-returning method.
+- **EventBus IDisposable** — Subject<T> instances now disposed on cleanup, preventing memory leaks.
+- **ApiKeyService race condition** — constructor fire-and-forget `_ = LoadAsync()` replaced with SemaphoreSlim-guarded `EnsureLoadedAsync()`.
+- **Circuit breaker centralized** — removed duplicate circuit breaker from DataService (DataOrchestrator already owns resilience policy).
+- **ConnectionManager thread safety** — Dictionary → ConcurrentDictionary.
+- **DataCacheService** — incremental lookup on Add() instead of full O(n) rebuild; avoid double-enumeration in AddRange.
+- **FileCacheService** — SHA256 hash-based cache keys prevent collision when different keys sanitize to same filename.
+- **AppDbContext** — hardcoded `"Data Source=trader_local.db"` → configurable path in `LocalApplicationData/AccessibleTrader/`.
+- **PineScript injection fix** — parameter names now sanitized with `SanitizeIdent()` + `EscapeString()` before code generation.
+- **Roslyn sandbox hardening** — `ValidateSandbox()` blocks System.IO, System.Net, Reflection.Emit, Activator, AppDomain, Marshal, DllImport in user scripts.
+- **MainPage theme subscription leak** — lambda handler stored as field, properly unsubscribed in OnDisappearing.
+- **BackfillManager** — bounded queue (100), proper disposal with CompleteAdding + CTS dispose.
+- **DataService** — 7 unnecessary `async` keywords removed (methods that never await), replaced with `Task.FromResult`.
+
+### Unified Logging
+- **Console.WriteLine/Error → ILogger** across SettingsManager (4), PluginLoaderService (9), Toolbar.razor (7), BlazorAudioDriver (4), MainLayout.razor (2), StrategyBacktester (1), CoinMetricsProvider (1).
+- **Silent catch blocks → logged** in DataService (3), ConfigService (1), JournalService (1), SpeechTemplateService (2).
+- **String interpolation → structured templates** — 38 fixes across 10 Core service files (BackfillManager, ApiKeyService, DataManager, DataOrchestrator, DataService, HistoricalDataFetcher, FileCacheService, IndicatorPreferencesService, LiveStreamManager, WorkspaceLibraryService).
+
+### Plugin Resource Disposal
+- Added `Dispose(bool)` overrides to all 10 existing plugin providers, cleaning up HttpClient, WebSocket, CancellationTokenSource, and Subject fields: Alpaca, Bitstamp, Coinbase, Finnhub, Fred, Kraken, Oanda, Polygon, Tradier, TwelveData.
+
+### ConfigureAwait(false)
+- Added to ~135 await statements across 31 files in Core and Sdk projects, preventing potential deadlocks in MAUI UI context.
+
+### Blazor & Accessibility
+- TabBar/ObjectTreeModal: added `@key` for correct list diffing.
+- TabBar close buttons: `<span>` → `<button>` with `aria-label`.
+- Added `aria-orientation="horizontal"` to tablist.
+- Global `@using Microsoft.Extensions.Logging` in `_Imports.razor`.
+
+### Solution & Project
+- Solution file updated: added BinanceDerivatives, OkxDerivatives, AlternativeMe, Glassnode, CoinGecko, FMP, BGeometrics, DefiLlama, CoinMetrics, Mempool, Etherscan + Tests project.
+- MarketOrchestrator: FMP registered for Stock/Crypto/Forex/Commodity/Index; all new analytics providers registered for OnChain; FMP Analytics for Economic.
+
+**Build**: 0/0. **Tests**: 252/252.
+
+---
+
 ## [2026-04-10] — Full codebase audit + bug fixes + documentation overhaul
 
 ### Sonification & Rendering Fixes

@@ -73,6 +73,8 @@ ehthumbs.db
 Desktop.ini
 .DS_Store
 
-# Claude Code local settings
-.claude/settings.local.json
-.claude/worktrees/
+# Claude Code local settings + agent state
+.claude/
+
+# StrategyLab research fixtures — regenerate with `StrategyLab snapshot` / `xs-snapshot`
+strategy-lab-data/

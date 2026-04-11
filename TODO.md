@@ -4,38 +4,73 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
-## NEXT UP — Analytics Provider Build-Out (2026-04-10)
+## NEXT UP (2026-04-11) — Cipher B fidelity + trilogy strategies
 
-### BGeometrics Provider Plugin (Priority 1)
-- [ ] New plugin: `AccessibleTrader.Plugins.BGeometrics`
-- [ ] 154+ BTC on-chain metrics for free: MVRV (overall/STH/LTH/Z-Score), SOPR (overall/STH/LTH/adjusted), NVT (signal/Z-score), Realized Price, NUPL, CDD, Hodl Waves, Exchange Flows, S2F, Reserve Risk, Puell Multiple, Funding Rate, Open Interest, Basis, Active Addresses, Supply metrics
-- [ ] API base: `https://bitcoin-data.com/v1/{metric}` — daily resolution, full history
-- [ ] BTC only — register as analytics provider with `ProviderDataShape.SingleValueLine`
+### Completed this session
+- [x] Cipher B full MCB-fidelity rewrite (body/range MF, WT Histogram, K-of-N gold, depth gate, alt divergence detector, anchor suppression, TF-aware gates)
+- [x] Visual polish (histogram saturation, anchor cloud opacity, MF sqrt expansion, dot hierarchy)
+- [x] v13 / v14 / v15 long strategy seeds — v14 is the strongest walk-forward survivor (BTC 4h +0.785R Sharpe 6.21 PF 4.04)
+- [x] v12 retired from seeds (Anchor-sign thesis invalidated by the rewrite)
+- [x] StrategyLab DI fix (`LabHost.Build()` registers `ILoggerFactory`)
+- [x] `DiagnosticCommand --side long|short` flag
+- [x] Schwab provider plugin (OAuth2, EQUITY market/limit/stop orders, 120 rpm limiter)
 
-### CoinMetrics Live API Provider (Priority 2)
-- [ ] Convert offline StrategyLab fetch to live REST provider
-- [ ] Community API: `https://community-api.coinmetrics.io/v4` — no key required
-- [ ] MVRV + Active Addresses free for 9 assets: BTC, ETH, LTC, DOGE, ADA, XRP, DOT, LINK, UNI
-- [ ] Rate limit: 10 req/6s (~1.6 RPS)
+### Open Cipher B follow-ups
+- [ ] **OB/OS zone background shading** — CloudFillConfig data writes correctly but fills aren't rendering. Needs renderer-layer investigation, likely requires extending LevelDescriptor with a `FillSide` field or adding a dedicated zone-band renderer path.
+- [ ] **Divergence line rendering** — real MCB draws slanted line between the two pivots; currently only a diamond at the 2nd pivot. Renderer feature, deferred.
+- [ ] **Cross-pane Anchor cloud** — tint price pane background with anchor regime color. Currently only in oscillator pane.
+- [ ] **SOL daily snapshot refresh** to 3000+ bars (currently 1131, too short for robust walk-forward).
+- [ ] **Schwab UI**: no "Sign in" button wired — entry point is `schwabProvider.BeginAuthorizationAsync()`.
 
-### IAnalyticsDataResolver Service (Priority 3)
-- [ ] Maps metric name → best available source based on user's API keys
-- [ ] Priority chain: paid source (if key exists) → free source (automatic fallback)
-- [ ] Makes cross-series indicators source-agnostic (remove hardcoded provider references)
-- [ ] Seamless UX: user picks metric, resolver finds data transparently
+### Strategy work — next session
+- [ ] **v16 trilogy long**: Cipher A Buy Signal within 5 bars AND Cipher B Blue Dot AND Cipher SR Support within 3 bars. The "real MCB methodology" confluence — A/B/SR all agreeing. Expected: rare but high-quality.
+- [ ] **v16s trilogy short**: A Sell + B Red Dot + SR Resistance. Mirror of v16.
+- [ ] **v17 gold trilogy**: A Buy + B Gold Dot + SR Support. Tests the hypothesis that real MCB's gold dot uses Cipher A state as hidden input.
+- [ ] **v13s cleanup** — bear-divergence short strategy walk-forward failed on all tested assets. Either remove from seeds or mark deprecated with a reason.
+- [ ] **Rolling-window stress** on trilogy specs across BTC 1d/4h/12h, ETH 1d, SOL 1d. walk-forward H1/H2 at minimum.
+- [ ] **Alt cross-based divergence detector depth check** — currently no depth gate, may be adding lower-quality bear divs that degrade v13s.
 
-### ApiKeysModal Updates (Priority 4)
-- [ ] Add analytics providers to known providers list: Glassnode, CoinGlass, CoinGecko
-- [ ] Currently only lists: Alpaca, Binance, Bitstamp, Coinbase, Polygon, FRED, Custom
+### Uncommitted work
+- [ ] **Commit 4 sessions of work in logical groups**: (a) MCB rewrite + visual polish, (b) gold dot + divergence fixes, (c) TF-aware gates, (d) v13/v14/v15/v13s strategy seeds, (e) StrategyLab DI + `--side`, (f) Schwab plugin, (g) other indicator improvements.
 
-### Plugin Directory Documentation (Priority 5)
-- [ ] PLUGIN_AUTHORING.md: add deployment section (where to drop DLLs, 3 scan locations)
-- [ ] Troubleshooting section for common plugin loading failures
-- [ ] Performance guidance for hot-path indicators
+---
 
-### Data Landscape Reference
-Free: BGeometrics (BTC 154+ metrics), CoinMetrics Community (9 assets MVRV), OKX public (307 perps funding/OI), Binance public (derivatives), Alternative.me (FNG), CoinGecko (dominance), FRED (macro).
-Paid only: CoinGlass ($29+/mo, no free tier), CryptoQuant ($109+/mo for API), Glassnode (API requires paid plan + add-on).
+## Previously active — Build-Out (2026-04-10)
+
+### Completed Session 1
+- [x] BGeometrics plugin — 28 BTC on-chain symbols (MVRV, SOPR, NVT, NUPL, CDD, Hodl Waves, S2F, etc.)
+- [x] CoinMetrics live plugin — 117 symbols across 9 assets (MVRV, active addresses, hash rate, exchange flows)
+- [x] DefiLlama plugin — DeFi TVL (10 chains, 8 protocols), stablecoin supply (USDT/USDC/DAI/total)
+- [x] Mempool plugin — BTC hashrate, difficulty, block fees/rewards/sizes/fee rates
+- [x] Etherscan plugin — ETH gas oracle, supply, price, node count
+- [x] FMP plugin — Stock/Crypto/Forex/Commodity/Index OHLCV with intraday
+- [x] FMP Analytics plugin — fundamentals, ratios, earnings, sector performance, economic calendar
+- [x] Full code quality overhaul (SafeFireAndForget, structured logging, disposal, ConfigureAwait, sandbox hardening)
+
+### Completed Session 2
+- [x] IAnalyticsDataResolver — 30 metrics, priority-ordered provider resolution, API key awareness
+- [x] ApiKeysModal — expanded to 19 providers
+- [x] LiveStreamManager auto-reconnect — 5 attempts, tear-down/reconnect/re-subscribe
+- [x] InsideCloud operator fix — reads both CloudFillConfig bounds, proper inside evaluation
+- [x] Plugin directory restructure — Providers/Analytics/Indicators subdirectories
+- [x] Dynamic indicator plugin discovery — scan Plugins/Indicators/ at startup
+- [x] PROVIDER_AUTHORING.md — complete data provider authoring guide
+- [x] PropertiesModal per-component picker — dropdown filter for 3+ component indicators
+- [x] Parameter validation — MinValue/MaxValue/Step on IndicatorParameterMetadata, clamp on edit
+- [x] TrailByAtr stop adjustment — Wilder ATR trailing stop in backtester after TP1
+- [x] Cloud component architecture — navigable, sonified, speech-announcing, auto-narrating clouds
+- [x] MACloudProvider — 6 MA types (EMA/SMA/WMA/HMA/DEMA/TEMA), replaces EmaFillProvider
+- [x] MovingAverageHelper — shared utility replacing 3 duplicate Ema() implementations
+
+### Research / Next Session
+- [ ] Adaptive WT thresholds for Cipher B — dynamic OB/OS levels based on oscillator's own distribution (percentile-based)
+- [ ] Pulse indicator simplification — consider decomposing v1/v2/v3 signal tiers into strategy conditions
+- [ ] Phase 12 Session 3 — v9 backtest + thesis validation
+- [ ] Commit all uncommitted work (~120+ files modified/created across 2 sessions)
+
+### Data Landscape Reference (updated)
+Free: BGeometrics (BTC 154+ metrics), CoinMetrics Community (9 assets MVRV), DefiLlama (TVL, stablecoins), Mempool.space (BTC mining), Etherscan (ETH gas/supply), OKX public (307 perps funding/OI), Binance public (derivatives), Alternative.me (FNG), CoinGecko (dominance), FRED (macro), FMP free tier (250 req/day).
+Paid only: CoinGlass ($29+/mo, no free tier), CryptoQuant ($109+/mo for API), Glassnode (API requires paid plan + add-on), FMP paid ($14-79/mo for higher limits).
 Gaps: ETH missing SOPR/NVT/exchange flows (paid only). SOL/AVAX no on-chain metrics free. KAS no data anywhere. TAO derivatives only (OKX).
 
 ---

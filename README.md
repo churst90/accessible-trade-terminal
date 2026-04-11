@@ -29,7 +29,7 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 
 ### Multi-Source Data Engine
 
-- **Provider Architecture:** Decoupled plugin system. **Trading/Data providers:** Binance (Spot+Futures, WebSocket), Bitstamp (REST+WebSocket), Coinbase (REST, JWT auth), Alpaca (REST, Stocks+Crypto), Polygon (Stocks/Forex), Kraken, Finnhub, Oanda, Tradier, TwelveData, InteractiveBrokers. **Analytics providers:** FRED (macroeconomic), CoinGecko (dominance/market cap), AlternativeMe (Fear & Greed), Glassnode (on-chain), OkxDerivatives (funding/OI), BinanceDerivatives, CoinMetrics (MVRV/on-chain).
+- **Provider Architecture:** Decoupled plugin system with **23 data providers** in `Plugins/Providers/` (12 trading) and `Plugins/Analytics/` (11 analytics), plus `Plugins/Indicators/` for drop-in indicator DLLs. **Trading/Data providers:** Binance (Spot+Futures, WebSocket), Bitstamp (REST+WebSocket), Coinbase (REST, JWT auth), Alpaca (REST, Stocks+Crypto), Polygon (Stocks/Forex), Kraken, Finnhub, Oanda, Tradier, TwelveData, InteractiveBrokers, FMP (Stocks/Crypto/Forex/Commodities/Indices). **Analytics providers:** FRED (macroeconomic), FMP Analytics (fundamentals/ratios/earnings/economic calendars), CoinGecko (dominance/market cap), AlternativeMe (Fear & Greed), Glassnode (on-chain), OkxDerivatives (funding/OI), BinanceDerivatives, BGeometrics (154+ BTC on-chain metrics), CoinMetrics (multi-asset MVRV/addresses/flows), DefiLlama (DeFi TVL/stablecoins), Mempool (BTC mempool/hashrate/difficulty), Etherscan (ETH gas/supply).
 - **Resilient Pipeline:** Polly exponential backoff, circuit breakers (10 failures → 5s break), and automatic reconnection.
 - **Zero-Allocation Math:** `readonly record struct Ohlcv` for all price data. Indicator hot-paths use `double[]` arrays with `double.NaN` for missing values.
 - **State Machine:** `DataOrchestrator` manages `DataState` lifecycle: `Initializing → HistoricalFilling → GapFilling → LiveStreaming → Faulted`.
@@ -83,9 +83,9 @@ Press `Alt+H` in the application to open the full Help dialog. Key bindings:
 - `Alt+C` — Toggle Heikin-Ashi candles. `Alt+L` — Toggle log scale.
 - `Ctrl+Alt+Shift+J` — Open the Journal modal (review/copy every spoken phrase, alert, strategy setup, error from this session).
 
-## Current Status (2026-04-09)
+## Current Status (2026-04-10)
 
-**Phases 0–11 complete. Analytics provider subsystem (SingleValueLine shape) shipped. Candles/Volume/Price refactored into independent series with shape-driven reconciliation. Full codebase audit completed and all findings resolved. Build: 0 errors, 0 warnings. 252 tests passing.**
+**Phases 0–11 complete. 25 data providers (12 trading in `Plugins/Providers/`, 11 analytics in `Plugins/Analytics/`, indicator drop-in via `Plugins/Indicators/`). MACloudProvider supports 6 MA types (EMA/SMA/WMA/HMA/DEMA/TEMA). Cloud components are fully navigable with sonification, speech, and auto-narration. IAnalyticsDataResolver maps 30 metrics to best provider. TrailByAtr stop adjustment in backtester. Build: 0 errors, 0 warnings. 252 tests passing.**
 
 ### Phase 11 — Strategy Composer & Risk-Managed Setups (complete)
 
