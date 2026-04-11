@@ -83,12 +83,19 @@ namespace AccessibleTrader.Tests
             Assert.Equal(PlaybackLayer.Background, Get(CipherBProvider.CompWT2Anchor).DefaultPlaybackLayer);
         }
 
-        // ── 5. RSI~ — Background layer ────────────────────────────────────────
+        // ── 5. WT Histogram — replaces dropped VWAP~ ──────────────────────────
 
         [Fact]
-        public void LaguerreRSI_HasPlaybackLayer_Background()
+        public void WtHistogram_HasReferenceLevelZero()
         {
-            Assert.Equal(PlaybackLayer.Background, Get(CipherBProvider.CompLaguerreRSI).DefaultPlaybackLayer);
+            Assert.Equal(0.0, Get(CipherBProvider.CompWtHistogram).DefaultReferenceLevel);
+        }
+
+        [Fact]
+        public void AdaptiveObOs_ExistInMetadata()
+        {
+            Assert.NotNull(Get(CipherBProvider.CompAdaptiveOb));
+            Assert.NotNull(Get(CipherBProvider.CompAdaptiveOs));
         }
 
         // ── 6. WaveTrend cross dots — MCB-accurate small dots ─────────────────

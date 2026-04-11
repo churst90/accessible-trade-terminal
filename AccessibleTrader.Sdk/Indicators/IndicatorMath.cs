@@ -192,6 +192,120 @@ namespace AccessibleTrader.Sdk.Indicators
         }
 
         /// <summary>
+        /// Wilder True Range series. Returns NaN on the first bar (no prior close).
+        /// </summary>
+        public static double[] TrueRange(ReadOnlySpan<Ohlcv> data)
+        {
+            int n = data.Length;
+            var r = new double[n];
+            if (n == 0) return r;
+            r[0] = double.NaN;
+            for (int i = 1; i < n; i++)
+            {
+                double hl  = data[i].High - data[i].Low;
+                double hpc = Math.Abs(data[i].High - data[i - 1].Close);
+                double lpc = Math.Abs(data[i].Low  - data[i - 1].Close);
+                r[i] = Math.Max(hl, Math.Max(hpc, lpc));
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// Wilder Average True Range (RMA-smoothed). Returns NaN for the first <paramref name="period"/> bars.
+        /// </summary>
+        public static double[] Atr(ReadOnlySpan<Ohlcv> data, int period)
+        {
+            int n = data.Length;
+            var r = new double[n];
+            Array.Fill(r, double.NaN);
+            if (n <= period) return r;
+
+            var tr = TrueRange(data);
+            double sum = 0;
+            for (int i = 1; i <= period; i++) sum += tr[i];
+            double atr = sum / period;
+            r[period] = atr;
+            for (int i = period + 1; i < n; i++)
+            {
+                atr = (atr * (period - 1) + tr[i]) / period;
+                r[i] = atr;
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// Wilder Average Directional Index (ADX). Returns NaN during warmup (first 2×period bars).
+        /// Produces a non-directional trend-strength measure in 0..100; ADX &gt; 20 is typically
+        /// interpreted as a directional trend, &lt; 20 as ranging.
+        /// </summary>
+        public static double[] Adx(ReadOnlySpan<Ohlcv> data, int period)
+        {
+            int n = data.Length;
+            var r = new double[n];
+            Array.Fill(r, double.NaN);
+            if (n <= period * 2) return r;
+
+            var tr    = new double[n];
+            var plusDm  = new double[n];
+            var minusDm = new double[n];
+            tr[0] = plusDm[0] = minusDm[0] = 0;
+            for (int i = 1; i < n; i++)
+            {
+                double up   = data[i].High - data[i - 1].High;
+                double down = data[i - 1].Low - data[i].Low;
+                plusDm[i]  = (up > down && up > 0)   ? up   : 0;
+                minusDm[i] = (down > up && down > 0) ? down : 0;
+
+                double hl  = data[i].High - data[i].Low;
+                double hpc = Math.Abs(data[i].High - data[i - 1].Close);
+                double lpc = Math.Abs(data[i].Low  - data[i - 1].Close);
+                tr[i] = Math.Max(hl, Math.Max(hpc, lpc));
+            }
+
+            // Wilder-smoothed TR, +DM, -DM over period
+            double trSum = 0, pdmSum = 0, mdmSum = 0;
+            for (int i = 1; i <= period; i++)
+            {
+                trSum  += tr[i];
+                pdmSum += plusDm[i];
+                mdmSum += minusDm[i];
+            }
+
+            var dx = new double[n];
+            Array.Fill(dx, double.NaN);
+            for (int i = period + 1; i < n; i++)
+            {
+                trSum  = trSum  - trSum  / period + tr[i];
+                pdmSum = pdmSum - pdmSum / period + plusDm[i];
+                mdmSum = mdmSum - mdmSum / period + minusDm[i];
+                if (trSum < 1e-10) continue;
+                double plusDi  = 100.0 * pdmSum / trSum;
+                double minusDi = 100.0 * mdmSum / trSum;
+                double sumDi   = plusDi + minusDi;
+                dx[i] = sumDi < 1e-10 ? 0.0 : 100.0 * Math.Abs(plusDi - minusDi) / sumDi;
+            }
+
+            // Wilder-smoothed DX → ADX
+            double adxSum = 0;
+            int adxStart = period * 2;
+            int valid = 0;
+            for (int i = period + 1; i <= adxStart && i < n; i++)
+            {
+                if (!double.IsNaN(dx[i])) { adxSum += dx[i]; valid++; }
+            }
+            if (valid == 0) return r;
+            double adx = adxSum / valid;
+            if (adxStart < n) r[adxStart] = adx;
+            for (int i = adxStart + 1; i < n; i++)
+            {
+                if (double.IsNaN(dx[i])) { r[i] = r[i - 1]; continue; }
+                adx = (adx * (period - 1) + dx[i]) / period;
+                r[i] = adx;
+            }
+            return r;
+        }
+
+        /// <summary>
         /// Rolling VWAP deviation oscillator — approximation of Market Cipher's VWAP~ line.
         /// Computes the deviation of close from the N-bar volume-weighted average price,
         /// normalised by the rolling standard deviation and scaled to ±15.
