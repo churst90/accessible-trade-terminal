@@ -138,6 +138,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                             "Manual guidance: daily BTC/stocks → 1500 (≈4 years); " +
                             "daily commodities → 2500–3500; hourly → multiply × 24; 4-hour → multiply × 6."
                     },
+                    new() {
+                        Name         = "AdaptiveSmoothing",
+                        DisplayName  = "Adaptive Smoothing",
+                        DataType     = typeof(bool),
+                        DefaultValue = false,
+                        Description  =
+                            "When true, the EMA smoothing constant varies with the local variance of raw pct: " +
+                            "lower alpha (slower) during trends (low variance), higher alpha (faster) during chop (high variance). " +
+                            "This reduces phase flicker in bursty regimes without over-smoothing in stable trends."
+                    },
                 },
 
                 Components = new List<IndicatorComponentMetadata>
@@ -201,19 +211,48 @@ namespace AccessibleTrader.Core.Services.Indicators
                 rawPct[i] = ((double)data[i].Close - wLow) / (wHigh - wLow) * 100.0;
             }
 
-            // ── Pass 2: 3-bar EMA smoothing → phase mapping ───────────────────
+            // ── Pass 2: EMA smoothing → phase mapping ─────────────────────────
             // Smoothing eliminates single-candle phase flicker visible on compressed
-            // charts. A 3-bar EMA introduces negligible lag relative to the window.
-            // smoothPct is written to the buffer so UpdateLast() can seed from it.
+            // charts. Fixed mode uses a 3-bar EMA (alpha = 0.5). Adaptive mode scales
+            // alpha by the local variance of rawPct: flat/trend regions get a slower
+            // alpha (0.25-0.4) while chop gets a faster alpha (0.55-0.7). This
+            // tracks fast sentiment pivots in bursty markets without introducing
+            // flicker in orderly trends.
+            bool adaptive = GetBool(parameters, "AdaptiveSmoothing", false);
+            const int varWin = 10;
             double prevSmooth = double.NaN;
 
             for (int i = 0; i < n; i++)
             {
                 if (double.IsNaN(rawPct[i])) continue;
 
+                double alpha = SmoothAlpha;
+                if (adaptive && i >= varWin)
+                {
+                    // Rolling std of rawPct over varWin. High std = chop → faster alpha.
+                    double mean = 0; int cnt = 0;
+                    for (int j = i - varWin + 1; j <= i; j++)
+                    {
+                        if (!double.IsNaN(rawPct[j])) { mean += rawPct[j]; cnt++; }
+                    }
+                    if (cnt > 2)
+                    {
+                        mean /= cnt;
+                        double ssq = 0;
+                        for (int j = i - varWin + 1; j <= i; j++)
+                        {
+                            if (!double.IsNaN(rawPct[j])) ssq += (rawPct[j] - mean) * (rawPct[j] - mean);
+                        }
+                        double std = Math.Sqrt(ssq / cnt);
+                        // Map std [0..20] → alpha [0.25..0.70].
+                        double t = Math.Min(1.0, std / 20.0);
+                        alpha = 0.25 + 0.45 * t;
+                    }
+                }
+
                 smoothPct[i] = double.IsNaN(prevSmooth)
                     ? rawPct[i]
-                    : SmoothAlpha * rawPct[i] + (1.0 - SmoothAlpha) * prevSmooth;
+                    : alpha * rawPct[i] + (1.0 - alpha) * prevSmooth;
 
                 prevSmooth = smoothPct[i];
                 phase[i]   = PercentileToPhase(smoothPct[i]);
@@ -522,6 +561,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (v is int i)    return i;
                 if (int.TryParse(v?.ToString(), out int parsed)) return parsed;
             }
+            return def;
+        }
+
+        private static bool GetBool(Dictionary<string, object> p, string key, bool def)
+        {
+            if (!p.TryGetValue(key, out var v)) return def;
+            if (v is bool b)   return b;
+            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
             return def;
         }
 

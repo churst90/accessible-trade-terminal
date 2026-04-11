@@ -27,7 +27,7 @@ namespace AccessibleTrader.Tests
                 new ProfileIndicatorProvider()
             };
 
-            _indicatorService = new IndicatorService(providers);
+            _indicatorService = new IndicatorService(providers, Microsoft.Extensions.Logging.Abstractions.NullLogger<IndicatorService>.Instance);
         }
 
         private List<Ohlcv> GetMockData(int count)

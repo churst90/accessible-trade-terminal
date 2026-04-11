@@ -168,7 +168,7 @@ namespace AccessibleTrader.Tests
                 new SkenderVolatilityProvider(),
                 new SkenderVolumeProvider(),
             };
-            var indicatorService = new IndicatorService(providers);
+            var indicatorService = new IndicatorService(providers, Microsoft.Extensions.Logging.Abstractions.NullLogger<IndicatorService>.Instance);
             var indicatorEngine = new IndicatorEngine(indicatorService, customRegistry, providers);
 
             return new SeriesManagementService(store, eventBus, modelFactory, stylingService, library, customRegistry, indicatorEngine, new MockIndicatorPreferencesService());

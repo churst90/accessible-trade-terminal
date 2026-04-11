@@ -178,7 +178,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "VolumeMultiplier", DisplayName = "Volume Multiplier",      DataType = typeof(double), DefaultValue = 1.2,
                             Description = "Pivot volume must be ≥ this × average. Set to 0 to disable volume filtering." },
                     new() { Name = "BreakThreshold",   DisplayName = "Break Threshold (%)",    DataType = typeof(double), DefaultValue = 0.2,
-                            Description = "Close must clear this % beyond the zone price to invalidate the level (e.g. 0.2 = 0.2%)." },
+                            Description = "Fixed-mode: close must clear this % beyond the zone price to invalidate the level (e.g. 0.2 = 0.2%). Ignored when AdaptiveBreak is true." },
+                    new() { Name = "AdaptiveBreak",    DisplayName = "Adaptive Break (ATR-scaled)", DataType = typeof(bool), DefaultValue = true,
+                            Description = "When true, the break threshold scales with volatility: max(0.1%, 0.25 × ATR/close). This prevents a fixed 0.2% from firing spurious breaks during volatile days and missing real breaks during quiet ones." },
+                    new() { Name = "AtrPeriod",        DisplayName = "ATR Period (Adaptive Break)", DataType = typeof(int), DefaultValue = 14.0,
+                            Description = "ATR lookback used when AdaptiveBreak is true." },
                     new() { Name = "AutoScale",        DisplayName = "Auto-Scale Pivot Bars",  DataType = typeof(int),    DefaultValue = 1.0,
                             Description = "1 = set PivotBars from loaded bar count (barCount ÷ 25, clamped 2–15). Works at any timeframe." },
                 }
@@ -194,8 +198,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             int    pivotBars   = GetInt(parameters, "PivotBars",        5);
             int    volLookback = GetInt(parameters, "VolumeLookback",  20);
             double volMult     = GetDbl(parameters, "VolumeMultiplier", 1.2);
-            double breakPct    = GetDbl(parameters, "BreakThreshold",   0.2) / 100.0; // % → ratio
+            double breakPctFixed = GetDbl(parameters, "BreakThreshold", 0.2) / 100.0; // % → ratio
             bool   autoScale   = GetInt(parameters, "AutoScale",        1) != 0;
+            bool   adaptiveBreak = GetBool(parameters, "AdaptiveBreak", true);
+            int    atrPeriod   = Math.Max(2, GetInt(parameters, "AtrPeriod", 14));
+
+            // Adaptive break uses ATR/close so the threshold adjusts to realized volatility.
+            // A quiet daily BTC day (ATR ≈ 0.8%) produces a 0.2% threshold; a crash day
+            // (ATR ≈ 4%) scales it up to 1.0%, preventing pullback-noise from firing breaks.
+            double[]? atrSeries = null;
+            if (adaptiveBreak)
+                atrSeries = AccessibleTrader.Sdk.Indicators.IndicatorMath.Atr(data, atrPeriod);
 
             // ── Auto-scale: target ~1 pivot per 25 bars regardless of timeframe ───────────
             // Using bar count (not minutes-per-bar) means the same pivot density whether
@@ -261,6 +274,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (data[i].Close <= 0) continue;
                 bool newRes = !double.IsNaN(resistance[i]);
                 bool newSup = !double.IsNaN(support[i]);
+
+                // Compute the effective break threshold for this bar.
+                double breakPct = breakPctFixed;
+                if (adaptiveBreak && atrSeries != null && i < atrSeries.Length && !double.IsNaN(atrSeries[i]) && data[i].Close > 0)
+                {
+                    double atrFrac = atrSeries[i] / data[i].Close;
+                    breakPct = Math.Max(0.001, 0.25 * atrFrac);
+                }
 
                 // Break detection runs on the previously held level before accepting a new one.
                 if (!newRes && !double.IsNaN(lastRes) && data[i].Close > lastRes * (1.0 + breakPct))
@@ -498,6 +519,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (v is double d) return (int)d;
                 if (int.TryParse(v?.ToString(), out int parsed)) return parsed;
             }
+            return def;
+        }
+
+        private static bool GetBool(Dictionary<string, object> p, string k, bool def)
+        {
+            if (!p.TryGetValue(k, out var v)) return def;
+            if (v is bool b)   return b;
+            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
             return def;
         }
 

@@ -32,6 +32,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string Comp89  = "EMA 89";
         public const string Comp144 = "EMA 144";
         public const string Comp200 = "EMA 200";
+        public const string CompStackingScore = "Stacking Score";
 
         // Warm → cool gradient matching MC spider colors
         private static readonly string[] Colors =
@@ -70,7 +71,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                               "overlaid on the price chart. Short-period lines are warm colors; " +
                               "long-period lines are cool colors. Trend direction is signalled by " +
                               "the ordering and spacing of the web.",
-                Parameters  = new List<IndicatorParameterMetadata>(),
+                Parameters  = new List<IndicatorParameterMetadata>
+                {
+                    new() { Name = "FastMode", DisplayName = "Fast Mode (HMA)", DataType = typeof(bool), DefaultValue = false,
+                            Description = "When true, all lines use Hull MA instead of EMA. HMA has ~50% less lag than EMA at the same period, which sharpens the web's response to regime changes at the cost of slightly more whipsaw in chop." },
+                },
                 Components  = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = Comp8,   DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal, DefaultColorHex = "#FF4D4D", DefaultIsZoneLine = true, DefaultUsePolarityColoring = false },
@@ -81,6 +86,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = Comp89,  DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal, DefaultColorHex = "#42A5F5", DefaultIsZoneLine = true, DefaultUsePolarityColoring = false },
                     new() { Name = Comp144, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal, DefaultColorHex = "#AB47BC", DefaultIsZoneLine = true, DefaultUsePolarityColoring = false },
                     new() { Name = Comp200, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal, DefaultColorHex = "#EC407A", DefaultIsZoneLine = true, DefaultUsePolarityColoring = false },
+                    // Quantitative stacking score: −36 to +36, weighted by inverse period rank.
+                    // A single component strategies can leaf on ("StackingScore > 20 = strong bull").
+                    new() { Name = CompStackingScore, DisplayName = "Stacking Score",
+                            DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                            DefaultColorHex = "#FFFFFF", DefaultThickness = 1.0f,
+                            IsVisible = false,
+                            DefaultReferenceLevel = 0.0,
+                            SpeechTemplate = "Spider stacking {value:F0}." },
                 },
             }
         };
@@ -91,12 +104,46 @@ namespace AccessibleTrader.Core.Services.Indicators
             var close = new double[n];
             for (int i = 0; i < n; i++) close[i] = data[i].Close;
 
+            bool fastMode = GetBool(parameters, "FastMode", false);
+
+            var emaResults = new double[Lines.Length][];
             for (int li = 0; li < Lines.Length; li++)
             {
                 var (name, period) = Lines[li];
-                double[] ema = Ema(close, period);
-                WriteToBuffer(buffer, name, ema, n);
+                double[] ma = fastMode
+                    ? MovingAverageHelper.Hma(close, period)
+                    : MovingAverageHelper.Ema(close, period);
+                emaResults[li] = ma;
+                WriteToBuffer(buffer, name, ma, n);
             }
+
+            // Quantitative stacking score: Σ weight_i × sign(close − ma_i),
+            // where weight_i is the descending rank (8 for shortest, 1 for longest).
+            // Output range is [-36, +36] (sum of 8+7+6+5+4+3+2+1). Positive = price
+            // is stacked above the web (bullish), negative = below (bearish).
+            var score = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                double s = 0; int valid = 0;
+                for (int li = 0; li < Lines.Length; li++)
+                {
+                    double v = emaResults[li][i];
+                    if (double.IsNaN(v)) { score[i] = double.NaN; valid = -1; break; }
+                    double weight = Lines.Length - li; // 8, 7, 6, ... 1
+                    s += weight * (close[i] > v ? 1 : (close[i] < v ? -1 : 0));
+                    valid++;
+                }
+                if (valid >= 0) score[i] = s;
+            }
+            WriteToBuffer(buffer, CompStackingScore, score, n);
+        }
+
+        private static bool GetBool(Dictionary<string, object> p, string k, bool def)
+        {
+            if (!p.TryGetValue(k, out var v)) return def;
+            if (v is bool b)   return b;
+            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
+            return def;
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
@@ -153,23 +200,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
-
-        private static double[] Ema(double[] src, int period)
-        {
-            var r = new double[src.Length];
-            double k = 2.0 / (period + 1.0);
-            double ema = double.NaN;
-            int warmup = 0;
-            for (int i = 0; i < src.Length; i++)
-            {
-                double v = src[i];
-                if (double.IsNaN(v)) { r[i] = double.NaN; continue; }
-                if (double.IsNaN(ema)) { ema = v; warmup = 1; }
-                else { ema = v * k + ema * (1.0 - k); warmup++; }
-                r[i] = warmup < period ? double.NaN : ema;
-            }
-            return r;
-        }
 
         private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)
         {

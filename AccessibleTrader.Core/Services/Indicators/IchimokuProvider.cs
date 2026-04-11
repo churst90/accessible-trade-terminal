@@ -43,11 +43,14 @@ namespace AccessibleTrader.Core.Services.Indicators
     {
         public string Name => "Accessible.Ichimoku";
 
-        public const string CompTenkan    = "Tenkan-sen";
-        public const string CompKijun     = "Kijun-sen";
-        public const string CompSenkouA   = "Senkou Span A";
-        public const string CompSenkouB   = "Senkou Span B";
-        public const string CompChikou    = "Chikou Span";
+        public const string CompTenkan       = "Tenkan-sen";
+        public const string CompKijun        = "Kijun-sen";
+        public const string CompSenkouA      = "Senkou Span A";
+        public const string CompSenkouB      = "Senkou Span B";
+        public const string CompChikou       = "Chikou Span";
+        public const string CompKumoPolarity = "Kumo Polarity";
+        public const string CompTkBull       = "TK Bull";
+        public const string CompTkBear       = "TK Bear";
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -143,6 +146,43 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             IsVisible = true },
+
+                    // ── Kumo Polarity ────────────────────────────────────────────────────────
+                    // Hidden ternary line: +1 when Senkou A > B (bullish cloud), -1 when B > A,
+                    // 0 when equal. Lets strategies gate on cloud direction with a single leaf
+                    // instead of an arithmetic comparison on the two Senkou spans.
+                    new() { Name = CompKumoPolarity,
+                            DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                            DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f,
+                            IsVisible = false,
+                            DefaultReferenceLevel = 0.0,
+                            SpeechTemplate = "Kumo polarity {value:F0}." },
+
+                    // ── TK Cross markers ─────────────────────────────────────────────────────
+                    // Fire on confirmed Tenkan/Kijun crossovers with 2-bar sustained hold.
+                    // A bare single-bar cross on Tenkan/Kijun flips 3× in 5 bars on choppy
+                    // assets; the 2-bar confirmation eliminates most of that noise while
+                    // lagging only one bar on genuine reversals.
+                    new() { Name = CompTkBull,
+                            DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
+                            DefaultColorHex = "#00E676", DefaultThickness = 5.0f,
+                            IsVisible = true,
+                            DefaultEnvelopeType = "Ping",
+                            DefaultSoundPatchId = "triangle_bell",
+                            DefaultDecayMs = 180,
+                            DefaultBaseFrequency = 580.0,
+                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
+                            DefaultSignalSpeechTemplate = "Tenkan Kijun bull cross, confirmed" },
+                    new() { Name = CompTkBear,
+                            DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
+                            DefaultColorHex = "#FF1744", DefaultThickness = 5.0f,
+                            IsVisible = true,
+                            DefaultEnvelopeType = "Ping",
+                            DefaultSoundPatchId = "triangle_bell",
+                            DefaultDecayMs = 180,
+                            DefaultBaseFrequency = 260.0,
+                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
+                            DefaultSignalSpeechTemplate = "Tenkan Kijun bear cross, confirmed" },
                 },
 
                 // ── Kumo cloud fill (Senkou A vs Senkou B) ───────────────────────────────────
@@ -225,11 +265,40 @@ namespace AccessibleTrader.Core.Services.Indicators
                     chikou[bwd] = data[i].Close;
             }
 
-            WriteToBuffer(buffer, CompTenkan,  tenkan,  n);
-            WriteToBuffer(buffer, CompKijun,   kijun,   n);
-            WriteToBuffer(buffer, CompSenkouA, senkouA, n);
-            WriteToBuffer(buffer, CompSenkouB, senkouB, n);
-            WriteToBuffer(buffer, CompChikou,  chikou,  n);
+            // ── Kumo polarity + TK cross markers (2-bar confirmed) ───────────────────
+            var kumoPol = IndicatorMath.NanArray(n);
+            var tkBull  = IndicatorMath.NanArray(n);
+            var tkBear  = IndicatorMath.NanArray(n);
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsNaN(senkouA[i]) && !double.IsNaN(senkouB[i]))
+                    kumoPol[i] = senkouA[i] > senkouB[i] ? 1.0
+                               : senkouA[i] < senkouB[i] ? -1.0
+                               : 0.0;
+
+                if (i < 2) continue;
+                if (double.IsNaN(tenkan[i]) || double.IsNaN(kijun[i]) ||
+                    double.IsNaN(tenkan[i - 1]) || double.IsNaN(kijun[i - 1]) ||
+                    double.IsNaN(tenkan[i - 2]) || double.IsNaN(kijun[i - 2])) continue;
+
+                // Cross on bar i-1, and bar i confirms direction.
+                bool crossUpPrior = tenkan[i - 2] < kijun[i - 2] && tenkan[i - 1] >= kijun[i - 1];
+                bool stillUp      = tenkan[i] >= kijun[i];
+                bool crossDnPrior = tenkan[i - 2] > kijun[i - 2] && tenkan[i - 1] <= kijun[i - 1];
+                bool stillDn      = tenkan[i] <= kijun[i];
+
+                if (crossUpPrior && stillUp) tkBull[i] = kijun[i];
+                if (crossDnPrior && stillDn) tkBear[i] = kijun[i];
+            }
+
+            WriteToBuffer(buffer, CompTenkan,       tenkan,  n);
+            WriteToBuffer(buffer, CompKijun,        kijun,   n);
+            WriteToBuffer(buffer, CompSenkouA,      senkouA, n);
+            WriteToBuffer(buffer, CompSenkouB,      senkouB, n);
+            WriteToBuffer(buffer, CompChikou,       chikou,  n);
+            WriteToBuffer(buffer, CompKumoPolarity, kumoPol, n);
+            WriteToBuffer(buffer, CompTkBull,       tkBull,  n);
+            WriteToBuffer(buffer, CompTkBear,       tkBear,  n);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)

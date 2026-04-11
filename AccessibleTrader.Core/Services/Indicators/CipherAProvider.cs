@@ -258,14 +258,23 @@ namespace AccessibleTrader.Core.Services.Indicators
                     ? double.NaN
                     : (hlc3[i] - esa[i]) / (0.015 * d[i]);
             var wt1 = Ema(ci, wt2Period);
-            var wt2 = Sma(wt1, 4);
+            // WT2 uses WMA(4) instead of SMA(4): same smoothing window but weights
+            // recent bars more heavily, reducing WT2's lag at regime changes by ~1 bar.
+            var wt2 = MovingAverageHelper.Wma(wt1, 4);
 
             // ── Money Flow ─────────────────────────────────────────────────────────────────
-            // Directional volume: positive on up-closes, negative on down-closes.
-            // Smoothed by mfPeriod SMA. Sign preserved for zero-crossing semantics.
+            // Magnitude-weighted directional volume. Weighting the volume by the candle's
+            // body-to-range ratio (Chaikin-style CLV) means a strong close near the high
+            // counts more than a marginal up-close that barely cleared open — this
+            // dampens Manipulation/Exhaustion false positives in doji-heavy chop.
             var mfv = new double[n];
             for (int i = 0; i < n; i++)
-                mfv[i] = close[i] >= open[i] ? volume[i] : -volume[i];
+            {
+                double range = high[i] - low[i];
+                if (range < 1e-10) { mfv[i] = 0.0; continue; }
+                double clv = ((close[i] - low[i]) - (high[i] - close[i])) / range; // Chaikin CLV in [-1..+1]
+                mfv[i] = volume[i] * clv;
+            }
             var mf = Sma(mfv, mfPeriod);
 
             // ── Output arrays ──────────────────────────────────────────────────────────────
@@ -296,8 +305,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 wtMomentumCl[i] = wt1[i];     // color = raw WT1 oscillator value
             }
 
-            // ── Crossover buy / sell signals ───────────────────────────────────────────────
-            for (int i = 1; i < n; i++)
+            // ── Crossover buy / sell signals (2-bar sustained OS/OB) ───────────────────────
+            // A bare wt1-crosses-wt2 event at oversold fires too often during wick noise:
+            // one bar dips to -60, the next bar pops back to -40, and the "crossover"
+            // happens on the pop with WT1 already headed up. Requiring the PRIOR bar to
+            // also have been oversold means the setup was sustained, not a one-bar spike.
+            for (int i = 2; i < n; i++)
             {
                 if (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i]) ||
                     double.IsNaN(wt1[i - 1]) || double.IsNaN(wt2[i - 1])) continue;
@@ -308,8 +321,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 double range  = high[i] - low[i];
                 double offset = Math.Max(range * 0.15, close[i] * 0.002);
 
-                if (crossUp   && wt1[i] < -obLevel) buySignal[i]  = low[i]  - offset;
-                if (crossDown && wt1[i] >  obLevel) sellSignal[i] = high[i] + offset;
+                bool sustainedOs = wt1[i] < -obLevel && !double.IsNaN(wt1[i - 1]) && wt1[i - 1] < -obLevel;
+                bool sustainedOb = wt1[i] >  obLevel && !double.IsNaN(wt1[i - 1]) && wt1[i - 1] >  obLevel;
+
+                if (crossUp   && sustainedOs) buySignal[i]  = low[i]  - offset;
+                if (crossDown && sustainedOb) sellSignal[i] = high[i] + offset;
             }
 
             // ── Money Flow confluence signals (persistent condition, not event-based) ───────
@@ -422,10 +438,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompBuySignal    => BuildWaveCrossSpeech(allComponentData, dataIndex, bar.Close, isBuy: true),
                 CompSellSignal   => BuildWaveCrossSpeech(allComponentData, dataIndex, bar.Close, isBuy: false),
 
-                // Divergences — price + cause description.
-                CompBullDiv      => $"Price {bar.Close:F2}. Price lower low, WT higher low.",
-                CompBearDiv      => $"Price {bar.Close:F2}. Price higher high, WT lower high.",
-                CompBloodDiamond => $"Price {bar.Close:F2}. Overbought zone, high confidence.",
+                // Divergences — price + cause description + pivot lag disclosure.
+                // Divergence detection uses a pivot window of PivotBars; the signal appears
+                // at the center of the window, so it's effectively PivotBars bars late.
+                CompBullDiv      => $"Price {bar.Close:F2}. Price lower low, WT higher low. Confirmed on pivot.",
+                CompBearDiv      => $"Price {bar.Close:F2}. Price higher high, WT lower high. Confirmed on pivot.",
+                CompBloodDiamond => $"Price {bar.Close:F2}. Overbought zone, high confidence. Confirmed on pivot.",
 
                 // Confluence signals — price + the two conditions that fired.
                 CompManipulation => $"Price {bar.Close:F2}. Oversold with positive money flow.",

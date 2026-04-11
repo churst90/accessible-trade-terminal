@@ -33,6 +33,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string Code = "REGIME";
         public const string CompAboveSma = "AboveSma200";
         public const string CompAboveEma = "AboveEma200";
+        public const string CompRegimeState = "RegimeState";
 
         public string Name => "Regime Filter";
 
@@ -64,6 +65,20 @@ namespace AccessibleTrader.Core.Services.Indicators
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Close minus E M A two hundred {value:F2}.",
                     },
+                    // Ternary regime state: +1 bull, -1 bear, 0 neutral/warmup.
+                    // Strategies can use a single GreaterThan/LessThan leaf against this instead
+                    // of doing arithmetic on AboveSma/AboveEma. Visible so the oscillator is
+                    // readable when opened in the indicator browser.
+                    new()
+                    {
+                        Name = CompRegimeState, DisplayName = "Regime State",
+                        DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                        IsVisible = true,
+                        DefaultColorHex = "#9E9E9E", DefaultThickness = 1.5f,
+                        DefaultReferenceLevel = 0.0,
+                        SubscribedLevelNames = Array.Empty<string>(),
+                        SpeechTemplate = "Regime {value:F0}.",
+                    },
                 }
             }
         };
@@ -71,8 +86,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
             int n = data.Length;
-            var sma = buffer.GetComponentSpan(CompAboveSma);
-            var ema = buffer.GetComponentSpan(CompAboveEma);
+            var sma   = buffer.GetComponentSpan(CompAboveSma);
+            var ema   = buffer.GetComponentSpan(CompAboveEma);
+            var state = buffer.GetComponentSpan(CompRegimeState);
 
             // SMA — rolling sum, O(n).
             double sum = 0;
@@ -80,7 +96,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 sum += (double)data[i].Close;
                 if (i >= Period) sum -= (double)data[i - Period].Close;
-                sma[i] = i < Period - 1 ? double.NaN : (double)data[i].Close - sum / Period;
+                double deviation = i < Period - 1 ? double.NaN : (double)data[i].Close - sum / Period;
+                sma[i] = deviation;
+                // Ternary state derived from the SMA deviation — +1 bull, -1 bear, 0 warmup/flat.
+                state[i] = double.IsNaN(deviation) ? 0.0 : (deviation > 0 ? 1.0 : (deviation < 0 ? -1.0 : 0.0));
             }
 
             // EMA — recursive, seeded with the SMA at index Period-1. Same convention as

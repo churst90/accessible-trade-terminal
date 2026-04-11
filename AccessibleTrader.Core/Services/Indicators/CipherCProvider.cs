@@ -487,13 +487,27 @@ namespace AccessibleTrader.Core.Services.Indicators
                 double range = highest - lowest;
                 double stoch = range > 1e-10 ? (smoothCycle[i] - lowest) / range : 0.5;
                 double value = Math.Max(-0.999, Math.Min(0.999, 2.0 * stoch - 1.0));
-                // Clamp to ±100 so reference lines remain visually meaningful.
-                // Without clamping, BTC pinned at a range extreme for several bars
-                // produces Fisher values of ±150–200, compressing the ±75/±90 zone
-                // reference lines into a thin band near zero.
+                // Fisher saturation correction: near the ±1 boundaries, raw Fisher jumps
+                // exponentially — stoch 0.95 → raw ~1.47, stoch 0.99 → raw ~2.65.
+                // After clamping to ±100 this collapses all extreme tails to the same value,
+                // hiding the difference between "reached 95th pct" and "pinned at 99th pct".
+                // Amplifying the raw value when stoch is in the tail (>0.90 or <0.10) before
+                // clamping preserves the separation between true tail events and the rest.
                 double raw = 0.5 * Math.Log((1.0 + value) / (1.0 - value)) * FisherScale;
+                if (stoch > 0.90 || stoch < 0.10)
+                {
+                    double tailBoost = Math.Sqrt(Math.Max(0.0, Math.Abs(stoch - 0.5) - 0.40));
+                    raw *= 1.0 + tailBoost;
+                }
                 cycleSine[i] = Math.Max(-100.0, Math.Min(100.0, raw));
             }
+
+            // ── ADX for Shallow Peak/Trough gating ───────────────────────────
+            // Shallow continuation signals (cycle crosses back without reaching OB/OS)
+            // are only meaningful in range-bound regimes — in a strong trend, every
+            // counter-swing fails to reach the opposite extreme, producing constant
+            // shallow noise. Gate by ADX: only fire Shallow in low-ADX (range-bound) regimes.
+            var adxSeries = IndicatorMath.Adx(data, Math.Max(7, cyclePeriod));
 
             // ── Step 5: Lead Sine — Hull MA (lower lag than EMA) ─────────────
             // Hull MA's de-lagging formula (2×WMA(n/2) − WMA(n)) can overshoot
@@ -583,6 +597,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 bool hullBearish  = !double.IsNaN(hr) && hr > 50.0;
                 bool hullBullish  = !double.IsNaN(hr) && hr < 50.0;
 
+                // Range-bound gate: ADX < 20 means no dominant trend, so shallow
+                // counter-swing signals are informative. ADX ≥ 20 suppresses them.
+                bool rangeBound = double.IsNaN(adxSeries[i]) || adxSeries[i] < 20.0;
+
                 if (risingCross)
                 {
                     // Only emit signals after the Ehlers bandpass filter has settled.
@@ -591,7 +609,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (!reachedOS)
                         {
                             // Down-cycle never reached OS → bear trend failed → bull continuation
-                            shallowTrough[i] = s;
+                            if (rangeBound)
+                                shallowTrough[i] = s;
                         }
                         else
                         {
@@ -617,7 +636,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (!reachedOB)
                         {
                             // Up-cycle never reached OB → bull trend failed → bear continuation
-                            shallowPeak[i] = s;
+                            if (rangeBound)
+                                shallowPeak[i] = s;
                         }
                         else
                         {
