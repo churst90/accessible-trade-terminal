@@ -260,13 +260,13 @@ namespace AccessibleTrader.Core.Services
             switch (_selectedMarket)
             {
                 case "Crypto":
-                    EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase");
+                    EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase", "FMP");
                     break;
                 case "Economic":
-                    EnsureContains(_availableProviders, "Fred");
+                    EnsureContains(_availableProviders, "Fred", "FMP Analytics");
                     break;
                 case "OnChain":
-                    EnsureContains(_availableProviders, "Glassnode", "CoinGecko");
+                    EnsureContains(_availableProviders, "Glassnode", "CoinGecko", "BGeometrics", "DefiLlama", "CoinMetrics", "Mempool", "Etherscan");
                     break;
                 case "Derivatives":
                     EnsureContains(_availableProviders, "OkxDerivatives", "BinanceDerivatives");
@@ -275,8 +275,14 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "AlternativeMe");
                     break;
                 case "Stock":
+                    EnsureContains(_availableProviders, "Alpaca", "Polygon", "FMP");
+                    break;
                 case "Forex":
-                    EnsureContains(_availableProviders, "Alpaca", "Polygon");
+                    EnsureContains(_availableProviders, "Alpaca", "Polygon", "FMP");
+                    break;
+                case "Commodity":
+                case "Index":
+                    EnsureContains(_availableProviders, "FMP");
                     break;
             }
 

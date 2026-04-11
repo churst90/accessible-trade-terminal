@@ -45,6 +45,10 @@ namespace AccessibleTrader.Core.Services
             var pluginLoader = _services.GetRequiredService<IPluginLoaderService>();
             await dataService.InitializeAsync(pluginLoader).ConfigureAwait(false);
 
+            // 1b. Indicator Plugins — scan Plugins/Indicators/ for drop-in indicator DLLs.
+            var indicatorService = _services.GetRequiredService<IIndicatorService>();
+            indicatorService.LoadIndicatorPlugins(pluginLoader);
+
             // 2. Data Orchestration
             _services.GetRequiredService<IDataOrchestrationService>();
 
