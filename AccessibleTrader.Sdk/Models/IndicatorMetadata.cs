@@ -245,6 +245,13 @@ namespace AccessibleTrader.Sdk.Models
         public Type DataType { get; set; } = typeof(int);
         public object DefaultValue { get; set; } = 0;
 
+        /// <summary>Minimum allowed value (null = no lower bound).</summary>
+        public double? MinValue { get; set; }
+        /// <summary>Maximum allowed value (null = no upper bound).</summary>
+        public double? MaxValue { get; set; }
+        /// <summary>Step increment for numeric inputs (null = use default step).</summary>
+        public double? Step { get; set; }
+
         public override string ToString() => DisplayName;
     }
 }

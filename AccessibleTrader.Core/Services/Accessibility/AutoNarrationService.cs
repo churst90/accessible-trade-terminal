@@ -58,6 +58,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly Dictionary<string, (ZoneStatus Zone, CrossoverStatus Crossover)> _lastOscState = new();
 
+        /// <summary>
+        /// Last known price position relative to cloud boundaries.
+        /// Key = "{seriesId}:{componentName}". Value = "inside", "above", or "below".
+        /// </summary>
+        private readonly Dictionary<string, string> _lastCloudPosition = new();
+
         // Tracks the last confirmed pivot bar index seen per series+component, for pivot-based indicators.
         // Key = "{seriesId}:{componentName}". Value = last bar index where a non-NaN dot was seen.
         private readonly Dictionary<string, int> _lastSeenPivotIndex = new();
@@ -133,6 +139,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     SeedOscillatorState(series, state);
                     SeedZoneLineState(series, state);
+                    SeedCloudState(series, state);
                 }
             }
 
@@ -154,6 +161,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _inProximity.Remove(k);
                 foreach (var k in _lastPriceAboveZone.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastPriceAboveZone.Remove(k);
+                foreach (var k in _lastCloudPosition.Keys.Where(k => k.StartsWith(id + ":")).ToList())
+                    _lastCloudPosition.Remove(k);
             }
 
             _prevNarratedIds = currentIds;
@@ -241,6 +250,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // 1b. SR zone line scanning — runs on every update
             ScanZoneLines(series, state, toIndex);
+
+            // 1c. Cloud entry/exit detection — runs on every update
+            ScanCloudTransitions(series, state, toIndex);
 
             // 2. Oscillator zone transitions — only on bar close (confirmed candle)
             if (!isBarClose) return;
@@ -331,6 +343,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string tcKey = $"{series.Id}:{comp.Name}:touches";
                     _lastTouchCount[tcKey] = (int)touchData[idx];
                 }
+            }
+        }
+
+        private void SeedCloudState(ChartSeries series, WorkspaceState state)
+        {
+            int idx = state.CurrentDataIndex;
+            if (state.Data == null || idx < 0 || idx >= state.Data.Count) return;
+            double close = (double)state.Data[idx].Close;
+
+            foreach (var comp in series.Components)
+            {
+                if (comp.DisplayType != ComponentDisplayType.Cloud) continue;
+                if (string.IsNullOrEmpty(comp.UpperComponentName) || string.IsNullOrEmpty(comp.LowerComponentName)) continue;
+
+                var upperData = series.GetComponentData(comp.UpperComponentName);
+                var lowerData = series.GetComponentData(comp.LowerComponentName);
+                if (upperData.Length <= idx || lowerData.Length <= idx) continue;
+
+                double u = upperData[idx], l = lowerData[idx];
+                if (double.IsNaN(u) || double.IsNaN(l)) continue;
+
+                double hi = Math.Max(u, l), lo = Math.Min(u, l);
+                string position = (close >= lo && close <= hi) ? "inside"
+                    : close > hi ? "above" : "below";
+
+                _lastCloudPosition[$"{series.Id}:{comp.Name}"] = position;
             }
         }
 
@@ -431,6 +469,61 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 string crossed = string.Join(", ", bearishCrosses);
                 _speechRouter.Speak($"{series.FriendlyName}: Price crossed below {crossed}.", interrupt: false);
+            }
+        }
+
+        // ── Cloud entry/exit detection ───────────────────────────────────────────
+
+        private void ScanCloudTransitions(ChartSeries series, WorkspaceState state, int barIndex)
+        {
+            if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
+            double close = (double)state.Data[barIndex].Close;
+            if (close <= 0 || double.IsNaN(close)) return;
+
+            foreach (var comp in series.Components)
+            {
+                if (comp.DisplayType != ComponentDisplayType.Cloud) continue;
+                if (!comp.IsVisible || comp.IsMuted) continue;
+                if (string.IsNullOrEmpty(comp.UpperComponentName) || string.IsNullOrEmpty(comp.LowerComponentName)) continue;
+
+                var upperData = series.GetComponentData(comp.UpperComponentName);
+                var lowerData = series.GetComponentData(comp.LowerComponentName);
+                if (upperData.Length <= barIndex || lowerData.Length <= barIndex) continue;
+
+                double u = upperData[barIndex];
+                double l = lowerData[barIndex];
+                if (double.IsNaN(u) || double.IsNaN(l)) continue;
+
+                double hi = Math.Max(u, l);
+                double lo = Math.Min(u, l);
+
+                string position;
+                if (close >= lo && close <= hi)
+                    position = "inside";
+                else if (close > hi)
+                    position = "above";
+                else
+                    position = "below";
+
+                string cloudKey = $"{series.Id}:{comp.Name}";
+
+                if (_lastCloudPosition.TryGetValue(cloudKey, out var prev) && prev != position)
+                {
+                    string displayName = !string.IsNullOrEmpty(comp.DisplayName) ? comp.DisplayName : comp.Name;
+                    string msg = (prev, position) switch
+                    {
+                        (_, "inside") => $"{series.FriendlyName}: Price entered {displayName}.",
+                        ("inside", _) => $"{series.FriendlyName}: Price exited {displayName}.",
+                        ("below", "above") => $"{series.FriendlyName}: Price crossed above {displayName}.",
+                        ("above", "below") => $"{series.FriendlyName}: Price crossed below {displayName}.",
+                        _ => null
+                    };
+
+                    if (msg != null)
+                        _speechRouter.Speak(msg, interrupt: false);
+                }
+
+                _lastCloudPosition[cloudKey] = position;
             }
         }
 

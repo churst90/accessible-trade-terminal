@@ -107,6 +107,17 @@ namespace AccessibleTrader.Core.Services.Audio
 
             int cIdx = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
 
+            // REACTIVE PANNING: Position relative to viewport (computed early for Cloud path).
+            float pan = (float)AudioConstants.CalculatePan(state.CurrentDataIndex - state.ViewportStartIndex, state.ViewportLength);
+
+            // ── Cloud component: width-mapped volume, bullish/bearish pitch ────────
+            var cloudComp = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
+            if (cloudComp != null && cloudComp.DisplayType == ComponentDisplayType.Cloud)
+            {
+                SonifyCloudNavigation(series, cloudComp, idx, state, pan);
+                return;
+            }
+
             // Use the sub-pane range when the focused component lives in a sub-pane (e.g. MF Wave
             // in "Pane_CIPHER_B/MF"). Without this, raw MF values get normalised against the main
             // pane's ±100 WT range and clamp to two tones instead of a continuous pitch sweep.
@@ -117,9 +128,6 @@ namespace AccessibleTrader.Core.Services.Audio
             var range = state.PaneRanges.TryGetValue(rangeKey, out var r)
                 ? r
                 : (state.PaneRanges.TryGetValue(series.Pane, out var pr) ? pr : state.ViewportRange);
-
-            // REACTIVE PANNING: Position relative to viewport
-            float pan = (float)AudioConstants.CalculatePan(state.CurrentDataIndex - state.ViewportStartIndex, state.ViewportLength);
 
             // When Heikin-Ashi is active, transform the raw bar so that pitch/direction
             // reflect the HA close/open values (which match the visual candle colours).
@@ -221,6 +229,68 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
             }
 
+            for (int i = 2; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);
+        }
+
+        /// <summary>
+        /// Sonifies a Cloud component during manual navigation. Produces a soft two-voice
+        /// tone: sine carrier (slot 0) + quiet triangle blend (slot 1). Volume is proportional
+        /// to cloud width (|upper - lower|) normalized against the viewport maximum. Pitch
+        /// switches between BullishFrequency and BearishFrequency based on cloud direction.
+        /// </summary>
+        private void SonifyCloudNavigation(ChartSeries series, ComponentConfig comp, int dataIndex, WorkspaceState state, float pan)
+        {
+            // Read the cloud width from the component's own data (signed: positive=bullish, negative=bearish).
+            var widthData = series.GetComponentData(comp.Name);
+            if (widthData == null || widthData.Length == 0 || dataIndex < 0 || dataIndex >= widthData.Length)
+            {
+                MuteAllNavigationSlots();
+                return;
+            }
+
+            double signedWidth = widthData[dataIndex];
+            if (double.IsNaN(signedWidth))
+            {
+                MuteAllNavigationSlots();
+                return;
+            }
+
+            bool isBullish = signedWidth >= 0;
+            double absWidth = Math.Abs(signedWidth);
+
+            // Normalize width against viewport maximum for volume mapping.
+            double maxWidth = 0;
+            int vpStart = Math.Max(0, state.ViewportStartIndex);
+            int vpEnd = Math.Min(widthData.Length, state.ViewportStartIndex + state.ViewportLength);
+            for (int i = vpStart; i < vpEnd; i++)
+            {
+                if (!double.IsNaN(widthData[i]))
+                    maxWidth = Math.Max(maxWidth, Math.Abs(widthData[i]));
+            }
+
+            float normalizedVol = maxWidth > 0 ? (float)(absWidth / maxWidth) : 0f;
+            float volume = Math.Clamp(normalizedVol * comp.Volume * state.ChartVolume * series.Volume, 0.05f, 1f);
+
+            // Select frequency based on cloud direction.
+            double freq = isBullish ? comp.BullishFrequency : comp.BearishFrequency;
+
+            // Slot 0: sine carrier — warm, soft fundamental.
+            _audioDriver.SetVoice(SLOT_NAV_START, freq, volume, pan,
+                "sine", false, 0.4, dataIndex, "Sustain", false, 0f);
+
+            // Slot 1: triangle blend at 35% volume — adds warmth without harshness.
+            float blendVol = volume * 0.35f;
+            if (blendVol > 0.02f)
+            {
+                _audioDriver.SetVoice(SLOT_NAV_START + 1, freq, blendVol, pan,
+                    "triangle", false, 0.4, dataIndex, "Sustain", false, 0f);
+            }
+            else
+            {
+                _audioDriver.StopVoice(SLOT_NAV_START + 1);
+            }
+
+            // Clear remaining navigation slots.
             for (int i = 2; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);
         }
 

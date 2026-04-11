@@ -25,7 +25,7 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
                  or "KAMA" or "MAMA" or "SMMA" or "ZLEMA" or "BB" or "KC" or "DONCHIAN"
                  or "PARABOLICSAR" or "SAR" or "VWAP" or "SUPERTREND" or "ALLIGATOR"
                  or "PIVOTPOINTS" or "CHANDELIER" or "CHANDELIEREXIT" or "PSAR"
-                 or "EMA_FILL" or "SPIDER_LINES" or "ICHIMOKU")
+                 or "EMA_FILL" or "MA_CLOUD" or "SPIDER_LINES" or "ICHIMOKU")
             return "Main";
 
         // Cipher B suite renders in its own dedicated oscillator pane

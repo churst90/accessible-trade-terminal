@@ -268,9 +268,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!comp.IsVisible)
                     return $"{comp.DisplayName}: hidden";
 
-                // Cloud components are visual-only.
+                // Cloud components: announce direction, width, and price position relative to cloud.
                 if (comp.DisplayType == ComponentDisplayType.Cloud)
-                    return $"{comp.DisplayName}. Visual only.";
+                {
+                    double signedWidth = GetPointValue(series, pt, comp.Name, dataIndex);
+                    if (double.IsNaN(signedWidth))
+                        return $"{comp.DisplayName}: no data";
+
+                    bool bullish = signedWidth >= 0;
+                    string direction = bullish ? "bullish" : "bearish";
+                    double absWidth = Math.Abs(signedWidth);
+
+                    // Determine if price is inside the cloud by reading upper/lower boundary data.
+                    string pricePosition = "";
+                    if (!string.IsNullOrEmpty(comp.UpperComponentName) && !string.IsNullOrEmpty(comp.LowerComponentName))
+                    {
+                        var upperData = series.GetComponentData(comp.UpperComponentName);
+                        var lowerData = series.GetComponentData(comp.LowerComponentName);
+                        if (upperData.Length > dataIndex && lowerData.Length > dataIndex)
+                        {
+                            double u = upperData[dataIndex];
+                            double l = lowerData[dataIndex];
+                            if (!double.IsNaN(u) && !double.IsNaN(l))
+                            {
+                                double hi = Math.Max(u, l);
+                                double lo = Math.Min(u, l);
+                                double close = pt.Close;
+                                if (close >= lo && close <= hi)
+                                    pricePosition = " Price inside cloud.";
+                                else if (close > hi)
+                                    pricePosition = " Price above cloud.";
+                                else
+                                    pricePosition = " Price below cloud.";
+                            }
+                        }
+                    }
+
+                    return $"{comp.DisplayName}. {direction}, width {absWidth:F2}.{pricePosition}";
+                }
 
                 // CandleColor components store a sentiment phase index (0–10).
                 // Convert the raw numeric value to its phase name so the user hears

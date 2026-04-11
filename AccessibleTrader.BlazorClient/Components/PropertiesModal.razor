@@ -46,12 +46,27 @@
                                     <legend>Indicator Parameters</legend>
                                     @foreach (var key in _params.Keys.ToList())
                                     {
+                                        var pm = _paramMeta.FirstOrDefault(p =>
+                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+                                        var displayName = pm != null && !string.IsNullOrEmpty(pm.DisplayName)
+                                            ? pm.DisplayName : key;
+                                        var step = pm?.Step?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "any";
+                                        var minAttr = pm?.MinValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                        var maxAttr = pm?.MaxValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
                                         <div class="modal-row">
-                                            <label for="prop-@key">@key</label>
-                                            <input id="prop-@key" type="number" step="any"
+                                            <label for="prop-@key">@displayName</label>
+                                            <input id="prop-@key" type="number"
+                                                   step="@step"
+                                                   min="@minAttr"
+                                                   max="@maxAttr"
                                                    value="@_params[key]"
                                                    @onchange="e => UpdateParam(key, e.Value?.ToString())" />
                                         </div>
+                                        @if (pm != null && !string.IsNullOrEmpty(pm.Description))
+                                        {
+                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:#666;">@pm.Description</p>
+                                        }
                                     }
                                 </fieldset>
                             }
@@ -91,7 +106,24 @@
 
                     case "Appearance":
                         <div class="scroll-area">
-                            @foreach (var comp in _series.Components)
+                            @if (_series.Components.Count > 3)
+                            {
+                                <div class="modal-row" style="margin-bottom:12px;">
+                                    <label for="comp-picker-appearance">Component</label>
+                                    <select id="comp-picker-appearance"
+                                            value="@_selectedComponentName"
+                                            @onchange='e => _selectedComponentName = e.Value?.ToString() ?? ""'
+                                            aria-label="Select component to configure">
+                                        <option value="">All Components</option>
+                                        @foreach (var c in _series.Components)
+                                        {
+                                            <option value="@c.Name">@c.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                            @foreach (var comp in _series.Components.Where(c =>
+                                string.IsNullOrEmpty(_selectedComponentName) || c.Name == _selectedComponentName))
                             {
                                 <fieldset>
                                     <legend>Component: @comp.Name</legend>
@@ -272,7 +304,25 @@
                                 <span>@((_series.Volume * 100).ToString("F0"))%</span>
                             </div>
 
-                            @foreach (var comp in _series.Components)
+                            @if (_series.Components.Count > 3)
+                            {
+                                <div class="modal-row" style="margin-bottom:12px;">
+                                    <label for="comp-picker-sonification">Component</label>
+                                    <select id="comp-picker-sonification"
+                                            value="@_selectedComponentName"
+                                            @onchange='e => _selectedComponentName = e.Value?.ToString() ?? ""'
+                                            aria-label="Select component to configure">
+                                        <option value="">All Components</option>
+                                        @foreach (var c in _series.Components)
+                                        {
+                                            <option value="@c.Name">@c.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
+                            @foreach (var comp in _series.Components.Where(c =>
+                                string.IsNullOrEmpty(_selectedComponentName) || c.Name == _selectedComponentName))
                             {
                                 <fieldset>
                                     <legend>Acoustics: @comp.Name</legend>
@@ -360,8 +410,10 @@
 @code {
     private bool _isVisible;
     private string _activeTab = "General";
+    private string _selectedComponentName = "";  // "" = show all components
     private ChartSeries? _series;
     private Dictionary<string, double> _params = new();
+    private List<IndicatorParameterMetadata> _paramMeta = new();
     private string? _error;
     private IDisposable? _eventSub;
 
@@ -382,8 +434,21 @@
         _params = _series.Parameters != null
             ? new Dictionary<string, double>(_series.Parameters)
             : new Dictionary<string, double>();
+
+        // Look up parameter metadata for display names, descriptions, and validation.
+        _paramMeta = new();
+        if (!string.IsNullOrEmpty(_series.Config?.IndicatorCode))
+        {
+            var allMeta = IndicatorService.GetAvailableIndicators();
+            var meta = allMeta.FirstOrDefault(m =>
+                m.Code.Equals(_series.Config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+            if (meta?.Parameters != null)
+                _paramMeta = meta.Parameters;
+        }
+
         _error = null;
         _activeTab = "General";
+        _selectedComponentName = "";
 
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true));
@@ -401,7 +466,17 @@
 
     private void UpdateParam(string key, string? raw)
     {
-        if (double.TryParse(raw, out double v)) _params[key] = v;
+        if (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double v))
+            return;
+
+        // Clamp to metadata bounds if defined.
+        var pm = _paramMeta.FirstOrDefault(p =>
+            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (pm?.MinValue.HasValue == true && v < pm.MinValue.Value) v = pm.MinValue.Value;
+        if (pm?.MaxValue.HasValue == true && v > pm.MaxValue.Value) v = pm.MaxValue.Value;
+
+        _params[key] = v;
     }
 
     private void Apply()

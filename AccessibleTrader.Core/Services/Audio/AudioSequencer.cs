@@ -132,6 +132,14 @@ namespace AccessibleTrader.Core.Services.Audio
                         var comp = series.Components[cIdx];
                         if (!comp.IsVisible || comp.IsMuted) continue;
 
+                        // Cloud components: width-mapped volume + bullish/bearish pitch,
+                        // matching the navigation sonification but on playback slots.
+                        if (comp.DisplayType == ComponentDisplayType.Cloud)
+                        {
+                            PlayCloudComponent(series, comp, i, cIdx, state, msPerBar);
+                            continue;
+                        }
+
                         // Sub-pane-aware range: components in a sub-pane (e.g. MF Wave) use the
                         // sub-pane's narrower Y-range rather than the parent pane's wide range,
                         // which would clamp their values and produce only two tones during playback.
@@ -261,6 +269,12 @@ namespace AccessibleTrader.Core.Services.Audio
                             var comp = series.Components[cIdx];
                             if (!comp.IsVisible || comp.IsMuted) continue;
 
+                            if (comp.DisplayType == ComponentDisplayType.Cloud)
+                            {
+                                PlayCloudComponent(series, comp, i, cIdx, state, msPerBar, sIdx * SlotsPerSeries);
+                                continue;
+                            }
+
                             // Sub-pane-aware range per component (matches StartPlaybackAsync and NavigationSonifier).
                             string compRangeKey = !string.IsNullOrEmpty(comp.SubPaneName)
                                 ? $"{series.Pane}/{comp.SubPaneName}"
@@ -361,6 +375,57 @@ namespace AccessibleTrader.Core.Services.Audio
             blendWave = colorVal >= 0 ? "triangle" : "sawtooth";
             float fraction = (float)(Math.Clamp(Math.Abs(colorVal), 0, 100) / 100.0);
             return carrierVolume * fraction * 0.65f;
+        }
+
+        /// <summary>
+        /// Plays a Cloud component during Series/Chart-scope playback. Uses the same
+        /// width-mapped volume + bullish/bearish frequency approach as navigation, but
+        /// with continuous sustain so the tone glides smoothly bar-to-bar.
+        /// </summary>
+        private void PlayCloudComponent(ChartSeries series, ComponentConfig comp, int barIndex, int cIdx, WorkspaceState state, double msPerBar, int seriesSlotOffset = 0)
+        {
+            var widthData = series.GetComponentData(comp.Name);
+            if (widthData.Length == 0 || barIndex < 0 || barIndex >= widthData.Length) return;
+
+            double signedWidth = widthData[barIndex];
+            if (double.IsNaN(signedWidth)) return;
+
+            bool isBullish = signedWidth >= 0;
+            double absWidth = Math.Abs(signedWidth);
+
+            // Normalize width against viewport maximum for volume mapping.
+            double maxWidth = 0;
+            int vpStart = Math.Max(0, state.ViewportStartIndex);
+            int vpEnd = Math.Min(widthData.Length, state.ViewportStartIndex + state.ViewportLength);
+            for (int a = vpStart; a < vpEnd; a++)
+            {
+                if (!double.IsNaN(widthData[a]))
+                    maxWidth = Math.Max(maxWidth, Math.Abs(widthData[a]));
+            }
+
+            float normalizedVol = maxWidth > 0 ? (float)(absWidth / maxWidth) : 0f;
+            float volume = Math.Clamp(normalizedVol * comp.Volume * state.ChartVolume * series.Volume, 0.05f, 1f);
+            float layerScale = LayerVolume(comp.PlaybackLayer);
+            volume *= layerScale;
+
+            double freq = isBullish ? comp.BullishFrequency : comp.BearishFrequency;
+            float pan = (float)AudioConstants.CalculatePan(barIndex - state.ViewportStartIndex, state.ViewportLength);
+
+            int slot = PlaybackSlotOffset + seriesSlotOffset + cIdx;
+            double durationSec = msPerBar / 1000.0;
+
+            // Sine carrier — warm fundamental, continuous sustain for smooth glide.
+            _audioDriver.SetVoice(slot, freq, volume, pan,
+                "sine", true, durationSec, barIndex, "Sustain", false, 0f);
+
+            // Triangle blend at 35% volume — adds warmth. Uses the last slot in this series block.
+            int blendSlot = PlaybackSlotOffset + seriesSlotOffset + SlotsPerSeries - 1;
+            float blendVol = volume * 0.35f;
+            if (blendVol > 0.02f)
+            {
+                _audioDriver.SetVoice(blendSlot, freq, blendVol, pan,
+                    "triangle", true, durationSec, barIndex, "Sustain", false, 0f);
+            }
         }
 
         /// <summary>
