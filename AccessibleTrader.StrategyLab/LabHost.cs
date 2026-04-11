@@ -7,6 +7,7 @@ using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.StrategyLab;
 
@@ -49,6 +50,12 @@ public sealed class LabHost
     public static LabHost Build(string? crossSeriesSnapshotDir = null)
     {
         var services = new ServiceCollection();
+
+        // ── Logging ──────────────────────────────────────────────────────────
+        // Several Core services (IndicatorService, etc.) now require ILogger<T>
+        // after the 2026-04-10 logging overhaul. Register a minimal logger factory
+        // so DI resolves their constructors. Lab harness logs nothing by default.
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
 
         // ── Cross-series cache ───────────────────────────────────────────────
         // Convention: if no explicit dir is supplied, look for xs_*.json files in
@@ -96,7 +103,7 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, CipherBProvider>();
         services.AddSingleton<IIndicatorProvider, CipherAProvider>();
         services.AddSingleton<IIndicatorProvider, CipherSrProvider>();
-        services.AddSingleton<IIndicatorProvider, EmaFillProvider>();
+        services.AddSingleton<IIndicatorProvider, MACloudProvider>();
         services.AddSingleton<IIndicatorProvider, SpiderLinesProvider>();
         services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
         services.AddSingleton<IIndicatorProvider, CipherCProvider>();

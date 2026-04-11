@@ -228,6 +228,7 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class MockIndicatorService : IIndicatorService
     {
+        public void LoadIndicatorPlugins(IPluginLoaderService pluginLoader) { }
         public List<IndicatorMetadata> GetAvailableIndicators() => new();
         public void CalculateIndicator(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer) { }
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer) { }

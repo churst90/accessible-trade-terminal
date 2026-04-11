@@ -138,7 +138,12 @@ static async Task<int> HandleDiagnostic(string[] a)
         ? new[] { "CIPHER_A", "CIPHER_B" }
         : indicators.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
 
-    return await DiagnosticCommand.RunAsync(snapshotPath, filter, warmup);
+    var sideStr = GetFlag(a, "--side") ?? "long";
+    var side = sideStr.Equals("short", StringComparison.OrdinalIgnoreCase)
+        ? AccessibleTrader.Sdk.Plugins.OrderSide.Sell
+        : AccessibleTrader.Sdk.Plugins.OrderSide.Buy;
+
+    return await DiagnosticCommand.RunAsync(snapshotPath, filter, warmup, side);
 }
 
 static async Task<int> HandleCombo(string[] a)
