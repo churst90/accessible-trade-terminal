@@ -111,6 +111,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IConnectionManager, ConnectionManager>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
+            services.AddSingleton<IAnalyticsDataResolver, AnalyticsDataResolver>();
 
             // Historical fetcher and live stream manager are internal building blocks
             // consumed by DataOrchestrator — registered as concrete types for easy mocking.
@@ -144,7 +145,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, CipherBProvider>();
             services.AddSingleton<IIndicatorProvider, CipherAProvider>();
             services.AddSingleton<IIndicatorProvider, CipherSrProvider>();
-            services.AddSingleton<IIndicatorProvider, EmaFillProvider>();
+            services.AddSingleton<IIndicatorProvider, MACloudProvider>();
             services.AddSingleton<IIndicatorProvider, SpiderLinesProvider>();
             services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
             services.AddSingleton<IIndicatorProvider, CipherCProvider>();

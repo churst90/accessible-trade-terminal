@@ -184,20 +184,63 @@ no DI registration required.
    (or wire the build output via msbuild target — see existing plugins for the
    pattern).
 
-## Free / cheap data sources NOT yet built (next batch)
+### Equities — *FMP* (NEW, requires free API key)
+- **Auth:** free API key from financialmodelingprep.com (250 req/day, no CC)
+- **Coverage:** 70,000+ stocks across 60+ exchanges, 4,500+ cryptos, 1,500+ forex pairs, 40 commodities, indices
+- **Markets:** Stock (Spot + ETF), Crypto, Forex, Commodity, Index
+- **Resolution:** 1m, 5m, 15m, 30m, 1h, 4h, 1d
+- **Configure:** Settings → API Keys → FMP → paste key
 
-These are good candidates if the existing four don't cover what you need:
+### Equities Fundamentals — *FMP Analytics* (NEW, requires same FMP API key)
+- **Sub-types:** Key Metrics, Income, Ratios, Earnings, Sector Perf, Economic
+- **Key Metrics symbols:** `{TICKER}_PE`, `{TICKER}_PB`, `{TICKER}_ROE`, `{TICKER}_DIVIDEND_YIELD`, etc. (15 metrics × 42 popular tickers)
+- **Income symbols:** `{TICKER}_REVENUE`, `{TICKER}_NET_INCOME`, `{TICKER}_EPS`, etc. (11 metrics)
+- **Ratios symbols:** `{TICKER}_PROFIT_MARGIN`, `{TICKER}_DEBT_RATIO`, etc. (10 metrics)
+- **Earnings:** `{TICKER}_EARNINGS` — actual vs estimated EPS per quarter
+- **Sector Perf:** Technology, Healthcare, Energy, etc. — daily sector return %
+- **Economic:** EARNINGS_CALENDAR, ECONOMIC_CALENDAR, IPO_CALENDAR, DIVIDEND_CALENDAR, SPLIT_CALENDAR
+- **Strategy use:** earnings avoidance gate, fundamental screening, sector rotation signals
 
-- **CryptoQuant Community** — free tier with email signup; ~30 on-chain metrics
-  including stablecoin exchange flows (a high-information signal). Similar shape to
-  Glassnode. Build effort: ~1 hour.
-- **Messari** — free public API with token fundamentals, supply data, and a few
-  on-chain metrics. Some endpoints rate-limit aggressively. Build effort: ~1 hour.
-- **Etherscan / Blockscout** — free per-address transaction history for ETH chains.
-  Useful for whale-wallet tracking. Build effort: ~2 hours.
-- **CoinAPI** — free tier 100 req/day; aggregated OHLCV across exchanges. Mostly
-  duplicates what Binance/Coinbase already provide.
-- **DefiLlama** — free public API with TVL by chain / protocol. Build effort: ~1 hour.
+### OnChain — *BGeometrics* (NEW, no key required)
+- **Auth:** none for free tier (8 req/hr, 15 req/day, 4yr history)
+- **Symbols:** MVRV, SOPR, ASOPR, STH_SOPR, LTH_SOPR, NVT, NVT_RATIO, NVT_SIGNAL, NUPL, NUPL_LTH, NUPL_STH, CDD, CVDD, REALIZED_PRICE, REALIZED_CAP, RESERVE_RISK, S2F, TERMINAL_PRICE, BALANCED_PRICE, PUELL_MULTIPLE, FUNDING_RATE, OI_FUTURES, ACTIVE_ADDRESSES, HODL_WAVES, BTC_SUPPLY, MAYER_MULTIPLE, FEAR_GREED, PI_CYCLE (28 symbols)
+- **Resolution:** daily
+- **BTC only** — for multi-asset on-chain, use CoinMetrics
+- **Strategy use:** MVRV < 1 = undervalued, SOPR < 1 = capitulation, NUPL zones map to market cycle phases
+
+### OnChain — *CoinMetrics* (NEW, no key required)
+- **Auth:** none (community tier, 10 req/6s)
+- **Assets:** BTC, ETH, LTC, DOGE, ADA, XRP, DOT, LINK, UNI (9 assets)
+- **Metrics per asset:** MVRV, ACTIVE_ADDR, HASH_RATE, TX_COUNT, MARKET_CAP, EXCHANGE_INFLOW, EXCHANGE_OUTFLOW, SUPPLY, EXCHANGE_SUPPLY, FEES, PRICE, ROI_30D, TRANSFER_COUNT (13 metrics)
+- **Resolution:** daily
+- **Strategy use:** multi-asset MVRV comparison, exchange flow divergence from price
+
+### OnChain — *DefiLlama* (NEW, no key required)
+- **Auth:** none (generous limits)
+- **TVL symbols:** ETHEREUM_TVL, BSC_TVL, SOLANA_TVL, ARBITRUM_TVL, POLYGON_TVL, AVALANCHE_TVL, BASE_TVL, OPTIMISM_TVL, TRON_TVL, BITCOIN_TVL, TOTAL_TVL + top protocols (LIDO_TVL, AAVE_TVL, etc.)
+- **Stablecoin symbols:** USDT_SUPPLY, USDC_SUPPLY, DAI_SUPPLY, TOTAL_STABLECOIN_SUPPLY
+- **Resolution:** daily
+- **Strategy use:** TVL divergence from price = leading indicator. Rising stablecoin supply on exchanges = dry powder waiting to buy.
+
+### OnChain — *Mempool* (NEW, no key required)
+- **Auth:** none
+- **Symbols:** HASHRATE, DIFFICULTY, BLOCK_FEES, BLOCK_REWARDS, BLOCK_SIZES, BLOCK_FEE_RATES
+- **Resolution:** varies (aggregated by block height, daily-equivalent)
+- **Strategy use:** mempool congestion → fee spikes → retail panic. Hash rate ATH = miner conviction.
+
+### OnChain — *Etherscan* (NEW, requires free API key)
+- **Auth:** free API key from etherscan.io (5 req/sec)
+- **Symbols:** ETH_GAS_SAFE, ETH_GAS_FAST, ETH_GAS_PROPOSE, ETH_SUPPLY, ETH_SUPPLY2, ETH_PRICE, ETH_NODE_COUNT
+- **Resolution:** snapshot (current value per request)
+- **Strategy use:** gas price spikes = network congestion = potential volatility catalyst
+
+## Free / cheap data sources NOT yet built (future candidates)
+
+- **CryptoQuant** — no confirmed free API tier (requires auth, docs behind login). May revisit if community tier materializes.
+- **Messari** — free public API with token fundamentals, supply data. Some endpoints rate-limit aggressively.
+- **Blockscout** — free per-address transaction history for EVM chains. Useful for whale-wallet tracking.
+- **CoinAPI** — free tier 100 req/day; aggregated OHLCV. Mostly duplicates existing providers.
+- **Alpha Vantage** — free tier 25 req/day. Stocks + crypto + forex + technical indicators. Redundant with FMP.
 
 ## NOT recommended (paid, fragile, or low-signal)
 
