@@ -52,7 +52,12 @@ namespace AccessibleTrader.Plugins.Polygon
 
         public PolygonProvider()
         {
-            _httpClient = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to api.polygon.io. The
+            // delayed.polygon.io WS endpoints for stocks/crypto/forex use
+            // ReconnectingWebSocket, not this HttpClient.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Polygon",
+                allowedHosts: new[] { "api.polygon.io" });
         }
 
         public override T? GetCapability<T>() where T : class

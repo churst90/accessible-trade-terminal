@@ -35,7 +35,11 @@ namespace AccessibleTrader.Plugins.CoinMetrics
     /// </summary>
     public class CoinMetricsProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "CoinMetrics",
+            allowedHosts: new[] { "community-api.coinmetrics.io" });
+
         private readonly RateLimiter _rateLimiter = new(10, TimeSpan.FromSeconds(6));
 
         private const string BaseUrl = "https://community-api.coinmetrics.io/v4";

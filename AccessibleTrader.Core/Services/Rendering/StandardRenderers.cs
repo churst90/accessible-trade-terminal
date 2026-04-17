@@ -855,19 +855,29 @@ namespace AccessibleTrader.Core.Services.Rendering
         }
 
         /// <summary>
-        /// Renders a thin horizontal zone band around a carry-forward level value.
-        /// Each contiguous run at the same price level is drawn as a single filled rectangle
-        /// spanning ± <see cref="ZoneBandConfig.BandWidthPct"/>% of that price.
-        /// Used for S/R zone shading where each level gets its own narrow coloured band.
+        /// Renders a horizontal zone band. Two modes:
+        /// - Component-centred: band follows a component's carry-forward level value with
+        ///   half-width = <see cref="ZoneBandConfig.BandWidthPct"/>% of that level (S/R zones).
+        /// - Fixed: band spans the full viewport between <see cref="ZoneBandConfig.FixedTop"/>
+        ///   and <see cref="ZoneBandConfig.FixedBottom"/> in pane coordinates (OB/OS zones).
         /// </summary>
         public static void RenderZoneBand(RenderContext ctx, ChartSeries series, ZoneBandConfig band)
         {
-            var data = series.GetComponentData(band.ComponentName);
-            if (data == null || data.Length == 0) return;
-
             SKColor.TryParse(band.ColorHex, out var color);
             byte alpha = band.ColorHex.Length == 9 ? color.Alpha : (byte)50;
             using var paint = new SKPaint { Color = color.WithAlpha(alpha), Style = SKPaintStyle.Fill };
+
+            if (band.IsFixedMode)
+            {
+                float yTop    = ChartMath.MapY(band.FixedTop,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yBottom = ChartMath.MapY(band.FixedBottom, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                if (yTop > yBottom) (yTop, yBottom) = (yBottom, yTop);
+                ctx.Canvas.DrawRect(SKRect.Create(0f, yTop, ctx.Width, yBottom - yTop), paint);
+                return;
+            }
+
+            var data = series.GetComponentData(band.ComponentName);
+            if (data == null || data.Length == 0) return;
 
             float barWidth    = ctx.Width / ctx.ViewportLength;
             double halfWidthRatio = band.BandWidthPct / 100.0;

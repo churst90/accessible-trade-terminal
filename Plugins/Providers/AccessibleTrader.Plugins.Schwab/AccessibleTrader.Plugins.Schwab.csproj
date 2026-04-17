@@ -9,6 +9,9 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- DPAPI wrapper. Active on Windows; throws on non-Windows platforms,
+         which we detect and degrade to a warning. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>

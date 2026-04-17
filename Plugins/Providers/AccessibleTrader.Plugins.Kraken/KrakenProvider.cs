@@ -33,6 +33,11 @@ namespace AccessibleTrader.Plugins.Kraken
         private readonly RateLimiter _publicRateLimiter  = new(15, TimeSpan.FromSeconds(1));
         private readonly RateLimiter _privateRateLimiter = new(20, TimeSpan.FromMinutes(1));
 
+        // Kraken requires strictly-increasing nonces per API key. A millisecond wall
+        // clock collides under bursty order flow (two calls in the same ms are rejected);
+        // seed from wall-clock so the sequence survives restarts, then increment atomically.
+        private long _nonceCounter = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         // WebSocket connections
         private ReconnectingWebSocket? _publicWs;
         private ReconnectingWebSocket? _authWs;
@@ -78,8 +83,14 @@ namespace AccessibleTrader.Plugins.Kraken
 
         public KrakenProvider()
         {
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+            // Phase 4 Track B2 — HttpClient via the host factory so outbound
+            // requests are pinned to api.kraken.com and capped at 32 MB.
+            // User-Agent is set by CreateHttpClient. WS endpoints
+            // (ws.kraken.com / ws-auth.kraken.com) use ReconnectingWebSocket,
+            // not this HttpClient, so they're not in the allow-list.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Kraken",
+                allowedHosts: new[] { "api.kraken.com" });
         }
 
         public override T? GetCapability<T>() where T : class
@@ -341,6 +352,14 @@ namespace AccessibleTrader.Plugins.Kraken
             _currentSymbol = null;
             _currentTimeframe = null;
             _orderBookSymbol = null;
+
+            // Drop references to HMAC signing material + the short-lived WS
+            // token so a crash dump after disconnect doesn't leak them.
+            ScrubCredentials(
+                () => _apiKey = null,
+                () => _apiSecret = null,
+                () => _wsToken = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -682,7 +701,46 @@ namespace AccessibleTrader.Plugins.Kraken
 
         private async Task<string> PostPrivateAsync(string path, Dictionary<string, string> data)
         {
-            string nonce = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+            // Sign-time credential checkout (phase 4 Track B canary).
+            //
+            // Before phase 4 this method read _apiKey / _apiSecret fields that
+            // Configure() stashed at startup. Now we ask PluginHostServices.ApiKeys
+            // for the credential at each sign site, use it locally, and let the
+            // strings go out of scope at the end of the method. The GC still
+            // holds the backing bytes until collection — .NET strings are
+            // interned and immutable — but the root window drops from
+            // "lifetime of the app" to "lifetime of one signed request".
+            //
+            // If the host bridge is null (unit tests, CLI runs) fall back to
+            // the Configure-populated fields so existing callers still work.
+            string apiKey, apiSecret;
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
+            {
+                var checkout = await host.CheckoutAsync("Kraken").ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new InvalidOperationException("Kraken: no active API key configured.");
+                apiKey    = checkout.Key;
+                apiSecret = checkout.Secret;
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
+                    throw new InvalidOperationException("Kraken: no API credentials configured.");
+                apiKey    = _apiKey!;
+                apiSecret = _apiSecret!;
+            }
+
+            // Bump past wall clock if it has moved forward, then increment — guarantees
+            // a strictly-increasing, never-reused nonce even for back-to-back calls.
+            long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            long next = Interlocked.Increment(ref _nonceCounter);
+            if (next < now)
+            {
+                Interlocked.Exchange(ref _nonceCounter, now);
+                next = Interlocked.Increment(ref _nonceCounter);
+            }
+            string nonce = next.ToString(CultureInfo.InvariantCulture);
             data["nonce"] = nonce;
 
             string postData = string.Join("&", data.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
@@ -694,15 +752,20 @@ namespace AccessibleTrader.Plugins.Kraken
             Buffer.BlockCopy(pathBytes, 0, combined, 0, pathBytes.Length);
             Buffer.BlockCopy(sha256Hash, 0, combined, pathBytes.Length, sha256Hash.Length);
 
-            byte[] secretBytes = Convert.FromBase64String(_apiSecret!);
+            byte[] secretBytes = Convert.FromBase64String(apiSecret);
             using var hmac = new HMACSHA512(secretBytes);
             byte[] signature = hmac.ComputeHash(combined);
+            // Best-effort scrub of the base64-decoded secret bytes before they
+            // leave scope. The managed strings above the HMAC (apiSecret) stay
+            // until GC — we can't reach into the string backing — but we can
+            // zero this byte[] without dodging the framework.
+            Array.Clear(secretBytes, 0, secretBytes.Length);
 
             var request = new HttpRequestMessage(HttpMethod.Post, $"{RestUrl}{path}")
             {
                 Content = new FormUrlEncodedContent(data)
             };
-            request.Headers.Add("API-Key", _apiKey);
+            request.Headers.Add("API-Key", apiKey);
             request.Headers.Add("API-Sign", Convert.ToBase64String(signature));
 
             var response = await _httpClient.SendAsync(request);

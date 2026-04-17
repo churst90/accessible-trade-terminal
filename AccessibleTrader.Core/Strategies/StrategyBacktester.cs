@@ -639,7 +639,11 @@ public class StrategyBacktester : IStrategyBacktester
                 foreach (var k in t.FeatureSnapshot.Keys) featureKeys.Add(k);
             }
 
-            string filename = $"accessible-trader-backtest-{DateTime.Now:yyyyMMdd-HHmmss}.csv";
+            // UTC with explicit "Z" suffix so exports from traders in different
+            // timezones sort and compare cleanly. Local time produced ambiguous
+            // filenames that could collide across machines on the same trade
+            // desk.
+            string filename = $"accessible-trader-backtest-{DateTime.UtcNow:yyyyMMdd-HHmmss}Z.csv";
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), filename);
 
             using var writer = new System.IO.StreamWriter(path);

@@ -62,7 +62,7 @@ static int PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000");
-    Console.WriteLine("  StrategyLab run --snapshot strategy-lab-data/bitstamp_BTC_USDT_4h.json --spec builtin.long.v11-blue-dot-isolated");
+    Console.WriteLine("  StrategyLab run --snapshot strategy-lab-data/bitstamp_BTC_USDT_1d.json --spec builtin.long.v16-trilogy");
     return 0;
 }
 

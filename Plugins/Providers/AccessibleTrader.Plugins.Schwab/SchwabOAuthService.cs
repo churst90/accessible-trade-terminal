@@ -4,9 +4,13 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Services;
 using Newtonsoft.Json;
 
 namespace AccessibleTrader.Plugins.Schwab
@@ -25,11 +29,19 @@ namespace AccessibleTrader.Plugins.Schwab
     /// registers one. For apps that register an HTTP loopback for development,
     /// the <see cref="RedirectUri"/> can be set to that scheme and port.
     ///
-    /// Persistence: refresh tokens are written to a plain-text file inside the
-    /// user's <see cref="Environment.SpecialFolder.ApplicationData"/> folder.
-    /// This file is intended to be the sole location on disk that holds the
-    /// refresh token. The host application is responsible for protecting that
-    /// directory (the app's data folder already contains API-key secrets).
+    /// Persistence tiers (preference order):
+    ///   1. <see cref="PluginHostServices.SecureStorage"/> — host-provided
+    ///      keychain / KeyStore / DPAPI-backed store from MAUI. Works on all
+    ///      platforms. This is the primary path once the BlazorClient host
+    ///      has set the service at startup.
+    ///   2. DPAPI on Windows — legacy fallback for hosts that haven't wired
+    ///      the host-services bridge yet. Encrypts with
+    ///      <see cref="ProtectedData.Protect"/> /
+    ///      <see cref="DataProtectionScope.CurrentUser"/> so only the same
+    ///      Windows user account can decrypt.
+    ///   3. Non-persist — on non-Windows platforms with no host bridge, the
+    ///      token is dropped on process exit and the user re-runs OAuth
+    ///      next session. Deliberately not plaintext.
     /// </remarks>
     public sealed class SchwabOAuthService : IDisposable
     {
@@ -252,16 +264,72 @@ namespace AccessibleTrader.Plugins.Schwab
 
         // ── persistence ─────────────────────────────────────────────────────
 
+        // 16-byte DPAPI entropy scoped to this app + purpose. Mixed into
+        // ProtectedData.Protect so a token ciphertext recovered from this app
+        // can't be fed to another DPAPI consumer on the same machine/user.
+        private static readonly byte[] DpapiEntropy = Encoding.UTF8.GetBytes("AccessibleTrader/Schwab/RT/v1");
+
+        // Host-bridge key. Scoped by ClientId so multiple Schwab app registrations
+        // in the same install don't overwrite each other.
+        private string HostStorageKey => $"schwab_refresh_{ClientId}";
+
         private void LoadPersistedRefreshToken()
         {
+            // Tier 1: host-provided keychain / KeyStore / SecureStorage.
+            var host = PluginHostServices.SecureStorage;
+            if (host != null)
+            {
+                try
+                {
+                    // Host API is async but the legacy sync flow (Configure → use)
+                    // can't await cleanly. Block on the task; SecureStorage reads
+                    // are cheap and local. If it ever becomes a hot path we can
+                    // expose a LoadPersistedAsync() that host code can await.
+                    var stored = host.GetAsync(HostStorageKey).GetAwaiter().GetResult();
+                    if (!string.IsNullOrEmpty(stored)) { RefreshToken = stored; return; }
+                }
+                catch
+                {
+                    // Fall through to the DPAPI / delete path — don't let a
+                    // host-bridge hiccup strand the user if the file-based
+                    // fallback still has a valid token.
+                }
+            }
+
+            // Tier 2: DPAPI-encrypted file on Windows.
             try
             {
                 if (!File.Exists(_tokenFilePath)) return;
-                var json = File.ReadAllText(_tokenFilePath);
+                if (!OperatingSystem.IsWindows())
+                {
+                    // File may be a legacy plaintext artifact from before DPAPI was
+                    // wired up. Treat as stale and refuse to trust it.
+                    try { File.Delete(_tokenFilePath); } catch { }
+                    return;
+                }
+
+                var raw = File.ReadAllBytes(_tokenFilePath);
+                byte[] plaintextBytes;
+                try
+                {
+                    plaintextBytes = ProtectedData.Unprotect(raw, DpapiEntropy, DataProtectionScope.CurrentUser);
+                }
+                catch
+                {
+                    try { File.Delete(_tokenFilePath); } catch { }
+                    return;
+                }
+
+                var json = Encoding.UTF8.GetString(plaintextBytes);
+                Array.Clear(plaintextBytes, 0, plaintextBytes.Length);
+
                 var stored = JsonConvert.DeserializeObject<PersistedRefreshToken>(json);
                 if (stored != null && stored.ClientId == ClientId && !string.IsNullOrEmpty(stored.RefreshToken))
                 {
                     RefreshToken = stored.RefreshToken;
+                    // Migrate forward: once we have a host bridge, move the token
+                    // into it and drop the on-disk DPAPI blob on next persist.
+                    if (host != null) PersistRefreshToken();
                 }
             }
             catch
@@ -272,15 +340,51 @@ namespace AccessibleTrader.Plugins.Schwab
 
         private void PersistRefreshToken()
         {
+            // Tier 1: host-provided SecureStorage. If this succeeds we also
+            // clean up any stale DPAPI file so we don't end up with two copies.
+            var host = PluginHostServices.SecureStorage;
+            if (host != null)
+            {
+                try
+                {
+                    host.SetAsync(HostStorageKey, RefreshToken ?? "").GetAwaiter().GetResult();
+                    // Clean up the legacy DPAPI artifact so the token doesn't
+                    // exist in two places. Failure here isn't fatal (the
+                    // DPAPI file is keyed to the same user and can only be
+                    // read by this app) but it is worth surfacing.
+                    try { if (File.Exists(_tokenFilePath)) File.Delete(_tokenFilePath); }
+                    catch (Exception ex) { RecordTokenCleanupFailure("File.Delete (stale DPAPI after host-write)", _tokenFilePath, ex); }
+                    return;
+                }
+                catch
+                {
+                    // Host write failed — try the DPAPI fallback rather than losing the token.
+                }
+            }
+
+            // Tier 2: DPAPI on Windows. Non-Windows with no host bridge: skip
+            // (caller must re-auth next session).
             try
             {
+                if (!OperatingSystem.IsWindows()) return;
+
                 var payload = new PersistedRefreshToken
                 {
                     ClientId     = ClientId,
                     RefreshToken = RefreshToken ?? "",
                     StoredAtUtc  = DateTime.UtcNow,
                 };
-                File.WriteAllText(_tokenFilePath, JsonConvert.SerializeObject(payload));
+                var plaintextBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
+                byte[] ciphertext;
+                try
+                {
+                    ciphertext = ProtectedData.Protect(plaintextBytes, DpapiEntropy, DataProtectionScope.CurrentUser);
+                }
+                finally
+                {
+                    Array.Clear(plaintextBytes, 0, plaintextBytes.Length);
+                }
+                File.WriteAllBytes(_tokenFilePath, ciphertext);
             }
             catch
             {
@@ -290,8 +394,46 @@ namespace AccessibleTrader.Plugins.Schwab
 
         private void DeletePersistedRefreshToken()
         {
-            try { if (File.Exists(_tokenFilePath)) File.Delete(_tokenFilePath); }
-            catch { }
+            // Drop from host storage first — that's the new canonical location.
+            // Failures here are security-relevant: this is the explicit
+            // scrub path called on disconnect / logout, and a silent failure
+            // means the refresh token persists on disk past the point the
+            // user thinks it's gone. Push each failure into the
+            // ISecurityEventLog so operators can review.
+            var host = PluginHostServices.SecureStorage;
+            if (host != null)
+            {
+                try { host.Remove(HostStorageKey); }
+                catch (Exception ex)
+                {
+                    RecordTokenCleanupFailure("SecureStorage.Remove", HostStorageKey, ex);
+                }
+            }
+            try
+            {
+                if (File.Exists(_tokenFilePath)) File.Delete(_tokenFilePath);
+            }
+            catch (Exception ex)
+            {
+                RecordTokenCleanupFailure("File.Delete", _tokenFilePath, ex);
+            }
+        }
+
+        private static void RecordTokenCleanupFailure(string operation, string target, Exception ex)
+        {
+            var log = PluginHostServices.SecurityEvents;
+            if (log is null) return;
+            log.Record(new SecurityEvent(
+                DateTime.UtcNow,
+                SecurityEventKind.TokenCleanupFailed,
+                Source: "SchwabOAuthService",
+                Message: $"{operation} failed: {ex.Message}",
+                Data: new Dictionary<string, string>
+                {
+                    ["operation"] = operation,
+                    ["target"]    = target,
+                    ["exception"] = ex.GetType().Name,
+                }));
         }
 
         // ── internals ───────────────────────────────────────────────────────

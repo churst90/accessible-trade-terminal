@@ -36,14 +36,17 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompExtremeShort = "Extreme Short";
         public const string CompSignFlip     = "Sign Flip";
 
-        // Hardcoded source/symbol — see the AddIndicatorModal string-parameter limitation
-        // notes in the cross-series session memory. Multi-asset support will come once the
-        // modal renders text inputs for typeof(string) parameters.
+        // Default to BinanceVision for deep multi-year funding history. Values land in
+        // cross-series cache as percent per 8h (the BinanceVision plugin multiplies the
+        // raw fraction ×100 at fetch time). StrategyLab's snapshotting cache serves the
+        // same key from pre-fetched xs_binancevision_*.json files when running offline.
+        // OKX fallback retained as a second request for resilience when BinanceVision
+        // is unreachable (rare — it's a static S3 bucket with no rate limits).
         private static readonly CrossSeriesRequest FundingRequest = new(
             Market: "Derivatives",
-            Provider: "OkxDerivatives",
-            Symbol: "BTC-USDT-SWAP_FUNDING",
-            Timeframe: "1h",
+            Provider: "BinanceVision",
+            Symbol: "BTCUSDT_FUNDING",
+            Timeframe: "8h",
             MaxPages: 10);
 
         private readonly ICrossSeriesCache _xs;

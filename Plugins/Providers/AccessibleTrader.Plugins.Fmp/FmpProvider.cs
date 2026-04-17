@@ -55,8 +55,12 @@ namespace AccessibleTrader.Plugins.Fmp
             if (config.TryGetValue("ApiKey", out var key) && !string.IsNullOrWhiteSpace(key))
             {
                 _apiKey = key;
-                _httpClient = new HttpClient();
-                _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+                // Phase 4 Track B2 — allow-listed to financialmodelingprep.com.
+                // Created on-demand here only when an API key is configured.
+                // CreateHttpClient sets User-Agent by default.
+                _httpClient = PluginHostServices.CreateHttpClient(
+                    providerId:   "Fmp",
+                    allowedHosts: new[] { "financialmodelingprep.com" });
             }
         }
 

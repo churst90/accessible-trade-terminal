@@ -192,7 +192,8 @@ public sealed class BinanceVisionOiProvider : IIndicatorProvider
         var perp = $"{baseAsset}USDT";
         return perp switch
         {
-            "BTCUSDT" or "ETHUSDT" or "XRPUSDT" or "SOLUSDT" => perp,
+            "BTCUSDT"  or "ETHUSDT" or "XRPUSDT" or "SOLUSDT"
+            or "DOGEUSDT" or "ADAUSDT" or "LTCUSDT" or "BNBUSDT" => perp,
             _ => null,
         };
     }

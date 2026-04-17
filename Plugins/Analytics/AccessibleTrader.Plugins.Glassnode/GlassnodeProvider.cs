@@ -42,7 +42,11 @@ namespace AccessibleTrader.Plugins.Glassnode
     /// </summary>
     public class GlassnodeProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "Glassnode",
+            allowedHosts: new[] { "api.glassnode.com" });
+
         private readonly RateLimiter _rateLimiter = new(30, TimeSpan.FromMinutes(1));
         private string? _apiKey;
 

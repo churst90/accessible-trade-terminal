@@ -1,6 +1,14 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
+    <application android:allowBackup="false" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true" android:networkSecurityConfig="@xml/network_security_config" android:usesCleartextTraffic="false">
+        <!--
+            ScriptWorkerService is declared via the [Service(..., IsolatedProcess=true,
+            Exported=false, Enabled=true)] attribute in
+            Platforms/Android/ScriptWorkerService.cs; Xamarin.Android generates the
+            <service> entry automatically on build. Keeping manifest + attribute in
+            sync from a single source of truth.
+        -->
+    </application>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

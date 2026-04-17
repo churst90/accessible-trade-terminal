@@ -58,22 +58,23 @@ graph TD
         IIP[IIndicatorProvider - Skender Adapter]
         DMS[Data Service]
         DCS[Data Cache Service]
+        PLS2[PluginLoaderService]
+        PTP[PluginTrustPolicy - SHA-256 allow-list]
+        PHS[PluginHostServices.SecureStorage - plugin bridge]
     end
 
     subgraph Persistence Layer
         SQL[(Local SQLite Cache)]
         CFG[Config / Workspace JSON]
         AK[IApiKeyService]
+        SEC[MauiSecureStorageService - keychain / KeyStore / DPAPI]
     end
 
     subgraph External Plugins (SDK)
         MDP[IMarketDataProvider]
-        BN[Binance - Spot + Futures + UserStream]
-        AL[Alpaca - Stocks + Crypto]
-        BS[Bitstamp - REST + WS + PrivateOrders]
-        CB[Coinbase - REST + JWT Auth]
-        PO2[Polygon - Stocks / Forex / Crypto]
-        FR[FRED - Macro Economic Data]
+        TP[13 Trading Providers - Binance, Coinbase, Kraken, Bitstamp, Alpaca, IBKR, Schwab, Polygon, Finnhub, FMP, Oanda, Tradier, TwelveData]
+        AP[12 Analytics Providers - FRED, BinanceDerivatives, BinanceVision, OkxDerivatives, Glassnode, CoinGecko, CoinMetrics, DefiLlama, AlternativeMe, BGeometrics, Mempool, Etherscan]
+        IP[Drop-in Indicator Plugins]
     end
 
     %% Platform Input → Core
@@ -120,11 +121,18 @@ graph TD
     DO --> DCS
     DO --> SQL
     DMS --> MDP
-    MDP --> BN & AL & BS & CB & PO2 & FR
+    MDP --> TP & AP
+    PLS2 --> PTP
+    PLS2 --> MDP
+    PLS2 --> IP
+    PHS --> SEC
+    TP -.uses.-> PHS
     DO --> IS
     IS --> IIP
+    IS --> IP
     DO --> Store
-    AK --> SQL
+    AK --> SEC
+    SEC --> SQL
     DOS --> IO
     IO --> Store
 

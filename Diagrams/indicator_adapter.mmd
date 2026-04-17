@@ -2,32 +2,65 @@ classDiagram
     class IIndicatorProvider {
         <<interface>>
         +Name: string
-        +GetIndicators() List~Metadata~
-        +Calculate(code, data, params) Dictionary~string, double[]~
+        +GetIndicators() List~IndicatorMetadata~
+        +Calculate(code, data, params, buffer) void
+        +UpdateLast(code, data, params, buffer) void
+        +GetStabilityWindow(code, params) int
     }
 
-    class StockIndicatorProvider {
-        +Name: "Skender.Stock.Indicators"
-        +Calculate()
-    }
-
-    class ProfileIndicatorProvider {
-        +Name: "Profile.Indicators"
-        +Calculate()
-    }
+    class CoreIndicatorProvider
+    class ProfileIndicatorProvider
+    class SkenderBoundedOscillatorProvider
+    class SkenderBandProvider
+    class SkenderTrendProvider
+    class SkenderVolatilityProvider
+    class SkenderVolumeProvider
+    class SkenderZeroCrossProvider
+    class AccessibleCipherProviders
+    class IchimokuProvider
+    class CustomIndicatorRegistry
 
     class IndicatorService {
         -List~IIndicatorProvider~ _providers
-        +CalculateIndicator(code, data, params) Dictionary~string, double[]~
+        +CalculateIndicator(code, data, params, buffer) void
     }
 
     class IndicatorOrchestrator {
-        -IndicatorEngine _engine
-        -WorkspaceStore _store
-        +OnNewData(data)
+        -IndicatorService _service
+        -IWorkspaceStore _store
+        +RecalculateAllAsync()
+        +RecalculateLastAsync()
+    }
+
+    class PluginLoaderService {
+        -PluginTrustPolicy _trust
+        +LoadPlugins~T~(dir) IEnumerable~T~
     }
 
     IndicatorOrchestrator o-- IndicatorService
     IndicatorService o-- IIndicatorProvider
-    IIndicatorProvider <|-- StockIndicatorProvider
+    PluginLoaderService --> IIndicatorProvider : discovers Plugins/Indicators/*.dll
+    IIndicatorProvider <|-- CoreIndicatorProvider
     IIndicatorProvider <|-- ProfileIndicatorProvider
+    IIndicatorProvider <|-- SkenderBoundedOscillatorProvider
+    IIndicatorProvider <|-- SkenderBandProvider
+    IIndicatorProvider <|-- SkenderTrendProvider
+    IIndicatorProvider <|-- SkenderVolatilityProvider
+    IIndicatorProvider <|-- SkenderVolumeProvider
+    IIndicatorProvider <|-- SkenderZeroCrossProvider
+    IIndicatorProvider <|-- AccessibleCipherProviders
+    IIndicatorProvider <|-- IchimokuProvider
+    IIndicatorProvider <|-- CustomIndicatorRegistry
+
+    note for CoreIndicatorProvider "Pseudo-indicators for Candles / Volume / drawing tools"
+    note for ProfileIndicatorProvider "VPVR / VWAP / Value Area composites"
+    note for SkenderBoundedOscillatorProvider "RSI / Stoch / CCI wrappers"
+    note for SkenderBandProvider "Bollinger / Keltner / Donchian wrappers"
+    note for SkenderTrendProvider "EMA / SMA / ADX / Aroon wrappers"
+    note for SkenderVolatilityProvider "ATR / StdDev wrappers"
+    note for SkenderVolumeProvider "OBV / MFI wrappers"
+    note for SkenderZeroCrossProvider "MACD / TSI wrappers"
+    note for AccessibleCipherProviders "CipherA / CipherB / CipherC / CipherS / CipherSR (in-house, not Skender)"
+    note for IchimokuProvider "5 classical lines + KumoPolarity + TK cross markers (8 components)"
+    note for CustomIndicatorRegistry "User-compiled Roslyn scripts + imported .atpkg packages (semantic sandbox)"
+    note for PluginLoaderService "Hashes each DLL; gates on SHA-256 allow-list before LoadFromAssemblyPath"

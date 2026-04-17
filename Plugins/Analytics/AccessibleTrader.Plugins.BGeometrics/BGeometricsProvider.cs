@@ -32,7 +32,11 @@ namespace AccessibleTrader.Plugins.BGeometrics
     /// </summary>
     public class BGeometricsProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "BGeometrics",
+            allowedHosts: new[] { "bitcoin-data.com" });
+
         private readonly RateLimiter _rateLimiter = new(8, TimeSpan.FromHours(1));
 
         private const string BaseUrl = "https://bitcoin-data.com/v1";

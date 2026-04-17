@@ -44,6 +44,25 @@ namespace AccessibleTrader.Core.Services
             if (!Directory.Exists(_libraryDir)) Directory.CreateDirectory(_libraryDir);
         }
 
+        /// <summary>
+        /// Reject profile names that could escape the library directory. Applied to every
+        /// save/load/delete path so a malicious workspace name like "../../something" or
+        /// "C:\\Windows\\..." cannot touch files outside _libraryDir.
+        /// </summary>
+        private static string? SanitizeProfileName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            var trimmed = name.Trim();
+            if (trimmed.Contains("..", StringComparison.Ordinal)) return null;
+            if (Path.IsPathRooted(trimmed)) return null;
+            if (trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return null;
+            // Strip any directory component; only the filename portion can name a profile.
+            var baseName = Path.GetFileName(trimmed);
+            if (string.IsNullOrWhiteSpace(baseName)) return null;
+            if (baseName.Equals("alerts", StringComparison.OrdinalIgnoreCase)) return null;
+            return baseName;
+        }
+
         public List<string> GetAvailableProfiles()
         {
             try
@@ -64,16 +83,22 @@ namespace AccessibleTrader.Core.Services
 
         public void SaveProfile(string name, WorkspaceConfiguration config)
         {
+            var safe = SanitizeProfileName(name);
+            if (safe == null)
+            {
+                _logger.LogWarning("Refused to save workspace profile with unsafe name: {Name}", name);
+                return;
+            }
             try
             {
-                string path = Path.Combine(_libraryDir, $"{name}.json");
+                string path = Path.Combine(_libraryDir, $"{safe}.json");
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
                 File.WriteAllText(path, json);
-                _logger.LogInformation("Workspace profile {Name} saved.", name);
+                _logger.LogInformation("Workspace profile {Name} saved.", safe);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save workspace profile {Name}.", name);
+                _logger.LogError(ex, "Failed to save workspace profile {Name}.", safe);
             }
         }
 
@@ -161,9 +186,11 @@ namespace AccessibleTrader.Core.Services
 
         public WorkspaceConfiguration? LoadProfile(string name)
         {
+            var safe = SanitizeProfileName(name);
+            if (safe == null) return null;
             try
             {
-                string path = Path.Combine(_libraryDir, $"{name}.json");
+                string path = Path.Combine(_libraryDir, $"{safe}.json");
                 if (!File.Exists(path)) return null;
 
                 string json = File.ReadAllText(path);
@@ -171,21 +198,23 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to load workspace profile {Name}.", name);
+                _logger.LogError(ex, "Failed to load workspace profile {Name}.", safe);
                 return null;
             }
         }
 
         public void DeleteProfile(string name)
         {
+            var safe = SanitizeProfileName(name);
+            if (safe == null) return;
             try
             {
-                string path = Path.Combine(_libraryDir, $"{name}.json");
+                string path = Path.Combine(_libraryDir, $"{safe}.json");
                 if (File.Exists(path)) File.Delete(path);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to delete workspace profile {Name}.", name);
+                _logger.LogError(ex, "Failed to delete workspace profile {Name}.", safe);
             }
         }
 

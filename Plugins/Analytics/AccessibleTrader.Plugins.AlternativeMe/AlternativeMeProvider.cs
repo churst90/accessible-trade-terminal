@@ -40,7 +40,14 @@ namespace AccessibleTrader.Plugins.AlternativeMe
     /// </summary>
     public class AlternativeMeProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient with 32 MB cap, 60 s timeout, and an
+        // outbound-host allow-list. Any future code path that interpolates
+        // user input into a URL is blocked from reaching a non-allow-listed
+        // host at the handler level — see IPluginHttpClientFactory.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "AlternativeMe",
+            allowedHosts: new[] { "api.alternative.me" });
+
         private readonly RateLimiter _rateLimiter = new(60, TimeSpan.FromMinutes(1));
 
         private const string FngUrl = "https://api.alternative.me/fng/?limit=0";

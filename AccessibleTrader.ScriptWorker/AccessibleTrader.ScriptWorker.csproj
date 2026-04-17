@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AccessibleTrader.ScriptWorker</RootNamespace>
+    <AssemblyName>AccessibleTrader.ScriptWorker</AssemblyName>
+    <!--
+      The worker is a standalone sandboxed console that the MAUI host spawns
+      per compiled script. It reads stdin frames, executes indicator code in
+      a collectible AssemblyLoadContext, and writes result frames to stdout.
+      See docs/SANDBOX_DESIGN.md for the full protocol + per-platform OS
+      sandbox plan.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+  </ItemGroup>
+
+  <!--
+    Ship the macOS sandbox profile next to the worker binary so
+    MacSandboxExecLauncher can find it via
+    Path.Combine(AppContext.BaseDirectory, "sandbox-profiles", "script-worker.sb").
+    On non-macOS platforms the file tags along as a few kilobytes of
+    unused text — cheap enough to avoid platform-gated build logic.
+  -->
+  <ItemGroup>
+    <None Include="sandbox-profiles\script-worker.sb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -100,7 +100,14 @@ namespace AccessibleTrader.Plugins.Schwab
 
         public SchwabProvider()
         {
-            _http  = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to api.schwabapi.com, which
+            // covers the trading endpoints (/trader/v1/*), the market-data
+            // endpoints (/marketdata/v1/*), AND the OAuth authorize/token
+            // exchange that SchwabOAuthService performs through the same
+            // HttpClient. One allow-list entry covers all three uses.
+            _http = PluginHostServices.CreateHttpClient(
+                providerId:   "Schwab",
+                allowedHosts: new[] { "api.schwabapi.com" });
             _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             _oauth = new SchwabOAuthService(_http);
         }
@@ -214,6 +221,16 @@ namespace AccessibleTrader.Plugins.Schwab
             _pollCts?.Cancel();
             _currentSymbol    = null;
             _currentTimeframe = null;
+
+            // Drop references to OAuth client credentials so a crash dump
+            // after disconnect can't recover them. The OAuth refresh token
+            // is held separately by SchwabOAuthService and persists through
+            // SecureStorage / DPAPI — those paths are unaffected.
+            ScrubCredentials(
+                () => _clientId = null,
+                () => _clientSecret = null,
+                () => _redirectUri = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
             return Task.CompletedTask;
         }

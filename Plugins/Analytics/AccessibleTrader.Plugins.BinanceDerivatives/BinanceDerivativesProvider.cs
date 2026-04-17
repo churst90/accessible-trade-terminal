@@ -49,7 +49,10 @@ namespace AccessibleTrader.Plugins.BinanceDerivatives
     /// </summary>
     public class BinanceDerivativesProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "BinanceDerivatives",
+            allowedHosts: new[] { "fapi.binance.com" });
 
         // Binance public limits are 2400 req/min on the futures REST API; we cap well below.
         private readonly RateLimiter _rateLimiter = new(1200, TimeSpan.FromMinutes(1));

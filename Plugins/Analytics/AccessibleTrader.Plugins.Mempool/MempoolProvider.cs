@@ -37,7 +37,11 @@ namespace AccessibleTrader.Plugins.Mempool
     /// </summary>
     public class MempoolProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "Mempool",
+            allowedHosts: new[] { "mempool.space" });
+
         private readonly RateLimiter _rateLimiter = new(10, TimeSpan.FromMinutes(1));
 
         private const string BaseUrl = "https://mempool.space";

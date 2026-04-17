@@ -69,7 +69,11 @@ namespace AccessibleTrader.Plugins.Finnhub
 
         public FinnhubProvider()
         {
-            _httpClient = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to finnhub.io. The
+            // ws.finnhub.io WS endpoint uses ReconnectingWebSocket.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Finnhub",
+                allowedHosts: new[] { "finnhub.io" });
         }
 
         public override T? GetCapability<T>() where T : class

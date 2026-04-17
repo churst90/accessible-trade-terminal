@@ -18,6 +18,7 @@
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.AlternativeMe/AccessibleTrader.Plugins.AlternativeMe.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BGeometrics/AccessibleTrader.Plugins.BGeometrics.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BinanceDerivatives/AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
+    <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BinanceVision/AccessibleTrader.Plugins.BinanceVision.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.CoinGecko/AccessibleTrader.Plugins.CoinGecko.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.CoinMetrics/AccessibleTrader.Plugins.CoinMetrics.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.DefiLlama/AccessibleTrader.Plugins.DefiLlama.csproj" />
@@ -31,6 +32,8 @@
   <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
   <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
   <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />
+  <Project Path="AccessibleTrader.ScriptSandbox/AccessibleTrader.ScriptSandbox.csproj" />
+  <Project Path="AccessibleTrader.ScriptWorker/AccessibleTrader.ScriptWorker.csproj" />
   <Project Path="AccessibleTrader.StrategyLab/AccessibleTrader.StrategyLab.csproj" />
   <Project Path="AccessibleTrader.Tests/AccessibleTrader.Tests.csproj" />
 </Solution>

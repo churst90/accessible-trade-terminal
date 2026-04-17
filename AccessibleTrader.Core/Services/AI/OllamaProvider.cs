@@ -27,9 +27,36 @@ public sealed class OllamaProvider : ILLMProvider
         string apiKey, CancellationToken ct = default)
     {
         string baseUrl = string.IsNullOrWhiteSpace(apiKey) ? DefaultBase : apiKey.TrimEnd('/');
+
+        // Endpoint hardening: cleartext http is only allowed for loopback (localhost/
+        // 127.0.0.1/::1). Anything else must use https, otherwise a LAN-local attacker
+        // could MITM the analyst response and inject misleading trade advice.
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
+            throw new InvalidOperationException($"Ollama endpoint '{baseUrl}' is not a valid absolute URL.");
+
+        bool isLoopback = uri.IsLoopback
+            || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || uri.Host == "127.0.0.1"
+            || uri.Host == "::1";
+
+        if (uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) && !isLoopback)
+            throw new InvalidOperationException(
+                $"Ollama endpoint '{baseUrl}' uses cleartext http on a non-loopback host. " +
+                "Use https://... for remote Ollama instances, or bind Ollama to localhost.");
+
+        if (!uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+            && !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Ollama endpoint scheme '{uri.Scheme}' is not supported.");
+
         string endpoint = $"{baseUrl}/api/chat";
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+        using var http = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(120),
+            // LLM responses are text — 32 MB is plenty, protects against an endpoint
+            // streaming unbounded data at us.
+            MaxResponseContentBufferSize = 32 * 1024 * 1024,
+        };
 
         object userContent;
         if (!string.IsNullOrEmpty(imageBase64))

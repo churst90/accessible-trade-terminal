@@ -1,0 +1,79 @@
+;; AccessibleTrader ScriptWorker sandbox profile (macOS sandbox-exec)
+;;
+;; Applied via `sandbox-exec -f <this file> AccessibleTrader.ScriptWorker`
+;; by MacSandboxExecLauncher. The worker's stdin/stdout/stderr file
+;; descriptors are inherited from the host process — they don't require
+;; any capability to use.
+;;
+;; Scope: deny everything by default, then allow only what the .NET 10
+;; runtime and the worker itself need to start, run managed code, and
+;; exit cleanly. Network, outbound file writes outside temp, mach-service
+;; lookups other than the system logger, and process-exec are all denied.
+;;
+;; If a sandbox violation fires (check `log show --predicate 'eventMessage
+;; contains "sandbox"'`), add the exact path/operation with a justification
+;; comment — don't broaden a rule just to make something work.
+
+(version 1)
+(deny default)
+
+;; ─── CoreFoundation / dyld bootstrap ────────────────────────────────────
+;; dyld needs to read the .NET runtime + framework assemblies. Grant
+;; read-only access to the worker's install directory and the system
+;; library paths dyld scans by default.
+(allow file-read*
+    (subpath "/usr/lib")
+    (subpath "/System/Library")
+    (subpath "/Library/Frameworks")
+    (subpath "/private/var/db/dyld")
+    (subpath "/Library/Apple/usr/lib"))
+
+;; The worker's own binary + its sibling assemblies. The launcher sets
+;; HOME to the worker's install directory so this matches every
+;; distribution layout (app bundle, dotnet publish output, etc).
+(allow file-read*
+    (subpath (param "WORKER_DIR")))
+
+;; .NET pulls locale + tzdata at startup.
+(allow file-read*
+    (literal "/etc")
+    (subpath "/etc/ssl")
+    (subpath "/etc/resolv.conf")
+    (subpath "/var/db/timezone")
+    (subpath "/usr/share/zoneinfo"))
+
+;; ─── Process self-management ────────────────────────────────────────────
+;; CLR needs to signal its own threads and read its own metadata.
+(allow signal (target self))
+(allow process-info-pidinfo (target self))
+(allow process-info-pidfdinfo (target self))
+(allow sysctl-read)
+
+;; ─── Logging ────────────────────────────────────────────────────────────
+;; Apple's unified logging daemon. stderr pumping still works via the
+;; inherited fd, but the runtime may also attach to os_log.
+(allow mach-lookup (global-name "com.apple.system.logger"))
+(allow mach-lookup (global-name "com.apple.system.opendirectoryd.libinfo"))
+(allow mach-lookup (global-name "com.apple.system.opendirectoryd.membership"))
+
+;; ─── Temp directory ─────────────────────────────────────────────────────
+;; .NET's tiered-compilation R2R cache + ALC shadow-copy both write into
+;; the process tempdir. Scoped to the per-process TMPDIR the parent
+;; assigns (sandbox-exec propagates TMPDIR as a parameter).
+(allow file-write*
+    (subpath (param "TMPDIR")))
+(allow file-read*
+    (subpath (param "TMPDIR")))
+
+;; ─── IPC with host ──────────────────────────────────────────────────────
+;; stdin/stdout/stderr were inherited from the host — no extra allow
+;; needed. The frame reader/writer uses these fds only; no other IPC
+;; mechanism is permitted.
+
+;; ─── Denied on purpose ──────────────────────────────────────────────────
+;; network-*          — no outbound network of any kind
+;; file-write* outside TMPDIR + WORKER_DIR — can't drop persistence
+;; process-exec       — can't spawn children (no curl, no bash, no osascript)
+;; mach-lookup (any service not listed above) — can't reach Keychain,
+;;     UserNotificationCenter, Messages, etc.
+;; iokit-open         — no direct hardware access

@@ -6,6 +6,7 @@
 @using AccessibleTrader.Core.PineScript
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Sdk.Models
+@using Microsoft.Maui.Devices
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
 @inject IRoslynScriptingService ScriptingService
@@ -287,6 +288,19 @@
         _compiledIndicator = null;
         StateHasChanged();
 
+        // Running user-authored C# at runtime requires an OS process sandbox
+        // (phase 4 adds one on Windows/macOS/Android). iOS has no equivalent
+        // and doesn't accept runtime compilation under App Review policy, so
+        // every path into CompileIndicatorAsync is refused on iOS — not just
+        // .atpkg imports. The editor textarea still works as a text editor;
+        // it just can't execute.
+        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        {
+            _compileErrors = new[] { IosRefusalMessage };
+            StateHasChanged();
+            return;
+        }
+
         var result = await ScriptingService.CompileIndicatorAsync(_editCode);
         if (result.Success)
         {
@@ -345,10 +359,28 @@
         await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadBlob", filename, base64, "application/zip");
     }
 
+    // iOS has no process-isolation primitive we can use for an untrusted-code
+    // sandbox (no AppContainer / isolatedProcess equivalent), and iOS App
+    // Review will not accept arbitrary C# compilation at runtime anyway. So
+    // .atpkg imports are refused on iOS outright — not consent-prompted.
+    // Users who want custom indicators can sideload on Android, or use the
+    // desktop build on Windows / macOS. See docs/SANDBOX_DESIGN.md "iOS —
+    // deferred" for the long-form rationale.
+    private const string IosRefusalMessage =
+        "Custom script imports are disabled on iOS. " +
+        "iOS does not provide a process sandbox we can run untrusted code in. " +
+        "Use the desktop build on Windows or macOS to import .atpkg files.";
+
     private async Task ImportAtpkgFromFile()
     {
         _importFeedback = "";
         _importSuccess = false;
+        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        {
+            _importFeedback = IosRefusalMessage;
+            _importSuccess = false;
+            return;
+        }
         try
         {
             string base64 = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsBase64", ".atpkg,.json");
@@ -377,10 +409,26 @@
             if (string.IsNullOrWhiteSpace(code))
             { _importFeedback = "Invalid .atpkg — no source.cs found."; return; }
 
+            // Trust prompt: a .atpkg is arbitrary C# source from outside the app.
+            // Even with the Roslyn semantic sandbox in place, the user should
+            // explicitly consent before we stash the code in their script list.
+            // We stage the payload but do not compile/run until the user hits
+            // "Compile" — which runs through the sandbox pipeline.
+            bool confirmed = await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                $"Import untrusted script '{name ?? "Imported Script"}'?\n\n" +
+                "This file contains C# source code from outside the application. It will be sandboxed, " +
+                "but review the code before pressing Compile. Continue?");
+            if (!confirmed)
+            {
+                _importFeedback = "Import cancelled.";
+                return;
+            }
+
             var s = new CustomScript(Guid.NewGuid().ToString(), name ?? "Imported Script", code, false);
             _scripts.Add(s);
             SelectScript(s.Id);
-            _importFeedback = $"Imported: {s.Name}";
+            _importFeedback = $"Imported: {s.Name} (review source before compiling)";
             _importSuccess = true;
         }
         catch (Exception ex)
@@ -416,20 +464,38 @@
         _transpileOk = true;
     }
 
-    private void ImportAtpkgJson()
+    private async Task ImportAtpkgJson()
     {
         if (string.IsNullOrWhiteSpace(_importJson)) return;
+        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        {
+            _importFeedback = IosRefusalMessage;
+            _importSuccess = false;
+            return;
+        }
         try
         {
             var pkg = Newtonsoft.Json.JsonConvert.DeserializeObject<AtpkgPayload>(_importJson);
             if (pkg == null || string.IsNullOrWhiteSpace(pkg.Code))
             { _importFeedback = "Invalid .atpkg — missing Code field."; _importSuccess = false; return; }
 
+            bool confirmed = await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                $"Import untrusted script '{pkg.Name ?? "Imported Script"}'?\n\n" +
+                "This JSON payload contains C# source code from outside the application. It will be sandboxed, " +
+                "but review the code before pressing Compile. Continue?");
+            if (!confirmed)
+            {
+                _importFeedback = "Import cancelled.";
+                _importSuccess = false;
+                return;
+            }
+
             var s = new CustomScript(Guid.NewGuid().ToString(), pkg.Name ?? "Imported Script", pkg.Code, false);
             _scripts.Add(s);
             SelectScript(s.Id);
             _importJson = "";
-            _importFeedback = $"Imported: {s.Name}";
+            _importFeedback = $"Imported: {s.Name} (review source before compiling)";
             _importSuccess = true;
         }
         catch (Exception ex)

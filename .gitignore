@@ -78,3 +78,6 @@ Desktop.ini
 
 # StrategyLab research fixtures — regenerate with `StrategyLab snapshot` / `xs-snapshot`
 strategy-lab-data/
+
+# StrategyLab walk-forward runtime outputs — regenerate per run
+AccessibleTrader.StrategyLab/walk_forward_results.json

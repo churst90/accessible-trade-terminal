@@ -83,7 +83,10 @@ namespace AccessibleTrader.Plugins.Fred
 
         public FredProvider()
         {
-            _httpClient = new HttpClient();
+            // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId: "FRED",
+                allowedHosts: new[] { "api.stlouisfed.org" });
         }
 
         public override void Configure(Dictionary<string, string> config)
@@ -96,7 +99,7 @@ namespace AccessibleTrader.Plugins.Fred
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
-                var response = await _httpClient.GetAsync($"{BaseUrl}/series?series_id=GDP&api_key={_apiKey}&file_type=json");
+                var response = await _httpClient.GetAsync($"{BaseUrl}/series?series_id=GDP&api_key={Uri.EscapeDataString(_apiKey ?? "")}&file_type=json");
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
                 return (false, $"Key validation failed ({response.StatusCode})");
@@ -122,7 +125,11 @@ namespace AccessibleTrader.Plugins.Fred
         {
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
             var frequency = MapFrequency(request.Timeframe);
-            string url = $"{BaseUrl}/series/observations?series_id={request.Symbol}&api_key={_apiKey}&file_type=json";
+            // Escape the user-supplied symbol so it cannot inject extra query params
+            // (e.g. "GDP&api_key=attackerKey") into the FRED request URL.
+            string seriesId = Uri.EscapeDataString(request.Symbol ?? "");
+            string apiKeyParam = Uri.EscapeDataString(_apiKey ?? "");
+            string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={apiKeyParam}&file_type=json";
             if (!string.IsNullOrEmpty(frequency)) url += $"&frequency={frequency}";
             if (request.Since.HasValue)
                 url += $"&observation_start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime:yyyy-MM-dd}";
@@ -173,7 +180,7 @@ namespace AccessibleTrader.Plugins.Fred
                     {
                         try
                         {
-                            string url = $"{BaseUrl}/category/series?category_id={catId}&api_key={_apiKey}&file_type=json&limit=50&order_by=popularity&sort_order=desc";
+                            string url = $"{BaseUrl}/category/series?category_id={Uri.EscapeDataString(catId)}&api_key={Uri.EscapeDataString(_apiKey ?? "")}&file_type=json&limit=50&order_by=popularity&sort_order=desc";
                             var response = await _httpClient.GetStringAsync(url);
                             var serieses = JObject.Parse(response)["seriess"] as JArray;
                             if (serieses != null)
@@ -205,7 +212,7 @@ namespace AccessibleTrader.Plugins.Fred
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string url = $"{BaseUrl}/series/search?search_text={Uri.EscapeDataString(searchText)}&api_key={_apiKey}&file_type=json&limit={limit}&order_by=search_rank";
+                    string url = $"{BaseUrl}/series/search?search_text={Uri.EscapeDataString(searchText)}&api_key={Uri.EscapeDataString(_apiKey ?? "")}&file_type=json&limit={limit}&order_by=search_rank";
                     var response = await _httpClient.GetStringAsync(url);
                     var serieses = JObject.Parse(response)["seriess"] as JArray;
                     if (serieses == null) return new List<(string, string)>();

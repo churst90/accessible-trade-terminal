@@ -85,8 +85,24 @@ namespace AccessibleTrader.Plugins.Oanda
 
         public OandaProvider()
         {
-            _httpClient = new HttpClient();
-            _streamClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+            // Phase 4 Track B2 — both clients allow-listed to the four
+            // Oanda hosts (practice + live, REST + streaming). The stream
+            // client keeps its infinite timeout for long-polling pricing
+            // and transaction streams; the regular client uses the
+            // factory default 60 s.
+            var hosts = new[]
+            {
+                "api-fxpractice.oanda.com",
+                "stream-fxpractice.oanda.com",
+                "api-fxtrade.oanda.com",
+                "stream-fxtrade.oanda.com",
+            };
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId: "Oanda", allowedHosts: hosts);
+            _streamClient = PluginHostServices.CreateHttpClient(
+                providerId: "Oanda.Stream",
+                allowedHosts: hosts,
+                timeout: Timeout.InfiniteTimeSpan);
         }
 
         public override T? GetCapability<T>() where T : class

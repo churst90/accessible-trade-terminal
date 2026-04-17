@@ -169,6 +169,9 @@ public sealed class BinanceVisionFundingProvider : IIndicatorProvider
         > 0 and <= 5 => "XRPUSDT",
         _ => null,
     };
+    // ^^ Note: fallback-only path for charts without a __symbol hint. XRP/DOGE/ADA all
+    // share the <$5 bucket so heuristic detection can't disambiguate; the hint path
+    // (ResolveSymbolFromParameters) is authoritative when present.
 
     /// <summary>Reads the "__symbol" hint from parameters and normalizes to a Binance Vision
     /// USDT-perp symbol (e.g. "LTC/USDT" → "LTCUSDT"). Returns null if missing or unsupported.
@@ -185,11 +188,11 @@ public sealed class BinanceVisionFundingProvider : IIndicatorProvider
         if (baseAsset.EndsWith("USDT")) baseAsset = baseAsset[..^4];
         else if (baseAsset.EndsWith("USD")) baseAsset = baseAsset[..^3];
         var perp = $"{baseAsset}USDT";
-        // Whitelist — only return symbols we have funding data for. LTC is intentionally
-        // not on this list because Binance Vision LTC funding history is incomplete.
+        // Whitelist — mirrors BinanceVisionFundingCommand.SymbolStartMonths.
         return perp switch
         {
-            "BTCUSDT" or "ETHUSDT" or "XRPUSDT" or "SOLUSDT" => perp,
+            "BTCUSDT"  or "ETHUSDT" or "XRPUSDT" or "SOLUSDT"
+            or "DOGEUSDT" or "ADAUSDT" or "LTCUSDT" or "BNBUSDT" => perp,
             _ => null,
         };
     }

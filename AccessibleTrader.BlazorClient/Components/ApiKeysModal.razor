@@ -124,46 +124,28 @@
                     </select>
                 </div>
 
+                @* Credentials always use <input type="password"> — no in-DOM reveal toggle.
+                   Rationale: a toggle that flips to type="text" dumps the raw key into the
+                   accessibility tree, screen-share captures, and DOM snapshots. Native OS
+                   password-reveal is still available at the browser/WebView level and is
+                   user-initiated, so accessibility of typing isn't lost. *@
+
                 <div class="modal-row">
                     <label for="key-apikey">API Key</label>
-                    <div style="display:flex; gap:4px; flex:1;">
-                        <input id="key-apikey" type="@(_showApiKey ? "text" : "password")"
-                               @bind="_newApiKey" aria-label="API key" style="flex:1;" />
-                        <button type="button" @onclick="() => _showApiKey = !_showApiKey"
-                                @onclick:stopPropagation="true"
-                                aria-label="@(_showApiKey ? "Hide API key" : "Show API key")"
-                                style="min-width:54px;">
-                            @(_showApiKey ? "Hide" : "Show")
-                        </button>
-                    </div>
+                    <input id="key-apikey" type="password" autocomplete="off" spellcheck="false"
+                           @bind="_newApiKey" aria-label="API key" style="flex:1;" />
                 </div>
 
                 <div class="modal-row">
                     <label for="key-secret">API Secret</label>
-                    <div style="display:flex; gap:4px; flex:1;">
-                        <input id="key-secret" type="@(_showSecret ? "text" : "password")"
-                               @bind="_newApiSecret" aria-label="API secret" style="flex:1;" />
-                        <button type="button" @onclick="() => _showSecret = !_showSecret"
-                                @onclick:stopPropagation="true"
-                                aria-label="@(_showSecret ? "Hide API secret" : "Show API secret")"
-                                style="min-width:54px;">
-                            @(_showSecret ? "Hide" : "Show")
-                        </button>
-                    </div>
+                    <input id="key-secret" type="password" autocomplete="off" spellcheck="false"
+                           @bind="_newApiSecret" aria-label="API secret" style="flex:1;" />
                 </div>
 
                 <div class="modal-row">
                     <label for="key-pass">Passphrase</label>
-                    <div style="display:flex; gap:4px; flex:1;">
-                        <input id="key-pass" type="@(_showPassphrase ? "text" : "password")" placeholder="Optional"
-                               @bind="_newPassphrase" aria-label="Passphrase (optional)" style="flex:1;" />
-                        <button type="button" @onclick="() => _showPassphrase = !_showPassphrase"
-                                @onclick:stopPropagation="true"
-                                aria-label="@(_showPassphrase ? "Hide passphrase" : "Show passphrase")"
-                                style="min-width:54px;">
-                            @(_showPassphrase ? "Hide" : "Show")
-                        </button>
-                    </div>
+                    <input id="key-pass" type="password" autocomplete="off" spellcheck="false" placeholder="Optional"
+                           @bind="_newPassphrase" aria-label="Passphrase (optional)" style="flex:1;" />
                 </div>
 
                 @if (!string.IsNullOrEmpty(_formError))
@@ -201,9 +183,6 @@
     private string _newApiSecret   = "";
     private string _newPassphrase  = "";
     private string? _formError;
-    private bool _showApiKey;
-    private bool _showSecret;
-    private bool _showPassphrase;
 
     private static readonly List<string> _knownProviders = new()
     {
@@ -273,9 +252,6 @@
             _newApiKey = "";
             _newApiSecret = "";
             _newPassphrase = "";
-            _showApiKey = false;
-            _showSecret = false;
-            _showPassphrase = false;
             _formError = null;
             StateHasChanged();
 

@@ -69,7 +69,33 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IInputService, BlazorInputService>();
             services.AddSingleton<ISpeechManager, BlazorSpeechManager>();
             services.AddSingleton<IAudioDriver, BlazorAudioDriver>();
-            services.AddSingleton<ISecureStorageService, MauiSecureStorageService>();
+
+            // Single MauiSecureStorageService instance serves both Core
+            // (ISecureStorageService) and the plugin-host bridge
+            // (IPluginSecureStorage). Register the concrete type as a singleton
+            // and forward both interfaces to it so plugins and Core see the
+            // same backing SecureStorage.
+            services.AddSingleton<MauiSecureStorageService>();
+            services.AddSingleton<ISecureStorageService>(sp => sp.GetRequiredService<MauiSecureStorageService>());
+            services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginSecureStorage>(sp => sp.GetRequiredService<MauiSecureStorageService>());
+
+            // Plugin-host bridges added in phase 4 Track B: sign-time credential
+            // checkout and an outbound-host-allow-listed HttpClient factory.
+            // Both are read via PluginHostServices static accessors from plugin
+            // code; we register through DI here and hand the resolved instance
+            // to PluginHostServices in MauiProgram after builder.Build().
+            services.AddSingleton<AccessibleTrader.Sdk.Services.IApiKeyCheckout, MauiApiKeyCheckoutAdapter>();
+            services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, MauiPluginHttpClientFactory>();
+
+            // Ring-buffer audit log for security-relevant runtime events
+            // (AppContainer fallbacks, memory kills, credential checkout
+            // failures, plugin-trust rejections). Operators inspect this
+            // via the settings panel or an export. Also mirrors each event
+            // to ILogger at Warning level so file-sink logs still capture
+            // it for post-incident review.
+            services.AddSingleton<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
+            services.AddSingleton<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>());
             services.AddSingleton<GlobalInputService>();
 
             // Configuration, themes, and styling.
@@ -95,6 +121,41 @@ namespace AccessibleTrader.BlazorClient
 
         private static IServiceCollection AddDataPipeline(this IServiceCollection services)
         {
+            // Plugin trust policy: load a manifest of approved plugin DLL hashes
+            // from the app base directory (ships alongside the binary, generated
+            // by the GeneratePluginTrustManifest MSBuild target in the BlazorClient
+            // csproj). RequireTrusted defaults to TRUE — unverified DLLs are
+            // refused, which is the shipping-default from phase 4 Track A.
+            //
+            // Escape hatches:
+            //   ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1 — disables enforcement
+            //       at runtime. Intended for developers hand-dropping a new plugin
+            //       into Plugins/ before the manifest has been regenerated. Leaves
+            //       a loud warning in the log for every unverified DLL loaded.
+            //   ACCESSIBLETRADER_REQUIRE_TRUSTED_PLUGINS=1 — kept for back-compat
+            //       with phase-2/3 deploys that set it explicitly. Now redundant
+            //       since the default is already enforcing.
+            services.AddSingleton(sp =>
+            {
+                var policy = new PluginTrustPolicy { RequireTrusted = true };
+                try
+                {
+                    var baseDir = AppContext.BaseDirectory;
+                    var manifestPath = System.IO.Path.Combine(baseDir, "plugins_trusted.manifest");
+                    policy.LoadManifest(manifestPath);
+                }
+                catch { /* best-effort: a missing/unreadable manifest leaves the policy enforcing an empty allow-list, which refuses every plugin — exactly what we want when the manifest is supposed to be there but isn't */ }
+
+                var envAllow = System.Environment.GetEnvironmentVariable("ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS");
+                if (!string.IsNullOrEmpty(envAllow)
+                    && (envAllow.Equals("1", StringComparison.Ordinal)
+                     || envAllow.Equals("true", StringComparison.OrdinalIgnoreCase)))
+                {
+                    policy.RequireTrusted = false;
+                }
+                return policy;
+            });
+
             // Plugin loader discovers provider assemblies from the Plugins/ directory.
             services.AddSingleton<IPluginLoaderService, PluginLoaderService>();
 
@@ -259,7 +320,19 @@ namespace AccessibleTrader.BlazorClient
             // spec marked IsAutoActivate with the engine. Eagerly resolved via MainLayout.
             services.AddSingleton<StrategyAutoLoader>();
             services.AddSingleton<ScriptingService>();
-            services.AddSingleton<IRoslynScriptingService, RoslynScriptingService>();
+
+            // Script-worker launcher is registered separately so per-platform
+            // launchers (e.g. AndroidIsolatedProcessLauncher from
+            // Platforms/Android/) can override it via a later registration.
+            // Core's default picks the appropriate launcher for Windows
+            // AppContainer / macOS sandbox-exec / plain desktop — MAUI
+            // Android replaces this binding at startup.
+            services.AddSingleton<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(_ =>
+                RoslynScriptingService.CreateDefaultLauncher());
+            services.AddSingleton<IRoslynScriptingService>(sp =>
+                new RoslynScriptingService(
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(),
+                    RoslynScriptingService.DefaultWorkerPathResolver));
 
             // Analysis — candle pattern recogniser and indicator context facts.
             services.AddSingleton<CandlePatternThresholds>();

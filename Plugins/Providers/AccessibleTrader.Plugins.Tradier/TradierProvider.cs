@@ -74,8 +74,22 @@ namespace AccessibleTrader.Plugins.Tradier
 
         public TradierProvider()
         {
-            _httpClient = new HttpClient();
-            _streamClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+            // Phase 4 Track B2 — allow-listed to the three Tradier hosts
+            // (production REST + streaming + sandbox). Streaming client
+            // keeps its infinite timeout; regular client uses the factory
+            // default 60 s.
+            var hosts = new[]
+            {
+                "api.tradier.com",
+                "stream.tradier.com",
+                "sandbox.tradier.com",
+            };
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId: "Tradier", allowedHosts: hosts);
+            _streamClient = PluginHostServices.CreateHttpClient(
+                providerId: "Tradier.Stream",
+                allowedHosts: hosts,
+                timeout: Timeout.InfiniteTimeSpan);
         }
 
         public override T? GetCapability<T>() where T : class

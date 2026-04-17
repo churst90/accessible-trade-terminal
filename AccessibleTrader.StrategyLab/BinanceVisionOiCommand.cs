@@ -33,12 +33,22 @@ public static class BinanceVisionOiCommand
     private const string BaseUrl = "https://data.binance.vision/data/futures/um/daily/metrics";
     private const int Concurrency = 8;
 
+    // Caps mirror the plugin's BinanceVisionProvider so a compromised CDN /
+    // DNS-hijacked endpoint can't OOM the lab harness with a zip bomb either.
+    // Daily metrics archives are <1 MB compressed / <10 MB expanded in practice.
+    private const int MaxArchiveBytes       = 64 * 1024 * 1024;
+    private const long MaxUncompressedBytes = 256 * 1024 * 1024;
+
     private static readonly Dictionary<string, DateTime> SymbolStartDates = new()
     {
-        ["BTCUSDT"] = new DateTime(2020, 11, 1),
-        ["ETHUSDT"] = new DateTime(2020, 11, 1),
-        ["XRPUSDT"] = new DateTime(2020, 11, 1),
-        ["SOLUSDT"] = new DateTime(2020, 11, 1),
+        ["BTCUSDT"]  = new DateTime(2020, 11, 1),
+        ["ETHUSDT"]  = new DateTime(2020, 11, 1),
+        ["XRPUSDT"]  = new DateTime(2020, 11, 1),
+        ["SOLUSDT"]  = new DateTime(2020, 11, 1),
+        ["DOGEUSDT"] = new DateTime(2020, 11, 1),
+        ["ADAUSDT"]  = new DateTime(2020, 11, 1),
+        ["LTCUSDT"]  = new DateTime(2020, 11, 1),
+        ["BNBUSDT"]  = new DateTime(2020, 11, 1),
     };
 
     public static async Task<int> RunAsync(string outputDir, string[] symbols)
@@ -46,7 +56,8 @@ public static class BinanceVisionOiCommand
         Directory.CreateDirectory(outputDir);
         using var http = new HttpClient(new HttpClientHandler { MaxConnectionsPerServer = 16 })
         {
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(30),
+            MaxResponseContentBufferSize = MaxArchiveBytes,
         };
         http.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader-StrategyLab/1.0");
 
@@ -150,8 +161,13 @@ public static class BinanceVisionOiCommand
             using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
             foreach (var entry in zip.Entries)
             {
+                if (entry.FullName.Contains("..", StringComparison.Ordinal)
+                    || entry.FullName.Contains(":", StringComparison.Ordinal))
+                    continue;
                 if (!entry.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) continue;
-                using var stream = entry.Open();
+                if (entry.Length > MaxUncompressedBytes) continue;
+                using var rawStream = entry.Open();
+                using var stream = new BoundedStream(rawStream, MaxUncompressedBytes);
                 using var reader = new StreamReader(stream, Encoding.UTF8);
                 reader.ReadLine(); // header
                 string? lastDataLine = null;
@@ -173,5 +189,31 @@ public static class BinanceVisionOiCommand
         }
         catch { }
         return (null, null);
+    }
+
+    /// <summary>Wraps a stream and throws if total read bytes exceed a cap — defuses zip bombs.</summary>
+    private sealed class BoundedStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly long _max;
+        private long _read;
+        public BoundedStream(Stream inner, long max) { _inner = inner; _max = max; }
+        public override bool CanRead  => _inner.CanRead;
+        public override bool CanSeek  => false;
+        public override bool CanWrite => false;
+        public override long Length   => throw new NotSupportedException();
+        public override long Position { get => _read; set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            int n = _inner.Read(buffer, offset, count);
+            _read += n;
+            if (_read > _max) throw new InvalidDataException($"Decompressed stream exceeded {_max} bytes (possible zip bomb).");
+            return n;
+        }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value)                 => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing) { if (disposing) _inner.Dispose(); base.Dispose(disposing); }
     }
 }

@@ -63,21 +63,21 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // Same source requests as the underlying indicators — sharing them via the cache
         // means CrowdingIndex never makes a redundant fetch even if it loads before the
-        // FundingRate/OpenInterest indicators, AND benefits from the funding walk-back
-        // pagination set up there.
+        // FundingRate/OpenInterest indicators. Uses BinanceVision for deep multi-year
+        // history (the only free source since Coinglass/CryptoQuant monetized in 2025).
         private static readonly CrossSeriesRequest FundingRequest = new(
             Market: "Derivatives",
-            Provider: "OkxDerivatives",
-            Symbol: "BTC-USDT-SWAP_FUNDING",
-            Timeframe: "1h",
+            Provider: "BinanceVision",
+            Symbol: "BTCUSDT_FUNDING",
+            Timeframe: "8h",
             MaxPages: 10);
 
         private static readonly CrossSeriesRequest OiRequest = new(
             Market: "Derivatives",
-            Provider: "OkxDerivatives",
-            Symbol: "BTC-USDT-SWAP_OI",
-            Timeframe: "1h",
-            MaxPages: 1);
+            Provider: "BinanceVision",
+            Symbol: "BTCUSDT_OI",
+            Timeframe: "1d",
+            MaxPages: 10);
 
         private readonly ICrossSeriesCache _xs;
 

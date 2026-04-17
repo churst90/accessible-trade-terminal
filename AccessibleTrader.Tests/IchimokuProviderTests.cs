@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -48,13 +49,82 @@ namespace AccessibleTrader.Tests
             return (rd, buf);
         }
 
-        // ── 1. Component count ────────────────────────────────────────────────
+        // ── 1. Component contract ─────────────────────────────────────────────
+        //
+        // The Ichimoku provider declares 8 components: the classical 5-line
+        // Ichimoku spec (Tenkan, Kijun, Senkou A/B, Chikou) plus 3 additions
+        // that layer on top (a hidden Kumo-polarity strategy leaf and two
+        // confirmed-cross marker dots). Rather than assert "Components.Count
+        // equals N" — which tells you nothing when it regresses and has to be
+        // bumped every time a helper is added — these tests encode the actual
+        // contract by name so a failure identifies *which* piece broke.
 
-        [Fact]
-        public void GetMetadata_Returns5Components()
+        private static IndicatorComponentMetadata GetComponent(string name)
         {
             var meta = Provider.GetIndicators()[0];
-            Assert.Equal(5, meta.Components.Count);
+            var comp = meta.Components.FirstOrDefault(c => c.Name == name);
+            Assert.True(comp != null, $"Expected component '{name}' in Ichimoku metadata.");
+            return comp!;
+        }
+
+        [Fact]
+        public void Components_ContainClassicalFiveLines()
+        {
+            // Every classical Ichimoku line must be present, rendered as a
+            // Line, and visible by default — they are the indicator's headline.
+            string[] classical =
+            {
+                IchimokuProvider.CompTenkan,
+                IchimokuProvider.CompKijun,
+                IchimokuProvider.CompSenkouA,
+                IchimokuProvider.CompSenkouB,
+                IchimokuProvider.CompChikou,
+            };
+            foreach (var name in classical)
+            {
+                var c = GetComponent(name);
+                Assert.Equal(ComponentDisplayType.Line, c.DisplayType);
+                Assert.True(c.IsVisible, $"{name} must be visible by default.");
+            }
+        }
+
+        [Fact]
+        public void Components_ExposeHiddenKumoPolarityHelper()
+        {
+            // Kumo Polarity is a strategy-composer helper (+1 / 0 / -1) — it
+            // is intentionally hidden from the chart and has a zero reference
+            // level so strategies can gate on it via a simple threshold leaf.
+            var c = GetComponent(IchimokuProvider.CompKumoPolarity);
+            Assert.False(c.IsVisible, "Kumo Polarity must be hidden — it's a strategy leaf, not a chart line.");
+            Assert.Equal(0.0, c.DefaultReferenceLevel);
+        }
+
+        [Fact]
+        public void Components_ExposeVisibleTkCrossMarkers()
+        {
+            // TK Bull / TK Bear are 2-bar-confirmed crossover dots. They must
+            // be visible (the user wants to see and hear them) and must carry
+            // distinct base frequencies so sonification differentiates the two.
+            var bull = GetComponent(IchimokuProvider.CompTkBull);
+            var bear = GetComponent(IchimokuProvider.CompTkBear);
+
+            Assert.Equal(ComponentDisplayType.Dot, bull.DisplayType);
+            Assert.Equal(ComponentDisplayType.Dot, bear.DisplayType);
+            Assert.True(bull.IsVisible, "TK Bull must be visible by default.");
+            Assert.True(bear.IsVisible, "TK Bear must be visible by default.");
+            Assert.NotEqual(bull.DefaultBaseFrequency, bear.DefaultBaseFrequency);
+        }
+
+        [Fact]
+        public void Components_CountMatchesDeclaredContract()
+        {
+            // Sentinel: the three Components_* tests above pin the 5 classical
+            // + 1 hidden helper + 2 markers = 8. If someone adds a ninth
+            // component, this assertion catches it and forces them to add a
+            // targeted test for the new component (documenting its intent)
+            // rather than silently growing the metadata.
+            var meta = Provider.GetIndicators()[0];
+            Assert.Equal(8, meta.Components.Count);
         }
 
         // ── 2. Cloud fill structure ────────────────────────────────────────────

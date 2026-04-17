@@ -85,6 +85,27 @@
     <ItemGroup>
       <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
       <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
+      <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+      <!--
+        Reference the script worker project so it builds before the host,
+        but do NOT link its assembly into the host (ReferenceOutputAssembly
+        false). The CopyScriptWorker target below copies its bin/$(Config)
+        output next to the host binary at build time so
+        DefaultProcessLauncher can spawn it from AppContext.BaseDirectory.
+
+        ONLY included on desktop-class TFMs (Windows / macCatalyst).
+        - Android hosts the worker inside the in-APK ScriptWorkerService
+          class with android:isolatedProcess="true" — no external exe to copy.
+        - iOS refuses script compilation entirely (see CustomScriptsModal.razor).
+        - Referencing a non-self-contained exe from a self-contained mobile
+          target fails NETSDK1150; the TFM guard below skips the reference
+          on those targets.
+      -->
+      <ProjectReference Include="..\AccessibleTrader.ScriptWorker\AccessibleTrader.ScriptWorker.csproj"
+                         Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' or '$(TargetFramework)' == 'net10.0'">
+        <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+        <Private>false</Private>
+      </ProjectReference>
       <!-- Providers (tradeable market data) -->
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Binance\AccessibleTrader.Plugins.Binance.csproj" />
@@ -102,6 +123,7 @@
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceVision\AccessibleTrader.Plugins.BinanceVision.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />
@@ -111,5 +133,120 @@
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Mempool\AccessibleTrader.Plugins.Mempool.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
     </ItemGroup>
+
+    <!--
+        Plugin trust manifest generation.
+
+        After every build (Debug + Release), walk OutDir for
+        AccessibleTrader.Plugins.*.dll files, hash each with SHA-256, and emit
+        plugins_trusted.manifest into OutDir so PluginTrustPolicy picks it up
+        at app startup. Running on every config means the dev workflow stays
+        in sync with the shipping default RequireTrusted=true — otherwise a
+        local Debug run would silently block every plugin.
+
+        Runs via an inline task written in C#. No external scripts required,
+        so the same csproj builds cleanly on Windows, Linux, and macOS CI.
+    -->
+    <UsingTask TaskName="HashPluginDlls"
+               TaskFactory="RoslynCodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <PluginsDir ParameterType="System.String" Required="true" />
+            <ManifestPath ParameterType="System.String" Required="true" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System" />
+            <Using Namespace="System.IO" />
+            <Using Namespace="System.Linq" />
+            <Using Namespace="System.Security.Cryptography" />
+            <Using Namespace="System.Text" />
+            <Code Type="Fragment" Language="cs">
+                <![CDATA[
+                if (!Directory.Exists(PluginsDir))
+                {
+                    Log.LogMessage(MessageImportance.Normal, $"Plugins dir {PluginsDir} not found — skipping manifest generation.");
+                    return true;
+                }
+
+                var dlls = Directory
+                    .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
+                    .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
+                    .Select(p => new { Path = p, Name = Path.GetFileName(p) })
+                    .GroupBy(x => x.Name)
+                    .Select(g => g.First())
+                    .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (dlls.Count == 0)
+                {
+                    Log.LogMessage(MessageImportance.Normal, $"No AccessibleTrader.Plugins.*.dll found under {PluginsDir} — skipping manifest generation.");
+                    return true;
+                }
+
+                var sb = new StringBuilder();
+                sb.AppendLine("# AccessibleTrader plugin trust manifest");
+                sb.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
+                sb.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
+                sb.AppendLine("# Generated automatically by the BlazorClient Release build target.");
+                sb.AppendLine();
+
+                // SHA256.HashData(stream) is .NET 5+ and isn't available inside
+                // the RoslynCodeTaskFactory host on some build SDKs. Use the
+                // broadly-compatible Create()+ComputeHash() pair instead so the
+                // task compiles under every supported MSBuild runtime.
+                using (var sha = SHA256.Create())
+                {
+                    foreach (var dll in dlls)
+                    {
+                        byte[] hash;
+                        using (var fs = File.OpenRead(dll.Path))
+                            hash = sha.ComputeHash(fs);
+                        var hex = BitConverter.ToString(hash).Replace("-", "");
+                        sb.Append(hex).Append("  # ").AppendLine(dll.Name);
+                    }
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(ManifestPath));
+                File.WriteAllText(ManifestPath, sb.ToString());
+                Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {ManifestPath}");
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+    <Target Name="GeneratePluginTrustManifest"
+            AfterTargets="Build"
+            Condition=" '$(OutDir)' != '' ">
+        <HashPluginDlls
+            PluginsDir="$(OutDir)"
+            ManifestPath="$(OutDir)plugins_trusted.manifest" />
+    </Target>
+
+    <!--
+        Copy the built ScriptWorker output next to the host binary so
+        RoslynScriptingService's DefaultWorkerPathResolver finds the exe at
+        AppContext.BaseDirectory. The ScriptWorker targets plain net10.0 so
+        the source directory is deterministic across MAUI multi-target
+        configurations; we copy the whole net10.0 output so deps and
+        runtimeconfig.json come along.
+
+        Only runs on desktop-class TFMs that actually reference the worker.
+        Android / iOS don't use an external exe (see ProjectReference comment
+        above); running the copy there would fail with "source files not
+        found" anyway since the ProjectReference guard skips the worker's
+        build dependency on those targets.
+    -->
+    <Target Name="CopyScriptWorker"
+            AfterTargets="Build"
+            BeforeTargets="GeneratePluginTrustManifest"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' or '$(TargetFramework)' == 'net10.0'">
+        <ItemGroup>
+            <ScriptWorkerFiles Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(ScriptWorkerFiles)"
+              DestinationFolder="$(OutDir)%(RecursiveDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(ScriptWorkerFiles)' != '' " />
+    </Target>
 
 </Project>

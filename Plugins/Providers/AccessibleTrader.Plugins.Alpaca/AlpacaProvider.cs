@@ -74,7 +74,19 @@ namespace AccessibleTrader.Plugins.Alpaca
 
         public AlpacaProvider()
         {
-            _httpClient = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to Alpaca's REST hosts only.
+            // data.alpaca.markets covers both stock + crypto data; api.alpaca.markets
+            // is the live trading REST endpoint; paper-api.alpaca.markets is the
+            // paper-trading REST endpoint. stream.data.alpaca.markets (WS) and
+            // the two WS trading endpoints use ReconnectingWebSocket.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Alpaca",
+                allowedHosts: new[]
+                {
+                    "data.alpaca.markets",
+                    "api.alpaca.markets",
+                    "paper-api.alpaca.markets",
+                });
         }
 
         public override T? GetCapability<T>() where T : class
@@ -93,12 +105,43 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (config.TryGetValue("Environment", out var env) && env == "Live")
                 _tradingBaseUrl = "https://api.alpaca.markets/v2";
 
-            if (IsConfigured)
+            // NOTE: phase 4 Track B removed the DefaultRequestHeaders injection
+            // that used to live here. Headers are now applied per-request via
+            // ApplyAlpacaHeadersAsync which does a sign-time credential
+            // checkout. Configure still populates _apiKey / _apiSecret so the
+            // no-host-bridge fallback path (unit tests / CLI) continues to work.
+        }
+
+        // Sign-time credential checkout (phase 4 Track B). Prefers the
+        // PluginHostServices.ApiKeys bridge; falls back to Configure-populated
+        // fields so unit tests / CLI runs continue to work.
+        private async Task<(string Key, string Secret)> CheckoutAlpacaCredentialsAsync()
+        {
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
             {
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", _apiKey);
-                _httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", _apiSecret);
+                var checkout = await host.CheckoutAsync("Alpaca").ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new InvalidOperationException("Alpaca: no active API key configured.");
+                return (checkout.Key, checkout.Secret);
             }
+
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
+                throw new InvalidOperationException("Alpaca: no API credentials configured.");
+            return (_apiKey!, _apiSecret!);
+        }
+
+        // Applies APCA-API-KEY-ID / APCA-API-SECRET-KEY headers to the shared
+        // _httpClient from a fresh checkout. The rate limiter serializes REST
+        // calls so DefaultRequestHeaders mutation is safe within the current
+        // usage pattern.
+        private async Task ApplyAlpacaHeadersAsync()
+        {
+            var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
+            _httpClient.DefaultRequestHeaders.Remove("APCA-API-KEY-ID");
+            _httpClient.DefaultRequestHeaders.Remove("APCA-API-SECRET-KEY");
+            _httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKey);
+            _httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecret);
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
@@ -106,6 +149,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
+                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                 var response = await _httpClient.GetAsync($"{_tradingBaseUrl}/account");
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
@@ -142,8 +186,17 @@ namespace AccessibleTrader.Plugins.Alpaca
             _dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
-                    var auth = new JObject { ["action"] = "auth", ["key"] = _apiKey, ["secret"] = _apiSecret };
-                    await ws.SendAsync(auth.ToString());
+                    try
+                    {
+                        var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
+                        var auth = new JObject { ["action"] = "auth", ["key"] = apiKey, ["secret"] = apiSecret };
+                        await ws.SendAsync(auth.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        _errorStream.OnNext($"Alpaca data WS auth failed: {ex.Message}");
+                        return;
+                    }
                     // Small delay to allow auth to process
                     await Task.Delay(500);
                     var sub = new JObject { ["action"] = "subscribe", ["bars"] = new JArray { cleanSymbol } };
@@ -199,12 +252,21 @@ namespace AccessibleTrader.Plugins.Alpaca
             _tradeWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
-                    var auth = new JObject
+                    try
                     {
-                        ["action"] = "authenticate",
-                        ["data"]   = new JObject { ["key_id"] = _apiKey, ["secret_key"] = _apiSecret }
-                    };
-                    await ws.SendAsync(auth.ToString());
+                        var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
+                        var auth = new JObject
+                        {
+                            ["action"] = "authenticate",
+                            ["data"]   = new JObject { ["key_id"] = apiKey, ["secret_key"] = apiSecret }
+                        };
+                        await ws.SendAsync(auth.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        _errorStream.OnNext($"Alpaca trade WS auth failed: {ex.Message}");
+                        return;
+                    }
                     await Task.Delay(500);
                     var listen = new JObject
                     {
@@ -262,6 +324,13 @@ namespace AccessibleTrader.Plugins.Alpaca
             _currentSymbol    = null;
             _currentTimeframe = null;
             _currentMarket    = null;
+
+            // Drop references to the API key/secret so a crash dump after
+            // disconnect can't recover them.
+            ScrubCredentials(
+                () => _apiKey = null,
+                () => _apiSecret = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -284,6 +353,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
                     JArray? bars = isCrypto ? json["bars"]?[symbol] as JArray : json["bars"] as JArray;
@@ -313,9 +383,10 @@ namespace AccessibleTrader.Plugins.Alpaca
                         ? "https://api.alpaca.markets/v2/assets?asset_class=crypto&status=active"
                         : "https://api.alpaca.markets/v2/assets?asset_class=us_equity&status=active&tradable=true";
 
+                    var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
                     var req = new HttpRequestMessage(HttpMethod.Get, url);
-                    req.Headers.Add("APCA-API-KEY-ID",     _apiKey);
-                    req.Headers.Add("APCA-API-SECRET-KEY", _apiSecret);
+                    req.Headers.Add("APCA-API-KEY-ID",     apiKey);
+                    req.Headers.Add("APCA-API-SECRET-KEY", apiSecret);
 
                     var response = await _httpClient.SendAsync(req);
                     response.EnsureSuccessStatusCode();
@@ -347,6 +418,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     if (isCrypto)
                     {
                         string url = $"{CryptoDataUrl}/us/orderbooks?symbols={cleanSymbol}";
@@ -405,6 +477,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
                     var json = JObject.Parse(response);
                     double equity      = json["equity"]?.Value<double>() ?? 0;
@@ -427,6 +500,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
                     var arr = JArray.Parse(response);
                     return arr.Select(p => new Position(
@@ -450,6 +524,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                 {
                     string url = $"{_tradingBaseUrl}/orders?status=open";
                     if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync(url);
                     var arr = JArray.Parse(response);
                     return arr.Select(o => new OpenOrder(
@@ -519,6 +594,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         body["client_order_id"] = signal.ClientOid;
 
                     var content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.PostAsync($"{_tradingBaseUrl}/orders", content);
                     var responseStr = await response.Content.ReadAsStringAsync();
                     if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{responseStr}";
@@ -535,7 +611,10 @@ namespace AccessibleTrader.Plugins.Alpaca
             try
             {
                 var response = await _rateLimiter.ExecuteAsync(async () =>
-                    await _httpClient.DeleteAsync($"{_tradingBaseUrl}/orders/{orderId}"));
+                {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                    return await _httpClient.DeleteAsync($"{_tradingBaseUrl}/orders/{orderId}");
+                });
                 return response.IsSuccessStatusCode;
             }
             catch { return false; }

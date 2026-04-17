@@ -65,7 +65,12 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         public CoinbaseProvider()
         {
-            _httpClient = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to api.coinbase.com only.
+            // The advanced-trade-ws.coinbase.com WS endpoint uses
+            // ReconnectingWebSocket, not this HttpClient.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Coinbase",
+                allowedHosts: new[] { "api.coinbase.com" });
         }
 
         public override T? GetCapability<T>() where T : class
@@ -88,7 +93,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             try
             {
                 string path = "/api/v3/brokerage/accounts";
-                AddAuthHeaders("GET", path);
+                await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                 var response = await _httpClient.GetAsync($"https://api.coinbase.com{path}");
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
@@ -125,7 +130,18 @@ namespace AccessibleTrader.Plugins.Coinbase
                 reconnectBaseDelay: TimeSpan.FromSeconds(3))
                 .OnConnected(async ws =>
                 {
-                    var jwt = GenerateJwt("GET", "advanced-trade-ws.coinbase.com");
+                    string jwt;
+                    try
+                    {
+                        var (apiKey, apiSecret) = await CheckoutCoinbaseCredentialsAsync().ConfigureAwait(false);
+                        jwt = GenerateJwt(apiKey, apiSecret, "GET", "advanced-trade-ws.coinbase.com");
+                    }
+                    catch
+                    {
+                        // Checkout failed — WS will still connect but private
+                        // channels will be rejected server-side. Surface once.
+                        jwt = string.Empty;
+                    }
 
                     var subMsg = new JObject
                     {
@@ -285,6 +301,13 @@ namespace AccessibleTrader.Plugins.Coinbase
             }
             _currentSymbol    = null;
             _currentTimeframe = null;
+
+            // Drop references to the JWT-signing PEM private key so a crash
+            // dump after disconnect can't recover the key material.
+            ScrubCredentials(
+                () => _apiKey = null,
+                () => _apiSecret = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -306,7 +329,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    AddAuthHeaders("GET", path);
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync(url);
                     var json     = JObject.Parse(response);
                     var candles  = json["candles"] as JArray;
@@ -345,7 +368,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/products";
-                    AddAuthHeaders("GET", path);
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
                     var json     = JObject.Parse(response);
                     var products = json["products"] as JArray;
@@ -372,7 +395,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 {
                     var cleanSymbol = symbol.Replace("/", "-").ToUpper();
                     string path = "/api/v3/brokerage/product_book";
-                    AddAuthHeaders("GET", path);
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}?product_id={cleanSymbol}&limit={limit}");
                     var book = JObject.Parse(response)["pricebook"];
                     var bids = (book?["bids"] as JArray)?.Select(b => new OrderBookEntry(
@@ -407,7 +430,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/accounts";
-                    AddAuthHeaders("GET", path);
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
                     var json     = JObject.Parse(response);
                     var accounts = json["accounts"] as JArray;
@@ -440,7 +463,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     if (!string.IsNullOrEmpty(symbol))
                         query += $"&product_id={symbol.Replace("/", "-").ToUpper()}";
 
-                    AddAuthHeaders("GET", path);
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}{query}");
                     var json     = JObject.Parse(response);
                     var orders   = json["orders"] as JArray;
@@ -527,7 +550,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     };
 
                     string path = "/api/v3/brokerage/orders";
-                    AddAuthHeaders("POST", path);
+                    await AddAuthHeadersAsync("POST", path).ConfigureAwait(false);
                     var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
                     var response = await _httpClient.PostAsync($"https://api.coinbase.com{path}", content);
                     var respStr  = await response.Content.ReadAsStringAsync();
@@ -546,7 +569,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 var body     = new JObject { ["order_ids"] = new JArray { orderId } };
                 string path = "/api/v3/brokerage/orders/batch_cancel";
-                AddAuthHeaders("POST", path);
+                await AddAuthHeadersAsync("POST", path).ConfigureAwait(false);
                 var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
                 var response = await _httpClient.PostAsync($"https://api.coinbase.com{path}", content);
                 return response.IsSuccessStatusCode;
@@ -556,23 +579,45 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
 
-        // ── Auth helpers ��────────────────────────────────────────────────────
+        // ── Auth helpers ─────────────────────────────────────────────────────
 
-        private void AddAuthHeaders(string method, string requestPath)
+        // Sign-time credential checkout (phase 4 Track B). Prefers the
+        // PluginHostServices.ApiKeys bridge; falls back to Configure-populated
+        // fields so unit tests and CLI runs still work.
+        private async Task<(string Key, string Secret)> CheckoutCoinbaseCredentialsAsync()
+        {
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
+            {
+                var checkout = await host.CheckoutAsync("Coinbase").ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new InvalidOperationException("Coinbase: no active API key configured.");
+                return (checkout.Key, checkout.Secret);
+            }
+
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
+                throw new InvalidOperationException("Coinbase: no API credentials configured.");
+            return (_apiKey!, _apiSecret!);
+        }
+
+        private async Task AddAuthHeadersAsync(string method, string requestPath)
         {
             _httpClient.DefaultRequestHeaders.Remove("Authorization");
-            if (!string.IsNullOrEmpty(_apiKey) && !string.IsNullOrEmpty(_apiSecret))
+            try
             {
-                var jwt = GenerateJwt(method, requestPath);
+                var (apiKey, apiSecret) = await CheckoutCoinbaseCredentialsAsync().ConfigureAwait(false);
+                var jwt = GenerateJwt(apiKey, apiSecret, method, requestPath);
                 _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bearer {jwt}");
+            }
+            catch
+            {
+                // Leave the Authorization header absent; the subsequent request
+                // will fail and propagate the error through its own catch.
             }
         }
 
-        private string GenerateJwt(string method, string requestPath)
+        private string GenerateJwt(string apiKey, string apiSecret, string method, string requestPath)
         {
-            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
-                return string.Empty;
-
             var cleanPath = requestPath.StartsWith("/") ? requestPath : "/" + requestPath;
             if (!cleanPath.Contains("api.coinbase.com"))
                 cleanPath = "api.coinbase.com" + cleanPath;
@@ -584,7 +629,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             using var ecdsa = System.Security.Cryptography.ECDsa.Create();
             try
             {
-                ecdsa.ImportFromPem(_apiSecret);
+                ecdsa.ImportFromPem(apiSecret);
             }
             catch (Exception ex)
             {
@@ -592,7 +637,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return "AUTH_ERROR";
             }
 
-            var key = new Microsoft.IdentityModel.Tokens.ECDsaSecurityKey(ecdsa) { KeyId = _apiKey };
+            var key = new Microsoft.IdentityModel.Tokens.ECDsaSecurityKey(ecdsa) { KeyId = apiKey };
             var credentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha256);
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -601,7 +646,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 audience: "cdp_service",
                 claims: new[]
                 {
-                    new System.Security.Claims.Claim("sub", _apiKey),
+                    new System.Security.Claims.Claim("sub", apiKey),
                     new System.Security.Claims.Claim("iss", "cdp"),
                     new System.Security.Claims.Claim("nbf", now.ToString()),
                     new System.Security.Claims.Claim("exp", (now + 120).ToString()),
@@ -609,7 +654,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 },
                 signingCredentials: credentials);
 
-            jwt.Header["kid"] = _apiKey;
+            jwt.Header["kid"] = apiKey;
             jwt.Header.Remove("typ");
 
             return handler.WriteToken(jwt);

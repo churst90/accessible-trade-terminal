@@ -510,7 +510,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (_lastCloudPosition.TryGetValue(cloudKey, out var prev) && prev != position)
                 {
                     string displayName = !string.IsNullOrEmpty(comp.DisplayName) ? comp.DisplayName : comp.Name;
-                    string msg = (prev, position) switch
+                    string? msg = (prev, position) switch
                     {
                         (_, "inside") => $"{series.FriendlyName}: Price entered {displayName}.",
                         ("inside", _) => $"{series.FriendlyName}: Price exited {displayName}.",

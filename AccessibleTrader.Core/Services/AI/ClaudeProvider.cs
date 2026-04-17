@@ -27,7 +27,11 @@ public sealed class ClaudeProvider : ILLMProvider
         string systemPrompt, string userMessage, string? imageBase64,
         string apiKey, CancellationToken ct = default)
     {
-        using var http = new HttpClient();
+        // Phase 4 Track B2 — allow-listed to api.anthropic.com.
+        using var http = AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+            providerId:   "Claude",
+            allowedHosts: new[] { "api.anthropic.com" },
+            timeout:      TimeSpan.FromSeconds(120));
         http.DefaultRequestHeaders.Add("x-api-key", apiKey);
         http.DefaultRequestHeaders.Add("anthropic-version", ApiVersion);
 

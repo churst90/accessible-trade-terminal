@@ -21,6 +21,17 @@
   <ItemGroup>
     <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+    <!--
+      Build the ScriptWorker before the tests so the roundtrip integration
+      test can spawn it. Don't link the worker assembly into the test; we
+      just want it on disk at bin/$(Config)/net10.0 for the test to
+      Process.Start. ReferenceOutputAssembly=false keeps the linker happy.
+    -->
+    <ProjectReference Include="..\AccessibleTrader.ScriptWorker\AccessibleTrader.ScriptWorker.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

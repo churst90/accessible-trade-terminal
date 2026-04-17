@@ -45,7 +45,13 @@ namespace AccessibleTrader.Plugins.OkxDerivatives
     /// </summary>
     public class OkxDerivativesProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB response cap, 60 s timeout, and an
+        // outbound-host allow-list enforced by the DelegatingHandler in
+        // MauiPluginHttpClientFactory.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "OkxDerivatives",
+            allowedHosts: new[] { "www.okx.com" });
+
         private readonly RateLimiter _rateLimiter = new(300, TimeSpan.FromMinutes(1));
 
         // Default symbol catalogue. Users can request any OKX perpetual swap by adding the

@@ -37,15 +37,17 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompOiSpike      = "OI Spike";
         public const string CompOiDivergence = "OI Divergence";
 
-        // OKX rubik OI history is hard-capped (~720 bars on 1H, less on finer periods) and
-        // returns "Illegal time range" outside its window — walk-back pagination yields no
-        // additional data, so we keep MaxPages=1.
+        // BinanceVision daily metrics archive gives multi-year OI history for free.
+        // 1d cadence is native — each ZIP is one day's 5-min samples, and the
+        // BinanceVision plugin pulls the EOD value out of each file. MaxPages=10
+        // is unused here since the plugin returns the full history in one call,
+        // but left at 10 for consistency with the funding request.
         private static readonly CrossSeriesRequest OiRequest = new(
             Market: "Derivatives",
-            Provider: "OkxDerivatives",
-            Symbol: "BTC-USDT-SWAP_OI",
-            Timeframe: "1h",
-            MaxPages: 1);
+            Provider: "BinanceVision",
+            Symbol: "BTCUSDT_OI",
+            Timeframe: "1d",
+            MaxPages: 10);
 
         private readonly ICrossSeriesCache _xs;
 

@@ -37,7 +37,13 @@ namespace AccessibleTrader.Plugins.DefiLlama
     /// </summary>
     public class DefiLlamaProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient with the standard 32 MB / 60 s policy and
+        // an outbound-host allow-list. DefiLlama splits TVL / stablecoin data
+        // across two subdomains — both must be listed explicitly.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "DefiLlama",
+            allowedHosts: new[] { "api.llama.fi", "stablecoins.llama.fi" });
+
         private readonly RateLimiter _rateLimiter = new(30, TimeSpan.FromMinutes(1));
 
         private const string TvlBase = "https://api.llama.fi";

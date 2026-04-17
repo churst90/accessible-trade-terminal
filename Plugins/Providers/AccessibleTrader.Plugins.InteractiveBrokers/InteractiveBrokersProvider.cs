@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Security;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +33,12 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         // Default gateway URL — user can override via Configure()
         private string _gatewayUrl = "https://localhost:5000/v1/api";
         private string? _accountId;
+
+        // TLS pinning: SHA-256 fingerprint (hex, no colons, case-insensitive) of the
+        // gateway cert the user has approved. Configured via "GatewayCertSha256".
+        // If null, the gateway host must be loopback and the default Windows cert
+        // chain applies — we never blanket-accept arbitrary certs.
+        private string? _pinnedCertSha256;
 
         // Rate limiter: IBKR Client Portal ~50 req/sec
         private readonly RateLimiter _rateLimiter = new(50, TimeSpan.FromSeconds(1));
@@ -81,13 +90,55 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
 
         public InteractiveBrokersProvider()
         {
-            // IBKR Client Portal Gateway uses self-signed certs by default
+            // IBKR Client Portal Gateway commonly uses a self-signed cert. We do NOT
+            // blanket-accept any certificate (that allows MITM on untrusted networks).
+            // Instead: fail closed by default, and allow either (a) trusting the
+            // system chain if the user installed the gateway cert into the OS store,
+            // or (b) pinning a specific SHA-256 fingerprint via "GatewayCertSha256".
             var handler = new HttpClientHandler
             {
-                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                ServerCertificateCustomValidationCallback = ValidateGatewayCertificate
             };
             _httpClient = new HttpClient(handler);
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+            // Cap response size so a compromised/hostile endpoint can't OOM the app
+            // with an unbounded body. IBKR payloads are tiny; 16 MB is a generous cap.
+            _httpClient.MaxResponseContentBufferSize = 16 * 1024 * 1024;
+            _httpClient.Timeout = TimeSpan.FromSeconds(30);
+        }
+
+        private bool ValidateGatewayCertificate(
+            HttpRequestMessage request,
+            X509Certificate2? cert,
+            X509Chain? chain,
+            SslPolicyErrors errors)
+        {
+            // No cert presented — always reject.
+            if (cert == null) return false;
+
+            // If the user pinned a fingerprint, that is the authoritative check.
+            // We do NOT fall back to the system chain when a pin is configured.
+            if (!string.IsNullOrEmpty(_pinnedCertSha256))
+            {
+                var thumb = Convert.ToHexString(SHA256.HashData(cert.RawData));
+                return string.Equals(thumb, _pinnedCertSha256, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // No pin configured: only accept if the cert fully validates AND the
+            // host is a local loopback address. This keeps the default local-only
+            // gateway flow working while refusing MITM on any non-loopback URL.
+            if (errors != SslPolicyErrors.None) return false;
+            if (!IsLoopbackUri(_gatewayUrl)) return false;
+            return true;
+        }
+
+        private static bool IsLoopbackUri(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            return uri.IsLoopback
+                || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || uri.Host == "127.0.0.1"
+                || uri.Host == "::1";
         }
 
         public override T? GetCapability<T>() where T : class
@@ -100,9 +151,42 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public override void Configure(Dictionary<string, string> config)
         {
             if (config.TryGetValue("GatewayUrl", out var url))
-                _gatewayUrl = url.TrimEnd('/');
+            {
+                var trimmed = url.TrimEnd('/');
+                if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var gw))
+                {
+                    _errorStream.OnNext($"IBKR: invalid GatewayUrl '{url}'. Keeping default.");
+                }
+                else if (!string.Equals(gw.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+                {
+                    _errorStream.OnNext("IBKR: GatewayUrl must use https. Keeping default.");
+                }
+                else if (!IsLoopbackUri(trimmed))
+                {
+                    // Non-loopback gateway is refused by default to prevent SSRF and
+                    // the "point it at 169.254.169.254" class of attacks. If this
+                    // ever needs to be relaxed, add an explicit opt-in flag that
+                    // logs the chosen host and requires a matching cert pin.
+                    _errorStream.OnNext(
+                        $"IBKR: GatewayUrl host '{gw.Host}' is not a loopback address. " +
+                        "Non-loopback gateways are disabled. Run the IBKR Client Portal Gateway " +
+                        "locally and use https://localhost:5000/v1/api.");
+                }
+                else
+                {
+                    _gatewayUrl = trimmed;
+                }
+            }
             if (config.TryGetValue("AccountId", out var acct))
                 _accountId = acct;
+            if (config.TryGetValue("GatewayCertSha256", out var pin))
+            {
+                var cleaned = (pin ?? "").Replace(":", "").Replace(" ", "").Trim();
+                // SHA-256 hex is 64 chars. Anything else is a misconfiguration.
+                _pinnedCertSha256 = cleaned.Length == 64 ? cleaned : null;
+                if (!string.IsNullOrEmpty(pin) && _pinnedCertSha256 == null)
+                    _errorStream.OnNext("IBKR: GatewayCertSha256 must be a 64-char hex SHA-256 digest. Pin ignored.");
+            }
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()

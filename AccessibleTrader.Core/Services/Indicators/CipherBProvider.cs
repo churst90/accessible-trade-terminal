@@ -108,8 +108,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompAnchorPolarity = "Anchor Polarity";
         public const string CompAdaptiveOb   = "Adaptive OB";
         public const string CompAdaptiveOs   = "Adaptive OS";
-        public const string CompZoneCeiling  = "Zone Ceiling";
-        public const string CompZoneFloor    = "Zone Floor";
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -258,22 +256,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             SpeechTemplate = "Adaptive oversold. {value:F1}." },
 
-                    // ── Zone ceiling/floor — invisible constant lines used by ────
-                    // CloudFillConfig to render OB/OS background shading. Real MCB
-                    // tints the WT pane background red above +OB and green below
-                    // -OS so you can see at a glance which extreme region price is
-                    // in. These are hidden lines (IsVisible=false) — only the cloud
-                    // fill between them and the OB/OS lines is visible to the user.
-                    new() { Name = CompZoneCeiling,   DisplayName = "Zone Ceiling", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00000000", DefaultThickness = 0.0f, IsVisible = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultReferenceLevel = 0.0,
-                            SpeechTemplate = "" },
-                    new() { Name = CompZoneFloor,     DisplayName = "Zone Floor", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00000000", DefaultThickness = 0.0f, IsVisible = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultReferenceLevel = 0.0,
-                            SpeechTemplate = "" },
+                    // OB/OS zone shading is now declared as fixed-mode ZoneBandConfig
+                    // entries in DefaultZoneBands — no phantom data components.
 
                     // ── Anchor Polarity — +1/0/-1 hidden, strategy-friendly ──
                     new() { Name = CompAnchorPolarity, DisplayName = "Anchor Polarity", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
@@ -384,21 +368,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 DecayMs: 180,
                                 MaxVolume: 0.70f) },
 
-                    // OB zone shading: fill between Zone Ceiling (+100) and Adaptive OB.
-                    // Tinted red band across the WT pane above the OB line, marking
-                    // "we're in extreme overbought territory" at a glance. Alpha
-                    // bumped to 0x50 (~31%) for clearer visibility — the initial
-                    // 0x33 (20%) was too faint to see against the pane background.
-                    new() { UpperComponentName = CompZoneCeiling, LowerComponentName = CompAdaptiveOb,
-                            BullishColorHex = "#50FF6666", BearishColorHex = "#50FF6666",
-                            DisplayName = "OB Zone", IsVisible = true,
-                            Sonification = null },
-
-                    // OS zone shading: fill between Adaptive OS and Zone Floor (-100).
-                    new() { UpperComponentName = CompAdaptiveOs, LowerComponentName = CompZoneFloor,
-                            BullishColorHex = "#5066BB66", BearishColorHex = "#5066BB66",
-                            DisplayName = "OS Zone", IsVisible = true,
-                            Sonification = null },
+                },
+                DefaultZoneBands = new List<ZoneBandConfig>
+                {
+                    // OB/OS background shading — fixed-mode zone bands spanning the full
+                    // viewport between absolute oscillator Y values. Purely visual, no
+                    // data component required. Hard-coded to ±53 / ±100 to match the
+                    // Overbought / Oversold LevelDescriptors in GetDefaultLevels().
+                    new() { DisplayName = "OB Zone", ColorHex = "#40FF6666",
+                            FixedTop = 100.0, FixedBottom = 53.0, IsVisible = true },
+                    new() { DisplayName = "OS Zone", ColorHex = "#4066BB66",
+                            FixedTop = -53.0, FixedBottom = -100.0, IsVisible = true },
                 },
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -984,16 +964,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompAnchorPolarity, ancPol,          n);
             WriteToBuffer(buffer, CompAdaptiveOb,     adaptiveOb,      n);
             WriteToBuffer(buffer, CompAdaptiveOs,     adaptiveOs,      n);
-
-            // Zone ceiling/floor: constant arrays at ±100 used by CloudFillConfig
-            // to draw the OB/OS background shading. They produce no per-bar value
-            // for the user — just feed the cloud renderer.
-            var zoneCeiling = new double[n];
-            var zoneFloor   = new double[n];
-            Array.Fill(zoneCeiling,  100.0);
-            Array.Fill(zoneFloor,   -100.0);
-            WriteToBuffer(buffer, CompZoneCeiling,    zoneCeiling,     n);
-            WriteToBuffer(buffer, CompZoneFloor,      zoneFloor,       n);
             WriteToBuffer(buffer, CompMoneyFlowWave,  mfDisplay,       n);
             WriteToBuffer(buffer, CompCrossBull,      crossBullSignal, n);
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);

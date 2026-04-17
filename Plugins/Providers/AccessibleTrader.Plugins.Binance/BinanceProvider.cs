@@ -91,21 +91,52 @@ namespace AccessibleTrader.Plugins.Binance
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
             if (config.TryGetValue("Testnet",   out var tn))     _isTestnet = tn == "true";
 
-            if (!string.IsNullOrEmpty(_apiKey))
+            // Phase 4 Track B: the authenticated REST client is now built
+            // lazily at first connect via EnsureTradingClientAsync, using a
+            // fresh credential checkout. Configure still populates the
+            // _apiKey / _apiSecret fallback fields so non-bridge callers
+            // (unit tests, CLI) keep working.
+        }
+
+        // Sign-time credential checkout (phase 4 Track B). Prefers the
+        // PluginHostServices.ApiKeys bridge; falls back to Configure-populated
+        // fields for unit tests / CLI runs.
+        private async Task<(string Key, string Secret)> CheckoutBinanceCredentialsAsync()
+        {
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
             {
-                _tradingClient = new BinanceRestClient(opts =>
-                {
-                    opts.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(
-                        _apiKey, _apiSecret ?? "");
-                });
+                var checkout = await host.CheckoutAsync("Binance").ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new InvalidOperationException("Binance: no active API key configured.");
+                return (checkout.Key, checkout.Secret);
             }
+
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
+                throw new InvalidOperationException("Binance: no API credentials configured.");
+            return (_apiKey!, _apiSecret!);
+        }
+
+        // Lazy per-connection-lifecycle trading client. Binance.Net's REST
+        // client holds credentials internally for its lifetime, so we build
+        // it once per connect cycle and dispose it at DisconnectAsync time.
+        private async Task EnsureTradingClientAsync()
+        {
+            if (_tradingClient != null) return;
+            var (apiKey, apiSecret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
+            _tradingClient = new BinanceRestClient(opts =>
+            {
+                opts.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(apiKey, apiSecret);
+            });
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
         {
-            if (string.IsNullOrEmpty(_apiKey)) return (true, "No API key provided (public data only)");
+            if (string.IsNullOrEmpty(_apiKey) && PluginHostServices.ApiKeys == null)
+                return (true, "No API key provided (public data only)");
             try
             {
+                await EnsureTradingClientAsync();
                 var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
                 return result.Success
                     ? (true, "API key validated successfully")
@@ -124,8 +155,21 @@ namespace AccessibleTrader.Plugins.Binance
             _socketClient = new BinanceSocketClient();
             _connectionStateStream.OnNext(ConnectionState.Connected);
 
-            if (!string.IsNullOrEmpty(_apiKey))
-                await StartUserDataStreamAsync();
+            // Start the authenticated trading client + user-data stream only
+            // when we have some source of credentials. Trade ops will build
+            // the client lazily via EnsureTradingClientAsync if called later.
+            if (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null)
+            {
+                try
+                {
+                    await EnsureTradingClientAsync();
+                    await StartUserDataStreamAsync();
+                }
+                catch
+                {
+                    // No creds available — fall through to public-data-only mode.
+                }
+            }
         }
 
         private async Task StartUserDataStreamAsync()
@@ -255,14 +299,27 @@ namespace AccessibleTrader.Plugins.Binance
 
             if (!string.IsNullOrEmpty(_listenKey) && _tradingClient != null)
             {
-                try { await TradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey); }
+                try { await _tradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey); }
                 catch { /* best-effort */ }
             }
             _listenKey = null;
 
+            // Dispose the authenticated client so its internally-held
+            // credentials are released. The public _client stays — it holds
+            // no secrets and is reused across connect cycles.
+            _tradingClient?.Dispose();
+            _tradingClient = null;
+
             _currentSubscription = null;
             _currentSymbol = null;
             _currentTimeframe = null;
+
+            // Drop credential references so a crash dump taken after disconnect
+            // doesn't still root the API key/secret strings.
+            ScrubCredentials(
+                () => _apiKey = null,
+                () => _apiSecret = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -387,6 +444,7 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await EnsureTradingClientAsync();
                     var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
                     if (!result.Success || result.Data == null) return new List<Balance>();
                     return result.Data.Balances
@@ -405,6 +463,7 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await EnsureTradingClientAsync();
                     var result = await TradingClient.UsdFuturesApi.Account.GetPositionInformationAsync();
                     if (!result.Success || result.Data == null) return new List<Position>();
                     return result.Data
@@ -430,6 +489,7 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await EnsureTradingClientAsync();
                     var result = symbol != null
                         ? await TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol))
                         : await TradingClient.SpotApi.Trading.GetOpenOrdersAsync();
@@ -456,6 +516,7 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    await EnsureTradingClientAsync();
                     var symbol = CleanSymbol(signal.Symbol);
                     var side   = signal.Side == OrderSide.Buy
                         ? global::Binance.Net.Enums.OrderSide.Buy
@@ -588,7 +649,10 @@ namespace AccessibleTrader.Plugins.Binance
             try
             {
                 var r = await _rateLimiter.ExecuteAsync(async () =>
-                    await TradingClient.SpotApi.Trading.CancelOrderAsync(CleanSymbol(symbol), long.Parse(orderId)));
+                {
+                    await EnsureTradingClientAsync();
+                    return await TradingClient.SpotApi.Trading.CancelOrderAsync(CleanSymbol(symbol), long.Parse(orderId));
+                });
                 return r.Success;
             }
             catch { return false; }
@@ -599,6 +663,7 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return 1.0;
             try
             {
+                await EnsureTradingClientAsync();
                 int lev = (int)Math.Clamp(leverage, 1, MaxLeverage);
                 var r = await TradingClient.UsdFuturesApi.Account.ChangeInitialLeverageAsync(
                     CleanSymbol(symbol), lev);

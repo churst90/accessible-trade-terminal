@@ -38,7 +38,11 @@ namespace AccessibleTrader.Plugins.CoinGecko
     /// </summary>
     public class CoinGeckoProvider : BaseMarketDataProvider
     {
-        private readonly HttpClient _http = new();
+        // Host-provided HttpClient: 32 MB / 60 s + outbound allow-list.
+        private readonly HttpClient _http = PluginHostServices.CreateHttpClient(
+            providerId: "CoinGecko",
+            allowedHosts: new[] { "api.coingecko.com" });
+
         private readonly RateLimiter _rateLimiter = new(20, TimeSpan.FromMinutes(1));
 
         private const string BaseUrl = "https://api.coingecko.com/api/v3";

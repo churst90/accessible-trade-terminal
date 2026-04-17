@@ -40,7 +40,8 @@ namespace AccessibleTrader.Tests
             var state = WorkspaceState.Initial;
             Assert.Equal(0, state.ActiveTabIndex);
             Assert.Equal(1, state.TabCount);
-            Assert.Empty(state.TabSnapshots);
+            Assert.NotNull(state.TabSnapshots);
+            Assert.Empty(state.TabSnapshots!);
         }
 
         // ── 2. AddTabAction: TabCount increases, new tab is empty ──────────────
@@ -78,7 +79,8 @@ namespace AccessibleTrader.Tests
             var after = ReduceDirectly(btcState, new AddTabAction());
 
             // Old tab (index 0) should now be in TabSnapshots
-            var snap = after.TabSnapshots.FirstOrDefault(t => t.TabIndex == 0);
+            Assert.NotNull(after.TabSnapshots);
+            var snap = after.TabSnapshots!.FirstOrDefault(t => t.TabIndex == 0);
             Assert.NotNull(snap);
             Assert.Equal("BTCUSDT", snap!.Identity.Symbol);
         }
@@ -108,7 +110,8 @@ namespace AccessibleTrader.Tests
             var state2 = ReduceDirectly(state1, new SwitchTabAction(0));
 
             // Tab 1 should now be in snapshots
-            var snap1 = state2.TabSnapshots.FirstOrDefault(t => t.TabIndex == 1);
+            Assert.NotNull(state2.TabSnapshots);
+            var snap1 = state2.TabSnapshots!.FirstOrDefault(t => t.TabIndex == 1);
             Assert.NotNull(snap1);
             Assert.Equal("", snap1!.Identity.Symbol); // Tab 1 was empty
         }
@@ -177,7 +180,8 @@ namespace AccessibleTrader.Tests
 
             // Only 1 tab remains
             Assert.Equal(1, after.TabCount);
-            Assert.Empty(after.TabSnapshots);
+            Assert.NotNull(after.TabSnapshots);
+            Assert.Empty(after.TabSnapshots!);
             Assert.Equal(1, after.ActiveTabIndex); // Tab 1 is still active
         }
 

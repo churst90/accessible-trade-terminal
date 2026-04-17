@@ -26,7 +26,12 @@ public sealed class OpenAIProvider : ILLMProvider
         string systemPrompt, string userMessage, string? imageBase64,
         string apiKey, CancellationToken ct = default)
     {
-        using var http = new HttpClient();
+        // Phase 4 Track B2 — allow-listed to api.openai.com. Response caps
+        // and default User-Agent come from the factory.
+        using var http = AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+            providerId:   "OpenAI",
+            allowedHosts: new[] { "api.openai.com" },
+            timeout:      TimeSpan.FromSeconds(120));
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         object userContent;

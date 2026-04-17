@@ -1,0 +1,66 @@
+name: xunit
+
+# Runs AccessibleTrader.Tests (currently 264 tests) on every PR targeting
+# main and every push to main. Fails the check if any test regresses.
+#
+# Test project targets plain net10.0 — no MAUI workloads needed. Runs on
+# Ubuntu for speed; the tests are platform-agnostic (Roslyn compile,
+# indicator math, accessibility pipeline, hostile-script rejection).
+# Platform-specific OS-sandbox smoke tests (AppContainer on Windows,
+# sandbox-exec on macOS, isolatedProcess on Android) belong in separate
+# workflows with the corresponding runners.
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xunit:
+    name: Run xunit suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        # Restoring only the Tests project pulls in the transitive refs we
+        # need (Core, Sdk, ScriptSandbox, ScriptWorker, indicator plugins
+        # under test). Avoids the MAUI workload dance the BlazorClient
+        # needs.
+        run: dotnet restore AccessibleTrader.Tests/AccessibleTrader.Tests.csproj
+
+      - name: Build
+        run: |
+          dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj \
+            --configuration Release \
+            --no-restore
+
+      - name: Test
+        run: |
+          dotnet test AccessibleTrader.Tests/AccessibleTrader.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: AccessibleTrader.Tests/TestResults/*.trx
+          retention-days: 14

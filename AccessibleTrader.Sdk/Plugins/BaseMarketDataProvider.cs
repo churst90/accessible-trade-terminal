@@ -117,6 +117,32 @@ namespace AccessibleTrader.Sdk.Plugins
             return symbol?.Replace("/", "").Replace("-", "").ToUpper() ?? string.Empty;
         }
 
+        /// <summary>
+        /// Drops references to any supplied credential strings so the GC can
+        /// reclaim their backing storage on the next collection. Because .NET
+        /// strings are immutable and interned, we cannot reliably zero the
+        /// underlying bytes in place — nulling the reference is the pragmatic
+        /// minimum so a crash dump taken long after last-use does not still
+        /// contain live API secrets.
+        ///
+        /// Providers should call this from <c>DisconnectAsync</c> or
+        /// <c>Dispose</c> on every credential field they hold
+        /// (<c>_apiKey</c>, <c>_apiSecret</c>, <c>_passphrase</c>, cached
+        /// session tokens, etc). For true in-memory scrubbing the provider
+        /// needs to switch to a fetch-on-demand pattern that reads from
+        /// SecureStorage per signed request — tracked in TODO.md phase 3+.
+        /// </summary>
+        protected static void ScrubCredentials(params Action[] nullSetters)
+        {
+            foreach (var setter in nullSetters)
+            {
+                try { setter(); } catch { /* best-effort; never throw from teardown */ }
+            }
+            // Hint the GC to reclaim the now-unrooted credential strings sooner
+            // than it otherwise would. Gen-0 only; don't pay for a full collect.
+            GC.Collect(0, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed) return;

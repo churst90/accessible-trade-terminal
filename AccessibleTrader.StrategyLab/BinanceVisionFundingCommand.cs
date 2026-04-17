@@ -24,19 +24,32 @@ public static class BinanceVisionFundingCommand
 {
     private const string BaseUrl = "https://data.binance.vision/data/futures/um/monthly/fundingRate";
 
+    // Caps mirror the plugin's BinanceVisionProvider. Monthly funding archives are
+    // <1 MB compressed / <50 MB expanded in practice.
+    private const int MaxArchiveBytes       = 64 * 1024 * 1024;
+    private const long MaxUncompressedBytes = 256 * 1024 * 1024;
+
     // Approximate USDT-perp launch dates. Walking back further than this just yields 404s.
     private static readonly Dictionary<string, DateTime> SymbolStartMonths = new()
     {
-        ["BTCUSDT"] = new DateTime(2019, 9, 1),
-        ["ETHUSDT"] = new DateTime(2019, 11, 1),
-        ["XRPUSDT"] = new DateTime(2020, 1, 1),
-        ["SOLUSDT"] = new DateTime(2020, 9, 1),
+        ["BTCUSDT"]  = new DateTime(2019, 9, 1),
+        ["ETHUSDT"]  = new DateTime(2019, 11, 1),
+        ["XRPUSDT"]  = new DateTime(2020, 1, 1),
+        ["SOLUSDT"]  = new DateTime(2020, 9, 1),
+        ["DOGEUSDT"] = new DateTime(2020, 7, 1),
+        ["ADAUSDT"]  = new DateTime(2020, 2, 1),
+        ["LTCUSDT"]  = new DateTime(2019, 11, 1),
+        ["BNBUSDT"]  = new DateTime(2020, 2, 1),
     };
 
     public static async Task<int> RunAsync(string outputDir, string[] symbols)
     {
         Directory.CreateDirectory(outputDir);
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        using var http = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(60),
+            MaxResponseContentBufferSize = MaxArchiveBytes,
+        };
         http.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader-StrategyLab/1.0");
 
         foreach (var symbol in symbols)
@@ -127,10 +140,16 @@ public static class BinanceVisionFundingCommand
         int added = 0;
         using var ms = new MemoryStream(zipBytes);
         using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        long totalUncompressed = 0;
         foreach (var entry in zip.Entries)
         {
+            if (entry.FullName.Contains("..", StringComparison.Ordinal)
+                || entry.FullName.Contains(":", StringComparison.Ordinal))
+                continue;
             if (!entry.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) continue;
-            using var stream = entry.Open();
+            if (entry.Length > MaxUncompressedBytes - totalUncompressed) continue;
+            using var rawStream = entry.Open();
+            using var stream = new BoundedStream(rawStream, MaxUncompressedBytes - totalUncompressed);
             using var reader = new StreamReader(stream, Encoding.UTF8);
 
             reader.ReadLine(); // header row, discard
@@ -151,7 +170,35 @@ public static class BinanceVisionFundingCommand
                 }
                 line = reader.ReadLine();
             }
+            totalUncompressed += ((BoundedStream)stream).BytesRead;
+            if (totalUncompressed >= MaxUncompressedBytes) break;
         }
         return added;
+    }
+
+    /// <summary>Wraps a stream and throws if total read bytes exceed a cap — defuses zip bombs.</summary>
+    private sealed class BoundedStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly long _max;
+        public long BytesRead { get; private set; }
+        public BoundedStream(Stream inner, long max) { _inner = inner; _max = max; }
+        public override bool CanRead  => _inner.CanRead;
+        public override bool CanSeek  => false;
+        public override bool CanWrite => false;
+        public override long Length   => throw new NotSupportedException();
+        public override long Position { get => BytesRead; set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            int n = _inner.Read(buffer, offset, count);
+            BytesRead += n;
+            if (BytesRead > _max) throw new InvalidDataException($"Decompressed stream exceeded {_max} bytes (possible zip bomb).");
+            return n;
+        }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value)                 => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing) { if (disposing) _inner.Dispose(); base.Dispose(disposing); }
     }
 }

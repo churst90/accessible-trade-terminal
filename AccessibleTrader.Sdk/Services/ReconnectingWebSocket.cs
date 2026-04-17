@@ -13,6 +13,14 @@ namespace AccessibleTrader.Sdk.Services
     /// </summary>
     public sealed class ReconnectingWebSocket : IDisposable
     {
+        /// <summary>
+        /// Maximum bytes we will accumulate for a single WebSocket message before
+        /// closing the connection. Protects against a compromised or hostile endpoint
+        /// OOM-ing the app with an unbounded frame. 16 MB is well above any legitimate
+        /// exchange payload (Binance depth snapshots are ~1 MB, most messages < 64 KB).
+        /// </summary>
+        public const int MaxMessageBytes = 16 * 1024 * 1024;
+
         private ClientWebSocket? _ws;
         private CancellationTokenSource? _cts;
         private readonly string _url;
@@ -140,11 +148,31 @@ namespace AccessibleTrader.Sdk.Services
 
                     var ms = new MemoryStream();
                     WebSocketReceiveResult result;
+                    bool oversize = false;
                     do
                     {
                         result = await _ws!.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
+                        if (ms.Length + result.Count > MaxMessageBytes)
+                        {
+                            oversize = true;
+                            break;
+                        }
                         ms.Write(buffer, 0, result.Count);
                     } while (!result.EndOfMessage);
+
+                    if (oversize)
+                    {
+                        _onError?.Invoke($"WebSocket message exceeded {MaxMessageBytes} bytes — closing.");
+                        try
+                        {
+                            await _ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, "Message too large", CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch { /* best-effort */ }
+                        _ws?.Dispose();
+                        _ws = null;
+                        ms.Dispose();
+                        continue; // triggers reconnect
+                    }
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {

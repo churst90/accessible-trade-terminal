@@ -79,8 +79,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
         public BitstampProvider()
         {
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+            // Phase 4 Track B2 — allow-listed to www.bitstamp.net only.
+            // ws.bitstamp.net uses ReconnectingWebSocket, not this HttpClient.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "Bitstamp",
+                allowedHosts: new[] { "www.bitstamp.net" });
         }
 
         public override T? GetCapability<T>() where T : class
@@ -269,15 +272,18 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
         private async Task SubscribePrivateChannelInternalAsync(ReconnectingWebSocket ws, string channel)
         {
-            if (!IsTradeConfigured) return;
             try
             {
+                var (apiKey, apiSecret, _) = await CheckoutBitstampCredentialsAsync().ConfigureAwait(false);
+
                 long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 string nonce   = Guid.NewGuid().ToString("N");
-                string message = nonce + timestamp.ToString() + _apiKey;
-                using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(_apiSecret!));
+                string message = nonce + timestamp.ToString() + apiKey;
+                byte[] secretBytes = Encoding.UTF8.GetBytes(apiSecret);
+                using var hmac = new System.Security.Cryptography.HMACSHA256(secretBytes);
                 byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
                 string sig  = BitConverter.ToString(hash).Replace("-", "").ToUpper();
+                Array.Clear(secretBytes, 0, secretBytes.Length);
 
                 var authMsg = new JObject
                 {
@@ -287,7 +293,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
                         ["channel"] = channel,
                         ["auth"]    = new JObject
                         {
-                            ["key"]              = _apiKey,
+                            ["key"]              = apiKey,
                             ["signature"]        = sig,
                             ["nonce"]            = nonce,
                             ["timestamp"]        = timestamp,
@@ -314,6 +320,14 @@ namespace AccessibleTrader.Plugins.Bitstamp
             _currentChannel      = null;
             _orderBookChannel    = null;
             _privateOrderChannel = null;
+
+            // Drop references to HMAC-SHA256 signing material so a crash
+            // dump after disconnect can't recover the API key/secret/customer-id.
+            ScrubCredentials(
+                () => _apiKey = null,
+                () => _apiSecret = null,
+                () => _customerId = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -495,15 +509,41 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
         private async Task<string> PostAuthenticatedAsync(string endpoint, Dictionary<string, string> parameters)
         {
+            var (apiKey, apiSecret, customerId) = await CheckoutBitstampCredentialsAsync().ConfigureAwait(false);
+
             string nonce   = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-            string message = nonce + (_customerId ?? "") + _apiKey;
-            using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(_apiSecret!));
+            string message = nonce + customerId + apiKey;
+            byte[] secretBytes = Encoding.UTF8.GetBytes(apiSecret);
+            using var hmac = new System.Security.Cryptography.HMACSHA256(secretBytes);
             byte[] hash     = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
             string signature = BitConverter.ToString(hash).Replace("-", "").ToUpper();
-            var postParams = new Dictionary<string, string>(parameters) { ["key"] = _apiKey!, ["signature"] = signature, ["nonce"] = nonce };
+            Array.Clear(secretBytes, 0, secretBytes.Length);
+
+            var postParams = new Dictionary<string, string>(parameters) { ["key"] = apiKey, ["signature"] = signature, ["nonce"] = nonce };
             var content  = new FormUrlEncodedContent(postParams);
             var response = await _httpClient.PostAsync($"https://www.bitstamp.net{endpoint}", content);
             return await response.Content.ReadAsStringAsync();
+        }
+
+        // Sign-time credential checkout (phase 4 Track B). Prefers the
+        // PluginHostServices.ApiKeys bridge; falls back to Configure-populated
+        // fields for unit tests / CLI runs. The Bitstamp customer-id lives in
+        // the ApiKeyCheckoutResult.Passphrase slot when provided by the host.
+        private async Task<(string Key, string Secret, string CustomerId)> CheckoutBitstampCredentialsAsync()
+        {
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
+            {
+                var checkout = await host.CheckoutAsync("Bitstamp").ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new InvalidOperationException("Bitstamp: no active API key configured.");
+                var cust = !string.IsNullOrEmpty(checkout.Passphrase) ? checkout.Passphrase : (_customerId ?? "");
+                return (checkout.Key, checkout.Secret, cust);
+            }
+
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
+                throw new InvalidOperationException("Bitstamp: no API credentials configured.");
+            return (_apiKey!, _apiSecret!, _customerId ?? "");
         }
 
         protected override void Dispose(bool disposing)

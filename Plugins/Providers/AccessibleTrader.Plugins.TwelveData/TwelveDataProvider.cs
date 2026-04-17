@@ -60,7 +60,11 @@ namespace AccessibleTrader.Plugins.TwelveData
 
         public TwelveDataProvider()
         {
-            _httpClient = new HttpClient();
+            // Phase 4 Track B2 — allow-listed to api.twelvedata.com. The
+            // ws.twelvedata.com WS endpoint uses ReconnectingWebSocket.
+            _httpClient = PluginHostServices.CreateHttpClient(
+                providerId:   "TwelveData",
+                allowedHosts: new[] { "api.twelvedata.com" });
         }
 
         public override T? GetCapability<T>() where T : class

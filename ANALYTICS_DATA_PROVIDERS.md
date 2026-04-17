@@ -18,8 +18,17 @@ The mental model is:
 
 ## Currently shipped analytics providers
 
-All four are under the **Analytics** terminal mode (the radio button where FRED lives).
-The market dropdown reflects the data category; the provider dropdown picks the source.
+All twelve live under `Plugins/Analytics/` and are surfaced under the **Analytics**
+terminal mode (the radio button where FRED lives). The market dropdown reflects the
+data category; the provider dropdown picks the source. One section below
+(*Equities Fundamentals — FMP Analytics*) is a second `IMarketDataProvider` exposed
+from the combined `Plugins/Providers/AccessibleTrader.Plugins.Fmp` project, not a
+separate plugin DLL.
+
+All 12 analytics providers cap their outbound `HttpClient` at
+`MaxResponseContentBufferSize = 32 MB` with a 60s timeout (security pass #2,
+2026-04-16). BinanceVision additionally bounds per-archive decompressed size to
+256 MB via a `BoundedReadStream` to defuse zip bombs.
 
 ### Economic — *FRED* (existing)
 - **Auth:** free API key from stlouisfed.org
@@ -37,6 +46,32 @@ The market dropdown reflects the data category; the provider dropdown picks the 
 - **Rate limit:** 1200 req/min (capped well below Binance's 2400 ceiling)
 - **Why this matters:** funding tells you who's paying to hold positions. Extreme
   positive funding + Cipher oversold = longs are bleeding, the unwind is the buy.
+
+### Derivatives — *BinanceVision* (no key, multi-year history)
+- **Auth:** none — pulls ZIP archives from the public `data.binance.vision` S3 bucket.
+- **Symbols:** `{BTC,ETH,XRP,SOL,DOGE,ADA,LTC,BNB}USDT_FUNDING` / `_OI` — both funding
+  rate (monthly archives) and open interest (daily archives).
+- **History:** ~6 years of funding back to contract launch (BTC: 2019-09, ETH: 2019-11,
+  SOL: 2020-09, etc). OI daily archives from 2020-11. The primary source for Core's
+  `FundingRateProvider` / `OpenInterestProvider` / `CrowdingIndexProvider` — the live
+  `BinanceDerivatives` API only ships the last few weeks of OI, which is useless for
+  backtesting.
+- **Resolution:** 8h funding settlement; daily OI snapshots (last-row-of-day reading
+  from the 5-minute metrics file).
+- **Units:** funding is **percent per 8h** (multiplied ×100 at the fetch boundary to
+  match `BinanceDerivatives`); OI is **USD value** (`sum_open_interest_value`).
+- **Caches:** per-symbol in-memory cache; archives are immutable so no expiry. Response
+  + decompression sizes are hard-capped (64 MB compressed, 256 MB expanded) with a
+  `BoundedReadStream` zip-bomb guard.
+
+### Derivatives — *OkxDerivatives* (no key)
+- **Auth:** none — OKX public derivatives REST endpoints.
+- **Symbols:** `{BTC,ETH,SOL,DOGE,LTC}-USDT-SWAP_FUNDING` / `_OI` plus a seed catalogue
+  of popular perpetual swaps. Users can request any OKX perpetual by adding the suffix.
+- **Resolution:** funding settlement cadence varies per contract (~8h); OI 5m–1d.
+- **History:** live REST — shallow (typically last ~11 days for OI). For deep history
+  prefer `BinanceVision`.
+- **Rate limit:** 300 req/min (well under OKX's public ceiling).
 
 ### Sentiment — *AlternativeMe* (NEW, no key)
 - **Auth:** none
