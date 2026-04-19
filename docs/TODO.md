@@ -23,12 +23,63 @@ TFMs, 264/264 tests pass.
 - [x] **Stale TODO removed** — MacCatalyst `AppDelegate.cs` had a "TODO Phase 7: Wire Mac Catalyst keyboard input" comment; `KeyboardPageHandler` already does this. Replaced with a pointer to the real implementation.
 - [x] **Trading-provider interface docs** — added `<summary>` on `GetBalancesAsync` / `GetPositionsAsync` / `GetOpenOrdersAsync` / `CancelOrderAsync` in `ITradingProvider`, noting the MEXC-spot "symbol required" quirk on `GetOpenOrdersAsync`.
 
-### Follow-ups (not tackled this session)
+### Follow-ups (deferred — architectural decisions pending)
 
-- [ ] **Symbol-normalization consolidation** — 4 crypto providers (Coinbase `/`→`-`, Bitstamp strip-all+lowercase, Kraken 3-branch, Oanda `_`) each implement their own. Candidate for a `BaseMarketDataProvider.NormalizeSymbol(symbol, exchange)` static helper.
-- [ ] **Timeframe-mapping consolidation** — 7+ providers define their own `MapInterval` / timeframe → exchange-string mapping. Same candidate.
-- [ ] **`BuildSetupTab.razor` decomposition** — 1,330 lines combining strategy metadata, condition-tree editor, leaf/group mutation, risk-plan UI, and persistence. Decompose into `ConditionTreeEditor` / `RiskPlanPanel` / `StrategyMetadata` sub-components.
-- [ ] **`StrategyModal` coupling** — injects 10 services. A `StrategyFacade` would reduce coupling without changing functionality.
+Each item below was surfaced by the audit but intentionally not touched
+this session because it requires a design call, not cleanup. The
+framing, options considered, and the recommendation are recorded so a
+future session can act on them without re-deriving the tradeoffs.
+
+#### 1. Symbol-normalization consolidation (crypto providers)
+
+**State:** Coinbase does `/`→`-`, Bitstamp strip-all + lowercase + `usdt`→`usd`, Kraken has a 3-branch heuristic, Oanda does `_`. Each lives inline in its own class.
+
+**Options considered:**
+- **A.** `BaseMarketDataProvider.NormalizeSymbol(string)` virtual, each provider overrides.
+- **B.** Static `SymbolNormalizer` class in the SDK with named methods (`SlashToDash`, `StripAndLowercase`, etc.) providers compose.
+- **C.** Leave it — the rules are actually different enough that a shared API would be 4 special cases in a trench coat.
+
+**Recommendation:** **C.** The providers *look* duplicative, but the normalization rules are genuinely different. Forcing them through one abstraction would save ~12 lines of code at the cost of indirection and a harder-to-read flow at each call site. Revisit only if a 5th crypto provider lands with the same rule as one of the existing four.
+
+#### 2. Timeframe-mapping consolidation (7+ providers)
+
+**State:** Most providers use the exchange SDK's strongly-typed enum (`Binance.Net.Enums.KlineInterval`, `JKorf.Mexc.Net.Enums.KlineInterval`, etc.), not strings. A shared `Dictionary<string,string>` doesn't fit.
+
+**What is worth extracting:** `TimeframeDuration(string)` returning a `TimeSpan`. `MexcProvider` already has it for pagination math; it's a pure function with no provider-specific flavor.
+
+**Recommendation:** Lift `TimeframeDuration` (or a `TimeframeUtil` static) onto `BaseMarketDataProvider`. Leave the per-provider enum mappings alone. Small, zero-risk win; ~30 min of work.
+
+#### 3. `BuildSetupTab.razor` decomposition (1,330 lines)
+
+**State:** One cohesive component that builds one `StrategySpec` — strategy metadata, condition-tree editor, leaf/group mutation, risk-plan UI, persistence — all sharing `_spec` in-scope.
+
+**The honest question:** is this file actively hurting us, or just intimidating to read? No open bug reports are blocked on its size today.
+
+**Options considered (if decomposing):**
+- **Cascading parameter** of `StrategySpec` — simple, couples children to its shape.
+- **EventBus** messages for edits — loose, harder to trace.
+- **Explicit `[Parameter]` + `EventCallback`** on sub-components — most idiomatic Blazor, most plumbing.
+
+**Recommendation:** hold off unless a feature is about to land here (e.g. copy-from-existing-strategy flow, template library). The split is 4–6 hours of work whose payoff is "the file is shorter." If/when a feature forces movement, decompose first so the new feature has a clean home. Otherwise leave it.
+
+#### 4. `StrategyModal` → `StrategyFacade` (10 injections)
+
+**State:** `StrategyModal.razor` injects `IStrategyEngine`, `IStrategyBacktester`, `IBacktestWarmupAnalyzer`, `IStrategyLibrary`, `IConfigurableStrategyFactory`, `IRoslynScriptingService`, `ISeriesManagementService`, `IWorkspaceStore`, `IEventBus`, `IJSRuntime`.
+
+**Smell or legitimate?** Each of those is a distinct responsibility the modal genuinely has. The facade doesn't remove work — it relocates it.
+
+**Proposed shape:** `IStrategyModalCoordinator` wraps the 6 strategy-specific services (engine + backtester + warmup + library + factory + roslyn). Modal then injects 5 things (facade + series + workspace + eventbus + jsruntime).
+
+**Recommendation:** worth doing, ~2-3 hours. The real benefit isn't reducing the injection count — it's centralizing the "here's how strategy operations coordinate" logic that currently lives scattered across the modal's event handlers. Good candidate to land **before** any `BuildSetupTab` split if that ever happens, since a clean facade makes the decomposition easier.
+
+---
+
+**Suggested execution order if taking these on:**
+
+1. **#2 first** (30 min, zero risk).
+2. **#4 second** (2–3 hr, clean refactor with clear testable boundary).
+3. **#3 only when a feature demands it** (4–6 hr).
+4. **#1 never, unless a 5th provider arrives with a matching rule.**
 
 ---
 
