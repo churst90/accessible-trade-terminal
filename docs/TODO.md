@@ -46,7 +46,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [x] **Auto-generated plugin trust manifest on Release build** — `GeneratePluginTrustManifest` MSBuild target in `AccessibleTrader.BlazorClient.csproj` uses an inline `RoslynCodeTaskFactory` task to walk `$(OutDir)` after each Release build, hash every `AccessibleTrader.Plugins.*.dll`, and emit `plugins_trusted.manifest` next to the shipped binary. No external scripts required; works on any build agent.
 - [x] **Schwab cross-platform SecureStorage via `PluginHostServices`** — new `IPluginSecureStorage` + `PluginHostServices` in `AccessibleTrader.Sdk.Services`. `MauiSecureStorageService` now implements both the Core `ISecureStorageService` and the plugin-facing `IPluginSecureStorage`; DI forwards both to the same singleton. `MauiProgram.CreateMauiApp` sets `PluginHostServices.SecureStorage` after container build. `SchwabOAuthService` now persists refresh tokens via the host bridge on every platform, with DPAPI-on-Windows as a fallback and a migration path from legacy DPAPI files into the bridge.
 - [x] **Credential scrub on disconnect (H4 pragmatic)** — new `BaseMarketDataProvider.ScrubCredentials` helper with a best-effort gen-0 GC hint. Wired into `DisconnectAsync` for every trading-funds provider (Binance, Coinbase, Kraken, Bitstamp, Alpaca, Schwab). Drops GC roots so crash dumps post-disconnect don't leak live credentials. True in-place zeroing requires fetch-on-demand — deferred to phase 4.
-- [x] **Out-of-process Roslyn sandbox design doc** — new `docs/SANDBOX_DESIGN.md` specs the worker-process IPC contract, per-platform OS sandbox (Windows AppContainer, macOS `sandbox-exec`, Android `isolatedProcess`, Linux seccomp-bpf, iOS deferral), resource quotas, threat-model delta, and 5-week rollout plan. Design only.
+- [x] **Out-of-process Roslyn sandbox design doc** — new `SANDBOX_DESIGN.md` specs the worker-process IPC contract, per-platform OS sandbox (Windows AppContainer, macOS `sandbox-exec`, Android `isolatedProcess`, Linux seccomp-bpf, iOS deferral), resource quotas, threat-model delta, and 5-week rollout plan. Design only.
 
 ### Phase 4 — Track A (complete 2026-04-17)
 - [x] **iOS `.atpkg` and script compile refusal (A1)** — `CustomScriptsModal.razor` guards `ImportAtpkgFromFile`, `ImportAtpkgJson`, and `CompileScript` with a `DevicePlatform.iOS` check. Every path into `RoslynScriptingService.CompileIndicatorAsync` is refused outright on iOS; textarea still works for editing.
@@ -55,9 +55,9 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [x] **GitHub Actions workflow `plugin-manifest.yml` (A2c)** — PR + push + tag triggers, Windows Release build, sanity-checks manifest has ≥10 hash entries, uploads as workflow artifact, attaches to GitHub Release on `v*` tags.
 
 ### Phase 4 — Track B (complete 2026-04-17)
-- [x] **`IApiKeyCheckout` + `PluginHostServices.ApiKeys` (B0+B1)** — SDK interface + host adapter + Kraken canary. Per-request checkout with graceful fallback to Configure-populated fields when the host bridge is null. Best-effort `Array.Clear` on the decoded HMAC secret after signing. Migration recipe in `docs/CREDENTIAL_CHECKOUT_MIGRATION.md`.
+- [x] **`IApiKeyCheckout` + `PluginHostServices.ApiKeys` (B0+B1)** — SDK interface + host adapter + Kraken canary. Per-request checkout with graceful fallback to Configure-populated fields when the host bridge is null. Best-effort `Array.Clear` on the decoded HMAC secret after signing. Migration recipe in `CREDENTIAL_CHECKOUT_MIGRATION.md`.
 - [x] **`IPluginHttpClientFactory` + `PluginHostServices.HttpClientFactory` (B0+B2)** — SDK interface + host adapter + outbound-host allow-list `DelegatingHandler`. All 12 analytics providers migrated to `PluginHostServices.CreateHttpClient(providerId, allowedHosts)`.
-- [x] **Remaining trading providers migrated (future)** — Binance / Coinbase / Bitstamp / Alpaca / Schwab / IBKR stay on the phase-3 scrub-on-disconnect pattern. Status matrix + per-provider notes in `docs/CREDENTIAL_CHECKOUT_MIGRATION.md`. Drive migration order by actual user exposure; Coinbase + Bitstamp are the cleanest next canary candidates since they have explicit sign-per-request code like Kraken.
+- [x] **Remaining trading providers migrated (future)** — Binance / Coinbase / Bitstamp / Alpaca / Schwab / IBKR stay on the phase-3 scrub-on-disconnect pattern. Status matrix + per-provider notes in `CREDENTIAL_CHECKOUT_MIGRATION.md`. Drive migration order by actual user exposure; Coinbase + Bitstamp are the cleanest next canary candidates since they have explicit sign-per-request code like Kraken.
 
 ### Phase 4 — Track C (process-boundary landed 2026-04-17)
 - [x] **Worker skeleton + stdio IPC (C1)** — new `AccessibleTrader.ScriptSandbox` contract library + `AccessibleTrader.ScriptWorker` console app. Binary frame codec (4-byte length + 1-byte opcode + payload up to 64 MB), opcode enum, tight DTO codec for metadata / CalculateRequest / CalculateResponse. Worker loads assemblies into a collectible ALC; one indicator per worker lifetime.
@@ -98,7 +98,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
   polls `WorkingSet64` every 2 s, kills on overage (default 256 MB).
 - [x] **Track B1 follow-ups** — Bitstamp + Coinbase per-request checkout;
   Alpaca + Binance per-connection-lifecycle; Schwab / IBKR N/A. Status
-  matrix in `docs/CREDENTIAL_CHECKOUT_MIGRATION.md`.
+  matrix in `CREDENTIAL_CHECKOUT_MIGRATION.md`.
 - [x] **Cross-TFM build errors** — NETSDK1150 on iOS/Android/macCatalyst
   fixed via `ProjectReference` + `CopyScriptWorker` TFM guards. Inline
   `HashPluginDlls` task's `SHA256.HashData` swapped for

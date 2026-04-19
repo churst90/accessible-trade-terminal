@@ -1,7 +1,10 @@
 # Out-of-process Roslyn sandbox — design doc
 
-Status: **design only, not implemented**. This document is the spec that phase 4+
-can build against. Nothing in the live codebase uses it yet.
+Status: **implemented and in production as of 2026-04-17** (commit `aa0fabf8`). This
+document describes the finalized architecture; the live codebase now uses it for every
+user-compiled Roslyn indicator and strategy. Per-platform launchers — Windows
+AppContainer, macOS `sandbox-exec`, Android `isolatedProcess` bound service — all ship.
+iOS remains intentionally deferred (desktop-only sandbox today).
 
 ---
 

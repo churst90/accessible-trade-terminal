@@ -25,7 +25,7 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
     /// **Backtest correctness caveat**: VPVR is computed against the workspace's *current*
     /// viewport, not the bar-i view. In backtest mode the bins reflect the final profile
     /// state at every historical bar — strategies that gate on POC / Value Area / HVN / LVN
-    /// will future-leak. This is a known issue documented in TODO.md Phase 11 and is the
+    /// will future-leak. This is a known issue documented in docs/TODO.md Phase 11 and is the
     /// most important pending S/R correctness item.
     /// </summary>
     public class VolumeProfileLevelProvider : ILevelProvider

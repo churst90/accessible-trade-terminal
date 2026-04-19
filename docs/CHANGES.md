@@ -4,6 +4,68 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-19] — Documentation reorganization + accuracy pass
+
+All project documentation has been consolidated under a single `docs/`
+directory.
+
+### Moved into `docs/`
+
+Previously at repo root: `README.md`, `TODO.md`, `CHANGES.md`,
+`CODEBASE_KNOWLEDGE_BASE.md`, `PLATFORMS.md`, `USER_GUIDE.md`,
+`SHORTCUTS.md`, `PLUGIN_AUTHORING.md`, `PROVIDER_AUTHORING.md`,
+`ANALYTICS_DATA_PROVIDERS.md`. Joining the two files already
+under `docs/` (`SANDBOX_DESIGN.md`, `CREDENTIAL_CHECKOUT_MIGRATION.md`).
+
+All inter-doc cross-references updated: `docs/SANDBOX_DESIGN.md` →
+`SANDBOX_DESIGN.md` and `docs/CREDENTIAL_CHECKOUT_MIGRATION.md` →
+`CREDENTIAL_CHECKOUT_MIGRATION.md` throughout, since every doc is
+now a sibling of the others.
+
+### Code-comment references updated
+
+Three source files referenced old root-level doc paths; updated to
+the new `docs/` prefix:
+
+- `AccessibleTrader.BlazorClient/Components/HelpModal.razor`
+  (`SHORTCUTS.md`, `USER_GUIDE.md`).
+- `AccessibleTrader.Sdk/Plugins/BaseMarketDataProvider.cs`
+  (`TODO.md phase 3+`).
+- `AccessibleTrader.Core/Services/Strategies/Levels/VolumeProfileLevelProvider.cs`
+  (`TODO.md Phase 11`).
+
+### Accuracy corrections before the move
+
+- **`PLATFORMS.md`** — fully rewritten. Driver-and-feature matrix
+  previously marked Android audio / iOS audio / macOS audio / iOS
+  keyboard / macOS keyboard / Coinbase trading as TODO or stub. All
+  are implemented: `BlazorAudioDriver` has the `AudioTrack`
+  (Android) and `AVAudioEngine`-with-`AVAudioSourceNode` (iOS /
+  macCatalyst) code paths; `KeyboardPageHandler` hooks `PressesBegan`
+  on iOS + macCatalyst and is registered via
+  `handlers.AddHandler<ContentPage, KeyboardPageHandler>()` in
+  `MauiProgram`; Coinbase ships ES256 JWT signing
+  (`GenerateJwt` / `System.IdentityModel.Tokens.Jwt`). Added a
+  script-sandbox row to the matrix (Windows AppContainer, macOS
+  `sandbox-exec`, Android `isolatedProcess`, iOS deferred) and a
+  dedicated section linking to `SANDBOX_DESIGN.md`. Dropped the
+  stale "Phase 5 Roadmap — Platform Parity" section since every
+  item in it shipped in phase 7 or earlier.
+- **`SANDBOX_DESIGN.md`** — status banner flipped from
+  "design only, not implemented" to "implemented and in production
+  as of 2026-04-17 (commit `aa0fabf8`)" with a note that iOS is
+  intentionally deferred.
+
+### Files touched
+
+`docs/*` moves, `docs/PLATFORMS.md` rewritten, `docs/SANDBOX_DESIGN.md`
+status banner updated, `docs/README.md` + `docs/TODO.md` +
+`docs/CHANGES.md` + `docs/CODEBASE_KNOWLEDGE_BASE.md` cross-refs
+stripped of `docs/` prefix, three `.cs` / `.razor` comments
+re-pointed.
+
+---
+
 ## [2026-04-18] — MEXC provider, decimal-precision overhaul, Cipher C fix
 
 ### MEXC provider plugin
@@ -370,7 +432,7 @@ sandbox coverage is now:
   `PluginHostServices.SecureStorage`; access tokens mint per call.
 - **IBKR:** documented as N/A — gateway session auth, no API-key surface.
 
-Full per-provider status matrix in `docs/CREDENTIAL_CHECKOUT_MIGRATION.md`.
+Full per-provider status matrix in `CREDENTIAL_CHECKOUT_MIGRATION.md`.
 
 ### Platform-specific worker launchers (Tracks C2 / C3 / C4)
 
@@ -476,7 +538,7 @@ process-boundary isolation lands today.
   Default `DefaultProcessLauncher` spawns the worker unsandboxed via
   `Process.Start`. Windows AppContainer / macOS sandbox / Android
   isolatedProcess launchers are the remaining follow-ups from
-  `docs/SANDBOX_DESIGN.md` — they all implement the same interface and
+  `SANDBOX_DESIGN.md` — they all implement the same interface and
   slot in via DI.
 
 ### `RoslynScriptingService` rewire
@@ -661,7 +723,7 @@ the parts we own.
 Remaining providers (Binance, Coinbase, Bitstamp, Alpaca, IBKR, Schwab, …)
 stay on the phase-3 scrub-on-disconnect pattern for now. Migration order +
 recipe + per-provider status matrix documented in
-`docs/CREDENTIAL_CHECKOUT_MIGRATION.md`.
+`CREDENTIAL_CHECKOUT_MIGRATION.md`.
 
 ### Non-behavioural
 
@@ -673,7 +735,7 @@ recipe + per-provider status matrix documented in
 ### What's open for Track C
 
 This is the last phase-4 preparatory work before the out-of-process
-sandbox. Track C implements `docs/SANDBOX_DESIGN.md` — the worker process,
+sandbox. Track C implements `SANDBOX_DESIGN.md` — the worker process,
 per-platform OS sandbox, host supervisor, and rewire of
 `RoslynScriptingService`.
 
@@ -682,7 +744,7 @@ per-platform OS sandbox, host supervisor, and rewire of
 ## [2026-04-17] — Phase 4 Track A (quick wins)
 
 First installment of the security phase-4 roadmap — the two "ship-before-the-
-sandbox" items from `docs/SANDBOX_DESIGN.md`'s rollout plan. Closes the iOS
+sandbox" items from `SANDBOX_DESIGN.md`'s rollout plan. Closes the iOS
 `.atpkg` exposure and the "manifest auto-generates locally but doesn't ship
 from CI" gap.
 
@@ -880,7 +942,7 @@ a fetch-on-demand refactor (phase 4+).
 
 ### Out-of-process sandbox design doc
 
-New `docs/SANDBOX_DESIGN.md` — the full spec for the phase-4 worker-process
+New `SANDBOX_DESIGN.md` — the full spec for the phase-4 worker-process
 architecture:
 - IPC contract (length-prefixed binary frames over stdio; opcode table).
 - Per-platform sandbox approach (Windows AppContainer, macOS `sandbox-exec`,

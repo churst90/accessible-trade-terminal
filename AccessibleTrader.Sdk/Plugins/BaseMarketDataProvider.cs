@@ -130,7 +130,7 @@ namespace AccessibleTrader.Sdk.Plugins
         /// (<c>_apiKey</c>, <c>_apiSecret</c>, <c>_passphrase</c>, cached
         /// session tokens, etc). For true in-memory scrubbing the provider
         /// needs to switch to a fetch-on-demand pattern that reads from
-        /// SecureStorage per signed request — tracked in TODO.md phase 3+.
+        /// SecureStorage per signed request — tracked in docs/TODO.md phase 3+.
         /// </summary>
         protected static void ScrubCredentials(params Action[] nullSetters)
         {

@@ -105,7 +105,7 @@ Ahead of shipping to real retail users, a codebase-wide security audit was run a
 - **Observability.** `ISecurityEventLog` ring buffer captures security-relevant runtime events (AppContainer fallbacks, memory-quota kills, Calculate timeouts, Schwab token-cleanup failures). Mirrors each event to `ILogger<T>` at Warning level so file sinks also capture it.
 - **Tests.** 6 new `HostileScriptTests` assert the Roslyn sandbox refuses indicators that attempt `File.ReadAllText` / `HttpClient.GetStringAsync` / `Process.Start` / unsafe pointers / `[DllImport]` / `Assembly.LoadFrom`.
 
-See `CHANGES.md` 2026-04-16 → 2026-04-17 for the full set, `tools/generate-plugin-trust-manifest.{ps1,sh}` for the manual manifest generator, `docs/SANDBOX_DESIGN.md` for the worker-process architecture, `docs/CREDENTIAL_CHECKOUT_MIGRATION.md` for the `IApiKeyCheckout` per-provider status matrix, and `TODO.md` for the remaining "nice-to-have" items (on-target integration tests, hot-path credential cache, financial `decimal` migration, accessibility modal rework).
+See `CHANGES.md` 2026-04-16 → 2026-04-17 for the full set, `tools/generate-plugin-trust-manifest.{ps1,sh}` for the manual manifest generator, `SANDBOX_DESIGN.md` for the worker-process architecture, `CREDENTIAL_CHECKOUT_MIGRATION.md` for the `IApiKeyCheckout` per-provider status matrix, and `TODO.md` for the remaining "nice-to-have" items (on-target integration tests, hot-path credential cache, financial `decimal` migration, accessibility modal rework).
 
 ### Phase 11 — Strategy Composer & Risk-Managed Setups (complete)
 
