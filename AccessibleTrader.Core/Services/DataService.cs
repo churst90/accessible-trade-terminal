@@ -211,11 +211,14 @@ namespace AccessibleTrader.Core.Services
             return provider != null ? await provider.GetSupportedTimeframesAsync().ConfigureAwait(false) : new List<string>();
         }
 
-        public Task<bool> IsProviderConfiguredAsync(string providerName)
+        public Task<bool> IsProviderConfiguredAsync(string providerName) =>
+            Task.FromResult(IsProviderConfigured(providerName));
+
+        public bool IsProviderConfigured(string providerName)
         {
-            if (!_isInitialized) return Task.FromResult(false);
+            if (!_isInitialized) return false;
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
-            return Task.FromResult(provider?.IsConfigured ?? false);
+            return provider?.IsConfigured ?? false;
         }
 
         public Task<bool> ProviderRequiresApiKeyAsync(string providerName)

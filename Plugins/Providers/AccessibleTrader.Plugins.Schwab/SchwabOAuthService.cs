@@ -143,6 +143,10 @@ namespace AccessibleTrader.Plugins.Schwab
 
             (openBrowser ?? LaunchDefaultBrowser)(BuildAuthorizationUrl());
 
+            // Stop() races with the finally block below and with listener.Close() --
+            // ObjectDisposedException / InvalidOperationException are expected when we
+            // already closed it. Swallowing is correct; the outer flow propagates the
+            // real cancellation.
             using var reg = ct.Register(() => { try { listener.Stop(); } catch { } });
 
             string? code;
@@ -169,6 +173,8 @@ namespace AccessibleTrader.Plugins.Schwab
             }
             finally
             {
+                // Best-effort cleanup -- Stop() may race with the ct.Register callback
+                // above; Close() is the authoritative release.
                 try { listener.Stop(); } catch { }
                 listener.Close();
             }
@@ -303,8 +309,9 @@ namespace AccessibleTrader.Plugins.Schwab
                 if (!OperatingSystem.IsWindows())
                 {
                     // File may be a legacy plaintext artifact from before DPAPI was
-                    // wired up. Treat as stale and refuse to trust it.
-                    try { File.Delete(_tokenFilePath); } catch { }
+                    // wired up. Treat as stale and refuse to trust it. Delete is
+                    // best-effort -- if the file is locked we'll retry next launch.
+                    try { File.Delete(_tokenFilePath); } catch (IOException) { }
                     return;
                 }
 
@@ -314,9 +321,11 @@ namespace AccessibleTrader.Plugins.Schwab
                 {
                     plaintextBytes = ProtectedData.Unprotect(raw, DpapiEntropy, DataProtectionScope.CurrentUser);
                 }
-                catch
+                catch (CryptographicException)
                 {
-                    try { File.Delete(_tokenFilePath); } catch { }
+                    // Token was encrypted under a different user / machine key.
+                    // Drop the unreadable file so the next launch re-authenticates cleanly.
+                    try { File.Delete(_tokenFilePath); } catch (IOException) { }
                     return;
                 }
 

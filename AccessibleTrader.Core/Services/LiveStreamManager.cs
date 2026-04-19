@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
 {
-    public class LiveStreamManager : IDisposable
+    public class LiveStreamManager : IAsyncDisposable, IDisposable
     {
         private readonly IDataService _dataService;
         private readonly HistoricalDataFetcher _historicalFetcher;
@@ -218,12 +218,32 @@ namespace AccessibleTrader.Core.Services
             await Task.CompletedTask.ConfigureAwait(false);
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             _fallbackCts?.Cancel();
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
-            if (_currentLiveProvider != null) _currentLiveProvider.DisconnectAsync().GetAwaiter().GetResult();
+            if (_currentLiveProvider != null)
+            {
+                try { await _currentLiveProvider.DisconnectAsync().ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "DisconnectAsync during DisposeAsync failed."); }
+            }
+            _liveStreamChannel.Writer.TryComplete();
+        }
+
+        public void Dispose()
+        {
+            // Sync fallback for callers that don't await-using. Offloaded to the
+            // thread pool so we don't capture a SynchronizationContext and deadlock
+            // on a provider whose DisconnectAsync resumes on the captured context.
+            _fallbackCts?.Cancel();
+            _currentProviderSubscription?.Dispose();
+            _currentErrorSubscription?.Dispose();
+            if (_currentLiveProvider != null)
+            {
+                try { Task.Run(() => _currentLiveProvider.DisconnectAsync()).GetAwaiter().GetResult(); }
+                catch (Exception ex) { _logger.LogWarning(ex, "DisconnectAsync during Dispose failed."); }
+            }
             _liveStreamChannel.Writer.TryComplete();
         }
     }

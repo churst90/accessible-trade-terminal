@@ -412,6 +412,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             catch (Exception)
             {
+                // Accessibility path: a malformed template or missing companion series must
+                // not crash the speech pipeline -- a blind user listening for price updates
+                // relies on a continuous output. "error" is a bounded fallback string so the
+                // screen reader still has something to say. The trade-off is that a bug in
+                // a template will be silent -- debug by enabling the same path under a test
+                // harness, not by re-raising here.
                 return $"{comp.DisplayName}: error";
             }
         }

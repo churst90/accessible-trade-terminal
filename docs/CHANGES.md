@@ -4,6 +4,162 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-19] — Pre-release quality sweep (audit-driven fixes)
+
+A full-codebase audit across Core/SDK, the 26 plugins, and the Blazor
+client surfaced 11 issues spanning security, resource leaks, accessibility
+regressions, sync-over-async deadlock risk, and stale comments. Every
+item fixed; build green across all TFMs; 264/264 tests pass.
+
+### Security regression — FMP analytics HttpClient bypass
+
+`FmpAnalyticsProvider.Configure` was constructing `new HttpClient()`
+directly instead of routing through `PluginHostServices.CreateHttpClient`.
+That skipped the phase-4 outbound-host allow-list, 32 MB response cap,
+60 s timeout, and User-Agent header — meaning a bug interpolating user
+input into a URL could have redirected the request off-net. Now matches
+the sibling `FmpProvider` trading plugin exactly (allow-listed to
+`financialmodelingprep.com`).
+
+### Blazor memory leaks — missing `@implements IDisposable`
+
+Three modals declared `_eventSub` and a matching `Dispose()` method but
+never told Blazor to call it — `DrawingToolsModal`, `HelpModal`,
+`AddIndicatorModal`. Each open→close cycle leaked one EventBus
+subscription. Four other modals (`LoadWorkspaceModal`,
+`SaveWorkspaceModal`, `AIAnalystModal`, `AlertsModal`) were already fine
+because they inherit from `ModalBase` which is `IDisposable`. Fixed by
+adding the `@implements IDisposable` directive to the three outliers.
+
+### Accessibility regression — `PropertiesModal` ARIA tabs
+
+The tablist at the top of `PropertiesModal` had three `role="tab"`
+buttons with `aria-selected` but no `aria-controls`. The sibling
+tabpanel div had no `id` and no `aria-labelledby`. Screen-reader users
+could read the tab label but couldn't discover which panel it
+controlled. Added matching `id` / `aria-controls` pairs on the three
+tabs, `id="props-tabpanel"` on the panel, and a dynamic
+`aria-labelledby="@ActiveTabId"` that tracks the active tab.
+
+### Silent-crash risk — `async void` event handlers
+
+`OnMarketChanged`, `OnProviderChanged`, `OnSubTypeChanged` on
+`Toolbar.razor` were `async void` on `@onchange` dropdowns. Exceptions
+thrown synchronously (e.g. from `e.Value?.ToString()`) would bypass the
+try/catch and propagate to `SynchronizationContext.UnhandledException`
+rather than reaching the component's error boundary. Converted all
+three to `async Task`; Blazor awaits the task and surfaces any
+exception through normal propagation.
+
+### Live-list UI corruption — missing `@key`
+
+Order-book bid/ask rows (`OrderBookModal.razor`) and the
+trading-dashboard positions / open-orders / balances tables
+(`TradingDashboardModal.razor`) were rendered with `@foreach` and no
+`@key`. Every live tick reorders the list; without `@key` Blazor reuses
+DOM nodes by position rather than identity, corrupting focus and input
+state on the row the user had selected. Added `@key="bid.Price"` /
+`@key="ask.Price"` / `@key="p.Symbol"` / `@key="o.Id"` /
+`@key="b.Asset"`.
+
+### Sync-over-async deadlock risk
+
+`LiveStreamManager.Dispose()` called
+`_currentLiveProvider.DisconnectAsync().GetAwaiter().GetResult()`
+directly — a deadlock trap if Dispose ever ran under a captured
+`SynchronizationContext`. Two-part fix:
+
+- Added `DisposeAsync` implementing `IAsyncDisposable` (proper path);
+  .NET DI calls this automatically on singleton shutdown.
+- Left a sync `Dispose` for legacy callers but wrapped the disconnect
+  in `Task.Run(...)` so it always runs on the thread pool with no
+  captured context.
+
+`AnalyticsDataResolver.Resolve()` called
+`IsProviderConfiguredAsync(...).GetAwaiter().GetResult()` on every
+metric lookup. The underlying implementation is synchronous internally
+(just `Task.FromResult`), so there's no real I/O — but forcing a Task
+wrapper at a sync call site is an anti-pattern. Added a sync
+`IsProviderConfigured(string)` overload on `IDataService` and the
+concrete `DataService`; `AnalyticsDataResolver` now calls the sync
+method directly. Test mocks updated to implement the new member.
+
+### Binance pagination single-bound risk
+
+The MEXC provider shipped a fix last session for an API bug where spot
+klines silently returned "latest N" when only one of
+`startTime` / `endTime` was set. `BinanceProvider.FetchOhlcvAsync` is
+structurally identical but unaffected (Binance's endpoint honors
+single-bound queries correctly). Added a defensive comment at the call
+site pointing future maintainers at `MexcProvider.FetchOhlcvAsync` for
+the bound-computation pattern to copy if the Binance API ever changes
+behavior.
+
+### Silent `catch {}` blocks — documented or narrowed
+
+Six sites across `Schwab/SchwabOAuthService.cs`,
+`Schwab/SchwabProvider.cs`, and
+`BinanceVision/BinanceVisionProvider.cs` had bare `catch { }` blocks
+with no comment explaining why. Each one was legitimate (best-effort
+cleanup / defensive parse) but needed audit notes. Fixed by:
+
+- Narrowing exception types where safe (`catch (CryptographicException)`
+  on DPAPI unprotect, `catch (IOException)` on `File.Delete`,
+  `catch (HttpRequestException)` + `catch (InvalidDataException)` on
+  Binance Vision daily-file fetch+extract, `catch (JsonException)` on
+  Schwab order-response parse).
+- Adding a one-line "why" comment to every remaining
+  intentionally-broad catch.
+
+A seventh site (`SpeechFormatter.GenerateComponentSpeech`) keeps its
+`catch (Exception)` — an accessibility path that must never stop
+emitting audio — but now carries an explicit multi-line justification
+explaining the trade-off.
+
+### Startup hang risk — `MainLayout` keyboard init
+
+`MainLayout.OnAfterRenderAsync` awaited `InputService.InitializeAsync`
+(JS interop bridge) with no timeout. A hung JS runtime on first render
+would trap initialization forever. Added a 10 s `CancellationTokenSource`
+via `.WaitAsync(ct)`; `OperationCanceledException` is caught separately
+and logged with a dedicated message so failures are distinguishable.
+
+### Stale comment — MacCatalyst AppDelegate
+
+Removed a "TODO Phase 7: Wire Mac Catalyst keyboard input" comment
+from `Platforms/MacCatalyst/AppDelegate.cs`. Platform parity already
+shipped — `KeyboardPageHandler` handles keyboard input via
+`PressesBegan` and is registered in `MauiProgram.cs` for both iOS and
+Mac Catalyst. Replaced the TODO with a one-line pointer to the real
+implementation.
+
+### Doc comments — trading provider interface
+
+`ITradingProvider` had summaries on the non-obvious methods
+(`PlaceOrderAsync`, `SetLeverageAsync`) but was missing them on
+`GetBalancesAsync`, `GetPositionsAsync`, `GetOpenOrdersAsync`, and
+`CancelOrderAsync`. Added contracts with the provider-specific quirks
+that matter at call sites (MEXC spot `GetOpenOrdersAsync` requiring a
+non-null symbol, some exchanges ignoring the symbol on cancel).
+Concrete plugin implementations inherit meaning through the interface,
+so no per-provider rewrite was needed.
+
+### Tech-debt follow-ups (not fixed this session)
+
+Flagged in `TODO.md` for a future session:
+
+- Symbol-normalization duplication across 4 crypto providers
+  (Coinbase / Bitstamp / Kraken / Oanda) could move to
+  `BaseMarketDataProvider`.
+- Timeframe → string mapping repeated across 7+ providers; same.
+- `BuildSetupTab.razor` (1,330 lines) is a decomposition candidate —
+  condition-tree editor / risk-plan panel / strategy-metadata all live
+  in one component.
+- `StrategyModal.razor` injects 10 services; a `StrategyFacade` would
+  reduce coupling.
+
+---
+
 ## [2026-04-19] — Documentation reorganization + accuracy pass
 
 All project documentation has been consolidated under a single `docs/`

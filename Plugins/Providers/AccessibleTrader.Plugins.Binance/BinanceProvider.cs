@@ -364,6 +364,11 @@ namespace AccessibleTrader.Plugins.Binance
                     DateTime? startTime = request.Since != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime : null;
                     DateTime? endTime   = request.Until != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime : null;
 
+                    // Binance /klines honors single-bound queries (startTime alone walks
+                    // forward up to `limit` bars; endTime alone walks backward). If either
+                    // of those guarantees ever changes, pagination will silently degrade
+                    // to "latest N" -- see MexcProvider.FetchOhlcvAsync for the defensive
+                    // bound-computation pattern to copy.
                     var result = isFutures
                         ? await _client.UsdFuturesApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit)
                         : await _client.SpotApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit);

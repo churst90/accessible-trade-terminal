@@ -212,7 +212,7 @@
                                     <table class="mini-table">
                                         @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
                                         {
-                                            <tr><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td></tr>
+                                            <tr @key="b.Asset"><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td></tr>
                                         }
                                     </table>
                                 }
@@ -221,7 +221,7 @@
                                     <table class="mini-table">
                                         @foreach (var p in _positions)
                                         {
-                                            <tr><td>@p.Symbol</td><td>@PriceFormatter.FormatQuantity(p.Quantity)</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td></tr>
+                                            <tr @key="p.Symbol"><td>@p.Symbol</td><td>@PriceFormatter.FormatQuantity(p.Quantity)</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td></tr>
                                         }
                                     </table>
                                 }
@@ -230,7 +230,7 @@
                                     <table class="mini-table">
                                         @foreach (var o in _openOrders)
                                         {
-                                            <tr><td>@o.Side</td><td>@PriceFormatter.FormatPrice(o.Price)</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
+                                            <tr @key="o.Id"><td>@o.Side</td><td>@PriceFormatter.FormatPrice(o.Price)</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
                                         }
                                     </table>
                                 }

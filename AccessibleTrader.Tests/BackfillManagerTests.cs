@@ -210,6 +210,7 @@ namespace AccessibleTrader.Tests
             public Task<List<string>> LoadSymbolsAsync(string a, string b) => Task.FromResult(new List<string>());
             public Task<List<string>> GetSupportedTimeframesAsync(string _) => Task.FromResult(new List<string>());
             public Task<bool> IsProviderConfiguredAsync(string _) => Task.FromResult(true);
+            public bool IsProviderConfigured(string _) => true;
             public Task<bool> ProviderRequiresApiKeyAsync(string _) => Task.FromResult(false);
             public Task<(List<OrderBookEntry>, List<OrderBookEntry>)> GetOrderBookAsync(string p, string s, int l = 10)
                 => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
@@ -232,6 +233,7 @@ namespace AccessibleTrader.Tests
             public Task<List<string>> LoadSymbolsAsync(string a, string b) => Task.FromResult(new List<string>());
             public Task<List<string>> GetSupportedTimeframesAsync(string _) => Task.FromResult(new List<string>());
             public Task<bool> IsProviderConfiguredAsync(string _) => Task.FromResult(true);
+            public bool IsProviderConfigured(string _) => true;
             public Task<bool> ProviderRequiresApiKeyAsync(string _) => Task.FromResult(false);
             public Task<(List<OrderBookEntry>, List<OrderBookEntry>)> GetOrderBookAsync(string p, string s, int l = 10)
                 => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));

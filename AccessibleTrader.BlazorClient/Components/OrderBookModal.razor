@@ -71,7 +71,7 @@
                                 {
                                     bidCumul += bid.Quantity;
                                     double pct = totalBidSize > 0 ? bidCumul / totalBidSize : 0;
-                                    <tr style="background: linear-gradient(to left, rgba(68,187,68,0.15) @(pct.ToString("P0")), transparent @(pct.ToString("P0")))">
+                                    <tr @key="bid.Price" style="background: linear-gradient(to left, rgba(68,187,68,0.15) @(pct.ToString("P0")), transparent @(pct.ToString("P0")))">
                                         <td style="padding:3px 6px; color:#44BB44;">@bid.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@bid.Quantity.ToString("G4")</td>
                                         <td style="padding:3px 6px; text-align:right; color:#888;">@bidCumul.ToString("G4")</td>
@@ -103,7 +103,7 @@
                                 {
                                     askCumul += ask.Quantity;
                                     double pct2 = totalAskSize > 0 ? askCumul / totalAskSize : 0;
-                                    <tr style="background: linear-gradient(to right, rgba(255,68,68,0.15) @(pct2.ToString("P0")), transparent @(pct2.ToString("P0")))">
+                                    <tr @key="ask.Price" style="background: linear-gradient(to right, rgba(255,68,68,0.15) @(pct2.ToString("P0")), transparent @(pct2.ToString("P0")))">
                                         <td style="padding:3px 6px; color:#FF4444;">@ask.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@ask.Quantity.ToString("G4")</td>
                                         <td style="padding:3px 6px; text-align:right; color:#888;">@askCumul.ToString("G4")</td>

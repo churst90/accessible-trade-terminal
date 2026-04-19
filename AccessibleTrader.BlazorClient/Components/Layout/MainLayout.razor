@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+@using System.Threading
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.BlazorClient.Services
@@ -106,10 +107,16 @@
         if (firstRender)
         {
             // Register the global keyboard handler. Wrapping in try/catch prevents
-            // a JS interop failure from crashing the layout component.
+            // a JS interop failure from crashing the layout component. Time-bounded
+            // so a hung JS runtime doesn't trap the first render indefinitely.
             try
             {
-                await InputService.InitializeAsync(JSRuntime);
+                using var initCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await InputService.InitializeAsync(JSRuntime).WaitAsync(initCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _layoutLogger.LogError("Keyboard bridge init timed out after 10 s.");
             }
             catch (Exception ex)
             {

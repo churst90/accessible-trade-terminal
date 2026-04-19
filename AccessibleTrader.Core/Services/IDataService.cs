@@ -17,6 +17,10 @@ namespace AccessibleTrader.Core.Services
         Task<List<string>> LoadSymbolsAsync(string marketInfo, string provider);
         Task<List<string>> GetSupportedTimeframesAsync(string provider);
         Task<bool> IsProviderConfiguredAsync(string provider);
+        /// <summary>Synchronous convenience — same check without the Task wrapper. Use from
+        /// sync call sites (e.g. AnalyticsDataResolver) to avoid GetAwaiter().GetResult() on a
+        /// value that's always available without I/O.</summary>
+        bool IsProviderConfigured(string provider);
         Task<bool> ProviderRequiresApiKeyAsync(string provider);
         Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string provider, MarketDataRequest request);
         Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string provider, string symbol, int limit = 10);

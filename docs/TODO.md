@@ -4,6 +4,34 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-19] — Pre-release quality audit (complete)
+
+Full-codebase audit across Core/SDK, 26 plugins, and the Blazor client.
+All flagged issues resolved in a single sweep; build green across all
+TFMs, 264/264 tests pass.
+
+- [x] **FMP analytics HttpClient bypass** — `FmpAnalyticsProvider.Configure` was using `new HttpClient()` directly, skipping the phase-4 allow-list / response cap / timeout. Now routes through `PluginHostServices.CreateHttpClient` like every other analytics plugin.
+- [x] **Blazor modal event-sub leaks** — three modals (`DrawingToolsModal`, `HelpModal`, `AddIndicatorModal`) had `_eventSub` and a `Dispose()` method but no `@implements IDisposable` directive. Blazor was never calling Dispose; each modal open→close leaked one subscription. Fixed.
+- [x] **PropertiesModal ARIA tabs** — screen-reader regression. Tabs were missing `aria-controls`; tabpanel was missing `id` and `aria-labelledby`. Added all three plus a dynamic `ActiveTabId` property driving `aria-labelledby="@ActiveTabId"`.
+- [x] **Toolbar `async void` handlers** — `OnMarketChanged` / `OnProviderChanged` / `OnSubTypeChanged` converted from `async void` to `async Task` so exceptions propagate to Blazor's error boundary instead of `SynchronizationContext.UnhandledException`.
+- [x] **Missing `@key` on live lists** — order-book bid/ask rows and trading-dashboard balances / positions / open-orders tables got `@key` bindings. Focus + input state no longer corrupt when live ticks reorder the list.
+- [x] **Sync-over-async deadlock risk (`LiveStreamManager`)** — implemented `IAsyncDisposable`; kept `IDisposable` fallback but wrapped the provider disconnect in `Task.Run` so the captured `SynchronizationContext` can't deadlock the shutdown path.
+- [x] **Sync-over-async in `AnalyticsDataResolver`** — added sync `IDataService.IsProviderConfigured(string)` overload (internal impl is already synchronous, no I/O); resolver uses it directly now. Test mocks updated.
+- [x] **Binance pagination defensive comment** — the MEXC pagination fix last session flagged a class of API bug (silent "latest-N" degradation on single-bound queries). Binance is unaffected but structurally identical; added a pointer comment at `BinanceProvider.FetchOhlcvAsync` so future maintainers know where to copy MEXC's bound-computation pattern from if the API behavior ever changes.
+- [x] **Silent `catch {}` blocks audited** — 6 sites across Schwab and BinanceVision narrowed to specific exception types where safe (`CryptographicException`, `IOException`, `HttpRequestException`, `InvalidDataException`, `JsonException`) and commented-in-place where the broad catch was the correct call. `SpeechFormatter` catch kept broad but with an explicit justification (accessibility path must never stop emitting audio).
+- [x] **MainLayout keyboard-init timeout** — added a 10 s `CancellationTokenSource` + `.WaitAsync(ct)` so a hung JS runtime on first render can't trap initialization indefinitely. `OperationCanceledException` caught separately with a distinct log message.
+- [x] **Stale TODO removed** — MacCatalyst `AppDelegate.cs` had a "TODO Phase 7: Wire Mac Catalyst keyboard input" comment; `KeyboardPageHandler` already does this. Replaced with a pointer to the real implementation.
+- [x] **Trading-provider interface docs** — added `<summary>` on `GetBalancesAsync` / `GetPositionsAsync` / `GetOpenOrdersAsync` / `CancelOrderAsync` in `ITradingProvider`, noting the MEXC-spot "symbol required" quirk on `GetOpenOrdersAsync`.
+
+### Follow-ups (not tackled this session)
+
+- [ ] **Symbol-normalization consolidation** — 4 crypto providers (Coinbase `/`→`-`, Bitstamp strip-all+lowercase, Kraken 3-branch, Oanda `_`) each implement their own. Candidate for a `BaseMarketDataProvider.NormalizeSymbol(symbol, exchange)` static helper.
+- [ ] **Timeframe-mapping consolidation** — 7+ providers define their own `MapInterval` / timeframe → exchange-string mapping. Same candidate.
+- [ ] **`BuildSetupTab.razor` decomposition** — 1,330 lines combining strategy metadata, condition-tree editor, leaf/group mutation, risk-plan UI, and persistence. Decompose into `ConditionTreeEditor` / `RiskPlanPanel` / `StrategyMetadata` sub-components.
+- [ ] **`StrategyModal` coupling** — injects 10 services. A `StrategyFacade` would reduce coupling without changing functionality.
+
+---
+
 ## [2026-04-18] — MEXC provider + decimal precision overhaul + Cipher C fix (complete)
 
 - [x] **MEXC provider plugin** — `Plugins/Providers/AccessibleTrader.Plugins.Mexc` using `JK.Mexc.Net 5.0.1`. Spot + futures klines, order book, user-data stream, full `ITradingProvider` surface (balances, positions, open orders, place/cancel order, set leverage). Registered in `AccessibleTrader.slnx` AND in `AccessibleTrader.BlazorClient.csproj` `<ProjectReference>` (the MAUI app enumerates plugins explicitly). Trusted-plugin manifest auto-bumped 23 → 25 on build.

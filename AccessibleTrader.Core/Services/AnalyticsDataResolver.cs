@@ -50,13 +50,8 @@ namespace AccessibleTrader.Core.Services
             // Walk sources in priority order (free first).
             foreach (var src in entry.Sources)
             {
-                if (src.RequiresApiKey)
-                {
-                    // Check if the provider is configured (has an API key).
-                    bool configured = _dataService.IsProviderConfiguredAsync(src.Provider)
-                        .GetAwaiter().GetResult();
-                    if (!configured) continue;
-                }
+                if (src.RequiresApiKey && !_dataService.IsProviderConfigured(src.Provider))
+                    continue;
 
                 return new CrossSeriesRequest(
                     Market: src.Market,

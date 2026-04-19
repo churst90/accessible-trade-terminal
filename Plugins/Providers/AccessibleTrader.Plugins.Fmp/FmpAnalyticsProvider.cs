@@ -120,8 +120,12 @@ namespace AccessibleTrader.Plugins.Fmp
             if (config.TryGetValue("ApiKey", out var key) && !string.IsNullOrWhiteSpace(key))
             {
                 _apiKey = key;
-                _httpClient = new HttpClient();
-                _httpClient.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/1.0");
+                // Phase-4 Track B2 parity with FmpProvider — allow-listed to
+                // financialmodelingprep.com, 32 MB response cap, 60 s timeout,
+                // default User-Agent set by the factory.
+                _httpClient = PluginHostServices.CreateHttpClient(
+                    providerId:   "FmpAnalytics",
+                    allowedHosts: new[] { "financialmodelingprep.com" });
             }
         }
 

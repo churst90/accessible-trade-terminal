@@ -106,16 +106,42 @@ namespace AccessibleTrader.Sdk.Plugins
         IObservable<OrderUpdate> OrderUpdateStream { get; }
 
         // Account queries
+
+        /// <summary>
+        /// Fetches every non-zero balance held on the account. Implementations should
+        /// include both free and locked portions per asset; zero balances are typically
+        /// filtered by the caller.
+        /// </summary>
         Task<List<Balance>>   GetBalancesAsync();
+
+        /// <summary>
+        /// Returns every open futures / margin position. Spot-only accounts should
+        /// return an empty list. P&amp;L fields are exchange-reported when available and
+        /// computed from mark price otherwise.
+        /// </summary>
         Task<List<Position>>  GetPositionsAsync();
+
+        /// <summary>
+        /// Returns every open (unfilled) order. When <paramref name="symbol"/> is
+        /// supplied, the scope is restricted to that symbol; some exchanges
+        /// (e.g. MEXC spot) require a non-null symbol and will return an empty list
+        /// when called with null.
+        /// </summary>
         Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null);
 
         // Order management
+
         /// <summary>
         /// Places an order. Implementations should honour StopLoss and TakeProfit fields
         /// on <paramref name="signal"/> if <see cref="SupportsMarginTrading"/> is true.
         /// </summary>
         Task<string> PlaceOrderAsync(TradeSignal signal);
+
+        /// <summary>
+        /// Cancels an open order. The <paramref name="symbol"/> parameter is required by
+        /// most crypto exchanges; equity brokers typically ignore it. Returns true on
+        /// success, false if the order was already filled / cancelled / unknown.
+        /// </summary>
         Task<bool>   CancelOrderAsync(string orderId, string symbol);
 
         /// <summary>

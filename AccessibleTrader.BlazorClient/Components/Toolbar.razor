@@ -334,12 +334,10 @@
         }
     }
 
-    private async void OnMarketChanged(ChangeEventArgs e)
+    private async Task OnMarketChanged(ChangeEventArgs e)
     {
         _loadError = null;
         MarketOrchestrator.SelectedMarket = e.Value?.ToString() ?? "";
-        // The orchestrator's setter kicks off the async cascade; await it here so
-        // any network/provider errors are surfaced to the user via _loadError.
         try
         {
             await MarketOrchestrator.RefreshProvidersAsync();
@@ -352,7 +350,7 @@
         }
     }
 
-    private async void OnProviderChanged(ChangeEventArgs e)
+    private async Task OnProviderChanged(ChangeEventArgs e)
     {
         _loadError = null;
         MarketOrchestrator.SelectedProvider = e.Value?.ToString() ?? "";
@@ -368,7 +366,7 @@
         }
     }
 
-    private async void OnSubTypeChanged(ChangeEventArgs e)
+    private async Task OnSubTypeChanged(ChangeEventArgs e)
     {
         _loadError = null;
         MarketOrchestrator.SelectedSubType = e.Value?.ToString() ?? "Spot";

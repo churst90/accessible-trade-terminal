@@ -361,7 +361,8 @@ namespace AccessibleTrader.Plugins.BinanceVision
                         var (ts, oi) = ExtractEodOi(bytes);
                         if (ts.HasValue && oi.HasValue) results[ts.Value] = oi.Value;
                     }
-                    catch { }
+                    catch (HttpRequestException) { /* Single day 404 / network blip -- skip and continue. */ }
+                    catch (InvalidDataException)  { /* BoundedReadStream tripped (zip bomb) -- skip day. */ }
                     finally { sem.Release(); }
                 }));
             }
@@ -413,7 +414,11 @@ namespace AccessibleTrader.Plugins.BinanceVision
                     return (new DateTimeOffset(dt, TimeSpan.Zero).ToUnixTimeMilliseconds(), oiVal);
                 }
             }
-            catch { }
+            // Defuse-on-any for zip inputs -- a malformed day archive shouldn't kill
+            // the whole backfill. BoundedReadStream already guards decompression size.
+            catch (InvalidDataException)  { /* corrupt zip or zip-bomb tripped */ }
+            catch (IOException)           { /* entry read failure */ }
+            catch (FormatException)       { /* csv row unparseable */ }
             return (null, null);
         }
 

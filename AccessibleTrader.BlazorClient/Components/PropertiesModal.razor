@@ -24,18 +24,26 @@
             <h2 id="props-title" tabindex="-1">Properties — @_series.FriendlyName</h2>
 
             <div class="tabs-header" role="tablist">
-                <button role="tab" class="@(_activeTab == "General" ? "active" : "")" 
+                <button role="tab" id="props-tab-general"
+                        class="@(_activeTab == "General" ? "active" : "")"
                         aria-selected="@(_activeTab == "General" ? "true" : "false")"
+                        aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "General"'>General</button>
-                <button role="tab" class="@(_activeTab == "Appearance" ? "active" : "")" 
+                <button role="tab" id="props-tab-appearance"
+                        class="@(_activeTab == "Appearance" ? "active" : "")"
                         aria-selected="@(_activeTab == "Appearance" ? "true" : "false")"
+                        aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "Appearance"'>Appearance</button>
-                <button role="tab" class="@(_activeTab == "Sonification" ? "active" : "")" 
+                <button role="tab" id="props-tab-sonification"
+                        class="@(_activeTab == "Sonification" ? "active" : "")"
                         aria-selected="@(_activeTab == "Sonification" ? "true" : "false")"
+                        aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "Sonification"'>Sonification</button>
             </div>
 
-            <div class="tab-content" role="tabpanel">
+            <div class="tab-content" role="tabpanel"
+                 id="props-tabpanel"
+                 aria-labelledby="@ActiveTabId">
                 @switch (_activeTab)
                 {
                     case "General":
@@ -410,6 +418,14 @@
 @code {
     private bool _isVisible;
     private string _activeTab = "General";
+
+    private string ActiveTabId => _activeTab switch
+    {
+        "General"      => "props-tab-general",
+        "Appearance"   => "props-tab-appearance",
+        "Sonification" => "props-tab-sonification",
+        _              => "props-tab-general",
+    };
     private string _selectedComponentName = "";  // "" = show all components
     private ChartSeries? _series;
     private Dictionary<string, double> _params = new();

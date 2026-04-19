@@ -532,7 +532,11 @@ namespace AccessibleTrader.Plugins.Schwab
                             var maybeId = parsed["orderId"]?.ToString();
                             if (!string.IsNullOrEmpty(maybeId)) return maybeId;
                         }
-                        catch { }
+                        catch (JsonException)
+                        {
+                            // Schwab returned non-JSON body on success -- rare but seen
+                            // with empty 200s. Fall through to the synthetic id.
+                        }
                     }
                     return "ORDER_SUBMITTED";
                 }).ConfigureAwait(false);
