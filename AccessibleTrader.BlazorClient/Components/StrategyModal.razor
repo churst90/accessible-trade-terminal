@@ -3,6 +3,7 @@
 @using AccessibleTrader.Sdk.Strategies
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.BlazorClient.Services
 @inject IStrategyEngine StrategyEngine
 @inject IStrategyBacktester Backtester
 @inject IBacktestWarmupAnalyzer WarmupAnalyzer
@@ -192,7 +193,7 @@
                                         @(m.TotalSignals == 0 ? "—" : m.WinRate.ToString("P1"))
                                     </td>
                                     <td style="padding: 6px 8px; text-align: right;">
-                                        @(m.TotalSignals == 0 ? "—" : m.TotalPnL.ToString("F4"))
+                                        @(m.TotalSignals == 0 ? "—" : PriceFormatter.FormatPnL(m.TotalPnL))
                                     </td>
                                     <td style="padding: 6px 8px; text-align: right;">
                                         @(m.TotalSignals == 0 ? "—" : m.MaxDrawdown.ToString("P2"))
@@ -327,7 +328,7 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; font-size: 0.9rem;">
                             <div><strong>Trades:</strong> @m.TotalSignals</div>
                             <div><strong>Win Rate:</strong> @(m.TotalSignals == 0 ? "—" : m.WinRate.ToString("P1"))</div>
-                            <div><strong>Total P&amp;L:</strong> @m.TotalPnL.ToString("F4")</div>
+                            <div><strong>Total P&amp;L:</strong> @PriceFormatter.FormatPnL(m.TotalPnL)</div>
                             <div><strong>Max Drawdown:</strong> @m.MaxDrawdown.ToString("P2")</div>
                             <div><strong>Sharpe Ratio:</strong> @(double.IsNaN(m.SharpeRatio) ? "—" : m.SharpeRatio.ToString("F2"))</div>
                             <div><strong>Bars used:</strong> @(_btResult.WarmupBars + _btResult.EvaluatedBars) total (@_btResult.WarmupBars warmup + @_btResult.EvaluatedBars evaluated)</div>
@@ -354,9 +355,9 @@
                                                 <tr style="border-bottom: 1px solid #2a2a2a; color: @(t.PnL.HasValue && t.PnL.Value >= 0 ? "#4a4" : "#f66");">
                                                     <td style="padding: 3px 6px;">@t.EntryTime.ToString("MM/dd HH:mm")</td>
                                                     <td style="padding: 3px 6px;">@t.Side</td>
-                                                    <td style="padding: 3px 6px; text-align: right;">@t.EntryPrice.ToString("F4")</td>
-                                                    <td style="padding: 3px 6px; text-align: right;">@(t.ExitPrice.HasValue ? t.ExitPrice.Value.ToString("F4") : "—")</td>
-                                                    <td style="padding: 3px 6px; text-align: right;">@(t.PnL.HasValue ? t.PnL.Value.ToString("F4") : "—")</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@PriceFormatter.FormatPrice(t.EntryPrice)</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@(t.ExitPrice.HasValue ? PriceFormatter.FormatPrice(t.ExitPrice.Value) : "—")</td>
+                                                    <td style="padding: 3px 6px; text-align: right;">@(t.PnL.HasValue ? PriceFormatter.FormatPnL(t.PnL.Value) : "—")</td>
                                                     <td style="padding: 3px 6px;">@t.ExitReason</td>
                                                 </tr>
                                             }

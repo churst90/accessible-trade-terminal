@@ -94,7 +94,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsCoordinateEntryMode)
             {
                 string ts = pt.Date.ToString("t");
-                string ceMsg = $"{(double)pt.Close:F0}, {ts}";
+                string ceMsg = $"{SpeechPriceFormatter.FormatPrice(pt.Close)}, {ts}";
 
                 // When anchor 1 is already confirmed, also speak the change from that anchor.
                 if (state.CoordinateEntryAnchorCount == 1 &&

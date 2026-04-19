@@ -8,6 +8,7 @@
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Fmp/AccessibleTrader.Plugins.Fmp.csproj" />
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.InteractiveBrokers/AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Kraken/AccessibleTrader.Plugins.Kraken.csproj" />
+    <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Mexc/AccessibleTrader.Plugins.Mexc.csproj" />
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Oanda/AccessibleTrader.Plugins.Oanda.csproj" />
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Polygon/AccessibleTrader.Plugins.Polygon.csproj" />
     <Project Path="Plugins/Providers/AccessibleTrader.Plugins.Schwab/AccessibleTrader.Plugins.Schwab.csproj" />

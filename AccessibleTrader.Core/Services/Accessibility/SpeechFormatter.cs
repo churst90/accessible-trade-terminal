@@ -50,15 +50,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                msg = $"{trend}{typeStr}. Close {pt.Close:F2}. Open {pt.Open:F2}. " +
-                      $"High {pt.High:F2}. Low {pt.Low:F2}. Volume {pt.Volume:F2}. " +
+                msg = $"{trend}{typeStr}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
+                      $"High {SpeechPriceFormatter.FormatPrice(pt.High)}. Low {SpeechPriceFormatter.FormatPrice(pt.Low)}. Volume {FormatVolume(pt.Volume)}. " +
                       $"Body {bodyPct:F0}%, Upper wick {upperPct:F0}%, Lower wick {lowerPct:F0}%.";
             }
             else if (summary && seriesId == "price")
             {
                 var priceComp = series.Components.FirstOrDefault(c => c.IsVisible && !c.IsMuted);
                 string lineType = priceComp != null ? FriendlyTypeName(priceComp.DisplayType) : "line";
-                msg = $"{series.Name}. {lineType}. {pt.Close:F2}.";
+                msg = $"{series.Name}. {lineType}. {SpeechPriceFormatter.FormatPrice(pt.Close)}.";
             }
             else if (summary)
             {
@@ -103,7 +103,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string dataMsg;
             if (double.IsNaN(bin.TotalVolume) || bin.TotalVolume == 0)
             {
-                dataMsg = $"Price {bin.PriceLow:F2} to {bin.PriceHigh:F2}, no data.";
+                dataMsg = $"Price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}, no data.";
             }
             else
             {
@@ -119,14 +119,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // TPO mode: report time periods (letters) rather than volume.
                     string letters = string.Join(" ", bin.TpoLetters);
                     string labelPart = string.IsNullOrEmpty(nodeLabel) ? "" : $", {nodeLabel}";
-                    dataMsg = $"Price {bin.PriceLow:F2} to {bin.PriceHigh:F2}, " +
+                    dataMsg = $"Price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}, " +
                               $"{bin.TpoPeriodCount:F0} {(bin.TpoPeriodCount == 1 ? "period" : "periods")}, " +
                               $"letters {letters}{labelPart}.";
                 }
                 else
                 {
                     string labelPart = string.IsNullOrEmpty(nodeLabel) ? "" : $"{nodeLabel}, ";
-                    dataMsg = $"Price {bin.PriceLow:F2} to {bin.PriceHigh:F2}, " +
+                    dataMsg = $"Price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}, " +
                               $"{labelPart}" +
                               $"{FormatVolume(bin.TotalVolume)} contracts, " +
                               $"{pct:F1} percent.";
@@ -175,7 +175,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     var nodeType = ProfileBinClassifier.Classify(peakClassify, classifyBins);
                     string label = ProfileBinClassifier.GetLabel(nodeType);
                     string labelPart = string.IsNullOrEmpty(label) ? "" : $", {label}";
-                    dataMsg = $"peak at price {peak.PriceMid:F2}{labelPart}, {FormatVolume(peak.TotalVolume)} contracts.";
+                    dataMsg = $"peak at price {SpeechPriceFormatter.FormatPrice(peak.PriceMid)}{labelPart}, {FormatVolume(peak.TotalVolume)} contracts.";
                 }
             }
             else
@@ -191,7 +191,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double colTotal = bar.Sum(b => b.TotalVolume);
                 double pct = colTotal > 0 ? bin.TotalVolume / colTotal * 100.0 : 0;
 
-                dataMsg = $"price {bin.PriceLow:F2} to {bin.PriceHigh:F2}" +
+                dataMsg = $"price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}" +
                           $"{labelPart}, " +
                           $"{FormatVolume(bin.TotalVolume)} contracts, " +
                           $"{pct:F1} percent.";
@@ -333,7 +333,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         .Replace("{name}", comp.DisplayName);
                 }
 
-                string valF2 = double.IsNaN(val) ? "no data" : val.ToString("F2");
+                // Price-family series (candles / price line) need magnitude-aware
+                // precision so sub-dollar assets like KAS don't collapse to "0.04".
+                string sId = series.Id.ToLowerInvariant();
+                bool isPriceSeries = sId == "price" || sId == "candles";
+                string valF2 = double.IsNaN(val)
+                    ? "no data"
+                    : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2"));
                 string valF1 = double.IsNaN(val) ? "no data" : val.ToString("F1");
 
                 if (!readHeaders || speechOrder == "ValueOnly")

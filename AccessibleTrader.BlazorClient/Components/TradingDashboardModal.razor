@@ -3,6 +3,7 @@
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
 @using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.BlazorClient.Services
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IOrderExecutionService OrderService
@@ -211,7 +212,7 @@
                                     <table class="mini-table">
                                         @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
                                         {
-                                            <tr><td>@b.Asset</td><td>@b.Free.ToString("F2")</td></tr>
+                                            <tr><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td></tr>
                                         }
                                     </table>
                                 }
@@ -220,7 +221,7 @@
                                     <table class="mini-table">
                                         @foreach (var p in _positions)
                                         {
-                                            <tr><td>@p.Symbol</td><td>@p.Quantity.ToString("F2")</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@p.UnrealizedPnL.ToString("F1")</td></tr>
+                                            <tr><td>@p.Symbol</td><td>@PriceFormatter.FormatQuantity(p.Quantity)</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td></tr>
                                         }
                                     </table>
                                 }
@@ -229,7 +230,7 @@
                                     <table class="mini-table">
                                         @foreach (var o in _openOrders)
                                         {
-                                            <tr><td>@o.Side</td><td>@o.Price.ToString("F2")</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
+                                            <tr><td>@o.Side</td><td>@PriceFormatter.FormatPrice(o.Price)</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
                                         }
                                     </table>
                                 }
@@ -496,7 +497,7 @@
     {
         var data = Store.State.Data;
         if (data == null || !data.Any()) return "—";
-        return data[^1].Close.ToString("F2");
+        return PriceFormatter.FormatPrice(data[^1].Close);
     }
 
     private double GetCurrentPrice()
@@ -509,7 +510,7 @@
     {
         if (!_bids.Any() || !_asks.Any()) return "—";
         double spread = _asks[0].Price - _bids[0].Price;
-        return spread.ToString("F2");
+        return PriceFormatter.FormatPrice(spread);
     }
 
     public void Dispose()

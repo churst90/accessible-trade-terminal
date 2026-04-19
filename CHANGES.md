@@ -4,6 +4,104 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-18] — MEXC provider, decimal-precision overhaul, Cipher C fix
+
+### MEXC provider plugin
+
+- **`Plugins/Providers/AccessibleTrader.Plugins.Mexc`** — new crypto provider
+  built on `JK.Mexc.Net 5.0.1` (same JKorf family as the Binance plugin).
+  Mirrors the Binance template for structural consistency: inherits
+  `BaseMarketDataProvider`, implements `IProviderPlugin`, `ITradingProvider`,
+  and `IOrderBookProvider`. Ships with spot + futures klines, order book
+  (REST snapshot + partial-depth WS), symbol search via exchange-info,
+  lazy authenticated client via `PluginHostServices.ApiKeys` credential
+  checkout (phase 4 Track B), user-data stream with 30-minute listen-key
+  keepalive, spot Market/Limit order placement, futures order placement
+  with leverage + margin type + TP/SL baked into the single call,
+  position fetch, cancel-order (spot or futures), and `SetLeverageAsync`.
+  Capability flags: `L2 | MarketDepth | Leverage | Brackets`; max leverage
+  200x (futures). Loaded through the same isolated `PluginLoadContext` as
+  other providers, so its `CryptoExchange.Net 11.1.0` dependency coexists
+  with Binance's `7.2.0` without conflict.
+- **Pagination fix** — initial `MaxBarsPerRequest = 1000` was wrong (probed
+  MEXC directly, hard cap is 500). Dropped to 500 and rewrote
+  `FetchOhlcvAsync` to always pass both `startTime` and `endTime` — MEXC's
+  spot klines endpoint silently ignores single-bound queries and falls
+  back to "latest 500" when only one is set, which was cutting backfill
+  short by ~60%. When the caller provides only one bound, the missing
+  end is computed from `limit × bar-duration` (new `TimeframeDuration`
+  helper). KAS/USDT daily now walks back to 2024-12-05 (MEXC's listing
+  date) instead of ~Sept 2025.
+- **Known limitations vs. Binance:** spot stop-loss / take-profit orders
+  are rejected (the MEXC spot REST wrappers in this library only expose
+  Market / Limit / LimitMaker / IOC / FOK; use Futures for bracketed
+  entries); `GetOpenOrdersAsync` requires a symbol (MEXC spot endpoint
+  constraint) and returns empty when called with `null`; MEXC caches only
+  ~500 bars per (symbol, interval) — on 1h that's 21 days, nothing we can
+  work around.
+- **Geographic note:** MEXC does not officially serve US users. Plugin
+  description flags this; the technical call path works, but ToS
+  compliance is the operator's responsibility.
+- **Solution wiring** — registered in `AccessibleTrader.slnx` AND in
+  `AccessibleTrader.BlazorClient.csproj` `<ProjectReference>` list (the
+  MAUI app explicitly enumerates each provider plugin so its DLL is copied
+  into the host OutDir — the solution reference alone doesn't do this).
+  Trusted-plugin manifest auto-refreshes to 25 entries (was 23) on build.
+
+### Decimal-precision overhaul (sub-dollar assets)
+
+Hard-coded `F2` price formatters collapsed assets like KAS/SHIB/PEPE to
+`0.04` / `0.00`, losing all precision. Swept across four surfaces:
+
+- **New shared formatters.** `AccessibleTrader.BlazorClient/Services/PriceFormatter.cs`
+  (`FormatPrice`, `FormatQuantity`, `FormatPnL`) and
+  `AccessibleTrader.Core/Services/Accessibility/SpeechPriceFormatter.cs`
+  (`FormatPrice`). Both use magnitude-adaptive precision — price formatter
+  picks from 2/4/6/8 decimals based on absolute value; speech formatter
+  uses `clamp(2 − floor(log10(|val|)), 2, 10)` for ~3 significant digits
+  at any scale.
+- **Chart axis + crosshair.** `ChartRenderer.cs` Y-axis labels and
+  crosshair readouts now use a range-aware formatter
+  (`FormatAxisValue(val, range)`) so cheap-asset panes don't render every
+  label as `0.00`. Formula: `decimals = clamp(2 − floor(log10(range)), 2, 10)`.
+- **Trading dashboard modal.** Six call sites — live price, spread,
+  open-order price, balance `Free`, position quantity, position
+  unrealized PnL — now route through `PriceFormatter`.
+- **Strategy modal.** EntryPrice, ExitPrice, TotalPnL (summary + details
+  panel), and per-trade PnL now use `PriceFormatter.FormatPrice` /
+  `FormatPnL`. Sharpe ratio kept at `F2` (unitless ratio).
+- **Speech pipeline.** `SpeechFormatter` (candle summary, price-line
+  summary, profile-bin ranges, heatmap peaks/bins, generic `{value}`
+  template for price series), `AccessibilityFeedbackCoordinator` (new-bar
+  close/open announcement), `NavigationFeedbackManager` (coordinate-entry
+  mode — was `F0`, rounding every sub-dollar price to `0`),
+  `DrawingInteractionManager` (all drawing-anchor announcements),
+  `CipherAProvider` / `CipherBProvider` / `SpiderLinesProvider`
+  (price-annotated indicator narrations). Indicator values (RSI, MACD,
+  WT) stay on `F2` — they don't need the extra precision.
+
+### Cipher C tail-boost removal
+
+On the weekly KAS chart, the Cycle pane was rendering as a near-square
+wave with 3–5 bar plateaus pinned at ±100 (chart axis extends to ±120 as
+label headroom). Root cause in `CipherCProvider.Calculate()`: a pre-clamp
+"tail boost" (lines 497–501) multiplied Fisher values in the stoch tails
+by `1 + √(|stoch − 0.5| − 0.4)` before the hard ±100 clamp. The comment
+claimed this preserved separation between "95th pct" and "pinned at
+99th pct" reads, but the math did the opposite — stoch ≥ 0.94 already
+produced raw Fisher > 100, and the boost pushed anything in the 0.90–0.94
+band above 100 too. Net effect: every extreme-ish read collapsed to the
+same value, erasing tier separation.
+
+Fix: dropped the five-line boost block. Vanilla `Fisher × 50`, clamped
+to ±100. Plateaus on KAS's parabolic leg shrank from 3–5 bars to 1–2
+bars; Cycle Sine and Lead Sine now visibly separate during transitions;
+Top Single / Double / Triple dots actually differentiate instead of
+firing as a cluster. 58/58 Cipher C tests still pass (no test asserted
+on the boost-specific behaviour).
+
+---
+
 ## [2026-04-17] — Post-phase-4 polish: audit log, HttpClient migration, CI gate
 
 Follow-up to the broader codebase audit after the sandbox work wrapped. Not

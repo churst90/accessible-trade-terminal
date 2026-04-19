@@ -4,6 +4,17 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-18] — MEXC provider + decimal precision overhaul + Cipher C fix (complete)
+
+- [x] **MEXC provider plugin** — `Plugins/Providers/AccessibleTrader.Plugins.Mexc` using `JK.Mexc.Net 5.0.1`. Spot + futures klines, order book, user-data stream, full `ITradingProvider` surface (balances, positions, open orders, place/cancel order, set leverage). Registered in `AccessibleTrader.slnx` AND in `AccessibleTrader.BlazorClient.csproj` `<ProjectReference>` (the MAUI app enumerates plugins explicitly). Trusted-plugin manifest auto-bumped 23 → 25 on build.
+- [x] **MEXC pagination fix** — `MaxBarsPerRequest` dropped 1000 → 500 (real API cap); `FetchOhlcvAsync` now computes the missing time bound from `limit × bar-duration` when the caller passes only one, because MEXC's spot klines endpoint silently ignores single-bound queries and falls back to "latest 500". Restores the full available history window (e.g. KAS/USDT daily now goes back to the Dec 2024 listing date instead of ~Sept 2025).
+- [x] **Price formatters for the UI.** New `AccessibleTrader.BlazorClient/Services/PriceFormatter.cs` (`FormatPrice`, `FormatQuantity`, `FormatPnL`). Applied to `TradingDashboardModal.razor` (live price, spread, open-order price, balance Free, position qty / PnL) and `StrategyModal.razor` (entry/exit/PnL in summary + details panel + per-trade grid). Sub-dollar assets now display with magnitude-adaptive precision instead of `0.04`.
+- [x] **Chart Y-axis + crosshair adaptive precision.** `ChartRenderer.RenderYAxis` and `RenderCrosshair` route through new `FormatAxisValue(val, range)` helper. Formula `decimals = clamp(2 − floor(log10(range)), 2, 10)` — KAS-scale ranges get 4–7 decimals, BTC-scale gets 2.
+- [x] **Speech-pipeline adaptive precision.** New `AccessibleTrader.Core/Services/Accessibility/SpeechPriceFormatter.cs`. Applied to `SpeechFormatter` (candle / price-line / profile-bin / heatmap / `{value}` template for price series), `AccessibilityFeedbackCoordinator` (new-bar close/open), `NavigationFeedbackManager` (coordinate entry — was `F0`, rounding sub-dollar to 0), `DrawingInteractionManager` (all anchor announcements), `CipherAProvider` / `CipherBProvider` / `SpiderLinesProvider` (price-annotated narrations). Indicator values (RSI, MACD, WT) intentionally stay on `F2`.
+- [x] **Cipher C tail-boost removed.** `CipherCProvider.Calculate()` had a pre-clamp Fisher amplifier that inverted its stated intent — stoch ≥ 0.94 already exceeded the ±100 clamp, and the boost dragged the 0.90–0.94 band above 100 as well, collapsing every extreme read to the same value. Dropped the five-line boost block. On the weekly KAS chart the Cycle Sine plateaus shrank from 3–5 bars to 1–2 bars and the Top Single/Double/Triple tier separation restored. All 58 Cipher C tests still pass.
+
+---
+
 ## NEXT UP (2026-04-16) — Security hardening (pre-customer release)
 
 Ahead of shipping to real retail users, a full-codebase security audit was run

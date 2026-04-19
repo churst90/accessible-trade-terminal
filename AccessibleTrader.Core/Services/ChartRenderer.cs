@@ -283,7 +283,7 @@ namespace AccessibleTrader.Core.Services
                 // Skip labels that are too close to the previous one.
                 if (Math.Abs(y - lastLabelY) < minLabelSpacing) continue;
                 lastLabelY = y;
-                string label = val.ToString((max - min) < 1 ? "F4" : "F2");
+                string label = FormatAxisValue(val, max - min);
                 float lx = rect.Left + (3 * density);
                 // Clamp so baseline never falls below the pane bottom or above the cap-height boundary.
                 float textY = Math.Clamp(y + (4 * density),
@@ -291,6 +291,21 @@ namespace AccessibleTrader.Core.Services
                     rect.Bottom - (3 * density));
                 canvas.DrawText(label, lx, textY, SKTextAlign.Left, _textFont, _textPaint);
             }
+        }
+
+        // Range-aware axis label formatter. A flat F2/F4 choice collapses to
+        // "0.0000" for assets whose visible range is tiny (e.g. early KAS ticks
+        // around $0.00003). Pick decimal count from the range magnitude so
+        // labels always carry ~2 significant digits beyond the range scale.
+        private static string FormatAxisValue(double val, double range)
+        {
+            double absRange = Math.Abs(range);
+            int decimals;
+            if (absRange == 0 || double.IsNaN(absRange) || double.IsInfinity(absRange))
+                decimals = 2;
+            else
+                decimals = Math.Clamp(2 - (int)Math.Floor(Math.Log10(absRange)), 2, 10);
+            return val.ToString("F" + decimals);
         }
 
         private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density)
@@ -350,7 +365,7 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, indPaint);
 
                 // Y-value label at the right edge of the pane (matches RenderYAxis style)
-                string label = val.Value.ToString((paneMax - paneMin) < 1 ? "F4" : "F2");
+                string label = FormatAxisValue(val.Value, paneMax - paneMin);
                 float labelW = _textFont.MeasureText(label);
                 float labelH = _textFont.Size + (4 * density);
                 float lx = paneRect.Right + (2 * density);

@@ -487,18 +487,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 double range = highest - lowest;
                 double stoch = range > 1e-10 ? (smoothCycle[i] - lowest) / range : 0.5;
                 double value = Math.Max(-0.999, Math.Min(0.999, 2.0 * stoch - 1.0));
-                // Fisher saturation correction: near the ±1 boundaries, raw Fisher jumps
-                // exponentially — stoch 0.95 → raw ~1.47, stoch 0.99 → raw ~2.65.
-                // After clamping to ±100 this collapses all extreme tails to the same value,
-                // hiding the difference between "reached 95th pct" and "pinned at 99th pct".
-                // Amplifying the raw value when stoch is in the tail (>0.90 or <0.10) before
-                // clamping preserves the separation between true tail events and the rest.
                 double raw = 0.5 * Math.Log((1.0 + value) / (1.0 - value)) * FisherScale;
-                if (stoch > 0.90 || stoch < 0.10)
-                {
-                    double tailBoost = Math.Sqrt(Math.Max(0.0, Math.Abs(stoch - 0.5) - 0.40));
-                    raw *= 1.0 + tailBoost;
-                }
                 cycleSine[i] = Math.Max(-100.0, Math.Min(100.0, raw));
             }
 

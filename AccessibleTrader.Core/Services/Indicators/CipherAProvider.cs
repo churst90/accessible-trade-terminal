@@ -441,13 +441,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // Divergences — price + cause description + pivot lag disclosure.
                 // Divergence detection uses a pivot window of PivotBars; the signal appears
                 // at the center of the window, so it's effectively PivotBars bars late.
-                CompBullDiv      => $"Price {bar.Close:F2}. Price lower low, WT higher low. Confirmed on pivot.",
-                CompBearDiv      => $"Price {bar.Close:F2}. Price higher high, WT lower high. Confirmed on pivot.",
-                CompBloodDiamond => $"Price {bar.Close:F2}. Overbought zone, high confidence. Confirmed on pivot.",
+                CompBullDiv      => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Price lower low, WT higher low. Confirmed on pivot.",
+                CompBearDiv      => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Price higher high, WT lower high. Confirmed on pivot.",
+                CompBloodDiamond => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Overbought zone, high confidence. Confirmed on pivot.",
 
                 // Confluence signals — price + the two conditions that fired.
-                CompManipulation => $"Price {bar.Close:F2}. Oversold with positive money flow.",
-                CompExhaustion   => $"Price {bar.Close:F2}. Overbought with negative money flow.",
+                CompManipulation => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Oversold with positive money flow.",
+                CompExhaustion   => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Overbought with negative money flow.",
 
                 _ => null
             };

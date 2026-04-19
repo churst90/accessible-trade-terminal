@@ -115,6 +115,7 @@
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Fmp\AccessibleTrader.Plugins.Fmp.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.InteractiveBrokers\AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
+      <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Mexc\AccessibleTrader.Plugins.Mexc.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Oanda\AccessibleTrader.Plugins.Oanda.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Polygon\AccessibleTrader.Plugins.Polygon.csproj" />
       <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Tradier\AccessibleTrader.Plugins.Tradier.csproj" />

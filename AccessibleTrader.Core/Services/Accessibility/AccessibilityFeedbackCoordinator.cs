@@ -222,8 +222,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2);
 
             string patternSuffix = FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true);
-            string closedMsg = $"Close {e.ClosedBar.Close:F2}{patternSuffix}.";
-            string openMsg   = $"New bar: Open {e.NewBar.Open:F2}";
+            string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
+            string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
 
             _earconService.PlayNewBar();
             _speechRouter.Speak($"{closedMsg} {openMsg}", interrupt: false);

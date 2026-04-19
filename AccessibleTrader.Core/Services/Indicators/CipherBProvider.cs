@@ -1047,14 +1047,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             double wt1 = GetCompValue(data, CompWT1, idx);
             string wtStr = double.IsNaN(wt1) ? "" : $" Wave Trend {wt1:F1}.";
-            return $"Price {bar.Close:F2}.{wtStr}";
+            return $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
         private static string GetDivergenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx, string kind)
         {
             double wt1 = GetCompValue(data, CompWT1, idx);
             string wtStr = double.IsNaN(wt1) ? "" : $" Wave Trend {wt1:F1}.";
-            return $"{kind} divergence, confirmed on pivot. Price {bar.Close:F2}.{wtStr}";
+            return $"{kind} divergence, confirmed on pivot. Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
         private static string GetTripleConfluenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
@@ -1063,7 +1063,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double mf  = GetCompValue(data, CompMoneyFlowWave, idx);
 
             var parts = new System.Text.StringBuilder();
-            parts.Append($"Price {bar.Close:F2}.");
+            parts.Append($"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}.");
             if (!double.IsNaN(wt1)) parts.Append($" Wave Trend {wt1:F1}, oversold.");
             if (!double.IsNaN(mf) && mf > 0.0) parts.Append(" Money flow positive.");
             parts.Append(" Trend and volatility confirmed.");

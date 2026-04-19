@@ -108,7 +108,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     string ts = date.ToString("t");
                     _eventBus.Publish(new AnnouncementEvent(
-                        $"{label}: anchor 1 set at {price:F2}, {ts}. Navigate to next point and press the shortcut again."));
+                        $"{label}: anchor 1 set at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to next point and press the shortcut again."));
                 }
             }
             else if (_anchorDate2 == null)
@@ -139,9 +139,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     string ts = date.ToString("t");
                     string msg = _pendingDrawingType switch {
-                        DrawingType.RiskReward       => $"Risk/reward: entry at {price:F2}, {ts}. Navigate to stop loss and press the shortcut again.",
-                        DrawingType.AndrewsPitchfork => $"Pitchfork: median line at {price:F2}, {ts}. Navigate to swing point and press the shortcut again.",
-                        _                            => $"{label}: anchor 2 at {price:F2}, {ts}. Navigate to anchor 3 and press the shortcut again."
+                        DrawingType.RiskReward       => $"Risk/reward: entry at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to stop loss and press the shortcut again.",
+                        DrawingType.AndrewsPitchfork => $"Pitchfork: median line at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to swing point and press the shortcut again.",
+                        _                            => $"{label}: anchor 2 at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to anchor 3 and press the shortcut again."
                     };
                     _eventBus.Publish(new AnnouncementEvent(msg));
                 }
@@ -171,8 +171,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string label = FriendlyName(_pendingDrawingType);
             double fromPrice = _anchorPrice1 ?? priceFinal;
             string feedback = Math.Abs(priceFinal - fromPrice) > 0.001
-                ? $"{label} placed from {fromPrice:F2} to {priceFinal:F2}."
-                : $"{label} placed at {priceFinal:F2}.";
+                ? $"{label} placed from {SpeechPriceFormatter.FormatPrice(fromPrice)} to {SpeechPriceFormatter.FormatPrice(priceFinal)}."
+                : $"{label} placed at {SpeechPriceFormatter.FormatPrice(priceFinal)}.";
             _eventBus.Publish(new AnnouncementEvent(feedback));
 
             _pendingDrawingType = DrawingType.None;
@@ -210,7 +210,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (dType == DrawingType.HorizontalLine)
             {
                 CreateDrawingSeries("Horizontal", new DrawingData { Type = DrawingType.HorizontalLine, AnchorPrice1 = pt.Close }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Horizontal line added at {pt.Close:F2}"));
+                _eventBus.Publish(new AnnouncementEvent($"Horizontal line added at {SpeechPriceFormatter.FormatPrice(pt.Close)}"));
             }
             else if (dType == DrawingType.VerticalLine)
             {
@@ -220,7 +220,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (dType == DrawingType.TextLabel)
             {
                 CreateDrawingSeries("Label", new DrawingData { Type = DrawingType.TextLabel, AnchorDate1 = pt.Date, AnchorPrice1 = pt.Close }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Text label pinned at {pt.Close:F2}"));
+                _eventBus.Publish(new AnnouncementEvent($"Text label pinned at {SpeechPriceFormatter.FormatPrice(pt.Close)}"));
             }
             else if (dType != DrawingType.None)
             {

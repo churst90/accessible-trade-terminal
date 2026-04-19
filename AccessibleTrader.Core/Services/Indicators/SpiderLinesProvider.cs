@@ -161,7 +161,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (double.IsNaN(price)) return string.Empty;
 
             var sb = new StringBuilder();
-            sb.Append($"Price {price:F4}. ");
+            sb.Append($"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(price)}. ");
 
             // Count how many EMAs are below price (bullish stacking signal)
             int belowCount = 0;
