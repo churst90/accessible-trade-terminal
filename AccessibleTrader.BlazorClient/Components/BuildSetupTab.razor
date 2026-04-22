@@ -10,7 +10,7 @@
         3. Risk plan — stop source, TP ladder, sizing, R:R minimum, entry trigger, equity.
         4. Save / Load / Add to Engine actions.
 
-    The mutable in-memory model (`EditableNode` + `_risk*` fields) is converted to a
+    The mutable in-memory model (`EditableConditionNode` + `_risk*` fields) is converted to a
     `StrategySpec` record on Save and persisted via `IStrategyLibrary.Upsert`. Loading an
     existing spec walks the inverse path. "Add to Engine" registers the current spec as a
     live `ConfigurableStrategy` via `IConfigurableStrategyFactory` + `IStrategyEngine`.
@@ -25,6 +25,7 @@
 @inject IStrategyLibrary Library
 @inject IConfigurableStrategyFactory Factory
 @inject IStrategyEngine Engine
+@inject IStrategyLibraryFacade LibraryFacade
 @inject ISpeechManager Speech
 @inject IStrategyBacktester Backtester
 @inject IBacktestWarmupAnalyzer WarmupAnalyzer
@@ -520,38 +521,13 @@
 
 @code {
     // ── Editable model ────────────────────────────────────────────────────────
-
-    /// <summary>Mutable mirror of <c>ConditionNode</c>. Records are immutable so we use a class
-    /// for two-way Blazor binding; converted to/from the Sdk record on Save/Load.</summary>
-    private class EditableNode
-    {
-        public string Id { get; set; } = System.Guid.NewGuid().ToString("N");
-        public bool IsGroup { get; set; }
-
-        // Group state
-        public LogicOperator Logic { get; set; } = LogicOperator.And;
-        public List<EditableNode> Children { get; set; } = new();
-
-        // Leaf state
-        public string SignalDescriptorId = string.Empty;
-        public LeafOperator Operator = LeafOperator.Fired;
-        public double Value;
-        public double? Value2;
-        public int WithinNBars = 1;
-        public double Score = 1.0;
-        public string? Timeframe;
-        public string? SecondSignalDescriptorId; // for CrossesAboveLine / CrossesBelowLine
-    }
-
-    private class EditableTpRung
-    {
-        public TargetSourceKind Kind = TargetSourceKind.RiskRewardMultiple;
-        public double Multiple = 2.0;
-        public double PercentValue = 1.0;
-        public double FixedPrice;
-        public double FibLevel = 1.618;
-        public double ClosePortion = 0.34;
-    }
+    // EditableConditionNode / EditableTpRung / EditableStrategySpec all live in
+    // AccessibleTrader.Core.Services.Strategies so they can be unit-tested and
+    // shared by future child components (ConditionTreeEditor / RiskPlanEditor).
+    // This tab still holds the loose fields for now because the @template's
+    // bindings use `out _field` forms that don't play well with properties;
+    // BuildEditableSpec / ApplyEditableSpec round-trip them when calling the
+    // validator / narrator / library facade.
 
     // ── Spec metadata ─────────────────────────────────────────────────────────
 
@@ -561,8 +537,8 @@
 
     // ── Tree state ────────────────────────────────────────────────────────────
 
-    private EditableNode? _root;
-    private EditableNode? _selectedNode;
+    private EditableConditionNode? _root;
+    private EditableConditionNode? _selectedNode;
 
     // ── Risk plan state ───────────────────────────────────────────────────────
 
@@ -701,7 +677,7 @@
 
     // ── Tree rendering ────────────────────────────────────────────────────────
 
-    private RenderFragment RenderNode(EditableNode node, int level) => __builder =>
+    private RenderFragment RenderNode(EditableConditionNode node, int level) => __builder =>
     {
         bool isSelected = _selectedNode != null && _selectedNode.Id == node.Id;
         string label = NodeLabel(node);
@@ -741,7 +717,7 @@
         </li>
     };
 
-    private string NodeLabel(EditableNode node)
+    private string NodeLabel(EditableConditionNode node)
     {
         if (node.IsGroup)
         {
@@ -758,33 +734,33 @@
 
     private void AddRootGroup()
     {
-        _root = new EditableNode { IsGroup = true, Logic = LogicOperator.And };
+        _root = new EditableConditionNode { IsGroup = true, Logic = LogicOperator.And };
         _selectedNode = _root;
     }
 
     private void AddRootLeaf()
     {
-        _root = new EditableNode { IsGroup = false };
+        _root = new EditableConditionNode { IsGroup = false };
         _selectedNode = _root;
     }
 
-    private void AddChildLeaf(EditableNode parent)
+    private void AddChildLeaf(EditableConditionNode parent)
     {
         if (!parent.IsGroup) return;
-        var leaf = new EditableNode { IsGroup = false };
+        var leaf = new EditableConditionNode { IsGroup = false };
         parent.Children.Add(leaf);
         _selectedNode = leaf;
     }
 
-    private void AddChildGroup(EditableNode parent)
+    private void AddChildGroup(EditableConditionNode parent)
     {
         if (!parent.IsGroup) return;
-        var group = new EditableNode { IsGroup = true, Logic = LogicOperator.And };
+        var group = new EditableConditionNode { IsGroup = true, Logic = LogicOperator.And };
         parent.Children.Add(group);
         _selectedNode = group;
     }
 
-    private void DeleteNode(EditableNode node)
+    private void DeleteNode(EditableConditionNode node)
     {
         if (_root == null) return;
         if (node == _root)
@@ -800,7 +776,7 @@
         }
     }
 
-    private bool RemoveFromTree(EditableNode current, EditableNode target)
+    private bool RemoveFromTree(EditableConditionNode current, EditableConditionNode target)
     {
         if (!current.IsGroup) return false;
         if (current.Children.Remove(target)) return true;
@@ -809,7 +785,7 @@
         return false;
     }
 
-    private void SelectNode(EditableNode node) => _selectedNode = node;
+    private void SelectNode(EditableConditionNode node) => _selectedNode = node;
 
     private void ClearTree()
     {
@@ -852,112 +828,92 @@
     private void AddTpRung() => _tpRungs.Add(new EditableTpRung { Multiple = _tpRungs.Count + 1.0, ClosePortion = 0.33 });
 
     // ── Save / Load / Run ────────────────────────────────────────────────────
+    //
+    // Validation, narration, library/engine orchestration, and export/import
+    // all live in Core services — this component just packages the loose
+    // fields into an EditableStrategySpec at the service-call boundary
+    // (BuildEditableSpec), calls the service, then copies any returned
+    // state back (ApplyEditableSpec handles LoadedId updates from Save /
+    // AddToEngine / Import).
 
-    /// <summary>
-    /// Returns true when every leaf in the tree uses a one-bar transient operator
-    /// (Fired, CrossesAbove/Below, etc.). Such trees are structurally a single-bar pulse:
-    /// they cannot satisfy any non-Immediate entry trigger and the engine auto-promotes
-    /// them to Immediate execution. We surface a UX warning here so the user understands
-    /// the behavior rather than wondering why their OnPullbackToLevel trigger is being
-    /// silently overridden. Mirrors ConfigurableStrategy.IsPurePulseTree.
-    /// </summary>
-    private static bool IsPurePulseTree(EditableNode? n)
+    /// <summary>Packages every loose field into a fresh <see cref="EditableStrategySpec"/>
+    /// so it can be passed to the validator / narrator / library facade. Pure read path —
+    /// never mutates component state.</summary>
+    private EditableStrategySpec BuildEditableSpec() => new()
     {
-        if (n == null) return false;
-        if (n.IsGroup)
-        {
-            if (n.Children.Count == 0) return false;
-            foreach (var c in n.Children)
-                if (!IsPurePulseTree(c)) return false;
-            return true;
-        }
-        return n.Operator switch
-        {
-            LeafOperator.Fired             => true,
-            LeafOperator.CrossesAbove      => true,
-            LeafOperator.CrossesBelow      => true,
-            LeafOperator.CrossesAboveLine  => true,
-            LeafOperator.CrossesBelowLine  => true,
-            LeafOperator.ChangesDirection  => true,
-            LeafOperator.PriceBreaksLevel  => true,
-            LeafOperator.PriceRejectsLevel => true,
-            LeafOperator.WickIntoLvn       => true,
-            _ => false
-        };
+        Name = _name,
+        Description = _description,
+        Side = _side,
+        Root = _root,
+        SelectedNode = _selectedNode,
+        StopKind = _stopKind,
+        StopPercent = _stopPercent,
+        StopAtrPeriod = _stopAtrPeriod,
+        StopAtrMultiple = _stopAtrMultiple,
+        StopLookback = _stopLookback,
+        StopFixed = _stopFixed,
+        StopBuffer = _stopBuffer,
+        TpRungs = _tpRungs,
+        SizingMode = _sizingMode,
+        RiskPercent = _riskPercent,
+        RiskCash = _riskCash,
+        FixedQuantity = _fixedQty,
+        Equity = _equity,
+        MinRewardRiskRatio = _minRR,
+        EntryKind = _entryKind,
+        EntryLevelPrice = _entryLevelPrice,
+        EntryNCandles = _entryNCandles,
+        LoadedId = _loadedId
+    };
+
+    /// <summary>Copies every field back from an <see cref="EditableStrategySpec"/> into the
+    /// component's loose fields. Used after Load / Import / facade calls that mutate
+    /// <see cref="EditableStrategySpec.LoadedId"/> (Save / AddToEngine promote a new id).</summary>
+    private void ApplyEditableSpec(EditableStrategySpec s)
+    {
+        _name = s.Name;
+        _description = s.Description;
+        _side = s.Side;
+        _root = s.Root;
+        _selectedNode = s.SelectedNode;
+        _stopKind = s.StopKind;
+        _stopPercent = s.StopPercent;
+        _stopAtrPeriod = s.StopAtrPeriod;
+        _stopAtrMultiple = s.StopAtrMultiple;
+        _stopLookback = s.StopLookback;
+        _stopFixed = s.StopFixed;
+        _stopBuffer = s.StopBuffer;
+        _tpRungs = s.TpRungs;
+        _sizingMode = s.SizingMode;
+        _riskPercent = s.RiskPercent;
+        _riskCash = s.RiskCash;
+        _fixedQty = s.FixedQuantity;
+        _equity = s.Equity;
+        _minRR = s.MinRewardRiskRatio;
+        _entryKind = s.EntryKind;
+        _entryLevelPrice = s.EntryLevelPrice;
+        _entryNCandles = s.EntryNCandles;
+        _loadedId = s.LoadedId;
     }
 
-    /// <summary>
-    /// Builds an advisory string explaining the pulse-only situation, or null when there's
-    /// nothing to flag. Returned text is appended to _message after a successful save.
-    /// </summary>
-    private string? BuildPulseOnlyAdvisory()
+    private void ApplyResult(StrategyLibraryResult result, EditableStrategySpec roundTrippedSpec)
     {
-        if (!IsPurePulseTree(_root)) return null;
-        if (_entryKind == EntryTriggerKind.Immediate)
+        // Save / AddToEngine / Import may update LoadedId on the spec instance — copy it back.
+        ApplyEditableSpec(roundTrippedSpec);
+        _message = result.Message;
+        _isError = !result.IsSuccess;
+        if (!result.IsSuccess)
         {
-            return "Note: every condition is a one-bar pulse. The strategy will fire on the bar " +
-                   "the pulse appears (Immediate). Consider AND-ing a persistent gate (e.g. WT < -53) " +
-                   "if you want fewer, higher-quality entries.";
+            // Speak rejection too — the user may be navigating via speech alone and
+            // wouldn't see the _message banner refresh without a forced announcement.
+            Speech.Speak(result.Message, interrupt: true);
         }
-        return "Warning: every condition is a one-bar pulse, so the configured entry trigger " +
-               $"({_entryKind}) cannot be satisfied — by the next bar the conditions are already " +
-               "false again. The engine will auto-promote this strategy to Immediate execution. " +
-               "To use a deferred trigger, AND a persistent condition (e.g. an oscillator threshold) " +
-               "into the tree so the setup stays armed long enough to wait for the trigger.";
-    }
-
-    /// <summary>
-    /// Pre-save / pre-add validation. Returns a non-null error message when the spec cannot be
-    /// saved as-configured; returns null when the spec is safe to persist.
-    ///
-    /// The main rule enforced here is: a pure-pulse condition tree cannot carry a non-Immediate
-    /// entry trigger. The old behaviour was to save anyway and have <see cref="ConfigurableStrategy"/>
-    /// silently auto-promote the trigger at construction time — that produced strategies whose
-    /// reload-behaviour differed from what <see cref="NarrateSpec"/> read aloud at save time.
-    /// Refusing the save up-front keeps the saved spec honest: what the user hears narrated is
-    /// what the engine will actually run.
-    /// </summary>
-    private string? ValidateForSave()
-    {
-        if (IsPurePulseTree(_root) && _entryKind != EntryTriggerKind.Immediate)
-        {
-            return $"Cannot save: every condition is a one-bar pulse, so the {_entryKind} entry " +
-                   "trigger can never fire. Either switch the trigger to Immediate, or AND a " +
-                   "persistent condition (e.g. an oscillator threshold) into the tree so the " +
-                   "setup stays armed long enough for the trigger to resolve.";
-        }
-        return null;
     }
 
     private void SaveSpec()
     {
-        try
-        {
-            var validationError = ValidateForSave();
-            if (validationError != null)
-            {
-                _message = validationError;
-                _isError = true;
-                // Speak the rejection too — the user may be navigating via speech alone and
-                // wouldn't see the _message banner refresh without a forced announcement.
-                Speech.Speak(validationError, interrupt: true);
-                return;
-            }
-
-            var spec = BuildSpec();
-            Library.Upsert(spec);
-            _loadedId = spec.Id;
-            var advisory = BuildPulseOnlyAdvisory();
-            _message = advisory == null
-                ? $"Saved '{spec.Name}'."
-                : $"Saved '{spec.Name}'. {advisory}";
-            _isError = false;
-        }
-        catch (System.Exception ex)
-        {
-            _message = $"Save failed: {ex.Message}";
-            _isError = true;
-        }
+        var spec = BuildEditableSpec();
+        ApplyResult(LibraryFacade.Save(spec), spec);
     }
 
     private void NewSpec()
@@ -976,67 +932,23 @@
     {
         string id = e.Value?.ToString() ?? string.Empty;
         if (string.IsNullOrEmpty(id)) return;
-        var spec = Library.GetById(id);
-        if (spec == null) return;
-        LoadFromSpec(spec);
-        _loadedId = id;
-        _message = $"Loaded '{spec.Name}'.";
-        _isError = false;
+        var spec = BuildEditableSpec();
+        ApplyResult(LibraryFacade.LoadFromLibrary(spec, id), spec);
     }
 
     private void DeleteSpec()
     {
         if (string.IsNullOrEmpty(_loadedId)) return;
-        Library.Remove(_loadedId);
-        _message = "Deleted.";
-        _isError = false;
-        NewSpec();
+        var result = LibraryFacade.Delete(_loadedId);
+        _message = result.Message;
+        _isError = !result.IsSuccess;
+        if (result.IsSuccess) NewSpec();
     }
 
     private void AddToEngine()
     {
-        try
-        {
-            var validationError = ValidateForSave();
-            if (validationError != null)
-            {
-                _message = validationError;
-                _isError = true;
-                Speech.Speak(validationError, interrupt: true);
-                return;
-            }
-
-            // Build the spec with IsAutoActivate=true so StrategyAutoLoader picks it up on the
-            // next app launch — strategies survive restart this way.
-            var spec = BuildSpec() with { IsAutoActivate = true };
-            Library.Upsert(spec);
-            _loadedId = spec.Id;
-
-            // Duplicate-add guard: if the engine already has an instance of this spec (the user
-            // is editing + re-adding) remove the old instance first so we don't end up running
-            // two copies side by side. Match by Strategy.Id == spec.Id (ConfigurableStrategy uses
-            // the spec id as its Id).
-            var existing = Engine.ActiveStrategies
-                .Where(a => string.Equals(a.Strategy.Id, spec.Id, System.StringComparison.OrdinalIgnoreCase))
-                .Select(a => a.InstanceId)
-                .ToList();
-            foreach (var id in existing)
-                Engine.RemoveStrategy(id);
-
-            var strategy = Factory.Create(spec);
-            Engine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode);
-            var advisory = BuildPulseOnlyAdvisory();
-            string baseMsg = existing.Count > 0
-                ? $"'{spec.Name}' updated in engine ({spec.ExecutionMode}). Will auto-activate on restart."
-                : $"'{spec.Name}' added to engine ({spec.ExecutionMode}). Will auto-activate on restart.";
-            _message = advisory == null ? baseMsg : $"{baseMsg} {advisory}";
-            _isError = false;
-        }
-        catch (System.Exception ex)
-        {
-            _message = $"Add failed: {ex.Message}";
-            _isError = true;
-        }
+        var spec = BuildEditableSpec();
+        ApplyResult(LibraryFacade.AddToEngine(spec), spec);
     }
 
     // ── Read aloud / Live preview / Export / Import ──────────────────────────
@@ -1047,7 +959,9 @@
     {
         try
         {
-            string sentence = NarrateSpec();
+            var narrator = new StrategySpecNarrator(id =>
+                SignalCatalog.GetById(id)?.DisplayLabel ?? "(unset)");
+            string sentence = narrator.Narrate(BuildEditableSpec());
             Speech.Speak(sentence, interrupt: true);
             _message = "Spoke spec.";
             _isError = false;
@@ -1059,79 +973,6 @@
         }
     }
 
-    private string NarrateSpec()
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.Append(_side == OrderSide.Buy ? "Long " : "Short ");
-        sb.Append("setup. ");
-        if (!string.IsNullOrEmpty(_name)) sb.Append(_name).Append(". ");
-
-        sb.Append("Conditions: ");
-        if (_root == null) sb.Append("none defined. ");
-        else NarrateNode(_root, sb);
-
-        sb.Append(" Stop: ").Append(_stopKind);
-        if (_stopKind == StopSourceKind.PercentOfPrice)
-            sb.Append(" at ").Append(_stopPercent.ToString("F2")).Append(" percent");
-        else if (_stopKind == StopSourceKind.AtrMultiple)
-            sb.Append(" at ").Append(_stopAtrMultiple.ToString("F1")).Append(" times ATR period ").Append(_stopAtrPeriod);
-        else if (_stopKind == StopSourceKind.BelowSwingLow)
-            sb.Append(" below ").Append(_stopLookback).Append(" bar swing");
-
-        sb.Append(". Take profit ladder: ");
-        if (_tpRungs.Count == 0) sb.Append("none. ");
-        else
-        {
-            for (int i = 0; i < _tpRungs.Count; i++)
-            {
-                var r = _tpRungs[i];
-                sb.Append("rung ").Append(i + 1).Append(" ").Append(r.Kind);
-                if (r.Kind == TargetSourceKind.RiskRewardMultiple)
-                    sb.Append(" ").Append(r.Multiple.ToString("F1")).Append(" R");
-                sb.Append(", close ").Append((r.ClosePortion * 100).ToString("F0")).Append(" percent. ");
-            }
-        }
-
-        sb.Append("Minimum reward to risk ").Append(_minRR.ToString("F1")).Append(". ");
-        if (_sizingMode == SizingMode.FixedRiskPercent)
-            sb.Append("Risking ").Append((_riskPercent * 100).ToString("F2")).Append(" percent of equity per trade. ");
-
-        sb.Append("Entry trigger: ").Append(_entryKind);
-        if (_entryKind == EntryTriggerKind.OnPullbackToLevel || _entryKind == EntryTriggerKind.OnBreakoutOf)
-            sb.Append(" at ").Append(_entryLevelPrice.ToString("F4"));
-        sb.Append(".");
-
-        return sb.ToString();
-    }
-
-    private void NarrateNode(EditableNode node, System.Text.StringBuilder sb)
-    {
-        if (node.IsGroup)
-        {
-            if (node.Children.Count == 0) { sb.Append("empty group. "); return; }
-            sb.Append("(");
-            for (int i = 0; i < node.Children.Count; i++)
-            {
-                if (i > 0) sb.Append(" ").Append(node.Logic).Append(" ");
-                NarrateNode(node.Children[i], sb);
-            }
-            sb.Append(")");
-        }
-        else
-        {
-            var desc = SignalCatalog.GetById(node.SignalDescriptorId);
-            sb.Append(desc?.DisplayLabel ?? "(unset)").Append(" ").Append(node.Operator);
-            if (NeedsValueForOperator(node.Operator))
-                sb.Append(" ").Append(node.Value.ToString("F2"));
-            if (!string.IsNullOrEmpty(node.Timeframe))
-                sb.Append(" on ").Append(node.Timeframe);
-        }
-    }
-
-    private static bool NeedsValueForOperator(LeafOperator op) =>
-        op == LeafOperator.GreaterThan || op == LeafOperator.LessThan || op == LeafOperator.Between
-        || op == LeafOperator.CrossesAbove || op == LeafOperator.CrossesBelow;
-
     /// <summary>Runs a backtest preview against the loaded chart's data using the warmup-aware
     /// backtester. ReplayProfiles is disabled for the fast preview path to keep iteration cheap;
     /// the proper Backtest tab honors ReplayProfiles=true for full correctness.</summary>
@@ -1139,7 +980,7 @@
     {
         try
         {
-            var spec = BuildSpec();
+            var spec = BuildEditableSpec().ToSpec();
             var data = Store.State.Data;
             if (data == null || data.Count < 10)
             {
@@ -1174,200 +1015,23 @@
         }
     }
 
-    /// <summary>Exports the current spec to a .atstrat file in {AppData}/exports/.</summary>
     private void ExportToFile()
     {
-        try
-        {
-            var spec = BuildSpec();
-            string dir = System.IO.Path.Combine(Paths.AppDataDirectory, "exports");
-            System.IO.Directory.CreateDirectory(dir);
-            string safeName = string.Concat(spec.Name.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-'));
-            if (string.IsNullOrEmpty(safeName)) safeName = spec.Id;
-            string path = System.IO.Path.Combine(dir, $"{safeName}.atstrat");
-
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-            };
-            System.IO.File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(spec, options));
-            _message = $"Exported to {path}";
-            _isError = false;
-        }
-        catch (System.Exception ex)
-        {
-            _message = $"Export failed: {ex.Message}";
-            _isError = true;
-        }
+        var spec = BuildEditableSpec();
+        var result = LibraryFacade.Export(spec);
+        _message = result.Message;
+        _isError = !result.IsSuccess;
     }
 
-    /// <summary>Imports the most-recently-modified .atstrat file from {AppData}/exports/.</summary>
     private void ImportFromFile()
     {
-        try
-        {
-            string dir = System.IO.Path.Combine(Paths.AppDataDirectory, "exports");
-            if (!System.IO.Directory.Exists(dir))
-            {
-                _message = "No exports folder yet — nothing to import.";
-                _isError = true;
-                return;
-            }
-            var files = System.IO.Directory.GetFiles(dir, "*.atstrat");
-            if (files.Length == 0)
-            {
-                _message = "No .atstrat files found in exports folder.";
-                _isError = true;
-                return;
-            }
-            string latest = files.OrderByDescending(System.IO.File.GetLastWriteTime).First();
-            string json = System.IO.File.ReadAllText(latest);
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var spec = System.Text.Json.JsonSerializer.Deserialize<StrategySpec>(json, options);
-            if (spec == null) throw new System.Exception("Deserialization returned null.");
-            LoadFromSpec(spec);
-            _loadedId = spec.Id;
-            _message = $"Imported from {System.IO.Path.GetFileName(latest)}. Click Save Spec to add to library.";
-            _isError = false;
-        }
-        catch (System.Exception ex)
-        {
-            _message = $"Import failed: {ex.Message}";
-            _isError = true;
-        }
+        var spec = BuildEditableSpec();
+        var result = LibraryFacade.Import(spec);
+        ApplyResult(result, spec);
     }
 
     public void Dispose()
     {
         _previewTimer?.Dispose();
-    }
-
-    // ── Spec ↔ Editable conversion ───────────────────────────────────────────
-
-    private StrategySpec BuildSpec()
-    {
-        if (_root == null)
-            throw new System.InvalidOperationException("Add at least one condition before saving.");
-        if (string.IsNullOrWhiteSpace(_name))
-            throw new System.InvalidOperationException("Strategy name is required.");
-
-        var conditions = ToConditionNode(_root);
-
-        var stop = new StopSource(
-            Kind: _stopKind,
-            PercentValue: _stopPercent,
-            AtrPeriod: _stopAtrPeriod,
-            AtrMultiple: _stopAtrMultiple,
-            LookbackBars: _stopLookback,
-            FixedPrice: _stopFixed,
-            BufferTicks: _stopBuffer);
-
-        var ladder = _tpRungs.Select(r => new TpLadderRung(
-            Kind: r.Kind,
-            Multiple: r.Multiple,
-            PercentValue: r.PercentValue,
-            FixedPrice: r.FixedPrice,
-            FibLevel: r.FibLevel,
-            ClosePortion: r.ClosePortion)).ToList();
-
-        var sizing = new PositionSizing(_sizingMode, _riskPercent, _fixedQty, _riskCash);
-        var entry = new EntryTrigger(_entryKind, _entryLevelPrice, _entryNCandles);
-
-        var risk = new RiskPlan(
-            Stop: stop,
-            TpLadder: ladder,
-            Sizing: sizing,
-            Entry: entry,
-            MinRewardRiskRatio: _minRR,
-            StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
-            NotionalEquity: _equity);
-
-        string id = string.IsNullOrEmpty(_loadedId) ? System.Guid.NewGuid().ToString("N") : _loadedId;
-
-        return new StrategySpec(
-            Id: id,
-            Name: _name,
-            Description: _description,
-            Side: _side,
-            Conditions: conditions,
-            Risk: risk,
-            ExecutionMode: StrategyExecutionMode.Suggestion,
-            CreatedUtc: System.DateTime.UtcNow,
-            UpdatedUtc: System.DateTime.UtcNow);
-    }
-
-    private ConditionNode ToConditionNode(EditableNode n)
-    {
-        if (n.IsGroup)
-            return new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList());
-        return new ConditionLeaf(n.Id, n.SignalDescriptorId, n.Operator, n.Value, n.Value2,
-                                 n.WithinNBars, n.Score, n.Timeframe, n.SecondSignalDescriptorId);
-    }
-
-    private void LoadFromSpec(StrategySpec spec)
-    {
-        _name = spec.Name;
-        _description = spec.Description;
-        _side = spec.Side;
-        _root = FromConditionNode(spec.Conditions);
-        _selectedNode = null;
-
-        _stopKind = spec.Risk.Stop.Kind;
-        _stopPercent = spec.Risk.Stop.PercentValue;
-        _stopAtrPeriod = spec.Risk.Stop.AtrPeriod;
-        _stopAtrMultiple = spec.Risk.Stop.AtrMultiple;
-        _stopLookback = spec.Risk.Stop.LookbackBars;
-        _stopFixed = spec.Risk.Stop.FixedPrice;
-        _stopBuffer = spec.Risk.Stop.BufferTicks;
-
-        _tpRungs = spec.Risk.TpLadder.Select(r => new EditableTpRung
-        {
-            Kind = r.Kind, Multiple = r.Multiple, PercentValue = r.PercentValue,
-            FixedPrice = r.FixedPrice, FibLevel = r.FibLevel, ClosePortion = r.ClosePortion
-        }).ToList();
-
-        _sizingMode = spec.Risk.Sizing.Mode;
-        _riskPercent = spec.Risk.Sizing.RiskPercent;
-        _fixedQty = spec.Risk.Sizing.FixedQuantity;
-        _riskCash = spec.Risk.Sizing.RiskCash;
-
-        _minRR = spec.Risk.MinRewardRiskRatio;
-        _equity = spec.Risk.NotionalEquity;
-
-        _entryKind = spec.Risk.Entry.Kind;
-        _entryLevelPrice = spec.Risk.Entry.LevelPrice;
-        _entryNCandles = spec.Risk.Entry.NCandles;
-    }
-
-    private EditableNode FromConditionNode(ConditionNode n)
-    {
-        if (n is ConditionGroup g)
-        {
-            return new EditableNode
-            {
-                Id = g.Id,
-                IsGroup = true,
-                Logic = g.Logic,
-                Children = g.Children.Select(FromConditionNode).ToList()
-            };
-        }
-        if (n is ConditionLeaf l)
-        {
-            return new EditableNode
-            {
-                Id = l.Id,
-                IsGroup = false,
-                SignalDescriptorId = l.SignalDescriptorId,
-                Operator = l.Operator,
-                Value = l.Value,
-                Value2 = l.Value2,
-                WithinNBars = l.WithinNBars,
-                Score = l.Score,
-                Timeframe = l.Timeframe,
-                SecondSignalDescriptorId = l.SecondSignalDescriptorId
-            };
-        }
-        return new EditableNode();
     }
 }
