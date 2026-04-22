@@ -4,6 +4,80 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-22] — Post-audit next sprint: SpeechFormatter refactor + REST silent-failure sweep + doc-drift guard
+
+Batched three of the five follow-ups from the 2026-04-22 pre-release audit
+(items 1, 3, 4 from the user-approved backlog). All changes land with
+**292 / 292 tests still passing**; CI gains a new workflow that catches
+the kind of documentation drift the audit itself flagged.
+
+### SpeechFormatter decomposed into a strategy registry
+
+- `SpeechFormatter.FormatTemplateValue` shrank from a 160-line interleaved
+  conditional to a ~15-line dispatcher. Each DisplayType-specific speech
+  path is now its own `IComponentSpeechStrategy`:
+  - `HiddenComponentStrategy` — `!IsVisible` → "… hidden"
+  - `CloudComponentStrategy` — Cloud DisplayType (direction + width + price position vs. cloud)
+  - `PhaseNameStrategy` — CandleColor DisplayType (phase-name lookup)
+  - `MarkerSignalStrategy` — markers with `SignalSpeechTemplate`
+  - `StandardTemplateStrategy` — fallback token substitution
+- Token-resolution helpers (`ResolveZone`, `ResolveGradientSpeech`) pulled
+  out of the standard path for readability.
+- Public `ISpeechFormatter` surface unchanged; no test or consumer edits.
+- Adding a new DisplayType-specific speech path is now a new strategy
+  class, not a branch in a growing method.
+  `AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs`.
+
+### REST-provider silent-failure sweep (second pass)
+
+An audit of every REST provider confirmed the Day 4 sweep had already
+covered the bulk of the surface: 23 of the 26 provider/analytics plugins
+already routed data-fetch errors through `_errorStream`. The three
+stragglers were caught and split:
+
+- `Plugins/Providers/AccessibleTrader.Plugins.Polygon/PolygonProvider.cs`
+  — `FetchOhlcvAsync` + `GetAvailableSymbolsAsync` silent `catch { return
+  empty; }` blocks split into `HttpRequestException` / `JsonException` /
+  `TaskCanceledException` / `Exception` handlers. Network and parse
+  failures surface as structured `_errorStream` messages.
+- `Plugins/Providers/AccessibleTrader.Plugins.Finnhub/FinnhubProvider.cs`
+  — `GetAvailableSymbolsAsync` given the same treatment.
+- `BinanceVision`'s per-day 404 and zip-damaged catches are intentional
+  best-effort archive walks and left as-is (the monthly-walk contract
+  expects missing days).
+
+Empty charts from these three providers no longer lie: when the fetch
+fails, the error is now observable to the downstream UI / AI-Analyst /
+alert pipeline.
+
+### CI doc-drift guard
+
+- New `scripts/check_doc_drift.py` + `.github/workflows/doc-drift.yml`.
+  One PR-time script asserts three invariants the docs claim match
+  reality:
+  1. Every default binding in `ShortcutManager.InitializeDefaultProfile()`
+     has its key chord (with modifiers) present in `docs/SHORTCUTS.md`.
+     Handles OEM codes (`OEM4` → `[`), arrow-key naming variants
+     (`LEFT` → "Left Arrow" or "Left" depending on whether modifiers are
+     present), and C# string-literal escapes (`"\\"` → `\`).
+  2. Plugin directory count under `Plugins/Providers/` + `Plugins/Analytics/`
+     matches the "<N> trading + <N> analytics" line in `docs/README.md`.
+  3. `dotnet test --list-tests` count matches the "(N tests" claim in
+     `docs/README.md`.
+- Designed to catch the Alt+H-for-Help class of regression — a code
+  change lands, the README boast stays frozen, and no one notices.
+- Stale "currently 264 tests" comment in `.github/workflows/tests.yml`
+  dropped since the live count is now verified by the new guard.
+
+### Next-sprint backlog remaining
+
+Items 2 (`WorkspaceStore.Reduce` decomposition, ~8h) and 5
+(`StrategyModal` facade + `BuildSetupTab` split, ~8h) — the two larger
+lifts — are left untouched pending a design-review conversation. See
+`docs/TODO.md` for the current state.
+
+---
+
 ## [2026-04-22] — Pre-release hardening sprint (Day 1–3 of audit remediation)
 
 Addressed the three highest-priority clusters from the 2026-04-22 full-codebase

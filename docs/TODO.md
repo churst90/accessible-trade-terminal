@@ -4,30 +4,62 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
-## Next sprint — pick up here (proposed 2026-04-22, user-approved ordering)
+## Next sprint — pick up here (items 2 + 5 remain; discuss before starting)
 
-After the Day 1–4 sprint closed the concrete ship-blockers and silent-failure
-gaps, the remaining work is design debt, a broader version of the
-silent-failure sweep (REST providers), and CI guardrails to stop documentation
-drift. Recommended ordering: **batch items 1 + 3 + 4 first (~12h total)** —
-they're independent, short, and each closes a category of future-regression
-risk. Items 2 and 5 are larger lifts and should be their own sprints.
+Items 1, 3, 4 from the 2026-04-22 post-audit backlog shipped on
+2026-04-22 in a second short sprint. The two remaining items are the
+larger architectural lifts that were intentionally deferred pending a
+design conversation.
 
-- [ ] **1. `SpeechFormatter` plugin registry (~6h).** Extract `ISpeechTemplateProvider`; have each `IndicatorProvider` supply its own template lookup (the `SpeechTemplate` strings are already in metadata); collapse the 470-line conditional chain in `SpeechFormatter.FormatTemplateValue` to a small dispatcher. Payoff: adding a new indicator stops requiring `SpeechFormatter` edits.
+### Shipped 2026-04-22 (this session)
 
-- [ ] **2. `WorkspaceStore.Reduce` decomposition (~8h).** Split the 150-line switch on 25 action types into per-domain reducers (`ViewportReducer`, `TabReducer`, `IndicatorReducer`, `DrawingReducer`, `PlaybackReducer`) with a tiny dispatcher. Inline calls to `ViewportNavigationService` / `ViewportRangeCalculator` / `VolumeService` stay local to their reducer. Payoff: safe to modify — tab-handling changes no longer risk regressing indicator visibility toggles.
+- [x] **1. `SpeechFormatter` strategy registry** — `FormatTemplateValue`
+  shrank from ~160-line interleaved conditional to a ~15-line dispatcher
+  over five `IComponentSpeechStrategy` implementations
+  (`HiddenComponent`, `CloudComponent`, `PhaseName`, `MarkerSignal`,
+  `StandardTemplate`). Token resolvers (zone, gradient-speech) split out
+  as private helpers. Public `ISpeechFormatter` surface unchanged.
+  292/292 tests still pass.
+- [x] **3. REST-provider silent-failure sweep (completion pass)** —
+  audit of every REST provider found 23 of 26 plugins already routed
+  errors through `_errorStream` after the Day 4 sweep; the three
+  stragglers (`PolygonProvider.FetchOhlcvAsync`,
+  `PolygonProvider.GetAvailableSymbolsAsync`,
+  `FinnhubProvider.GetAvailableSymbolsAsync`) were split into typed
+  `HttpRequestException` / `JsonException` / `TaskCanceledException` /
+  `Exception` handlers. `BinanceVision` 404/zip-damaged catches
+  intentionally left as-is (best-effort archive walk).
+- [x] **4. CI doc-drift guard** —
+  `scripts/check_doc_drift.py` + `.github/workflows/doc-drift.yml`.
+  Verifies (a) shortcut bindings in `ShortcutManager.InitializeDefaultProfile`
+  are documented in `docs/SHORTCUTS.md`; (b) plugin-directory count matches
+  `docs/README.md`; (c) `dotnet test --list-tests` count matches
+  `docs/README.md`. Dropped stale "264 tests" comment in `tests.yml`.
 
-- [ ] **3. REST-provider silent-failure sweep (~4h).** Every `catch { return new List<Ohlcv>(); }` (and peers) in a provider's fetch path gets split into `HttpRequestException` / `JsonException` / `TimeoutException` / other, routed to `_errorStream.OnNext(<structured>)`. Callers (DataOrchestrator, UI) surface the structured message instead of an empty chart. Pattern is mechanical; 14 providers × ~2 sites each ≈ 30 call sites. Payoff: empty charts always carry a diagnostic.
+### Still open — discuss before starting
 
-- [ ] **4. CI doc-drift guard (~2h).** One script run on every PR that: (a) diffs shortcut bindings between `ShortcutManager.InitializeDefaultProfile()` and `docs/SHORTCUTS.md`; (b) counts plugins in `Plugins/Providers/` + `Plugins/Analytics/` and asserts `docs/README.md` matches; (c) extracts the test count from `dotnet test --list-tests` and asserts README matches. Payoff: the Alt+H-for-Help class of documentation drift stops recurring.
+- [ ] **2. `WorkspaceStore.Reduce` decomposition (~8h).** Split the
+  150-line switch on 25 action types into per-domain reducers
+  (`ViewportReducer`, `TabReducer`, `IndicatorReducer`, `DrawingReducer`,
+  `PlaybackReducer`) with a tiny dispatcher. Inline calls to
+  `ViewportNavigationService` / `ViewportRangeCalculator` / `VolumeService`
+  stay local to their reducer. Payoff: safe to modify — tab-handling
+  changes no longer risk regressing indicator visibility toggles.
 
-- [ ] **5. `StrategyModal` facade + `BuildSetupTab` split (~8h).** Already tracked in `project_architectural_followups_2026-04-19.md`. StrategyModal is ~900 lines; BuildSetupTab couples condition-tree editor, risk-plan editor, validation, and summary/export. Split BuildSetupTab into three sibling components (ConditionTreeEditor / RiskPlanEditor / SummaryExport); extract save/load/export/import into a `StrategyLibraryFacade`. Do last — cleaner once items 1, 2, and 3 have simplified the surrounding surface.
+- [ ] **5. `StrategyModal` facade + `BuildSetupTab` split (~8h).**
+  Already tracked in `project_architectural_followups_2026-04-19.md`.
+  StrategyModal is ~900 lines; BuildSetupTab couples condition-tree
+  editor, risk-plan editor, validation, and summary/export. Split
+  BuildSetupTab into three sibling components (ConditionTreeEditor /
+  RiskPlanEditor / SummaryExport); extract save/load/export/import into
+  a `StrategyLibraryFacade`. Do last — cleaner once item 2 has
+  simplified the surrounding surface.
 
 ### When returning to this project
-Start by reading this section. The Day 1–4 sprint is done; next session starts
-with whichever of items 1 / 3 / 4 you want to open. Don't redo the audit — all
-findings are documented in `docs/CHANGES.md` 2026-04-22 and the memory file
-`project_audit_sprint_2026-04-22.md`.
+Start by reading this section. Items 1, 3, 4 are done; the two remaining
+items (2 and 5) are deliberate design-review checkpoints. Don't redo the
+audit — findings are in `docs/CHANGES.md` 2026-04-22 entries and the
+memory file `project_audit_sprint_2026-04-22.md`.
 
 ---
 
