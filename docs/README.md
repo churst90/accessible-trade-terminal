@@ -204,4 +204,4 @@ Built with **.NET 10 MAUI Blazor Hybrid**.
 - **Plugins:** `Plugins/` — 26 exchange, data, and analytics provider plugins (14 trading + 12 analytics).
 - **ScriptSandbox:** `AccessibleTrader.ScriptSandbox` — shared host/worker IPC contract (frame codec + opcodes + message DTOs).
 - **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators in a separate OS process.
-- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (292 tests, all passing).
+- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (303 tests, all passing).

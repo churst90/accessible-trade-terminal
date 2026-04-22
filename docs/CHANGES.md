@@ -4,6 +4,96 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-22] — WorkspaceStore per-domain reducers + strategy-spec service extraction
+
+Final pair of architectural follow-ups from the 2026-04-22 audit backlog
+(items 2 and 5). All 303 tests pass (292 prior + 11 new validator tests).
+
+### `WorkspaceStore.Reduce` decomposed into 5 per-domain reducers
+
+`WorkspaceStore.cs` dropped from 893 → 277 lines. The giant `Reduce`
+switch is now a 30-line dispatcher that routes each action type to the
+reducer that owns its domain. All five domain reducers live in
+`AccessibleTrader.Core/Services/Workspace/Reducers/` as `internal static`
+classes:
+
+  - `ViewportReducer` — Navigate / Pan / Zoom / SetCursor / JumpToLatest /
+    UpdateData (takes `IViewportNavigationService`).
+  - `SeriesReducer` — series management + focus + mute / hide / narration
+    (takes `IEventBus` for announcement side-effects).
+  - `PlaybackReducer` — playback + accessibility + chart-display toggles (pure).
+  - `TabReducer` — multi-tab switching + pane layout + `GetTabLabel`
+    (pure; exposes `GetTabLabel` for `Dispatch`'s announcements).
+  - `DrawingReducer` — coordinate-entry state machine (pure).
+
+Trivial projections (`SetIdentity` / `ChangeMode` / `SetDataStatus` /
+`UpdateSettings` / volume) stay inline in the store's dispatcher switch.
+Splitting them into their own file would add overhead without benefit
+since each is either a one-line field set or a single-method delegation
+to a service. `CanTransition` (init-status state machine) stays in
+`WorkspaceStore` since only the inline
+`RequestInitializationStatusAction` branch uses it.
+
+**Payoff:** a change to tab switching can no longer regress indicator
+visibility toggles — each domain is physically separated and
+independently compilable / readable / testable.
+
+### Strategy-spec Core services + BuildSetupTab shrink
+
+Pulled the mutable working model + validation + narration + library
+orchestration out of `BuildSetupTab.razor` into the Core namespace so
+they're unit-testable and reusable. `BuildSetupTab.razor` dropped from
+1373 → 1037 lines (-25%).
+
+New types in `AccessibleTrader.Core/Services/Strategies/`:
+
+  - `EditableStrategySpec` — mutable mirror of `StrategySpec` with
+    `ToSpec()` / `LoadFromSpec()` round-trip.
+  - `EditableConditionNode` / `EditableTpRung` — mutable mirrors of
+    `ConditionNode` / `TpLadderRung`.
+  - `StrategySpecValidator` (static) — `IsPurePulseTree` +
+    `ValidateForSave` + `BuildPulseOnlyAdvisory`, mirrors the runtime
+    gate in `ConfigurableStrategy`.
+  - `StrategySpecNarrator` — builds the "Long setup. … Stop: … Entry
+    trigger: …" narration sentence. Descriptor-label lookup supplied via
+    delegate so the service stays decoupled from `ISignalCatalog`.
+  - `StrategyLibraryFacade` (`IStrategyLibraryFacade`) — `Save / Delete /
+    AddToEngine / Export / Import / LoadFromLibrary` orchestration;
+    returns `StrategyLibraryResult` (IsSuccess + Message). Registered as
+    a singleton alongside `IStrategyLibrary`.
+
+`BuildSetupTab.razor` kept its loose fields because the @template
+bindings use `out _field` patterns that don't play well with properties;
+`BuildEditableSpec` / `ApplyEditableSpec` round-trip them at the
+service-call boundary. Each action method is now two or three lines:
+package the loose fields, call the facade, apply the result.
+
+New tests: `StrategySpecValidatorTests` (11 tests covering pulse
+detection, validation rules, advisory messages, and a full
+`EditableStrategySpec` round-trip). **292 → 303 tests.**
+
+### Deferred: UI split into ConditionTreeEditor / RiskPlanEditor siblings
+
+Item 5 also called for splitting `BuildSetupTab` into three sibling
+razor components. The Core-side extraction landed but the UI split is
+deferred because:
+
+  - Every `@onchange="e => double.TryParse(..., out _field)"` binding in
+    the @template would need to be rewritten to `if (TryParse out var v)
+    Spec.X = v` form, since child components share state via
+    `[Parameter] EditableStrategySpec Spec` — about 30 template edits.
+  - There are no UI tests to protect the refactor; correctness would
+    rely entirely on careful reading.
+  - The risk/reward is poor: the split reduces file size but does not
+    improve testability the way the Core-side extraction does.
+
+See `docs/TODO.md` for the current status and the criteria for
+re-opening this slice (e.g. before adding a fourth tab to
+`StrategyModal`, or when the first bug from BuildSetupTab's coupling
+actually bites).
+
+---
+
 ## [2026-04-22] — Post-audit next sprint: SpeechFormatter refactor + REST silent-failure sweep + doc-drift guard
 
 Batched three of the five follow-ups from the 2026-04-22 pre-release audit

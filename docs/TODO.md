@@ -4,62 +4,66 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
-## Next sprint — pick up here (items 2 + 5 remain; discuss before starting)
+## Next sprint — audit backlog closed (only UI split deferred)
 
-Items 1, 3, 4 from the 2026-04-22 post-audit backlog shipped on
-2026-04-22 in a second short sprint. The two remaining items are the
-larger architectural lifts that were intentionally deferred pending a
-design conversation.
+Items 1, 2, 3, 4 all shipped on 2026-04-22. Item 5's Core-side extraction
+shipped; the UI split into sibling razor components is deliberately
+deferred (see rationale below).
 
-### Shipped 2026-04-22 (this session)
+### Shipped 2026-04-22 (post-audit work)
 
 - [x] **1. `SpeechFormatter` strategy registry** — `FormatTemplateValue`
   shrank from ~160-line interleaved conditional to a ~15-line dispatcher
   over five `IComponentSpeechStrategy` implementations
   (`HiddenComponent`, `CloudComponent`, `PhaseName`, `MarkerSignal`,
-  `StandardTemplate`). Token resolvers (zone, gradient-speech) split out
-  as private helpers. Public `ISpeechFormatter` surface unchanged.
-  292/292 tests still pass.
-- [x] **3. REST-provider silent-failure sweep (completion pass)** —
-  audit of every REST provider found 23 of 26 plugins already routed
-  errors through `_errorStream` after the Day 4 sweep; the three
-  stragglers (`PolygonProvider.FetchOhlcvAsync`,
+  `StandardTemplate`). Public `ISpeechFormatter` surface unchanged.
+- [x] **2. `WorkspaceStore.Reduce` decomposition** —
+  `WorkspaceStore.cs` 893 → 277 lines. Five per-domain reducers under
+  `Services/Workspace/Reducers/` (`ViewportReducer`, `SeriesReducer`,
+  `PlaybackReducer`, `TabReducer`, `DrawingReducer`); top-level `Reduce`
+  is a 30-line dispatcher.
+- [x] **3. REST-provider silent-failure sweep** — audit of all 26
+  providers found 23 already routed errors through `_errorStream`. The
+  three stragglers (`PolygonProvider.FetchOhlcvAsync`,
   `PolygonProvider.GetAvailableSymbolsAsync`,
-  `FinnhubProvider.GetAvailableSymbolsAsync`) were split into typed
-  `HttpRequestException` / `JsonException` / `TaskCanceledException` /
-  `Exception` handlers. `BinanceVision` 404/zip-damaged catches
-  intentionally left as-is (best-effort archive walk).
-- [x] **4. CI doc-drift guard** —
-  `scripts/check_doc_drift.py` + `.github/workflows/doc-drift.yml`.
-  Verifies (a) shortcut bindings in `ShortcutManager.InitializeDefaultProfile`
-  are documented in `docs/SHORTCUTS.md`; (b) plugin-directory count matches
-  `docs/README.md`; (c) `dotnet test --list-tests` count matches
-  `docs/README.md`. Dropped stale "264 tests" comment in `tests.yml`.
+  `FinnhubProvider.GetAvailableSymbolsAsync`) split into typed handlers.
+- [x] **4. CI doc-drift guard** — `scripts/check_doc_drift.py` +
+  `.github/workflows/doc-drift.yml`. Verifies shortcut bindings /
+  plugin-directory count / live test count against `docs/README.md`
+  and `docs/SHORTCUTS.md`.
+- [x] **5a. Strategy-spec Core services** — `EditableStrategySpec` POCO
+  + `StrategySpecValidator` + `StrategySpecNarrator` +
+  `StrategyLibraryFacade` (`IStrategyLibraryFacade`) in
+  `Core/Services/Strategies/`. 11 new validator tests
+  (`StrategySpecValidatorTests`). `BuildSetupTab.razor` rewired to the
+  new services — 1373 → 1037 lines (-25%).
 
-### Still open — discuss before starting
+### Deferred (conscious choice, not missed)
 
-- [ ] **2. `WorkspaceStore.Reduce` decomposition (~8h).** Split the
-  150-line switch on 25 action types into per-domain reducers
-  (`ViewportReducer`, `TabReducer`, `IndicatorReducer`, `DrawingReducer`,
-  `PlaybackReducer`) with a tiny dispatcher. Inline calls to
-  `ViewportNavigationService` / `ViewportRangeCalculator` / `VolumeService`
-  stay local to their reducer. Payoff: safe to modify — tab-handling
-  changes no longer risk regressing indicator visibility toggles.
+- [ ] **5b. `BuildSetupTab` UI split into sibling components.** The
+  original plan was `ConditionTreeEditor.razor` +
+  `RiskPlanEditor.razor` + `SummaryExport.razor` — all three as
+  siblings under a thinned `BuildSetupTab`.
 
-- [ ] **5. `StrategyModal` facade + `BuildSetupTab` split (~8h).**
-  Already tracked in `project_architectural_followups_2026-04-19.md`.
-  StrategyModal is ~900 lines; BuildSetupTab couples condition-tree
-  editor, risk-plan editor, validation, and summary/export. Split
-  BuildSetupTab into three sibling components (ConditionTreeEditor /
-  RiskPlanEditor / SummaryExport); extract save/load/export/import into
-  a `StrategyLibraryFacade`. Do last — cleaner once item 2 has
-  simplified the surrounding surface.
+  **Why deferred:** every `@onchange="e => double.TryParse(..., out
+  _field)"` binding in the current @template would need to be rewritten
+  to the `if (TryParse out var v) Spec.X = v` form since child
+  components share state via `[Parameter] EditableStrategySpec Spec` —
+  about 30 template edits. There are no UI tests to catch a binding
+  mistake; correctness would rely entirely on careful reading + manual
+  smoke testing. Given the Core-side extraction already delivered the
+  real testability win, the pure UI split became cosmetic.
+
+  **When to re-open:** before adding a fourth tab to `StrategyModal`
+  (the tree editor is the tab most likely to need another sibling), or
+  when the first bug traceable to BuildSetupTab's coupling actually
+  bites. Estimated cost at that point: 4–6h.
 
 ### When returning to this project
-Start by reading this section. Items 1, 3, 4 are done; the two remaining
-items (2 and 5) are deliberate design-review checkpoints. Don't redo the
-audit — findings are in `docs/CHANGES.md` 2026-04-22 entries and the
-memory file `project_audit_sprint_2026-04-22.md`.
+Audit is closed. Next session starts from a clean "post-audit" baseline —
+no pending items. Don't redo the audit; findings are in the
+`docs/CHANGES.md` 2026-04-22 entries and the memory file
+`project_audit_sprint_2026-04-22.md`.
 
 ---
 
