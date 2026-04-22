@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Audio;
 
@@ -17,6 +18,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
     public class SpeechFormatter : ISpeechFormatter
     {
+        private readonly IReadOnlyList<IComponentSpeechStrategy> _strategies;
+        private readonly IComponentSpeechStrategy _fallback;
+
+        public SpeechFormatter()
+        {
+            _strategies = new IComponentSpeechStrategy[]
+            {
+                new HiddenComponentStrategy(),
+                new CloudComponentStrategy(),
+                new PhaseNameStrategy(),
+                new MarkerSignalStrategy(),
+            };
+            _fallback = new StandardTemplateStrategy();
+        }
+
         public void RegisterTemplate(string indicatorCode, string componentName, string template)
         {
             // No-op: kept for interface compatibility. Templates are now declared in
@@ -41,7 +57,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
                 string candleType = ClassifyCandleType(pt);
                 string typeStr = string.IsNullOrEmpty(candleType) ? "" : $" {candleType}";
-                
+
                 double range = pt.High - pt.Low;
                 double body = Math.Abs(pt.Close - pt.Open);
                 double bodyPct = range > 0 ? (body / range) * 100.0 : 0;
@@ -202,14 +218,40 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return timestampPrefix + prefixMessage + dataMsg;
         }
 
-        // ── Helpers ──────────────────────────────────────────────────────────────
+        // ── Dispatcher ───────────────────────────────────────────────────────────
 
+        private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder)
+        {
+            try
+            {
+                double val = GetPointValue(series, pt, comp.Name, dataIndex);
+                var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val);
+
+                foreach (var strategy in _strategies)
+                    if (strategy.CanHandle(ctx))
+                        return strategy.Format(ctx);
+
+                return _fallback.Format(ctx);
+            }
+            catch (Exception)
+            {
+                // Accessibility path: a malformed template or missing companion series must
+                // not crash the speech pipeline -- a blind user listening for price updates
+                // relies on a continuous output. "error" is a bounded fallback string so the
+                // screen reader still has something to say. The trade-off is that a bug in
+                // a template will be silent -- debug by enabling the same path under a test
+                // harness, not by re-raising here.
+                return $"{comp.DisplayName}: error";
+            }
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Maps ComponentDisplayType to a TTS-friendly lowercase string.
         /// Prevents internal enum names like "ZeroArea" being mangled by the speech engine.
         /// </summary>
-        private static string FriendlyTypeName(ComponentDisplayType dt) => dt switch
+        internal static string FriendlyTypeName(ComponentDisplayType dt) => dt switch
         {
             ComponentDisplayType.Line       => "line",
             ComponentDisplayType.Area       => "area",
@@ -259,169 +301,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }).ToList();
         }
 
-
-        private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder)
-        {
-            try
-            {
-                // Hidden components: announce so the user knows where they are during Y navigation.
-                if (!comp.IsVisible)
-                    return $"{comp.DisplayName}: hidden";
-
-                // Cloud components: announce direction, width, and price position relative to cloud.
-                if (comp.DisplayType == ComponentDisplayType.Cloud)
-                {
-                    double signedWidth = GetPointValue(series, pt, comp.Name, dataIndex);
-                    if (double.IsNaN(signedWidth))
-                        return $"{comp.DisplayName}: no data";
-
-                    bool bullish = signedWidth >= 0;
-                    string direction = bullish ? "bullish" : "bearish";
-                    double absWidth = Math.Abs(signedWidth);
-
-                    // Determine if price is inside the cloud by reading upper/lower boundary data.
-                    string pricePosition = "";
-                    if (!string.IsNullOrEmpty(comp.UpperComponentName) && !string.IsNullOrEmpty(comp.LowerComponentName))
-                    {
-                        var upperData = series.GetComponentData(comp.UpperComponentName);
-                        var lowerData = series.GetComponentData(comp.LowerComponentName);
-                        if (upperData.Length > dataIndex && lowerData.Length > dataIndex)
-                        {
-                            double u = upperData[dataIndex];
-                            double l = lowerData[dataIndex];
-                            if (!double.IsNaN(u) && !double.IsNaN(l))
-                            {
-                                double hi = Math.Max(u, l);
-                                double lo = Math.Min(u, l);
-                                double close = pt.Close;
-                                if (close >= lo && close <= hi)
-                                    pricePosition = " Price inside cloud.";
-                                else if (close > hi)
-                                    pricePosition = " Price above cloud.";
-                                else
-                                    pricePosition = " Price below cloud.";
-                            }
-                        }
-                    }
-
-                    return $"{comp.DisplayName}. {direction}, width {absWidth:F2}.{pricePosition}";
-                }
-
-                // CandleColor components store a sentiment phase index (0–10).
-                // Convert the raw numeric value to its phase name so the user hears
-                // "Market Phase. Neutral." instead of the meaningless "CandleColor 5."
-                if (comp.DisplayType == ComponentDisplayType.CandleColor)
-                {
-                    double rawPhase = GetPointValue(series, pt, comp.Name, dataIndex);
-                    if (double.IsNaN(rawPhase)) return $"{comp.DisplayName}: warming up.";
-                    int phaseIdx = Math.Clamp((int)Math.Round(rawPhase), 0, AudioConstants.PhaseNames.Length - 1);
-                    return $"{comp.DisplayName}. {AudioConstants.PhaseNames[phaseIdx]}.";
-                }
-
-                double val = GetPointValue(series, pt, comp.Name, dataIndex);
-
-                // SignalSpeechTemplate: marker components use a contextual description instead of raw numeric template.
-                // When the signal IS present (non-NaN): expand the template.
-                // When the signal is NOT present (NaN): announce "[Name]: no data" — never misleading, never silent.
-                if (comp.SignalSpeechTemplate != null && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType))
-                {
-                    if (double.IsNaN(val))
-                        return $"{comp.DisplayName}: no data";  // user needs to know where they are
-                    string priceStr = val.ToString("F0");
-                    return comp.SignalSpeechTemplate
-                        .Replace("{price}", priceStr)
-                        .Replace("{name}", comp.DisplayName);
-                }
-
-                // Price-family series (candles / price line) need magnitude-aware
-                // precision so sub-dollar assets like KAS don't collapse to "0.04".
-                string sId = series.Id.ToLowerInvariant();
-                bool isPriceSeries = sId == "price" || sId == "candles";
-                string valF2 = double.IsNaN(val)
-                    ? "no data"
-                    : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2"));
-                string valF1 = double.IsNaN(val) ? "no data" : val.ToString("F1");
-
-                if (!readHeaders || speechOrder == "ValueOnly")
-                    return double.IsNaN(val) ? "no data" : valF2;
-
-                // Template priority: provider metadata (comp.SpeechTemplate) → generic fallback.
-                string tmpl = string.IsNullOrEmpty(comp.SpeechTemplate) ? "{name}. {type}. {value}." : comp.SpeechTemplate;
-
-                string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
-
-                // Zone label: scan visible LevelConfig entries for OB/OS thresholds.
-                string zone = "";
-                foreach (var lc in series.Config.Levels)
-                {
-                    if (!lc.IsVisible) continue;
-                    if (lc.Name.Contains("Overbought", StringComparison.OrdinalIgnoreCase) ||
-                        lc.Name.Contains("Extreme OB", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (val >= lc.Value) { zone = "Overbought"; break; }
-                    }
-                    else if (lc.Name.Contains("Oversold", StringComparison.OrdinalIgnoreCase) ||
-                             lc.Name.Contains("Extreme OS", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (val <= lc.Value) { zone = "Oversold"; break; }
-                    }
-                }
-
-                // Gradient speech: qualitative momentum language for gradient-dot components.
-                // Reads the companion "_color" array (raw oscillator value, ~-100 to +100) and
-                // maps it to a direction + intensity description.
-                string gradientSpeech = "";
-                if (comp.UsesGradientSpeech && tmpl.Contains("{gradient_speech}"))
-                {
-                    double oscillatorVal = GetPointValue(series, pt, comp.Name + "_color", dataIndex);
-                    if (!double.IsNaN(oscillatorVal))
-                    {
-                        string intensity = oscillatorVal > 60.0  ? "strong bullish momentum"
-                                         : oscillatorVal > 20.0  ? "moderate bullish momentum"
-                                         : oscillatorVal >= -20.0 ? "neutral momentum"
-                                         : oscillatorVal >= -60.0 ? "moderate bearish momentum"
-                                         :                          "strong bearish momentum";
-                        gradientSpeech = $"{intensity}, {oscillatorVal:F1}";
-                    }
-                    else
-                    {
-                        gradientSpeech = "no data";
-                    }
-                }
-
-                string result = tmpl
-                    .Replace("{gradient_speech}", gradientSpeech)
-                    .Replace("{name}", comp.DisplayName)
-                    .Replace("{type}", FriendlyTypeName(comp.DisplayType));
-
-                // Generic {value:Fn} format handler — catches F0, F1, F2, F3, ... so providers
-                // can use any precision without adding a new Replace() line here.
-                result = System.Text.RegularExpressions.Regex.Replace(
-                    result,
-                    @"\{value:F(\d+)\}",
-                    m =>
-                    {
-                        int digits = int.Parse(m.Groups[1].Value);
-                        return double.IsNaN(val) ? "no data" : val.ToString("F" + digits);
-                    });
-
-                return result
-                    .Replace("{value}",   valF2)
-                    .Replace("{trend}", trend)
-                    .Replace("{zone}", zone);
-            }
-            catch (Exception)
-            {
-                // Accessibility path: a malformed template or missing companion series must
-                // not crash the speech pipeline -- a blind user listening for price updates
-                // relies on a continuous output. "error" is a bounded fallback string so the
-                // screen reader still has something to say. The trade-off is that a bug in
-                // a template will be silent -- debug by enabling the same path under a test
-                // harness, not by re-raising here.
-                return $"{comp.DisplayName}: error";
-            }
-        }
-
         private static string ClassifyCandleType(Ohlcv bar)
         {
             double range = bar.High - bar.Low;
@@ -445,7 +324,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return "";
         }
 
-        private double GetPointValue(ChartSeries s, Ohlcv p, string c, int i)
+        internal static double GetPointValue(ChartSeries s, Ohlcv p, string c, int i)
         {
             var comp = s.Components.FirstOrDefault(x => x.Name.Trim().Equals(c.Trim(), StringComparison.OrdinalIgnoreCase));
             if (comp != null)
@@ -465,6 +344,213 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             if (seriesId == "volume") return p.Volume;
             return double.NaN;
+        }
+    }
+
+    // ── Strategy registry ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Per-component speech strategy. Strategies are consulted in registration
+    /// order; the first <see cref="CanHandle"/> match owns the component.
+    /// Adding a new DisplayType-specific speech path means adding a strategy
+    /// class here, not editing <see cref="SpeechFormatter.FormatTemplateValue"/>.
+    /// </summary>
+    internal interface IComponentSpeechStrategy
+    {
+        bool CanHandle(ComponentFormatContext ctx);
+        string Format(ComponentFormatContext ctx);
+    }
+
+    internal readonly record struct ComponentFormatContext(
+        ChartSeries Series,
+        ComponentConfig Comp,
+        Ohlcv Pt,
+        int DataIndex,
+        bool ReadHeaders,
+        string SpeechOrder,
+        double Value);
+
+    /// <summary>Announces hidden components so the user still knows where Y-navigation landed.</summary>
+    internal sealed class HiddenComponentStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => !ctx.Comp.IsVisible;
+        public string Format(ComponentFormatContext ctx) => $"{ctx.Comp.DisplayName}: hidden";
+    }
+
+    /// <summary>
+    /// Cloud components (Ichimoku-style): announce bullish/bearish direction,
+    /// cloud width, and whether price is inside / above / below the cloud.
+    /// </summary>
+    internal sealed class CloudComponentStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => ctx.Comp.DisplayType == ComponentDisplayType.Cloud;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            double signedWidth = ctx.Value;
+            if (double.IsNaN(signedWidth))
+                return $"{ctx.Comp.DisplayName}: no data";
+
+            bool bullish = signedWidth >= 0;
+            string direction = bullish ? "bullish" : "bearish";
+            double absWidth = Math.Abs(signedWidth);
+
+            string pricePosition = "";
+            if (!string.IsNullOrEmpty(ctx.Comp.UpperComponentName) && !string.IsNullOrEmpty(ctx.Comp.LowerComponentName))
+            {
+                var upperData = ctx.Series.GetComponentData(ctx.Comp.UpperComponentName);
+                var lowerData = ctx.Series.GetComponentData(ctx.Comp.LowerComponentName);
+                if (upperData.Length > ctx.DataIndex && lowerData.Length > ctx.DataIndex)
+                {
+                    double u = upperData[ctx.DataIndex];
+                    double l = lowerData[ctx.DataIndex];
+                    if (!double.IsNaN(u) && !double.IsNaN(l))
+                    {
+                        double hi = Math.Max(u, l);
+                        double lo = Math.Min(u, l);
+                        double close = ctx.Pt.Close;
+                        if (close >= lo && close <= hi)
+                            pricePosition = " Price inside cloud.";
+                        else if (close > hi)
+                            pricePosition = " Price above cloud.";
+                        else
+                            pricePosition = " Price below cloud.";
+                    }
+                }
+            }
+
+            return $"{ctx.Comp.DisplayName}. {direction}, width {absWidth:F2}.{pricePosition}";
+        }
+    }
+
+    /// <summary>
+    /// CandleColor components carry a sentiment-phase index (0–10). Converts
+    /// the raw numeric value to its phase name so the user hears "Neutral"
+    /// instead of "CandleColor 5".
+    /// </summary>
+    internal sealed class PhaseNameStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => ctx.Comp.DisplayType == ComponentDisplayType.CandleColor;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            if (double.IsNaN(ctx.Value)) return $"{ctx.Comp.DisplayName}: warming up.";
+            int phaseIdx = Math.Clamp((int)Math.Round(ctx.Value), 0, AudioConstants.PhaseNames.Length - 1);
+            return $"{ctx.Comp.DisplayName}. {AudioConstants.PhaseNames[phaseIdx]}.";
+        }
+    }
+
+    /// <summary>
+    /// Marker components (Dot, Diamond, Cross, Arrow, Triangle*, Square) with a
+    /// configured <see cref="ComponentConfig.SignalSpeechTemplate"/>. Expands the
+    /// template when the signal fires; announces "no data" when it does not.
+    /// </summary>
+    internal sealed class MarkerSignalStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            ctx.Comp.SignalSpeechTemplate != null
+            && AudioConstants.MarkerDisplayTypes.Contains(ctx.Comp.DisplayType);
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            if (double.IsNaN(ctx.Value))
+                return $"{ctx.Comp.DisplayName}: no data";  // user needs to know where they are
+            string priceStr = ctx.Value.ToString("F0");
+            return ctx.Comp.SignalSpeechTemplate!
+                .Replace("{price}", priceStr)
+                .Replace("{name}", ctx.Comp.DisplayName);
+        }
+    }
+
+    /// <summary>
+    /// Fallback: standard template processing with token substitution.
+    /// Tokens: {name}, {type}, {value}, {value:Fn}, {trend}, {zone}, {gradient_speech}.
+    /// Provider metadata supplies the template via <see cref="ComponentConfig.SpeechTemplate"/>;
+    /// the default is "{name}. {type}. {value}.".
+    /// </summary>
+    internal sealed class StandardTemplateStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => true;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            double val = ctx.Value;
+            var comp = ctx.Comp;
+            var series = ctx.Series;
+
+            // Price-family series (candles / price line) need magnitude-aware
+            // precision so sub-dollar assets like KAS don't collapse to "0.04".
+            string sId = series.Id.ToLowerInvariant();
+            bool isPriceSeries = sId == "price" || sId == "candles";
+            string valF2 = double.IsNaN(val)
+                ? "no data"
+                : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2"));
+
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return double.IsNaN(val) ? "no data" : valF2;
+
+            // Template priority: provider metadata (comp.SpeechTemplate) → generic fallback.
+            string tmpl = string.IsNullOrEmpty(comp.SpeechTemplate) ? "{name}. {type}. {value}." : comp.SpeechTemplate;
+
+            string trend = ctx.Pt.Close >= ctx.Pt.Open ? "Bullish" : "Bearish";
+            string zone = ResolveZone(series, val);
+            string gradientSpeech = ResolveGradientSpeech(ctx, tmpl);
+
+            string result = tmpl
+                .Replace("{gradient_speech}", gradientSpeech)
+                .Replace("{name}", comp.DisplayName)
+                .Replace("{type}", SpeechFormatter.FriendlyTypeName(comp.DisplayType));
+
+            // Generic {value:Fn} format handler — catches F0, F1, F2, F3, ... so providers
+            // can use any precision without adding a new Replace() line here.
+            result = Regex.Replace(
+                result,
+                @"\{value:F(\d+)\}",
+                m =>
+                {
+                    int digits = int.Parse(m.Groups[1].Value);
+                    return double.IsNaN(val) ? "no data" : val.ToString("F" + digits);
+                });
+
+            return result
+                .Replace("{value}", valF2)
+                .Replace("{trend}", trend)
+                .Replace("{zone}", zone);
+        }
+
+        private static string ResolveZone(ChartSeries series, double val)
+        {
+            foreach (var lc in series.Config.Levels)
+            {
+                if (!lc.IsVisible) continue;
+                if (lc.Name.Contains("Overbought", StringComparison.OrdinalIgnoreCase) ||
+                    lc.Name.Contains("Extreme OB", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (val >= lc.Value) return "Overbought";
+                }
+                else if (lc.Name.Contains("Oversold", StringComparison.OrdinalIgnoreCase) ||
+                         lc.Name.Contains("Extreme OS", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (val <= lc.Value) return "Oversold";
+                }
+            }
+            return "";
+        }
+
+        private static string ResolveGradientSpeech(ComponentFormatContext ctx, string tmpl)
+        {
+            if (!ctx.Comp.UsesGradientSpeech || !tmpl.Contains("{gradient_speech}"))
+                return "";
+
+            double oscillatorVal = SpeechFormatter.GetPointValue(ctx.Series, ctx.Pt, ctx.Comp.Name + "_color", ctx.DataIndex);
+            if (double.IsNaN(oscillatorVal)) return "no data";
+
+            string intensity = oscillatorVal > 60.0  ? "strong bullish momentum"
+                             : oscillatorVal > 20.0  ? "moderate bullish momentum"
+                             : oscillatorVal >= -20.0 ? "neutral momentum"
+                             : oscillatorVal >= -60.0 ? "moderate bearish momentum"
+                             :                          "strong bearish momentum";
+            return $"{intensity}, {oscillatorVal:F1}";
         }
     }
 }
