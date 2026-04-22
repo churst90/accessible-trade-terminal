@@ -227,6 +227,14 @@ namespace AccessibleTrader.Sdk.Models
     public record ChangeModeAction(TerminalMode Mode) : WorkspaceAction;
     public record UpdateDataAction(TimeSeriesBuffer<Ohlcv> NewData, bool IsInitialLoad) : WorkspaceAction;
     public record NavigateAction(int NewIndex) : WorkspaceAction;
+    /// <summary>
+    /// Moves the cursor within the current viewport without any scroll logic.
+    /// Used by Home/End which must never advance the viewport. Unlike
+    /// <see cref="NavigateAction"/>, this does not recompute ViewportStartIndex.
+    /// The index is clamped into <c>[ViewportStartIndex, ViewportStartIndex + cursorWindow - 1]</c>
+    /// so it can never land past the last visible bar.
+    /// </summary>
+    public record SetCursorAction(int NewIndex) : WorkspaceAction;
     public record PanAction(int Delta) : WorkspaceAction;
     public record ZoomAction(int NewLength) : WorkspaceAction;
     public record JumpToLatestAction() : WorkspaceAction;

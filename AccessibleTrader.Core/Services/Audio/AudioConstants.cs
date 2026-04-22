@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AccessibleTrader.Sdk.Models;
 
@@ -8,6 +9,17 @@ namespace AccessibleTrader.Core.Services.Audio
     /// </summary>
     internal static class AudioConstants
     {
+        /// <summary>
+        /// Pan-width denominator for stereo positioning. Always uses <c>ViewportLength</c> so
+        /// audio pan tracks the bar's actual x-position on the canvas: a bar at local index
+        /// <c>k</c> of a <c>ViewportLength</c>-slot canvas sits at visual fraction
+        /// <c>(k + 0.5) / ViewportLength</c>, which <see cref="CalculatePan"/> maps to the
+        /// same stereo position. Audio and visual stay in lockstep regardless of whether
+        /// the right-margin future-space is visible (at live edge) or absent (panned back).
+        /// </summary>
+        internal static int ComputePanWidth(WorkspaceState state) =>
+            Math.Max(1, state.ViewportLength);
+
         /// <summary>
         /// Display types whose non-NaN presence on a bar constitutes an active marker signal.
         /// Used by NavigationSonifier (cluster ticks), NavigationFeedbackManager (signal speech),

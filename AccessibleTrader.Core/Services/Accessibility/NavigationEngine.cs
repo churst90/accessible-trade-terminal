@@ -63,13 +63,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     case "NAV_RIGHT": NavigateX(strategy, 1); break;
 
                     case "NAV_HOME":
-                        _store.Dispatch(new NavigateAction(state.ViewportStartIndex));
+                        // Jump cursor to the leftmost visible candle. Never scrolls.
+                        // The reducer clamps into the visible-bar range.
+                        _store.Dispatch(new SetCursorAction(state.ViewportStartIndex));
                         _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
                         break;
                     case "NAV_END":
-                        _store.Dispatch(new NavigateAction(
-                            Math.Min(state.ViewportStartIndex + state.ViewportLength - 1, state.Data.Count - 1)));
+                        // Jump cursor to the rightmost visible candle. Never scrolls.
+                        // int.MaxValue is fine — the reducer clamps to ViewportStartIndex +
+                        // visibleCount - 1 and to the last real data index.
+                        _store.Dispatch(new SetCursorAction(int.MaxValue));
                         _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
                         break;

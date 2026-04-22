@@ -107,8 +107,14 @@ namespace AccessibleTrader.Core.Services.Audio
 
             int cIdx = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
 
-            // REACTIVE PANNING: Position relative to viewport (computed early for Cloud path).
-            float pan = (float)AudioConstants.CalculatePan(state.CurrentDataIndex - state.ViewportStartIndex, state.ViewportLength);
+            // REACTIVE PANNING: Pan must match the visual bar positions.
+            //   • At live edge — canvas shows data in `effectiveWindow` slots plus empty
+            //     right-margin slots. Pan denominator = effectiveWindow so audio +1.0 lands
+            //     on the last real bar (matching its visual position).
+            //   • Panned back into history — data fills all viewportLength slots, no margin.
+            //     Pan denominator = viewportLength so audio tracks the full canvas.
+            int effectivePanWidth = AudioConstants.ComputePanWidth(state);
+            float pan = (float)AudioConstants.CalculatePan(state.CurrentDataIndex - state.ViewportStartIndex, effectivePanWidth);
 
             // ── Cloud component: width-mapped volume, bullish/bearish pitch ────────
             var cloudComp = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
@@ -140,7 +146,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 if (haData.Count > 0) navPoint = haData[^1];
             }
 
-            var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, state.ViewportLength, range, idx, state.ChartVolume);
+            var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume);
 
             // ── NaN guard for marker components ─────────────────────────────────
             // When a Ping-envelope (marker) component has no signal on this bar (value is NaN),
@@ -513,8 +519,10 @@ namespace AccessibleTrader.Core.Services.Audio
                 return b.positive.CompareTo(a.positive);
             });
 
-            // Compute reactive pan matching SyncNavigationSlots — position relative to viewport.
-            float clusterPan = (float)AudioConstants.CalculatePan(dataIndex - state.ViewportStartIndex, state.ViewportLength);
+            // Compute reactive pan matching SyncNavigationSlots — width depends on whether
+            // the viewport is at the live edge (effective window) or panned back (full viewport).
+            int clusterPanWidth = AudioConstants.ComputePanWidth(state);
+            float clusterPan = (float)AudioConstants.CalculatePan(dataIndex - state.ViewportStartIndex, clusterPanWidth);
 
             // Fire on slots 3–7 (up to 5 cluster ticks).
             int maxTicks = Math.Min(signals.Count, 5);

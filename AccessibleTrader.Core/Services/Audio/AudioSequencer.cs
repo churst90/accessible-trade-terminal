@@ -151,7 +151,10 @@ namespace AccessibleTrader.Core.Services.Audio
 
                         // Map THIS component specifically so wicks, body, and signal lines each
                         // produce their own pitch rather than all echoing the first component.
-                        var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, state.ViewportLength, range, state.ChartVolume);
+                        // Pan width tracks the renderer: effective window at live edge, full
+                        // viewport when panned back.
+                        int effPanWidth = AudioConstants.ComputePanWidth(state);
+                        var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
 
                         // NaN guard for Ping-envelope marker components during playback:
                         // Pivot dots (Cipher SR) and signal dots only fire their voice on actual signal bars.
@@ -217,7 +220,8 @@ namespace AccessibleTrader.Core.Services.Audio
                     // (e.g. EMA Fill) rather than only hearing the two component lines.
                     var state2 = _store.State;
                     int cloudSlot2 = 0;
-                    FireCloudVoices(new[] { series }, i, state2.ViewportStartIndex, state2.ViewportStartIndex + state2.ViewportLength - 1, msPerBar, ref cloudSlot2);
+                    int cloudEnd2 = state2.ViewportStartIndex + AudioConstants.ComputePanWidth(state2) - 1;
+                    FireCloudVoices(new[] { series }, i, state2.ViewportStartIndex, cloudEnd2, msPerBar, ref cloudSlot2);
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
@@ -282,7 +286,10 @@ namespace AccessibleTrader.Core.Services.Audio
                             var range = state.PaneRanges.TryGetValue(compRangeKey, out var cr) ? cr
                                 : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
 
-                            var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, state.ViewportLength, range, state.ChartVolume);
+                            // Pan width tracks the renderer: effective window at live edge,
+                            // full viewport when panned back.
+                            int effPanWidth = AudioConstants.ComputePanWidth(state);
+                            var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
 
                             // NaN guard for Ping-envelope marker components during multi-series playback.
                             if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
@@ -339,7 +346,8 @@ namespace AccessibleTrader.Core.Services.Audio
 
                     // Cloud pass — fires after component voices for each bar (Chart scope only).
                     int cloudSlot = 0;
-                    FireCloudVoices(seriesList, i, state.ViewportStartIndex, state.ViewportStartIndex + state.ViewportLength - 1, msPerBar, ref cloudSlot);
+                    int cloudEndMulti = state.ViewportStartIndex + AudioConstants.ComputePanWidth(state) - 1;
+                    FireCloudVoices(seriesList, i, state.ViewportStartIndex, cloudEndMulti, msPerBar, ref cloudSlot);
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
@@ -409,7 +417,9 @@ namespace AccessibleTrader.Core.Services.Audio
             volume *= layerScale;
 
             double freq = isBullish ? comp.BullishFrequency : comp.BearishFrequency;
-            float pan = (float)AudioConstants.CalculatePan(barIndex - state.ViewportStartIndex, state.ViewportLength);
+            // Pan tracks the renderer's visual layout (see AudioConstants.ComputePanWidth).
+            int cloudPanWidth = AudioConstants.ComputePanWidth(state);
+            float pan = (float)AudioConstants.CalculatePan(barIndex - state.ViewportStartIndex, cloudPanWidth);
 
             int slot = PlaybackSlotOffset + seriesSlotOffset + cIdx;
             double durationSec = msPerBar / 1000.0;

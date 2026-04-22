@@ -4,6 +4,120 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-21] — Viewport + Home/End + audio-visual sync
+
+User-reported: pressing End repeatedly kept advancing the viewport forward;
+the right-margin future-space (for trendline projections) was inconsistent
+across initial load / pan / zoom; audio sonification didn't track the bar's
+actual visual x-position. Root cause was three subsystems using three
+different boundaries for "what's currently visible" — the renderer sliced at
+`viewportLength`, `Navigate()` scrolled at `effectiveWindow`, and audio pan
+used yet another denominator.
+
+### The invariant now enforced
+
+**Cursor's legal travel range = renderer's visible data count = audio pan's
+data window.** All three derive from the same `atLiveEdge` check:
+
+```
+effectiveWindow = ViewportLength - RightMarginBars
+barsAvailableToRight = Data.Count - ViewportStartIndex
+atLiveEdge = barsAvailableToRight <= effectiveWindow
+visibleCount = atLiveEdge ? effectiveWindow : ViewportLength
+```
+
+### Right-margin rule (TradingView-style)
+
+- **At live edge** — renderer reserves `RightMarginBars` empty slots on the
+  right; `Take(effectiveWindow)`. Provides blank canvas for trendline
+  projections into the future.
+- **Panned back into history** — no margin; `Take(ViewportLength)`. Data
+  fills the whole viewport, as in TradingView.
+
+`ChartRenderer.Render` now takes a `rightMarginBars` parameter; MainPage and
+AIAnalystService both forward `state.RightMarginBars`.
+
+### Home and End — cursor-only jumps
+
+New `SetCursorAction` bypasses `Navigate()` entirely so Home/End can never
+scroll. Reducer helper `CursorOnlyJump` clamps into
+`[ViewportStartIndex, ViewportStartIndex + visibleCount - 1]` and then to
+`Data.Count - 1`, so the cursor can never land past the last visible bar or
+in the right-margin future-space.
+
+- **Home** → leftmost visible candle. Viewport unchanged.
+- **End** → rightmost visible candle. Viewport unchanged. Pressing again is
+  a no-op.
+- **\\** → `JumpToLatestAction` (snaps viewport to live edge). Unchanged.
+
+### Navigate scroll boundary fixed
+
+`ViewportNavigationService.Navigate` previously triggered scroll when
+`newIdx >= ViewportStart + effectiveWindow`. When panned back with the full
+viewport filled, moving the cursor into the right 20 slots incorrectly
+triggered scroll. Now it uses `cursorWindow` (matches the renderer's
+`visibleCount`), so arrow keys and Right-arrow navigate smoothly within the
+panned-back viewport and only scroll when moving past the last visible slot.
+
+### Live update focus preservation
+
+`WorkspaceStore.UpdateData` used to auto-jump viewport + cursor to the live
+edge whenever a new bar arrived and cursor was at the previous last bar.
+Now it preserves cursor unconditionally; viewport advances only if it was
+already showing the live edge (so zoomed-in live watchers keep up, while
+users studying history aren't yanked out).
+
+### Audio pan — matches visual position
+
+`AudioConstants.ComputePanWidth` returns `ViewportLength` always. A bar at
+local index `k` in a `ViewportLength`-slot canvas sits at visual fraction
+`(k + 0.5) / ViewportLength`, which `CalculatePan` maps to the same stereo
+position. At live edge the last candle (local 79 of 100) pans to ~+0.60 →
+matches its 80% visual position. Panned back, last candle (local 99 of 100)
+pans to +1.0 → matches 100% visual position. Audio and visual stay in
+lockstep regardless of margin state. All 5 call sites updated
+(`NavigationSonifier` ×2, `AudioSequencer` single-series, multi-series,
+cloud-component, plus both `FireCloudVoices` ends).
+
+### Crosshair upper-bound clamp
+
+`RenderCrosshair` now clamps `localIndex` to `visibleData.Count - 1` instead
+of returning early on overflow. Guarantees the crosshair is always anchored
+to a real bar and can never render inside the empty margin, even if a
+transient state change lets `CurrentDataIndex` exceed the visible range.
+
+### Drawing-tool shortcuts — keyboard capture-phase fix
+
+Ctrl+Shift+letter chords were sometimes routed to reserved browser shortcuts
+(reopen tab, new incognito) inside WebView2. `keyboard.js` now registers its
+listener in the **capture phase**, adds `e.stopImmediatePropagation()` on
+modifier chords, and trapped-letter coverage includes all drawing-tool keys
+(T, V, C, F, L, N, O, Q, U, X, Y, Z, D). Reserved chords (Ctrl+Shift+N,
+Ctrl+Shift+P, etc.) still cannot be captured on all platforms — rebind
+those to Ctrl+Alt+letter if they collide.
+
+### Files touched
+
+- `AccessibleTrader.Core/Services/ChartRenderer.cs`
+- `AccessibleTrader.Core/Services/ViewportNavigationService.cs`
+- `AccessibleTrader.Core/Services/WorkspaceStore.cs`
+- `AccessibleTrader.Core/Services/Accessibility/NavigationEngine.cs`
+- `AccessibleTrader.Core/Services/Audio/AudioConstants.cs`
+- `AccessibleTrader.Core/Services/Audio/AudioSequencer.cs`
+- `AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs`
+- `AccessibleTrader.Core/Services/AI/AIAnalystService.cs`
+- `AccessibleTrader.Sdk/Models/WorkspaceState.cs` (new `SetCursorAction`)
+- `AccessibleTrader.BlazorClient/MainPage.xaml.cs` (pass `state.RightMarginBars`)
+- `AccessibleTrader.BlazorClient/wwwroot/js/keyboard.js` (capture phase + drawing keys)
+
+### Verification
+
+Core builds clean (0 warnings, 0 errors). Design validated by the user
+against initial load, pan-back-and-forward, Home/End while panned back, and
+audio-vs-visual correspondence.
+
+---
+
 ## [2026-04-19] — Pre-release quality sweep (audit-driven fixes)
 
 A full-codebase audit across Core/SDK, the 26 plugins, and the Blazor

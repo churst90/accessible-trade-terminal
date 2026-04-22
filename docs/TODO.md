@@ -4,6 +4,31 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-21] — Viewport + Home/End + audio-visual sync (complete)
+
+User-reported session: Home/End behavior, right-margin consistency,
+audio sonification tracking visual bar positions, drawing-tool shortcut
+reliability. All fixes landed in a single session; details in
+`docs/CHANGES.md` 2026-04-21 entry.
+
+- [x] **Home/End decoupled from scroll logic** — new `SetCursorAction` + reducer helper `CursorOnlyJump` clamps into `[ViewportStartIndex, ViewportStartIndex + visibleCount - 1]` and bypasses `Navigate()` entirely. End can never advance the viewport; future refactors of scroll logic can't accidentally re-couple them.
+- [x] **Right-margin rule rewritten to match TradingView** — `ChartRenderer.Render` takes `Take(effectiveWindow)` at live edge, `Take(viewportLength)` when panned back. Margin exists only as the "future space" at live edge. Renderer path passes `state.RightMarginBars` from MainPage + AIAnalystService.
+- [x] **`ViewportNavigationService.Navigate` uses `cursorWindow`** — scroll trigger now matches the renderer's visible bar count (effectiveWindow at live edge, ViewportLength when panned back). Arrow-key navigation inside a panned-back viewport stops scrolling prematurely.
+- [x] **Live updates no longer jump focus** — `WorkspaceStore.UpdateData` preserves cursor unconditionally; viewport advances only if it was already showing the live edge.
+- [x] **Audio pan = visual position, always** — `AudioConstants.ComputePanWidth` returns `ViewportLength` unconditionally; audio stereo position now matches the candle's x-fraction on the canvas. 5 call sites updated.
+- [x] **Crosshair upper-bound clamp** — `RenderCrosshair` clamps `localIndex` to `visibleData.Count - 1` instead of returning early. Guarantees crosshair anchors to a real bar; never renders in the margin.
+- [x] **Drawing-tool shortcuts fixed** — `keyboard.js` switched to capture phase + `e.stopImmediatePropagation()` on modifier chords; `trappedKeys` list expanded to cover all drawing-tool letters. WebView2 no longer steals Ctrl+Shift+T before our handler.
+
+### Follow-up (deferred — feature, not bug)
+
+- [ ] **Allow drawing anchors in future-space** — currently `DrawingInteractionManager.HandleAddDrawing` clamps cursor via `Math.Clamp(state.CurrentDataIndex, 0, chartData.Count - 1)` and `HandleMouseEvent` rejects `dataIndex >= Data.Count`. So the 20-bar future margin is visible and reserved, but trendlines cannot anchor a second point into it. Requires (a) allowing `CurrentDataIndex` to roam up to `Data.Count + RightMarginBars - 1`, (b) generating synthetic projected dates (`Data[^1].Date + (offset * timeframe)`), and (c) storing projected dates in `DrawingData` anchor fields without breaking persistence. ~3-4 hours.
+
+### Follow-up (deferred — UX call)
+
+- [ ] **Make `RightMarginBars` a fraction of `ViewportLength` rather than absolute count** — currently hardcoded to 20 bars. At ViewportLength=500 (zoomed out), the margin is only 4% of canvas width; at ViewportLength=100 (default), it's 20%. If the goal is "always ~20% visual gap for projections," switch to `RightMarginFraction = 0.20` and compute `RightMarginBars = ceil(ViewportLength * fraction)` on demand. No user pushback yet — leave absolute unless it becomes friction.
+
+---
+
 ## [2026-04-19] — Pre-release quality audit (complete)
 
 Full-codebase audit across Core/SDK, 26 plugins, and the Blazor client.

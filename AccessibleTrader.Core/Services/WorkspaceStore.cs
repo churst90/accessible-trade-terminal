@@ -205,6 +205,11 @@ namespace AccessibleTrader.Core.Services
                 NavigateAction a => _navService.Navigate(state, a.NewIndex),
                 NavigateRelativeAction a => _navService.Navigate(state, state.CurrentDataIndex + a.Delta),
 
+                // Cursor-only jump (Home/End). Clamp to the range of visible data bars so the
+                // cursor can never land in the right-margin future-space, but never scroll the
+                // viewport — these keys jump within what's already on screen.
+                SetCursorAction a => CursorOnlyJump(state, a.NewIndex),
+
                 PanAction a => _navService.Pan(state, a.Delta),
                 ZoomAction a => _navService.ClampViewportToData(state with { ViewportLength = Math.Clamp(a.NewLength, state.RightMarginBars + 10, 5000) }),
 
@@ -376,12 +381,7 @@ namespace AccessibleTrader.Core.Services
 
             if (initial || newIdx == -1)
             {
-                newIdx   = list.Count - 1;
-                newStart = Math.Max(0, list.Count - effectiveWindow);
-            }
-            else if (state.CurrentDataIndex >= state.Data.Count - 1)
-            {
-                // Cursor was at the live edge — keep it there after an append.
+                // Fresh load: show the most recent bars with cursor on the live edge.
                 newIdx   = list.Count - 1;
                 newStart = Math.Max(0, list.Count - effectiveWindow);
             }
@@ -394,6 +394,21 @@ namespace AccessibleTrader.Core.Services
                 int prependedCount = list.Count - state.Data.Count;
                 newIdx   = Math.Clamp(state.CurrentDataIndex   + prependedCount, 0, list.Count - 1);
                 newStart = Math.Clamp(state.ViewportStartIndex + prependedCount, 0, Math.Max(0, list.Count - effectiveWindow));
+            }
+            else
+            {
+                // APPEND or intra-bar update. Preserve user focus — do NOT move the
+                // cursor based on live data arrivals; only an explicit JumpToLatest
+                // command should do that. Advance the viewport only if it was already
+                // showing the live edge (so live watchers keep up), never otherwise.
+                int prevLastVisible     = state.ViewportStartIndex + effectiveWindow - 1;
+                bool viewportWasAtLive  = prevLastVisible >= state.Data.Count - 1;
+                bool isAppend           = list.Count > state.Data.Count;
+
+                if (viewportWasAtLive && isAppend)
+                    newStart = Math.Max(0, list.Count - effectiveWindow);
+
+                newIdx = Math.Clamp(newIdx, 0, list.Count - 1);
             }
 
             var updated = state with
@@ -468,6 +483,30 @@ namespace AccessibleTrader.Core.Services
 
             // CRITICAL: Clamp viewport length after every data update.
             return _navService.ClampViewportToData(updated);
+        }
+
+        /// <summary>
+        /// Home/End semantics: move the cursor within the currently visible data, never
+        /// scroll. Clamps target into <c>[ViewportStartIndex, ViewportStartIndex + visibleCount - 1]</c>
+        /// and further clamps to the last real data index, so the cursor can never land
+        /// in the right-margin future-space or past the end of data.
+        /// </summary>
+        private static WorkspaceState CursorOnlyJump(WorkspaceState state, int target)
+        {
+            if (state.Data == null || state.Data.Count == 0) return state;
+
+            int effectiveWindow      = Math.Max(1, state.ViewportLength - state.RightMarginBars);
+            int barsAvailableToRight = Math.Max(0, state.Data.Count - state.ViewportStartIndex);
+            bool atLiveEdge          = barsAvailableToRight <= effectiveWindow;
+            int visibleCount         = atLiveEdge ? effectiveWindow : state.ViewportLength;
+
+            int maxVisibleIdx = state.ViewportStartIndex + visibleCount - 1;
+            int dataMax       = state.Data.Count - 1;
+            int rightLimit    = Math.Min(maxVisibleIdx, dataMax);
+
+            int clamped = Math.Clamp(target, state.ViewportStartIndex, rightLimit);
+            if (clamped == state.CurrentDataIndex) return state;
+            return state with { CurrentDataIndex = clamped };
         }
 
         private static int SnapToStep5(int value)

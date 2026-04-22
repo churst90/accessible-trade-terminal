@@ -23,11 +23,24 @@ public sealed class ViewportNavigationService : IViewportNavigationService
         int newIdx = Math.Clamp(targetIndex, 0, state.Data.Count - 1);
         int effectiveWindow = Math.Max(1, state.ViewportLength - state.RightMarginBars);
 
+        // Cursor travel range must match what the renderer shows. If the viewport is at
+        // the live edge, only the first `effectiveWindow` slots hold data (the rest is
+        // reserved right-margin future-space). If panned back into history, every slot
+        // holds data, so the full `ViewportLength` is legal cursor territory.
+        int barsAvailableToRight = Math.Max(0, state.Data.Count - state.ViewportStartIndex);
+        bool atLiveEdge = barsAvailableToRight <= effectiveWindow;
+        int cursorWindow = atLiveEdge ? effectiveWindow : state.ViewportLength;
+
         int newStart = state.ViewportStartIndex;
         if (newIdx < state.ViewportStartIndex)
             newStart = newIdx;
-        else if (newIdx >= state.ViewportStartIndex + effectiveWindow)
-            newStart = newIdx - effectiveWindow + 1;
+        else if (newIdx >= state.ViewportStartIndex + cursorWindow)
+        {
+            // User navigated past the visible area — scroll forward by the minimum needed.
+            // Anchor the cursor inside the new visible area; the viewport-start cap below
+            // (maxStart) will stop us at the live edge, preserving the right-margin gap.
+            newStart = newIdx - cursorWindow + 1;
+        }
 
         int maxStart = Math.Max(0, state.Data.Count - effectiveWindow);
         newStart = Math.Clamp(newStart, 0, maxStart);

@@ -46,15 +46,15 @@ namespace AccessibleTrader.Core.Services
             _profileLayer = new ProfileRenderLayer(profileService, _theme, appLogger);
         }
 
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 20)
         {
             try
             {
                 canvas.Clear(SKColors.Black);
 
-                if (data == null || data.Count == 0 || seriesList == null || viewportLength <= 0) 
-                { 
-                    return; 
+                if (data == null || data.Count == 0 || seriesList == null || viewportLength <= 0)
+                {
+                    return;
                 }
 
                 _axisWidth = _theme.Current.AxisWidth * density;
@@ -65,7 +65,19 @@ namespace AccessibleTrader.Core.Services
                 // visibleData is HA-transformed when isHeikinAshi — used only for the main pane
                 // (candle rendering). All indicator/volume panes receive rawVisibleData so that
                 // PriceAction directional coloring (e.g. volume bars) always uses real close/open.
-                var rawVisibleData = data.Skip(viewportStart).Take(viewportLength).ToList();
+                //
+                // RIGHT-MARGIN RULE (matches TradingView-style behavior):
+                //   • At the live edge — reserve `rightMarginBars` empty slots on the right for
+                //     trendline projections into the future.
+                //   • Panning back into history — fill the whole viewport with data; no gap.
+                // We detect "at live edge" by asking: does the last real data bar fall inside
+                // (or past) the last effective slot? If so, we're at the edge and reserve the
+                // margin. Otherwise the viewport is panned back and data fills all slots.
+                int effectiveWindow = Math.Max(1, viewportLength - rightMarginBars);
+                int lastEffectiveDataIdx = viewportStart + effectiveWindow - 1;
+                bool atLiveEdge = (data.Count - 1) <= lastEffectiveDataIdx;
+                int takeCount = atLiveEdge ? effectiveWindow : viewportLength;
+                var rawVisibleData = data.Skip(viewportStart).Take(takeCount).ToList();
                 if (!rawVisibleData.Any())
                 {
                     canvas.Clear(_theme.Background);
@@ -327,7 +339,13 @@ namespace AccessibleTrader.Core.Services
 
         private void RenderCrosshair(SKCanvas canvas, SKRect area, List<Ohlcv> visibleData, int localIndex, double min, double max, bool isLogScale, float itemWidth, float density, float mainPaneHeight, List<(SKRect Rect, double Min, double Max, List<ChartSeries> Series)> indicatorPanes)
         {
-            if (localIndex < 0 || localIndex >= visibleData.Count || visibleData.Count == 0) return;
+            if (visibleData.Count == 0) return;
+            // Upper-bound clamp: never draw the crosshair past the last real data bar,
+            // even if the cursor temporarily points into the right-margin future-space.
+            // The crosshair labels the bar under focus; that bar is always at
+            // localIndex ∈ [0, visibleData.Count - 1].
+            if (localIndex < 0) return;
+            if (localIndex >= visibleData.Count) localIndex = visibleData.Count - 1;
             float cx = area.Left + (localIndex * itemWidth) + (itemWidth / 2);
 
             using var vPaint = new SKPaint { Color = SKColors.Gray.WithAlpha(150), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };

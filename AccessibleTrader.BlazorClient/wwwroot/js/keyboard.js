@@ -12,6 +12,9 @@ window.accessibleTrader = {
      * a modifier key (Ctrl/Alt) is held, which is always a shortcut.
      */
     registerKeyboardHandler: function (dotnetHelper) {
+        // Capture phase: run before any bubble-phase handler, and before WebView2/browser
+        // tries to consume reserved chords like Ctrl+Shift+T, Ctrl+Shift+N, Ctrl+Shift+P.
+        // stopImmediatePropagation is used on modifier chords so no downstream handler fires.
         window.addEventListener('keydown', function (e) {
             const trappedKeys = [
                 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
@@ -27,7 +30,11 @@ window.accessibleTrader = {
                 'h', 'H', 'm', 'M', 'p', 'P',
                 'r', 'R', 'e', 'E', 'g', 'G',
                 'w', 'W', 'b', 'B', 'k', 'K', 'j', 'J',
-                'a', 'A', 'i', 'I', 's', 'S'
+                'a', 'A', 'i', 'I', 's', 'S',
+                // Drawing-tool letters (also lowercase for safety when Shift is held).
+                't', 'T', 'v', 'V', 'c', 'C', 'f', 'F', 'l', 'L',
+                'n', 'N', 'o', 'O', 'q', 'Q', 'u', 'U', 'x', 'X',
+                'y', 'Y', 'z', 'Z', 'd', 'D'
             ];
 
             const isModified = e.ctrlKey || e.altKey;
@@ -41,7 +48,10 @@ window.accessibleTrader = {
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             if (isFormControl && !isModified) return;
 
+            // For modifier chords (Ctrl/Alt/Ctrl+Shift), hard-stop the event so the WebView
+            // doesn't route it to reserved browser shortcuts (reopen tab / new incognito / etc).
             e.preventDefault();
+            if (isModified) e.stopImmediatePropagation();
 
             // Normalize key names to match what ShortcutManager expects.
             let key = e.key;
@@ -64,7 +74,7 @@ window.accessibleTrader = {
 
             dotnetHelper.invokeMethodAsync('OnKeyDown',
                 key.toUpperCase(), e.shiftKey, e.ctrlKey, e.altKey);
-        });
+        }, true);  // capture phase — runs before bubble and before WebView reserved chords
 
         // Stop the sustaining navigation audio voice immediately on key release.
         // Only fires for navigation keys — no need to intercept every keyup.

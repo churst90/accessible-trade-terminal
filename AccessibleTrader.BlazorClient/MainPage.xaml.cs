@@ -135,7 +135,8 @@ public partial class MainPage : ContentPage
                 state.IsLogScale,
                 density,
                 state.PaneHeightRatios,
-                state.IndicatorPaneScrollIndex);
+                state.IndicatorPaneScrollIndex,
+                state.RightMarginBars);
         }
     }
 

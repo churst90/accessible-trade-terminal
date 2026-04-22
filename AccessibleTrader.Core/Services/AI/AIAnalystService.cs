@@ -244,7 +244,8 @@ public sealed class AIAnalystService : IAIAnalystService
                 state.IsLogScale,
                 density: 1.0f,
                 state.PaneHeightRatios,
-                state.IndicatorPaneScrollIndex);
+                state.IndicatorPaneScrollIndex,
+                state.RightMarginBars);
 
             using var image = surface.Snapshot();
             using var data  = image.Encode(SKEncodedImageFormat.Png, 85);
