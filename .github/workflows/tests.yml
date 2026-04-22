@@ -1,7 +1,8 @@
 name: xunit
 
-# Runs AccessibleTrader.Tests (currently 264 tests) on every PR targeting
-# main and every push to main. Fails the check if any test regresses.
+# Runs AccessibleTrader.Tests on every PR targeting main and every push to
+# main. Fails the check if any test regresses. The live test count is
+# verified against docs/README.md by the doc-drift workflow.
 #
 # Test project targets plain net10.0 — no MAUI workloads needed. Runs on
 # Ubuntu for speed; the tests are platform-agnostic (Roslyn compile,
