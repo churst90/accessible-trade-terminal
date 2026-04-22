@@ -299,7 +299,25 @@ namespace AccessibleTrader.Plugins.Finnhub
                         .ToList();
                 });
             }
-            catch { return new List<string>(); }
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"Finnhub: network error fetching symbol list: {ex.Message}");
+                return new List<string>();
+            }
+            catch (TaskCanceledException)
+            {
+                return new List<string>();
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"Finnhub: malformed symbol-list response: {ex.Message}");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Finnhub: symbol-list error: {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>

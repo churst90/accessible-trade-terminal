@@ -251,7 +251,26 @@ namespace AccessibleTrader.Plugins.Polygon
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"Polygon: network error fetching {symbol}: {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+            catch (TaskCanceledException)
+            {
+                // Request timeout or upstream cancellation — the caller already knows.
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"Polygon: malformed response for {symbol}: {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Polygon: fetch error for {symbol}: {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
         }
 
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")
@@ -267,7 +286,25 @@ namespace AccessibleTrader.Plugins.Polygon
                     return results?.Select(r => r["ticker"]?.ToString() ?? "").Where(s => !string.IsNullOrEmpty(s)).OrderBy(s => s).ToList() ?? new List<string>();
                 });
             }
-            catch { return new List<string>(); }
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"Polygon: network error fetching symbol list: {ex.Message}");
+                return new List<string>();
+            }
+            catch (TaskCanceledException)
+            {
+                return new List<string>();
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"Polygon: malformed symbol-list response: {ex.Message}");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Polygon: symbol-list error: {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => Task.FromResult(new List<string> { "Standard" });
