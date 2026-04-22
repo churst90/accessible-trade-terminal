@@ -294,6 +294,10 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IRiskPlanResolver, RiskPlanResolver>();
             services.AddSingleton<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
             services.AddSingleton<IStrategyLibrary, JsonStrategyLibrary>();
+            // Facade: wraps IStrategyLibrary + IConfigurableStrategyFactory + IStrategyEngine
+            // so Build-Setup UI code can call a single method per save/delete/add-to-engine
+            // operation instead of orchestrating the trio by hand.
+            services.AddSingleton<IStrategyLibraryFacade, StrategyLibraryFacade>();
             services.AddSingleton<SetupSonifier>();
 
             // Session B additions:
