@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace AccessibleTrader.Core.Services.AI;
@@ -32,17 +34,23 @@ public sealed class AIAnalystService : IAIAnalystService
     private readonly IWorkspaceStore     _store;
     private readonly ChartRenderer       _renderer;
     private readonly IEnumerable<ILLMProvider> _providers;
+    private readonly IEventBus?          _eventBus;
+    private readonly ILogger<AIAnalystService>? _logger;
 
     public AIAnalystService(
         IApiKeyService apiKeyService,
         IWorkspaceStore store,
         ChartRenderer renderer,
-        IEnumerable<ILLMProvider> providers)
+        IEnumerable<ILLMProvider> providers,
+        IEventBus? eventBus = null,
+        ILogger<AIAnalystService>? logger = null)
     {
         _apiKeyService = apiKeyService;
         _store         = store;
         _renderer      = renderer;
         _providers     = providers;
+        _eventBus      = eventBus;
+        _logger        = logger;
     }
 
     /// <summary>
@@ -57,21 +65,6 @@ public sealed class AIAnalystService : IAIAnalystService
     {
         if (string.IsNullOrWhiteSpace(prompt)) return null;
 
-        ILLMProvider? provider = null;
-        string? apiKey = null;
-
-        foreach (var p in _providers)
-        {
-            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId).ConfigureAwait(false);
-            if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ApiKey))
-            {
-                provider = p;
-                apiKey = cfg.ApiKey;
-                break;
-            }
-        }
-        if (provider == null) return null;
-
         const string ReviewSystemPrompt =
             "You are an expert trading coach reviewing the user's recent strategy setups. " +
             "You will be given a structured list of strategy specifications and the journal of " +
@@ -82,42 +75,85 @@ public sealed class AIAnalystService : IAIAnalystService
             "Write for a visually impaired trader who uses text-to-speech — be clear, " +
             "use plain language, and avoid markdown formatting.";
 
-        return await provider.CompleteAsync(ReviewSystemPrompt, prompt, imageBase64: null, apiKey!, ct).ConfigureAwait(false);
+        return await TryEachProviderAsync(ReviewSystemPrompt, prompt, imageBase64: null, ct).ConfigureAwait(false);
     }
 
     public async Task<string?> AnalyseAsync(CancellationToken ct = default)
     {
-        // ── 1. Find the first configured LLM key ─────────────────────────────────
-        ILLMProvider? provider = null;
-        string?       apiKey   = null;
+        // ── 1. Build OHLCV summary + screenshot for any provider that ends up winning ───
+        var state       = _store.State;
+        var userMessage = BuildUserMessage(state);
+        string? imageBase64 = CaptureChartSnapshot(state);
+
+        // ── 2. Walk the provider list and keep trying until one succeeds. The old code
+        //       picked the first provider that had a key and returned whatever it produced
+        //       (including null on network error), so a dead first provider silently broke
+        //       the whole feature. Now every configured provider gets a chance; the user
+        //       only hears "no AI provider returned a response" after every one has failed.
+        return await TryEachProviderAsync(SystemPrompt, userMessage, imageBase64, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Iterates <see cref="_providers"/> in order, skips any with no configured key, and
+    /// returns the first non-null response. On exception per provider, logs and continues
+    /// to the next one — a dead Claude key no longer blocks OpenAI or Ollama fallbacks.
+    /// When every provider is exhausted (no key, all empty, or all threw), publishes an
+    /// error-channel <see cref="FeedbackRequestEvent"/> so the user hears why the feature
+    /// didn't produce anything and returns null to the caller.
+    /// </summary>
+    private async Task<string?> TryEachProviderAsync(string systemPrompt, string userMessage, string? imageBase64, CancellationToken ct)
+    {
+        var attempts = new List<string>();
+        bool anyKeyFound = false;
 
         foreach (var p in _providers)
         {
-            var cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId).ConfigureAwait(false);
-            if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ApiKey))
+            ApiKeyConfig? cfg;
+            try { cfg = await _apiKeyService.GetKeyForProviderAsync(p.ProviderId).ConfigureAwait(false); }
+            catch (Exception ex)
             {
-                provider = p;
-                apiKey   = cfg.ApiKey;
-                break;
+                _logger?.LogWarning(ex, "AI Analyst: lookup failed for {Provider}.", p.ProviderId);
+                attempts.Add($"{p.ProviderId}: key lookup failed");
+                continue;
+            }
+
+            if (cfg == null || string.IsNullOrWhiteSpace(cfg.ApiKey))
+            {
+                attempts.Add($"{p.ProviderId}: no key configured");
+                continue;
+            }
+            anyKeyFound = true;
+
+            try
+            {
+                var result = await p.CompleteAsync(systemPrompt, userMessage, imageBase64, cfg.ApiKey!, ct).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    _logger?.LogInformation("AI Analyst: response from {Provider}.", p.ProviderId);
+                    return result;
+                }
+                attempts.Add($"{p.ProviderId}: empty response");
+            }
+            catch (OperationCanceledException)
+            {
+                // Caller cancelled; don't treat as a provider failure.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "AI Analyst: {Provider} failed; trying next.", p.ProviderId);
+                attempts.Add($"{p.ProviderId}: {ex.GetType().Name}");
             }
         }
 
-        // NOTE: Ollama is treated the same as any other provider — the user must add an "Ollama"
-        // entry in API Keys (the key field is used as the base URL, e.g. http://localhost:11434).
-        // There is no automatic localhost fallback; requiring an explicit entry prevents surprise
-        // connection attempts when Ollama isn't installed.
-        if (provider == null)
-            return null; // No configured LLM key — caller announces "no API key configured"
-
-        // ── 2. Build OHLCV summary (viewport bars) ────────────────────────────────
-        var state       = _store.State;
-        var userMessage = BuildUserMessage(state);
-
-        // ── 3. Capture offscreen chart screenshot ─────────────────────────────────
-        string? imageBase64 = CaptureChartSnapshot(state);
-
-        // ── 4. Call LLM ───────────────────────────────────────────────────────────
-        return await provider.CompleteAsync(SystemPrompt, userMessage, imageBase64, apiKey!, ct).ConfigureAwait(false);
+        // All providers exhausted. Distinguish "nothing configured" from "all failed" so
+        // the user's next action is obvious.
+        var message = anyKeyFound
+            ? $"AI analysis failed across every configured provider. Attempts: {string.Join("; ", attempts)}."
+            : "No AI provider is configured. Open Settings → API Keys and add a key for Claude, OpenAI, or Ollama.";
+        _logger?.LogWarning("AI Analyst: all providers exhausted. {Summary}", message);
+        _eventBus?.Publish(new FeedbackRequestEvent(FeedbackType.Error, message));
+        return null;
     }
 
     // ── Prompt construction ───────────────────────────────────────────────────────

@@ -175,6 +175,7 @@ and populate the provider via `Configure(new Dictionary<string, string> {
 | Coinbase | ✅ (2026-04-17)        | `AddAuthHeadersAsync` + WS OnConnected JWT mint both checkout per use. `GenerateJwt` now takes explicit `apiKey`/`apiSecret` args. |
 | Alpaca   | ✅ (2026-04-17)        | Per-connection-lifecycle pattern: `ApplyAlpacaHeadersAsync` refreshes `DefaultRequestHeaders` before each REST call; WS `OnConnected` handlers checkout before sending auth payloads. Configure no longer bakes credentials into the HttpClient. |
 | Binance  | ✅ (2026-04-17)        | Per-connection-lifecycle pattern: `EnsureTradingClientAsync` builds `BinanceRestClient` lazily on first connect/trade op; disposed + nulled on `DisconnectAsync`. |
+| MEXC     | ✅ (2026-04-18)        | Per-request checkout via `CheckoutMexcCredentialsAsync` → `PluginHostServices.ApiKeys.CheckoutAsync("MEXC")`. `_apiKey`/`_apiSecret` retained as fallback for unit tests. |
 | Schwab   | N/A                    | OAuth flow — refresh token already lives in `PluginHostServices.SecureStorage` via `IPluginSecureStorage`; access tokens are minted per-call from the refresh token. No API-key/secret surface for this pattern to protect. |
 | IBKR     | N/A                    | Gateway session auth only; no `_apiKey` / `_apiSecret` fields exist. The TLS cert pin (`GatewayCertSha256`) remains the security boundary. |
 

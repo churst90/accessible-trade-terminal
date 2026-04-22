@@ -79,10 +79,13 @@
 
 </div>
 
+@inject AccessibleTrader.Core.Services.IEventBus _eventBus
+
 @code {
     private string _latestSpeech = "";
     private int _activeBuffer = 1;
     private IDisposable? _stateSub;
+    private IDisposable? _modalSub;
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,6 +101,37 @@
 
         // Re-render on every store state change so the header title stays current.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        // Announce modal open/close through the same ARIA live pipeline speech uses.
+        // Focus-move alone is not enough — NVDA/JAWS users in browse mode don't hear
+        // a focus change, so the live-region text is what tells them which modal
+        // just opened or closed.
+        _modalSub = _eventBus.AsObservable<ModalStateChangedEvent>()
+            .Subscribe(evt =>
+            {
+                // Arm/disarm the keyboard.js Tab trap for every modal (including
+                // those that publish ModalStateChangedEvent directly without going
+                // through ModalBase). Fire-and-forget; the trap no-ops if the JS
+                // runtime isn't ready yet.
+                try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setModalOpen", evt.IsOpen); }
+                catch { /* non-critical */ }
+
+                // Gate single-letter chart commands on "chart is active". The
+                // simplest safe rule: chart is active when no modal is open.
+                // Individual toolbar inputs are already handled by the form-control
+                // guard in keyboard.js; this covers the gap for modal inputs.
+                try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setChartFocused", !evt.IsOpen); }
+                catch { /* non-critical */ }
+
+                if (string.IsNullOrEmpty(evt.ModalName)) return;
+                var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
+                InvokeAsync(() =>
+                {
+                    _latestSpeech = phrase;
+                    _activeBuffer = _activeBuffer == 1 ? 2 : 1;
+                    StateHasChanged();
+                });
+            });
 
         await base.OnInitializedAsync();
     }
@@ -150,6 +184,7 @@
     public void Dispose()
     {
         _stateSub?.Dispose();
+        _modalSub?.Dispose();
         SpeechManager.OnSpeak = null;
     }
 }

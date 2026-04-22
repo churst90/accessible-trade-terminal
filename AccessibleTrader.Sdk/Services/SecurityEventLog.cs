@@ -29,6 +29,8 @@ public enum SecurityEventKind
     PluginTrustRejected,
     /// <summary>Outbound HTTP request rejected by the per-provider allow-list handler.</summary>
     HttpClientHostRejected,
+    /// <summary>Audio engine command ring buffer overflowed; a voice command was dropped. Not security-sensitive, but shares the same telemetry plumbing because it's another "silent drop" event users need to be able to review after the fact.</summary>
+    AudioCommandDropped,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }

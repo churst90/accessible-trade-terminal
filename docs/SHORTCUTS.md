@@ -133,6 +133,21 @@ When no further event exists in the scan direction, speech announces: "No more [
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
 | Ctrl+Shift+D | Full candle pattern + indicator analysis for the current bar | Spoken summary |
+| Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off | "Narration on/off" |
+| Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
+
+---
+
+## Tabs and Workspaces
+
+| Key | Action |
+|-----|--------|
+| Ctrl+T | Add a new chart tab |
+| Ctrl+W | Close the current chart tab |
+| Ctrl+Tab | Switch to the next tab |
+| Ctrl+Shift+Tab | Switch to the previous tab |
+| Ctrl+Alt+Shift+W | Save the current workspace (all tabs + layout) |
+| Ctrl+Alt+W | Load a saved workspace |
 
 ---
 

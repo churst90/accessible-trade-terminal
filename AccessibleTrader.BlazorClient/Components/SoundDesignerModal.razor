@@ -260,7 +260,7 @@
         _patches = PatchLibrary.GetPatches().ToList();
         if (_patches.Any() && _selectedId == null) SelectPatch(_patches[0].Id);
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Sound designer"));
         StateHasChanged();
         await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "sound-designer-title");
     }
@@ -390,7 +390,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Sound designer"));
     }
 
     public void Dispose() => _sub?.Dispose();

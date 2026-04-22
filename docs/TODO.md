@@ -4,6 +4,76 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Next sprint — pick up here (proposed 2026-04-22, user-approved ordering)
+
+After the Day 1–4 sprint closed the concrete ship-blockers and silent-failure
+gaps, the remaining work is design debt, a broader version of the
+silent-failure sweep (REST providers), and CI guardrails to stop documentation
+drift. Recommended ordering: **batch items 1 + 3 + 4 first (~12h total)** —
+they're independent, short, and each closes a category of future-regression
+risk. Items 2 and 5 are larger lifts and should be their own sprints.
+
+- [ ] **1. `SpeechFormatter` plugin registry (~6h).** Extract `ISpeechTemplateProvider`; have each `IndicatorProvider` supply its own template lookup (the `SpeechTemplate` strings are already in metadata); collapse the 470-line conditional chain in `SpeechFormatter.FormatTemplateValue` to a small dispatcher. Payoff: adding a new indicator stops requiring `SpeechFormatter` edits.
+
+- [ ] **2. `WorkspaceStore.Reduce` decomposition (~8h).** Split the 150-line switch on 25 action types into per-domain reducers (`ViewportReducer`, `TabReducer`, `IndicatorReducer`, `DrawingReducer`, `PlaybackReducer`) with a tiny dispatcher. Inline calls to `ViewportNavigationService` / `ViewportRangeCalculator` / `VolumeService` stay local to their reducer. Payoff: safe to modify — tab-handling changes no longer risk regressing indicator visibility toggles.
+
+- [ ] **3. REST-provider silent-failure sweep (~4h).** Every `catch { return new List<Ohlcv>(); }` (and peers) in a provider's fetch path gets split into `HttpRequestException` / `JsonException` / `TimeoutException` / other, routed to `_errorStream.OnNext(<structured>)`. Callers (DataOrchestrator, UI) surface the structured message instead of an empty chart. Pattern is mechanical; 14 providers × ~2 sites each ≈ 30 call sites. Payoff: empty charts always carry a diagnostic.
+
+- [ ] **4. CI doc-drift guard (~2h).** One script run on every PR that: (a) diffs shortcut bindings between `ShortcutManager.InitializeDefaultProfile()` and `docs/SHORTCUTS.md`; (b) counts plugins in `Plugins/Providers/` + `Plugins/Analytics/` and asserts `docs/README.md` matches; (c) extracts the test count from `dotnet test --list-tests` and asserts README matches. Payoff: the Alt+H-for-Help class of documentation drift stops recurring.
+
+- [ ] **5. `StrategyModal` facade + `BuildSetupTab` split (~8h).** Already tracked in `project_architectural_followups_2026-04-19.md`. StrategyModal is ~900 lines; BuildSetupTab couples condition-tree editor, risk-plan editor, validation, and summary/export. Split BuildSetupTab into three sibling components (ConditionTreeEditor / RiskPlanEditor / SummaryExport); extract save/load/export/import into a `StrategyLibraryFacade`. Do last — cleaner once items 1, 2, and 3 have simplified the surrounding surface.
+
+### When returning to this project
+Start by reading this section. The Day 1–4 sprint is done; next session starts
+with whichever of items 1 / 3 / 4 you want to open. Don't redo the audit — all
+findings are documented in `docs/CHANGES.md` 2026-04-22 and the memory file
+`project_audit_sprint_2026-04-22.md`.
+
+---
+
+## [2026-04-22] — Pre-release hardening sprint (Day 1–4 complete)
+
+Remediation of the 2026-04-22 full-codebase audit. All four clusters (ship-
+blockers, accessibility & resilience, strategy correctness, silent-failure
+sweep) landed in a single session. **292 / 292 tests pass** across all 4 TFMs.
+See `docs/CHANGES.md` 2026-04-22 for the full diff.
+
+- [x] **Polygon API key moved from URL to Authorization header** — `?apiKey=` removed from all REST call sites; `BuildAuthorizedGet` + `GetAuthorizedStringAsync` helpers added.
+- [x] **WebSocket heartbeat sends real bytes** — `ReconnectingWebSocket` was passing `count: 0`; fixed to full payload length. Silent catch scoped + logged.
+- [x] **`SymbolValidator` added to SDK** — conservative `[A-Za-z0-9_./:-]{1,32}` allow-list, enforced at `DataOrchestrator.FetchOhlcvAsync` + `StartLiveStreamAsync` choke points. 24 new xunit tests.
+- [x] **`IndicatorOrchestrator.ValidateBufferKeys` un-gated from `#if DEBUG`** — mismatched buffer keys now log a Warning in Release, not silently blank a component.
+- [x] **Modal open/close announced via ARIA live** — `ModalStateChangedEvent` extended with `ModalName`; 17 modals updated; `MainLayout` routes phrases through the existing speech double-buffered live region.
+- [x] **Tab trap inside open modals** — `keyboard.js` capture-phase handler keeps Tab / Shift+Tab inside the last visible `[role="dialog"]`. Covers stacked modals via depth counter.
+- [x] **Chart-focus gate on single-letter commands** — `_chartFocused` tracked in `keyboard.js`; single ASCII letters without modifier skip the dispatcher when a modal is open. Form-control guard extended to cover `contentEditable`.
+- [x] **`LiveStreamManager.StartLiveStreamAsync` idempotency guard** — re-entry with identical `(provider, market, symbol, timeframe)` on an attached provider no-ops instead of tearing down the subscription.
+- [x] **Per-provider circuit breaker** — `DataOrchestrator` now keys its Polly breakers by provider id. One dead source no longer blocks every other provider for 5 s. `ConnectionStatusEvent` carries the provider id.
+
+### Day 4 — silent-failure sweep (complete)
+
+- [x] **HTF pre-warm gate** — `ConfigurableStrategy` tracks pre-warm tasks; `OnBar` blocks HTF evaluation until `IsPrewarmComplete` is `true`; a one-shot speech announcement fires on the first blocked evaluation.
+- [x] **Pure-pulse entry trigger: refuse save** — `BuildSetupTab.ValidateForSave` blocks `SaveSpec` / `AddToEngine` with a spoken error when a pulse tree has a non-Immediate trigger. Legacy specs still auto-promote with a one-shot Alert announcement.
+- [x] **`AIAnalystService` fallback retry** — `AskAsync` and `AnalyseAsync` iterate the full provider list, retrying on empty response or exception; publish a terminal error when every provider is exhausted.
+- [x] **`AudioEngine` command-buffer overflow telemetry** — atomic `DroppedCommandCount` / `TotalCommandCount` counters + `CommandDropped` event; `BlazorAudioDriver` records an `AudioCommandDropped` security-event every 10 drops. 4 new xunit tests.
+
+### Deferred architectural refactors (still pending)
+
+- [ ] **`BuildSetupTab` split** — into (a) ConditionTree editor, (b) RiskPlan editor, (c) Summary/Export. Currently couples rendering, state, and validation.
+- [ ] **`StrategyModal` facade** — extract save/load/export/import into a dedicated facade; the modal is >900 lines.
+- [ ] **`WorkspaceStore.Reduce` decomposition** — ~150-line switch dispatching 25 action types, calls `ViewportNavigationService` + `ViewportRangeCalculator` + `VolumeService` inline. Split into per-domain reducers.
+- [ ] **`SpeechFormatter` plugin registry** — 470-line hardcoded conditional chain. Indicator providers should carry their own `ISpeechTemplateProvider`.
+- [ ] **Symbol-normalization common layer** + **timeframe-map common layer** — already in `project_architectural_followups_2026-04-19.md`.
+
+### Silent-failure sweep (cross-cutting, schedule after Day 4)
+
+Every silent-failure path flagged by the audit should either emit an earcon
+or a terse speech notification. Catalogue: REST `catch { return (empty) }`
+blocks in providers, indicator buffer-key mismatches (now logged but not
+user-surfaced), strategy leaf auto-promotion (Day 4 item above), narration
+seeding race, AI Analyst fallback (Day 4 item), ring-buffer overflow (Day 4
+item). Treat this as one sprint of "every drop-event gets a notification."
+
+---
+
 ## [2026-04-21] — Viewport + Home/End + audio-visual sync (complete)
 
 User-reported session: Home/End behavior, right-margin consistency,

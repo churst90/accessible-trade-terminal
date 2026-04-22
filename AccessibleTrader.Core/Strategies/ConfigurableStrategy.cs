@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Strategies;
@@ -76,6 +77,26 @@ public class ConfigurableStrategy : BaseStrategy
     // FiredWithin is excluded from the "pulse" set because it explicitly debounces over N bars
     // and is the documented workaround for users who want a persistent setup window.
     private readonly bool _isPurePulseTree;
+
+    // HTF pre-warm gate. Initialize() kicks off PrewarmIndicatorAsync / GetBarsAsync for every
+    // (timeframe, indicator) the spec references, but those are async. Until they resolve, the
+    // synchronous evaluator on the hot path reads NaN for HTF leaves — NaN-compare fails the
+    // condition silently, producing phantom non-fires (and with NOT groups, phantom fires).
+    // This gate blocks OnBar from evaluating HTF leaves until every pre-warm task has completed;
+    // during the warm-up window a per-lifetime speech announcement is emitted once so the user
+    // knows why their strategy hasn't fired yet.
+    private readonly List<Task> _prewarmTasks = new();
+    private volatile bool _prewarmComplete = false;
+    private volatile bool _prewarmNotified = false;
+    private bool _hasHtfLeaves = false;
+
+    // Pure-pulse auto-promotion notification. BuildSetupTab's ValidateForSave() now blocks save
+    // when a pure-pulse tree has a non-Immediate entry trigger, but legacy specs loaded from
+    // disk (predating that validation, or imported .atstrat files from older versions) can
+    // still land in the engine with the mismatch. When the auto-promotion fires at setup
+    // confirmation time, announce once per instance so the user knows their configured
+    // trigger was overridden.
+    private volatile bool _autoPromotionNotified = false;
 
     public override string Id => _spec.Id;
     public override string Name => _spec.Name;
@@ -158,6 +179,15 @@ public class ConfigurableStrategy : BaseStrategy
                     "HTF leaves will silently fall through to active-timeframe data.");
             }
         }
+        // Reset the pre-warm gate for this init. If the spec has no HTF leaves, flag as
+        // complete immediately so OnBar never blocks on HTF evaluation.
+        _prewarmTasks.Clear();
+        _prewarmComplete = false;
+        _prewarmNotified = false;
+        var htfTimeframes = new HashSet<string>();
+        CollectHtfTimeframes(_spec.Conditions, htfTimeframes);
+        _hasHtfLeaves = htfTimeframes.Count > 0;
+
         if (_mtf != null)
         {
             string market   = state.Identity.Market   ?? string.Empty;
@@ -170,11 +200,12 @@ public class ConfigurableStrategy : BaseStrategy
             CollectHtfPairs(_spec.Conditions, seenIndicator, seenTimeframe);
 
             // Indicator pre-warm: each unique (timeframe, indicatorCode) gets one async compute.
+            // Tasks are tracked so OnBar can gate HTF-leaf evaluation on their completion.
             foreach (var (tf, code) in seenIndicator)
             {
-                _ = _mtf.PrewarmIndicatorAsync(
+                _prewarmTasks.Add(_mtf.PrewarmIndicatorAsync(
                     market, provider, symbol, tf, code,
-                    new Dictionary<string, object>(), prewarmCount);
+                    new Dictionary<string, object>(), prewarmCount));
             }
 
             // Bar-only pre-warm: each unique HTF that ANY leaf references (even price-only leaves
@@ -185,8 +216,35 @@ public class ConfigurableStrategy : BaseStrategy
             // already populated and fresh, the call is a no-op. Carryover from Session B.
             foreach (var tf in seenTimeframe)
             {
-                _ = _mtf.GetBarsAsync(market, provider, symbol, tf, prewarmCount);
+                _prewarmTasks.Add(_mtf.GetBarsAsync(market, provider, symbol, tf, prewarmCount));
             }
+        }
+
+        // If there are no HTF leaves (or no MTF service) the gate is never active.
+        if (!_hasHtfLeaves || _prewarmTasks.Count == 0)
+            _prewarmComplete = true;
+    }
+
+    /// <summary>
+    /// True once every HTF pre-warm task kicked off in <see cref="Initialize"/> has completed.
+    /// Strategies with no HTF leaves (or no multi-timeframe service) report <c>true</c>
+    /// immediately. Used by <see cref="OnBar"/> to block condition evaluation while the HTF
+    /// cache is still populating — without this gate, NaN reads on unwarmed HTF leaves silently
+    /// flip condition results and produce phantom fires/non-fires in the first few bars after
+    /// the strategy is loaded. Also exposed so hosts (<c>StrategyBacktester</c>, the strategy
+    /// manager modal) can surface a "warming up" indicator to the user.
+    /// </summary>
+    public bool IsPrewarmComplete
+    {
+        get
+        {
+            if (_prewarmComplete) return true;
+            if (_prewarmTasks.Count == 0) { _prewarmComplete = true; return true; }
+            // Don't await here — we're on the hot path. Sample the task states cheaply.
+            foreach (var t in _prewarmTasks)
+                if (!t.IsCompleted) return false;
+            _prewarmComplete = true;
+            return true;
         }
     }
 
@@ -241,6 +299,24 @@ public class ConfigurableStrategy : BaseStrategy
         // thousands of Armed/Dropped/Reconfirm events for replayed bars. The backtester stamps
         // this flag in StrategyBacktester.Run.
         bool publishEvents = !state.IsBacktesting;
+
+        // HTF pre-warm gate. If the spec references HTF leaves and the pre-warm tasks haven't
+        // all completed yet, skip evaluation entirely — NaN reads on unwarmed leaves silently
+        // flip condition results. Announce once per strategy lifetime so the user isn't left
+        // wondering why a valid-looking setup doesn't fire. Backtests don't need the gate
+        // because the backtester awaits pre-warm before Run begins.
+        if (_hasHtfLeaves && !IsPrewarmComplete && !state.IsBacktesting)
+        {
+            if (!_prewarmNotified)
+            {
+                _prewarmNotified = true;
+                if (publishEvents)
+                    _eventBus.Publish(new FeedbackRequestEvent(
+                        FeedbackType.Info,
+                        $"Strategy '{_spec.Name}': higher-timeframe data still warming up. Setups will begin firing once cache is ready."));
+            }
+            return null;
+        }
 
         var eval = _evaluator.Evaluate(_spec.Conditions, history, state);
 
@@ -342,6 +418,19 @@ public class ConfigurableStrategy : BaseStrategy
         // on the same bar the pulse appears.
         bool effectiveImmediate = _spec.Risk.Entry.Kind == EntryTriggerKind.Immediate
                                   || _isPurePulseTree;
+
+        // Announce once per instance when the auto-promotion kicks in for a spec that was
+        // saved (pre-validation) with a non-Immediate trigger. The user needs to know their
+        // configured trigger isn't what the engine is actually using.
+        bool autoPromoted = _isPurePulseTree && _spec.Risk.Entry.Kind != EntryTriggerKind.Immediate;
+        if (autoPromoted && !_autoPromotionNotified && publishEvents)
+        {
+            _autoPromotionNotified = true;
+            _eventBus.Publish(new FeedbackRequestEvent(
+                FeedbackType.Alert,
+                $"Strategy '{_spec.Name}': entry trigger overridden from {_spec.Risk.Entry.Kind} to Immediate because every condition is a one-bar pulse. Edit the strategy to set Immediate explicitly, or add a persistent condition so the trigger can resolve."));
+        }
+
         if (effectiveImmediate)
         {
             _state = SetupState.Active;

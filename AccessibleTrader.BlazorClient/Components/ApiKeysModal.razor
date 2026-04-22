@@ -201,7 +201,7 @@
         _keys = await ApiKeyService.GetAllKeysAsync();
         _formError = null;
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "API keys"));
         StateHasChanged();
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "apikeys-title"); } catch { }
@@ -210,7 +210,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "API keys"));
         StateHasChanged();
     }
 

@@ -120,6 +120,8 @@
 
     private void Close() => CloseModal();
 
+    protected override string ModalName => "Alerts";
+
     private void RefreshAlerts()
     {
         _activeAlerts = AlertOrchestrator.GetAlerts().ToList();

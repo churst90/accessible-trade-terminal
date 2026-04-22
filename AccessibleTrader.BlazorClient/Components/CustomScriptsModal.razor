@@ -229,7 +229,7 @@
     private async Task ShowAsync()
     {
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Custom scripts"));
         StateHasChanged();
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "scripts-title"); } catch { }
@@ -508,7 +508,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Custom scripts"));
         StateHasChanged();
     }
 

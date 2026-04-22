@@ -208,13 +208,20 @@ namespace AccessibleTrader.Sdk.Services
                     await Task.Delay(_heartbeatInterval, ct).ConfigureAwait(false);
                     if (_ws?.State == WebSocketState.Open)
                     {
-                        // Send a WebSocket ping frame
+                        // Send a WebSocket ping frame with a real payload. Using count=0 here
+                        // (an earlier bug) produced an empty frame that some exchanges treat
+                        // as a no-op; idle sockets would then time out and force a reconnect.
                         var pingBytes = Encoding.UTF8.GetBytes("ping");
-                        await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, 0), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
+                        await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, pingBytes.Length), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
                     }
                 }
                 catch (OperationCanceledException) { break; }
-                catch { /* non-critical */ }
+                catch (Exception ex)
+                {
+                    // Heartbeat failures are non-fatal (the reconnect loop handles socket
+                    // death), but swallowing silently hid the count=0 bug for months.
+                    System.Diagnostics.Debug.WriteLine($"[ReconnectingWebSocket] heartbeat error: {ex.Message}");
+                }
             }
         }
 

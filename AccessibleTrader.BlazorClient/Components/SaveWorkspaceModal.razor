@@ -139,6 +139,8 @@
         CloseModal();
     }
 
+    protected override string ModalName => "Save workspace";
+
     private static string SanitizeFileName(string name)
     {
         var invalid = System.IO.Path.GetInvalidFileNameChars();

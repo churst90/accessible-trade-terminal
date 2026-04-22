@@ -115,6 +115,32 @@ namespace AccessibleTrader.Core.Services.Audio
         private RingBuffer<VoiceCommand> _commandQueue = new(1024);
         private RingBuffer<int> _eventQueue = new(1024);
 
+        // ── Overflow telemetry ────────────────────────────────────────────────────
+        // When the command ring buffer is full, Enqueue silently drops the command
+        // (the only real-time-safe behaviour — we cannot allocate or block). Tracking
+        // how often that happens is the difference between "I trust 1024 is enough"
+        // and "I know 1024 is enough." Incremented on every dropped command;
+        // readable via DroppedCommandCount. Reset via ResetTelemetry (JournalModal
+        // exposes this counter so a user can ask "any audio drops this session?").
+        private long _droppedCommandCount;
+        private long _totalCommandCount;
+
+        /// <summary>Total number of voice commands dropped because the ring buffer was full since the last <see cref="ResetTelemetry"/> or process start.</summary>
+        public long DroppedCommandCount => Interlocked.Read(ref _droppedCommandCount);
+
+        /// <summary>Total number of voice commands attempted (successful + dropped) since the last <see cref="ResetTelemetry"/> or process start.</summary>
+        public long TotalCommandCount => Interlocked.Read(ref _totalCommandCount);
+
+        /// <summary>Fires whenever a command is dropped. Payload is the running total of dropped commands after the increment. Subscribers can batch / rate-limit.</summary>
+        public event Action<long>? CommandDropped;
+
+        /// <summary>Clears the drop and total counters. Useful for per-session telemetry windows.</summary>
+        public void ResetTelemetry()
+        {
+            Interlocked.Exchange(ref _droppedCommandCount, 0);
+            Interlocked.Exchange(ref _totalCommandCount, 0);
+        }
+
         // Used only on the audio callback thread (inside Read()) — no cross-thread access.
         private readonly Random _rng = new();
 
@@ -198,8 +224,15 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             // If the buffer is full, we must drop the command to maintain real-time safety.
             // In a trading context, we prefer dropping a single stale frequency update
-            // over causing a heap allocation or blocking the UI thread.
-            _commandQueue.Enqueue(cmd);
+            // over causing a heap allocation or blocking the UI thread. Increment the
+            // telemetry counter so callers can see how often this is happening and
+            // decide whether to enlarge the buffer or reduce sonification density.
+            Interlocked.Increment(ref _totalCommandCount);
+            if (!_commandQueue.Enqueue(cmd))
+            {
+                long droppedTotal = Interlocked.Increment(ref _droppedCommandCount);
+                CommandDropped?.Invoke(droppedTotal);
+            }
         }
 
         public void ProcessEvents()

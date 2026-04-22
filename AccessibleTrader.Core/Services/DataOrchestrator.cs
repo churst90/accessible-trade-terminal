@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Plugins;
 using Polly;
@@ -44,9 +45,13 @@ namespace AccessibleTrader.Core.Services
         private readonly LiveStreamManager _liveStreamManager;
         private readonly IEventBus _eventBus;
         private readonly ILogger<DataOrchestrator> _logger;
-        
-        private readonly IAsyncPolicy _resiliencePolicy;
-        private readonly AsyncCircuitBreakerPolicy _circuitBreaker;
+
+        // Resilience policies scoped per provider so one flaky source doesn't
+        // suspend traffic for the other 25. Built lazily on first use; stored
+        // in a concurrent dictionary keyed by provider id (case-insensitive).
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (IAsyncPolicy Policy, AsyncCircuitBreakerPolicy Breaker)> _providerPolicies
+            = new(StringComparer.OrdinalIgnoreCase);
+
         private readonly DataStateMachine _stateMachine;
         private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
         private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel = System.Threading.Channels.Channel.CreateUnbounded<Ohlcv>();
@@ -65,43 +70,52 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
             _stateMachine = new DataStateMachine(logger, eventBus);
 
-            // 1. Define the Circuit Breaker: 10 consecutive failures trips the circuit for 5 seconds
-            // Use explicit non-generic handle to ensure we get a PolicyBuilder (not PolicyBuilder<T>)
-            _circuitBreaker = Polly.Policy
-                .Handle<HttpRequestException>()
-                .Or<System.Net.Sockets.SocketException>()
-                .Or<System.IO.IOException>()
-                .CircuitBreakerAsync(
-                    exceptionsAllowedBeforeBreaking: 10,
-                    durationOfBreak: TimeSpan.FromSeconds(5),
-                    onBreak: (ex, breakDelay) => 
-                    {
-                        _logger.LogCritical(ex, "CIRCUIT BROKEN: Suspending network requests for {BreakDelaySeconds}s.", breakDelay.TotalSeconds);
-                        _eventBus.Publish(new ConnectionStatusEvent("GLOBAL_NETWORK", ConnectionState.Error, "Network connection lost. Circuit tripped."));
-                        _stateMachine.Fire(DataTrigger.ErrorOccurred);
-                    },
-                    onReset: () => 
-                    {
-                        _logger.LogInformation("CIRCUIT RESET: Network connection restored.");
-                        _eventBus.Publish(new ConnectionStatusEvent("GLOBAL_NETWORK", ConnectionState.Connected, "Network connection restored."));
-                        _stateMachine.Fire(DataTrigger.Reset);
-                    },
-                    onHalfOpen: () => 
-                    {
-                        _logger.LogInformation("CIRCUIT HALF-OPEN: Testing connection...");
-                    });
-
-            // 2. Define a simple Pass-Through or Fallback Policy
-            var retryPolicy = Polly.Policy
-                .Handle<HttpRequestException>()
-                .WaitAndRetryAsync(
-                    retryCount: 1, 
-                    sleepDurationProvider: _ => TimeSpan.FromSeconds(1));
-
-            // 3. Wrap them together
-            _resiliencePolicy = Polly.Policy.WrapAsync(retryPolicy, _circuitBreaker);
-
             SafeFireAndForget.Run(ProcessLiveStreamAsync, logger, "ProcessLiveStream");
+        }
+
+        /// <summary>
+        /// Returns the retry+circuit-breaker policy pair for a given provider, building
+        /// it on first use. Scoping the breaker per provider means one dead source
+        /// (e.g. Polygon throwing timeouts) no longer blocks every other provider for
+        /// five seconds. 10 consecutive failures trip the breaker; 5 seconds open;
+        /// single retry before the first failure count increments.
+        /// </summary>
+        private (IAsyncPolicy Policy, AsyncCircuitBreakerPolicy Breaker) GetResiliencePolicy(string providerId)
+        {
+            return _providerPolicies.GetOrAdd(providerId, pid =>
+            {
+                var breaker = Polly.Policy
+                    .Handle<HttpRequestException>()
+                    .Or<System.Net.Sockets.SocketException>()
+                    .Or<System.IO.IOException>()
+                    .CircuitBreakerAsync(
+                        exceptionsAllowedBeforeBreaking: 10,
+                        durationOfBreak: TimeSpan.FromSeconds(5),
+                        onBreak: (ex, breakDelay) =>
+                        {
+                            _logger.LogCritical(ex, "CIRCUIT BROKEN [{Provider}]: Suspending requests for {BreakDelaySeconds}s.", pid, breakDelay.TotalSeconds);
+                            _eventBus.Publish(new ConnectionStatusEvent(pid, ConnectionState.Error, $"{pid} network issue. Circuit tripped."));
+                            _stateMachine.Fire(DataTrigger.ErrorOccurred);
+                        },
+                        onReset: () =>
+                        {
+                            _logger.LogInformation("CIRCUIT RESET [{Provider}]: Connection restored.", pid);
+                            _eventBus.Publish(new ConnectionStatusEvent(pid, ConnectionState.Connected, $"{pid} connection restored."));
+                            _stateMachine.Fire(DataTrigger.Reset);
+                        },
+                        onHalfOpen: () =>
+                        {
+                            _logger.LogInformation("CIRCUIT HALF-OPEN [{Provider}]: Testing connection...", pid);
+                        });
+
+                var retryPolicy = Polly.Policy
+                    .Handle<HttpRequestException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 1,
+                        sleepDurationProvider: _ => TimeSpan.FromSeconds(1));
+
+                return (Polly.Policy.WrapAsync(retryPolicy, breaker), breaker);
+            });
         }
 
         private async Task ProcessLiveStreamAsync()
@@ -123,12 +137,25 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false)
         {
+            // Validate at the choke point so every provider inherits the same shape check
+            // without each plugin having to reimplement it. Rejects path/query injection
+            // before any URL is built or any signed request is constructed.
+            if (!SymbolValidator.IsValid(symbol))
+            {
+                _logger.LogWarning("Rejected invalid symbol '{Symbol}' for provider {Provider}.", symbol, provider);
+                if (!silent)
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid symbol '{symbol}' for {provider}."));
+                return new List<Ohlcv>();
+            }
+
             try
             {
                 if (!silent) _stateMachine.Fire(DataTrigger.FetchHistoricalStarted);
-                
-                // Execute through the wrapped resilience shield
-                var results = await _resiliencePolicy.ExecuteAsync(() =>
+
+                // Execute through the per-provider resilience shield so a tripped
+                // breaker only affects this one provider.
+                var (policy, _) = GetResiliencePolicy(provider);
+                var results = await policy.ExecuteAsync(() =>
                     _historicalFetcher.FetchOhlcvAsync(market, provider, symbol, timeframe, since, limit, until)).ConfigureAwait(false);
                 
                 if (!silent)
@@ -165,9 +192,16 @@ namespace AccessibleTrader.Core.Services
 
         public async Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe)
         {
+            if (!SymbolValidator.IsValid(symbol))
+            {
+                _logger.LogWarning("Rejected invalid symbol '{Symbol}' for live stream on {Provider}.", symbol, providerName);
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid symbol '{symbol}' for {providerName}."));
+                return;
+            }
+
             _stateMachine.Fire(DataTrigger.GapFillStarted);
             // Gap fill is deferred to the DataManager pipeline.
-            
+
             await _liveStreamManager.StartLiveStreamAsync(market, providerName, symbol, timeframe).ConfigureAwait(false);
             _stateMachine.Fire(DataTrigger.LiveStreamStarted);
         }

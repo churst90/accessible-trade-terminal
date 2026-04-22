@@ -393,7 +393,7 @@
     {
         ResetLocal();
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Settings"));
         StateHasChanged();
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "settings-title"); } catch { }
@@ -412,7 +412,7 @@
             BackgroundColor  = _backgroundColor
         }));
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         StateHasChanged();
     }
 

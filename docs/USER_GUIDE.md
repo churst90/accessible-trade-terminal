@@ -610,6 +610,28 @@ Accessible Trader runs on four platforms. The core keyboard navigation and audio
 |----------|--------|
 | Ctrl+Shift+D | Full point analysis of current bar |
 | Ctrl+Alt+Shift+C | Focus chart and announce context summary |
+| Ctrl+Alt+Shift+N | Toggle auto-narration for focused series |
+| Ctrl+Alt+Shift+A | Open AI Analyst modal |
+
+### Tabs and Workspaces
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+T | New chart tab |
+| Ctrl+W | Close current tab |
+| Ctrl+Tab | Switch to next tab |
+| Ctrl+Shift+Tab | Switch to previous tab |
+| Ctrl+Alt+Shift+W | Save workspace |
+| Ctrl+Alt+W | Load workspace |
+
+### Sub-Pane and Intra-Pane Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Page Down | Jump to first component of next sub-pane |
+| Ctrl+Page Up | Jump to first component of previous sub-pane |
+| Ctrl+Down | Cycle to next component within current pane (wraps) |
+| Ctrl+Up | Cycle to previous component within current pane (wraps) |
 
 ### Drawing Tools
 
@@ -649,6 +671,7 @@ Accessible Trader runs on four platforms. The core keyboard navigation and audio
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+, | Custom scripts panel |
+| Ctrl+Alt+Shift+J | Journal (review every speech, alert, setup, error this session) |
 
 ---
 

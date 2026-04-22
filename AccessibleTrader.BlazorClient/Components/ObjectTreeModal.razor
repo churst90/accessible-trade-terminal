@@ -199,7 +199,7 @@
     private async Task ShowAsync()
     {
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Object tree"));
         StateHasChanged();
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "objtree-title"); } catch { }
@@ -208,7 +208,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Object tree"));
         StateHasChanged();
     }
 

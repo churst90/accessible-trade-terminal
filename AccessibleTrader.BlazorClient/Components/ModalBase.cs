@@ -60,11 +60,14 @@ namespace AccessibleTrader.BlazorClient.Components
         protected async Task ShowModalAsync(string headingElementId)
         {
             _isVisible = true;
-            EventBus.Publish(new ModalStateChangedEvent(true));
+            EventBus.Publish(new ModalStateChangedEvent(true, ModalName));
             StateHasChanged();
             await Task.Yield();
             try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", headingElementId); }
             catch { /* non-critical — focus is best-effort; modal is still usable via Tab */ }
+            // Tab trap arming lives in MainLayout, which subscribes to
+            // ModalStateChangedEvent so direct-publish modals (not inheriting from
+            // ModalBase) are covered too.
         }
 
         /// <summary>
@@ -74,8 +77,25 @@ namespace AccessibleTrader.BlazorClient.Components
         protected void CloseModal()
         {
             _isVisible = false;
-            EventBus.Publish(new ModalStateChangedEvent(false));
+            EventBus.Publish(new ModalStateChangedEvent(false, ModalName));
             StateHasChanged();
+        }
+
+        /// <summary>
+        /// Short human-readable name for this modal, announced via ARIA live when the
+        /// modal opens or closes. Override in concrete classes. Defaults to the class
+        /// name with a "Modal" suffix stripped ("HelpModal" → "Help").
+        /// </summary>
+        protected virtual string ModalName
+        {
+            get
+            {
+                var name = GetType().Name;
+                const string suffix = "Modal";
+                return name.EndsWith(suffix, StringComparison.Ordinal)
+                    ? name[..^suffix.Length]
+                    : name;
+            }
         }
 
         /// <summary>

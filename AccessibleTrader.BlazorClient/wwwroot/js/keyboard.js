@@ -1,5 +1,39 @@
 window.accessibleTrader = {
 
+    // Count of currently-open modals. Set by `setModalOpen(true|false)` from ModalBase
+    // on every open/close. When > 0, the Tab trap is armed; the modal element itself
+    // is discovered at trap time via `role="dialog"` lookup so we don't require each
+    // modal to thread a selector string through.
+    _openModalCount: 0,
+
+    // Tracks whether the chart canvas currently has "focus" — set by .NET whenever
+    // the chart surface is the active UI region (pan/zoom/cursor navigation is in
+    // play). Used to gate single-letter chart commands (h, m, p, drawing-tool
+    // letters) so they only trap keystrokes when the chart is the active target.
+    // Without this, typing 'h' inside any custom (non-native) input that sits over
+    // the chart would trigger the "hide" command instead of inserting the letter.
+    _chartFocused: true,
+
+    /**
+     * Called from .NET (CommandDispatcher / ChartFocusService) when the focus ring
+     * enters or leaves the chart region. When false, single-letter chart commands
+     * are skipped in the keydown trap; modifier chords and function keys still fire.
+     */
+    setChartFocused: function (focused) {
+        this._chartFocused = !!focused;
+    },
+
+    /**
+     * Called from ModalBase whenever any modal opens (isOpen=true) or closes
+     * (isOpen=false). Arms/disarms the Tab trap based on whether any modal is still
+     * visible. Uses a counter rather than a boolean so nested/stacked modals don't
+     * prematurely disarm the trap when one of several closes.
+     */
+    setModalOpen: function (isOpen) {
+        if (isOpen) this._openModalCount++;
+        else        this._openModalCount = Math.max(0, this._openModalCount - 1);
+    },
+
     /**
      * Registers a global keydown handler that captures navigation and shortcut keys
      * and forwards them to the .NET keyboard pipeline via JSInterop.
@@ -12,6 +46,45 @@ window.accessibleTrader = {
      * a modifier key (Ctrl/Alt) is held, which is always a shortcut.
      */
     registerKeyboardHandler: function (dotnetHelper) {
+        const self = this;
+
+        // ── Tab trap ────────────────────────────────────────────────────────────────
+        // Runs in capture phase ahead of the shortcut dispatcher. When a modal is
+        // open, keep Tab/Shift+Tab inside the modal's focusable element list rather
+        // than letting focus escape to the toolbar behind the overlay. The modal
+        // element is discovered at trap time as the last visible `role="dialog"` —
+        // last wins so stacked modals trap correctly (the topmost is active).
+        window.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab') return;
+            if (self._openModalCount <= 0) return;
+            const dialogs = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"]'))
+                .filter(el => el.offsetParent !== null);
+            if (dialogs.length === 0) return;
+            const modal = dialogs[dialogs.length - 1];
+
+            const focusableSelector =
+                'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
+                'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+            const focusables = Array.prototype.slice.call(modal.querySelectorAll(focusableSelector))
+                .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+            if (focusables.length === 0) return;
+
+            const first = focusables[0];
+            const last  = focusables[focusables.length - 1];
+            const active = document.activeElement;
+
+            if (e.shiftKey && active === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            } else if (active && !modal.contains(active)) {
+                // Focus somehow escaped the modal (e.g. clicked outside). Rehome it.
+                e.preventDefault();
+                first.focus();
+            }
+        }, true);
         // Capture phase: run before any bubble-phase handler, and before WebView2/browser
         // tries to consume reserved chords like Ctrl+Shift+T, Ctrl+Shift+N, Ctrl+Shift+P.
         // stopImmediatePropagation is used on modifier chords so no downstream handler fires.
@@ -46,7 +119,16 @@ window.accessibleTrader = {
             // Allow normal keyboard use inside form controls unless a modifier is held.
             const tag = e.target.tagName;
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-            if (isFormControl && !isModified) return;
+            const isEditable = e.target.isContentEditable === true;
+            if ((isFormControl || isEditable) && !isModified) return;
+
+            // Gate single-letter chart commands on chart focus. Function keys and
+            // modifier chords still fire everywhere for accessibility. This stops
+            // a letter like 'h' from firing the "hide" command when the user is
+            // typing into a custom Blazor input that isn't a native INPUT/TEXTAREA.
+            const isSingleLetter = !isModified && !isShifted &&
+                e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key);
+            if (isSingleLetter && !self._chartFocused) return;
 
             // For modifier chords (Ctrl/Alt/Ctrl+Shift), hard-stop the event so the WebView
             // doesn't route it to reserved browser shortcuts (reopen tab / new incognito / etc).

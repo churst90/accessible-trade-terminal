@@ -83,13 +83,32 @@ namespace AccessibleTrader.Plugins.Polygon
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
-                var response = await _httpClient.GetAsync($"{BaseUrl}/v3/reference/tickers?limit=1&apiKey={_apiKey}");
+                using var req = BuildAuthorizedGet($"{BaseUrl}/v3/reference/tickers?limit=1");
+                var response = await _httpClient.SendAsync(req);
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
                 var body = await response.Content.ReadAsStringAsync();
                 return (false, $"Key validation failed ({response.StatusCode}): {body}");
             }
             catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+        }
+
+        // Authorization header carries the API key — keeps it out of URLs, query-string
+        // logs, and any proxy/middleware that records request lines.
+        private HttpRequestMessage BuildAuthorizedGet(string url)
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(_apiKey))
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+            return req;
+        }
+
+        private async Task<string> GetAuthorizedStringAsync(string url)
+        {
+            using var req = BuildAuthorizedGet(url);
+            var response = await _httpClient.SendAsync(req);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
         }
 
         public override async Task EnsureConnectedAsync()
@@ -211,13 +230,13 @@ namespace AccessibleTrader.Plugins.Polygon
             long fromMs = request.Since ?? (DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds());
             long toMs = request.Until ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-            string url = $"{BaseUrl}/v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{fromMs}/{toMs}?adjusted=true&sort=asc&limit={limit}&apiKey={_apiKey}";
+            string url = $"{BaseUrl}/v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{fromMs}/{toMs}?adjusted=true&sort=asc&limit={limit}";
 
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var response = await _httpClient.GetStringAsync(url);
+                    var response = await GetAuthorizedStringAsync(url);
                     var json = JObject.Parse(response);
                     var results = json["results"] as JArray;
                     if (results == null) return (new List<Ohlcv>(), new List<(long, double)>());
@@ -243,7 +262,7 @@ namespace AccessibleTrader.Plugins.Polygon
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string m = market switch { MarketType.Stock => "stocks", MarketType.Crypto => "crypto", MarketType.Forex => "fx", _ => "stocks" };
-                    var response = await _httpClient.GetStringAsync($"{BaseUrl}/v3/reference/tickers?market={m}&active=true&limit=1000&apiKey={_apiKey}");
+                    var response = await GetAuthorizedStringAsync($"{BaseUrl}/v3/reference/tickers?market={m}&active=true&limit=1000");
                     var results = JObject.Parse(response)["results"] as JArray;
                     return results?.Select(r => r["ticker"]?.ToString() ?? "").Where(s => !string.IsNullOrEmpty(s)).OrderBy(s => s).ToList() ?? new List<string>();
                 });
@@ -269,8 +288,8 @@ namespace AccessibleTrader.Plugins.Polygon
                     if (isCrypto)
                     {
                         // Crypto: Use the L2 order book snapshot
-                        string url = $"{BaseUrl}/v3/snapshot/crypto/book/{symbol.ToUpper()}?apiKey={_apiKey}";
-                        var response = await _httpClient.GetStringAsync(url);
+                        string url = $"{BaseUrl}/v3/snapshot/crypto/book/{symbol.ToUpper()}";
+                        var response = await GetAuthorizedStringAsync(url);
                         var json = JObject.Parse(response);
                         var data = json["data"];
                         if (data == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
@@ -290,8 +309,8 @@ namespace AccessibleTrader.Plugins.Polygon
                     else
                     {
                         // Stocks: Use NBBO snapshot (1-level best bid/ask)
-                        string url = $"{BaseUrl}/v3/snapshot?ticker.any_of={symbol.ToUpper()}&apiKey={_apiKey}";
-                        var response = await _httpClient.GetStringAsync(url);
+                        string url = $"{BaseUrl}/v3/snapshot?ticker.any_of={symbol.ToUpper()}";
+                        var response = await GetAuthorizedStringAsync(url);
                         var json = JObject.Parse(response);
                         var results = json["results"] as JArray;
                         var snap = results?.FirstOrDefault();

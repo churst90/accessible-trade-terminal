@@ -274,7 +274,10 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private void ValidateBufferKeys(ChartSeries series, Dictionary<string, double[]> results, IIndicatorProvider? provider)
         {
-#if DEBUG
+            // Runs in Release too. A mismatched buffer key silently blanks a component
+            // — there's no UI feedback, the user just hears nothing. Catching this at
+            // runtime (at Warning level) is the difference between a confused bug
+            // report and a one-line fix for a plugin author.
             if (provider == null || results == null) return;
             var knownNames = new HashSet<string>(series.Components.Select(c => c.Name), StringComparer.Ordinal);
             string providerName = provider.Name;
@@ -293,7 +296,6 @@ namespace AccessibleTrader.Core.Services
                         providerName, key, series.IndicatorCode);
                 }
             }
-#endif
         }
 
         private async Task RecalculateSeriesFullAsync(ChartSeries s, IReadOnlyList<Ohlcv> data, CancellationToken ct)

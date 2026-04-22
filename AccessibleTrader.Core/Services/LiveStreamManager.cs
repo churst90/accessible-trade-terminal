@@ -53,6 +53,25 @@ namespace AccessibleTrader.Core.Services
 
         public virtual async Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe)
         {
+            // Idempotency guard: rapid re-entry (e.g. workspace restore firing two
+            // subscribe calls, or a flaky auto-reconnect) would otherwise tear down
+            // the live subscription and rebuild it, losing any ticks that arrive
+            // between Dispose and the fresh Subscribe. If the caller asks for the
+            // same (provider, market, symbol, timeframe) that's already running on
+            // an attached provider, no-op.
+            if (_currentLiveProvider != null
+                && string.Equals(_currentProviderName, providerName, StringComparison.Ordinal)
+                && string.Equals(_currentMarket, market, StringComparison.Ordinal)
+                && string.Equals(_currentSymbol, symbol, StringComparison.Ordinal)
+                && string.Equals(_currentLiveTimeframe, timeframe, StringComparison.Ordinal)
+                && _currentProviderSubscription != null)
+            {
+                _logger.LogDebug(
+                    "LiveStreamManager: StartLiveStreamAsync called for already-active subscription {Provider}/{Symbol}@{Timeframe}; no-op.",
+                    providerName, symbol, timeframe);
+                return;
+            }
+
             _logger.LogInformation("LiveStreamManager: Requesting live stream for {Symbol} @ {Timeframe}.", symbol, timeframe);
 
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);

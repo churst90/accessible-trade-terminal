@@ -906,10 +906,44 @@
                "into the tree so the setup stays armed long enough to wait for the trigger.";
     }
 
+    /// <summary>
+    /// Pre-save / pre-add validation. Returns a non-null error message when the spec cannot be
+    /// saved as-configured; returns null when the spec is safe to persist.
+    ///
+    /// The main rule enforced here is: a pure-pulse condition tree cannot carry a non-Immediate
+    /// entry trigger. The old behaviour was to save anyway and have <see cref="ConfigurableStrategy"/>
+    /// silently auto-promote the trigger at construction time — that produced strategies whose
+    /// reload-behaviour differed from what <see cref="NarrateSpec"/> read aloud at save time.
+    /// Refusing the save up-front keeps the saved spec honest: what the user hears narrated is
+    /// what the engine will actually run.
+    /// </summary>
+    private string? ValidateForSave()
+    {
+        if (IsPurePulseTree(_root) && _entryKind != EntryTriggerKind.Immediate)
+        {
+            return $"Cannot save: every condition is a one-bar pulse, so the {_entryKind} entry " +
+                   "trigger can never fire. Either switch the trigger to Immediate, or AND a " +
+                   "persistent condition (e.g. an oscillator threshold) into the tree so the " +
+                   "setup stays armed long enough for the trigger to resolve.";
+        }
+        return null;
+    }
+
     private void SaveSpec()
     {
         try
         {
+            var validationError = ValidateForSave();
+            if (validationError != null)
+            {
+                _message = validationError;
+                _isError = true;
+                // Speak the rejection too — the user may be navigating via speech alone and
+                // wouldn't see the _message banner refresh without a forced announcement.
+                Speech.Speak(validationError, interrupt: true);
+                return;
+            }
+
             var spec = BuildSpec();
             Library.Upsert(spec);
             _loadedId = spec.Id;
@@ -963,6 +997,15 @@
     {
         try
         {
+            var validationError = ValidateForSave();
+            if (validationError != null)
+            {
+                _message = validationError;
+                _isError = true;
+                Speech.Speak(validationError, interrupt: true);
+                return;
+            }
+
             // Build the spec with IsAutoActivate=true so StrategyAutoLoader picks it up on the
             // next app launch — strategies survive restart this way.
             var spec = BuildSpec() with { IsAutoActivate = true };

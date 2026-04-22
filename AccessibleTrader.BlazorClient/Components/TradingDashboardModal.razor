@@ -361,7 +361,7 @@
 
         _limitPrice  = GetCurrentPrice();
         _isVisible   = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Trading dashboard"));
         StateHasChanged();
 
         if (!supported) return;
@@ -424,7 +424,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Trading dashboard"));
         _refreshTimer?.Dispose();
         _refreshTimer = null;
         StateHasChanged();

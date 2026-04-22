@@ -53,15 +53,40 @@ namespace AccessibleTrader.BlazorClient.Services
         public int SampleRate => _engine.SampleRate;
         public int Channels   => _engine.Channels;
 
-        public BlazorAudioDriver(ILogger<BlazorAudioDriver> logger)
+        public BlazorAudioDriver(ILogger<BlazorAudioDriver> logger, AccessibleTrader.Sdk.Services.ISecurityEventLog? securityEvents = null)
         {
             _logger = logger;
             _engine = new AudioEngine();
             _engine.PointReached += index => PointReached?.Invoke(index);
+
+            // Surface ring-buffer overflow drops. We rate-limit the event-log writes to once
+            // per 10 drops so heavy sustained overload doesn't flood the ring with its own
+            // telemetry entries; the drop counter itself is still incremented on every
+            // occurrence so the JournalModal can report the exact figure.
+            _engine.CommandDropped += droppedTotal =>
+            {
+                if (droppedTotal % 10 != 0) return;
+                _logger.LogWarning("AudioEngine: {DroppedTotal} command(s) dropped due to buffer overflow. Consider reducing sonification density.", droppedTotal);
+                securityEvents?.Record(new AccessibleTrader.Sdk.Services.SecurityEvent(
+                    UtcTimestamp: DateTime.UtcNow,
+                    Kind: AccessibleTrader.Sdk.Services.SecurityEventKind.AudioCommandDropped,
+                    Source: "AudioEngine",
+                    Message: $"{droppedTotal} voice command(s) dropped; ring buffer full."));
+            };
+
 #if WINDOWS
             _format = WaveFormat.CreateIeeeFloatWaveFormat(_engine.SampleRate, 2);
 #endif
         }
+
+        /// <summary>Current drop count from the underlying <see cref="AudioEngine"/>. Exposed for telemetry surfaces like JournalModal.</summary>
+        public long DroppedCommandCount => _engine.DroppedCommandCount;
+
+        /// <summary>Total voice commands issued since the last <see cref="ResetAudioTelemetry"/> (or process start). Dividing <see cref="DroppedCommandCount"/> by this gives the drop ratio.</summary>
+        public long TotalCommandCount => _engine.TotalCommandCount;
+
+        /// <summary>Clear the drop/total counters. Typically called when the user starts a new session or clears the journal.</summary>
+        public void ResetAudioTelemetry() => _engine.ResetTelemetry();
 
         private void EnsureAudioInit()
         {

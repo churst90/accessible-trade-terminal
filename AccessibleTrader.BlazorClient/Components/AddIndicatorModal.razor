@@ -125,7 +125,7 @@
     private async Task ShowAsync()
     {
         _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true));
+        EventBus.Publish(new ModalStateChangedEvent(true, "Add indicator"));
         StateHasChanged();
 
         // Move keyboard focus to the dialog heading so screen readers announce the dialog title.
@@ -143,7 +143,7 @@
     private void Close()
     {
         _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false));
+        EventBus.Publish(new ModalStateChangedEvent(false, "Add indicator"));
         StateHasChanged();
     }
 

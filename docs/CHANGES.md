@@ -4,6 +4,172 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-22] — Pre-release hardening sprint (Day 1–3 of audit remediation)
+
+Addressed the three highest-priority clusters from the 2026-04-22 full-codebase
+audit. Build green across all TFMs; **288 / 288 tests pass** (264 previous +
+24 new `SymbolValidatorTests`).
+
+### Ship-blockers fixed
+
+- **Polygon API key leaked into URLs.** Every Polygon REST call
+  (`ValidateApiKeyAsync`, `FetchOhlcvAsync`, `GetAvailableSymbolsAsync`, both
+  `FetchOrderBookAsync` branches) now sets an `Authorization: Bearer <key>`
+  header via `BuildAuthorizedGet` / `GetAuthorizedStringAsync` helpers instead
+  of interpolating `?apiKey=…` into the URL. Keys no longer land in HTTP
+  client logs, reverse proxies, or browser history.
+  `Plugins/Providers/AccessibleTrader.Plugins.Polygon/PolygonProvider.cs`.
+- **WebSocket heartbeat sent zero bytes.**
+  `ReconnectingWebSocket.HeartbeatLoopAsync` built `"ping"` bytes but passed
+  `count: 0` to `SendAsync`, producing an empty frame. Exchanges treating that
+  as a no-op would close idle sockets → reconnect churn across every
+  live-stream provider (Binance, Bitstamp, Kraken, Mexc, Alpaca, Coinbase).
+  Fixed to `count: pingBytes.Length`. Silent `catch {}` in the heartbeat loop
+  replaced with a scoped `Exception` log so future breakage is visible.
+  `AccessibleTrader.Sdk/Services/ReconnectingWebSocket.cs`.
+- **Symbol validator.** New `AccessibleTrader.Sdk/Services/SymbolValidator.cs`
+  rejects path/query injection patterns (`BTC?override=1`, `../etc/passwd`,
+  shell metacharacters, newlines, oversize strings) with a conservative
+  allow-list of `[A-Za-z0-9_./:-]{1,32}`. Enforced at the
+  `DataOrchestrator.FetchOhlcvAsync` and `StartLiveStreamAsync` choke points
+  so every provider inherits the check. 24 new xunit tests cover the real
+  symbol catalogue (BTCUSDT, BTC-USD, EUR_USD, BRK.B, AAPL:NASDAQ, 1INCH)
+  plus every hostile pattern from the audit.
+- **`IndicatorOrchestrator.ValidateBufferKeys` un-gated from `#if DEBUG`.**
+  Runs in Release now. A provider writing the wrong buffer key used to
+  silently blank a component in production; it's now a Warning log line.
+  `AccessibleTrader.Core/Services/IndicatorOrchestrator.cs`.
+
+### High-priority accessibility and resilience fixes
+
+- **Modal open/close announced via ARIA live.** `ModalStateChangedEvent`
+  extended with an optional `ModalName`. Every one of the 17 modals (Help,
+  Settings, Add indicator, Object tree, Trading dashboard, Order book, API
+  keys, Strategy manager, Drawing tools, Alerts, Custom scripts, Sound
+  designer, AI Analyst, Save/Load workspace, Properties, Journal) now passes
+  a human-readable name. `MainLayout` subscribes and routes the phrase
+  `"<Name> dialog opened/closed"` through the existing speech double-buffered
+  aria-live region. Blind users in browse mode now hear which modal opened
+  without depending on focus-move alone.
+- **Tab trap inside open modals.** `keyboard.js` adds a capture-phase Tab
+  handler that keeps `Tab` / `Shift+Tab` inside the last visible
+  `[role="dialog"]`. Nested/stacked modals are handled via a depth counter
+  rather than a single-slot flag. `ModalBase.ShowModalAsync` /
+  `MainLayout.razor` call `accessibleTrader.setModalOpen(true|false)` on
+  every open/close, covering both `ModalBase`-inheriting modals and the
+  handful that publish `ModalStateChangedEvent` directly.
+- **Chart-focus gate on single-letter commands.** `keyboard.js` now also
+  tracks `_chartFocused`; when false (a modal is open), single ASCII letters
+  without a modifier skip the dispatcher. This closes a gap where custom
+  Blazor inputs that aren't native `INPUT`/`TEXTAREA` could still fire 'h' as
+  "hide", 'm' as "mute", etc. The existing form-control guard extended to
+  honour `contentEditable` too.
+- **`LiveStreamManager.StartLiveStreamAsync` idempotency guard.** If the
+  caller asks for the same `(provider, market, symbol, timeframe)` already
+  running on an attached provider, the method no-ops instead of tearing down
+  and rebuilding the subscription. Prevents silent tick loss between the
+  first `Dispose` and the fresh `Subscribe` during workspace restore or
+  flaky auto-reconnect paths.
+  `AccessibleTrader.Core/Services/LiveStreamManager.cs`.
+- **Per-provider circuit breaker.** `DataOrchestrator` previously ran a
+  single global Polly circuit breaker — 10 Polygon failures blocked every
+  other provider for 5 s. Replaced with a `ConcurrentDictionary<string,
+  (IAsyncPolicy, AsyncCircuitBreakerPolicy)>` keyed by provider id
+  (case-insensitive), built lazily on first fetch. Break/reset logs and
+  `ConnectionStatusEvent` publications now carry the provider id so the UI
+  and user-facing diagnostics can report which source is actually down.
+  `AccessibleTrader.Core/Services/DataOrchestrator.cs`.
+
+### Files touched
+
+- `AccessibleTrader.Sdk/Services/SymbolValidator.cs` (new)
+- `AccessibleTrader.Sdk/Services/ReconnectingWebSocket.cs`
+- `AccessibleTrader.Core/Services/DataOrchestrator.cs`
+- `AccessibleTrader.Core/Services/LiveStreamManager.cs`
+- `AccessibleTrader.Core/Services/IndicatorOrchestrator.cs`
+- `AccessibleTrader.Core/Models/Events.cs` (`ModalStateChangedEvent` ctor)
+- `AccessibleTrader.BlazorClient/Components/ModalBase.cs`
+- `AccessibleTrader.BlazorClient/Components/Layout/MainLayout.razor`
+- `AccessibleTrader.BlazorClient/wwwroot/js/keyboard.js`
+- 13 modal `.razor` files updated to pass `ModalName`
+- 4 modal `.razor` files overridden `ModalName` property
+- `Plugins/Providers/AccessibleTrader.Plugins.Polygon/PolygonProvider.cs`
+- `AccessibleTrader.Tests/SymbolValidatorTests.cs` (new, 24 tests)
+- `docs/README.md`, `docs/CHANGES.md`, `docs/TODO.md` updated
+
+### Day 4 — silent-failure sweep (complete)
+
+The Day 4 cluster landed in the same session as the rest of the 2026-04-22
+sprint. Theme: **every silent drop-event now emits a user-visible signal.**
+4 new xunit tests (`AudioEngineTelemetryTests`); **292 / 292 tests pass**.
+
+- **HTF pre-warm gate on `ConfigurableStrategy`.** `Initialize` now tracks
+  every pre-warm `Task` it launches (one per unique `(timeframe, indicator)`
+  pair plus one per unique HTF via `GetBarsAsync`). The new
+  `IsPrewarmComplete` property reports `true` immediately for specs without
+  HTF leaves and `true` only once every tracked task has completed otherwise.
+  `OnBar` gates evaluation on this flag for live runs; the first blocked
+  evaluation publishes a one-shot `FeedbackRequestEvent` so the user hears
+  *"Strategy X: higher-timeframe data still warming up. Setups will begin
+  firing once cache is ready."* instead of silent non-fires for the first
+  few hundred milliseconds. Backtests skip the gate because the backtester
+  awaits pre-warm before Run.
+  `AccessibleTrader.Core/Strategies/ConfigurableStrategy.cs`.
+- **Pure-pulse entry trigger: refuse save instead of silent auto-promotion.**
+  `BuildSetupTab.ValidateForSave` (new) blocks `SaveSpec` / `AddToEngine` when
+  the condition tree is fully composed of one-bar-pulse operators AND the
+  entry trigger isn't `Immediate`. The validation error is both shown in the
+  `_message` banner and spoken via `SpeechManager` so users navigating by
+  voice alone hear the rejection. `ConfigurableStrategy` still performs the
+  auto-promotion as a safety net for legacy `.atstrat` files imported from
+  pre-validation versions, but now emits a one-shot `FeedbackRequestEvent`
+  (Alert) announcing that the configured trigger was overridden.
+  `AccessibleTrader.BlazorClient/Components/BuildSetupTab.razor`,
+  `AccessibleTrader.Core/Strategies/ConfigurableStrategy.cs`.
+- **`AIAnalystService` fallback retry.** `AskAsync` and `AnalyseAsync` no
+  longer stop at the first provider with a configured key — on empty result
+  or exception they continue to the next provider. Shared helper
+  `TryEachProviderAsync` iterates the full list, collects per-provider
+  attempt summaries, and publishes a single error-channel
+  `FeedbackRequestEvent` at the end distinguishing "no provider configured"
+  from "every configured provider failed" so the user's next action is
+  obvious. `CancellationToken` cancellations are propagated, not treated as
+  a provider failure.
+  `AccessibleTrader.Core/Services/AI/AIAnalystService.cs`.
+- **`AudioEngine` command-buffer overflow telemetry.** The lock-free 1024-slot
+  ring buffer still drops commands on overflow (the only real-time-safe
+  behaviour) but now increments atomic `DroppedCommandCount` /
+  `TotalCommandCount` counters, fires a `CommandDropped` event per drop, and
+  — via `BlazorAudioDriver` — records an `AudioCommandDropped`
+  `SecurityEventLog` entry every 10 drops and logs a Warning. Drop count is
+  queryable for the JournalModal *"any audio drops this session?"* prompt.
+  New `AudioCommandDropped` enum value added to `SecurityEventKind`.
+  `AccessibleTrader.Core/Services/Audio/AudioEngine.cs`,
+  `AccessibleTrader.BlazorClient/Services/BlazorAudioDriver.cs`,
+  `AccessibleTrader.Sdk/Services/SecurityEventLog.cs`.
+
+### Files touched (Day 4 addendum)
+
+- `AccessibleTrader.Core/Strategies/ConfigurableStrategy.cs`
+- `AccessibleTrader.Core/Services/AI/AIAnalystService.cs`
+- `AccessibleTrader.Core/Services/Audio/AudioEngine.cs`
+- `AccessibleTrader.BlazorClient/Services/BlazorAudioDriver.cs`
+- `AccessibleTrader.BlazorClient/Components/BuildSetupTab.razor`
+- `AccessibleTrader.Sdk/Services/SecurityEventLog.cs`
+- `AccessibleTrader.Tests/AudioEngineTelemetryTests.cs` (new, 4 tests)
+
+### Still deferred
+
+- Architectural refactors: `BuildSetupTab` split, `StrategyModal` facade,
+  `WorkspaceStore` reducer decomposition, `SpeechFormatter` plugin registry.
+  Tracked in `project_architectural_followups_2026-04-19.md`.
+- Broader silent-failure sweep across REST providers (catch-all `return
+  empty list` blocks should surface structured errors to `ErrorStream`).
+- Ring-buffer capacity review: once the telemetry has run in real usage for
+  a week, decide whether 1024 is sufficient or bump to 4096.
+
+---
+
 ## [2026-04-21] — Viewport + Home/End + audio-visual sync
 
 User-reported: pressing End repeatedly kept advancing the viewport forward;

@@ -88,8 +88,14 @@ namespace AccessibleTrader.Core.Models
     /// Fired by any modal when it opens (IsOpen=true) or closes (IsOpen=false).
     /// MainPage subscribes to hide/restore the native SkiaSharp canvas so modals
     /// are visually accessible even when the Skia layer is rendered on top.
+    /// <para>
+    /// <paramref name="ModalName"/>, when non-null, is announced via the ARIA
+    /// live region so blind users hear which modal opened (e.g. "Help modal
+    /// opened") rather than only the focus-moved heading. Legacy call sites
+    /// that haven't been updated yet use the one-arg constructor and pass null.
+    /// </para>
     /// </summary>
-    public record ModalStateChangedEvent(bool IsOpen);
+    public record ModalStateChangedEvent(bool IsOpen, string? ModalName = null);
 
     // ── Tab Events ────────────────────────────────────────────────────────────
     /// <summary>Fired after a tab switch completes so audio/sonification services can stop playback.</summary>
