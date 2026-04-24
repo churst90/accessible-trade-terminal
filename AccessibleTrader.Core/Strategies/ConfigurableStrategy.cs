@@ -292,7 +292,7 @@ public class ConfigurableStrategy : BaseStrategy
         }
     }
 
-    public override StrategySignal? OnBar(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state)
+    protected override StrategySignal? ComputeSignal(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state)
     {
         // During backtest replay we still run the full state machine (so trades are simulated
         // correctly) but we skip every IEventBus publication — otherwise SetupSonifier speaks
