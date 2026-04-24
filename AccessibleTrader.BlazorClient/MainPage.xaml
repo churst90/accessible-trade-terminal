@@ -25,10 +25,14 @@
          canvas-on-top clipped by margin to just the chart region.
 
          The margin numbers match the cumulative height of the Blazor chrome
-         above (header + toolbar + timeframe row ≈ 140 DIPs) and below
-         (indicator bar + footer ≈ 60 DIPs) with a tiny safety pad. If the
-         toolbar or footer grow, bump these. For pixel-perfect sizing wire
-         JS interop that reports ChartArea's bounding rect to the host. -->
+         above (header + icon toolbar + timeframe-quick-pick row ≈ 185 DIPs)
+         and below (indicator bar + footer ≈ 100 DIPs) with a small safety
+         pad. Measured from the rendered app at ~100% DPI; values were 140
+         / 60 on first pass which clipped the Market/Provider row and the
+         "Focused Indicator" label — bumped after visual verification. If
+         the toolbar or footer grow further, bump again. For pixel-perfect
+         sizing wire JS interop that reports ChartArea's bounding rect to
+         the host. -->
     <Grid BackgroundColor="Black">
         <!-- Layer 0 (bottom): BlazorWebView spans the full Grid. -->
         <BlazorWebView x:Name="blazorWebView"
@@ -46,7 +50,7 @@
                            PaintSurface="OnCanvasPaint"
                            InputTransparent="True"
                            IgnorePixelScaling="True"
-                           Margin="0,140,0,60" />
+                           Margin="0,185,0,100" />
     </Grid>
 
 </ContentPage>
