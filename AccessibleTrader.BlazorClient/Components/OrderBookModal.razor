@@ -1,9 +1,11 @@
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IOrderExecutionService OrderService
+@inject IEarconService Earcons
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -24,6 +26,15 @@
                 <button @onclick="RefreshAsync" aria-label="Refresh order book" style="padding:4px 10px;">
                     Refresh
                 </button>
+            </div>
+
+            @* Depth-change status region. `role="status"` + `aria-live="polite"`
+               means screen readers pick up the contents whenever it changes without
+               stealing focus. Updated on every refresh with a plain-English delta
+               against the previous snapshot. *@
+            <div role="status" aria-live="polite" aria-atomic="true"
+                 style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;">
+                @_depthChangeAnnouncement
             </div>
 
             @if (_isLoading)
@@ -131,6 +142,15 @@
     private List<OrderBookEntry> _asks = new();
     private IDisposable? _eventSub;
 
+    // Previous-snapshot state for depth-change detection. Kept alongside the
+    // live list so every refresh can compute a delta before overwriting. Null
+    // on the very first refresh so the first announcement is initial-snapshot,
+    // not a delta.
+    private double? _prevBestBid;
+    private double? _prevBestAsk;
+    private double _prevBidImbalance;
+    private string _depthChangeAnnouncement = string.Empty;
+
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenOrderBookEvent>(_ => InvokeAsync(ShowAsync));
@@ -141,6 +161,13 @@
         _isVisible = true;
         _isLoading = true;
         _errorMessage = null;
+        // Reset snapshot state so the first refresh announces an initial snapshot,
+        // not a delta against the previous session's book (especially relevant if
+        // the user reopens on a different symbol).
+        _prevBestBid = null;
+        _prevBestAsk = null;
+        _prevBidImbalance = 0;
+        _depthChangeAnnouncement = string.Empty;
         EventBus.Publish(new ModalStateChangedEvent(true, "Order book"));
         StateHasChanged();
         await Task.Yield();
@@ -178,6 +205,8 @@
 
             if (_bids.Count == 0 && _asks.Count == 0)
                 _errorMessage = $"Order book is not available for {symbol} on {provider}.";
+            else
+                AnnounceDepthChange();
         }
         catch (Exception ex)
         {
@@ -188,6 +217,79 @@
             _isLoading = false;
             StateHasChanged();
         }
+    }
+
+    // Compares the new snapshot against the previous one, emits a screen-reader
+    // announcement into the `role="status"` region, and plays a short earcon
+    // keyed to the direction of the change. Bid improving (buyers pushing up)
+    // is a success cue; bid worsening or ask improving (sellers pushing down)
+    // is an info cue; material imbalance shifts ring boundary.
+    private void AnnounceDepthChange()
+    {
+        double bestBid = _bids.FirstOrDefault().Price;
+        double bestAsk = _asks.FirstOrDefault().Price;
+        double bidSize = _bids.Sum(b => b.Quantity);
+        double askSize = _asks.Sum(a => a.Quantity);
+        double totalSize = bidSize + askSize;
+        double bidImbalance = totalSize > 0 ? (bidSize - askSize) / totalSize : 0;
+
+        if (_prevBestBid is null || _prevBestAsk is null)
+        {
+            _depthChangeAnnouncement = $"Initial snapshot. Bid {bestBid:G6}, ask {bestAsk:G6}, "
+                + $"{(bidImbalance >= 0 ? "buy-side" : "sell-side")} imbalance "
+                + $"{Math.Abs(bidImbalance) * 100:F0} percent.";
+            try { Earcons.PlayInfo(); } catch { }
+        }
+        else
+        {
+            var parts = new List<string>();
+            double bidDelta = bestBid - _prevBestBid.Value;
+            double askDelta = bestAsk - _prevBestAsk.Value;
+            double imbalanceShift = bidImbalance - _prevBidImbalance;
+
+            if (Math.Abs(bidDelta) > 0)
+            {
+                parts.Add(bidDelta > 0
+                    ? $"Bid improved to {bestBid:G6}."
+                    : $"Bid dropped to {bestBid:G6}.");
+            }
+            if (Math.Abs(askDelta) > 0)
+            {
+                parts.Add(askDelta < 0
+                    ? $"Ask tightened to {bestAsk:G6}."
+                    : $"Ask widened to {bestAsk:G6}.");
+            }
+            if (Math.Abs(imbalanceShift) >= 0.10) // 10 pp threshold to avoid chatter
+            {
+                parts.Add(imbalanceShift > 0
+                    ? $"Buy pressure up to {bidImbalance * 100:F0} percent."
+                    : $"Sell pressure up to {-bidImbalance * 100:F0} percent.");
+            }
+
+            if (parts.Count == 0)
+            {
+                _depthChangeAnnouncement = "Depth unchanged.";
+            }
+            else
+            {
+                _depthChangeAnnouncement = string.Join(" ", parts);
+
+                // Earcon routing: bid-improved → success (positive cue);
+                // ask-tightened OR material imbalance shift → info;
+                // bid-dropped → boundary (adverse cue).
+                try
+                {
+                    if (bidDelta > 0) Earcons.PlaySuccess();
+                    else if (bidDelta < 0) Earcons.PlayBoundary();
+                    else if (askDelta < 0 || Math.Abs(imbalanceShift) >= 0.10) Earcons.PlayInfo();
+                }
+                catch { }
+            }
+        }
+
+        _prevBestBid = bestBid;
+        _prevBestAsk = bestAsk;
+        _prevBidImbalance = bidImbalance;
     }
 
     private string ComputeSpread()

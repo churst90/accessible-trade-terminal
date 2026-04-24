@@ -22,6 +22,18 @@ namespace AccessibleTrader.BlazorClient.Services
         private readonly IWorkspaceStore _store;
         private DotNetObjectReference<GlobalInputService>? _dotNetRef;
 
+        // Dedupe window. The window-level JS keyboard handler and the Blazor
+        // `@onkeydown` binding on <ChartArea> both forward into ProcessKey so we
+        // stay resilient when one of the two pipelines is quiet — screen readers
+        // in browse mode can dispatch synthetic keydowns at element scope only,
+        // and unit tests run without the JS bridge. Whichever side fires first
+        // within this window short-circuits the other.
+        private static readonly TimeSpan DedupeWindow = TimeSpan.FromMilliseconds(50);
+        private readonly object _dedupeLock = new();
+        private string? _lastKey;
+        private bool _lastShift, _lastCtrl, _lastAlt;
+        private DateTime _lastStamp;
+
         public GlobalInputService(IInputService inputService, IEventBus eventBus, IWorkspaceStore store)
         {
             _inputService = inputService;
@@ -39,7 +51,33 @@ namespace AccessibleTrader.BlazorClient.Services
         [JSInvokable]
         public void OnKeyDown(string key, bool shift, bool ctrl, bool alt)
         {
+            TryProcessKey(key, shift, ctrl, alt);
+        }
+
+        /// <summary>
+        /// Forwards a keydown through the input pipeline, suppressing a duplicate
+        /// that arrives from the other pipeline (window JS vs element Blazor)
+        /// inside <see cref="DedupeWindow"/>. Returns true when processed.
+        /// </summary>
+        public bool TryProcessKey(string key, bool shift, bool ctrl, bool alt)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            lock (_dedupeLock)
+            {
+                var now = DateTime.UtcNow;
+                if (_lastKey == key && _lastShift == shift && _lastCtrl == ctrl && _lastAlt == alt
+                    && (now - _lastStamp) <= DedupeWindow)
+                {
+                    return false;
+                }
+                _lastKey = key;
+                _lastShift = shift;
+                _lastCtrl = ctrl;
+                _lastAlt = alt;
+                _lastStamp = now;
+            }
             _inputService.ProcessKey(key, shift, ctrl, alt);
+            return true;
         }
 
         /// <summary>Called from JS keyup for navigation keys to stop the sustaining audio voice.</summary>
@@ -79,6 +117,29 @@ namespace AccessibleTrader.BlazorClient.Services
         {
             _store.Dispatch(new WheelZoomAction(direction, anchorFraction));
         }
+
+        /// <summary>
+        /// Normalises a raw <see cref="Microsoft.AspNetCore.Components.Web.KeyboardEventArgs.Key"/>
+        /// value to the upper-case token ShortcutManager recognises. Mirrors the
+        /// mapping in wwwroot/js/keyboard.js so the element-level Blazor fallback
+        /// feeds the pipeline in the exact same vocabulary as the window JS path.
+        /// </summary>
+        public static string NormalizeKey(string key) => key switch
+        {
+            "ArrowLeft" => "LEFT",
+            "ArrowRight" => "RIGHT",
+            "ArrowUp" => "UP",
+            "ArrowDown" => "DOWN",
+            " " => "SPACE",
+            "[" or "{" => "OEM4",
+            "]" or "}" => "OEM6",
+            "\\" => "OEM5",
+            "-" or "_" => "OEMMINUS",
+            "=" or "+" => "OEMPLUS",
+            "Delete" => "DELETE",
+            "Escape" => "ESCAPE",
+            _ => key.ToUpperInvariant()
+        };
 
         public void Dispose()
         {
