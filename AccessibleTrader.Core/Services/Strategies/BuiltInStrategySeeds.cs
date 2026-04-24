@@ -84,7 +84,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // point-positive expectancy in BOTH walk-forward halves on BOTH BTC and ETH daily
         // (v2 was the first Pulse signal ever to generalize across assets without retuning).
         // Still a hair short of CI-strict survival on a single instrument (BTC H2 CIlo
-        // -0.01) — use as confluence not gospel. Layer BNVISION_FUNDING.Funding > 0 for
+        // -0.01) — use as confluence not gospel. Layer FUNDING_RATE.Funding Rate > 0 for
         // BTC to lift expectancy further (validated combo).
         public const string PulseLongV2Id = "builtin.long.pulse-v2";
 
@@ -201,7 +201,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "— point-positive both walk-forward halves on BOTH BTC daily (9/9 trades " +
                     "+0.24/+0.99R) and ETH daily (16/19 trades +0.13/+0.45R). Not a CI-strict " +
                     "survivor on a single instrument (BTC H2 CIlo -0.01) — use as confluence. " +
-                    "For BTC specifically, layering BNVISION_FUNDING.Funding > 0 lifts " +
+                    "For BTC specifically, layering FUNDING_RATE.Funding Rate > 0 lifts " +
                     "expectancy to +0.49/+0.87R (validated combo). Parameters are daily-tuned; " +
                     "users on 4h/1h should load PulseProvider.Presets.CryptoFourHour. " +
                     "REQUIRES: Pulse indicator loaded on the chart.",
@@ -698,10 +698,10 @@ namespace AccessibleTrader.Core.Services.Strategies
         // rides bear moves rather than trying to call tops in uptrends like v13s did.
         // Tighter ATR stop and faster TP ladder to match bear-move rhythm.
         //
-        // NOTE: Uses BNVISION_FUNDING (Binance deep-history, ~5.6 years). Walk-forward
-        // testable in StrategyLab but not live-runnable until BinanceVision is promoted
-        // from lab-only to a Core cross-series provider. Core's FUNDING_RATE indicator
-        // is OKX-sourced with only ~11 days of history — unusable for backtesting.
+        // NOTE: Uses Core FUNDING_RATE, which was repointed from OKX (11-day depth) to
+        // BinanceVision (6-year depth) in the 2026-04-11 Core-indicator sweep. Live and
+        // lab paths now share the same deep-history source — the former StrategyLab-only
+        // BNVISION_FUNDING alias has been folded back into FUNDING_RATE.Funding Rate.
         // ─────────────────────────────────────────────────────────────────────────────
         private static StrategySpec BuildV18RefinedShort()
         {
@@ -723,7 +723,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             // remaining longs who haven't unwound yet.
             var fundingPositive = new ConditionLeaf(
                 Id: "v18-funding-positive",
-                SignalDescriptorId: "BNVISION_FUNDING.Funding",
+                SignalDescriptorId: "FUNDING_RATE.Funding Rate",
                 Operator: LeafOperator.GreaterThan,
                 Value: 0.0,
                 Score: 1.0);
