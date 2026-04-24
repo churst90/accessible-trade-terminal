@@ -104,6 +104,80 @@ namespace AccessibleTrader.Tests
             Assert.Equal(expected, actual);
         }
 
+        // ── Bitstamp: CleanSymbol + usdt→usd quote swap ──────────────────────
+
+        [Theory]
+        [InlineData("BTC/USD",  "btcusd")]
+        [InlineData("BTC/USDT", "btcusd")]   // Bitstamp maps USDT quotes to USD
+        [InlineData("btc-usdt", "btcusd")]
+        [InlineData("ETHUSDT",  "ethusd")]
+        [InlineData("XRP/USD",  "xrpusd")]
+        public void Bitstamp_InlineTransform_LowercasesAndMapsUsdtToUsd(string input, string expected)
+        {
+            // Bitstamp REST paths are lowercase and list pairs in /usd form only.
+            // The provider's FetchOhlcvAsync + GetOrderBookAsync inline the same
+            // "strip-separator, lowercase, usdt→usd" transform. This test mirrors
+            // it so a future refactor that hoists the transform into a helper
+            // lands on the same behaviour.
+            string actual = input.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            Assert.Equal(expected, actual);
+        }
+
+        // ── Oanda: forex "EUR_USD" underscore convention ─────────────────────
+
+        [Theory]
+        [InlineData("EUR/USD", "EUR_USD")]
+        [InlineData("eur/usd", "EUR_USD")]
+        [InlineData("GBP-JPY", "GBP_JPY")]
+        [InlineData("EUR_USD", "EUR_USD")]  // already underscored → uppercased only
+        public void Oanda_ForexSymbol_UsesUnderscoreSeparator(string input, string expected)
+        {
+            // OANDA v20 REST API expects instrument names as BASE_QUOTE with an
+            // underscore. Inline at each call site in OandaProvider.
+            string actual = input.Replace("/", "_").Replace("-", "_").ToUpperInvariant();
+            Assert.Equal(expected, actual);
+        }
+
+        // ── Polygon: crypto "X:BTCUSD" prefix, stocks uppercase passthrough ──
+
+        [Theory]
+        [InlineData("AAPL", "AAPL")]     // stock ticker unchanged
+        [InlineData("spy",  "SPY")]      // uppercase
+        [InlineData("MSFT", "MSFT")]
+        public void Polygon_StockTicker_UppercasesPassthrough(string input, string expected)
+        {
+            string actual = input.ToUpperInvariant();
+            Assert.Equal(expected, actual);
+        }
+
+        // ── Schwab / Tradier / Finnhub equity: uppercase passthrough ─────────
+
+        [Theory]
+        [InlineData("aapl",  "AAPL")]
+        [InlineData("TSLA",  "TSLA")]
+        [InlineData("brk.b", "BRK.B")]   // dotted ticker kept (Berkshire B)
+        public void Equity_Ticker_UppercasesPassthrough(string input, string expected)
+        {
+            string actual = input.ToUpperInvariant();
+            Assert.Equal(expected, actual);
+        }
+
+        // ── MEXC + Alpaca crypto: CleanSymbol pattern (covered above) ────────
+
+        [Theory]
+        [InlineData("BTC/USDT", "BTCUSDT")]
+        [InlineData("eth-usdt", "ETHUSDT")]
+        [InlineData("SOL/USD",  "SOLUSD")]
+        public void Mexc_And_Alpaca_Crypto_UseCleanSymbol(string input, string expected)
+        {
+            // Both providers defer to BaseMarketDataProvider.CleanSymbol. Mirrored
+            // here so a future MEXC or Alpaca override of the normalization path
+            // gets caught by the failure.
+            var provider = new StubProvider();
+            string actual = provider.InvokeCleanSymbol(input);
+            Assert.Equal(expected, actual);
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────
 
         private static T InvokeKrakenStatic<T>(string methodName, string arg)

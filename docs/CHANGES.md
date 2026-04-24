@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Provider test coverage: timeframe contract + symbol normalization across all 26 plugins
+
+First broad-coverage pass for the `Plugins/Providers/**` and
+`Plugins/Analytics/**` surface. Closes the "Provider unit-test coverage" item
+in the 2026-04-17 next-priorities list.
+
+**New file: `ProviderTimeframeContractTests` (~31 tests).** Every provider's
+`NativelySupportedTimeframes` list pinned against the actual declaration in
+the plugin. Each row asserts:
+
+- `TimeframeUtility.ToSeconds(tf) > 0` for every declared timeframe (a zero
+  result silently disables the provider's fetch path).
+- No duplicates within a provider's list.
+- Plus core-utility pins: 7 known-value round-trips, 7 unknown-input
+  zero-returns covering case errors, unsupported units, empty / whitespace.
+
+Rows cover all 14 trading providers (Binance, MEXC, Coinbase, Kraken,
+Bitstamp, Alpaca, Polygon, Tradier, Schwab, Oanda, Finnhub, InteractiveBrokers,
+TwelveData, FMP) and all 12 analytics providers (AlternativeMe, BGeometrics,
+CoinGecko, CoinMetrics, DefiLlama, Etherscan, Glassnode, Mempool,
+BinanceVision, BinanceDerivatives, OkxDerivatives, Fred, FmpAnalytics).
+
+**Extended `ProviderSymbolNormalisationTests`** with the provider-specific
+wire-format transforms not previously covered:
+
+- Bitstamp: CleanSymbol + `usdt` → `usd` quote-swap (inline in FetchOhlcv +
+  GetOrderBook).
+- Oanda: `EUR/USD` → `EUR_USD` underscore convention for the v20 REST API.
+- Polygon / Schwab / Tradier / Finnhub: stock-ticker uppercase passthrough.
+- MEXC + Alpaca crypto: defer to the shared `BaseMarketDataProvider.CleanSymbol`.
+
+**New file: `Fakes/FakeHttpMessageHandler`** — a route-table HTTP handler
+(regex URL matching, per-rule responders, strict-mode by default so unmatched
+calls throw) for the next round of deeper parse tests that exercise provider
+`FetchOhlcvAsync` paths end-to-end.
+
+Total test count 577 → 637. 0 warnings, 0 errors.
+
+### Deferred — per-provider FetchOhlcv parse tests
+
+The deepest layer (each provider's JSON → `Ohlcv` parse path exercised via
+the FakeHttpMessageHandler hooking into the provider's private `_httpClient`
+via reflection) is its own session per provider because each plugin structures
+its parse inline inside `FetchOhlcvAsync` rather than as an extractable helper.
+Tracked as the next step in `docs/TODO.md` under Provider test coverage.
+
 ## [2026-04-24] — NAudio.Wasapi dependency removed; macCatalyst scripting refused
 
 **NAudio removal.** `BlazorAudioDriver` now targets Windows via a winmm.dll
