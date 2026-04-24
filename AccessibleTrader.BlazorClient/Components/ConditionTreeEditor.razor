@@ -1,0 +1,510 @@
+@*
+    Condition tree editor — ARIA tree + leaf/group editor fieldsets. Extracted from
+    BuildSetupTab on 2026-04-24 so the composer UI has a testable home for the tree
+    mutation + operator picker logic without the surrounding risk-plan and save/run
+    buttons in scope.
+
+    Owns no state of its own — mutates the shared EditableStrategySpec instance in
+    place via field writes. Expand/collapse state lives on the component and does
+    not round-trip through the spec (pure UI polish).
+*@
+
+@using AccessibleTrader.Sdk.Strategies
+@using AccessibleTrader.Sdk.Plugins
+@using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Core.Services
+@inject ISignalCatalog SignalCatalog
+@inject IWorkspaceStore Store
+
+@* ── Condition tree ─────────────────────────────────────────────────────── *@
+<fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+    <legend style="font-weight: 700; padding: 0 6px;">Conditions</legend>
+
+    <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+        <button type="button" @onclick="AddRootGroup" aria-label="Add root condition group">
+            + Group at root
+        </button>
+        <button type="button" @onclick="AddRootLeaf" aria-label="Add root condition leaf">
+            + Leaf at root
+        </button>
+        <button type="button" @onclick="ClearTree" aria-label="Clear all conditions">
+            Clear all
+        </button>
+    </div>
+
+    @if (Spec.Root == null)
+    {
+        <p style="color:#888; font-size: 0.85rem;">
+            No conditions yet. Add a root group (AND / OR / NOT) and then add leaves inside it.
+        </p>
+    }
+    else
+    {
+        <ul role="tree" aria-label="Strategy condition tree"
+            style="list-style: none; padding-left: 0; margin: 0;">
+            @RenderNode(Spec.Root, 1)
+        </ul>
+    }
+</fieldset>
+
+@* ── Leaf editor ─────────────────────────────────────────────────────────── *@
+@if (Spec.SelectedNode != null && !Spec.SelectedNode.IsGroup)
+{
+    <fieldset style="border: 1px solid #4a8; padding: 10px 14px; margin-bottom: 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Edit Leaf</legend>
+
+        <div class="modal-row">
+            <label for="leaf-indicator">Indicator:</label>
+            <select id="leaf-indicator"
+                    value="@SelectedIndicatorCode"
+                    @onchange="OnIndicatorChanged">
+                <option value="">— Select indicator —</option>
+                @foreach (var indCode in IndicatorCodes)
+                {
+                    <option value="@indCode">
+                        @indCode @(IsIndicatorLoadedOnChart(indCode) ? "" : "(not on chart)")
+                    </option>
+                }
+            </select>
+        </div>
+
+        @if (!string.IsNullOrEmpty(SelectedIndicatorCode) && !IsIndicatorLoadedOnChart(SelectedIndicatorCode))
+        {
+            <div role="alert" aria-live="polite"
+                 style="margin: 4px 0 8px 0; padding: 6px 10px; background: #3a2a00; border: 1px solid #aa6; color: #ffd; font-size: 0.85rem;">
+                ⚠ <strong>@SelectedIndicatorCode is not on this chart.</strong>
+                The strategy will silently never fire on this leaf until you add it via Alt+A (Add Indicator).
+            </div>
+        }
+
+        <div class="modal-row">
+            <label for="leaf-component">Component:</label>
+            <select id="leaf-component"
+                    value="@Spec.SelectedNode.SignalDescriptorId"
+                    @onchange="OnComponentChanged">
+                <option value="">— Select component —</option>
+                @foreach (var d in DescriptorsForSelectedIndicator)
+                {
+                    <option value="@d.Id">@d.DisplayLabel (@d.Kind)</option>
+                }
+            </select>
+        </div>
+
+        @if (NeedsSecondDescriptor)
+        {
+            <div class="modal-row">
+                <label for="leaf-second-component">Crosses against:</label>
+                <select id="leaf-second-component"
+                        value="@(Spec.SelectedNode.SecondSignalDescriptorId ?? string.Empty)"
+                        @onchange="e => Spec.SelectedNode!.SecondSignalDescriptorId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                    <option value="">— Select second component —</option>
+                    @foreach (var d in DescriptorsForSelectedIndicator.Where(x => x.Id != Spec.SelectedNode.SignalDescriptorId))
+                    {
+                        <option value="@d.Id">@d.DisplayLabel</option>
+                    }
+                </select>
+            </div>
+        }
+
+        <div class="modal-row">
+            <label for="leaf-operator">Operator:</label>
+            <select id="leaf-operator"
+                    value="@Spec.SelectedNode.Operator"
+                    @onchange="OnOperatorChanged">
+                @foreach (var op in OperatorsForSelectedKind)
+                {
+                    <option value="@op">@op</option>
+                }
+            </select>
+        </div>
+
+        @if (NeedsValue)
+        {
+            <div class="modal-row">
+                <label for="leaf-value">Value:</label>
+                <input id="leaf-value" type="number" step="any"
+                       value="@Spec.SelectedNode.Value"
+                       @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.SelectedNode!.Value = v; }" />
+            </div>
+        }
+
+        @if (NeedsValue2)
+        {
+            <div class="modal-row">
+                <label for="leaf-value2">Upper bound:</label>
+                <input id="leaf-value2" type="number" step="any"
+                       value="@(Spec.SelectedNode.Value2 ?? 0)"
+                       @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.SelectedNode!.Value2 = v; }" />
+            </div>
+        }
+
+        @if (NeedsWithinN)
+        {
+            <div class="modal-row">
+                <label for="leaf-within">Within last N bars:</label>
+                <input id="leaf-within" type="number" step="1" min="1"
+                       value="@Spec.SelectedNode.WithinNBars"
+                       @onchange="e => { if (int.TryParse(e.Value?.ToString(), out var v)) Spec.SelectedNode!.WithinNBars = v; }" />
+            </div>
+        }
+
+        @if (NeedsMinLevelStrength)
+        {
+            <div class="modal-row">
+                <label for="leaf-minstrength">Min level strength (0.0-1.0):</label>
+                <input id="leaf-minstrength" type="number" step="0.05" min="0" max="1"
+                       value="@Spec.SelectedNode.MinLevelStrength"
+                       @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.SelectedNode!.MinLevelStrength = v; }" />
+            </div>
+        }
+
+        <div class="modal-row">
+            <label for="leaf-tf">Timeframe (HTF):</label>
+            <select id="leaf-tf"
+                    value="@(Spec.SelectedNode.Timeframe ?? string.Empty)"
+                    @onchange="e => Spec.SelectedNode!.Timeframe = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                <option value="">— Active chart TF —</option>
+                <option value="5m">5 minute</option>
+                <option value="15m">15 minute</option>
+                <option value="30m">30 minute</option>
+                <option value="1h">1 hour</option>
+                <option value="4h">4 hour</option>
+                <option value="1d">1 day</option>
+                <option value="1w">1 week</option>
+            </select>
+        </div>
+
+        <div class="modal-row">
+            <label for="leaf-score">Score weight (0..1):</label>
+            <input id="leaf-score" type="number" step="0.05" min="0" max="1"
+                   value="@Spec.SelectedNode.Score"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.SelectedNode!.Score = v; }" />
+        </div>
+    </fieldset>
+}
+else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
+{
+    <fieldset style="border: 1px solid #4a8; padding: 10px 14px; margin-bottom: 14px;">
+        <legend style="font-weight: 700; padding: 0 6px;">Edit Group</legend>
+        <div class="modal-row">
+            <label for="grp-logic">Combine children with:</label>
+            <select id="grp-logic"
+                    value="@Spec.SelectedNode.Logic"
+                    @onchange="e => { if (Enum.TryParse<LogicOperator>(e.Value?.ToString(), out var l)) Spec.SelectedNode!.Logic = l; }">
+                <option value="@LogicOperator.And">AND — every child must be true</option>
+                <option value="@LogicOperator.Or">OR — at least one child must be true</option>
+                <option value="@LogicOperator.Not">NOT — invert the (single) child</option>
+                <option value="@LogicOperator.Score">Score — fire when weighted sum ≥ threshold</option>
+                <option value="@LogicOperator.Sequence">Sequence — children fire in chronological order</option>
+            </select>
+        </div>
+
+        @if (Spec.SelectedNode.Logic == LogicOperator.Score)
+        {
+            <div class="modal-row">
+                <label for="grp-score">Score threshold:</label>
+                <input id="grp-score" type="number" step="0.1" min="0"
+                       value="@(Spec.SelectedNode.ScoreThreshold?.ToString() ?? string.Empty)"
+                       @onchange="OnScoreThresholdChanged"
+                       placeholder="e.g. 3.0 (blank = OR fallback)" />
+            </div>
+            <p style="color:#888; font-size:0.8rem;">
+                Max possible score (immediate leaves): <strong>@MaxScoreForSelectedGroup().ToString("F1")</strong>.
+                Leaves deeper in nested groups are not summed here.
+            </p>
+        }
+        else if (Spec.SelectedNode.Logic == LogicOperator.Sequence)
+        {
+            <p style="color:#c90; font-size:0.8rem;">
+                Children must be leaves (sub-groups are not supported inside a Sequence).
+                Walks backward from the current bar and places each child in its WithinNBars
+                budget, strictly chronologically.
+            </p>
+        }
+
+        <p style="color:#888; font-size:0.8rem;">
+            @Spec.SelectedNode.Children.Count child node(s).
+        </p>
+    </fieldset>
+}
+
+@code {
+    /// <summary>Shared mutable strategy-composer state owned by the parent
+    /// <c>BuildSetupTab</c>. Children mutate it in place — Blazor sees the mutation on the
+    /// next @onchange-triggered re-render of each child, so the parent doesn't need to
+    /// react to every keystroke. Structural changes (new / load / save) are handled by the
+    /// parent via direct property assignment + StateHasChanged.</summary>
+    [Parameter, EditorRequired]
+    public EditableStrategySpec Spec { get; set; } = default!;
+
+    private readonly HashSet<string> _collapsedGroups = new();
+
+    // ── Leaf-editor derived state ────────────────────────────────────────────
+
+    private string SelectedIndicatorCode =>
+        Spec.SelectedNode?.SignalDescriptorId is { } id && !string.IsNullOrEmpty(id)
+            ? SignalCatalog.GetById(id)?.IndicatorCode ?? string.Empty
+            : string.Empty;
+
+    private IEnumerable<string> IndicatorCodes =>
+        SignalCatalog.All
+            .Select(d => d.IndicatorCode)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct(System.StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c);
+
+    private bool IsIndicatorLoadedOnChart(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return false;
+        return Store.State.ActiveSeries.Any(s =>
+            string.Equals(s.IndicatorCode, code, System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    private IEnumerable<SignalDescriptor> DescriptorsForSelectedIndicator
+    {
+        get
+        {
+            string code = SelectedIndicatorCode;
+            if (string.IsNullOrEmpty(code)) return Enumerable.Empty<SignalDescriptor>();
+            return SignalCatalog.GetForIndicator(code);
+        }
+    }
+
+    private IEnumerable<LeafOperator> OperatorsForSelectedKind
+    {
+        get
+        {
+            if (Spec.SelectedNode == null) return Enumerable.Empty<LeafOperator>();
+            var desc = SignalCatalog.GetById(Spec.SelectedNode.SignalDescriptorId);
+            var kind = desc?.Kind;
+
+            var fire = new[] { LeafOperator.Fired, LeafOperator.FiredWithin };
+            var num  = new[] { LeafOperator.GreaterThan, LeafOperator.LessThan, LeafOperator.Between,
+                               LeafOperator.CrossesAbove, LeafOperator.CrossesBelow,
+                               LeafOperator.ChangesDirection };
+            var cloud = new[] { LeafOperator.AboveCloud, LeafOperator.BelowCloud, LeafOperator.InsideCloud };
+            var level = new[] { LeafOperator.PriceRejectsLevel, LeafOperator.PriceBreaksLevel,
+                                LeafOperator.PriceInsideValueArea, LeafOperator.PriceOutsideValueArea,
+                                LeafOperator.BarClosesAbovePoc, LeafOperator.BarClosesBelowPoc,
+                                LeafOperator.WickIntoLvn };
+
+            return kind switch
+            {
+                SignalKind.MarkerFire => fire.Concat(level),
+                SignalKind.Cloud      => cloud.Concat(level),
+                SignalKind.Oscillator => num.Concat(level),
+                SignalKind.Line       => num.Concat(level),
+                _ => num.Concat(level)
+            };
+        }
+    }
+
+    private bool NeedsValue =>
+        Spec.SelectedNode != null && Spec.SelectedNode.Operator switch
+        {
+            LeafOperator.GreaterThan or LeafOperator.LessThan or LeafOperator.Between
+                or LeafOperator.CrossesAbove or LeafOperator.CrossesBelow
+                or LeafOperator.PriceRejectsLevel or LeafOperator.PriceBreaksLevel => true,
+            _ => false
+        };
+
+    private bool NeedsValue2 =>
+        Spec.SelectedNode != null && Spec.SelectedNode.Operator == LeafOperator.Between;
+
+    private bool NeedsWithinN =>
+        Spec.SelectedNode != null && (Spec.SelectedNode.Operator == LeafOperator.FiredWithin
+                                   || Spec.SelectedNode.Operator == LeafOperator.PriceRejectsLevel
+                                   || Spec.SelectedNode.Operator == LeafOperator.GreaterThanWithin
+                                   || Spec.SelectedNode.Operator == LeafOperator.LessThanWithin
+                                   || Spec.SelectedNode.Operator == LeafOperator.BetweenWithin
+                                   || Spec.SelectedNode.Operator == LeafOperator.PercentileBelow
+                                   || Spec.SelectedNode.Operator == LeafOperator.PercentileAbove);
+
+    private bool NeedsMinLevelStrength =>
+        Spec.SelectedNode != null && (Spec.SelectedNode.Operator == LeafOperator.PriceRejectsLevel
+                                   || Spec.SelectedNode.Operator == LeafOperator.PriceBreaksLevel);
+
+    private bool NeedsSecondDescriptor =>
+        Spec.SelectedNode != null
+        && (Spec.SelectedNode.Operator == LeafOperator.CrossesAboveLine
+         || Spec.SelectedNode.Operator == LeafOperator.CrossesBelowLine);
+
+    // ── Tree rendering ──────────────────────────────────────────────────────
+
+    private RenderFragment RenderNode(EditableConditionNode node, int level) => __builder =>
+    {
+        bool isSelected = Spec.SelectedNode != null && Spec.SelectedNode.Id == node.Id;
+        bool isCollapsed = node.IsGroup && _collapsedGroups.Contains(node.Id);
+        string label = NodeLabel(node);
+
+        <li @key="node.Id"
+            role="treeitem"
+            aria-level="@level"
+            aria-selected="@(isSelected ? "true" : "false")"
+            aria-expanded="@(node.IsGroup ? (isCollapsed ? "false" : "true") : null)"
+            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444");">
+
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                @if (node.IsGroup)
+                {
+                    <button type="button"
+                            @onclick="() => ToggleCollapsed(node)"
+                            aria-label="@(isCollapsed ? $"Expand {label}" : $"Collapse {label}")"
+                            style="background: transparent; color: #ddd; border: 1px solid #555; padding: 2px 6px; cursor: pointer; min-width: 24px;">
+                        @(isCollapsed ? "+" : "−")
+                    </button>
+                }
+
+                <button type="button"
+                        @onclick="() => SelectNode(node)"
+                        aria-label="Select @label"
+                        style="background: @(isSelected ? "#264" : "transparent"); color: #ddd; border: 1px solid #555; padding: 2px 8px; cursor: pointer;">
+                    @label
+                </button>
+
+                @if (node.IsGroup)
+                {
+                    <button type="button" @onclick="() => AddChildLeaf(node)" aria-label="Add leaf inside @label">+ leaf</button>
+                    <button type="button" @onclick="() => AddChildGroup(node)" aria-label="Add subgroup inside @label">+ group</button>
+                }
+
+                <button type="button" @onclick="() => DeleteNode(node)" aria-label="Delete @label">×</button>
+            </div>
+
+            @if (node.IsGroup && node.Children.Count > 0 && !isCollapsed)
+            {
+                <ul role="group" style="list-style: none; padding-left: 18px; margin: 0; border-left: 1px dotted #444;">
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderNode(child, level + 1)
+                    }
+                </ul>
+            }
+        </li>
+    };
+
+    private string NodeLabel(EditableConditionNode node)
+    {
+        if (node.IsGroup)
+        {
+            return $"{node.Logic} group ({node.Children.Count})";
+        }
+        var desc = SignalCatalog.GetById(node.SignalDescriptorId);
+        string descPart = desc?.DisplayLabel ?? "(unset)";
+        string opPart = node.Operator.ToString();
+        string tfPart = string.IsNullOrEmpty(node.Timeframe) ? "" : $" [{node.Timeframe}]";
+        return $"{descPart} — {opPart}{tfPart}";
+    }
+
+    // ── Tree mutation ────────────────────────────────────────────────────────
+
+    private void AddRootGroup()
+    {
+        Spec.Root = new EditableConditionNode { IsGroup = true, Logic = LogicOperator.And };
+        Spec.SelectedNode = Spec.Root;
+    }
+
+    private void AddRootLeaf()
+    {
+        Spec.Root = new EditableConditionNode { IsGroup = false };
+        Spec.SelectedNode = Spec.Root;
+    }
+
+    private void AddChildLeaf(EditableConditionNode parent)
+    {
+        if (!parent.IsGroup) return;
+        var leaf = new EditableConditionNode { IsGroup = false };
+        parent.Children.Add(leaf);
+        Spec.SelectedNode = leaf;
+    }
+
+    private void AddChildGroup(EditableConditionNode parent)
+    {
+        if (!parent.IsGroup) return;
+        var group = new EditableConditionNode { IsGroup = true, Logic = LogicOperator.And };
+        parent.Children.Add(group);
+        Spec.SelectedNode = group;
+    }
+
+    private void DeleteNode(EditableConditionNode node)
+    {
+        if (Spec.Root == null) return;
+        if (node == Spec.Root)
+        {
+            Spec.Root = null;
+            Spec.SelectedNode = null;
+            return;
+        }
+        if (RemoveFromTree(Spec.Root, node))
+        {
+            if (Spec.SelectedNode == node) Spec.SelectedNode = null;
+        }
+    }
+
+    private bool RemoveFromTree(EditableConditionNode current, EditableConditionNode target)
+    {
+        if (!current.IsGroup) return false;
+        if (current.Children.Remove(target)) return true;
+        foreach (var c in current.Children)
+            if (RemoveFromTree(c, target)) return true;
+        return false;
+    }
+
+    private void SelectNode(EditableConditionNode node) => Spec.SelectedNode = node;
+
+    private void ClearTree()
+    {
+        Spec.Root = null;
+        Spec.SelectedNode = null;
+    }
+
+    private void ToggleCollapsed(EditableConditionNode node)
+    {
+        if (!node.IsGroup) return;
+        if (_collapsedGroups.Contains(node.Id)) _collapsedGroups.Remove(node.Id);
+        else _collapsedGroups.Add(node.Id);
+    }
+
+    // ── Leaf-editor handlers ─────────────────────────────────────────────────
+
+    private void OnIndicatorChanged(ChangeEventArgs e)
+    {
+        if (Spec.SelectedNode == null) return;
+        string code = e.Value?.ToString() ?? string.Empty;
+        var first = SignalCatalog.GetForIndicator(code).FirstOrDefault();
+        Spec.SelectedNode.SignalDescriptorId = first?.Id ?? string.Empty;
+        Spec.SelectedNode.Operator = first?.Kind == SignalKind.MarkerFire
+            ? LeafOperator.Fired
+            : LeafOperator.GreaterThan;
+    }
+
+    private void OnComponentChanged(ChangeEventArgs e)
+    {
+        if (Spec.SelectedNode == null) return;
+        Spec.SelectedNode.SignalDescriptorId = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnOperatorChanged(ChangeEventArgs e)
+    {
+        if (Spec.SelectedNode == null) return;
+        if (Enum.TryParse<LeafOperator>(e.Value?.ToString(), out var op))
+            Spec.SelectedNode.Operator = op;
+    }
+
+    private void OnScoreThresholdChanged(ChangeEventArgs e)
+    {
+        if (Spec.SelectedNode == null) return;
+        string raw = e.Value?.ToString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(raw)) { Spec.SelectedNode.ScoreThreshold = null; return; }
+        if (double.TryParse(raw, out var v)) Spec.SelectedNode.ScoreThreshold = v;
+    }
+
+    private double MaxScoreForSelectedGroup()
+    {
+        if (Spec.SelectedNode == null || !Spec.SelectedNode.IsGroup) return 0.0;
+        double sum = 0.0;
+        foreach (var c in Spec.SelectedNode.Children)
+            if (!c.IsGroup) sum += System.Math.Max(0.0, c.Score);
+        return sum;
+    }
+}

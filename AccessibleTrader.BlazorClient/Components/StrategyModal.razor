@@ -4,13 +4,8 @@
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Core.Services.Strategies
 @using AccessibleTrader.BlazorClient.Services
-@inject IStrategyEngine StrategyEngine
-@inject IStrategyBacktester Backtester
-@inject IBacktestWarmupAnalyzer WarmupAnalyzer
+@inject IStrategyModalCoordinator Coordinator
 @inject IStrategyLibrary StrategyLibrary
-@inject IConfigurableStrategyFactory Factory
-@inject IRoslynScriptingService RoslynScripting
-@inject ISeriesManagementService SeriesManager
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
@@ -52,7 +47,7 @@
                         aria-controls="panel-active"
                         @onclick='() => _activeTab = "active"'
                         style="padding: 6px 14px; background: @(_activeTab == "active" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
-                    Active (@StrategyEngine.ActiveStrategies.Count())
+                    Active (@Coordinator.ActiveStrategies.Count())
                 </button>
                 <button role="tab"
                         id="tab-bt"
@@ -112,7 +107,7 @@
                         <tbody>
                             @foreach (var spec in StrategyLibrary.All)
                             {
-                                bool isActive = StrategyEngine.ActiveStrategies.Any(a =>
+                                bool isActive = Coordinator.ActiveStrategies.Any(a =>
                                     string.Equals(a.Strategy.Id, spec.Id, StringComparison.OrdinalIgnoreCase));
                                 <tr @key="spec.Id" style="border-bottom: 1px solid #333;">
                                     <td style="padding: 6px 8px;">@spec.Name</td>
@@ -161,7 +156,7 @@
                      hidden="@(_activeTab != "active")" style="margin-top: 20px;">
                 <h3>Active Strategies</h3>
 
-                @if (StrategyEngine.ActiveStrategies.Any())
+                @if (Coordinator.ActiveStrategies.Any())
                 {
                     <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
                         <thead>
@@ -176,7 +171,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var active in StrategyEngine.ActiveStrategies)
+                            @foreach (var active in Coordinator.ActiveStrategies)
                             {
                                 var m = active.Strategy.GetMetrics();
                                 <tr @key="active.InstanceId" style="border-bottom: 1px solid #333;">
@@ -523,121 +518,48 @@ public class MyStrategy : BaseStrategy
     /// existing engine instance with the same spec ID first to avoid duplicates (this was the
     /// silent bug where editing+re-adding a spec left two copies running).
     /// </summary>
+    // 2026-04-24 refactor: every strategy-management workflow now delegates to
+    // IStrategyModalCoordinator so the modal only wires buttons to single calls and
+    // displays the returned result message.
+
     private void StartSpec(string specId)
     {
-        try
-        {
-            var spec = StrategyLibrary.GetById(specId);
-            if (spec == null)
-            {
-                _libraryMessage = "Spec not found in library.";
-                _libraryError = true;
-                return;
-            }
-
-            RemoveExistingInstancesOfSpec(specId);
-
-            var strategy = Factory.Create(spec);
-            StrategyEngine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode);
-            StrategyLibrary.Upsert(spec with { IsAutoActivate = true });
-
-            _libraryMessage = $"'{spec.Name}' started ({spec.ExecutionMode}). Will auto-activate on restart.";
-            _libraryError = false;
-        }
-        catch (Exception ex)
-        {
-            _libraryMessage = $"Start failed: {ex.Message}";
-            _libraryError = true;
-        }
+        var r = Coordinator.StartSpec(specId);
+        _libraryMessage = r.Message;
+        _libraryError   = !r.IsSuccess;
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Stop a running spec — remove every engine instance whose strategy id matches, and clear
-    /// the spec's IsAutoActivate flag so it doesn't come back on next launch. The spec stays in
-    /// the library; only the running instance is removed.
-    /// </summary>
     private void StopSpec(string specId)
     {
-        try
-        {
-            RemoveExistingInstancesOfSpec(specId);
-            var spec = StrategyLibrary.GetById(specId);
-            if (spec != null)
-            {
-                StrategyLibrary.Upsert(spec with { IsAutoActivate = false });
-            }
-            _libraryMessage = "Stopped.";
-            _libraryError = false;
-        }
-        catch (Exception ex)
-        {
-            _libraryMessage = $"Stop failed: {ex.Message}";
-            _libraryError = true;
-        }
+        var r = Coordinator.StopSpec(specId);
+        _libraryMessage = r.Message;
+        _libraryError   = !r.IsSuccess;
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Permanently delete a spec from the library. If currently active, also stops it first.
-    /// </summary>
     private void DeleteSpec(string specId)
     {
-        try
-        {
-            RemoveExistingInstancesOfSpec(specId);
-            StrategyLibrary.Remove(specId);
-            _libraryMessage = "Deleted.";
-            _libraryError = false;
-        }
-        catch (Exception ex)
-        {
-            _libraryMessage = $"Delete failed: {ex.Message}";
-            _libraryError = true;
-        }
+        // Coordinator.StopSpec handles instance removal + auto-activate clearing;
+        // Library.Remove drops the spec from disk.
+        Coordinator.StopSpec(specId);
+        StrategyLibrary.Remove(specId);
+        _libraryMessage = "Deleted.";
+        _libraryError   = false;
         StateHasChanged();
-    }
-
-    /// <summary>
-    /// Helper: remove every engine instance whose Strategy.Id matches the given spec id.
-    /// Used by Start (dedupe before adding), Stop, and Delete.
-    /// </summary>
-    private void RemoveExistingInstancesOfSpec(string specId)
-    {
-        var matches = StrategyEngine.ActiveStrategies
-            .Where(a => string.Equals(a.Strategy.Id, specId, StringComparison.OrdinalIgnoreCase))
-            .Select(a => a.InstanceId)
-            .ToList();
-        foreach (var id in matches)
-            StrategyEngine.RemoveStrategy(id);
     }
 
     // ── Active tab handlers ──────────────────────────────────────────────────
 
     private void TogglePause(string instanceId, bool isPaused)
     {
-        StrategyEngine.PauseStrategy(instanceId, !isPaused);
+        Coordinator.TogglePause(instanceId, isPaused);
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Remove a running strategy from the engine. If it corresponds to a library spec
-    /// (Strategy.Id matches a saved spec), also flips IsAutoActivate=false so the strategy
-    /// doesn't come back on next launch — fixes the silent "I removed it but it's still here
-    /// after restart" bug.
-    /// </summary>
     private void RemoveStrategy(string instanceId)
     {
-        var active = StrategyEngine.ActiveStrategies.FirstOrDefault(a => a.InstanceId == instanceId);
-        if (active != null)
-        {
-            var spec = StrategyLibrary.GetById(active.Strategy.Id);
-            if (spec != null)
-            {
-                StrategyLibrary.Upsert(spec with { IsAutoActivate = false });
-            }
-        }
-        StrategyEngine.RemoveStrategy(instanceId);
+        Coordinator.RemoveActive(instanceId);
         _libraryMessage = null;
         StateHasChanged();
     }
@@ -649,23 +571,10 @@ public class MyStrategy : BaseStrategy
     /// </summary>
     private void AutoWarmup()
     {
-        if (string.IsNullOrEmpty(_btSelectedSpecId))
-        {
-            _btMessage = "Select a strategy from the dropdown first.";
-            _btError = true;
-            return;
-        }
-        var spec = StrategyLibrary.GetById(_btSelectedSpecId);
-        if (spec == null)
-        {
-            _btMessage = "Selected spec not found in library.";
-            _btError = true;
-            return;
-        }
-        int recommended = WarmupAnalyzer.RecommendedWarmup(spec);
-        _btWarmup = recommended;
-        _btMessage = $"Warmup auto-set to {recommended} bars based on '{spec.Name}'.";
-        _btError = false;
+        var (bars, r) = Coordinator.RecommendedWarmup(_btSelectedSpecId);
+        _btMessage = r.Message;
+        _btError   = !r.IsSuccess;
+        if (r.IsSuccess && bars >= 0) _btWarmup = bars;
     }
 
     /// <summary>Parse a date input value (yyyy-MM-dd) safely. Empty/invalid → null.</summary>
@@ -728,37 +637,13 @@ public class MyStrategy : BaseStrategy
 
     private async Task RunBacktestAsync()
     {
-        if (string.IsNullOrEmpty(_btSelectedSpecId))
-        {
-            _btMessage = "Please select a saved strategy spec first.";
-            _btError = true;
-            return;
-        }
-
-        var data = Store.State.Data;
-        if (data == null || data.Count < 10)
-        {
-            _btMessage = "Not enough price data loaded. Load a chart first.";
-            _btError = true;
-            return;
-        }
-
-        var spec = StrategyLibrary.GetById(_btSelectedSpecId);
-        if (spec == null)
-        {
-            _btMessage = "Selected spec not found in library.";
-            _btError = true;
-            return;
-        }
-
         _btRunning = true;
         _btResult  = null;
-        _btMessage  = null;
+        _btMessage = null;
         StateHasChanged();
 
         try
         {
-            var instance = Factory.Create(spec);
             // The proper Backtest tab honors profile replay for full correctness — the
             // Build Setup Preview button uses ReplayProfiles=false for the fast iteration path.
             var config = new BacktestConfig(
@@ -766,14 +651,11 @@ public class MyStrategy : BaseStrategy
                 ReplayProfiles: true,
                 StartDate: _btStartDate,
                 EndDate: _btEndDate);
-            _btResult = await Backtester.RunAsync(instance, data, config, Store.State);
-            _btMessage = $"Backtest complete. {_btResult.SpeechSummary}";
-            _btError = false;
-        }
-        catch (Exception ex)
-        {
-            _btMessage = $"Backtest failed: {ex.Message}";
-            _btError = true;
+            var (result, status) = await Coordinator.RunBacktestAsync(
+                _btSelectedSpecId, Store.State.Data, config, Store.State);
+            _btResult  = result;
+            _btMessage = status.Message;
+            _btError   = !status.IsSuccess;
         }
         finally
         {
@@ -784,38 +666,16 @@ public class MyStrategy : BaseStrategy
 
     private async Task CompileAndAddCustomStrategyAsync()
     {
-        if (string.IsNullOrWhiteSpace(_customScriptCode))
-        {
-            _customScriptMessage = "Please enter strategy code.";
-            _customScriptError = true;
-            return;
-        }
-
         _customCompiling = true;
         _customScriptMessage = null;
         StateHasChanged();
 
         try
         {
-            var result = await RoslynScripting.CompileStrategyAsync(_customScriptCode);
-            if (!result.Success)
-            {
-                _customScriptMessage = "Compilation errors:\n" + string.Join("\n", result.Errors);
-                _customScriptError = true;
-                return;
-            }
-
-            var strategy = result.Strategy!;
-            StrategyEngine.AddStrategy(strategy, new Dictionary<string, object>(), _customExecMode);
-
-            _customScriptMessage = $"Strategy '{strategy.Name}' compiled and added ({_customExecMode} mode).";
-            _customScriptError = false;
-            _activeTab = "active";
-        }
-        catch (Exception ex)
-        {
-            _customScriptMessage = $"Unexpected error: {ex.Message}";
-            _customScriptError = true;
+            var r = await Coordinator.CompileAndAddStrategyAsync(_customScriptCode, _customExecMode);
+            _customScriptMessage = r.Message;
+            _customScriptError   = !r.IsSuccess;
+            if (r.IsSuccess) _activeTab = "active";
         }
         finally
         {

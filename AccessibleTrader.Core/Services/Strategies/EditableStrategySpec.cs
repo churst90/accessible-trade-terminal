@@ -172,9 +172,10 @@ namespace AccessibleTrader.Core.Services.Strategies
         }
 
         private static ConditionNode ToConditionNode(EditableConditionNode n) => n.IsGroup
-            ? new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList())
+            ? new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList(), n.ScoreThreshold)
             : new ConditionLeaf(n.Id, n.SignalDescriptorId, n.Operator, n.Value, n.Value2,
-                                n.WithinNBars, n.Score, n.Timeframe, n.SecondSignalDescriptorId);
+                                n.WithinNBars, n.Score, n.Timeframe, n.SecondSignalDescriptorId,
+                                n.MinLevelStrength);
 
         private static EditableConditionNode FromConditionNode(ConditionNode n) => n switch
         {
@@ -183,7 +184,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Id = g.Id,
                 IsGroup = true,
                 Logic = g.Logic,
-                Children = g.Children.Select(FromConditionNode).ToList()
+                Children = g.Children.Select(FromConditionNode).ToList(),
+                ScoreThreshold = g.ScoreThreshold
             },
             ConditionLeaf l => new EditableConditionNode
             {
@@ -196,7 +198,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 WithinNBars = l.WithinNBars,
                 Score = l.Score,
                 Timeframe = l.Timeframe,
-                SecondSignalDescriptorId = l.SecondSignalDescriptorId
+                SecondSignalDescriptorId = l.SecondSignalDescriptorId,
+                MinLevelStrength = l.MinLevelStrength
             },
             _ => new EditableConditionNode()
         };
@@ -212,6 +215,9 @@ namespace AccessibleTrader.Core.Services.Strategies
         // Group state
         public LogicOperator Logic { get; set; } = LogicOperator.And;
         public List<EditableConditionNode> Children { get; set; } = new();
+        // Score-group threshold: fire when sum of children's true-leaf Scores ≥ threshold.
+        // Null → degrades gracefully to OR for the Score logic operator.
+        public double? ScoreThreshold;
 
         // Leaf state
         public string SignalDescriptorId = string.Empty;
@@ -222,6 +228,8 @@ namespace AccessibleTrader.Core.Services.Strategies
         public double Score = 1.0;
         public string? Timeframe;
         public string? SecondSignalDescriptorId; // for CrossesAboveLine / CrossesBelowLine
+        // v7 pivot-strength gate for PriceRejectsLevel / PriceBreaksLevel. 0.0 = no filter.
+        public double MinLevelStrength;
     }
 
     /// <summary>Mutable mirror of <see cref="TpLadderRung"/>.</summary>

@@ -1,0 +1,224 @@
+@*
+    Risk-plan editor — stop source, TP ladder, sizing, R:R gate, entry trigger. Extracted
+    from BuildSetupTab on 2026-04-24 so the 200-line fieldset has its own testable home.
+    Owns no state of its own — mutates the shared EditableStrategySpec in place.
+*@
+
+@using AccessibleTrader.Sdk.Plugins
+@using AccessibleTrader.Sdk.Strategies
+@using AccessibleTrader.Core.Services.Strategies
+
+<fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+    <legend style="font-weight: 700; padding: 0 6px;">Risk Plan</legend>
+
+    <div class="modal-row">
+        <label for="risk-stopkind">Stop source:</label>
+        <select id="risk-stopkind"
+                value="@Spec.StopKind"
+                @onchange="e => { if (Enum.TryParse<StopSourceKind>(e.Value?.ToString(), out var k)) Spec.StopKind = k; }">
+            @foreach (var k in Enum.GetValues<StopSourceKind>())
+            {
+                <option value="@k">@k</option>
+            }
+        </select>
+    </div>
+
+    @if (Spec.StopKind == StopSourceKind.PercentOfPrice)
+    {
+        <div class="modal-row">
+            <label for="risk-stoppct">Stop percent:</label>
+            <input id="risk-stoppct" type="number" step="0.05" min="0"
+                   value="@Spec.StopPercent"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.StopPercent = v; }" />
+        </div>
+    }
+    else if (Spec.StopKind == StopSourceKind.AtrMultiple)
+    {
+        <div class="modal-row">
+            <label for="risk-atrper">ATR period:</label>
+            <input id="risk-atrper" type="number" step="1" min="1"
+                   value="@Spec.StopAtrPeriod"
+                   @onchange="e => { if (int.TryParse(e.Value?.ToString(), out var v)) Spec.StopAtrPeriod = v; }" />
+        </div>
+        <div class="modal-row">
+            <label for="risk-atrmult">ATR multiple:</label>
+            <input id="risk-atrmult" type="number" step="0.1" min="0.1"
+                   value="@Spec.StopAtrMultiple"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.StopAtrMultiple = v; }" />
+        </div>
+    }
+    else if (Spec.StopKind == StopSourceKind.BelowSwingLow)
+    {
+        <div class="modal-row">
+            <label for="risk-lookback">Swing lookback bars:</label>
+            <input id="risk-lookback" type="number" step="1" min="1"
+                   value="@Spec.StopLookback"
+                   @onchange="e => { if (int.TryParse(e.Value?.ToString(), out var v)) Spec.StopLookback = v; }" />
+        </div>
+    }
+    else if (Spec.StopKind == StopSourceKind.Fixed)
+    {
+        <div class="modal-row">
+            <label for="risk-fixed">Fixed stop price:</label>
+            <input id="risk-fixed" type="number" step="any"
+                   value="@Spec.StopFixed"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.StopFixed = v; }" />
+        </div>
+    }
+
+    <div class="modal-row">
+        <label for="risk-buffer">Stop buffer (price units):</label>
+        <input id="risk-buffer" type="number" step="any" min="0"
+               value="@Spec.StopBuffer"
+               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.StopBuffer = v; }" />
+    </div>
+
+    @* TP ladder *@
+    <div style="margin-top: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <strong>Take-profit ladder:</strong>
+            <button type="button" @onclick="AddTpRung" aria-label="Add take-profit rung">+ Rung</button>
+        </div>
+        @for (int i = 0; i < Spec.TpRungs.Count; i++)
+        {
+            int idx = i;
+            var rung = Spec.TpRungs[idx];
+            <div class="modal-row" style="border: 1px solid #333; padding: 6px; margin-bottom: 4px;">
+                <span>TP@(idx + 1):</span>
+                <select value="@rung.Kind"
+                        @onchange="e => { if (Enum.TryParse<TargetSourceKind>(e.Value?.ToString(), out var k)) rung.Kind = k; }">
+                    @foreach (var k in Enum.GetValues<TargetSourceKind>())
+                    {
+                        <option value="@k">@k</option>
+                    }
+                </select>
+                @if (rung.Kind == TargetSourceKind.RiskRewardMultiple)
+                {
+                    <label>R:</label>
+                    <input type="number" step="0.1" min="0.1" style="width: 60px;"
+                           value="@rung.Multiple"
+                           @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) rung.Multiple = v; }" />
+                }
+                else if (rung.Kind == TargetSourceKind.PercentOfPrice)
+                {
+                    <label>%:</label>
+                    <input type="number" step="0.1" min="0" style="width: 60px;"
+                           value="@rung.PercentValue"
+                           @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) rung.PercentValue = v; }" />
+                }
+                else if (rung.Kind == TargetSourceKind.Fixed)
+                {
+                    <label>Price:</label>
+                    <input type="number" step="any" style="width: 80px;"
+                           value="@rung.FixedPrice"
+                           @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) rung.FixedPrice = v; }" />
+                }
+                else if (rung.Kind == TargetSourceKind.FibExtension)
+                {
+                    <label>Fib:</label>
+                    <input type="number" step="0.1" min="1" style="width: 60px;"
+                           value="@rung.FibLevel"
+                           @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) rung.FibLevel = v; }" />
+                }
+                <label>Close fraction:</label>
+                <input type="number" step="0.05" min="0" max="1" style="width: 60px;"
+                       value="@rung.ClosePortion"
+                       @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) rung.ClosePortion = v; }" />
+                <button type="button" @onclick="() => Spec.TpRungs.RemoveAt(idx)" aria-label="Remove rung @(idx+1)">×</button>
+            </div>
+        }
+    </div>
+
+    <div class="modal-row" style="margin-top: 10px;">
+        <label for="risk-minrr">Minimum R:R gate:</label>
+        <input id="risk-minrr" type="number" step="0.1" min="0"
+               value="@Spec.MinRewardRiskRatio"
+               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.MinRewardRiskRatio = v; }" />
+    </div>
+
+    <div class="modal-row">
+        <label for="risk-sizing">Sizing mode:</label>
+        <select id="risk-sizing"
+                value="@Spec.SizingMode"
+                @onchange="e => { if (Enum.TryParse<SizingMode>(e.Value?.ToString(), out var m)) Spec.SizingMode = m; }">
+            @foreach (var m in Enum.GetValues<SizingMode>())
+            {
+                <option value="@m">@m</option>
+            }
+        </select>
+    </div>
+
+    @if (Spec.SizingMode == SizingMode.FixedRiskPercent)
+    {
+        <div class="modal-row">
+            <label for="risk-pct">Risk % of equity:</label>
+            <input id="risk-pct" type="number" step="0.001" min="0" max="0.1"
+                   value="@Spec.RiskPercent"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.RiskPercent = v; }" />
+        </div>
+    }
+    else if (Spec.SizingMode == SizingMode.FixedRiskCash)
+    {
+        <div class="modal-row">
+            <label for="risk-cash">Risk cash:</label>
+            <input id="risk-cash" type="number" step="any" min="0"
+                   value="@Spec.RiskCash"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.RiskCash = v; }" />
+        </div>
+    }
+    else
+    {
+        <div class="modal-row">
+            <label for="risk-qty">Fixed quantity:</label>
+            <input id="risk-qty" type="number" step="any" min="0"
+                   value="@Spec.FixedQuantity"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.FixedQuantity = v; }" />
+        </div>
+    }
+
+    <div class="modal-row">
+        <label for="risk-equity">Notional equity (backtest):</label>
+        <input id="risk-equity" type="number" step="any" min="0"
+               value="@Spec.Equity"
+               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.Equity = v; }" />
+    </div>
+
+    <div class="modal-row">
+        <label for="risk-entrykind">Entry trigger:</label>
+        <select id="risk-entrykind"
+                value="@Spec.EntryKind"
+                @onchange="e => { if (Enum.TryParse<EntryTriggerKind>(e.Value?.ToString(), out var k)) Spec.EntryKind = k; }">
+            @foreach (var k in Enum.GetValues<EntryTriggerKind>())
+            {
+                <option value="@k">@k</option>
+            }
+        </select>
+    </div>
+
+    @if (Spec.EntryKind == EntryTriggerKind.OnPullbackToLevel || Spec.EntryKind == EntryTriggerKind.OnBreakoutOf)
+    {
+        <div class="modal-row">
+            <label for="risk-entrylevel">Trigger level price:</label>
+            <input id="risk-entrylevel" type="number" step="any"
+                   value="@Spec.EntryLevelPrice"
+                   @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) Spec.EntryLevelPrice = v; }" />
+        </div>
+    }
+    else if (Spec.EntryKind == EntryTriggerKind.OnNextNCandleClose)
+    {
+        <div class="modal-row">
+            <label for="risk-entrync">N candles to confirm:</label>
+            <input id="risk-entrync" type="number" step="1" min="1"
+                   value="@Spec.EntryNCandles"
+                   @onchange="e => { if (int.TryParse(e.Value?.ToString(), out var v)) Spec.EntryNCandles = v; }" />
+        </div>
+    }
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired]
+    public EditableStrategySpec Spec { get; set; } = default!;
+
+    private void AddTpRung() =>
+        Spec.TpRungs.Add(new EditableTpRung { Multiple = Spec.TpRungs.Count + 1.0, ClosePortion = 0.33 });
+}
