@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.JSInterop;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.BlazorClient.Services
 {
@@ -18,12 +19,14 @@ namespace AccessibleTrader.BlazorClient.Services
     {
         private readonly IInputService _inputService;
         private readonly IEventBus _eventBus;
+        private readonly IWorkspaceStore _store;
         private DotNetObjectReference<GlobalInputService>? _dotNetRef;
 
-        public GlobalInputService(IInputService inputService, IEventBus eventBus)
+        public GlobalInputService(IInputService inputService, IEventBus eventBus, IWorkspaceStore store)
         {
             _inputService = inputService;
             _eventBus = eventBus;
+            _store = store;
         }
 
         public async Task InitializeAsync(IJSRuntime jsRuntime)
@@ -50,6 +53,31 @@ namespace AccessibleTrader.BlazorClient.Services
         public void OnMouseEvent(double x, double y, string type, double width, double height)
         {
             _inputService.ProcessMouse(x, y, type, width, height);
+        }
+
+        /// <summary>
+        /// Forwarded from the JS <c>contextmenu</c> handler on the chart-interact-zone.
+        /// The handler preventDefault's the browser menu; this bridge emits a distinct
+        /// "ContextMenu" mouse type through the same channel so DrawingInteractionManager
+        /// can hit-test without a parallel event path.
+        /// </summary>
+        [JSInvokable]
+        public void OnContextMenu(double x, double y, double width, double height)
+        {
+            _inputService.ProcessMouse(x, y, "ContextMenu", width, height);
+        }
+
+        /// <summary>
+        /// Forwarded from the JS <c>wheel</c> handler on the chart-interact-zone.
+        /// Dispatches <see cref="WheelZoomAction"/> directly so the reducer can re-anchor
+        /// the viewport start around the cursor bar. <paramref name="direction"/> is
+        /// +1 for wheel-up (zoom in) and -1 for wheel-down (zoom out);
+        /// <paramref name="anchorFraction"/> is the cursor X as a fraction of viewport width.
+        /// </summary>
+        [JSInvokable]
+        public void OnWheel(int direction, double anchorFraction)
+        {
+            _store.Dispatch(new WheelZoomAction(direction, anchorFraction));
         }
 
         public void Dispose()

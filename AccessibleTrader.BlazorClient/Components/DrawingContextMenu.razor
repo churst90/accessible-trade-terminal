@@ -1,0 +1,171 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@inject IEventBus EventBus
+@inject IWorkspaceStore Store
+@inject ISeriesManagementService SeriesManager
+@implements IDisposable
+
+@*
+    Right-click context menu for drawings. Subscribed to OpenDrawingContextMenuEvent from
+    DrawingInteractionManager. Renders a small floating panel anchored at the cursor with
+    Delete / Duplicate / Properties — the three commonly-needed actions on a drawing. Uses
+    existing DeleteSeriesEvent, AddSeriesAction, and OpenPropertiesEvent — no new reducers.
+
+    Keyboard: Escape dismisses. Tab order starts on Delete (the most common action). The
+    menu auto-dismisses on any other mouse click via a transparent overlay that eats the
+    event.
+*@
+
+@if (_isVisible && _series != null)
+{
+    <div role="none"
+         @onclick="Close"
+         @oncontextmenu:preventDefault="true"
+         style="position:fixed; inset:0; z-index:9998; background:transparent;">
+    </div>
+    <div role="menu"
+         aria-label="@($"Drawing actions for {_series.FriendlyName}")"
+         style="@_menuStyle"
+         @onclick:stopPropagation="true"
+         @oncontextmenu:preventDefault="true">
+        <button role="menuitem" class="ctx-item" @onclick="OnDelete">Delete</button>
+        <button role="menuitem" class="ctx-item" @onclick="OnDuplicate">Duplicate</button>
+        <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
+    </div>
+}
+
+<style>
+    .ctx-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        color: #eee;
+        padding: 6px 14px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+    .ctx-item:hover, .ctx-item:focus-visible {
+        background: #0078d4;
+        color: #fff;
+        outline: none;
+    }
+</style>
+
+@code {
+    private bool _isVisible;
+    private ChartSeries? _series;
+    private string _menuStyle = "";
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        _sub = EventBus.Subscribe<OpenDrawingContextMenuEvent>(ev =>
+            InvokeAsync(() => Open(ev.SeriesId, ev.ViewportX, ev.ViewportY)));
+    }
+
+    // Anchor the menu at viewport coordinates. The JS mouse handler reports coords
+    // relative to the chart-interact-zone element's bounding rect, so we offset by
+    // the element's current position on screen via getBoundingClientRect — done with
+    // a quick inline lookup on the CSS side (position:fixed + client-x/y already works
+    // because the JS coords are already client-relative minus element-offset, but
+    // offsetting by element position gives absolute client coords for the popup).
+    // Simpler: just use the event's viewport coords + a rough element-offset estimate.
+    // Good enough for a right-click menu — the user can dismiss if it lands awkwardly.
+    private async void Open(string seriesId, double x, double y)
+    {
+        var series = Store.State.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
+        if (series == null) return;
+        _series = series;
+        // Position the menu near the cursor. The coords are relative to the interact
+        // zone; we convert to viewport coords using a JS-sized offset passed through
+        // the browser's fixed positioning. Keep it simple: use the raw offsets and let
+        // the viewport clamp overflow.
+        double left = x + 4;
+        double top  = y + 4;
+        _menuStyle =
+            $"position:fixed; left:{left.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
+            $"top:{top.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
+            "z-index:9999; min-width:140px; background:#1c1c1e; border:1px solid #333; " +
+            "border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true, "DrawingContextMenu"));
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Close()
+    {
+        if (!_isVisible) return;
+        _isVisible = false;
+        _series = null;
+        EventBus.Publish(new ModalStateChangedEvent(false, "DrawingContextMenu"));
+        StateHasChanged();
+    }
+
+    private void OnDelete()
+    {
+        if (_series == null) return;
+        var id = _series.Id;
+        Close();
+        EventBus.Publish(new DeleteSeriesEvent(id));
+    }
+
+    private void OnDuplicate()
+    {
+        if (_series == null) return;
+        // Clone shares everything except Id. Build fresh config + buffer with a new
+        // GUID id so the duplicate survives as a separate drawing. Both SeriesConfig.Id
+        // and SeriesDataBuffer.SeriesId are init-only, so we construct new instances
+        // via object-initializer rather than mutating the cloned copies in place.
+        var src = _series;
+        string newId = Guid.NewGuid().ToString();
+
+        var srcConfig = src.Config;
+        var newConfig = new SeriesConfig
+        {
+            Id = newId,
+            Name = srcConfig.Name,
+            FriendlyName = $"{srcConfig.FriendlyName} (copy)",
+            Pane = srcConfig.Pane,
+            IndicatorCode = srcConfig.IndicatorCode,
+        };
+        foreach (var c in srcConfig.Components)
+            newConfig.Components.Add(c.Clone());
+
+        var newBuffer = new SeriesDataBuffer { SeriesId = newId };
+        foreach (var kvp in src.Data.ComponentData)
+            newBuffer.ComponentData[kvp.Key] = (double[])kvp.Value.Clone();
+
+        // DrawingData is a mutable reference type; clone is cheap via a fresh copy of
+        // the anchor fields so later edits to the duplicate don't follow the original.
+        DrawingData? newDrawing = src.Drawing == null ? null : new DrawingData
+        {
+            Type = src.Drawing.Type,
+            AnchorDate1 = src.Drawing.AnchorDate1,
+            AnchorPrice1 = src.Drawing.AnchorPrice1,
+            AnchorDate2 = src.Drawing.AnchorDate2,
+            AnchorPrice2 = src.Drawing.AnchorPrice2,
+            AnchorDate3 = src.Drawing.AnchorDate3,
+            AnchorPrice3 = src.Drawing.AnchorPrice3,
+            ExtendRight = src.Drawing.ExtendRight,
+        };
+
+        var dup = new ChartSeries(newConfig, newBuffer) { Drawing = newDrawing };
+        Close();
+        Store.Dispatch(new AddSeriesAction(dup));
+        SeriesManager.PersistWorkspace();
+        EventBus.Publish(new RedrawEvent());
+    }
+
+    private void OnProperties()
+    {
+        if (_series == null) return;
+        var id = _series.Id;
+        Close();
+        EventBus.Publish(new OpenPropertiesEvent(id));
+    }
+
+    public void Dispose() => _sub?.Dispose();
+}

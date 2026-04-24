@@ -28,6 +28,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             PanAction a                 => navService.Pan(state, a.Delta),
             ZoomAction a                => navService.ClampViewportToData(
                                               state with { ViewportLength = Math.Clamp(a.NewLength, state.RightMarginBars + 10, 5000) }),
+            WheelZoomAction a           => WheelZoom(state, a, navService),
             WorkspacePanEvent a         => navService.Pan(state,
                                               Math.Max(1, (int)Math.Round(state.ViewportLength * state.PanningGranularity / 100.0)) * a.Direction),
             WorkspaceZoomEvent a        => navService.Zoom(state, a.Direction),
@@ -200,6 +201,39 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             int snapped = (int)Math.Round(value / 5.0) * 5;
             return Math.Max(5, snapped);
+        }
+
+        /// <summary>
+        /// Scroll-wheel zoom centred on a cursor fraction. Computes the absolute bar
+        /// index under the cursor BEFORE zoom, applies a 10% multiplicative length
+        /// change, then repositions ViewportStartIndex so that same absolute bar remains
+        /// at the same screen fraction. Direction +1 = shrink (zoom in); -1 = grow.
+        /// </summary>
+        private static WorkspaceState WheelZoom(
+            WorkspaceState state,
+            WheelZoomAction a,
+            IViewportNavigationService navService)
+        {
+            double frac = Math.Clamp(a.AnchorFraction, 0.0, 1.0);
+            double anchorBar = state.ViewportStartIndex + frac * state.ViewportLength;
+
+            // 10% per wheel notch matches the feel of TradingView / MT5. Multiplicative
+            // so repeated scrolls don't slow down as the viewport shrinks.
+            double factor = a.Direction > 0 ? 1.0 / 1.10 : 1.10;
+            int newLength = Math.Clamp(
+                (int)Math.Round(state.ViewportLength * factor),
+                state.RightMarginBars + 10,
+                5000);
+
+            int newStart = (int)Math.Round(anchorBar - frac * newLength);
+            if (newStart < 0) newStart = 0;
+
+            var zoomed = state with
+            {
+                ViewportLength = newLength,
+                ViewportStartIndex = newStart,
+            };
+            return navService.ClampViewportToData(zoomed);
         }
     }
 }

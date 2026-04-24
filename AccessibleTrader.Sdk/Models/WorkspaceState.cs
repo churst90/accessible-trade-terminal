@@ -237,6 +237,15 @@ namespace AccessibleTrader.Sdk.Models
     public record SetCursorAction(int NewIndex) : WorkspaceAction;
     public record PanAction(int Delta) : WorkspaceAction;
     public record ZoomAction(int NewLength) : WorkspaceAction;
+    /// <summary>
+    /// Scroll-wheel zoom centred on a cursor position. <paramref name="Direction"/> is
+    /// +1 (zoom in / shrink viewport) or -1 (zoom out / grow viewport).
+    /// <paramref name="AnchorFraction"/> is the cursor's X position as a fraction of the
+    /// viewport width [0..1] — the bar under that fraction stays pinned to the cursor as
+    /// the viewport expands or contracts around it. Contrast with <see cref="ZoomAction"/>,
+    /// which is cursor-agnostic and always re-anchors to the live edge.
+    /// </summary>
+    public record WheelZoomAction(int Direction, double AnchorFraction) : WorkspaceAction;
     public record JumpToLatestAction() : WorkspaceAction;
     /// <summary>Adjusts PanningGranularity by <paramref name="Delta"/> percentage points (e.g. +5 or -5).</summary>
     public record AdjustGranularityAction(int Delta) : WorkspaceAction;

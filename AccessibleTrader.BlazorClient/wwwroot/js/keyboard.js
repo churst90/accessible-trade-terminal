@@ -177,23 +177,57 @@ window.accessibleTrader = {
 
         el.addEventListener('mousedown', function (e) {
             const rect = el.getBoundingClientRect();
-            dotnetHelper.invokeMethodAsync('OnMouseEvent', 
+            dotnetHelper.invokeMethodAsync('OnMouseEvent',
                 e.clientX - rect.left, e.clientY - rect.top, 'MouseDown', rect.width, rect.height);
         });
 
+        // MouseMove fires unconditionally (regardless of button state) so the live
+        // drawing preview can track the cursor during click-click placement, not just
+        // click-drag. Throttled via requestAnimationFrame so at most one .NET dispatch
+        // happens per paint tick — keeps the drag-preview smooth without flooding the
+        // JS interop bridge on a fast mouse.
+        let moveRafHandle = 0;
+        let pendingMoveX = 0, pendingMoveY = 0;
         el.addEventListener('mousemove', function (e) {
-            if (e.buttons > 0) {
-                const rect = el.getBoundingClientRect();
-                dotnetHelper.invokeMethodAsync('OnMouseEvent', 
-                    e.clientX - rect.left, e.clientY - rect.top, 'MouseMove', rect.width, rect.height);
-            }
+            const rect = el.getBoundingClientRect();
+            pendingMoveX = e.clientX - rect.left;
+            pendingMoveY = e.clientY - rect.top;
+            if (moveRafHandle) return;
+            moveRafHandle = requestAnimationFrame(function () {
+                moveRafHandle = 0;
+                dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                    pendingMoveX, pendingMoveY, 'MouseMove', rect.width, rect.height);
+            });
         });
 
         el.addEventListener('mouseup', function (e) {
             const rect = el.getBoundingClientRect();
-            dotnetHelper.invokeMethodAsync('OnMouseEvent', 
+            dotnetHelper.invokeMethodAsync('OnMouseEvent',
                 e.clientX - rect.left, e.clientY - rect.top, 'MouseUp', rect.width, rect.height);
         });
+
+        // Right-click → suppress the browser context menu and forward the cursor
+        // position to .NET. DrawingInteractionManager decides whether to surface a
+        // drawing-specific context menu (hit-tests anchors) or no-op.
+        el.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            const rect = el.getBoundingClientRect();
+            dotnetHelper.invokeMethodAsync('OnContextMenu',
+                e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+        });
+
+        // Scroll-wheel zoom. Passive:false so we can preventDefault — otherwise the
+        // browser scrolls the page under the chart instead of zooming. Direction is
+        // +1 for wheel-up (zoom in) and -1 for wheel-down (zoom out); anchor fraction
+        // is the cursor's X position within the chart rect, so the bar under the
+        // cursor stays fixed as the viewport expands or contracts.
+        el.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            const rect = el.getBoundingClientRect();
+            const anchorFraction = (e.clientX - rect.left) / Math.max(1, rect.width);
+            const direction = e.deltaY < 0 ? 1 : -1;
+            dotnetHelper.invokeMethodAsync('OnWheel', direction, anchorFraction);
+        }, { passive: false });
     },
 
     /**

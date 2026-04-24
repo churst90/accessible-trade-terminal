@@ -58,6 +58,13 @@ namespace AccessibleTrader.Core.Models
     public record AddDrawingEvent(string DrawingType);
     public record CancelDrawingEvent();
     /// <summary>
+    /// Fired by <see cref="Accessibility.DrawingInteractionManager"/> when a right-click lands
+    /// on an existing drawing's anchor handle. <see cref="BlazorClient.Components.DrawingContextMenu"/>
+    /// subscribes and shows a floating menu anchored at <paramref name="ViewportX"/> /
+    /// <paramref name="ViewportY"/> (CSS pixels, relative to the chart-interact-zone element).
+    /// </summary>
+    public record OpenDrawingContextMenuEvent(string SeriesId, double ViewportX, double ViewportY);
+    /// <summary>
     /// Fired by <see cref="CommandDispatcher"/> when the user confirms both anchors in Coordinate Entry mode.
     /// <see cref="DrawingInteractionManager"/> subscribes and calls <c>HandleAddDrawing</c> twice — once per anchor — to complete the drawing.
     /// </summary>

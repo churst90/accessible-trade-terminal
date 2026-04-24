@@ -32,6 +32,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private DateTime? _anchorDate2;
         private double? _anchorPrice2;
 
+        // ── Click-drag placement state ───────────────────────────────────────
+        // A "preview" drawing series is added to the store immediately on the first
+        // MouseDown so the user sees the line follow the cursor as they drag. MouseMove
+        // updates the preview's second anchor and recomputes its component arrays;
+        // MouseUp commits (preview IS the final drawing; no series swap needed). Click-
+        // click users (release without moving) bypass the commit and enter a legacy
+        // second-click flow that still uses the preview for feedback on subsequent moves.
+        private string? _previewSeriesId;
+        private bool _isMouseDragging;
+        private double _dragStartX;
+        private double _dragStartY;
+        // Pixel threshold below which MouseUp is treated as "click, not drag" — leaves
+        // click-click placement working for users who don't want drag. 5 px covers
+        // accidental hand tremor on mouse-down.
+        private const double DragDeadZonePixels = 5.0;
+
+        // ── Edit-drag state (reposition existing drawing endpoints) ──────────
+        // On MouseDown over an existing drawing's anchor handle, we enter edit-drag
+        // mode: subsequent MouseMove events update that specific anchor on the hit
+        // series; MouseUp commits. Independent of the placement state above — a
+        // drawing can be in "edit" mode only when no new drawing is being placed.
+        private string? _editSeriesId;
+        private int _editAnchorSlot;   // 1, 2, or 3
+        // Anchor-handle hit-test tolerance in pixels. 10 px matches the rendered
+        // anchor handle radius with a small overshoot for easier grabbing.
+        private const double AnchorHitToleranceSquared = 10.0 * 10.0;
+
         public DrawingInteractionManager(
             IEventBus eventBus,
             IDrawingService drawingService,
@@ -51,7 +78,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void HandleMouseEvent(double x, double y, string type, double width, double height)
         {
-            if (_pendingDrawingType == DrawingType.None && type != "MouseDown") return;
+            // Fast-reject events that have no drawing context. MouseMove with an active
+            // preview OR an active edit-drag is allowed even when _pendingDrawingType is
+            // None, because a two-point drawing's preview (or a handle-drag edit) outlives
+            // the pending flag until MouseUp commits.
+            if (_pendingDrawingType == DrawingType.None
+                && _previewSeriesId == null
+                && _editSeriesId == null
+                && type != "MouseDown") return;
 
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0) return;
@@ -80,13 +114,405 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 anchorDate = ProjectFutureDate(state.Data, dataIndex - (state.Data.Count - 1));
             }
 
-            if (type == "MouseDown")
+            switch (type)
             {
-                if (_pendingDrawingType != DrawingType.None)
+                case "MouseDown":
+                    HandleMouseDown(anchorDate, price, x, y, width, height);
+                    break;
+                case "MouseMove":
+                    HandleMouseMove(anchorDate, price);
+                    break;
+                case "MouseUp":
+                    HandleMouseUp(anchorDate, price, x, y);
+                    break;
+                case "ContextMenu":
+                    HandleContextMenu(x, y, width, height);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Right-click on the chart: hit-test drawings' anchor handles. If a drawing is
+        /// hit, publish <see cref="OpenDrawingContextMenuEvent"/> so the floating menu
+        /// component can show itself anchored at the cursor. Misses are no-ops (the JS
+        /// already suppressed the browser menu).
+        /// </summary>
+        private void HandleContextMenu(double x, double y, double width, double height)
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0) return;
+
+            string? bestSeriesId = null;
+            double bestDistSq = AnchorHitToleranceSquared;
+
+            foreach (var s in state.ActiveSeries)
+            {
+                if (!s.IsDrawing || s.Drawing == null) continue;
+                var anchors = new (DateTime? d, double? p)[]
                 {
-                    HandleDrawingStep(anchorDate, price);
+                    (s.Drawing.AnchorDate1, s.Drawing.AnchorPrice1),
+                    (s.Drawing.AnchorDate2, s.Drawing.AnchorPrice2),
+                    (s.Drawing.AnchorDate3, s.Drawing.AnchorPrice3),
+                };
+                foreach (var (d, p) in anchors)
+                {
+                    if (d == null && p == null) continue;
+                    double ax = d.HasValue ? DateToScreenX(d.Value, state, width) : x;
+                    double ay = p.HasValue ? PriceToScreenY(p.Value, state, height) : y;
+                    double dx = ax - x, dy = ay - y;
+                    double distSq = dx * dx + dy * dy;
+                    if (distSq < bestDistSq)
+                    {
+                        bestDistSq = distSq;
+                        bestSeriesId = s.Id;
+                    }
                 }
             }
+
+            if (bestSeriesId != null)
+            {
+                _eventBus.Publish(new OpenDrawingContextMenuEvent(bestSeriesId, x, y));
+            }
+        }
+
+        private void HandleMouseDown(DateTime date, double price, double x, double y, double width, double height)
+        {
+            _dragStartX = x;
+            _dragStartY = y;
+
+            // No pending placement → try to grab an existing drawing's anchor handle.
+            // Only when nothing else is in flight; otherwise the user is mid-placement
+            // and the click belongs to that flow.
+            if (_pendingDrawingType == DrawingType.None && _previewSeriesId == null)
+            {
+                if (TryBeginEditDrag(x, y, width, height))
+                {
+                    _isMouseDragging = true;
+                    return;
+                }
+                return;
+            }
+
+            _isMouseDragging = true;
+
+            if (_anchorDate1 == null)
+            {
+                // First click — materialise the anchor and start a preview series.
+                HandleDrawingStep(date, price);
+                // For two-point drawings, also seed a preview at (anchor1, anchor1) so
+                // MouseMove has something to update. Single-point drawings complete in
+                // HandleDrawingStep and return here with no active _pendingDrawingType.
+                if (_pendingDrawingType != DrawingType.None && _previewSeriesId == null)
+                {
+                    TryStartPreview(date, price);
+                }
+            }
+            else
+            {
+                // Legacy second click — commit without waiting for a mouse-up. Preserves
+                // click-click idiom for users who don't drag.
+                HandleDrawingStep(date, price);
+            }
+        }
+
+        private void HandleMouseMove(DateTime date, double price)
+        {
+            // Edit-drag of an existing drawing's anchor takes priority over placement
+            // preview — the two flows never run simultaneously.
+            if (_editSeriesId != null)
+            {
+                UpdateEditDrag(date, price);
+                return;
+            }
+            // Preview tracking only runs while a preview series exists. Works both during
+            // an active drag and between the two clicks of a legacy click-click flow.
+            if (_previewSeriesId == null) return;
+            UpdatePreview(date, price);
+        }
+
+        private void HandleMouseUp(DateTime date, double price, double x, double y)
+        {
+            if (!_isMouseDragging) return;
+            _isMouseDragging = false;
+
+            // Edit-drag release: commit the anchor edit. The series is already mutated
+            // in place; we only need to announce and clear state.
+            if (_editSeriesId != null)
+            {
+                CommitEditDrag(date, price);
+                return;
+            }
+
+            if (_pendingDrawingType == DrawingType.None) return;
+
+            double dx = x - _dragStartX;
+            double dy = y - _dragStartY;
+            double moved = Math.Sqrt(dx * dx + dy * dy);
+            if (moved < DragDeadZonePixels)
+            {
+                // Treated as click, not drag — leave pending state intact for a second click.
+                return;
+            }
+
+            // Drag commit: the preview series is already in the store with the final
+            // anchor 2 position. For two-point drawings we don't need CompleteDrawing to
+            // recreate anything; we just promote the preview to a committed drawing and
+            // clear the state machine. For three-point drawings (FibExtension, etc.) the
+            // drag fills anchor 2; the user still needs a separate click for anchor 3,
+            // so fall through to legacy HandleDrawingStep.
+            bool isThreePoint = _pendingDrawingType is
+                DrawingType.FibExtension or
+                DrawingType.RiskReward or
+                DrawingType.AndrewsPitchfork;
+
+            if (!isThreePoint)
+            {
+                PromotePreviewToCommitted(date, price);
+            }
+            else
+            {
+                // Record anchor 2 via the legacy path; preview keeps tracking for anchor 3.
+                HandleDrawingStep(date, price);
+            }
+        }
+
+        /// <summary>
+        /// Walk every drawing series in the workspace and find the nearest anchor handle
+        /// within <see cref="AnchorHitToleranceSquared"/> pixels of the cursor. If one is
+        /// found, enter edit-drag mode: subsequent MouseMove events update that anchor on
+        /// that series. Returns true when a handle was grabbed. Called from MouseDown when
+        /// no placement flow is active.
+        /// </summary>
+        private bool TryBeginEditDrag(double x, double y, double width, double height)
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0) return false;
+
+            string? bestSeriesId = null;
+            int bestSlot = 0;
+            double bestDistSq = AnchorHitToleranceSquared;
+
+            foreach (var s in state.ActiveSeries)
+            {
+                if (!s.IsDrawing || s.Drawing == null) continue;
+
+                // Each anchor slot maps its own (date?, price?) to screen (x, y). Slots
+                // with only one axis (HorizontalLine = price only, VerticalLine = date
+                // only) use the cursor's other coordinate so the handle is still grabbable.
+                // Missing slots (most drawings have only 2 anchors) are skipped.
+                var anchors = new (DateTime? d, double? p, int slot)[]
+                {
+                    (s.Drawing.AnchorDate1, s.Drawing.AnchorPrice1, 1),
+                    (s.Drawing.AnchorDate2, s.Drawing.AnchorPrice2, 2),
+                    (s.Drawing.AnchorDate3, s.Drawing.AnchorPrice3, 3),
+                };
+
+                foreach (var (d, p, slot) in anchors)
+                {
+                    if (d == null && p == null) continue;
+                    double anchorX = d.HasValue ? DateToScreenX(d.Value, state, width) : x;
+                    double anchorY = p.HasValue ? PriceToScreenY(p.Value, state, height) : y;
+                    double dx = anchorX - x;
+                    double dy = anchorY - y;
+                    double distSq = dx * dx + dy * dy;
+                    if (distSq < bestDistSq)
+                    {
+                        bestDistSq = distSq;
+                        bestSeriesId = s.Id;
+                        bestSlot = slot;
+                    }
+                }
+            }
+
+            if (bestSeriesId == null) return false;
+
+            _editSeriesId = bestSeriesId;
+            _editAnchorSlot = bestSlot;
+            return true;
+        }
+
+        /// <summary>
+        /// MouseMove during an active edit-drag: write the new cursor position into the
+        /// selected anchor slot, recompute component arrays, publish RedrawEvent. Handles
+        /// HorizontalLine and VerticalLine specially — those drawings have only one
+        /// meaningful axis per anchor.
+        /// </summary>
+        private void UpdateEditDrag(DateTime date, double price)
+        {
+            if (_editSeriesId == null) return;
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _editSeriesId);
+            if (series?.Drawing == null) return;
+
+            switch (_editAnchorSlot)
+            {
+                case 1:
+                    if (series.Drawing.Type != DrawingType.HorizontalLine)
+                        series.Drawing.AnchorDate1 = date;
+                    if (series.Drawing.Type != DrawingType.VerticalLine)
+                        series.Drawing.AnchorPrice1 = price;
+                    break;
+                case 2:
+                    series.Drawing.AnchorDate2 = date;
+                    series.Drawing.AnchorPrice2 = price;
+                    break;
+                case 3:
+                    series.Drawing.AnchorDate3 = date;
+                    series.Drawing.AnchorPrice3 = price;
+                    break;
+            }
+
+            var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
+            foreach (var kvp in results)
+            {
+                series.Data.ComponentData[kvp.Key] = kvp.Value;
+            }
+            _eventBus.Publish(new RedrawEvent());
+        }
+
+        /// <summary>
+        /// MouseUp during an active edit-drag: commit the final anchor position and
+        /// clear edit state. Series mutation is already persisted via
+        /// <see cref="SeriesManagementService"/>'s normal workspace-persistence hook.
+        /// </summary>
+        private void CommitEditDrag(DateTime date, double price)
+        {
+            if (_editSeriesId == null) return;
+            UpdateEditDrag(date, price);
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _editSeriesId);
+            string label = series?.FriendlyName ?? "Drawing";
+            _eventBus.Publish(new AnnouncementEvent(
+                $"{label} anchor {_editAnchorSlot} moved to {SpeechPriceFormatter.FormatPrice(price)}."));
+            _editSeriesId = null;
+            _editAnchorSlot = 0;
+        }
+
+        private static double DateToScreenX(DateTime date, WorkspaceState state, double width)
+        {
+            if (state.Data == null || state.Data.Count == 0 || state.ViewportLength <= 0) return 0;
+            // Binary-search the closest bar by date, then map to screen x via bar fraction.
+            int idx = FindNearestBarIndex(state.Data, date);
+            double frac = (idx - state.ViewportStartIndex) / (double)state.ViewportLength;
+            return frac * width;
+        }
+
+        private static int FindNearestBarIndex(IReadOnlyList<Ohlcv> data, DateTime target)
+        {
+            int lo = 0, hi = data.Count - 1;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (data[mid].Date < target) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
+        private static double PriceToScreenY(double price, WorkspaceState state, double height)
+        {
+            double min = state.ViewportRange.Min;
+            double max = state.ViewportRange.Max;
+            if (state.IsLogScale)
+            {
+                if (min <= 0) min = 0.01;
+                if (max <= min) max = min + 1.0;
+                double pct = (Math.Log(price) - Math.Log(min)) / (Math.Log(max) - Math.Log(min));
+                return (1.0 - pct) * height;
+            }
+            if (max <= min) return 0;
+            double linearPct = (price - min) / (max - min);
+            return (1.0 - linearPct) * height;
+        }
+
+        /// <summary>
+        /// Create a preview drawing series seeded with anchor1 on both ends so the user
+        /// immediately sees "something" at the cursor. Later MouseMove updates replace
+        /// anchor 2 with the live cursor position.
+        /// </summary>
+        private void TryStartPreview(DateTime anchor1Date, double anchor1Price)
+        {
+            // Single-point drawings never need a preview.
+            if (_pendingDrawingType is DrawingType.HorizontalLine
+                or DrawingType.VerticalLine
+                or DrawingType.TextLabel
+                or DrawingType.AnchoredVwap) return;
+
+            var preview = new DrawingData
+            {
+                Type = _pendingDrawingType,
+                AnchorDate1 = anchor1Date,
+                AnchorPrice1 = anchor1Price,
+                AnchorDate2 = anchor1Date,
+                AnchorPrice2 = anchor1Price,
+                ExtendRight = true,
+            };
+            string name = FriendlyName(_pendingDrawingType);
+            _previewSeriesId = CreateDrawingSeries(name, preview, _store.State.Data.ToList());
+        }
+
+        /// <summary>
+        /// Update the preview series' second (or third, if we're past anchor 2) anchor
+        /// to the current cursor position and recompute component arrays so the renderer
+        /// shows the line tracking the mouse. Mutates the existing ChartSeries in place
+        /// — ActiveSeries is an immutable list but its members are mutable records.
+        /// </summary>
+        private void UpdatePreview(DateTime cursorDate, double cursorPrice)
+        {
+            if (_previewSeriesId == null) return;
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
+            if (series?.Drawing == null) return;
+
+            if (_anchorDate2 == null)
+            {
+                series.Drawing.AnchorDate2 = cursorDate;
+                series.Drawing.AnchorPrice2 = cursorPrice;
+            }
+            else
+            {
+                // Three-point preview between anchors 2 and 3.
+                series.Drawing.AnchorDate3 = cursorDate;
+                series.Drawing.AnchorPrice3 = cursorPrice;
+            }
+
+            var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
+            foreach (var kvp in results)
+            {
+                series.Data.ComponentData[kvp.Key] = kvp.Value;
+            }
+            _eventBus.Publish(new RedrawEvent());
+        }
+
+        /// <summary>
+        /// Drag-release commit. The preview series stays in the workspace; we just
+        /// finalise its anchors and clear the placement state machine. No new series
+        /// is created — the preview IS the committed drawing.
+        /// </summary>
+        private void PromotePreviewToCommitted(DateTime finalDate, double finalPrice)
+        {
+            if (_previewSeriesId == null) return;
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
+            if (series?.Drawing != null)
+            {
+                series.Drawing.AnchorDate2 = finalDate;
+                series.Drawing.AnchorPrice2 = finalPrice;
+                var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
+                foreach (var kvp in results)
+                {
+                    series.Data.ComponentData[kvp.Key] = kvp.Value;
+                }
+            }
+
+            string label = FriendlyName(_pendingDrawingType);
+            double fromPrice = _anchorPrice1 ?? finalPrice;
+            string feedback = Math.Abs(finalPrice - fromPrice) > 0.001
+                ? $"{label} placed from {SpeechPriceFormatter.FormatPrice(fromPrice)} to {SpeechPriceFormatter.FormatPrice(finalPrice)}."
+                : $"{label} placed at {SpeechPriceFormatter.FormatPrice(finalPrice)}.";
+            _eventBus.Publish(new AnnouncementEvent(feedback));
+            _eventBus.Publish(new RedrawEvent());
+
+            _previewSeriesId = null;
+            _pendingDrawingType = DrawingType.None;
+            _anchorDate1 = null; _anchorPrice1 = null;
+            _anchorDate2 = null; _anchorPrice2 = null;
         }
 
         /// <summary>
@@ -206,19 +632,40 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private void CompleteDrawing(DateTime dateFinal, double priceFinal)
         {
-            var d = new DrawingData
+            // If a live preview exists, it's already the committed drawing — just
+            // finalise the anchor(s) we have and clear state. Otherwise fall back to
+            // creating a fresh series (legacy click-click path for drawings that never
+            // passed through MouseDown, e.g. Ctrl+Shift+T after keyboard navigation).
+            if (_previewSeriesId != null)
             {
-                Type = _pendingDrawingType,
-                AnchorDate1 = _anchorDate1,
-                AnchorPrice1 = _anchorPrice1,
-                AnchorDate2 = _anchorDate2,
-                AnchorPrice2 = _anchorPrice2,
-                AnchorDate3 = dateFinal,
-                AnchorPrice3 = priceFinal,
-                ExtendRight = true
-            };
-
-            CreateDrawingSeries(_pendingDrawingType.ToString(), d, _store.State.Data.ToList());
+                var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
+                if (series?.Drawing != null)
+                {
+                    series.Drawing.AnchorDate3 = dateFinal;
+                    series.Drawing.AnchorPrice3 = priceFinal;
+                    var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
+                    foreach (var kvp in results)
+                    {
+                        series.Data.ComponentData[kvp.Key] = kvp.Value;
+                    }
+                    _eventBus.Publish(new RedrawEvent());
+                }
+            }
+            else
+            {
+                var d = new DrawingData
+                {
+                    Type = _pendingDrawingType,
+                    AnchorDate1 = _anchorDate1,
+                    AnchorPrice1 = _anchorPrice1,
+                    AnchorDate2 = _anchorDate2,
+                    AnchorPrice2 = _anchorPrice2,
+                    AnchorDate3 = dateFinal,
+                    AnchorPrice3 = priceFinal,
+                    ExtendRight = true
+                };
+                CreateDrawingSeries(_pendingDrawingType.ToString(), d, _store.State.Data.ToList());
+            }
 
             string label = FriendlyName(_pendingDrawingType);
             double fromPrice = _anchorPrice1 ?? priceFinal;
@@ -227,6 +674,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : $"{label} placed at {SpeechPriceFormatter.FormatPrice(priceFinal)}.";
             _eventBus.Publish(new AnnouncementEvent(feedback));
 
+            _previewSeriesId = null;
             _pendingDrawingType = DrawingType.None;
             _anchorDate1 = null; _anchorPrice1 = null;
             _anchorDate2 = null; _anchorPrice2 = null;
@@ -315,18 +763,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private void CancelPendingDrawing()
         {
-            if (_pendingDrawingType == DrawingType.None) return;
+            if (_pendingDrawingType == DrawingType.None && _previewSeriesId == null) return;
 
             string label = FriendlyName(_pendingDrawingType);
+
+            // Remove the preview series so the half-drawn line disappears from the chart.
+            if (_previewSeriesId != null)
+            {
+                _store.Dispatch(new RemoveSeriesAction(_previewSeriesId));
+                _previewSeriesId = null;
+            }
+
             _pendingDrawingType = DrawingType.None;
             _anchorDate1 = null;
             _anchorPrice1 = null;
             _anchorDate2 = null;
             _anchorPrice2 = null;
+            _isMouseDragging = false;
             _eventBus.Publish(new AnnouncementEvent($"{label} cancelled."));
+            _eventBus.Publish(new RedrawEvent());
         }
 
-        private void CreateDrawingSeries(string name, DrawingData drawing, IReadOnlyList<Ohlcv> chartData)
+        private string CreateDrawingSeries(string name, DrawingData drawing, IReadOnlyList<Ohlcv> chartData)
         {
             string seriesId = Guid.NewGuid().ToString();
             var config = new SeriesConfig
@@ -354,6 +812,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _store.Dispatch(new AddSeriesAction(series));
             _eventBus.Publish(new RedrawEvent());
+            return seriesId;
         }
 
         public void Dispose()
