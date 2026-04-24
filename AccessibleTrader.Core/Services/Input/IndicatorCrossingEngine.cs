@@ -46,6 +46,18 @@ namespace AccessibleTrader.Core.Services.Input
             var focusedSeries = state.ActiveSeries
                 .FirstOrDefault(s => s.Id == state.FocusedSeriesId);
 
+            // Focused-trendline shortcut: when the user has a specific drawn trendline selected,
+            // Ctrl+L/R should only walk price-vs-THAT trendline crossings — not sweep every
+            // trendline on the chart. The former is the natural interpretation of "my focus is
+            // on this line, find where price crosses it"; the latter is what the price-action
+            // path below is for (no specific drawing in hand).
+            if (focusedSeries != null && focusedSeries.IsDrawing
+                && focusedSeries.Drawing?.Type == DrawingType.TrendLine)
+            {
+                DoFocusedTrendlineCrossJump(state, focusedSeries, data, count, current, jumpRight);
+                return;
+            }
+
             if (focusedSeries != null && state.FocusedComponentIndex >= 0
                 && state.FocusedComponentIndex < focusedSeries.Components.Count)
             {
@@ -96,11 +108,25 @@ namespace AccessibleTrader.Core.Services.Input
                         return;
                     case CrossingType.Trendline:
                     default:
+                        // No dedicated crossing rule matched this component. For a continuous-
+                        // points line (every bar has a numeric value) there's nothing sparse to
+                        // jump to — silently falling through to "all trendlines" surprised users
+                        // who had a specific oscillator component in focus. Instead, announce
+                        // the absence explicitly so the user knows why Ctrl+L/R is a no-op here.
                         var compData = focusedSeries.GetComponentData(focusedComp.Name);
-                        if (compData != null && compData.Length > 0 && compData.Any(v => !double.IsNaN(v)))
+                        bool hasNaN = compData != null && compData.Any(double.IsNaN);
+                        if (compData != null && compData.Length > 0 && hasNaN && compData.Any(v => !double.IsNaN(v)))
+                        {
+                            // Mixed NaN / non-NaN values — treat as sparse marker.
                             DoSparseSignalJump(focusedSeries, focusedComp, current, jumpRight);
+                        }
                         else
-                            DoTrendlineCrossJump(state, data, count, current, jumpRight);
+                        {
+                            string compName = focusedComp.DisplayName ?? focusedComp.Name;
+                            _eventBus.Publish(new FeedbackRequestEvent(
+                                FeedbackType.Boundary,
+                                $"No points of interest on {compName}"));
+                        }
                         return;
                 }
             }
@@ -325,6 +351,62 @@ namespace AccessibleTrader.Core.Services.Input
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{crossMsg} at {FormatTimestamp(state, found)}", true));
             }
             else _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view"));
+        }
+
+        /// <summary>
+        /// Walk price-vs-focused-trendline crossings. Used when the user has a specific drawn
+        /// trendline in focus — the natural interpretation is "find where close crosses THIS
+        /// line" rather than sweeping every trendline on the chart (which is what
+        /// <see cref="DoTrendlineCrossJump"/> does when no drawing is focused).
+        /// </summary>
+        private void DoFocusedTrendlineCrossJump(WorkspaceState state, ChartSeries focusedSeries,
+            System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)
+        {
+            var drawing = focusedSeries.Drawing;
+            if (drawing == null || !drawing.AnchorDate1.HasValue || !drawing.AnchorPrice1.HasValue
+                || !drawing.AnchorDate2.HasValue || !drawing.AnchorPrice2.HasValue)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "Focused trendline has no anchors"));
+                return;
+            }
+
+            int i1 = -1, i2 = -1;
+            for (int k = 0; k < count; k++) { if (data[k].Date >= drawing.AnchorDate1.Value) { i1 = k; break; } }
+            for (int k = 0; k < count; k++) { if (data[k].Date >= drawing.AnchorDate2.Value) { i2 = k; break; } }
+            if (i1 < 0 || i2 < 0 || i1 == i2)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "Focused trendline anchors are off-chart"));
+                return;
+            }
+
+            double p1 = drawing.AnchorPrice1.Value, p2 = drawing.AnchorPrice2.Value;
+            double m  = (p2 - p1) / (i2 - i1);
+            double b  = p1 - (m * i1);
+
+            int foundIndex = -1;
+            for (int i = 1; i < count; i++)
+            {
+                bool above     = data[i].Close     >= (m * i)       + b;
+                bool abovePrev = data[i - 1].Close >= (m * (i - 1)) + b;
+                if (above == abovePrev) continue;
+                if (!jumpRight && i < current  && (foundIndex < 0 || i > foundIndex)) foundIndex = i;
+                else if (jumpRight && i > current && (foundIndex < 0 || i < foundIndex)) foundIndex = i;
+            }
+
+            if (foundIndex >= 0)
+            {
+                _store.Dispatch(new NavigateAction(foundIndex));
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Info,
+                    $"Focused trendline crossing at {FormatTimestamp(state, foundIndex)}",
+                    true));
+            }
+            else
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Boundary,
+                    "No crossing against focused trendline"));
+            }
         }
 
         private void DoTrendlineCrossJump(WorkspaceState state, System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)

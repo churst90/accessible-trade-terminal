@@ -4,6 +4,8 @@ using System.Linq;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Core.Services.Strategies;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -11,15 +13,20 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly ISdkCandlePatternAnalyzer _patternAnalyzer;
         private readonly IIndicatorContextAnalyzer _contextAnalyzer;
+        private readonly ILevelService? _levels;
         // Tracks the trend direction seen on the previous bar per alert+series pair,
         // so EvaluateTrendChange detects actual direction flips rather than any non-flat trend.
         private readonly Dictionary<string, TrendDirection> _previousTrends =
             new(StringComparer.OrdinalIgnoreCase);
 
-        public AlertEvaluator(ISdkCandlePatternAnalyzer patternAnalyzer, IIndicatorContextAnalyzer contextAnalyzer)
+        public AlertEvaluator(
+            ISdkCandlePatternAnalyzer patternAnalyzer,
+            IIndicatorContextAnalyzer contextAnalyzer,
+            ILevelService? levels = null)
         {
             _patternAnalyzer = patternAnalyzer;
             _contextAnalyzer = contextAnalyzer;
+            _levels          = levels;
         }
 
         public IEnumerable<AlertFired> EvaluateAlerts(
@@ -88,6 +95,22 @@ namespace AccessibleTrader.Core.Services
             {
                 currentValue = newBar.Close;
                 prevValue    = previousBar.Close;
+            }
+            else if (alert.Target == AlertTarget.Poc)
+            {
+                // POC-crossing detection. Volume-profile POC is stable across adjacent bars so
+                // compare the two consecutive closes against the CURRENT POC — a true cross
+                // requires the prior close to have been on the opposite side. When no profile
+                // is on the chart (ILevelService unregistered or no POC kind emitted) the alert
+                // is a no-op rather than firing spuriously.
+                double poc = ResolveNearestPoc(state, newBar.Close);
+                if (double.IsNaN(poc)) return null;
+                currentValue = newBar.Close;
+                prevValue    = previousBar.Close;
+                // Force the threshold on the alert to the resolved POC so CrossesAbove /
+                // CrossesBelow evaluate against it even when the user configured a stale
+                // threshold — POC is a moving target, not a fixed user input.
+                alert = alert with { Threshold = poc };
             }
             else return null;
 
@@ -160,6 +183,32 @@ namespace AccessibleTrader.Core.Services
             };
 
             return entering ? inZone : !inZone;
+        }
+
+        /// <summary>
+        /// Resolve the nearest POC price from any registered volume-profile provider. Returns
+        /// NaN when ILevelService is not wired or when no POC-kind level is emitted. The
+        /// "nearest" selection uses absolute distance from the current close — a chart may
+        /// have multiple POCs (e.g. VPVR + TPO) and the one closest to current price is the
+        /// relevant cross target.
+        /// </summary>
+        private double ResolveNearestPoc(WorkspaceState state, double currentClose)
+        {
+            if (_levels == null) return double.NaN;
+            var all = _levels.GetAllLevels(state.Data, state);
+            double best = double.NaN;
+            double bestDist = double.PositiveInfinity;
+            foreach (var lvl in all)
+            {
+                if (lvl.Kind != LevelKind.Poc) continue;
+                double dist = Math.Abs(lvl.Price - currentClose);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = lvl.Price;
+                }
+            }
+            return best;
         }
 
         private static string DescribeCondition(AlertDefinition alert, double value) => alert.Condition switch

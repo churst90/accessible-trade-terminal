@@ -52,24 +52,76 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void HandleMouseEvent(double x, double y, string type, double width, double height)
         {
             if (_pendingDrawingType == DrawingType.None && type != "MouseDown") return;
-            
+
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0) return;
 
             // Map screen coordinates to Price/Date using actual viewport dimensions
             double price = MapYToPrice(y, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
             int dataIndex = MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
-            
-            if (dataIndex < 0 || dataIndex >= state.Data.Count) return;
-            var pt = state.Data[dataIndex];
+
+            // Future-space anchor allowance. A drawing anchor may land in the 20-bar right
+            // margin (the reserved projection slot) for drawings like trendlines that need a
+            // forward anchor point. For indices at or past state.Data.Count we synthesise a
+            // date by extrapolating from the last real bar's timeframe cadence — the anchor
+            // date is stored on DrawingData and survives persistence via the same record path
+            // as any other anchor. Indices beyond Data.Count + RightMarginBars are out of
+            // bounds and rejected as before.
+            int maxFutureIndex = state.Data.Count + System.Math.Max(0, state.RightMarginBars) - 1;
+            if (dataIndex < 0 || dataIndex > maxFutureIndex) return;
+
+            System.DateTime anchorDate;
+            if (dataIndex < state.Data.Count)
+            {
+                anchorDate = state.Data[dataIndex].Date;
+            }
+            else
+            {
+                anchorDate = ProjectFutureDate(state.Data, dataIndex - (state.Data.Count - 1));
+            }
 
             if (type == "MouseDown")
             {
                 if (_pendingDrawingType != DrawingType.None)
                 {
-                    HandleDrawingStep(pt.Date, price);
+                    HandleDrawingStep(anchorDate, price);
                 }
             }
+        }
+
+        /// <summary>
+        /// Project a synthetic date offset forward from the last real bar by <paramref name="offsetBars"/>
+        /// steps, inferring the timeframe from the median inter-bar delta across the tail of
+        /// the loaded history. Using a tail-median avoids overreacting to gaps in historical
+        /// data (e.g. stock weekends, session boundaries) that would make a naive last-two-bar
+        /// delta misleading. Falls back to a 1-minute step when fewer than 3 bars are loaded.
+        /// </summary>
+        internal static System.DateTime ProjectFutureDate(System.Collections.Generic.IReadOnlyList<Ohlcv> data, int offsetBars)
+        {
+            if (data == null || data.Count == 0) return System.DateTime.UtcNow;
+            if (offsetBars <= 0) return data[^1].Date;
+
+            System.TimeSpan step;
+            if (data.Count >= 3)
+            {
+                // Sample up to 8 most-recent inter-bar deltas; take the median.
+                int samples = System.Math.Min(8, data.Count - 1);
+                var deltas = new System.TimeSpan[samples];
+                for (int i = 0; i < samples; i++)
+                {
+                    int hi = data.Count - 1 - i;
+                    deltas[i] = data[hi].Date - data[hi - 1].Date;
+                }
+                System.Array.Sort(deltas);
+                step = deltas[samples / 2];
+            }
+            else
+            {
+                step = data[^1].Date - data[0].Date;
+            }
+            if (step.Ticks <= 0) step = System.TimeSpan.FromMinutes(1);
+
+            return data[^1].Date + System.TimeSpan.FromTicks(step.Ticks * offsetBars);
         }
 
         private double MapYToPrice(double y, double height, double min, double max, bool isLog)

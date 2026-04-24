@@ -90,7 +90,86 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 sb.Append($"{comp.DisplayName ?? comp.Name} {val:F2}, ");
             }
 
+            // Indicator-specific narrative facts. Layered after the raw value list so the user
+            // first hears "Upper 100.2, Lower 95.6" and then the interpretation ("band expanding,
+            // volatility increasing"). Each branch is a guarded noop when the series doesn't
+            // carry the required components or a NaN slice is in view.
+            string code = (series.IndicatorCode ?? string.Empty).ToUpperInvariant();
+            if (code == "BB" || code == "BOLLINGER" || code == "BOLLINGERBANDS")
+            {
+                string bb = BollingerSqueezeExpansionFact(series, index);
+                if (!string.IsNullOrEmpty(bb)) sb.Append(bb + ", ");
+            }
+            else if (code == "MACD")
+            {
+                string macd = MacdCrossoverFact(series, index);
+                if (!string.IsNullOrEmpty(macd)) sb.Append(macd + ", ");
+            }
+
             return sb.ToString().TrimEnd(',', ' ');
+        }
+
+        /// <summary>
+        /// Returns "band squeezing" / "band expanding" / empty when current BB width is
+        /// materially (±10 %) tighter or wider than the 20-bar rolling-average width. Falls back
+        /// to a directional hint ("band narrowing" / "band widening") for smaller changes.
+        /// Requires Upper and Lower component arrays with at least 21 non-NaN samples in view.
+        /// </summary>
+        private static string BollingerSqueezeExpansionFact(ChartSeries series, int index)
+        {
+            var upper = series.GetComponentData("Upper");
+            var lower = series.GetComponentData("Lower");
+            if (upper == null || lower == null) return string.Empty;
+            if (index < 20 || index >= upper.Length || index >= lower.Length) return string.Empty;
+
+            double curWidth = upper[index] - lower[index];
+            if (double.IsNaN(curWidth) || curWidth <= 0) return string.Empty;
+
+            double sumWidth = 0;
+            int samples = 0;
+            for (int k = index - 19; k <= index; k++)
+            {
+                if (k < 0) continue;
+                double w = upper[k] - lower[k];
+                if (double.IsNaN(w) || w <= 0) continue;
+                sumWidth += w;
+                samples++;
+            }
+            if (samples < 10) return string.Empty;
+            double avg = sumWidth / samples;
+            if (avg <= 0) return string.Empty;
+
+            double pct = (curWidth - avg) / avg;
+            if (pct < -0.10) return "band squeezing, low volatility";
+            if (pct >  0.10) return "band expanding, volatility rising";
+            if (pct < -0.03) return "band narrowing";
+            if (pct >  0.03) return "band widening";
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Detects a MACD-vs-Signal crossover on the current bar. Reads the "MACD" and "Signal"
+        /// component arrays (standard Skender MACD layout) and compares prev-bar vs current-bar
+        /// sign of (MACD − Signal). Empty string when no crossover or when component data is
+        /// missing / NaN.
+        /// </summary>
+        private static string MacdCrossoverFact(ChartSeries series, int index)
+        {
+            if (index < 1) return string.Empty;
+            var macd   = series.GetComponentData("MACD");
+            var signal = series.GetComponentData("Signal");
+            if (macd == null || signal == null) return string.Empty;
+            if (index >= macd.Length || index >= signal.Length) return string.Empty;
+
+            double m  = macd[index];
+            double s  = signal[index];
+            double mp = macd[index - 1];
+            double sp = signal[index - 1];
+            if (double.IsNaN(m) || double.IsNaN(s) || double.IsNaN(mp) || double.IsNaN(sp)) return string.Empty;
+
+            if (mp <= sp && m >  s) return "MACD crossed above signal, bullish";
+            if (mp >= sp && m <  s) return "MACD crossed below signal, bearish";
+            return string.Empty;
         }
 
         private static string ClassifyBar(Ohlcv bar)

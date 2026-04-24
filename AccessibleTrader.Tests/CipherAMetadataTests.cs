@@ -24,9 +24,20 @@ namespace AccessibleTrader.Tests
         // ── 1. Component count ────────────────────────────────────────────────
 
         [Fact]
-        public void CipherA_GetMetadata_Returns8Components()
+        public void CipherA_GetMetadata_Returns9Components()
         {
-            Assert.Equal(8, GetComponents().Count);
+            // 8 visible + 1 hidden queryable gradient (WT Momentum Gradient). The gradient
+            // is not navigable on chart (IsVisible=false) but is surfaced via SignalCatalog
+            // so strategies can gate on momentum strength.
+            Assert.Equal(9, GetComponents().Count);
+        }
+
+        [Fact]
+        public void CipherA_WtMomentumGradient_IsHiddenQueryableComponent()
+        {
+            var grad = Get(CipherAProvider.CompWtMomentumGradient);
+            Assert.False(grad.IsVisible);
+            Assert.Equal(ComponentDisplayType.Line, grad.DisplayType);
         }
 
         // ── 2. Buy Signal audio ───────────────────────────────────────────────

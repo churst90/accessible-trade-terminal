@@ -4,7 +4,7 @@ using AccessibleTrader.Sdk.Analysis;
 
 namespace AccessibleTrader.Sdk.Alerts;
 
-public enum AlertTarget { Candle, Price, Indicator }
+public enum AlertTarget { Candle, Price, Indicator, Poc }
 
 public enum AlertCondition
 {

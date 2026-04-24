@@ -56,6 +56,15 @@ namespace AccessibleTrader.Core.Services.Indicators
         // Companion array key for GradientDot color source — not a navigable component.
         private const string CompWtMomentumColor = CompWtMomentum + "_color";
 
+        /// <summary>
+        /// Queryable copy of the WT Momentum gradient (0.0 extreme oversold / teal →
+        /// 0.5 neutral → 1.0 extreme overbought / red). Exposed as a hidden Line component so
+        /// <c>SignalCatalog</c> picks it up and strategies can gate on momentum gradient
+        /// strength (e.g. <c>GreaterThan 0.7</c> = strong bullish pressure). The renderer
+        /// skips IsVisible=false components so this does not draw on the chart.
+        /// </summary>
+        public const string CompWtMomentumGradient = "WT Momentum Gradient";
+
         public List<IndicatorMetadata> GetIndicators() => new()
         {
             new IndicatorMetadata
@@ -195,6 +204,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                             IsVisible = true,
                             DefaultUsePolarityColoring = false },
 
+                    // Queryable gradient (hidden from render). 0.0 = extreme oversold / strong
+                    // bullish pressure build, 0.5 = neutral, 1.0 = extreme overbought / strong
+                    // bearish pressure. Derived from raw WT1 clamped to ±obLevel and remapped.
+                    // Exists so strategies can gate on momentum gradient strength via
+                    // ConditionLeaf operators (e.g. GreaterThan 0.7 = "strong overbought").
+                    new() { Name = CompWtMomentumGradient, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.None,
+                            DefaultColorHex = "#808080",
+                            DefaultThickness = 1.0f,
+                            IsVisible = false,
+                            DefaultUsePolarityColoring = false },
                 },
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -280,6 +299,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // ── Output arrays ──────────────────────────────────────────────────────────────
             var wtMomentum   = new double[n];  // close price (Y position for Dot)
             var wtMomentumCl = new double[n];  // raw WT1 value (gradient color source for RenderDot)
+            var wtMomentumGr = new double[n];  // normalized 0..1 gradient (queryable by strategies)
             var buySignal    = new double[n];
             var sellSignal   = new double[n];
             var bullDiv      = new double[n];
@@ -289,6 +309,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var exhaustion   = new double[n];
             Array.Fill(wtMomentum,   double.NaN);
             Array.Fill(wtMomentumCl, double.NaN);
+            Array.Fill(wtMomentumGr, double.NaN);
             Array.Fill(buySignal,    double.NaN);
             Array.Fill(sellSignal,   double.NaN);
             Array.Fill(bullDiv,      double.NaN);
@@ -298,11 +319,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             Array.Fill(exhaustion,   double.NaN);
 
             // ── WT Momentum ribbon (every bar with valid WT1) ──────────────────────────────
+            // Gradient derivation: clamp raw WT1 to [-obLevel..+obLevel] and linear-map to
+            // [0..1]. 0.0 = deep oversold (strong bullish pressure building), 0.5 = neutral,
+            // 1.0 = deep overbought (strong bearish pressure building). The range compression
+            // is deliberate — once WT is past ±obLevel the regime is already established and
+            // the gradient saturates.
+            double denom = obLevel > 0 ? (obLevel * 2.0) : 106.0;
             for (int i = 0; i < n; i++)
             {
                 if (double.IsNaN(wt1[i])) continue;
                 wtMomentum[i]   = close[i];   // Y position = close price
                 wtMomentumCl[i] = wt1[i];     // color = raw WT1 oscillator value
+                double clamped  = Math.Max(-obLevel, Math.Min(obLevel, wt1[i]));
+                wtMomentumGr[i] = (clamped + obLevel) / denom;
             }
 
             // ── Crossover buy / sell signals (2-bar sustained OS/OB) ───────────────────────
@@ -393,15 +422,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // ── Write to buffer ────────────────────────────────────────────────────────────
-            WriteToBuffer(buffer, CompWtMomentum,     wtMomentum,   n);
-            WriteToBuffer(buffer, CompWtMomentumColor, wtMomentumCl, n);  // companion color array
-            WriteToBuffer(buffer, CompBuySignal,      buySignal,    n);
-            WriteToBuffer(buffer, CompSellSignal,     sellSignal,   n);
-            WriteToBuffer(buffer, CompBullDiv,        bullDiv,      n);
-            WriteToBuffer(buffer, CompBearDiv,        bearDiv,      n);
-            WriteToBuffer(buffer, CompBloodDiamond,   bloodDiamond, n);
-            WriteToBuffer(buffer, CompManipulation,   manipulation, n);
-            WriteToBuffer(buffer, CompExhaustion,     exhaustion,   n);
+            WriteToBuffer(buffer, CompWtMomentum,         wtMomentum,   n);
+            WriteToBuffer(buffer, CompWtMomentumColor,    wtMomentumCl, n);  // companion color array
+            WriteToBuffer(buffer, CompWtMomentumGradient, wtMomentumGr, n);  // queryable gradient
+            WriteToBuffer(buffer, CompBuySignal,          buySignal,    n);
+            WriteToBuffer(buffer, CompSellSignal,         sellSignal,   n);
+            WriteToBuffer(buffer, CompBullDiv,            bullDiv,      n);
+            WriteToBuffer(buffer, CompBearDiv,            bearDiv,      n);
+            WriteToBuffer(buffer, CompBloodDiamond,       bloodDiamond, n);
+            WriteToBuffer(buffer, CompManipulation,       manipulation, n);
+            WriteToBuffer(buffer, CompExhaustion,         exhaustion,   n);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
