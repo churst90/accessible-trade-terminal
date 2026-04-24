@@ -39,6 +39,11 @@
                         aria-selected="@(_activeTab == "Sonification" ? "true" : "false")"
                         aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "Sonification"'>Sonification</button>
+                <button role="tab" id="props-tab-speech"
+                        class="@(_activeTab == "Speech" ? "active" : "")"
+                        aria-selected="@(_activeTab == "Speech" ? "true" : "false")"
+                        aria-controls="props-tabpanel"
+                        @onclick='() => _activeTab = "Speech"'>Speech</button>
             </div>
 
             <div class="tab-content" role="tabpanel"
@@ -304,6 +309,113 @@
                         </div>
                         break;
 
+                    case "Speech":
+                        @* Per-component speech templates. Edits live on ComponentConfig.SpeechTemplate
+                           (continuous line/oscillator narration) and ComponentConfig.SignalSpeechTemplate
+                           (one-shot marker narration, e.g. Cipher B Blue Dot fires). Values persist with
+                           the workspace JSON; leaving a field blank falls back to the provider's
+                           metadata default. Resetting clears the config field and repopulates from
+                           IndicatorComponentMetadata on next save. *@
+                        <div class="scroll-area">
+                            <fieldset>
+                                <legend>Available Tokens</legend>
+                                <p style="font-size:0.78rem; color:#aaa; margin:0 0 6px 0;">
+                                    Continuous templates (line / oscillator / band):
+                                    <code>{name}</code>, <code>{type}</code>, <code>{value}</code>,
+                                    <code>{value:F2}</code>, <code>{value:price}</code>,
+                                    <code>{trend}</code>, <code>{zone}</code>
+                                </p>
+                                <p style="font-size:0.78rem; color:#aaa; margin:0;">
+                                    Signal (marker) templates:
+                                    <code>{name}</code>, <code>{price}</code>. Empty template on a marker = silent.
+                                </p>
+                            </fieldset>
+
+                            @if (_series.Components.Count > 3)
+                            {
+                                <div class="modal-row" style="margin-bottom:12px;">
+                                    <label for="comp-picker-speech">Component</label>
+                                    <select id="comp-picker-speech"
+                                            value="@_selectedComponentName"
+                                            @onchange='e => _selectedComponentName = e.Value?.ToString() ?? ""'
+                                            aria-label="Select component to configure speech for">
+                                        <option value="">All Components</option>
+                                        @foreach (var c in _series.Components)
+                                        {
+                                            <option value="@c.Name">@c.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
+                            @foreach (var comp in _series.Components.Where(c =>
+                                string.IsNullOrEmpty(_selectedComponentName) || c.Name == _selectedComponentName))
+                            {
+                                var defaults = GetComponentSpeechDefaults(comp.Name);
+                                bool isMarker = comp.DisplayType is ComponentDisplayType.Dot
+                                    or ComponentDisplayType.Diamond
+                                    or ComponentDisplayType.Cross
+                                    or ComponentDisplayType.Arrow
+                                    or ComponentDisplayType.TriangleUp
+                                    or ComponentDisplayType.TriangleDown
+                                    or ComponentDisplayType.Square;
+
+                                <fieldset>
+                                    <legend>Speech: @comp.Name</legend>
+
+                                    <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+                                        <label for="speech-tmpl-@comp.Name" style="flex:none; margin-bottom:3px;">
+                                            Continuous template
+                                        </label>
+                                        <textarea id="speech-tmpl-@comp.Name"
+                                                  rows="2"
+                                                  style="width:100%; background:#222; border:1px solid #444; color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
+                                                  aria-label="Continuous speech template for @comp.Name"
+                                                  placeholder="@(defaults.Continuous ?? "{name}. {type}. {value}.")"
+                                                  @onchange='e => comp.SpeechTemplate = e.Value?.ToString() ?? ""'>@comp.SpeechTemplate</textarea>
+                                        @if (!string.IsNullOrEmpty(defaults.Continuous))
+                                        {
+                                            <p style="margin:2px 0 4px 0; font-size:0.75rem; color:#666;">
+                                                Default: <code>@defaults.Continuous</code>
+                                            </p>
+                                        }
+                                        <button style="font-size:0.75rem; padding:2px 8px; align-self:flex-end;"
+                                                @onclick="() => ResetSpeechTemplate(comp, signal: false)"
+                                                aria-label="Reset continuous template for @comp.Name to default">
+                                            Reset to default
+                                        </button>
+                                    </div>
+
+                                    @if (isMarker)
+                                    {
+                                        <div class="modal-row" style="flex-direction:column; align-items:stretch; margin-top:8px;">
+                                            <label for="signal-tmpl-@comp.Name" style="flex:none; margin-bottom:3px;">
+                                                Signal template (fires on marker)
+                                            </label>
+                                            <textarea id="signal-tmpl-@comp.Name"
+                                                      rows="2"
+                                                      style="width:100%; background:#222; border:1px solid #444; color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
+                                                      aria-label="Signal speech template for @comp.Name"
+                                                      placeholder="@(defaults.Signal ?? "(silent)")"
+                                                      @onchange='e => comp.SignalSpeechTemplate = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value?.ToString()'>@comp.SignalSpeechTemplate</textarea>
+                                            @if (!string.IsNullOrEmpty(defaults.Signal))
+                                            {
+                                                <p style="margin:2px 0 4px 0; font-size:0.75rem; color:#666;">
+                                                    Default: <code>@defaults.Signal</code>
+                                                </p>
+                                            }
+                                            <button style="font-size:0.75rem; padding:2px 8px; align-self:flex-end;"
+                                                    @onclick="() => ResetSpeechTemplate(comp, signal: true)"
+                                                    aria-label="Reset signal template for @comp.Name to default">
+                                                Reset to default
+                                            </button>
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
+                        </div>
+                        break;
+
                     case "Sonification":
                         <div class="scroll-area">
                             <div class="modal-row">
@@ -424,6 +536,7 @@
         "General"      => "props-tab-general",
         "Appearance"   => "props-tab-appearance",
         "Sonification" => "props-tab-sonification",
+        "Speech"       => "props-tab-speech",
         _              => "props-tab-general",
     };
     private string _selectedComponentName = "";  // "" = show all components
@@ -615,6 +728,40 @@
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Defaults saved for {_series.FriendlyName}"));
+    }
+
+    // Speech template helpers
+    //
+    // The "default" for a speech template is the value the indicator provider declares on
+    // IndicatorComponentMetadata.SpeechTemplate / DefaultSignalSpeechTemplate. We surface it
+    // next to the editor so the user can see what the shipped behaviour is, and the Reset
+    // button below restores the config field back to that default. Looking it up lazily per
+    // render is fine — GetAvailableIndicators() is already cached by IndicatorService.
+    private (string? Continuous, string? Signal) GetComponentSpeechDefaults(string componentName)
+    {
+        var code = _series?.Config?.IndicatorCode;
+        if (string.IsNullOrEmpty(code)) return (null, null);
+        var meta = IndicatorService.GetAvailableIndicators()
+            .FirstOrDefault(m => m.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        var compMeta = meta?.Components?.FirstOrDefault(c =>
+            c.Name.Equals(componentName, StringComparison.OrdinalIgnoreCase));
+        return (compMeta?.SpeechTemplate, compMeta?.DefaultSignalSpeechTemplate);
+    }
+
+    private void ResetSpeechTemplate(ComponentConfig comp, bool signal)
+    {
+        var (cont, sig) = GetComponentSpeechDefaults(comp.Name);
+        if (signal)
+        {
+            comp.SignalSpeechTemplate = sig; // null = silent / no-signal default
+        }
+        else
+        {
+            // Continuous templates fall back to SpeechFormatter's generic fallback if the
+            // provider didn't declare one, so reset to empty rather than the fallback string —
+            // keeps persistence clean and lets future metadata default changes propagate.
+            comp.SpeechTemplate = cont ?? "";
+        }
     }
 
     // Color Rule helpers
