@@ -1,0 +1,61 @@
+@*
+    Circular-icon toolbar button. Renders a 40px circle with the named SVG
+    symbol above a 10px text label so the user gets both a color-coded glyph
+    AND a readable caption — the low-vision audience benefits from redundancy.
+
+    The `Variant` parameter drives CSS custom-property `color`, which the inline
+    <use> element inherits via `currentColor`. Change a variant → every icon of
+    that variant repaints without touching the sprite.
+
+    Usage:
+        <ToolbarIconButton Icon="alerts" Label="Alerts" Variant="warning"
+                          Tooltip="Manage price alerts (Alt+J)"
+                          OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
+*@
+<button type="button"
+        class="icon-btn icon-btn-@Variant @(IsToggleOn == true ? "icon-btn-on" : null) @(Primary ? "icon-btn-primary" : null)"
+        title="@Tooltip"
+        aria-label="@(string.IsNullOrEmpty(AriaLabel) ? Label : AriaLabel)"
+        aria-pressed="@(IsToggleOn is null ? null : IsToggleOn.Value ? "true" : "false")"
+        disabled="@Disabled"
+        @onclick="OnClick">
+    <span class="icon-btn-glyph" aria-hidden="true">
+        <svg viewBox="0 0 28 28">
+            <use href="#icon-@Icon"></use>
+        </svg>
+    </span>
+    <span class="icon-btn-label">@Label</span>
+</button>
+
+@code {
+    /// <summary>Icon symbol id (without the "icon-" prefix) — e.g. "alerts", "settings".</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+
+    /// <summary>Short caption rendered under the glyph. Keep ≤ 10 chars ideally.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    /// <summary>Hover tooltip — typically the full phrase plus the keyboard shortcut.</summary>
+    [Parameter] public string? Tooltip { get; set; }
+
+    /// <summary>
+    /// Accessible label. Defaults to <see cref="Label"/> when null; override for
+    /// buttons whose visible label is too terse to be self-describing.
+    /// </summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>
+    /// Color variant: data (green), action (cyan), warning (amber), danger (red),
+    /// neutral (gray-violet), thought (purple). Invalid values fall back to neutral.
+    /// </summary>
+    [Parameter] public string Variant { get; set; } = "neutral";
+
+    /// <summary>When set, renders an aria-pressed toggle surface + "on" style when true.</summary>
+    [Parameter] public bool? IsToggleOn { get; set; }
+
+    /// <summary>Emphasised style — filled background at full variant color.</summary>
+    [Parameter] public bool Primary { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+}

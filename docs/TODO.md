@@ -4,6 +4,34 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-24] — Icon toolbar system (complete 2026-04-24)
+
+Replaced text-only toolbar + indicator bar with a circular-icon system:
+25 custom SVG icons as inline sprite symbols, reusable
+`ToolbarIconButton.razor` component, six saturated color variants
+(data / action / warning / danger / neutral / thought). Icons paired
+with labels — never icon-only — for the low-vision audience. 537/537
+tests still green.
+
+- [x] **Inline SVG sprite** at `Components/IconSprite.razor` with 25
+  rounded-stroke symbols using `stroke="currentColor"`. Injected once
+  from `MainLayout`.
+- [x] **`ToolbarIconButton` component** with `Icon` / `Label` /
+  `Tooltip` / `AriaLabel` / `Variant` / `IsToggleOn` / `Primary` /
+  `Disabled` / `OnClick` parameters.
+- [x] **Six CSS variants** with single CSS custom property
+  `--btn-color`. Hue never shifts on hover / focus / pressed — only
+  alpha + ring intensity. Muscle memory preserved.
+- [x] **Toolbar groups** (`.toolbar-group`) separate Mode / Chart
+  Setup / Analysis / Workspace / Meta clusters with inset vertical
+  rules.
+- [x] **3 px focus-visible ring at full variant saturation** replaces
+  the 1 px dotted default.
+- [x] **`Toolbar.razor` + `IndicatorBar.razor`** rewired to use the new
+  component end-to-end.
+
+---
+
 ## [2026-04-24] — Visual polish + titlebar/Schwab fixes (complete 2026-04-24)
 
 Post-screenshot-review sweep. 537/537 tests still green.

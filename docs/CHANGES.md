@@ -4,6 +4,78 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Icon toolbar: 25 custom SVG icons + circular button component
+
+Replaced the text-only toolbar + indicator bar with a circular-icon system
+designed around the low-vision audience. Every button now reads as a 40px
+tinted disc containing a 24px rounded-stroke SVG glyph, stacked above a
+10px text label — icon and text are **always both visible**, never an
+either/or. Color, not shape, is the primary categorical cue.
+
+### Architecture
+
+- **`Components/IconSprite.razor`** — a single inline SVG sprite injected once
+  into `MainLayout` at the top of the app container. Contains 25 `<symbol>`
+  definitions covering every toolbar + indicator-bar action. Every symbol
+  uses `stroke="currentColor"`, `stroke-linecap="round"`,
+  `stroke-linejoin="round"` at stroke-width 2 so the CSS variant class can
+  drive the color uniformly. Positioned `absolute; width:0; height:0` so it
+  occupies no layout space.
+- **`Components/ToolbarIconButton.razor`** — reusable button component with
+  parameters `Icon` (symbol id), `Label`, `Tooltip`, `AriaLabel`, `Variant`,
+  `IsToggleOn`, `Primary`, `Disabled`, `OnClick`. Renders a `<button>` that
+  contains the circular glyph (`<svg><use href="#icon-{Icon}">`) above the
+  label. `aria-pressed` is wired only when `IsToggleOn` is non-null so
+  non-toggle buttons don't emit a stale false value.
+- **`app.css`** — new `.icon-btn` family with CSS custom property
+  `--btn-color`. Six variant classes set `--btn-color` to saturated RGB
+  triplets: `data` (green `rgb(0,200,120)`), `action` (cyan
+  `rgb(0,180,255)`), `warning` (amber `rgb(255,180,0)`), `danger` (red
+  `rgb(255,80,80)`), `neutral` (slate `rgb(180,180,200)`), `thought`
+  (violet `rgb(180,100,255)`). Hue **never shifts** on hover / focus /
+  aria-pressed — only the background alpha + focus ring intensity do.
+  Keeps muscle memory intact.
+- **Toolbar groups** — `.toolbar-group` wrapper gives each semantic cluster
+  (Mode / Chart Setup / Analysis / Workspace / Meta) an inset vertical
+  rule so the eye finds its zone without re-reading labels. Dropdowns
+  (market / provider / symbol / timeframe) stay as selects — they're data
+  entry, not commands.
+
+### Icon set (all 25)
+
+Modes: **trading** (single candle with wick), **analytics** (line chart
+with anchor points). Chart setup: **object-tree**, **drawings** (pencil
+on diagonal), **sound-designer** (ring of audio waves). Analysis:
+**trade** (bidirectional swap), **order-book** (stacked bars of varying
+length), **strategies** (chess knight silhouette), **alerts** (bell with
+clapper), **api-keys** (key with serrations). Workspace:
+**save-workspace** (arrow into tray), **load-workspace** (arrow from
+tray). Meta: **settings** (gear), **help** (question mark in ring).
+Visual toggles: **heatmap** (3×3 dot grid, graduated opacity),
+**heikin-ashi** (three offset rounded candle bodies), **log-scale**
+(exponential curve in frame). Actions: **load** (circled arrow right),
+**add-indicator** (plus overlaid on wave), **scripts** (angle brackets +
+slash). Indicator bar: **visible** (eye open), **hidden** (eye crossed),
+**audio-on** (speaker with waves), **audio-muted** (speaker with slash),
+**ai-analyst** (four-point sparkle + accent dots), **journal**
+(notebook), **properties** (horizontal sliders).
+
+### Accessibility wins
+
+- **Icon + label + tooltip + aria-label** — four redundant cues per
+  button. Low vision ≠ zero vision, so icon alone would be a regression;
+  pairing keeps every population served.
+- **3 px focus-visible ring at full variant saturation** replaces the
+  1 px dotted default — single biggest Tab-navigation-visibility win.
+- **Disabled** state uses opacity + cursor, preserves every other cue.
+- **Primary** variant (Load, Add) uses a solid filled disc with inverted
+  ink so the action stands out without relying on color alone.
+
+Build clean (0 warnings / 0 errors on the Windows TFM), 537/537 tests
+pass. Plugin trust manifest count holds at 26.
+
+---
+
 ## [2026-04-24] — Legend polish round 2: VPVR filter + higher alpha
 
 Two refinements after reviewing the post-fix screenshot:

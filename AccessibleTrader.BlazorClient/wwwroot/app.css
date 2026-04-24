@@ -405,3 +405,131 @@ label {
     float: right;
     padding: 0 4px;
 }
+
+/* ── Icon Toolbar Buttons ──────────────────────────────────────────────────
+   Circular glyph above a short label. Color is driven by a CSS custom
+   property --btn-color set per variant; the SVG <use> inherits it via
+   stroke="currentColor". Focus / hover / aria-pressed all modify ONLY the
+   background alpha + ring so the hue never shifts — muscle memory stays
+   intact for low-vision users.                                             */
+
+.icon-btn {
+    /* Reset native button chrome */
+    background: transparent;
+    border: none;
+    margin: 0;
+
+    /* Layout: glyph circle stacked over label */
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 3px;
+    padding: 2px 4px;
+    cursor: pointer;
+    min-width: 52px;
+
+    --btn-color: rgb(180, 180, 200);
+    color: var(--btn-color);
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: transform 0.08s ease-out;
+}
+
+.icon-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.icon-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* The circular glyph container. Background is the variant color at low alpha
+   so the icon reads against a tinted disc rather than a flat empty circle. */
+.icon-btn-glyph {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--btn-color) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--btn-color) 35%, transparent);
+    transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+
+.icon-btn:hover:not(:disabled) .icon-btn-glyph {
+    background: color-mix(in srgb, var(--btn-color) 25%, transparent);
+    border-color: color-mix(in srgb, var(--btn-color) 70%, transparent);
+}
+
+.icon-btn-glyph svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+    /* stroke="currentColor" is inherited from the button's color */
+}
+
+.icon-btn-label {
+    color: #dcdce2;
+    letter-spacing: 0.01em;
+}
+
+/* Focus ring: 3 px solid outer ring at full variant color. Replaces the
+   tab-navigation-visibility gap of a 1 px dotted default outline.         */
+.icon-btn:focus-visible {
+    outline: none;
+}
+
+.icon-btn:focus-visible .icon-btn-glyph {
+    box-shadow: 0 0 0 3px var(--btn-color);
+    background: color-mix(in srgb, var(--btn-color) 30%, transparent);
+}
+
+/* aria-pressed="true" or IsToggleOn — filled disc + saturated icon */
+.icon-btn-on .icon-btn-glyph,
+.icon-btn[aria-pressed="true"] .icon-btn-glyph {
+    background: color-mix(in srgb, var(--btn-color) 40%, transparent);
+    border-color: var(--btn-color);
+    box-shadow: inset 0 0 0 1px var(--btn-color);
+}
+
+/* Primary: solid filled disc — use sparingly (Load, Add). */
+.icon-btn-primary .icon-btn-glyph {
+    background: var(--btn-color);
+    color: #0a0a0a; /* icon rides on dark ink against filled disc */
+    border-color: var(--btn-color);
+}
+
+.icon-btn-primary:hover:not(:disabled) .icon-btn-glyph {
+    filter: brightness(1.1);
+}
+
+/* ── Variants (color only — shape and sizing are shared) ───────────────── */
+.icon-btn-data     { --btn-color: rgb(0, 200, 120); }   /* green: add / overlay */
+.icon-btn-action   { --btn-color: rgb(0, 180, 255); }   /* cyan: execute */
+.icon-btn-warning  { --btn-color: rgb(255, 180, 0); }   /* amber: alerts, flags */
+.icon-btn-danger   { --btn-color: rgb(255, 80, 80); }   /* red: destructive */
+.icon-btn-neutral  { --btn-color: rgb(180, 180, 200); } /* slate: meta / help */
+.icon-btn-thought  { --btn-color: rgb(180, 100, 255); } /* violet: strategy / AI */
+
+/* Toolbar group containers: visually separate semantic clusters with an
+   inset vertical rule instead of the single pixel line used before.      */
+.toolbar-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 2px 10px;
+}
+
+.toolbar-group + .toolbar-group {
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
