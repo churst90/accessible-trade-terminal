@@ -324,7 +324,25 @@ namespace AccessibleTrader.BlazorClient
             // so Build-Setup UI code can call a single method per save/delete/add-to-engine
             // operation instead of orchestrating the trio by hand.
             services.AddSingleton<IStrategyLibraryFacade, StrategyLibraryFacade>();
+            // StrategyModalCoordinator — wraps Engine + Backtester + WarmupAnalyzer +
+            // Library + Factory + Roslyn into one multi-service facade so the modal
+            // injects the coordinator once instead of orchestrating six services from
+            // every event handler.
+            services.AddSingleton<IStrategyModalCoordinator, StrategyModalCoordinator>();
             services.AddSingleton<SetupSonifier>();
+
+            // Alert delivery channels — SMTP + Telegram external dispatchers. The
+            // AlertDeliveryService subscribes to AlertFiredEvent and fans out to every
+            // configured channel. Config providers pull from ISettingsManager so edits
+            // via the Settings modal take effect immediately without a service reload.
+            services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+                new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(
+                    () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+            services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+                new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
+                    BuildAlertChannelHttpClient(),
+                    () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+            services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
 
             // Session B additions:
             services.AddSingleton<IMultiTimeframeDataService, MultiTimeframeDataService>();
@@ -448,6 +466,56 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IJournalService, JournalService>();
 
             return services;
+        }
+
+        // ── Alert delivery helpers ───────────────────────────────────────────
+        // Shared HttpClient for the Telegram channel. Capped at 1 MB response
+        // (Telegram responses are small JSON) with a 30s timeout so a hung
+        // api.telegram.org call doesn't pin the alert-delivery thread.
+        private static System.Net.Http.HttpClient BuildAlertChannelHttpClient()
+        {
+            return new System.Net.Http.HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                MaxResponseContentBufferSize = 1 * 1024 * 1024,
+            };
+        }
+
+        /// <summary>Loads email alert channel config from settings under the
+        /// "alerts.email" key-path. Missing / malformed settings return null so the
+        /// channel's IsConfigured check declines to attempt delivery.</summary>
+        private static AccessibleTrader.Core.Services.Alerts.EmailAlertChannelConfig? LoadEmailAlertConfig(ISettingsManager settings)
+        {
+            var host = settings.GetSetting("alerts.email.host")?.ToString();
+            var port = settings.GetSetting("alerts.email.port")?.ToObject<int>() ?? 587;
+            var useTls = settings.GetSetting("alerts.email.useTls")?.ToObject<bool>() ?? true;
+            var username = settings.GetSetting("alerts.email.username")?.ToString();
+            var password = settings.GetSetting("alerts.email.password")?.ToString();
+            var from = settings.GetSetting("alerts.email.fromAddress")?.ToString();
+            var to   = settings.GetSetting("alerts.email.toAddress")?.ToString();
+            if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
+                return null;
+            return new AccessibleTrader.Core.Services.Alerts.EmailAlertChannelConfig
+            {
+                Host = host, Port = port, UseTls = useTls,
+                Username = username, Password = password,
+                FromAddress = from, ToAddress = to,
+            };
+        }
+
+        /// <summary>Loads Telegram alert channel config from settings under the
+        /// "alerts.telegram" key-path. Bot token + chat id are required.</summary>
+        private static AccessibleTrader.Core.Services.Alerts.TelegramAlertChannelConfig? LoadTelegramAlertConfig(ISettingsManager settings)
+        {
+            var token = settings.GetSetting("alerts.telegram.botToken")?.ToString();
+            var chat  = settings.GetSetting("alerts.telegram.chatId")?.ToString();
+            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chat))
+                return null;
+            return new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannelConfig
+            {
+                BotToken = token,
+                ChatId = chat,
+            };
         }
     }
 }

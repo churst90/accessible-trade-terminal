@@ -196,4 +196,16 @@ internal static class WindowsInterop
         IntPtr hProcess,
         out PROCESS_MEMORY_COUNTERS counters,
         uint cb);
+
+    /// <summary>GetProcessTimes — user + kernel CPU time as 100-ns ticks via FILETIME.
+    /// Creation and exit FILETIMEs are returned too; we ignore them (the host tracks
+    /// wall-clock separately) and only consume kernel + user for the CPU-quota check.</summary>
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetProcessTimes(
+        IntPtr hProcess,
+        out long lpCreationTime,
+        out long lpExitTime,
+        out long lpKernelTime,
+        out long lpUserTime);
 }

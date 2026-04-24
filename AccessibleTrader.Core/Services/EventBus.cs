@@ -17,6 +17,24 @@ namespace AccessibleTrader.Core.Services
         /// Returns an IObservable for the event type, allowing for reactive patterns like Throttle/Sample.
         /// </summary>
         IObservable<T> AsObservable<T>();
+
+        /// <summary>
+        /// Subscribe with Rx <c>Throttle</c> debouncing — only emits <paramref name="handler"/>
+        /// after <paramref name="quietWindow"/> of silence on the stream. Useful for coalescing
+        /// burst-fire events (<c>RedrawEvent</c>, <c>IndicatorUpdatedEvent</c>) where ten
+        /// near-simultaneous publications collapse to a single actual re-render. Do NOT use
+        /// for accessibility events (<c>FeedbackRequestEvent</c>, <c>AnnouncementEvent</c>) —
+        /// a 50 ms debounce becomes a silent no-op in a key-repeat loop.
+        /// </summary>
+        IDisposable SubscribeCoalesced<T>(Action<T> handler, TimeSpan quietWindow);
+
+        /// <summary>
+        /// Subscribe with Rx <c>Sample</c> rate-limiting — emits the latest value per
+        /// <paramref name="window"/> regardless of quiet periods. Useful for continuous
+        /// high-frequency streams (mouse-move, scroll) where you need steady-state throttle
+        /// and don't care about the tail.
+        /// </summary>
+        IDisposable SubscribeSampled<T>(Action<T> handler, TimeSpan window);
     }
 
     public class EventBus : IEventBus, IDisposable
@@ -39,6 +57,12 @@ namespace AccessibleTrader.Core.Services
         {
             return GetSubject<T>().AsObservable();
         }
+
+        public IDisposable SubscribeCoalesced<T>(Action<T> handler, TimeSpan quietWindow)
+            => GetSubject<T>().AsObservable().Throttle(quietWindow).Subscribe(handler);
+
+        public IDisposable SubscribeSampled<T>(Action<T> handler, TimeSpan window)
+            => GetSubject<T>().AsObservable().Sample(window).Subscribe(handler);
 
         public void Dispose()
         {

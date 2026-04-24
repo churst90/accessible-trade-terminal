@@ -36,6 +36,10 @@ namespace AccessibleTrader.Tests.Mocks
             if (!_subjects.ContainsKey(typeof(T))) _subjects[typeof(T)] = new Subject<T>();
             return (Subject<T>)_subjects[typeof(T)];
         }
+        public IDisposable SubscribeCoalesced<T>(Action<T> handler, TimeSpan quietWindow)
+            => AsObservable<T>().Throttle(quietWindow).Subscribe(handler);
+        public IDisposable SubscribeSampled<T>(Action<T> handler, TimeSpan window)
+            => AsObservable<T>().Sample(window).Subscribe(handler);
     }
 
     public class MockMainThreadService : IMainThreadService

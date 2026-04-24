@@ -85,4 +85,15 @@ public interface IScriptWorkerProcess : IDisposable
     /// poller treats as "no data" and skips.
     /// </summary>
     long WorkingSet64 { get; }
+
+    /// <summary>
+    /// Total processor time the worker has consumed (user + kernel). Used by
+    /// <see cref="OutOfProcessScriptHost"/>'s CPU-quota poller: a tight loop
+    /// inside the 5-second wall-clock budget would otherwise peg a core with
+    /// no intervention. Implementations that cannot observe CPU time (Android
+    /// isolated-process without elevated query permissions) should return
+    /// <see cref="TimeSpan.Zero"/>, which the poller treats as "no data" and
+    /// skips the check that tick.
+    /// </summary>
+    TimeSpan TotalProcessorTime { get; }
 }

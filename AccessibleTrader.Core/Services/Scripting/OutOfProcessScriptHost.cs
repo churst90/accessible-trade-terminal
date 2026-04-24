@@ -66,10 +66,49 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
     /// </summary>
     public const long DefaultMaxWorkingSetBytes = 256L * 1024 * 1024;
 
+    /// <summary>
+    /// Default CPU-utilisation ceiling, expressed as a fraction of wall-clock.
+    /// 0.9 means "killing at 90% sustained" — a tight busy-loop pegs one core
+    /// at ~1.0 while a legitimate indicator Calculate typically sits well under
+    /// 0.3 for the brief 5-second budget. Sustained above this threshold for
+    /// more than one polling interval triggers a kill.
+    /// </summary>
+    public const double DefaultMaxCpuFraction = 0.9;
+
+    /// <summary>
+    /// Default cap on concurrent worker processes. A user compiling 100
+    /// indicators would otherwise spawn 100 processes; each consumes native
+    /// memory and file handles even before the first Calculate runs. 16 is a
+    /// generous ceiling — four sub-panes × four open chart tabs — past which
+    /// the next <see cref="StartAsync"/> refuses with a clear error instead
+    /// of drifting the host into resource exhaustion.
+    /// </summary>
+    public const int DefaultMaxConcurrentWorkers = 16;
+
     /// <summary>How often the memory quota is polled. 2 s keeps kill latency
     /// low without burning measurable CPU — <see cref="IScriptWorkerProcess.Refresh"/>
     /// is a single OS read.</summary>
     public static readonly TimeSpan MemoryPollInterval = TimeSpan.FromSeconds(2);
+
+    // ── Process-wide concurrency gate ───────────────────────────────────────
+    // The cap applies across every host instance in the process — "per-user"
+    // in the practical sense since each user has one host process at a time.
+    // Start() increments, Dispose() decrements; overflow refuses the launch.
+    private static int _activeWorkerCount;
+    private static int _maxConcurrentWorkers = DefaultMaxConcurrentWorkers;
+
+    /// <summary>Override the default <see cref="DefaultMaxConcurrentWorkers"/>
+    /// at startup. Must be ≥ 1. Primarily for tests that deliberately spawn
+    /// many workers in parallel.</summary>
+    public static void SetMaxConcurrentWorkers(int max)
+    {
+        if (max < 1) throw new ArgumentOutOfRangeException(nameof(max));
+        Interlocked.Exchange(ref _maxConcurrentWorkers, max);
+    }
+
+    /// <summary>Current live worker count. Exposed for diagnostics /
+    /// telemetry UI ("N scripts running").</summary>
+    public static int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
 
     private readonly IScriptWorkerProcess _proc;
     private readonly Stream  _stdin;
@@ -83,10 +122,17 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
     private volatile bool _killedForMemory;
     private long _memoryOvershoot;
 
+    // CPU-quota tracking. We sample TotalProcessorTime at each tick and compare
+    // the delta against the elapsed wall-clock to derive a utilisation fraction.
+    private readonly double _maxCpuFraction;
+    private TimeSpan _lastCpuSample;
+    private DateTime _lastCpuSampleUtc;
+    private volatile bool _killedForCpu;
+
     private IndicatorMetadataMessage? _metadata;
     private bool _disposed;
 
-    private OutOfProcessScriptHost(IScriptWorkerProcess proc, string scriptId, long maxWorkingSetBytes, ILogger? logger)
+    private OutOfProcessScriptHost(IScriptWorkerProcess proc, string scriptId, long maxWorkingSetBytes, double maxCpuFraction, ILogger? logger)
     {
         _proc    = proc;
         _stdin   = proc.StdinWrite;
@@ -94,23 +140,29 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
         _logger  = logger;
         _scriptId = scriptId;
         _maxWorkingSet = maxWorkingSetBytes;
+        _maxCpuFraction = maxCpuFraction;
 
         // Stderr is for fatal worker diagnostics — pump to the host log
         // asynchronously so we don't block reading it and cause the worker
         // to stall on a full buffer.
         _ = PumpStderrAsync(proc.StderrReader);
 
-        // Memory quota: poll WorkingSet64 on a background timer and kill
-        // the worker if it blows past the configured ceiling. 0 or negative
-        // disables the quota (primarily for tests that need long-running
-        // workers at debug loads). The host's wall-clock timeout still
-        // applies. Implementations that can't report a working-set (some
-        // Android paths) return 0 from WorkingSet64 — treat that as "no
-        // data" and skip the check that tick.
-        if (_maxWorkingSet > 0)
+        // Baseline for CPU-quota deltas. First polling tick compares against
+        // this snapshot so we don't mis-accuse the worker of a CPU spike it
+        // accumulated during LoadAssembly (which can legitimately saturate a
+        // core for a brief moment).
+        _lastCpuSample   = _proc.TotalProcessorTime;
+        _lastCpuSampleUtc = DateTime.UtcNow;
+
+        // Quota polling: memory + CPU on the same timer so they stay in phase.
+        // Memory quota ≤ 0 disables the memory side (tests that need debug
+        // loads); CPU fraction ≤ 0 disables the CPU side. Implementations that
+        // can't report a metric return 0, which the respective check treats
+        // as "no data" and skips.
+        if (_maxWorkingSet > 0 || _maxCpuFraction > 0)
         {
             _memoryMonitor = new Timer(
-                CheckMemoryQuota,
+                CheckQuotas,
                 state: null,
                 dueTime: MemoryPollInterval,
                 period:  MemoryPollInterval);
@@ -133,49 +185,120 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
         string scriptId,
         TimeSpan? startTimeout = null,
         long? maxWorkingSetBytes = null,
+        double? maxCpuFraction = null,
         ILogger? logger = null,
         CancellationToken ct = default)
     {
-        var proc = launcher.Launch(workerExecutablePath);
-        var host = new OutOfProcessScriptHost(proc, scriptId, maxWorkingSetBytes ?? DefaultMaxWorkingSetBytes, logger);
+        // Per-user concurrency gate. Incrementing atomically before launching
+        // ensures a flurry of concurrent compilations can't race past the cap.
+        int newCount = Interlocked.Increment(ref _activeWorkerCount);
+        int cap = Volatile.Read(ref _maxConcurrentWorkers);
+        if (newCount > cap)
+        {
+            Interlocked.Decrement(ref _activeWorkerCount);
+            throw new InvalidOperationException(
+                $"Worker launch refused — {cap} concurrent script workers already active. Close an existing custom indicator before compiling another.");
+        }
+
+        IScriptWorkerProcess? proc = null;
+        OutOfProcessScriptHost? host = null;
         try
         {
+            proc = launcher.Launch(workerExecutablePath);
+            host = new OutOfProcessScriptHost(proc, scriptId,
+                maxWorkingSetBytes ?? DefaultMaxWorkingSetBytes,
+                maxCpuFraction ?? DefaultMaxCpuFraction,
+                logger);
             await host.LoadAssemblyAsync(assemblyBytes, startTimeout ?? DefaultStartTimeout, ct).ConfigureAwait(false);
             return host;
         }
         catch
         {
-            await host.DisposeAsync().ConfigureAwait(false);
+            if (host != null) await host.DisposeAsync().ConfigureAwait(false);
+            else
+            {
+                // Host never constructed — we still own the concurrency slot.
+                Interlocked.Decrement(ref _activeWorkerCount);
+                try { proc?.Dispose(); } catch { /* best-effort */ }
+            }
             throw;
         }
     }
 
-    private void CheckMemoryQuota(object? state)
+    private void CheckQuotas(object? state)
     {
         if (_disposed) return;
         try
         {
             if (_proc.HasExited) return;
             _proc.Refresh();
-            var ws = _proc.WorkingSet64;
-            // 0 means "the platform doesn't expose a working-set number
-            // through this transport" — skip rather than false-positive.
-            if (ws > 0 && ws > _maxWorkingSet)
+
+            // ── Memory quota ────────────────────────────────────────────────
+            if (_maxWorkingSet > 0)
             {
-                _memoryOvershoot = ws;
-                _killedForMemory = true;
-                _logger?.LogWarning(
-                    "script worker {Id} killed — working set {WorkingSet:N0} bytes exceeded quota {Limit:N0} bytes",
-                    _scriptId, ws, _maxWorkingSet);
-                RecordSecurityEvent(
-                    AccessibleTrader.Sdk.Services.SecurityEventKind.MemoryQuotaKill,
-                    $"working set {ws:N0} exceeded quota {_maxWorkingSet:N0}",
-                    new Dictionary<string, string>
+                var ws = _proc.WorkingSet64;
+                // 0 = platform doesn't expose a working-set number through
+                // this transport; skip rather than false-positive.
+                if (ws > 0 && ws > _maxWorkingSet)
+                {
+                    _memoryOvershoot = ws;
+                    _killedForMemory = true;
+                    _logger?.LogWarning(
+                        "script worker {Id} killed — working set {WorkingSet:N0} bytes exceeded quota {Limit:N0} bytes",
+                        _scriptId, ws, _maxWorkingSet);
+                    RecordSecurityEvent(
+                        AccessibleTrader.Sdk.Services.SecurityEventKind.MemoryQuotaKill,
+                        $"working set {ws:N0} exceeded quota {_maxWorkingSet:N0}",
+                        new Dictionary<string, string>
+                        {
+                            ["workingSet"] = ws.ToString(),
+                            ["quota"]      = _maxWorkingSet.ToString(),
+                        });
+                    try { _proc.Kill(entireProcessTree: true); } catch { /* already exited */ }
+                    return;
+                }
+            }
+
+            // ── CPU quota ───────────────────────────────────────────────────
+            // Derive utilisation from TotalProcessorTime delta over the
+            // elapsed polling window. A tight busy-loop pegs one core at ~1.0;
+            // legitimate indicator Calculate sits well under 0.3 even for the
+            // brief 5-second budget. The 0.9 threshold trips on sustained
+            // pegging across a full polling interval, giving legitimate spikes
+            // (e.g. a one-shot heavy EMA backfill) room to finish before the
+            // next tick.
+            if (_maxCpuFraction > 0)
+            {
+                var cpu = _proc.TotalProcessorTime;
+                if (cpu > TimeSpan.Zero)
+                {
+                    var now = DateTime.UtcNow;
+                    var wall = now - _lastCpuSampleUtc;
+                    var cpuDelta = cpu - _lastCpuSample;
+                    _lastCpuSample = cpu;
+                    _lastCpuSampleUtc = now;
+                    if (wall.TotalMilliseconds > 500 && cpuDelta > TimeSpan.Zero)
                     {
-                        ["workingSet"] = ws.ToString(),
-                        ["quota"]      = _maxWorkingSet.ToString(),
-                    });
-                try { _proc.Kill(entireProcessTree: true); } catch { /* already exited */ }
+                        double fraction = cpuDelta.TotalMilliseconds / wall.TotalMilliseconds;
+                        if (fraction > _maxCpuFraction)
+                        {
+                            _killedForCpu = true;
+                            _logger?.LogWarning(
+                                "script worker {Id} killed — CPU utilisation {Fraction:P0} exceeded quota {Limit:P0} over {Window:F1} s",
+                                _scriptId, fraction, _maxCpuFraction, wall.TotalSeconds);
+                            RecordSecurityEvent(
+                                AccessibleTrader.Sdk.Services.SecurityEventKind.CalculateTimeout,
+                                $"CPU utilisation {fraction:P0} exceeded quota {_maxCpuFraction:P0}",
+                                new Dictionary<string, string>
+                                {
+                                    ["cpuFraction"] = fraction.ToString("F3"),
+                                    ["quota"]       = _maxCpuFraction.ToString("F3"),
+                                    ["windowMs"]    = wall.TotalMilliseconds.ToString("F0"),
+                                });
+                            try { _proc.Kill(entireProcessTree: true); } catch { /* already exited */ }
+                        }
+                    }
+                }
             }
         }
         catch
@@ -307,6 +430,13 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
             throw new InvalidOperationException(
                 $"script worker {_scriptId} killed — working set {_memoryOvershoot:N0} bytes exceeded quota {_maxWorkingSet:N0} bytes");
         }
+        catch (Exception) when (_killedForCpu)
+        {
+            // The CPU-quota monitor killed the worker mid-call. Same pipe-break
+            // symptom as the memory case; translate back to a descriptive cause.
+            throw new InvalidOperationException(
+                $"script worker {_scriptId} killed — sustained CPU utilisation exceeded {_maxCpuFraction:P0} quota");
+        }
         finally
         {
             _ioGate.Release();
@@ -351,5 +481,9 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
 
         try { _proc.Dispose();   } catch { }
         try { _ioGate.Dispose(); } catch { }
+
+        // Release the concurrency slot. Decrement via Interlocked so racing
+        // StartAsync calls observe the slot availability atomically.
+        Interlocked.Decrement(ref _activeWorkerCount);
     }
 }

@@ -111,6 +111,8 @@ internal sealed class AndroidScriptWorkerProcess : IScriptWorkerProcess
 
     public long WorkingSet64 => 0;
 
+    public TimeSpan TotalProcessorTime => TimeSpan.Zero;
+
     public void Dispose()
     {
         if (_disposed) return;

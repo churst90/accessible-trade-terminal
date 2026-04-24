@@ -54,6 +54,19 @@ public sealed class DotNetProcessAdapter : IScriptWorkerProcess
 
     public long WorkingSet64 => _proc.WorkingSet64;
 
+    public TimeSpan TotalProcessorTime
+    {
+        get
+        {
+            // Process.TotalProcessorTime throws if the process has exited before the
+            // Win32 handle is refreshed or if access is denied (rare on child processes
+            // but possible under AppContainer stricter ACLs). Swallow and report zero
+            // so the poller treats it as "no data" and skips the check that tick.
+            try { return _proc.TotalProcessorTime; }
+            catch { return TimeSpan.Zero; }
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

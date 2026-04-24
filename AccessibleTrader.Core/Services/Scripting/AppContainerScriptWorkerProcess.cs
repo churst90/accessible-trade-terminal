@@ -129,6 +129,30 @@ internal sealed class AppContainerScriptWorkerProcess : IScriptWorkerProcess
 
     public long WorkingSet64 => _workingSet;
 
+    public TimeSpan TotalProcessorTime
+    {
+        get
+        {
+            // GetProcessTimes reports user + kernel CPU time via FILETIME
+            // (100-ns ticks). AppContainer-launched children can legitimately
+            // be queried for this without elevated rights because we own the
+            // handle. Returning zero on failure is the documented "no data"
+            // signal that OutOfProcessScriptHost's CPU-quota poller treats
+            // as a skip-this-tick.
+            if (_hProcess == IntPtr.Zero) return TimeSpan.Zero;
+            try
+            {
+                if (WindowsInterop.GetProcessTimes(_hProcess,
+                        out long creation, out long exit, out long kernel, out long user))
+                {
+                    return TimeSpan.FromTicks(kernel + user);
+                }
+            }
+            catch { }
+            return TimeSpan.Zero;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

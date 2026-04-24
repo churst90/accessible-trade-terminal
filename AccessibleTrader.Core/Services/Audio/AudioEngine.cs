@@ -173,14 +173,12 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             if (slot < 0 || slot >= _voices.Length) return;
 
-            var waveType = wave.ToLower() switch
-            {
-                "square" => WaveformType.Square,
-                "sawtooth" or "saw" => WaveformType.Sawtooth,
-                "triangle" => WaveformType.Triangle,
-                "noise" => WaveformType.Noise,
-                _ => WaveformType.Sine
-            };
+            // Voice-slot pooling: OscillatorVoice instances are allocated once in the ctor
+            // (permanent 64-element array); VoiceCommand is a struct value type so no heap
+            // allocation per command. The only remaining per-call allocation in the old
+            // implementation was `wave.ToLower()` — cut by using OrdinalIgnoreCase compares
+            // so the hot path through SetVoice now allocates zero bytes.
+            var waveType = ParseWaveform(wave);
 
             EnqueueCommand(new VoiceCommand
             {
@@ -192,6 +190,20 @@ namespace AccessibleTrader.Core.Services.Audio
                 NoiseAmount = Math.Max(0f, noiseAmount),
                 NoiseType = noiseType ?? "pink"
             });
+        }
+
+        /// <summary>Case-insensitive waveform parse without allocating a lowercase copy.
+        /// SetVoice fires at ~300 calls/sec in the 5-pane playback path; <c>.ToLower()</c>
+        /// was allocating a string per call before this was extracted.</summary>
+        private static WaveformType ParseWaveform(string wave)
+        {
+            if (string.IsNullOrEmpty(wave)) return WaveformType.Sine;
+            if (wave.Equals("square",   System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Square;
+            if (wave.Equals("sawtooth", System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Sawtooth;
+            if (wave.Equals("saw",      System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Sawtooth;
+            if (wave.Equals("triangle", System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Triangle;
+            if (wave.Equals("noise",    System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Noise;
+            return WaveformType.Sine;
         }
 
         public void StopVoice(int slot)
