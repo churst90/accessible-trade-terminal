@@ -11,7 +11,14 @@ namespace AccessibleTrader.Core.Services
 {
     public interface IPluginLoaderService
     {
-        IEnumerable<T> LoadPlugins<T>(string directory) where T : class;
+        /// <summary>
+        /// Scans <paramref name="directory"/> for DLLs matching <paramref name="searchPattern"/>
+        /// and instantiates every concrete type assignable to <typeparamref name="T"/>.
+        /// The default pattern matches the trading-provider plugin convention
+        /// (<c>AccessibleTrader.Plugins.*.dll</c>); strategy-plugin scanning passes
+        /// the strategy-specific pattern so the two sets don't cross-contaminate.
+        /// </summary>
+        IEnumerable<T> LoadPlugins<T>(string directory, string searchPattern = "AccessibleTrader.Plugins.*.dll") where T : class;
         void UnloadAll();
     }
 
@@ -159,9 +166,9 @@ namespace AccessibleTrader.Core.Services
             _trust  = trust ?? new PluginTrustPolicy();
         }
 
-        public IEnumerable<T> LoadPlugins<T>(string directory) where T : class
+        public IEnumerable<T> LoadPlugins<T>(string directory, string searchPattern = "AccessibleTrader.Plugins.*.dll") where T : class
         {
-            _logger.LogDebug("Searching for plugins in {Directory}.", directory);
+            _logger.LogDebug("Searching for plugins in {Directory} (pattern {Pattern}).", directory, searchPattern);
             if (!Directory.Exists(directory))
             {
                 _logger.LogDebug("Plugin directory does not exist: {Directory}.", directory);
@@ -169,7 +176,7 @@ namespace AccessibleTrader.Core.Services
             }
 
             var plugins = new List<T>();
-            var dlls = Directory.GetFiles(directory, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories);
+            var dlls = Directory.GetFiles(directory, searchPattern, SearchOption.AllDirectories);
             _logger.LogDebug("Found {Count} matching plugin DLLs.", dlls.Length);
 
             foreach (var dll in dlls)

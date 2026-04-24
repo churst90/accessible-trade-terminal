@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+      Fixture plugin for Phase 10-F DLL-plugin tests. Not packaged into the shipping
+      app; AccessibleTrader.Tests.csproj builds this as part of its dependency graph
+      and copies the output DLL into a temp directory at runtime to exercise the
+      AssemblyLoadContext + IStrategyPlugin loader end-to-end.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj">
+      <!--
+        Sdk types are resolved in the host's default ALC (see PluginLoadContext.Load),
+        so the plugin must reference but never ship its own copy of Sdk.dll — otherwise
+        the host-default and plugin-context types diverge and cast errors appear at the
+        ALC boundary when the host enumerates IStrategyPlugin.GetStrategies().
+      -->
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

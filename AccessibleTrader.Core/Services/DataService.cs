@@ -122,7 +122,24 @@ namespace AccessibleTrader.Core.Services
             if (!_isInitialized) return Task.FromResult(new List<string>());
             if (Enum.TryParse<MarketType>(marketType, out var type))
             {
-                return Task.FromResult(_providers.Where(p => p.SupportedMarkets.Contains(type)).Select(p => p.Name).ToList());
+                // Defense-in-depth: an analytics market (OnChain / Economic / Derivatives /
+                // Sentiment) is non-tradeable by definition, so only SingleValueLine providers
+                // may appear there. Tradeable markets (Crypto / Stock / Forex / etc.) get Ohlcv
+                // providers only. Even if a plugin mis-declares SupportedMarkets, the DataShape
+                // check prevents an analytics provider from leaking into a tradeable dropdown.
+                bool isAnalyticsMarket =
+                    type == MarketType.OnChain    ||
+                    type == MarketType.Economic   ||
+                    type == MarketType.Derivatives ||
+                    type == MarketType.Sentiment;
+
+                return Task.FromResult(_providers
+                    .Where(p => p.SupportedMarkets.Contains(type))
+                    .Where(p => isAnalyticsMarket
+                        ? p.DataShape == ProviderDataShape.SingleValueLine
+                        : p.DataShape == ProviderDataShape.Ohlcv)
+                    .Select(p => p.Name)
+                    .ToList());
             }
             return Task.FromResult(new List<string>());
         }

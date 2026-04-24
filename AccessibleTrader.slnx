@@ -30,6 +30,9 @@
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.OkxDerivatives/AccessibleTrader.Plugins.OkxDerivatives.csproj" />
   </Folder>
   <Folder Name="/Plugins/Indicators/" />
+  <Folder Name="/Plugins/Strategies/">
+    <Project Path="Plugins/Strategies/AccessibleTrader.Plugins.Strategy.Fixture/AccessibleTrader.Plugins.Strategy.Fixture.csproj" />
+  </Folder>
   <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
   <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
   <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />

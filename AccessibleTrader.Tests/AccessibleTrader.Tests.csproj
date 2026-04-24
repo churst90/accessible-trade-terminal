@@ -39,6 +39,35 @@
     -->
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
+    <!--
+      Fixture plugin for Phase 10-F DLL-plugin loader tests. Build-order dependency
+      only (ReferenceOutputAssembly=false) — we don't want the fixture types linked
+      into the test assembly's default ALC, because the loader tests need to prove
+      the plugin loads cleanly from an empty scratch directory. The DLL itself is
+      copied into the test output via the CopyStrategyPluginFixture target below.
+    -->
+    <ProjectReference Include="..\Plugins\Strategies\AccessibleTrader.Plugins.Strategy.Fixture\AccessibleTrader.Plugins.Strategy.Fixture.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
+
+  <!--
+    Copies the built fixture DLL into the test output directory so
+    StrategyPluginRegistryTests can stage it into a per-test scratch dir. We use
+    an AfterBuild target rather than a <Content>/<None> item because the fixture
+    DLL is a build output, not a source asset: <Content> would resolve relative
+    to the project on _project load_, which happens before the fixture is built.
+  -->
+  <Target Name="CopyStrategyPluginFixture" AfterTargets="Build">
+    <PropertyGroup>
+      <FixturePluginSource>$(MSBuildThisFileDirectory)..\Plugins\Strategies\AccessibleTrader.Plugins.Strategy.Fixture\bin\$(Configuration)\net10.0\AccessibleTrader.Plugins.Strategy.Fixture.dll</FixturePluginSource>
+    </PropertyGroup>
+    <Copy
+      SourceFiles="$(FixturePluginSource)"
+      DestinationFolder="$(OutputPath)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(FixturePluginSource)')" />
+  </Target>
 
 </Project>

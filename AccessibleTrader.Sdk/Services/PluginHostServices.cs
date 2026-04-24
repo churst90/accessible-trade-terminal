@@ -162,6 +162,16 @@ namespace AccessibleTrader.Sdk.Services
         public static ISecurityEventLog? SecurityEvents { get; set; }
 
         /// <summary>
+        /// Host-provided shared indicator cache. DLL-plugin strategies and Roslyn-compiled
+        /// strategies read SMA / EMA / RSI / Bollinger Band values through this bridge
+        /// instead of maintaining their own per-strategy buffers — the host invalidates
+        /// per bar so repeated calls in a single evaluation cycle share a cached result.
+        /// Null in test / CLI contexts; callers null-check and fall through to a local
+        /// computation if needed.
+        /// </summary>
+        public static IPluginStrategyIndicatorCache? IndicatorCache { get; set; }
+
+        /// <summary>
         /// Convenience helper for provider plugins: get a capped, allow-listed
         /// <see cref="HttpClient"/> using the host factory if available, or a
         /// plain capped client otherwise (for unit tests / CLI scenarios

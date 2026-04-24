@@ -8,28 +8,17 @@ namespace AccessibleTrader.Core.Services
     /// Shared indicator computation cache for strategies.
     /// Multiple strategies with the same indicator + period avoid redundant recomputation
     /// on each bar. The cache is invalidated whenever the bar count changes.
+    ///
+    /// Also surfaces the plugin-side contract <see cref="Sdk.Services.IPluginStrategyIndicatorCache"/>
+    /// so the same instance can be handed to DLL plugins and Roslyn strategies via
+    /// <see cref="Sdk.Services.PluginHostServices.IndicatorCache"/>.
     /// </summary>
-    public interface IStrategyIndicatorCache
+    public interface IStrategyIndicatorCache : Sdk.Services.IPluginStrategyIndicatorCache
     {
-        /// <summary>Simple moving average of the last <paramref name="period"/> closes.</summary>
-        double GetSma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period);
-
-        /// <summary>Exponential moving average (last value) of the last <paramref name="period"/> closes.</summary>
-        double GetEma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period);
-
-        /// <summary>Wilder's RSI over the last <paramref name="period"/> bars.</summary>
-        double GetRsi(IReadOnlyList<Sdk.Models.Ohlcv> data, int period);
-
-        /// <summary>
-        /// Bollinger Bands centred on SMA(<paramref name="period"/>), ±<paramref name="deviations"/> stddev.
-        /// Returns (Middle, Upper, Lower). Values are NaN until enough history is available.
-        /// </summary>
-        (double Middle, double Upper, double Lower) GetBollingerBands(
-            IReadOnlyList<Sdk.Models.Ohlcv> data, int period, double deviations = 2.0);
-
         /// <summary>
         /// Clears all cached entries whose bar-count key no longer matches the current data length.
-        /// Call once at the start of each StrategyEngine.OnBar cycle.
+        /// Call once at the start of each StrategyEngine.OnBar cycle (and each bar advance
+        /// during backtest — see <c>StrategyBacktester</c>).
         /// </summary>
         void Invalidate(int currentCount);
     }

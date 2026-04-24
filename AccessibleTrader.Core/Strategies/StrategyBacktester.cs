@@ -19,15 +19,18 @@ public class StrategyBacktester : IStrategyBacktester
     private readonly Services.IProfileService? _profileService;
     private readonly Services.Strategies.IBacktestProfileCache? _profileCache;
     private readonly Services.Strategies.IMultiTimeframeDataService? _mtf;
+    private readonly Services.IStrategyIndicatorCache? _indicatorCache;
 
     public StrategyBacktester(
         Services.IProfileService? profileService = null,
         Services.Strategies.IBacktestProfileCache? profileCache = null,
-        Services.Strategies.IMultiTimeframeDataService? mtf = null)
+        Services.Strategies.IMultiTimeframeDataService? mtf = null,
+        Services.IStrategyIndicatorCache? indicatorCache = null)
     {
         _profileService = profileService;
         _profileCache   = profileCache;
         _mtf            = mtf;
+        _indicatorCache = indicatorCache;
     }
 
     public Task<BacktestResult> RunAsync(
@@ -176,6 +179,17 @@ public class StrategyBacktester : IStrategyBacktester
         {
             historyBuffer = historyBuffer.Add(data[i]);
             var bar = data[i];
+
+            // Advance IStrategyIndicatorCache to this bar. The cache keys values by
+            // (indicator, period, current bar count) and the engine's live loop invalidates
+            // once per bar via OnDataUpdated. During backtest we grow historyBuffer a bar at
+            // a time and re-feed it into the strategy, so the cache must be invalidated at
+            // each step or a cached SMA/EMA/RSI/BB value from a prior bar leaks into the
+            // current evaluation. Without this the first OnBar populates the cache at
+            // historyBuffer.Count==1 and every subsequent bar reads stale values since the
+            // data-length key never advances. Optional dependency — tests that run the
+            // backtester without the cache still work.
+            _indicatorCache?.Invalidate(historyBuffer.Count);
 
             // Per-bar profile replay: recompute VPVR/TPO bins from history[0..i] so the level
             // provider reads bar-i snapshots instead of the workspace's final-state bins.
