@@ -4,6 +4,317 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Tier 3 sweep: BuildSetupTab split, StrategyModal facade, voice-slot pooling, EventBus coalesce, script-worker CPU + count caps, SMTP + Telegram alerts
+
+Six substantive items landed in the same day as the Tier 1 + Tier 2 sweep.
+Four tasks deferred with refreshed per-item rationale in `docs/TODO.md`.
+All 537 tests still green, zero warnings across all 4 TFMs.
+
+### BuildSetupTab UI split into 3 sibling components
+
+`BuildSetupTab.razor` went from a 1145-line monolith to a ~70-line
+coordinator that owns a single `EditableStrategySpec` instance and
+cascades it down to three new components under
+`AccessibleTrader.BlazorClient/Components/`:
+
+- **`ConditionTreeEditor.razor`** — ARIA tree + leaf editor + group
+  editor + expand/collapse state. Injects `ISignalCatalog` and
+  `IWorkspaceStore`.
+- **`RiskPlanEditor.razor`** — stop source + TP ladder + sizing +
+  entry trigger. No injections.
+- **`SummaryExport.razor`** — Save / Load / Add / Preview / Read-aloud
+  / Export / Import buttons + result banner + status line. Injects
+  `IStrategyLibraryFacade`, `IStrategyBacktester`, etc.
+
+The children take the parent's `Spec` by `[Parameter]` (class ref,
+mutated in place). Structural replacements (New / Load / Import)
+raise `OnSpecReplaced` so the parent re-renders every sibling.
+`EditableStrategySpec.Reset()` used by the New handler.
+
+Each of the ~30 `@onchange="e => double.TryParse(..., out _field)"`
+bindings rewrote to the `Spec.X = v` form. Public behavior unchanged.
+
+### `IStrategyModalCoordinator` facade
+
+`StrategyModal.razor` went from 10 DI injections to 5 (Coordinator +
+Library + Store + EventBus + JSRuntime). The coordinator at
+`AccessibleTrader.Core/Services/Strategies/StrategyModalCoordinator.cs`
+wraps `IStrategyEngine` + `IStrategyBacktester` + `IBacktestWarmupAnalyzer`
++ `IStrategyLibrary` + `IConfigurableStrategyFactory` + `IRoslynScriptingService`
+and exposes a single-method-per-workflow surface:
+
+- `StartSpec(specId)` / `StopSpec(specId)` — full dedupe + auto-activate
+  toggle.
+- `RemoveActive(instanceId)` — engine remove + clear auto-activate on
+  the corresponding spec.
+- `TogglePause(instanceId, isPaused)`.
+- `RecommendedWarmup(specId)` — warmup-analyzer lookup by spec.
+- `RunBacktestAsync(specId, data, config, state)` — spec resolution +
+  factory + backtest run.
+- `CompileAndAddStrategyAsync(code, execMode)` — Roslyn compile +
+  engine register.
+
+Each returns a structured `StrategyCoordinatorResult(IsSuccess, Message)`
+mirroring `StrategyLibraryResult`. The modal just wires buttons to the
+method calls + displays the returned message. Registered as singleton
+next to `StrategyLibraryFacade` in
+`ServiceCollectionExtensions.AddBusinessServices`.
+
+### AudioEngine — zero-allocation SetVoice hot path
+
+`OscillatorVoice[]` was already pool-allocated once in the ctor — the
+real per-call allocation was `wave.ToLower()` inside `SetVoice` at
+~300 calls/sec in the 5-pane playback path. Extracted
+`ParseWaveform(string)` with `StringComparison.OrdinalIgnoreCase`
+branches; the switch no longer allocates a lowercase copy of the
+waveform name. Confirms TODO's "voice-slot pooling" as
+fully-on-the-hot-path now.
+
+### EventBus — `SubscribeCoalesced` / `SubscribeSampled`
+
+`IEventBus` gained two Rx-backed convenience helpers:
+
+- **`SubscribeCoalesced<T>(handler, quietWindow)`** — Rx `Throttle`
+  debouncing. Useful for burst-fire events (`RedrawEvent`,
+  `IndicatorUpdatedEvent`) where ten near-simultaneous publications
+  collapse to a single actual re-render.
+- **`SubscribeSampled<T>(handler, window)`** — Rx `Sample`
+  rate-limiting. Useful for continuous high-frequency streams
+  (mouse-move, scroll).
+
+XML docs explicitly warn against using these for accessibility events
+(`FeedbackRequestEvent`, `AnnouncementEvent`) — a 50 ms debounce
+becomes a silent no-op in a key-repeat loop. The `SpyEventBus` mock
+in `Mocks/MockServices.cs` received matching stubs.
+
+### Script worker — CPU quota + per-user worker-count cap
+
+`OutOfProcessScriptHost` gained two new protection layers alongside
+the existing memory + wall-clock quotas:
+
+- **CPU quota (`DefaultMaxCpuFraction = 0.9`).** Samples
+  `TotalProcessorTime` every 2 s and compares the delta against the
+  elapsed wall-clock window. A busy-loop pegs one core at ~1.0;
+  legitimate Calculate calls sit well under 0.3 even during the brief
+  5-second budget. Sustained > 0.9 over a polling interval triggers a
+  kill; the Calculate-side pipe-break translates to a descriptive
+  `InvalidOperationException` via a new `_killedForCpu` catch clause
+  (mirrors the existing `_killedForMemory` path). Security-event log
+  entry emitted on each kill.
+- **Per-user worker-count cap (`DefaultMaxConcurrentWorkers = 16`).**
+  Static counter `_activeWorkerCount` in `OutOfProcessScriptHost`
+  atomically incremented in `StartAsync` before launch and decremented
+  in `DisposeAsync`. Over-cap launches refuse with a clear error message
+  ("N concurrent script workers already active. Close an existing
+  custom indicator before compiling another"). Configurable via
+  `SetMaxConcurrentWorkers(int)`.
+
+`IScriptWorkerProcess.TotalProcessorTime` added to the contract;
+implementations in `DotNetProcessAdapter` (uses `Process.TotalProcessorTime`),
+`AppContainerScriptWorkerProcess` (new P/Invoke to kernel32
+`GetProcessTimes`), and `AndroidScriptWorkerProcess` (returns
+`TimeSpan.Zero` → poller skips that tick).
+
+### SMTP + Telegram alert delivery
+
+New channel contract in `AccessibleTrader.Sdk/Alerts/IAlertChannel.cs`:
+`Id`, `DisplayName`, `IsConfigured`, and `SendAsync(AlertFired, ct)`.
+Two implementations under `AccessibleTrader.Core/Services/Alerts/`:
+
+- **`EmailAlertChannel`** — `System.Net.Mail.SmtpClient` delivery.
+  `EmailAlertChannelConfig` (host / port / TLS / username / password /
+  from / to) loaded via `ISettingsManager` per-send so settings edits
+  take effect without a service reload.
+- **`TelegramAlertChannel`** — Telegram Bot API delivery via a dedicated
+  `HttpClient` with 30 s timeout + 1 MB response cap. Sends
+  `Markdown`-formatted messages to the configured chat id.
+
+`AlertDeliveryService` subscribes to `AlertFiredEvent` and fans each
+fired alert out to every configured channel in parallel with
+`Task.Run(...)` fire-and-forget. One channel failing does not starve
+the others — exceptions are logged + recorded in `ISecurityEventLog`
+so ops can diagnose silent non-delivery. Eagerly resolved in
+`MainLayout.razor` so the subscription is live before any alert can
+fire.
+
+Config read-paths live as private static helpers in
+`ServiceCollectionExtensions` (`LoadEmailAlertConfig`,
+`LoadTelegramAlertConfig`) under the `alerts.email.*` and
+`alerts.telegram.*` setting keys. A dedicated "Alerts" tab in
+`SettingsModal` for configuring SMTP host / Telegram bot token /
+chat id is documented as a follow-up; today the values must be set
+via direct `settings.json` edit or a future `ISettingsManager.SetSetting`
+call from the settings UI.
+
+### Deferred this sweep with refreshed rationale
+
+- **DLL plugin strategies + StrategyIndicatorCache integration +
+  IStrategyRegistry.GetCatalog extension** (Phase 10-F unfinished
+  half). Three distinct sub-items collectively ≥ 2 days' work:
+  - DLL plugin scanning needs `AssemblyLoadContext` isolation +
+    `PluginTrustPolicy` integration + plugin-unload contract + at
+    least one fixture plugin for tests.
+  - `StrategyIndicatorCache` integration threads the cache through
+    `ConditionEvaluator` and every `ConfigurableStrategy` instance,
+    with cache invalidation semantics the backtester must honor.
+  - `GetCatalog` extension is easy but gated on the plugin loader
+    landing first.
+  Each sub-item owns its own 1-2 day session.
+- **Settings-modal Alerts tab UI** — paired with the delivery channels
+  shipped today. Config shape + key-paths defined; UI work is a
+  separate 2-3h session once the tab design stabilizes.
+
+---
+
+## [2026-04-24] — Tier 1 + Tier 2 sweep: Ctrl+L/R refinement, queryable gradient, BB/MACD narration, POC alerts, future-space anchors, VPVR replay pin
+
+10 items shipped from the 2026-04-24 TODO triage pass. All 537 tests
+pass (535 + 4 new VPVR-replay tests + 1 new CipherA gradient test,
+−1 replaced count assertion). Zero warnings.
+
+### Ctrl+Left/Right — focused-series-aware refinement
+
+Three changes in `IndicatorCrossingEngine.HandleCrossJump`:
+
+1. **Focused-trendline shortcut.** When the user's focus is on a drawn
+   trendline (`IsDrawing && Drawing.Type == TrendLine`), Ctrl+L/R now
+   walks price-vs-that-single-line crossings via the new
+   `DoFocusedTrendlineCrossJump`. Previously the engine fell through to
+   the price-action path which scanned every trendline on the chart —
+   unintuitive when a specific drawing was in hand.
+
+2. **"No points of interest" for continuous lines.** The Case 3 default
+   fallback previously sparse-scanned any component with non-NaN values,
+   which for a continuous line (every bar has a number) became a silent
+   one-bar nudge. Now continuous-points components without a dedicated
+   crossing rule announce `"No points of interest on {component}"`
+   instead of falling through to all-trendlines. Sparse (mixed NaN /
+   non-NaN) components still route to `DoSparseSignalJump`.
+
+3. **Silent fall-through removed.** The old `else DoTrendlineCrossJump`
+   branch silently swept every trendline on the chart when a user had a
+   continuous component in focus — this is the most surprising of the
+   three cases and is the one the user reported. All three paths now
+   announce explicitly.
+
+### Cipher A WT Momentum Gradient — queryable signal descriptor
+
+`CipherAProvider` now exposes a hidden `WT Momentum Gradient` component
+(Line display type, `IsVisible=false`) that carries the 0.0..1.0
+normalized momentum strength. Derivation: raw WT1 clamped to
+±OBLevel and linear-mapped so 0.0 = deep oversold (bullish pressure
+building), 0.5 = neutral, 1.0 = deep overbought (bearish pressure
+building). The existing `WT Momentum_color` companion array is
+unchanged — it still drives the gradient rendering. The new component
+is strategy-queryable via `SignalCatalog` so a leaf can gate on
+`CIPHER_A.WT Momentum Gradient > 0.7 = strong overbought`. Test:
+`CipherA_WtMomentumGradient_IsHiddenQueryableComponent`.
+
+### BarDetailService — Bollinger squeeze/expansion + MACD crossover
+
+Ctrl+Shift+D narration for Bollinger Bands now appends
+`"band squeezing, low volatility"` / `"band expanding, volatility rising"`
+when the current Upper-minus-Lower band width is ±10 % away from the
+20-bar rolling average. Smaller changes (±3 %) narrate as
+`"band narrowing"` / `"band widening"`. Requires at least 10 valid
+(non-NaN) band samples in view.
+
+MACD series narration now appends `"MACD crossed above signal, bullish"`
+/ `"MACD crossed below signal, bearish"` when the prev-bar-vs-current
+sign of (MACD − Signal) flipped on this bar. Both facts layer after
+the raw component value list so the user hears the numbers first and
+the interpretation second.
+
+### AlertEvaluator — POC crossing alerts
+
+Added `AlertTarget.Poc` to the SDK enum and wired a new resolution
+branch through `AlertEvaluator.TryEvaluate`. When the target is POC,
+`ILevelService` (optional ctor param — null-safe fallback to no-op)
+provides the nearest POC price across every volume-profile series on
+the chart; the alert's threshold is overridden to that live POC before
+CrossesAbove/Below semantics evaluate against the prev/current close.
+A stale user-configured threshold is the wrong reference for a moving
+POC, so the alert is always evaluated against the freshly resolved
+level.
+
+### BuildSetupTab — Score operator, Sequence operator, MinLevelStrength, expand/collapse
+
+Five UI additions, no evaluator changes (all logic was shipped in
+earlier sessions):
+
+- **Score logic operator** added to the group-logic dropdown with a
+  `ScoreThreshold` numeric input. Empty threshold degrades to OR
+  gracefully. Helper text shows the max possible score across immediate
+  leaf children so the user picks a reachable target.
+- **Sequence logic operator** added to the same dropdown with an
+  explanatory caption (children must be leaves, walked backward from
+  current bar, each budget-bound by its `WithinNBars`).
+- **MinLevelStrength** numeric input shown when the leaf operator is
+  `PriceRejectsLevel` or `PriceBreaksLevel`. Wires the existing
+  `ConditionLeaf.MinLevelStrength` field (evaluator already filters
+  pivots via `FilterByStrength`).
+- **Within-N** input now appears for every operator that consumes it —
+  adds `GreaterThanWithin` / `LessThanWithin` / `BetweenWithin` /
+  `PercentileBelow` / `PercentileAbove` to the set (was previously only
+  `FiredWithin` / `PriceRejectsLevel`).
+- **Group expand/collapse** disclosure buttons on every group treeitem.
+  Toggles `aria-expanded` and hides the child list. Collapsing is
+  display-only — the evaluator still walks every node regardless.
+
+`EditableConditionNode` gained `ScoreThreshold` and `MinLevelStrength`
+fields that round-trip through `ToSpec` / `FromConditionNode`.
+
+### DrawingInteractionManager — future-space drawing anchors
+
+`HandleMouseEvent` now accepts mouse clicks in the right-margin zone
+(`Data.Count ≤ dataIndex ≤ Data.Count + RightMarginBars - 1`). For
+future-space indices the anchor date is synthesized via a new internal
+`ProjectFutureDate` helper that extrapolates from the median of the
+last 8 inter-bar deltas, so cross-timeframe projection accounts for
+irregular spacing (weekends, session boundaries).
+
+`DrawingCalculatorHelper.CalculateLinearPoints` grew a new
+`ResolveAnchorIndex` resolver: anchor dates past `chartData[^1].Date`
+now project to a synthetic index using the same median-delta approach
+instead of returning `-1` and zeroing out the drawing. Trendlines and
+every other calculator routing through `CalculateLinearPoints`
+(Channel, Fib Extension, etc.) now support one anchor inside the
+right-margin without breaking the slope math.
+
+### VPVR backtest replay — end-to-end pinning test
+
+`VpvrBacktestReplayTests` (4 tests) pins the `StrategyBacktester` →
+`IBacktestProfileCache` → `VolumeProfileLevelProvider` chain that the
+old TODO called out as "the most important pending S/R correctness
+item." Covers:
+
+- `BacktestProfileCache.IsActive` reflects snapshot presence; cleared
+  via Clear().
+- `Set` overwrites; `Get` returns null for unknown codes.
+- `VolumeProfileLevelProvider` prefers cache bins over workspace
+  `ProfileBins` when `IsActive=true` — the bug where a backtest at bar
+  100 would otherwise see POC from bar 800 is now a regression any
+  future refactor will trip.
+- Falls through to `series.ProfileBins` when the cache is empty (live
+  path unchanged).
+
+### Deferred this sweep with refreshed rationale
+
+- **`IStrategyModalCoordinator` facade** — the Core-side
+  `StrategyLibraryFacade` shipped 2026-04-22 already delivered the
+  testability win. The remaining modal-side extraction is purely
+  cosmetic (10 injections → 5) and is best left until a feature forces
+  movement. Rationale unchanged from the original 2026-04-19 audit.
+- **Divergence line rendering, cross-pane Anchor cloud tint, adaptive
+  WT thresholds, Suggestion-mode metrics tracking, live trendline
+  preview JS streaming, Custom Speech Template editor, three-tier
+  level-crossing earcons, Custom Script Roslyn strategy persistence,
+  ICustomScriptService full pipeline, Pine `line.new`/`label.new`
+  mapping** — each is a multi-hour self-contained effort. Kept on
+  `docs/TODO.md` with explicit scope estimates.
+
+---
+
 ## [2026-04-23] — Housekeeping: Schwab sign-in UI + funding-snapshot scale rewrite
 
 Post-commit housekeeping sweep. Closes two of the trivial-tier items;

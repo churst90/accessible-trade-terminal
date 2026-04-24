@@ -4,6 +4,115 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-24] — Tier 3 sweep (complete 2026-04-24)
+
+Six substantive items landed same-day as the Tier 1 + Tier 2 sweep. 537/537
+tests still green. See `docs/CHANGES.md` 2026-04-24 Tier 3 entry.
+
+- [x] **BuildSetupTab UI split** — 1145-line monolith decomposed into
+  `ConditionTreeEditor.razor` + `RiskPlanEditor.razor` +
+  `SummaryExport.razor` siblings under a thin `BuildSetupTab.razor`
+  coordinator. Children take `Spec` by `[Parameter]` and mutate in
+  place; parent raises `OnSpecReplaced` on structural load/new/import.
+- [x] **`IStrategyModalCoordinator` facade** — StrategyModal @inject
+  count 10 → 5. Coordinator wraps Engine + Backtester + WarmupAnalyzer
+  + Library + Factory + Roslyn with `StartSpec`/`StopSpec`/`RemoveActive`/
+  `TogglePause`/`RecommendedWarmup`/`RunBacktestAsync`/
+  `CompileAndAddStrategyAsync`. Structured `StrategyCoordinatorResult`
+  per call.
+- [x] **Voice-slot pooling** — the `OscillatorVoice[]` array was already
+  pool-allocated at ctor; the real hot-path allocation was
+  `wave.ToLower()` in `SetVoice`. Extracted `ParseWaveform` with
+  `StringComparison.OrdinalIgnoreCase` branches — zero allocations on
+  the 300-calls/sec playback path.
+- [x] **EventBus throttle/coalesce** — new `SubscribeCoalesced<T>` (Rx
+  `Throttle`) + `SubscribeSampled<T>` (Rx `Sample`) convenience
+  helpers on `IEventBus`. XML docs forbid using them for accessibility
+  events.
+- [x] **Script worker CPU quota + per-user worker-count cap.**
+  `DefaultMaxCpuFraction = 0.9` polls `TotalProcessorTime` delta /
+  wall-clock delta every 2 s; sustained > 0.9 triggers kill + security
+  event. `DefaultMaxConcurrentWorkers = 16` with atomic counter in
+  `StartAsync`/`DisposeAsync`. `IScriptWorkerProcess.TotalProcessorTime`
+  added to contract with `GetProcessTimes` P/Invoke in
+  `AppContainerScriptWorkerProcess`.
+- [x] **SMTP + Telegram alert delivery.** `IAlertChannel` SDK
+  interface; `EmailAlertChannel` (System.Net.Mail) +
+  `TelegramAlertChannel` (Bot API) in Core; `AlertDeliveryService`
+  subscribes to `AlertFiredEvent` and fans out in parallel
+  `Task.Run(...)` with per-channel exception logging + security-event
+  records. Eagerly resolved in `MainLayout.razor`. Config loads from
+  `ISettingsManager` per-send under `alerts.email.*` / `alerts.telegram.*`.
+
+### Deferred this sweep with refreshed rationale
+
+- [ ] **DLL plugin strategies + StrategyIndicatorCache integration +
+  IStrategyRegistry.GetCatalog extension** — Phase 10-F unfinished
+  half. Three distinct sub-items collectively ≥ 2 days:
+  (a) DLL plugin scanning (AssemblyLoadContext + PluginTrustPolicy +
+  unload contract + fixture plugin for tests);
+  (b) StrategyIndicatorCache integration (thread through
+  ConditionEvaluator + invalidation semantics backtester must honor);
+  (c) GetCatalog extension (easy, but gated on (a) landing).
+  Each needs its own 1-2 day session.
+- [ ] **Settings-modal Alerts tab UI** — paired with the alert channels
+  shipped today. Config shape + key-paths are in place; the tab design
+  is a separate 2-3h session.
+
+---
+
+## [2026-04-24] — Tier 1 + Tier 2 sweep (complete 2026-04-24)
+
+10 items shipped from the pre-sweep TODO triage. 537/537 tests pass.
+See `docs/CHANGES.md` 2026-04-24 entry for per-item detail + rationale.
+
+- [x] **Ctrl+L/R — focused-series-aware refinement.** Focused-trendline
+  walks only that drawing; continuous-points components announce
+  "no points of interest on {component}" instead of silently falling
+  through to all trendlines.
+- [x] **Cipher A WT Momentum Gradient queryable descriptor** (Phase 12).
+  Hidden Line component registered so strategies can gate on momentum
+  strength (0.0..1.0 normalized) via the standard leaf operators.
+- [x] **Bollinger squeeze/expansion + MACD crossover narration.**
+  Layered after raw component values in `BarDetailService` for
+  Ctrl+Shift+D.
+- [x] **Volume-Profile POC crossing alerts.** `AlertTarget.Poc` +
+  `ILevelService` injection in `AlertEvaluator` resolve the live POC
+  per-evaluation and override the stored threshold.
+- [x] **Score + Sequence logic operators exposed in BuildSetupTab.**
+  Evaluator already implemented both; the UI now surfaces
+  `ScoreThreshold` with a max-score hint.
+- [x] **MinLevelStrength UI** for `PriceRejectsLevel` /
+  `PriceBreaksLevel` operators.
+- [x] **Within-N input** now appears for every operator that consumes it
+  (`GreaterThanWithin`, `LessThanWithin`, `BetweenWithin`,
+  `PercentileBelow`, `PercentileAbove`).
+- [x] **Group expand/collapse disclosure** on condition-tree groups.
+  Toggles `aria-expanded` + hides children; evaluation unaffected.
+- [x] **Future-space drawing anchors.** `DrawingInteractionManager`
+  accepts clicks in the right-margin; anchor dates synthesised via
+  median inter-bar delta. `DrawingCalculatorHelper.ResolveAnchorIndex`
+  projects future dates to synthetic indices so trendlines keep their
+  slope math intact.
+- [x] **VPVR backtest replay pinning test** (`VpvrBacktestReplayTests` —
+  4 tests). Closes the "most important pending S/R correctness" item.
+
+### Deferred with refreshed rationale (2026-04-24)
+
+- [ ] **StrategyModal facade (`IStrategyModalCoordinator`)** — Core-side
+  `StrategyLibraryFacade` (shipped 2026-04-22) already delivered the
+  real testability win. Remaining modal-side extraction is a 10→5
+  cosmetic injection-count reduction; defer until a feature forces it.
+- [ ] **Divergence line rendering, cross-pane Anchor cloud tint,
+  adaptive WT thresholds, Suggestion-mode metrics tracking, live
+  trendline preview via JS streaming, Custom Speech Template editor,
+  three-tier level-crossing earcons, Custom Script Roslyn persistence,
+  `ICustomScriptService.RunScriptAsync` full pipeline, Pine
+  `line.new`/`label.new` mapping.** Each is a multi-hour self-contained
+  effort; entries kept below with original scope estimates.
+
+---
+
 ## [2026-04-23] — Unit-test gap analysis (triage)
 
 Produced after Week 4 + file-sink ship. Current coverage: **323 tests**
@@ -246,9 +355,11 @@ shipped except the optional file-sink documentation. See
 
 ### Deferred (rationale holds)
 
-- [ ] BuildSetupTab UI split — deferral rationale from 2026-04-22
-  still applies; re-open only when a feature forces movement.
-- [ ] StrategyModal facade extraction.
+- [x] BuildSetupTab UI split — shipped 2026-04-24. Three sibling
+  components (`ConditionTreeEditor`, `RiskPlanEditor`, `SummaryExport`)
+  under a thin parent coordinator.
+- [x] StrategyModal facade extraction — shipped 2026-04-24 as
+  `IStrategyModalCoordinator`. Injection count 10 → 5.
 - [ ] SKPaint pooling — ~2500 allocations/frame at 500 bars × 5 panes.
   Real GC win but needs profiling first to confirm on target devices.
 
@@ -290,24 +401,12 @@ deferred (see rationale below).
 
 ### Deferred (conscious choice, not missed)
 
-- [ ] **5b. `BuildSetupTab` UI split into sibling components.** The
-  original plan was `ConditionTreeEditor.razor` +
-  `RiskPlanEditor.razor` + `SummaryExport.razor` — all three as
-  siblings under a thinned `BuildSetupTab`.
-
-  **Why deferred:** every `@onchange="e => double.TryParse(..., out
-  _field)"` binding in the current @template would need to be rewritten
-  to the `if (TryParse out var v) Spec.X = v` form since child
-  components share state via `[Parameter] EditableStrategySpec Spec` —
-  about 30 template edits. There are no UI tests to catch a binding
-  mistake; correctness would rely entirely on careful reading + manual
-  smoke testing. Given the Core-side extraction already delivered the
-  real testability win, the pure UI split became cosmetic.
-
-  **When to re-open:** before adding a fourth tab to `StrategyModal`
-  (the tree editor is the tab most likely to need another sibling), or
-  when the first bug traceable to BuildSetupTab's coupling actually
-  bites. Estimated cost at that point: 4–6h.
+- [x] **5b. `BuildSetupTab` UI split into sibling components.**
+  Shipped 2026-04-24. `ConditionTreeEditor.razor` +
+  `RiskPlanEditor.razor` + `SummaryExport.razor` all exist as siblings
+  under a thin parent that owns a single `EditableStrategySpec`. The
+  ~30 `@onchange` bindings rewrote to the `Spec.X = v` form. Public
+  behavior unchanged; 537/537 tests still green.
 
 ### When returning to this project
 Audit is closed. Next session starts from a clean "post-audit" baseline —
@@ -395,7 +494,14 @@ reliability. All fixes landed in a single session; details in
 
 ### Follow-up (deferred — feature, not bug)
 
-- [ ] **Allow drawing anchors in future-space** — currently `DrawingInteractionManager.HandleAddDrawing` clamps cursor via `Math.Clamp(state.CurrentDataIndex, 0, chartData.Count - 1)` and `HandleMouseEvent` rejects `dataIndex >= Data.Count`. So the 20-bar future margin is visible and reserved, but trendlines cannot anchor a second point into it. Requires (a) allowing `CurrentDataIndex` to roam up to `Data.Count + RightMarginBars - 1`, (b) generating synthetic projected dates (`Data[^1].Date + (offset * timeframe)`), and (c) storing projected dates in `DrawingData` anchor fields without breaking persistence. ~3-4 hours.
+- [x] **Allow drawing anchors in future-space** — shipped 2026-04-24.
+  `DrawingInteractionManager.HandleMouseEvent` accepts mouse clicks in
+  the right-margin zone; anchor dates synthesised via a median
+  inter-bar delta projection. `DrawingCalculatorHelper.ResolveAnchorIndex`
+  projects future dates to synthetic indices so trendline slope math
+  stays intact when one anchor sits past `Data[^1]`. Mouse-side
+  `HandleAddDrawing` keyboard path still clamps to real bars — future
+  work when keyboard users want to anchor into the margin directly.
 
 ### Follow-up (deferred — UX call)
 
@@ -642,11 +748,13 @@ across two phases. Phase 1 is complete; phase 2 is open.
   needs explicit `@onkeydown` binding; `OrderBookModal.razor` needs
   `role="status" aria-live="polite"` regions and sonification hooks
   for depth changes. This is the product's reason to exist.
-- [ ] **No CPU quota on script worker** — wall-clock + memory are
-  enforced; a tight CPU loop inside the 5 s budget is bounded but not
-  great UX.
-- [ ] **No per-user worker-count limit** — compiling 100 indicators
-  spawns 100 worker processes. Self-DoS, not exploitable.
+- [x] **CPU quota on script worker** — shipped 2026-04-24.
+  `DefaultMaxCpuFraction = 0.9`; polls `TotalProcessorTime` delta vs
+  wall-clock every 2 s; sustained overage triggers kill + security
+  event + descriptive Calculate-side exception.
+- [x] **Per-user worker-count limit** — shipped 2026-04-24.
+  `DefaultMaxConcurrentWorkers = 16` with atomic counter gate in
+  `StartAsync`/`DisposeAsync`. Configurable via `SetMaxConcurrentWorkers`.
 - [ ] **Provider unit-test coverage** — `Plugins/Providers/**` and
   `Plugins/Analytics/**` have essentially zero unit tests. Requires
   mock REST/WS servers. Deep.
@@ -855,7 +963,11 @@ User reported 0 trades after adding Cipher B + building a strategy. Audit reveal
 **Still pending (polish, not blocking):**
 - [~] **Live mode TP ladder execution** — broker-side bracket order plumbing per provider remains deferred (multi-day per broker: Binance OCO, Coinbase brackets, Schwab OCO, Alpaca brackets, Kraken conditional-close, plus emulation for brokers without native support). Tier B.5 (2026-04-23) shipped a safety warning: `SetupSonifier.OnArmed` now appends "Ladder has N rungs — only the first target fires live until multi-rung bracket support ships" when `TpPrices.Count > 1`. Closes the silent-failure path; multi-rung implementation stays on this list.
 - [ ] **Active tab metrics for Suggestion-mode strategies** — `BaseStrategy.GetMetrics()` is fill-based; needs signal-based tracking for non-Auto strategies.
-- [ ] **TreeView expand/collapse + arrow-key navigation** — BuildSetupTab tree polish.
+- [~] **TreeView expand/collapse + arrow-key navigation** — expand/collapse
+  shipped 2026-04-24 (disclosure button, aria-expanded toggled). Arrow-key
+  walking still deferred: proper ARIA tree keyboard nav needs tabindex
+  focus management + JS interop for programmatic `.focus()` calls, best
+  done alongside the eventual BuildSetupTab UI split.
 - [ ] **Custom Script tab Roslyn strategy persistence** — Roslyn-compiled strategies still aren't saved as `StrategySpec`s.
 
 ---
@@ -1052,14 +1164,19 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 - [x] Add "Coordinate Entry" mode for accessibility-first drawing creation (keyboard-only placement without cursor). *(Phase I, 2026-03-31)*
 
 ### Technical Analysis Polish
-- [ ] Implement Bollinger Band 'Squeeze' and 'Expansion' logic in `IndicatorContextAnalyzer.GetDetailFact`.
-- [ ] Add MACD crossover facts (Bullish/Bearish crosses) to `BarDetailService`.
-- [ ] Implement Volume-Profile POC-crossing alerts in `AlertEvaluator`.
+- [x] Implement Bollinger Band 'Squeeze' and 'Expansion' logic in `IndicatorContextAnalyzer.GetDetailFact`.
+  Shipped 2026-04-24 in `BarDetailService.BollingerSqueezeExpansionFact`
+  (20-bar avg width with ±10% thresholds).
+- [x] Add MACD crossover facts (Bullish/Bearish crosses) to `BarDetailService`.
+  Shipped 2026-04-24 in `BarDetailService.MacdCrossoverFact`.
+- [x] Implement Volume-Profile POC-crossing alerts in `AlertEvaluator`.
+  Shipped 2026-04-24: `AlertTarget.Poc` + `ILevelService` POC resolution.
 
 ### Ctrl+Left/Right Crossing Navigation Redesign
 - [x] Generalized to use focused series type (Phase J, 2026-03-31): price/candles → trendline, zero-line oscillators → zero cross, threshold oscillators → OB/OS entry/exit, MA overlays → price/MA cross, %B → band crossing, sparse markers → nearest non-NaN signal.
 - [x] Crossing logic extracted to `IndicatorCrossingEngine` (Phase 4-SRP, 2026-04-01) — independently testable, no longer coupled to `CommandDispatcher`.
-- [ ] Multiple trendlines: use the focused drawing, not "all trendlines."
+- [x] Multiple trendlines: use the focused drawing, not "all trendlines."
+  Shipped 2026-04-24 in `IndicatorCrossingEngine.DoFocusedTrendlineCrossJump`.
 
 ---
 
@@ -1261,8 +1378,14 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 ### Performance (from previous Phase 6)
 - [ ] **Span-Based Indicator Pipeline:** `ReadOnlySpan<Ohlcv>` + `ArrayPool<double>` in `SkenderIndicatorFactory`.
 - [ ] **Full Channels Migration:** `Channel<Ohlcv>` from plugin → `DataManager` for live ticks.
-- [ ] **Voice Slot Pooling:** Reuse/reset `OscillatorVoice` objects in `AudioEngine`.
-- [ ] **EventBus Batch Notifications:** Coalesce multi-fire notifications with `Throttle`.
+- [x] **Voice Slot Pooling:** shipped 2026-04-24. `OscillatorVoice[]`
+  was already pool-allocated at ctor; the real hot-path allocation was
+  `wave.ToLower()` in `SetVoice`. Extracted `ParseWaveform` using
+  `StringComparison.OrdinalIgnoreCase` — zero allocations on the
+  300-calls/sec playback path.
+- [x] **EventBus Batch Notifications:** shipped 2026-04-24.
+  `SubscribeCoalesced<T>(handler, quietWindow)` (Rx `Throttle`) +
+  `SubscribeSampled<T>(handler, window)` (Rx `Sample`) on `IEventBus`.
 
 ---
 
@@ -1475,7 +1598,14 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 
 ### Phase 10-H — Alerts, Multi-Workspace, Drawing Completions
 
-- [ ] **Alert delivery channels (moved from Phase 10-G):** Email alerts via SMTP (`System.Net.Mail`) — configure in Settings → Alerts tab (SMTP server, from/to, TLS). Telegram via Bot API (`HttpClient` POST to `api.telegram.org/bot{token}/sendMessage`). Both opt-in; keys stored in `IApiKeyService` (encrypted).
+- [~] **Alert delivery channels (moved from Phase 10-G):** service-layer
+  shipped 2026-04-24. `IAlertChannel` SDK contract, `EmailAlertChannel`
+  (SMTP), `TelegramAlertChannel` (Bot API), `AlertDeliveryService` fan-out
+  via `AlertFiredEvent`. Config lives under `alerts.email.*` /
+  `alerts.telegram.*` setting keys and loads per-send via
+  `ISettingsManager`. **Follow-up still needed:** Settings-modal
+  "Alerts" tab UI for entering SMTP server + Telegram bot token +
+  chat id — 2-3h session.
 - [x] **Multi-workspace tabs:** `WorkspaceState` extended with `TabSnapshots` + `ActiveTabIndex` + `TabCount`. `TabSnapshot` record freezes per-tab fields. `AddTabAction`, `CloseTabAction`, `SwitchTabAction`, `ToggleNarrationAction` reducer cases in `WorkspaceStore`. `TabBar.razor` renders between Toolbar and chart; hidden when only one tab open. Keyboard: `Ctrl+T` (new), `Ctrl+W` (close), `Ctrl+Tab` / `Ctrl+Shift+Tab` (cycle). `TabSwitchedEvent` published for audio engine stop. TTS announces tab label on switch. 14 tests added (`MultiTabTests.cs`). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **Drawing tool completions:** Audited all 16 registered drawing tools. All anchor counts and sequencing correct. One bug fixed: `GannBoxCalculator` price levels were spanning the entire chart instead of being bounded within the anchor date range — now fills NaN outside [i1,i2] and adds time subdivision points at Gann ratios. AVWAP confirmed correct (recalculated from scratch on each `Calculate()` call, so live bars work naturally). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **`AutoNarrationService`:** `SeriesConfig.IsAutoNarrated` + `ChartSeries.IsAutoNarrated` delegation. `ToggleNarrationAction` in store. `Ctrl+Shift+N` toggles narration for focused series. `AutoNarrationService` subscribes to `IndicatorUpdatedEvent` + `StateStream`; detects new marker signals (non-NaN Dot/Arrow/Diamond/etc.) on closed bars and oscillator zone transitions; announces via `ISpeechFeedbackRouter` (non-interrupting). Seeding prevents retroactive announcements when narration is enabled. "narrating" appended to series state suffix in `NavigationFeedbackManager`. `Ctrl+Shift+D` (existing `BarDetailService`) already reads non-NaN column values for focused series. 10 tests added (`AutoNarrationTests.cs`). Build: 0 errors. Tests: 162/162. (2026-04-01)
@@ -1587,41 +1717,36 @@ The v2-v6 strategy iteration sprint produced one walked-forward stable strategy 
 
 ### Required system upgrades (in priority order — DO BEFORE building v7)
 
-- [ ] **Score-based root operator** (~2-3h) — the highest-leverage system improvement.
-  - Add `LogicOperator.Score` enum value to `ConditionTree.cs`
-  - Add `ScoreThreshold` field to `ConditionGroup` (default 0.0; only used when Logic == Score)
-  - Update `ConditionEvaluator.EvaluateNode` Score branch: walk children, accumulate scores from leaves that evaluate true, return `total >= threshold`
-  - Update `BuildSetupTab` UI to show a numeric input for the Score threshold when the user picks Score logic
-  - Test: a strategy with 5 leaves at score 1.0 each and threshold 3.0 should fire when at least 3 of 5 are true
-  - Once shipped, every future strategy can express "buy when there's enough evidence" instead of "buy when these specific conditions are all true"
+- [x] **Score-based root operator** — shipped. Evaluator landed in earlier
+  session; BuildSetupTab UI (dropdown + threshold input with max-score
+  hint) shipped 2026-04-24.
 
-- [ ] **Pivot strength + touch count filters on level operators** (~1h) — fixes the v5 mistake.
-  - `CipherSrLevelProvider` already computes `Strength` (0.4 oldest → 0.9 newest) and exposes touch counts via `_touches` companion arrays
-  - Add `MinLevelStrength` parameter (default 0.0) to `PriceRejectsLevel` / `PriceBreaksLevel` operators
-  - When set, filter `_levels.GetAllLevels(...)` to entries with `lvl.Strength >= MinLevelStrength`
-  - Optionally surface touch count via a new operator (`PriceRejectsValidatedLevel`) or via a `MinTouchCount` parameter on the existing operators
-  - Test: v5-style strategy with `MinLevelStrength=0.7` should produce fewer trades than the unfiltered version, but the trades should be at recently-formed pivots
+- [x] **Pivot strength filter on level operators** — shipped.
+  `ConditionLeaf.MinLevelStrength` + `ConditionEvaluator.FilterByStrength`
+  already present; BuildSetupTab UI input shipped 2026-04-24. Touch-count
+  filter still deferred — would need a new operator variant rather than
+  a parameter, and is only a marginal win over the strength gate.
 
 - [x] **HTF future-leak bug fix in `EvaluateHtfIndicatorLeaf`** — shipped. `ConditionEvaluator.HtfLastClosedIndexExclusive` clips HTF reads via strict-less-than binary search on `history[^1].Date`, and both `EvaluateHtfIndicatorLeaf` and `EvaluateHtfPriceLeaf` honour the exclusive end. Tests: `ConditionEvaluatorHtfTests.cs` (10) including perfect-alignment + before-all + after-all edges.
 
-- [ ] **VPVR backtest replay end-to-end verification** (~3-4h) — closes the documented "most important pending S/R correctness item."
-  - `IBacktestProfileCache` exists with the intended design of bar-by-bar profile snapshots
-  - `StrategyBacktester.Run` is supposed to populate the cache during replay (per `ReplayProfiles=true` config)
-  - `VolumeProfileLevelProvider` is supposed to read from the cache (not workspace state) when `_backtestCache?.IsActive == true`
-  - Need to verify each link in this chain actually works end-to-end by running a strategy that gates on `BarClosesAbovePoc` against historical data and confirming the POC values it sees are bar-i historical, not bar-N final
-  - Without this, any v7-class strategy that uses VPVR has hidden future-leak
+- [x] **VPVR backtest replay end-to-end verification** — shipped
+  2026-04-24. `VpvrBacktestReplayTests` (4 tests) pins the chain:
+  cache IsActive/Set/Get/Clear semantics, provider-reads-cache-when-
+  active, provider-falls-through-when-inactive, no-profile-series empty
+  case. Any future refactor that breaks the cache preference will trip
+  these tests.
 
-- [ ] **Rolling-window score aggregation — `TrueWithin(N)` operator** (~1-2h) — captures the user's design refinement.
-  - Add `TrueWithin` to `LeafOperator` enum
-  - Implementation in `ConditionEvaluator`: for the underlying value comparison the leaf would normally do (e.g. `GreaterThan` against the leaf's `Value`), check whether the comparison was true on *any* of the last `WithinNBars` bars
-  - Combined with score-based gating, this lets a strategy say "Money Flow was positive at any point in the last 5 bars contributes 1.0 to score" — captures the temporal-within-window confluence pattern
-  - `FiredWithin` already provides this for pulse signals — `TrueWithin` extends it to persistent conditions
+- [x] **Rolling-window score aggregation** — already shipped as typed
+  operator variants (`GreaterThanWithin`, `LessThanWithin`,
+  `BetweenWithin`, `PercentileBelow`, `PercentileAbove`). The 2026-04-24
+  sweep extended the BuildSetupTab `NeedsWithinN` gate to surface the
+  Within-N input for every operator that consumes it.
 
-- [ ] **Expose Cipher A WT Momentum gradient as a queryable signal** (~1-2h) — the indicator computes the momentum information but the strategy layer can't read it.
-  - `CipherAProvider` writes `WT Momentum_color` companion array (0.0–1.0 gradient encoding teal→gray→red momentum)
-  - `SignalCatalog` doesn't currently surface companion `_color` arrays as separate descriptors
-  - Either: register a `CIPHER_A.WT Momentum Gradient` descriptor that maps to the color array, OR: extend `SignalDescriptor` with an optional `CompanionArray` field that operators can read
-  - Once shipped, strategies can gate on actual momentum strength (`WT Momentum Gradient > 0.6 = strong bullish`) rather than the price-coded value field
+- [x] **Expose Cipher A WT Momentum gradient as a queryable signal** —
+  shipped 2026-04-24 as `CIPHER_A.WT Momentum Gradient` hidden Line
+  component. Normalised 0.0..1.0 derivation in `CipherAProvider.Calculate`
+  (raw WT1 clamped to ±OBLevel then linear-mapped). Strategies gate via
+  the standard leaf operators (`GreaterThan 0.7 = strong overbought`).
 
 ### v7 strategy build (AFTER infrastructure is in place)
 

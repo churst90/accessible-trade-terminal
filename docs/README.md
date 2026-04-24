@@ -83,7 +83,38 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 - `Alt+C` — Toggle Heikin-Ashi candles. `Alt+L` — Toggle log scale.
 - `Ctrl+Alt+Shift+J` — Open the Journal modal (review/copy every spoken phrase, alert, strategy setup, error from this session).
 
-## Current Status (2026-04-23)
+## Current Status (2026-04-24)
+
+**Tier 3 TODO sweep complete 2026-04-24** (same-day as Tier 1 + 2). Six
+substantive architectural items shipped: BuildSetupTab decomposed into
+`ConditionTreeEditor` + `RiskPlanEditor` + `SummaryExport` siblings
+under a ~70-line coordinator; `IStrategyModalCoordinator` wraps six
+services and drops StrategyModal's DI count from 10 → 5;
+`AudioEngine.SetVoice` hot path now zero-allocation (replaced
+`wave.ToLower()` with `ParseWaveform` / OrdinalIgnoreCase);
+`IEventBus.SubscribeCoalesced` / `SubscribeSampled` expose Rx
+`Throttle` / `Sample` for burst coalescing; script worker gains CPU
+quota (kills sustained >90% over the poll window) + 16-worker
+concurrency gate with clear over-cap error; SMTP +
+Telegram alert delivery channels (`IAlertChannel` contract,
+`EmailAlertChannel`, `TelegramAlertChannel`, `AlertDeliveryService`
+fan-out). Deferred: DLL plugin strategy loader (multi-day) and Settings
+Alerts-tab UI (2-3h). 537/537 tests still green. See `CHANGES.md`
+2026-04-24 Tier 3 entry.
+
+**Tier 1 + Tier 2 TODO sweep complete 2026-04-24.** 10 items shipped —
+Ctrl+L/R focused-series-aware refinement (focused trendline walks only
+that drawing; continuous-points lines announce "No points of interest"
+instead of silently sweeping all trendlines); CIPHER_A WT Momentum
+Gradient now a queryable `SignalDescriptor` so strategies can gate on
+momentum strength; `BarDetailService` layers Bollinger squeeze/expansion
+and MACD-vs-Signal crossover narration after raw values; `AlertEvaluator`
+resolves POC via `ILevelService` for live POC-crossing alerts; BuildSetupTab
+surfaces Score + Sequence logic operators, `MinLevelStrength` for
+level operators, expand/collapse on groups, and Within-N for every typed
+variant; drawing anchors now land in the 20-bar future-space margin via
+`DrawingCalculatorHelper.ResolveAnchorIndex`; VPVR backtest replay chain
+pinned by 4 new tests. 537/537 tests green. See `CHANGES.md` 2026-04-24.
 
 **Phases 0–11 complete. Full-codebase audit 2026-04-23 complete end-to-end (Weeks 1–4).** 26 data providers (14 trading in `Plugins/Providers/`, 12 analytics in `Plugins/Analytics/`, indicator drop-in via `Plugins/Indicators/`). MEXC (JK.Mexc.Net) joined the trading tier on 2026-04-18 with spot + futures klines, order book, user-data stream, and adaptive-precision UI and speech formatters shipped across the chart pane, trading dashboard, strategy modal, and accessibility pipeline so sub-dollar assets (KAS, SHIB, PEPE) actually display and narrate with real precision. MACloudProvider supports 6 MA types (EMA/SMA/WMA/HMA/DEMA/TEMA). Cloud components are fully navigable with sonification, speech, and auto-narration. IAnalyticsDataResolver maps 30 metrics to best provider. TrailByAtr stop adjustment in backtester. `PluginTrustPolicy.RequireTrusted` defaults to `true` — unverified plugin DLLs are refused unless `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1` is set for dev bypass. `ACCESSIBLETRADER_SCRIPT_IN_PROCESS` is honoured only in DEBUG builds; Release ignores the env var entirely. iOS refuses all `.atpkg` / Roslyn compile paths (no OS sandbox available). **All trading, analytics, and LLM providers route their `HttpClient` through `IPluginHttpClientFactory` with per-provider outbound-host allow-lists** (IBKR keeps its custom TLS-pinned handler; Binance and MEXC are SDK-managed). **All 14 trading providers use per-request or per-connection-lifecycle `IApiKeyCheckout`** (Schwab uses OAuth; IBKR is gateway-session-auth). **User-compiled Roslyn indicators run in an OS-sandboxed worker process:** Windows AppContainer (`CreateProcessW` + `STARTUPINFOEX`), macOS `sandbox-exec` (deny-default profile), Android `isolatedProcess` service. `OutOfProcessScriptHost` enforces wall-clock + 256 MB memory quota. IPC frame decoder (`AccessibleTrader.ScriptSandbox/Messages.cs`) caps string lengths at 64 KB and array counts at 1 M with bounds checks on every `ByteReader` read. Two GitHub Actions workflows — `plugin-manifest.yml` (publishes manifest as release asset) and `tests.yml` (runs full xunit suite on every PR/push). Build across all 4 TFMs: 0 errors, 0 warnings. **383 / 383 tests passing** (80 new post-audit tests as of 2026-04-23: 13 IPC / nonce / zero-value / clone regression tests, 7 `SecurityEventFileSink` tests, plus the Tier-1 coverage fill — 28 `WorkspaceStore` + reducer tests, 14 `AudioEngine` slot / pan / envelope tests, 8 `DataOrchestrator` resilience + state-machine tests, 10 `StrategyBacktester` correctness tests).
 
