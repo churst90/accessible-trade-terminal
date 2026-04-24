@@ -178,15 +178,21 @@
 
     private bool IsDataReadyToRender()
     {
-        // Must be in a valid data-streaming state AND the store must actually have data points.
-        // This prevents the "White Chart" race condition where the state transitions to
-        // LiveStreaming but the Store has not yet processed the UpdateDataAction.
-        bool isStreaming = _currentDataState == DataState.LiveStreaming || _currentDataState == DataState.GapFilling;
-        
+        // Match the canvas's own "do I have anything to draw" check exactly —
+        // MainPage.xaml.cs OnCanvasPaint only calls ChartRenderer.Render when
+        // state.Data.Count > 0, so any time the canvas is drawing real pixels
+        // the overlay should be faded out. The old `isStreaming && hasData`
+        // rule kept the overlay visible whenever the orchestrator hadn't yet
+        // transitioned to LiveStreaming/GapFilling, which was invisible under
+        // the old canvas-on-top z-order but now covers the chart.
+        //
+        // HistoricalFilling remains a legitimate "loading" state — the store
+        // has partial data but the user experience benefits from the spinner
+        // staying up until the first batch lands. Once Data has at least one
+        // bar, the canvas is already rendering it, so the overlay gets out
+        // of the way.
         var state = Store.State;
-        bool hasData = state.Data != null && state.Data.Count > 0;
-        
-        return isStreaming && hasData;
+        return state.Data != null && state.Data.Count > 0;
     }
 
     private string GetThemeBackgroundHex() => ColorToHex(ThemeService.Current.Background);
