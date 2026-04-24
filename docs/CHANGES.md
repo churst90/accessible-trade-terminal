@@ -4,6 +4,382 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Suggestion-mode metrics: theoretical-fill tracking on BaseStrategy
+
+Active-tab metrics for Suggestion-mode strategies previously reported
+`{0, 0, 0, 0, 0, 0}` for every field because `BaseStrategy.GetMetrics()`
+was fill-based, and Suggestion-mode strategies never receive
+`OnOrderFilled` callbacks (they publish signals but don't place orders).
+Fixed by extending `BaseStrategy` with a theoretical-fill simulator:
+
+- `OnBar` is now concrete on `BaseStrategy` and wraps a new abstract
+  `ComputeSignal` hook. On every bar: (1) walk each open theoretical
+  against the new bar's High/Low, (2) delegate to `ComputeSignal`, (3)
+  record any returned signal with a Stop AND TakeProfit as a new
+  theoretical entry at the bar close.
+- Stop-priority on same-bar Stop+TP ties (conservative, matches
+  `StrategyBacktester`).
+- Separate running equity for theoretical drawdown so the real-fill path
+  isn't corrupted.
+- `GetMetrics()` sums real-fill + theoretical-fill counters — a strategy
+  instance is exactly one mode per the engine's `ExecutionMode`, so
+  double-counting is structurally impossible.
+- Cap of 1000 open theoreticals to keep the per-bar scan bounded. Signals
+  without both Stop and TakeProfit are counted in `TotalSignals` but
+  never recorded as a theoretical (can't resolve deterministically;
+  would bias win-rate toward zero).
+
+**Breaking subclass change:** `BaseStrategy.OnBar` is now sealed; the
+abstract hook is `protected abstract StrategySignal? ComputeSignal(...)`.
+Only one subclass existed (`ConfigurableStrategy`) — updated in the same
+commit.
+
+**Pinning tests** in `SuggestionMetricsTests.cs` (5 tests): TP-hit win,
+Stop-hit loss, same-bar Stop+TP → stop-priority loss, signal without Stop
+not tracked, multi-signal aggregation. 567/567 total green (+5).
+
+**TODO.md cleanup:** closed 7 stale items in the same pass (52 → 45).
+Phase 10-F sub-items (shipped in earlier sweep), `IStrategyModalCoordinator`
+(shipped Tier 3), `ConfigurableStrategy` class (shipped long ago),
+Strategy condition builder UI (shipped via `BuildSetupTab`), and the big
+"divergence + anchor + adaptive WT + live-trendline + ..." umbrella
+collapsed into its individual canonical entries.
+
+---
+
+## [2026-04-24] — Mouse UX sweep: click-drag placement, endpoint drag, context menu, wheel zoom
+
+Four-step sweep on the drawing mouse UX. Drawing placement and editing now
+work with industry-standard click-drag idioms; right-click reveals
+per-drawing actions; scroll-wheel zooms centred on the cursor. Build clean,
+562/562 tests green (+4 wheel-zoom anchor-invariant tests).
+
+### Step 1 — Click-drag placement with live preview
+
+`DrawingInteractionManager.HandleMouseEvent` was previously single-path
+(only `MouseDown` was honoured; `MouseMove` and `MouseUp` were discarded
+at the pending-type guard). Split into `HandleMouseDown` / `HandleMouseMove`
+/ `HandleMouseUp`. On first click:
+
+1. Anchor 1 is recorded (existing flow).
+2. A **preview series** is added to the workspace immediately with both
+   anchors at cursor position. Subsequent `MouseMove` updates the preview's
+   second anchor and recomputes component arrays; `RedrawEvent` triggers
+   the canvas repaint.
+3. `MouseUp` with cursor movement beyond a 5 px dead-zone commits — the
+   preview IS the final drawing; no series swap. `MouseUp` without
+   movement is treated as "click, not drag" and leaves the pending state
+   intact for a legacy second click.
+
+JS `keyboard.js` `registerMouseHandler` updated: `mousemove` fires
+unconditionally (not just with button held) and is throttled via
+`requestAnimationFrame` so at most one .NET dispatch happens per paint
+tick. This lets the preview follow the cursor during click-click placement
+too, not just during drag.
+
+`CompleteDrawing` now checks `_previewSeriesId` — if a preview exists,
+the click-click path finalises anchors on the existing series rather than
+creating a second series.
+
+### Step 2 — Endpoint hit-test + drag-to-reposition existing drawings
+
+On `MouseDown` when no placement flow is active, the manager walks every
+drawing series' anchors (slots 1/2/3) and finds the nearest handle within
+a 10 px tolerance. If hit, enters **edit-drag** mode: `MouseMove` updates
+that specific anchor; `MouseUp` commits with a speech announcement.
+Handles two axis-aware special cases — `HorizontalLine` keeps date static
+when dragging anchor 1; `VerticalLine` keeps price static. Date-to-screen
+hit-testing binary-searches the bar array for the closest bar; price-to-
+screen uses the viewport range + log-scale-aware mapping.
+
+### Step 3 — Right-click context menu on drawings
+
+JS `contextmenu` listener suppresses the browser menu and forwards the
+cursor position through a new `OnContextMenu` `[JSInvokable]` as a
+distinct `ContextMenu` mouse type. `DrawingInteractionManager` hit-tests
+anchors (same logic as Step 2) and publishes `OpenDrawingContextMenuEvent`
+on a hit. New `DrawingContextMenu.razor` component subscribes, renders a
+floating menu anchored at the cursor with **Delete / Duplicate /
+Properties** buttons. Delete routes through the existing
+`DeleteSeriesEvent`. Duplicate builds a fresh `ChartSeries` with a new
+GUID and a deep-copied `DrawingData`, dispatches `AddSeriesAction`, and
+calls `SeriesManager.PersistWorkspace()`. Properties reuses
+`OpenPropertiesEvent` with the hit series' id. A transparent overlay
+captures any other click to dismiss; Escape closes via the overlay path.
+
+### Step 4 — Scroll-wheel zoom at cursor
+
+New `WheelZoomAction(int Direction, double AnchorFraction)` and
+`ViewportReducer.WheelZoom`. Math: compute `anchorBar = Start + frac *
+Length` BEFORE zoom; apply a 10% multiplicative length change; compute
+`newStart = anchorBar - frac * newLength`. Clamp length to `[10, 5000]`
+and start to ≥ 0, then `ClampViewportToData` caps the start against data
+bounds. Net effect: the bar under the cursor stays pinned to the cursor
+as the viewport expands or contracts around it — matches TradingView /
+MT5 zoom feel.
+
+JS `keyboard.js` adds a non-passive `wheel` listener (`preventDefault` so
+the browser doesn't scroll the page under the chart), computes the
+cursor's X fraction, and dispatches through a new `OnWheel`
+`[JSInvokable]` on `GlobalInputService`. The service now takes
+`IWorkspaceStore` in its ctor to dispatch `WheelZoomAction` directly —
+keeps the wheel path off the input-service bus (which is keyboard-only).
+
+`WheelZoomAnchorTests.cs` (4 tests): cursor-centre anchor preservation on
+zoom-in, right-edge anchor preservation on zoom-out, minimum-length
+clamp under runaway zoom, start clamp to ≥ 0 when anchor near left edge.
+
+---
+
+## [2026-04-24] — Per-indicator speech-template editor
+
+Added a **Speech** tab to the Indicator Properties modal
+(`PropertiesModal.razor`) that lets the user edit speech templates on a
+per-component basis for the indicator they currently have open. This is
+the correct scope for per-indicator templates — app-wide settings stay
+in the Settings modal; anything that belongs to one indicator instance
+lives on the indicator's own properties.
+
+### What ships
+
+- **Speech tab** between Sonification and the close buttons in
+  `PropertiesModal.razor`. Renders one fieldset per component, each with:
+  - A multiline textarea bound to `ComponentConfig.SpeechTemplate`
+    (continuous narration — line / oscillator / band values).
+  - For marker components (Dot / Diamond / Cross / Arrow / TriangleUp /
+    TriangleDown / Square), a second textarea bound to
+    `ComponentConfig.SignalSpeechTemplate` (one-shot signal narration
+    when the marker fires; empty = silent).
+  - The provider's metadata default surfaced as a placeholder + inline
+    legend so the user sees what the shipped behaviour is before editing.
+  - A per-row **Reset to default** button that restores the config field
+    back to the provider's declared metadata default (null for signal,
+    empty for continuous so SpeechFormatter's generic fallback kicks in).
+- **Available-tokens legend** at the top of the tab listing
+  `{name}` / `{type}` / `{value}` / `{value:F2}` / `{value:price}` /
+  `{trend}` / `{zone}` for continuous and `{name}` / `{price}` for
+  signal — matches the placeholders `SpeechFormatter` already supports.
+
+### What did NOT change
+
+- `ComponentConfig.SpeechTemplate` + `SignalSpeechTemplate` were already
+  present on the model and already consumed by `SpeechFormatter`
+  (`SpeechFormatter.cs:506` for continuous,
+  `MarkerSignalStrategy.Format` for signal). Persistence already
+  flows through the workspace JSON; no new storage path needed.
+- The legacy `ISpeechTemplateService` / `speech_templates.json` code
+  path at `AccessibleTrader.Core/Services/Accessibility/SpeechTemplateService.cs`
+  is not touched by this change — it's registered but unreferenced and
+  a future cleanup can delete it without affecting the new UI.
+
+### Pinning tests
+
+`SpeechTemplateOverrideTests.cs` (4 tests) locks the override contract:
+
+- Override string is rendered verbatim with token substitution.
+- Empty override falls back to `SpeechFormatter`'s generic template so
+  Reset doesn't accidentally silence narration.
+- Signal override on a marker takes priority over the continuous
+  template (`MarkerSignalStrategy` beats `StandardTemplateStrategy` in
+  the strategy chain).
+- Signal-null + continuous set on a marker falls through to the
+  continuous template — pins the Reset-signal-to-default behaviour.
+
+558/558 tests green (+4).
+
+---
+
+## [2026-04-24] — HTF prewarm pinning tests
+
+`ConfigurableStrategy.Initialize` already fire-and-forgets
+`IMultiTimeframeDataService.PrewarmIndicatorAsync` per unique
+`(Timeframe, IndicatorCode)` pair plus `GetBarsAsync` per unique HTF
+timeframe; the `IsPrewarmComplete` gate blocks `OnBar` evaluation until
+every prewarm task finishes. Behaviour shipped in Session C+ but the
+TODO entry was never closed.
+
+Added `ConfigurableStrategyPrewarmTests.cs` (4 tests) to pin the contract:
+
+- Per-pair collapse: duplicate `(tf, indicator)` leaves trigger one prewarm
+  call; three distinct pairs trigger three.
+- Per-timeframe bar prewarm: each distinct HTF timeframe triggers one
+  `GetBarsAsync` call regardless of leaf count on that timeframe.
+- No-HTF-leaf fast-path: specs with only active-TF leaves leave
+  `IsPrewarmComplete=true` from the first bar.
+- Null-MTF tolerance: a strategy constructed without the MTF service
+  doesn't throw on Initialize and reports the gate open.
+- Gate flip: `IsPrewarmComplete` stays `false` while tasks are in-flight
+  and flips `true` only after every held prewarm task has transitioned to
+  completed (verified by awaiting on `Task.WhenAll` of the held tasks).
+
+Closes the `Pre-warm of HTF data on strategy add` TODO. 554/554 tests
+green.
+
+---
+
+## [2026-04-24] — Phase 10-F complete: DLL plugin strategies
+
+Three-session roadmap item landed end-to-end; solution builds clean and
+550/550 tests pass (537 baseline + 13 new).
+
+### Sub-item (a) — DLL plugin strategy loader
+
+- **SDK contract** `AccessibleTrader.Sdk.Strategies.IStrategyPlugin`. Plugins
+  export a `Name`, `Description`, and `IReadOnlyList<ITradingStrategy>
+  GetStrategies()` set. Stable author-chosen `Id`s on each template so saved
+  workspaces rehydrate correctly.
+- **Loader** `StrategyPluginRegistry` in `Core/Services/Strategies/` reuses
+  the existing `PluginLoaderService` + `PluginTrustPolicy` (ALC isolation,
+  SHA-256 manifest check, unloadable contexts) but scans its own filename
+  pattern `AccessibleTrader.Plugins.Strategy.*.dll`. `IPluginLoaderService.LoadPlugins`
+  gained an optional `searchPattern` parameter (default preserves trading-
+  provider behaviour).
+- **Scan directories**: ship-directory `{BaseDirectory}/Strategies/` plus
+  user drop-in `%LocalAppData%/AccessibleTrader/Strategies/`, both created
+  on first run.
+- **Fixture plugin** at `Plugins/Strategies/AccessibleTrader.Plugins.Strategy.Fixture/`
+  exposes a single no-op `ITradingStrategy` template. Built as a test-only
+  build-order dependency; copied into the test output via a custom
+  `CopyStrategyPluginFixture` MSBuild target so the fixture types never land
+  in the test assembly's default ALC.
+- **Test harness** `StrategyPluginRegistryTests.cs` (7 tests): load/scan/
+  idempotent-init, unload+reinitialise, trust-policy enforce vs allow,
+  missing-directory tolerance, GC survival.
+
+### Sub-item (b) — StrategyIndicatorCache integration
+
+- **Plugin-side contract** `AccessibleTrader.Sdk.Services.IPluginStrategyIndicatorCache`
+  mirrors the Core interface so DLL strategies don't need a Core reference.
+- **Core interface** now inherits the Sdk contract; `StrategyIndicatorCache`
+  implements both simultaneously. Removed the duplicate method signatures
+  on the Core interface — the Sdk base declares them.
+- **Host bridge** `PluginHostServices.IndicatorCache` wired in `MauiProgram`
+  so plugin and Roslyn strategies can resolve SMA/EMA/RSI/Bollinger values
+  via the shared cache without maintaining their own buffers.
+- **Backtester invalidation semantics**. `StrategyBacktester` gained an
+  optional `IStrategyIndicatorCache` ctor parameter and calls
+  `Invalidate(historyBuffer.Count)` at the start of every bar advance. Without
+  this the cache key (`"SMA|period|count"`) froze at the first bar's count and
+  every subsequent cached indicator value was stale — backtests with
+  cache-backed strategies would repeat the first value for hundreds of bars.
+  New pinning test `StrategyIndicatorCacheBacktestTests.cs` proves the fix.
+
+### Sub-item (c) — IStrategyRegistry.GetCatalog()
+
+- **Unified registry** `StrategyRegistry` merges:
+  1. Spec-backed entries from `IStrategyLibrary` (built-in seeds + user-saved).
+     Wrapped in a thin `SpecCatalogEntry` (`ITradingStrategy` descriptor)
+     that carries `Id`/`Name`/`Description` without materialising the full
+     runtime strategy.
+  2. DLL-plugin templates from `IStrategyPluginRegistry.Templates`.
+- **ID-collision rule**: specs win over plugin templates at the same ID —
+  the library is the persistence source of truth. Documented in the type
+  summary.
+- **`CreateInstance(id)`** prefers library first (delegates to
+  `IConfigurableStrategyFactory.Create(spec)`), then falls through to the
+  cached plugin template.
+- **Test coverage** `StrategyRegistryCatalogTests.cs` (5 tests): merged
+  catalog composition, ID collision resolution, factory routing for spec IDs,
+  template passthrough for plugin IDs, null return for unknown IDs.
+
+### Impact
+
+- Third-party authors can ship a strategy DLL, drop it into the user
+  `Strategies/` folder, and the app discovers it on next launch without a
+  recompile — same ergonomic as the trading-provider and analytics plugin
+  sets.
+- The strategy modal can now bind to a single unified catalog instead of
+  reading the library and the plugin registry independently.
+- Backtests of cache-using strategies (Roslyn-compiled, future DLL-plugin)
+  report correct indicator values at every bar, not stale first-bar ones.
+
+### Deferred out-of-scope items
+
+- **Host-to-plugin service injection via DI container** — still via
+  `PluginHostServices` static accessors. Revisit if a plugin needs
+  richer DI than the current bridge exposes.
+- **Per-plugin reload from the UI** — current `UnloadAll` is all-or-nothing
+  on the registry. Adding a per-plugin unload means tracking contexts
+  keyed by DLL path; fine to defer until a user asks for live reload.
+
+---
+
+## [2026-04-24] — Post-toolbar sweep: analytics guard + canvas JS-sizing + SKPaint pool
+
+Four-item sweep following the icon-toolbar ship. Build clean, 537/537 tests
+green.
+
+### Analytics / on-chain provider guard (defense in depth)
+
+`DataService.LoadProvidersByMarketTypeAsync` now cross-checks each
+provider's declared `ProviderDataShape` against the market-type
+category: analytics markets (`OnChain` / `Economic` / `Derivatives` /
+`Sentiment`) may only surface `SingleValueLine` providers, tradeable
+markets (`Crypto` / `Stock` / `Forex` / etc.) may only surface `Ohlcv`
+providers. Every in-tree analytics plugin already declares its market
+type correctly and was routed only to the Analytics dropdown; the new
+filter makes misdeclaration by a future plugin a no-op rather than a
+UX regression. No change to user-facing behaviour for the current
+plugin set.
+
+### Pixel-perfect canvas sizing via JS bounding-rect
+
+Removed the hardcoded `Margin="0,185,0,100"` coupling between
+`MainPage.xaml` and the Blazor chrome height. New `ICanvasRegionProvider`
+service (`BehaviorSubject<CanvasBounds>`) receives top/bottom CSS-pixel
+values from the Blazor side; `ChartArea.razor` publishes on mount and on
+every `ResizeObserver` tick via a small `wwwroot/js/canvasRegion.js`
+module. `MainPage.xaml.cs` subscribes on `OnHandlerChanged` and
+re-applies the `SKCanvasView.Margin` on the main thread. The XAML's
+original 185/100 values remain as a first-paint fallback for the brief
+moment before the JS interop lands, and for host contexts without
+`IJSRuntime`. Canvas now tracks any toolbar / indicator-bar / footer
+height change (or non-100% DPI) automatically.
+
+### SKPaint pooling on the render hot path
+
+Introduced `SKPaintPool` — a `[ThreadStatic]` stack of reusable
+`SKPaint` instances, checked out via a `RentedPaint` `using` lease
+that resets on rent and returns on dispose. Single-threaded render
+loop makes this race-free without locks. Refactored the per-bar
+hot paths in `StandardRenderers` that were each allocating a fresh
+`SKPaint`:
+
+- `RenderCandles` — wick + body (2 / bar, ≈ 1 000 / frame @ 500 bars)
+- `RenderLine` — `ColorRules` segment branch (≈ 1 / segment)
+- `RenderDot` / `RenderArrow` / `RenderTriangleUp` /
+  `RenderTriangleDown` / `RenderDiamond` / `RenderSquare` /
+  `RenderCross` — one allocation per marker bar
+- `RenderDirectionalBars` — shared up / down paints now pooled; the
+  per-bar `hasColorRules` branch checks out and returns a pooled paint
+  instead of allocating
+
+Steady-state allocations on a busy confluence chart drop from
+~2 500/frame to ≈ 10 (first-use grow per paint shape).
+
+### Strategy curation — v3 / v4-r1 / v6 cleanup
+
+Audited `BuiltInStrategySeeds.cs`; the three refuted strategies
+flagged in TODO.md (`builtin.cryptoface.long.v3`,
+`builtin.cryptoface.long.v4-claude`,
+`builtin.long.v6-cipher-c-cycle`) are already absent from the seed
+list — curation was folded into earlier commits. Marked the TODO
+entries closed.
+
+### Deferred in this sweep
+
+- **Bollinger Band noise preset** — requires widening the
+  `SoundPatch` record (adds `NoiseAmount` + noise-type), which is
+  Phase 10-B Sound Designer scope, not small.
+- **Divergence line rendering (MCB)** — needs a 1st-pivot companion
+  array on `CipherBProvider` and a new `ComponentDisplayType` /
+  renderer; cross-cuts indicator and rendering code.
+- **Cross-pane Anchor cloud tint on price pane** — needs a new
+  pane-level background-tint config source, an extra rendering pass,
+  and UI to bind the regime classifier. Wider than a sweep item.
+
+---
+
 ## [2026-04-24] — Icon-toolbar composition fixes: WebView2 z-order + canvas margin
 
 Ship-polish follow-up to the initial icon-toolbar commit. The first pass

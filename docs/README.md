@@ -190,7 +190,7 @@ See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BAS
 - **Phase D** — Cipher B sonification redesign: bell taxonomy throughout all signal dots, dual_tone_bell for Triple Confluence Buy, volume layering via PlaybackLayer.
 - **Phase E** — Cipher SR sonification: crystal_bell for pivot dots, zone hum in NavigationFeedbackManager, IsZoneLine flag.
 - **Phase F** — Cluster/shapes-as-ticks: N marker signals on a bar produce N audio ticks 100 ms apart in significance order.
-- **Phase G** — Contextual speech: `SignalSpeechTemplate` on `ComponentConfig`, provider-declared signal descriptions via `GetComponentSpeech`, multi-signal sequencing in NavigationFeedbackManager.
+- **Phase G** — Contextual speech: `SignalSpeechTemplate` on `ComponentConfig`, provider-declared signal descriptions via `GetComponentSpeech`, multi-signal sequencing in NavigationFeedbackManager. 2026-04-24: per-indicator speech templates are now user-editable via the **Speech tab in the Indicator Properties modal** (`PropertiesModal.razor`) — continuous (`SpeechTemplate`) and signal (`SignalSpeechTemplate`) fields per component with a Reset-to-default button that restores provider metadata defaults.
 - **Phase H** — Cloud sonification: `CloudSonificationConfig` on `CloudFillConfig`, AudioSequencer cloud pass (slots 64–79), EMA Fill + WT Fill + Ichimoku cloud audio wired.
 - **Phase I** — Drawing Coordinate Entry: keyboard-first anchor placement via CE mode (`Enter` to set each anchor, `Escape` to cancel), TTS price+timestamp feedback, change-from-anchor speech.
 - **Phase J** — Ctrl+Left/Right redesign: context-aware crossing (ZeroLine/Threshold/MACross/Band/Trendline/SparseMarker) dispatched from `HandleTrendlineCrossJump`.

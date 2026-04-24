@@ -57,11 +57,11 @@ Fixed as part of this sweep. Full writeup in
   the orchestrator state to be `LiveStreaming` / `GapFilling`,
   which kept the blackout-overlay visible while the canvas had
   already started drawing bars.
-- [ ] **Pixel-perfect canvas sizing via JS-interop bounding-rect**
-  — low priority. Current hardcoded margins work at ~100% DPI; if
-  the Blazor chrome grows or DPI changes, wire JS interop to report
-  `ChartArea`'s `getBoundingClientRect()` to the host and set the
-  canvas margin dynamically. ~40 lines of code.
+- [x] **Pixel-perfect canvas sizing via JS-interop bounding-rect**
+  — shipped 2026-04-24 (post-toolbar sweep). New
+  `ICanvasRegionProvider` bridges Blazor (ResizeObserver) to the
+  native `SKCanvasView.Margin`. XAML 185/100 values remain as a
+  first-paint fallback.
 
 ---
 
@@ -158,15 +158,19 @@ tests still green. See `docs/CHANGES.md` 2026-04-24 Tier 3 entry.
 
 ### Deferred this sweep with refreshed rationale
 
-- [ ] **DLL plugin strategies + StrategyIndicatorCache integration +
-  IStrategyRegistry.GetCatalog extension** — Phase 10-F unfinished
-  half. Three distinct sub-items collectively ≥ 2 days:
-  (a) DLL plugin scanning (AssemblyLoadContext + PluginTrustPolicy +
-  unload contract + fixture plugin for tests);
-  (b) StrategyIndicatorCache integration (thread through
-  ConditionEvaluator + invalidation semantics backtester must honor);
-  (c) GetCatalog extension (easy, but gated on (a) landing).
-  Each needs its own 1-2 day session.
+- [x] **DLL plugin strategies + StrategyIndicatorCache integration +
+  IStrategyRegistry.GetCatalog extension** — Phase 10-F complete
+  2026-04-24. All three sub-items shipped in a single pass; see
+  `docs/CHANGES.md` for the full writeup.
+  (a) `IStrategyPlugin` SDK contract + `StrategyPluginRegistry` +
+  fixture plugin + 7 loader tests (load / scan / idempotent-init /
+  unload+reload / trust-policy enforce / missing-dir tolerance / GC).
+  (b) `IPluginStrategyIndicatorCache` SDK mirror + host bridge via
+  `PluginHostServices.IndicatorCache` + per-bar `Invalidate` in the
+  backtester + pinning test that proves stale-cache-value bug is fixed.
+  (c) Unified `StrategyRegistry` merges `IStrategyLibrary.All` +
+  plugin templates with spec-wins-on-collision semantics + 5 catalog
+  tests.
 - [x] **Settings-modal Alerts tab UI** — shipped 2026-04-24 (same day).
   New Alerts tab in `SettingsModal.razor` reads + writes the
   `alerts.email.*` / `alerts.telegram.*` key-paths via `ISettingsManager`
@@ -213,17 +217,17 @@ See `docs/CHANGES.md` 2026-04-24 entry for per-item detail + rationale.
 
 ### Deferred with refreshed rationale (2026-04-24)
 
-- [ ] **StrategyModal facade (`IStrategyModalCoordinator`)** — Core-side
-  `StrategyLibraryFacade` (shipped 2026-04-22) already delivered the
-  real testability win. Remaining modal-side extraction is a 10→5
-  cosmetic injection-count reduction; defer until a feature forces it.
-- [ ] **Divergence line rendering, cross-pane Anchor cloud tint,
-  adaptive WT thresholds, Suggestion-mode metrics tracking, live
-  trendline preview via JS streaming, Custom Speech Template editor,
-  three-tier level-crossing earcons, Custom Script Roslyn persistence,
-  `ICustomScriptService.RunScriptAsync` full pipeline, Pine
-  `line.new`/`label.new` mapping.** Each is a multi-hour self-contained
-  effort; entries kept below with original scope estimates.
+- [x] **StrategyModal facade (`IStrategyModalCoordinator`)** — shipped
+  2026-04-24 Tier 3 sweep. Wraps Engine + Backtester + WarmupAnalyzer +
+  Library + Factory + Roslyn; StrategyModal @inject count 10 → 5.
+- *Deferred sub-items collapsed into their canonical entries elsewhere in
+  this file (divergence line rendering, cross-pane Anchor cloud tint,
+  adaptive WT thresholds, three-tier level-crossing earcons, Custom
+  Script Roslyn persistence, `ICustomScriptService.RunScriptAsync` full
+  pipeline, Pine `line.new`/`label.new` mapping). Live trendline preview
+  shipped 2026-04-24 (Mouse UX sweep). Custom Speech Template Editor
+  shipped 2026-04-24 in Indicator Properties modal. Suggestion-mode
+  metrics tracked separately at line 1096.*
 
 ---
 
@@ -474,7 +478,10 @@ shipped except the optional file-sink documentation. See
   under a thin parent coordinator.
 - [x] StrategyModal facade extraction — shipped 2026-04-24 as
   `IStrategyModalCoordinator`. Injection count 10 → 5.
-- [ ] SKPaint pooling — ~2500 allocations/frame at 500 bars × 5 panes.
+- [x] SKPaint pooling — shipped 2026-04-24. New `SKPaintPool`
+  (`[ThreadStatic]` stack + `RentedPaint` lease) retrofit into every
+  per-bar hot path in `StandardRenderers`. Steady-state alloc count
+  drops from ~2500/frame to ≈10 on a busy chart.
   Real GC win but needs profiling first to confirm on target devices.
 
 ---
@@ -1012,7 +1019,17 @@ A user-buildable signal composer that combines indicator components from any reg
 **Still pending in this scope (deferred to Session C+):**
 - [x] **HTF indicator computation (Tier A.2 — 2026-04-23)** — infrastructure (PrewarmIndicatorAsync + GetCachedIndicator + ConfigurableStrategy.Initialize + pre-warm gate) was already wired. Closed the last gap: `MultiTimeframeDataService.PrewarmIndicatorAsync` now calls a new `BuildDefaultParameters` helper when the caller passes an empty parameter dict, looking up `IndicatorMetadata.Parameters` defaults from the indicator provider. Was previously passing an empty dict which made some providers emit all-NaN arrays. Regression pinned by `ConditionEvaluatorHtfTests.cs`.
 - [x] **Adaptive warmup auto-apply in StrategyModal (Tier B.3 verified 2026-04-23)** — already shipped. `StrategyModal.razor`'s `AutoWarmup()` wires the "Auto" button; `BuildSetupTab.razor:992` auto-applies `WarmupAnalyzer.RecommendedWarmup(spec)` in the preview flow.
-- [ ] **Pre-warm of HTF data on strategy add** — `ConfigurableStrategy.Initialize` should fire-and-forget `_mtf.GetBarsAsync(...)` for every leaf's `Timeframe`. Requires factory injection of MTF service.
+- [x] **Pre-warm of HTF data on strategy add** — shipped in Session C+
+  (the infrastructure was already in place; TODO entry was stale).
+  `ConfigurableStrategyFactory` optionally injects `IMultiTimeframeDataService`;
+  `ConfigurableStrategy.Initialize` collects the unique `(Timeframe, IndicatorCode)`
+  pairs from the condition tree and fire-and-forgets `PrewarmIndicatorAsync`
+  per pair plus `GetBarsAsync` per unique HTF timeframe. The
+  `IsPrewarmComplete` gate blocks `OnBar` evaluation until every prewarm
+  task finishes — otherwise NaN reads on unwarmed HTF leaves silently flip
+  condition results. Pinning tests added 2026-04-24
+  (`ConfigurableStrategyPrewarmTests.cs`, 4 tests): per-pair collapse,
+  no-HTF-leaf fast-path, null-MTF tolerance, gate-flips-after-completion.
 
 ### Session C — Support / resistance + volume profile as condition + risk sources (2026-04-07) — PARTIAL
 
@@ -1076,7 +1093,16 @@ User reported 0 trades after adding Cipher B + building a strategy. Audit reveal
 
 **Still pending (polish, not blocking):**
 - [~] **Live mode TP ladder execution** — broker-side bracket order plumbing per provider remains deferred (multi-day per broker: Binance OCO, Coinbase brackets, Schwab OCO, Alpaca brackets, Kraken conditional-close, plus emulation for brokers without native support). Tier B.5 (2026-04-23) shipped a safety warning: `SetupSonifier.OnArmed` now appends "Ladder has N rungs — only the first target fires live until multi-rung bracket support ships" when `TpPrices.Count > 1`. Closes the silent-failure path; multi-rung implementation stays on this list.
-- [ ] **Active tab metrics for Suggestion-mode strategies** — `BaseStrategy.GetMetrics()` is fill-based; needs signal-based tracking for non-Auto strategies.
+- [x] **Active tab metrics for Suggestion-mode strategies** (shipped
+  2026-04-24) — `BaseStrategy` now wraps `OnBar` with theoretical-fill
+  tracking: each signal with a Stop AND TakeProfit is recorded as a
+  theoretical entry at bar close; subsequent bars walk Stop/TP against
+  High/Low with stop-priority on same-bar ties (matching
+  `StrategyBacktester`). `GetMetrics()` blends real-fill (Auto) +
+  theoretical-fill (Suggestion) counters. Subclass contract changed:
+  `ComputeSignal` is the new abstract hook (renamed from `OnBar`) —
+  only one subclass exists (`ConfigurableStrategy`) and was updated.
+  `SuggestionMetricsTests.cs` pins the contract (5 tests).
 - [~] **TreeView expand/collapse + arrow-key navigation** — expand/collapse
   shipped 2026-04-24 (disclosure button, aria-expanded toggled). Arrow-key
   walking still deferred: proper ARIA tree keyboard nav needs tabindex
@@ -1274,7 +1300,15 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 ## MEDIUM PRIORITY — Future Work
 
 ### Drawing Tool Refinement
-- [ ] Implement "Live Preview" for trendline dragging via JS-to-C# event streaming.
+- [x] **Live Preview for trendline dragging + full mouse UX sweep**
+  (shipped 2026-04-24). Click-drag placement creates a preview series on
+  MouseDown that follows the cursor on every MouseMove and commits on
+  MouseUp. Existing drawings can be repositioned by grabbing their anchor
+  handles (10 px hit-test). Right-click opens a floating
+  Delete/Duplicate/Properties menu. Scroll-wheel zoom centres on the
+  cursor. JS `mousemove`/`wheel` listeners + three new `[JSInvokable]`
+  entry points; `WheelZoomAction` + `ViewportReducer.WheelZoom`. 4 new
+  pinning tests — 562/562 green.
 - [x] Add "Coordinate Entry" mode for accessibility-first drawing creation (keyboard-only placement without cursor). *(Phase I, 2026-03-31)*
 
 ### Technical Analysis Polish
@@ -1477,7 +1511,17 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 
 ### Feature Completion
 - [x] **Strategy Backtester UI:** `StrategyModal.razor` — Backtest section with capital/commission/slippage inputs, Run button, results grid (trades/win rate/P&L/drawdown/Sharpe), trade log details. `IStrategyBacktester` DI-registered in `ServiceCollectionExtensions`.
-- [ ] **Custom Speech Template Editor:** "Speech" tab in `SettingsModal` with editable template fields.
+- [x] **Custom Speech Template Editor** (shipped 2026-04-24, scope
+  corrected) — per-indicator speech templates are now editable in the
+  **Indicator Properties modal** (`PropertiesModal.razor`), not the
+  Settings modal. The original TODO placed this in `SettingsModal`
+  which was the wrong scope: per-indicator templates belong on the
+  indicator instance, not app-wide settings. The new **Speech** tab
+  edits `ComponentConfig.SpeechTemplate` + `SignalSpeechTemplate`
+  directly — fields were already present on the model and already
+  consumed by `SpeechFormatter`; only the UI was missing. Reset-to-
+  default button restores provider metadata defaults.
+  `SpeechTemplateOverrideTests.cs` pins the contract (4 tests).
 - [ ] **Multi-Symbol Watchlist:** Extend `WorkspaceState` to hold collection of `ChartState`.
 
 ### Platform Parity
@@ -1672,11 +1716,24 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 
 - [x] **Custom C# Strategy tab:** `StrategyModal.razor` now has a tabbed layout (Add Strategy / Active / Backtest / Custom Script). Custom Script tab: textarea editor, C# template, execution mode, Compile & Add button.
 - [x] **`IRoslynScriptingService.CompileStrategyAsync`:** Compiles user C# into `ITradingStrategy` via Roslyn, referencing both `AccessibleTrader.Sdk` and `AccessibleTrader.Core` so `BaseStrategy` is available. Result `CompileStrategyResult(Success, Strategy, Errors[])`. Errors shown inline in editor pane. On success: strategy added to `StrategyEngine`, tab switches to Active.
-- [ ] **`ConfigurableStrategy` class (`Core/Trading`):** Implements `IStrategy`. Drives execution from a serializable `StrategyConditionSet` (list of `StrategyCondition` — indicator, component, operator, threshold/crossover-target). AND/OR logic. Entry/exit/stop-loss conditions. Persisted to `strategies.json`.
-- [ ] **Strategy condition builder UI (StrategyModal):** Visual no-code strategy builder wizard. Step 1: Name + execution mode. Step 2: Entry conditions. Step 3: Exit conditions + stop-loss. Step 4: Review + Save.
-- [ ] **DLL plugin strategy:** `strategies/` drop folder scanned by `StrategyRegistry` at startup. Same `IStrategy` contract. `AssemblyLoadContext` isolation.
-- [ ] **`StrategyIndicatorCache` integration:** `ConfigurableStrategy` and script strategies resolve indicator values from `IStrategyIndicatorCache` — no chart dependency.
-- [ ] **`IStrategyRegistry.GetCatalog()` extension:** Returns built-in + user-defined + DLL-plugin strategies in a unified list for the StrategyModal template picker.
+- [x] **`ConfigurableStrategy` class (`Core/Trading`):** shipped — see
+  `AccessibleTrader.Core/Strategies/ConfigurableStrategy.cs`. Serializable
+  `StrategySpec` + condition tree; persists via `JsonStrategyLibrary` +
+  `strategies.json`.
+- [x] **Strategy condition builder UI (StrategyModal):** shipped — see
+  `BuildSetupTab.razor` (split into `ConditionTreeEditor` /
+  `RiskPlanEditor` / `SummaryExport` in the 2026-04-24 Tier 3 sweep).
+- [x] **DLL plugin strategy:** shipped 2026-04-24 Phase 10-F(a) — see
+  `IStrategyPlugin` SDK contract + `StrategyPluginRegistry` + fixture
+  plugin + 7 loader tests.
+- [x] **`StrategyIndicatorCache` integration:** shipped 2026-04-24
+  Phase 10-F(b) — SDK bridge `IPluginStrategyIndicatorCache` +
+  `PluginHostServices.IndicatorCache` + per-bar `Invalidate` in the
+  backtester.
+- [x] **`IStrategyRegistry.GetCatalog()` extension:** shipped 2026-04-24
+  Phase 10-F(c) — unified `StrategyRegistry` merges
+  `IStrategyLibrary.All` + `IStrategyPluginRegistry.Templates` with
+  spec-wins-on-ID-collision semantics.
 
 ### Phase 10-F2 — Accessible Cipher B ✅ Complete
 
