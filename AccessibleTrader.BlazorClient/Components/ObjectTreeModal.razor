@@ -34,23 +34,33 @@
                         var panes = Store.State.ActiveSeries.GroupBy(s => s.Pane).OrderBy(p => p.Key);
                     }
 
+                    @{ bool firstItem = true; }
                     @foreach (var pane in panes)
                     {
                         <details @key="pane.Key" open class="pane-node">
-                            <summary class="pane-header" role="treeitem" aria-expanded="true">
+                            <summary class="pane-header" role="treeitem" aria-level="1"
+                                     tabindex="@(firstItem ? 0 : -1)"
+                                     aria-label="@($"Pane {pane.Key}, {pane.Count()} series")">
                                 <span class="icon">📦</span> Pane: @pane.Key
                             </summary>
-                            
+
                             <div role="group" class="pane-content">
                                 @foreach (var series in pane)
                                 {
                                     bool isFocused = series.Id == Store.State.FocusedSeriesId;
-                                    <div @key="series.Id" class="series-node @(isFocused ? "focused-series" : "")" 
-                                         role="treeitem" 
-                                         aria-selected="@(isFocused ? "true" : "false")">
-                                        
+                                    bool willInitiallyFocus = firstItem;
+                                    firstItem = false;
+                                    <div @key="series.Id" class="series-node @(isFocused ? "focused-series" : "")"
+                                         role="treeitem"
+                                         aria-level="2"
+                                         tabindex="-1"
+                                         aria-selected="@(isFocused ? "true" : "false")"
+                                         aria-label="@($"{series.FriendlyName}, {series.Components.Count} components, {(series.IsVisible ? "visible" : "hidden")}, {(series.IsMuted ? "muted" : "audible")}{(isFocused ? ", focused" : "")}")">
+
                                         <details @onclick:stopPropagation="true" class="series-details">
-                                            <summary class="series-summary" @onclick="() => FocusSeries(series.Id)">
+                                            <summary class="series-summary"
+                                                     data-tree-activate="true"
+                                                     @onclick="() => FocusSeries(series.Id)">
                                                 <span class="series-name">@series.FriendlyName</span>
                                                 <div class="series-actions">
                                                     <button title="Toggle Visibility (H)" 
@@ -79,8 +89,12 @@
                                             <div role="group" class="component-list">
                                                 @foreach (var comp in series.Components)
                                                 {
-                                                    <div class="component-item" role="treeitem">
-                                                        <span class="comp-name">@comp.Name (@DisplayTypeName(comp.DisplayType))</span>
+                                                    var compLabel = string.IsNullOrWhiteSpace(comp.DisplayName) ? comp.Name : comp.DisplayName;
+                                                    <div class="component-item" role="treeitem"
+                                                         aria-level="3"
+                                                         tabindex="-1"
+                                                         aria-label="@($"{compLabel}, {DisplayTypeName(comp.DisplayType)}, {(comp.IsVisible ? "visible" : "hidden")}, {(comp.IsMuted ? "muted" : "audible")}")">
+                                                        <span class="comp-name">@compLabel (@DisplayTypeName(comp.DisplayType))</span>
                                                         <div class="comp-actions">
                                                             <button title="Toggle Component Visibility" 
                                                                     class="mini-btn"

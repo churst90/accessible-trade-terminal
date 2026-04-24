@@ -1103,11 +1103,12 @@ User reported 0 trades after adding Cipher B + building a strategy. Audit reveal
   `ComputeSignal` is the new abstract hook (renamed from `OnBar`) —
   only one subclass exists (`ConfigurableStrategy`) and was updated.
   `SuggestionMetricsTests.cs` pins the contract (5 tests).
-- [~] **TreeView expand/collapse + arrow-key navigation** — expand/collapse
-  shipped 2026-04-24 (disclosure button, aria-expanded toggled). Arrow-key
-  walking still deferred: proper ARIA tree keyboard nav needs tabindex
-  focus management + JS interop for programmatic `.focus()` calls, best
-  done alongside the eventual BuildSetupTab UI split.
+- [x] **TreeView expand/collapse + arrow-key navigation** — shipped
+  2026-04-24. New `wwwroot/js/treeKeyboard.js` auto-wires ArrowUp/Down,
+  ArrowRight/Left, Home/End, Enter/Space to every `role="tree"` element.
+  Handles both the aria-expanded pattern (ConditionTreeEditor) and the
+  `<details><summary>` pattern (ObjectTreeModal). All tree levels emit
+  meaningful aria-labels that screen readers announce as a single phrase.
 - [ ] **Custom Script tab Roslyn strategy persistence** — Roslyn-compiled strategies still aren't saved as `StrategySpec`s.
 
 ---

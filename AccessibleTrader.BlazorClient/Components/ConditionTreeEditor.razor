@@ -342,12 +342,15 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             aria-level="@level"
             aria-selected="@(isSelected ? "true" : "false")"
             aria-expanded="@(node.IsGroup ? (isCollapsed ? "false" : "true") : null)"
-            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444");">
+            aria-label="@($"{label}{(isSelected ? ", selected" : "")}")"
+            tabindex="@(isSelected ? 0 : -1)"
+            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444"); outline: none;">
 
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                 @if (node.IsGroup)
                 {
                     <button type="button"
+                            data-tree-toggle="true"
                             @onclick="() => ToggleCollapsed(node)"
                             aria-label="@(isCollapsed ? $"Expand {label}" : $"Collapse {label}")"
                             style="background: transparent; color: #ddd; border: 1px solid #555; padding: 2px 6px; cursor: pointer; min-width: 24px;">
@@ -356,6 +359,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
                 }
 
                 <button type="button"
+                        data-tree-activate="true"
                         @onclick="() => SelectNode(node)"
                         aria-label="Select @label"
                         style="background: @(isSelected ? "#264" : "transparent"); color: #ddd; border: 1px solid #555; padding: 2px 8px; cursor: pointer;">

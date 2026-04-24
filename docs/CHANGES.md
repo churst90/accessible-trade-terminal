@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — ARIA tree arrow-key navigation + meaningful tree labels
+
+New `wwwroot/js/treeKeyboard.js` auto-wires standard WAI-ARIA tree keyboard
+behavior to every element with `role="tree"`:
+
+- `ArrowDown` / `ArrowUp` — move focus between visible treeitems.
+- `ArrowRight` — expand collapsed group, else move to first child.
+- `ArrowLeft` — collapse expanded group, else move to parent.
+- `Home` / `End` — first / last visible treeitem.
+- `Enter` / `Space` — activate or toggle.
+
+Handles both the `aria-expanded` treeitem pattern (`ConditionTreeEditor`) and
+the `<details><summary role="treeitem">` pattern (`ObjectTreeModal`).
+
+**Meaningful labels on all tree levels.** Every treeitem now emits an
+`aria-label` screen readers pick up as a single phrase rather than stitching
+together sibling elements:
+
+- Strategy tree leaves: `"CIPHER_B.Hidden Bear Continuation — GreaterThan [1h]"`
+- Strategy tree groups: `"AND group (3), selected"`
+- Object tree pane: `"Pane Main, 4 series"`
+- Object tree series: `"Cipher B, 14 components, visible, audible, focused"`
+- Object tree component: `"WT1, Oscillator, visible, muted"`
+
+ConditionTreeEditor treeitems now carry `tabindex` (roving), and their toggle
+and activate buttons are tagged with `data-tree-toggle` / `data-tree-activate`
+so the keyboard helper dispatches the right action.
+
 ## [2026-04-24] — Cloud sonification scoping: visual-only fills between oscillator lines
 
 Codified the long-standing-but-undocumented rule for when a `CloudFillConfig`
