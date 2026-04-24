@@ -14,6 +14,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceStore _store;
         private readonly IMainThreadService _mainThreadService;
         private readonly IEventBus _eventBus;
+        private readonly ILevelCrossingMonitor? _levelCrossing;
         private readonly List<IDisposable> _subscriptions = new();
         private readonly SonificationStateMachine _stateMachine;
 
@@ -38,13 +39,15 @@ namespace AccessibleTrader.Core.Services
             INavigationSonifier navigation,
             IWorkspaceStore store,
             IMainThreadService mainThreadService,
-            IEventBus eventBus)
+            IEventBus eventBus,
+            ILevelCrossingMonitor? levelCrossing = null)
         {
             _playback = playback;
             _navigation = navigation;
             _store = store;
             _mainThreadService = mainThreadService;
             _eventBus = eventBus;
+            _levelCrossing = levelCrossing;
             _currentState = store.State;
             _stateMachine = new SonificationStateMachine(eventBus);
 
@@ -71,9 +74,16 @@ namespace AccessibleTrader.Core.Services
                 bool indexChanged = state.CurrentDataIndex != _currentState.CurrentDataIndex;
                 bool focusChanged = state.FocusedSeriesId != _currentState.FocusedSeriesId || state.FocusedComponentIndex != _currentState.FocusedComponentIndex;
                 bool binChanged = state.FocusedBinIndex != _currentState.FocusedBinIndex;
-                
+                bool symbolChanged = state.Identity.Symbol != _currentState.Identity.Symbol
+                                  || state.Identity.Timeframe != _currentState.Identity.Timeframe
+                                  || state.Identity.Provider != _currentState.Identity.Provider;
+
                 var oldState = _currentState;
                 _currentState = state;
+
+                // Symbol/timeframe/provider swap invalidates level-crossing history —
+                // approach and sustained state is per-chart.
+                if (symbolChanged) _levelCrossing?.Reset();
 
                 if ((playingToggled && state.IsPlaying) || (state.IsPlaying && scopeChanged))
                 {
@@ -104,6 +114,11 @@ namespace AccessibleTrader.Core.Services
                 if (IsEnabled && allowNavSounds && (indexChanged || focusChanged || binChanged))
                 {
                     _navigation.SyncNavigationSlots(state);
+                    // Layer the three-tier level-crossing earcons (approach / crossing /
+                    // sustained) on top. Fires at most a few quiet sines per bar — does
+                    // not replace PlayEarcon on crossing, which still runs via the
+                    // existing sonification strategy path.
+                    if (indexChanged) _levelCrossing?.OnBarNavigated(state);
                 }
             }));
 

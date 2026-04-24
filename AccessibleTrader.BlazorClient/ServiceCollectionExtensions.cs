@@ -446,6 +446,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<ISonificationStrategy, DefaultSonificationStrategy>();
             services.AddSingleton<IPlaybackOrchestrator, PlaybackOrchestrator>();
             services.AddSingleton<INavigationSonifier, NavigationSonifier>();
+            services.AddSingleton<ILevelCrossingMonitor, LevelCrossingMonitor>();
             services.AddSingleton<ISonificationManager, SonificationManager>();
 
             return services;
