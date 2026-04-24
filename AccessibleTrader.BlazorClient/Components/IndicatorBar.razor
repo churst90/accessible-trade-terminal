@@ -19,34 +19,34 @@
     @if (_focusedSeries != null)
     {
         @* Route through EventBus → ChartCommandManager so speech feedback fires. *@
-        <ToolbarIconButton Icon="@(_focusedSeries.IsVisible ? "visible" : "hidden")"
-                          Label="@(_focusedSeries.IsVisible ? "Visible" : "Hidden")"
-                          Variant="neutral"
-                          IsToggleOn="@(!_focusedSeries.IsVisible)"
-                          Tooltip="Toggle visibility (H)"
-                          AriaLabel="@(_focusedSeries.IsVisible ? "Hide " + _focusedSeries.FriendlyName : "Show " + _focusedSeries.FriendlyName)"
-                          OnClick="() => EventBus.Publish(new ToggleHideEvent())" />
+        <button aria-pressed="@(!_focusedSeries.IsVisible ? "true" : "false")"
+                title="Toggle visibility (H)"
+                aria-label="@(_focusedSeries.IsVisible ? "Hide " + _focusedSeries.FriendlyName : "Show " + _focusedSeries.FriendlyName)"
+                @onclick="() => EventBus.Publish(new ToggleHideEvent())">
+            @(_focusedSeries.IsVisible ? "Visible" : "Hidden")
+        </button>
 
-        <ToolbarIconButton Icon="@(_focusedSeries.IsMuted ? "audio-muted" : "audio-on")"
-                          Label="@(_focusedSeries.IsMuted ? "Muted" : "Audio")"
-                          Variant="@(_focusedSeries.IsMuted ? "warning" : "neutral")"
-                          IsToggleOn="@(_focusedSeries.IsMuted)"
-                          Tooltip="Toggle audio (M)"
-                          AriaLabel="@(_focusedSeries.IsMuted ? "Unmute " + _focusedSeries.FriendlyName : "Mute " + _focusedSeries.FriendlyName)"
-                          OnClick="() => EventBus.Publish(new ToggleMuteEvent())" />
+        <button aria-pressed="@(_focusedSeries.IsMuted ? "true" : "false")"
+                title="Toggle audio (M)"
+                aria-label="@(_focusedSeries.IsMuted ? "Unmute " + _focusedSeries.FriendlyName : "Mute " + _focusedSeries.FriendlyName)"
+                @onclick="() => EventBus.Publish(new ToggleMuteEvent())">
+            @(_focusedSeries.IsMuted ? "Muted" : "Audio On")
+        </button>
     }
 
     <div style="flex: 1;" aria-hidden="true"></div>
 
-    <ToolbarIconButton Icon="add-indicator" Label="Add" Variant="data" Primary="true"
-                      Tooltip="Add indicator to chart"
-                      AriaLabel="Add indicator to chart"
-                      OnClick="() => EventBus.Publish(new OpenAddIndicatorEvent())" />
+    <button class="primary"
+            aria-label="Add indicator to chart"
+            @onclick="() => EventBus.Publish(new OpenAddIndicatorEvent())">
+        Add Indicator
+    </button>
 
-    <ToolbarIconButton Icon="scripts" Label="Scripts" Variant="thought"
-                      Tooltip="Custom Scripts (Alt+,)"
-                      AriaLabel="Custom Scripts (Alt+Comma)"
-                      OnClick="() => EventBus.Publish(new OpenCustomScriptsEvent())" />
+    <button aria-label="Custom Scripts (Alt+Comma)"
+            title="Custom Scripts (Alt+,)"
+            @onclick="() => EventBus.Publish(new OpenCustomScriptsEvent())">
+        Scripts
+    </button>
 
 </div>
 
