@@ -7,29 +7,38 @@
              x:Class="AccessibleTrader.BlazorClient.MainPage"
              BackgroundColor="Black">
 
-    <!-- Two-layer stack:
-         Layer 0 (bottom): Native SkiaSharp canvas — chart drawing lives here.
-         Layer 1 (top):    BlazorWebView — toolbar, controls, ARIA live regions,
-                           keyboard bridge. Transparent so the chart shows through. -->
+    <!-- Two-layer stack.  Grid children are composited in declaration order:
+         the earlier child is behind, the later child is on top.
+           Layer 0 (bottom): Native SkiaSharp canvas — chart drawing lives here.
+           Layer 1 (top):    BlazorWebView — toolbar, header, indicator bar,
+                             footer, modals, ARIA live regions, keyboard bridge.
+         The WebView's opaque regions (toolbar / header / footer / modals) cover
+         the canvas; its transparent regions (the main / ChartArea element) let
+         the canvas show through — that's how the chart appears in the middle
+         while the toolbar stays visible at the top.
+
+         Historic note: this file previously declared the children in the
+         opposite order, which put the canvas on top of the WebView and hid
+         the toolbar entirely (canvas.Clear(Black) paints the full area). -->
     <Grid BackgroundColor="Black">
-        <!-- Layer 0 (bottom): BlazorWebView — toolbar, controls, modals, ARIA live regions,
-             keyboard bridge. Sits below the Skia canvas in the composition stack.
-             Modals become visible when MainPage temporarily hides the Skia canvas (ModalStateChangedEvent). -->
+        <!-- Layer 0 (bottom): native SkiaSharp chart canvas.
+             InputTransparent="True" so pointer/touch events pass through to the
+             WebView on top and get routed through its Blazor handlers. -->
+        <skia:SKCanvasView x:Name="_chartCanvas"
+                           PaintSurface="OnCanvasPaint"
+                           InputTransparent="True"
+                           IgnorePixelScaling="True" />
+
+        <!-- Layer 1 (top): BlazorWebView hosting every interactive surface.
+             Its DefaultBackgroundColor is forced to Transparent in
+             OnBlazorWebViewInitialized so the transparent chart region in
+             MainLayout.razor / ChartArea.razor lets the canvas show through. -->
         <BlazorWebView x:Name="blazorWebView"
                        HostPage="wwwroot/index.html">
             <BlazorWebView.RootComponents>
                 <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
             </BlazorWebView.RootComponents>
         </BlazorWebView>
-
-        <!-- Layer 1 (top): Native SkiaSharp canvas — chart drawing lives here.
-             InputTransparent="True" lets MAUI route pointer/touch events to the WebView.
-             Hidden temporarily while any modal is open so the WebView modals are reachable
-             visually and via pointer. Restored when the modal closes. -->
-        <skia:SKCanvasView x:Name="_chartCanvas"
-                           PaintSurface="OnCanvasPaint"
-                           InputTransparent="True"
-                           IgnorePixelScaling="True" />
     </Grid>
 
 </ContentPage>
