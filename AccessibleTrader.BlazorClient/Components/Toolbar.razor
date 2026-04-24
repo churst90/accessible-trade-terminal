@@ -21,98 +21,92 @@
    reach every control with Tab/Shift+Tab without switching interaction modes. *@
 <nav class="toolbar" style="flex-direction: column; gap: 4px;" role="toolbar" aria-label="Main Toolbar">
 
-    @* ── Row 1: Mode buttons | separator | Dialogs & Tools ─────────────────── *@
-    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+    @* ── Row 1: Mode | Chart setup | Analysis | Workspace | Meta ─────────── *@
+    <div style="display:flex; flex-wrap:wrap; align-items:center;">
 
         @* ── Mode Selection ──────────────────────────────────────────────────
            Plain buttons with aria-pressed replace radio inputs. These work identically
            in NVDA/JAWS browse mode (no forms-mode switch required). *@
-        <button aria-pressed="@(Store.State.Mode == TerminalMode.Trading ? "true" : "false")"
-                title="Switch to Trading mode"
-                @onclick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Trading))">
-            Trading
-        </button>
-        <button aria-pressed="@(Store.State.Mode == TerminalMode.Analytics ? "true" : "false")"
-                title="Switch to Analytics mode"
-                @onclick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Analytics))">
-            Analytics
-        </button>
+        <div class="toolbar-group">
+            <ToolbarIconButton Icon="trading" Label="Trading" Variant="action"
+                              IsToggleOn="@(Store.State.Mode == TerminalMode.Trading)"
+                              Tooltip="Switch to Trading mode"
+                              OnClick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Trading))" />
+            <ToolbarIconButton Icon="analytics" Label="Analytics" Variant="action"
+                              IsToggleOn="@(Store.State.Mode == TerminalMode.Analytics)"
+                              Tooltip="Switch to Analytics mode"
+                              OnClick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Analytics))" />
+        </div>
 
-        <div class="toolbar-separator" aria-hidden="true"></div>
+        @* ── Chart setup: what you PUT on the chart ─────────────────────── *@
+        <div class="toolbar-group">
+            <ToolbarIconButton Icon="object-tree" Label="Objects" Variant="neutral"
+                              Tooltip="Open series/object tree (Alt+O)"
+                              AriaLabel="Object Tree"
+                              OnClick="() => EventBus.Publish(new OpenObjectTreeEvent())" />
+            @if (IsTradingTab)
+            {
+                <ToolbarIconButton Icon="drawings" Label="Drawings" Variant="data"
+                                  Tooltip="Open drawing tools (Alt+D)"
+                                  AriaLabel="Drawing Tools"
+                                  OnClick="() => EventBus.Publish(new OpenDrawingToolsEvent())" />
+            }
+            <ToolbarIconButton Icon="sound-designer" Label="Sound" Variant="neutral"
+                              Tooltip="Sound Designer — customise audio patches and earcons (Alt+W)"
+                              AriaLabel="Sound Designer"
+                              OnClick="() => EventBus.Publish(new OpenSoundDesignerEvent())" />
+        </div>
 
-        @* ── Dialogs & Tools ──────────────────────────────────────────────── *@
-        <button title="Open series/object tree (Alt+O)"
-                aria-label="Object Tree"
-                @onclick="() => EventBus.Publish(new OpenObjectTreeEvent())">
-            Object Tree
-        </button>
-        <button title="Open trading dashboard (Alt+T)"
-                aria-label="Trading Dashboard"
-                @onclick="() => EventBus.Publish(new OpenTradingDashboardEvent())">
-            Trade
-        </button>
-        <button title="Open order book (Alt+B)"
-                aria-label="Order Book"
-                @onclick="() => EventBus.Publish(new OpenOrderBookEvent())">
-            Order Book
-        </button>
-        @* Strategies and Drawings are trading-only — hidden on analytics tabs. *@
-        @if (IsTradingTab)
-        {
-            <button title="Open strategies (Alt+S)"
-                    aria-label="Strategies"
-                    @onclick="() => EventBus.Publish(new OpenStrategiesEvent())">
-                Strategies
-            </button>
-        }
-        <button title="Sound Designer — customise audio patches and earcons (Alt+W)"
-                aria-label="Sound Designer"
-                @onclick="() => EventBus.Publish(new OpenSoundDesignerEvent())">
-            Sound Designer
-        </button>
-        @if (IsTradingTab)
-        {
-            <button title="Open drawing tools (Alt+D)"
-                    aria-label="Drawing Tools"
-                    @onclick="() => EventBus.Publish(new OpenDrawingToolsEvent())">
-                Drawings
-            </button>
-        }
-        <button title="Manage API keys for data and trading providers (Alt+K)"
-                aria-label="API Keys"
-                @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">
-            API Keys
-        </button>
-        <button title="Manage price alerts (Alt+J)"
-                aria-label="Alerts"
-                @onclick="() => EventBus.Publish(new OpenAlertsEvent())">
-            Alerts
-        </button>
-        <div class="toolbar-separator" aria-hidden="true"></div>
+        @* ── Analysis: what you DO with the chart ───────────────────────── *@
+        <div class="toolbar-group">
+            <ToolbarIconButton Icon="trade" Label="Trade" Variant="action"
+                              Tooltip="Open trading dashboard (Alt+T)"
+                              AriaLabel="Trading Dashboard"
+                              OnClick="() => EventBus.Publish(new OpenTradingDashboardEvent())" />
+            <ToolbarIconButton Icon="order-book" Label="Book" Variant="neutral"
+                              Tooltip="Open order book (Alt+B)"
+                              AriaLabel="Order Book"
+                              OnClick="() => EventBus.Publish(new OpenOrderBookEvent())" />
+            @if (IsTradingTab)
+            {
+                <ToolbarIconButton Icon="strategies" Label="Strategies" Variant="thought"
+                                  Tooltip="Open strategies (Alt+S)"
+                                  AriaLabel="Strategies"
+                                  OnClick="() => EventBus.Publish(new OpenStrategiesEvent())" />
+            }
+            <ToolbarIconButton Icon="alerts" Label="Alerts" Variant="warning"
+                              Tooltip="Manage price alerts (Alt+J)"
+                              AriaLabel="Alerts"
+                              OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
+            <ToolbarIconButton Icon="api-keys" Label="API Keys" Variant="neutral"
+                              Tooltip="Manage API keys for data and trading providers (Alt+K)"
+                              AriaLabel="API Keys"
+                              OnClick="() => EventBus.Publish(new OpenApiKeysEvent())" />
+        </div>
 
-        <button title="Save current workspace layout (Ctrl+Alt+Shift+W)"
-                aria-label="Save Workspace"
-                @onclick="() => EventBus.Publish(new OpenSaveWorkspaceEvent())">
-            Save Workspace
-        </button>
-        <button title="Load a saved workspace layout (Ctrl+Alt+W)"
-                aria-label="Load Workspace"
-                @onclick="() => EventBus.Publish(new OpenLoadWorkspaceEvent())">
-            Load Workspace
-        </button>
+        @* ── Workspace persistence ──────────────────────────────────────── *@
+        <div class="toolbar-group">
+            <ToolbarIconButton Icon="save-workspace" Label="Save" Variant="neutral"
+                              Tooltip="Save current workspace layout (Ctrl+Alt+Shift+W)"
+                              AriaLabel="Save Workspace"
+                              OnClick="() => EventBus.Publish(new OpenSaveWorkspaceEvent())" />
+            <ToolbarIconButton Icon="load-workspace" Label="Load" Variant="neutral"
+                              Tooltip="Load a saved workspace layout (Ctrl+Alt+W)"
+                              AriaLabel="Load Workspace"
+                              OnClick="() => EventBus.Publish(new OpenLoadWorkspaceEvent())" />
+        </div>
 
-        <div class="toolbar-separator" aria-hidden="true"></div>
-
-        <button title="Open settings (F12)"
-                aria-label="Settings"
-                @onclick="() => EventBus.Publish(new OpenSettingsEvent())">
-            Settings
-        </button>
-        <button title="Open keyboard shortcut reference (F1)"
-                aria-label="Help"
-                @onclick="() => EventBus.Publish(new OpenHelpEvent())">
-            Help
-        </button>
+        @* ── Meta: app-level, always last ────────────────────────────── *@
+        <div class="toolbar-group">
+            <ToolbarIconButton Icon="settings" Label="Settings" Variant="neutral"
+                              Tooltip="Open settings (F12)"
+                              AriaLabel="Settings"
+                              OnClick="() => EventBus.Publish(new OpenSettingsEvent())" />
+            <ToolbarIconButton Icon="help" Label="Help" Variant="neutral"
+                              Tooltip="Open keyboard shortcut reference (F1)"
+                              AriaLabel="Help"
+                              OnClick="() => EventBus.Publish(new OpenHelpEvent())" />
+        </div>
 
     </div>
 
@@ -206,38 +200,37 @@
             </div>
         }
 
-        <button class="primary"
-                aria-label="Load chart for selected symbol"
-                disabled="@(!CanLoad)"
-                @onclick="LoadChart">
-            Load
-        </button>
+        <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"
+                          Disabled="@(!CanLoad)"
+                          Tooltip="Load chart for selected symbol"
+                          AriaLabel="Load chart for selected symbol"
+                          OnClick="LoadChart" />
 
         @if (_loadError != null)
         {
             <span role="alert" style="color: #f44; font-size: 0.85rem; margin-left: 8px;">@_loadError</span>
         }
 
-        <div class="toolbar-separator" aria-hidden="true"></div>
-
         @* ── Visual Toggles (trading-only) ───────────────────────────────── *@
         @if (IsTradingTab)
         {
-            <button aria-pressed="@IsHeatmapVisible"
-                    title="Toggle Liquidity Heatmap (Alt+H)"
-                    @onclick="AddHeatmap">
-                Heatmap
-            </button>
-            <button aria-pressed="@(Store.State.IsHeikinAshi ? "true" : "false")"
-                    title="Toggle Heikin Ashi candles"
-                    @onclick="() => Store.Dispatch(new ToggleHeikinAshiAction())">
-                Heikin Ashi
-            </button>
-            <button aria-pressed="@(Store.State.IsLogScale ? "true" : "false")"
-                    title="Toggle logarithmic price scale"
-                    @onclick="() => Store.Dispatch(new ToggleLogScaleAction())">
-                Log Scale
-            </button>
+            <div class="toolbar-group">
+                <ToolbarIconButton Icon="heatmap" Label="Heatmap" Variant="data"
+                                  IsToggleOn="@(IsHeatmapVisible == "true")"
+                                  Tooltip="Toggle Liquidity Heatmap (Alt+H)"
+                                  AriaLabel="Toggle liquidity heatmap"
+                                  OnClick="AddHeatmap" />
+                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin" Variant="data"
+                                  IsToggleOn="@(Store.State.IsHeikinAshi)"
+                                  Tooltip="Toggle Heikin Ashi candles"
+                                  AriaLabel="Toggle Heikin Ashi candles"
+                                  OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
+                <ToolbarIconButton Icon="log-scale" Label="Log" Variant="data"
+                                  IsToggleOn="@(Store.State.IsLogScale)"
+                                  Tooltip="Toggle logarithmic price scale"
+                                  AriaLabel="Toggle logarithmic price scale"
+                                  OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
+            </div>
         }
 
     </div>

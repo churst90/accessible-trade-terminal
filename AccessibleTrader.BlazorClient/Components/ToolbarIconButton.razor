@@ -13,15 +13,19 @@
                           OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
 *@
 <button type="button"
-        class="icon-btn icon-btn-@Variant @(IsToggleOn == true ? "icon-btn-on" : null) @(Primary ? "icon-btn-primary" : null)"
+        class="@ButtonClass"
         title="@Tooltip"
-        aria-label="@(string.IsNullOrEmpty(AriaLabel) ? Label : AriaLabel)"
-        aria-pressed="@(IsToggleOn is null ? null : IsToggleOn.Value ? "true" : "false")"
+        aria-label="@EffectiveAriaLabel"
+        aria-pressed="@PressedAttr"
         disabled="@Disabled"
         @onclick="OnClick">
     <span class="icon-btn-glyph" aria-hidden="true">
         <svg viewBox="0 0 28 28">
-            <use href="#icon-@Icon"></use>
+            @* xlink:href is the compatibility shim: with <base href="/"> set in
+               index.html, WebView2 resolves bare `href="#id"` as an absolute URL
+               rather than a same-document fragment reference, which blanks the
+               symbol. Emitting both keeps every engine happy. *@
+            <use href="@HashRef" xlink:href="@HashRef"></use>
         </svg>
     </span>
     <span class="icon-btn-label">@Label</span>
@@ -58,4 +62,29 @@
     [Parameter] public bool Disabled { get; set; }
 
     [Parameter] public EventCallback OnClick { get; set; }
+
+    // Computed attribute values. Built via plain-C# so we never ask the Razor
+    // attribute-value tokenizer to walk a string literal nested inside a `@()`
+    // block nested inside a double-quoted HTML attribute — that's the pattern
+    // most likely to mis-compile and blow up at runtime.
+    private string ButtonClass
+    {
+        get
+        {
+            var sb = new System.Text.StringBuilder("icon-btn icon-btn-");
+            sb.Append(string.IsNullOrEmpty(Variant) ? "neutral" : Variant);
+            if (IsToggleOn == true) sb.Append(" icon-btn-on");
+            if (Primary) sb.Append(" icon-btn-primary");
+            return sb.ToString();
+        }
+    }
+
+    private string EffectiveAriaLabel =>
+        string.IsNullOrEmpty(AriaLabel) ? Label : AriaLabel;
+
+    // Returning null → Blazor omits the attribute for non-toggle buttons.
+    private string? PressedAttr =>
+        IsToggleOn is null ? null : (IsToggleOn.Value ? "true" : "false");
+
+    private string HashRef => $"#icon-{Icon}";
 }
