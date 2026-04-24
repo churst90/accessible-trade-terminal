@@ -885,25 +885,26 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [x] **Per-user worker-count limit** — shipped 2026-04-24.
   `DefaultMaxConcurrentWorkers = 16` with atomic counter gate in
   `StartAsync`/`DisposeAsync`. Configurable via `SetMaxConcurrentWorkers`.
-- [~] **Provider unit-test coverage** — rounds 1-4 shipped 2026-04-24.
+- [~] **Provider unit-test coverage** — rounds 1-5b shipped 2026-04-24.
   `ProviderTimeframeContractTests` (31 tests) pins every provider's
   NativelySupportedTimeframes against TimeframeUtility;
   `ProviderSymbolNormalisationTests` covers wire-format transforms;
   `Fakes/FakeHttpMessageHandler` + `Fakes/FakeApiKeyCheckout` shipped as
-  fixtures; `ProviderFetchOhlcvTests` (39 tests across Bitstamp / Polygon /
+  fixtures; `ProviderFetchOhlcvTests` (54 tests across Bitstamp / Polygon /
   Tradier / Coinbase / AlternativeMe / Mempool / DefiLlama / OkxDerivatives /
   Glassnode / Etherscan / Fred / BinanceDerivatives / BGeometrics /
-  CoinMetrics) drives FetchOhlcvAsync end-to-end via reflection-swapped
-  HttpClient. `ProviderLiveStreamTests` (16 tests across Bitstamp /
-  Coinbase / Polygon) reflects into private `HandleWebSocketMessage(string)`
-  and asserts on public IObservable streams.
-  **Remaining:** Binance / MEXC are SDK-managed (HttpClient lives inside
-  the SDK — would need an adapter layer); Alpaca / Kraken / Oanda need
-  credential-checkout fakes wired through PluginHostServices.ApiKeys for
-  the full parse path; remaining WS providers (Kraken, Binance, MEXC,
-  Schwab streamer, IBKR gateway) each need 5-6 live-stream tests in the
-  same shape; CoinGecko / BinanceVision / FmpAnalytics still need ~3
-  fetch tests each.
+  CoinMetrics / **Kraken / Oanda / Alpaca** — round 5 added auth-gated
+  paths via `FakeApiKeyCheckout`) drives FetchOhlcvAsync end-to-end via
+  reflection-swapped HttpClient. `ProviderLiveStreamTests` (26 tests
+  across Bitstamp / Coinbase / Polygon / **Kraken / Finnhub** — round 5b
+  added Kraken's split public/auth handlers) reflects into private
+  `HandleWebSocketMessage(string)` and asserts on public IObservable
+  streams.
+  **Remaining:** Binance / MEXC are SDK-managed (callbacks inside the
+  SDK — neither HttpClient nor a reflectable parse method is reachable;
+  would need an adapter layer); Schwab streamer / IBKR gateway have
+  non-standard handler shapes; CoinGecko / BinanceVision / FmpAnalytics
+  still need ~3 fetch tests each.
 - [x] **Silent `catch {}` sweep (Tier A.1 — 2026-04-23)** — shipped. Upgraded 9 user-facing silent catches to diagnostic `Debug.WriteLine` / `_logger.LogDebug`: `AlertEvaluator` (alert-rule failure), `AIAnalystService` (screenshot encode failure), and 7 provider feed parsers (Alpaca ×2, Finnhub, InteractiveBrokers, OANDA ×2, Polygon). Teardown/Dispose swallows and `OperationCanceledException` swallows retained as legitimate.
   codebase-wide. Most are correct (malformed WS frame, best-effort
   cleanup); the rest should at minimum log. Prioritized by call-path

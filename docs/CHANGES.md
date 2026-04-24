@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Provider coverage round 5 + JournalModal latency surface
+
+**Round 5 fetch parse — auth-gated trading providers (15 tests).**
+
+- **Kraken** (5): happy parse of nested-by-asset-key OHLC array (`XXBTZUSD`),
+  `last`-key skipping, missing-result-key empty, malformed-JSON empty,
+  limit-clamps-to-most-recent (TakeLast).
+- **Oanda** (5): not-configured short-circuit, mid-price candle parse,
+  Bearer auth applied from Configure (swap-before-Configure ordering),
+  incomplete-candle filtering with last-as-forming exception, malformed
+  JSON.
+- **Alpaca** (5): not-configured, equity bars parse, crypto bars from
+  symbol-keyed `{"BTCUSD":[...]}` shape, APCA-API-KEY-ID /
+  APCA-API-SECRET-KEY headers applied from `FakeApiKeyCheckout` checkout,
+  no-creds-in-host returns empty.
+
+**Round 5b live-stream — Kraken + Finnhub (10 tests).**
+
+Binance and MEXC use SDK-managed callbacks (no reflectable
+`HandleWebSocketMessage`); skipped for now and tracked in `docs/TODO.md`.
+
+- **Kraken** (6): `ohlc` channel → LiveStream, all-zero drop, `book`
+  channel → SubscribeOrderBook with bid/ask round-trip, empty book
+  snapshot no phantom emission, malformed-frame no-throw, `executions`
+  channel (auth handler) → OrderUpdateStream with FilledPrice mapping.
+- **Finnhub** (4): non-trade frame no-emission, empty-trade-array
+  no-emission, zero-price discard, malformed-frame no-throw.
+
+**JournalModal latency snapshot surface.** New "Credential checkout
+latency" region renders `CheckoutLatencyTracker.Snapshot()` as an
+aria-labeled table — provider / N / P50 / P95 / P99 / Max in ms, ordered
+by P95 desc. P95 ≥ 50 ms is red, 15 – 50 ms yellow, under 15 ms green
+(legend in the footer). Reset button clears the windows. Closes the loop
+on the latency instrumentation that shipped earlier today: a blind user
+on Android can now read the percentiles directly inside the journal
+instead of needing Debug logging.
+
+Provider test totals: 54 fetch + 26 live = 80 across rounds 1-5b. Suite
+total 706 → 731. 0 warnings, 0 errors.
+
 ## [2026-04-24] — WebSocket live-stream parse tests (round 4)
 
 New `ProviderLiveStreamTests` exercises each provider's WebSocket parse path

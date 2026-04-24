@@ -1,9 +1,11 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services.Diagnostics
 @inject IJournalService Journal
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
 @inject IAudioDriver AudioDriver
+@inject CheckoutLatencyTracker LatencyTracker
 @implements IDisposable
 
 @*
@@ -89,6 +91,63 @@
                     Reset
                 </button>
             </div>
+
+            @* ── Credential checkout latency ─────────────────────────────────
+               Per-provider P50/P95/P99 read out of CheckoutLatencyTracker.
+               Feeds the data-driven decision on whether the 60-second session
+               cache discussed in docs/TODO.md is needed. The slowest providers
+               surface first (ordered by P95 desc). aria-label on the table
+               keeps the layout legible to screen readers.
+            *@
+            @{
+                var latencySnap = LatencyTracker.Snapshot();
+            }
+            @if (latencySnap.Count > 0)
+            {
+                <div role="region" aria-label="Credential checkout latency"
+                     style="margin-top:8px; padding:6px 8px; background:#111; border:1px solid #333; border-radius:4px;
+                            font-family:Consolas,'Courier New',monospace; font-size:0.75rem; color:#bbb;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <strong style="color:#cfcfcf;">Credential checkout latency</strong>
+                        <button type="button" @onclick="ResetLatencyTelemetry"
+                                aria-label="Reset credential checkout latency counters"
+                                style="padding:2px 8px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer; font-size:0.75rem;">
+                            Reset
+                        </button>
+                    </div>
+                    <table role="table" aria-label="Credential checkout latency by provider"
+                           style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="text-align:left; color:#888;">
+                                <th scope="col" style="padding:2px 4px;">Provider</th>
+                                <th scope="col" style="padding:2px 4px; text-align:right;">N</th>
+                                <th scope="col" style="padding:2px 4px; text-align:right;">P50</th>
+                                <th scope="col" style="padding:2px 4px; text-align:right;">P95</th>
+                                <th scope="col" style="padding:2px 4px; text-align:right;">P99</th>
+                                <th scope="col" style="padding:2px 4px; text-align:right;">Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in latencySnap)
+                            {
+                                var p95Color = s.P95Ms >= 50 ? "#f66" : s.P95Ms >= 15 ? "#cc6" : "#4a4";
+                                <tr @key="s.ProviderId">
+                                    <td style="padding:2px 4px;">@s.ProviderId</td>
+                                    <td style="padding:2px 4px; text-align:right;">@s.TotalSamples</td>
+                                    <td style="padding:2px 4px; text-align:right;">@s.P50Ms.ToString("F1")</td>
+                                    <td style="padding:2px 4px; text-align:right; color:@p95Color;">@s.P95Ms.ToString("F1")</td>
+                                    <td style="padding:2px 4px; text-align:right;">@s.P99Ms.ToString("F1")</td>
+                                    <td style="padding:2px 4px; text-align:right;">@s.MaxMs.ToString("F1")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div style="margin-top:4px; color:#666; font-size:0.7rem;">
+                        ms per CheckoutAsync call. P95 ≥ 50 ms warrants the 60 s session cache;
+                        15 – 50 ms is yellow (measure more); under 15 ms is green (cache not needed).
+                    </div>
+                </div>
+            }
 
             <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
                 <span style="color:#666; font-size:0.8rem;">
@@ -213,6 +272,12 @@
     private void ResetAudioTelemetry()
     {
         AudioDriver.ResetAudioTelemetry();
+        StateHasChanged();
+    }
+
+    private void ResetLatencyTelemetry()
+    {
+        LatencyTracker.Reset();
         StateHasChanged();
     }
 

@@ -297,5 +297,171 @@ namespace AccessibleTrader.Tests
                 Assert.Equal(2, emitted.Count);
             }
         }
+
+        // ── Kraken — has separate public + auth handlers ─────────────────────
+        // Public channel "ohlc" → LiveStream Ohlcv;
+        // Public channel "book" → SubscribeOrderBook with bid/ask round-trip.
+        // Reflection target for these tests is HandlePublicMessage.
+
+        public class Kraken
+        {
+            // Override DispatchFrame because Kraken doesn't have a method named
+            // "HandleWebSocketMessage" — it has HandlePublicMessage / HandleAuthMessage.
+            private static void DispatchPublic(object provider, string json)
+            {
+                var method = provider.GetType().GetMethod("HandlePublicMessage",
+                    BindingFlags.NonPublic | BindingFlags.Instance,
+                    null, new[] { typeof(string) }, null)
+                    ?? throw new InvalidOperationException("HandlePublicMessage not found.");
+                method.Invoke(provider, new object[] { json });
+            }
+
+            private static void DispatchAuth(object provider, string json)
+            {
+                var method = provider.GetType().GetMethod("HandleAuthMessage",
+                    BindingFlags.NonPublic | BindingFlags.Instance,
+                    null, new[] { typeof(string) }, null)
+                    ?? throw new InvalidOperationException("HandleAuthMessage not found.");
+                method.Invoke(provider, new object[] { json });
+            }
+
+            [Fact]
+            public void OhlcChannelFrame_EmitsLiveStream()
+            {
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var frame = """
+                    {"channel":"ohlc","data":[
+                      {"timestamp":"2026-04-24T12:00:00Z","open":50000,"high":50100,"low":49900,"close":50050,"volume":2.5}
+                    ]}
+                    """;
+
+                var emitted = Capture(p.LiveStream, () => DispatchPublic(p, frame));
+
+                Assert.Single(emitted);
+                Assert.Equal(50050, emitted[0].Close);
+                Assert.Equal(2.5, emitted[0].Volume);
+            }
+
+            [Fact]
+            public void OhlcAllZero_Dropped()
+            {
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var frame = """
+                    {"channel":"ohlc","data":[
+                      {"timestamp":"2026-04-24T12:00:00Z","open":0,"high":0,"low":0,"close":0,"volume":0}
+                    ]}
+                    """;
+                var emitted = Capture(p.LiveStream, () => DispatchPublic(p, frame));
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void BookChannelFrame_EmitsOrderBookUpdate()
+            {
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var frame = """
+                    {"channel":"book","data":[
+                      {"symbol":"BTC/USD",
+                       "bids":[{"price":49999,"qty":0.5}],
+                       "asks":[{"price":50001,"qty":0.6}]}
+                    ]}
+                    """;
+
+                var emitted = Capture(p.SubscribeOrderBook("BTC/USD"),
+                    () => DispatchPublic(p, frame));
+
+                Assert.Single(emitted);
+                Assert.Equal("BTC/USD", emitted[0].Symbol);
+                Assert.Equal(49999, emitted[0].Bids[0].Price);
+                Assert.Equal(50001, emitted[0].Asks[0].Price);
+            }
+
+            [Fact]
+            public void EmptyBookSnapshot_DoesNotEmit()
+            {
+                // Book frame with empty bids+asks should not emit a phantom
+                // snapshot — the provider gates on (any bid || any ask).
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var frame = """
+                    {"channel":"book","data":[
+                      {"symbol":"BTC/USD","bids":[],"asks":[]}
+                    ]}
+                    """;
+
+                var emitted = Capture(p.SubscribeOrderBook("BTC/USD"),
+                    () => DispatchPublic(p, frame));
+
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void MalformedFrame_DoesNotThrow()
+            {
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var emitted = Capture(p.LiveStream, () => DispatchPublic(p, "garbage"));
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void ExecutionsChannel_EmitsOrderUpdate()
+            {
+                var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+                var frame = """
+                    {"channel":"executions","data":[
+                      {"order_id":"O1","symbol":"BTC/USD","side":"buy",
+                       "order_status":"filled","cum_qty":0.1,"avg_price":50000,"leaves_qty":0}
+                    ]}
+                    """;
+
+                var emitted = Capture(p.OrderUpdateStream, () => DispatchAuth(p, frame));
+
+                Assert.Single(emitted);
+                Assert.Equal("O1", emitted[0].OrderId);
+                Assert.Equal(50000, emitted[0].FilledPrice);
+            }
+        }
+
+        // ── Finnhub — single channel, candle-aggregation depends on lastCandle ─
+        // Tests focus on the trade-frame routing + price-zero discard.
+
+        public class Finnhub
+        {
+            [Fact]
+            public void NonTradeFrame_NoEmission()
+            {
+                var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
+                var emitted = Capture(p.LiveStream,
+                    () => DispatchFrame(p, """{"type":"ping"}"""));
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void EmptyTradeArray_NoEmission()
+            {
+                // Trade frames with no entries (start-of-stream subscribe ack)
+                // must not crash or emit.
+                var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
+                var emitted = Capture(p.LiveStream,
+                    () => DispatchFrame(p, """{"type":"trade","data":[]}"""));
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void ZeroPriceTrade_Discarded()
+            {
+                var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
+                var emitted = Capture(p.LiveStream,
+                    () => DispatchFrame(p, """{"type":"trade","data":[{"p":0,"v":1,"t":1700000000000}]}"""));
+                Assert.Empty(emitted);
+            }
+
+            [Fact]
+            public void MalformedFrame_DoesNotThrow()
+            {
+                var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
+                var emitted = Capture(p.LiveStream, () => DispatchFrame(p, "not-json"));
+                Assert.Empty(emitted);
+            }
+        }
     }
 }
