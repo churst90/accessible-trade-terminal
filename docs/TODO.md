@@ -1643,7 +1643,12 @@ Items ordered by impact. Phases labeled 10-A through 10-G for implementation seq
 #### A4: IsAreaFill Verification ✅ (partial)
 - [x] `Area` display type now renders correctly (fill added in `RenderLine`).
 - [x] `Cloud` display type provides the band-fill use case for Bollinger/Keltner (assign `UpperComponentName`/`LowerComponentName` on the cloud component).
-- [ ] **Area fill sonification (band width → amplitude):** Deferred to Phase 10-B alongside Sound Designer.
+- [x] **Area fill sonification (band width → amplitude):** Closed 2026-04-24 as
+  "won't do". Rationale: the line value already drives amplitude; a width-
+  derived voice duplicates what `DeltaFromPrice` amplitude mapping on a
+  derived series provides, and a third voice between two already-sonified
+  boundaries breaks the audio=visual invariant. See `docs/CHANGES.md`
+  2026-04-24 "Cloud sonification scoping" entry.
 
 #### A5: AudioEngine Noise Oscillator ✅
 - [x] `WaveformType.Noise` — pure pink noise via one-pole filter.
@@ -1651,7 +1656,12 @@ Items ordered by impact. Phases labeled 10-A through 10-G for implementation seq
 - [x] `OscillatorVoice.NoiseAmount` / `OscillatorVoice.NoiseState` — per-voice state; persists between samples for smooth texture.
 - [x] `AudioEngine.SetVoice(... noiseAmount = 0f)` — optional param; all existing callers unaffected.
 - [x] **PropertiesModal Audio tab NoiseAmount slider** — per-component range slider in Sonification tab. _(Completed 2026-04-01)_
-- [ ] **Bollinger Band noise preset** — deferred.
+- [x] **Bollinger Band noise preset** — closed 2026-04-24 as "won't do". The
+  existing `LevelConfig.ZoneNoiseAmount` is the canonical "inside zone" audio
+  cue. A band-presence noise layer would play ~95% of the time on Bollinger
+  bands (price is almost always inside the band) and become inaudible to the
+  user; the only information users need is band-exit, which existing boundary
+  earcons + speech already announce.
 
 ---
 

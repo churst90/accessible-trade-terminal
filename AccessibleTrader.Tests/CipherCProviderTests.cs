@@ -101,10 +101,14 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void CycleFill_HasNonNullSonification()
+        public void CycleFill_IsVisualOnly()
         {
+            // Policy (see CloudSonificationConfig XML docs): oscillator-to-oscillator
+            // cloud fills stay visual-only because both boundaries (CycleSine and
+            // LeadSine) already sonify independently — a third cloud voice between
+            // them would duplicate information the user already hears.
             var fill = Provider.GetIndicators()[0].DefaultCloudFills[0];
-            Assert.NotNull(fill.Sonification);
+            Assert.Null(fill.Sonification);
         }
 
         // ── 3. All 10 components have non-null DefaultColorHex ────────────────

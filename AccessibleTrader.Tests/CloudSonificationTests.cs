@@ -103,12 +103,27 @@ namespace AccessibleTrader.Tests
         // ── 5. CipherBProvider WT Fill ────────────────────────────────────────
 
         [Fact]
-        public void CipherBProvider_WtFill_HasNonNullSonification()
+        public void CipherBProvider_WtFill_IsVisualOnly()
         {
+            // Policy (see CloudSonificationConfig XML docs): oscillator-to-oscillator
+            // cloud fills stay visual-only because both boundaries (WT1 and WT2)
+            // already sonify independently — a third cloud voice between them would
+            // duplicate information the user already hears.
             var provider  = new CipherBProvider();
             var meta      = provider.GetIndicators()[0];
             var wtFill    = meta.DefaultCloudFills.Single(f => f.DisplayName == "WT Fill");
-            Assert.NotNull(wtFill.Sonification);
+            Assert.Null(wtFill.Sonification);
+        }
+
+        [Fact]
+        public void CipherBProvider_AnchorFill_Sonifies()
+        {
+            // Anchor Fill is a regime-carrying cloud (HTF polarity signal) so it
+            // retains its sonification per the cloud-scoping rule.
+            var provider   = new CipherBProvider();
+            var meta       = provider.GetIndicators()[0];
+            var anchorFill = meta.DefaultCloudFills.Single(f => f.DisplayName == "Anchor Fill");
+            Assert.NotNull(anchorFill.Sonification);
         }
     }
 }

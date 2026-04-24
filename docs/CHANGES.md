@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Cloud sonification scoping: visual-only fills between oscillator lines
+
+Codified the long-standing-but-undocumented rule for when a `CloudFillConfig`
+should declare `Sonification`. Updated `CloudSonificationConfig` XML docs with
+an explicit "when to opt in / when not to" table.
+
+- **Opt in** when the cloud carries a regime signal that its two boundary
+  components do not individually sonify. Examples: Ichimoku Kumo (trend
+  direction), Cipher B Anchor Fill (HTF polarity), MA Cloud (fast-MA vs
+  slow-MA regime).
+- **Opt out** (`Sonification = null`) when the two boundaries are both already
+  sonifying — a third cloud voice between them duplicates information the user
+  already hears on both boundary voices. Also opt out for purely cosmetic
+  band-fill backgrounds where the user isn't expected to navigate the band
+  individually (e.g. Bollinger Band fill).
+
+**Migrated to null on this pass:**
+- Cipher B "WT Fill" (between WT1 + WT2, both oscillator voices).
+- Cipher C "Cycle Fill" (between CycleSine + LeadSine, both oscillator voices).
+
+**Kept sonifying** (regime-carrying clouds):
+- Cipher B "Anchor Fill" (anchor polarity signal).
+- Ichimoku Kumo.
+- MA Cloud fill (fast-vs-slow MA regime).
+
+Closed two long-standing backlog items with the same rationale:
+- **Area-fill sonification (band-width → amplitude)** — amplitude is already
+  driven by the Line value; adding a width-derived voice duplicates what the
+  `DeltaFromPrice` amplitude mapping on a derived series already provides.
+  Moreover, a third "width" voice doesn't correspond to any bar-at-index, so it
+  would break the audio=visual invariant.
+- **Bollinger Band noise preset** — the existing `LevelConfig.ZoneNoiseAmount`
+  is the canonical "inside zone" audio cue. A band-presence noise layer would
+  play ~95% of the time on Bollinger bands (price is almost always inside the
+  band) and become inaudible; the information user wants is band-exit, which
+  the existing boundary earcons + speech already announce.
+
 ## [2026-04-24] — Suggestion-mode metrics: theoretical-fill tracking on BaseStrategy
 
 Active-tab metrics for Suggestion-mode strategies previously reported

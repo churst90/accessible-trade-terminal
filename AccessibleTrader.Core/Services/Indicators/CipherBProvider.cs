@@ -358,15 +358,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 SoundPatchId: "sine_bell",
                                 DecayMs: 400,
                                 MaxVolume: 0.30f) },
+                    // WT Fill is purely visual. The two boundary components (WT1 / WT2)
+                    // each sonify independently as Oscillator voices; a third cloud voice
+                    // between them would duplicate information the user already hears.
+                    // Rule of thumb: clouds sonify only when the cloud represents a
+                    // regime signal the boundary components don't individually carry
+                    // (e.g. Anchor Fill = HTF regime, Ichimoku Kumo = trend direction).
                     new() { UpperComponentName = CompWT1, LowerComponentName = CompWT2,
                             BullishColorHex = "#590BBCF5", BearishColorHex = "#40FF1744",
                             DisplayName = "WT Fill", IsVisible = true,
-                            Sonification = new CloudSonificationConfig(
-                                BullishFrequency: 480f,
-                                BearishFrequency: 200f,
-                                SoundPatchId: "sine_bell",
-                                DecayMs: 180,
-                                MaxVolume: 0.70f) },
+                            Sonification = null },
 
                 },
                 DefaultZoneBands = new List<ZoneBandConfig>

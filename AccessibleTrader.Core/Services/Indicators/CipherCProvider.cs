@@ -365,9 +365,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // Cycle Fill: semi-transparent channel between CycleSine and LeadSine.
                     // Bullish (Sine > Lead): #3000E5FF — cyan at ~19% opacity (AARRGGBB).
                     // Bearish (Lead > Sine): #30FF4444 — coral at ~19% opacity.
-                    // Lower opacity than Cipher B's WT Fill (35%) — fill is rhythmic
-                    // context, not a primary visual element.
-                    // Audio: 380/180 Hz pair avoids clashing with all 8 dot frequencies.
+                    //
+                    // Visual-only (Sonification = null). Both CycleSine and LeadSine are
+                    // oscillator components that already sonify independently; a third
+                    // cloud voice would duplicate that information. Rule per the
+                    // CloudSonificationConfig XML docs: sonify clouds only when they
+                    // carry a regime signal the boundaries do not individually convey.
                     new()
                     {
                         UpperComponentName = CompCycleSine,
@@ -376,12 +379,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         BearishColorHex    = "#30FF4444",
                         DisplayName        = "Cycle Fill",
                         IsVisible          = true,
-                        Sonification       = new CloudSonificationConfig(
-                            BullishFrequency: 380f,
-                            BearishFrequency: 180f,
-                            SoundPatchId:     "sine_bell",
-                            DecayMs:          200,
-                            MaxVolume:        0.40f)
+                        Sonification       = null
                     }
                 },
 

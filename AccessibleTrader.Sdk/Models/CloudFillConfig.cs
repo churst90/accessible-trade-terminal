@@ -2,7 +2,21 @@ namespace AccessibleTrader.Sdk.Models
 {
     /// <summary>
     /// Declares how a cloud fill should sound during Chart-scope playback (Space key).
-    /// When null, the cloud fill has no audio representation (existing behavior).
+    /// When null, the cloud fill has no audio representation.
+    ///
+    /// <para><b>When to opt in (Sonification = new CloudSonificationConfig(...))</b>:</para>
+    /// Only when the cloud carries a regime signal its two boundary components do
+    /// not individually sonify. Examples: Ichimoku Kumo (bullish/bearish cloud = trend
+    /// direction), Cipher B "Anchor Fill" (HTF anchor polarity), MA Cloud between
+    /// two moving averages of different lengths.
+    ///
+    /// <para><b>When NOT to opt in (Sonification = null)</b>:</para>
+    /// Wave fills between two oscillator lines that each already sonify (e.g. Cipher B
+    /// "WT Fill" between WT1 and WT2) — the user already hears both boundaries and a
+    /// third cloud voice would duplicate information. Visual-only fills in price-pane
+    /// indicators where the fill is a cosmetic background for a band the user isn't
+    /// expected to navigate individually (e.g. Bollinger Band fill).
+    ///
     /// Cloud voices fire only in <see cref="AudioSequencer.StartMultiSeriesPlaybackAsync"/> —
     /// not during navigation and not during Series/Component scope playback.
     /// </summary>
