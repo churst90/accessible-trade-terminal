@@ -155,8 +155,12 @@ namespace AccessibleTrader.Core.Services
                 RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density);
                 RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
                 // Legend for main-pane indicator overlays (e.g. Cipher A, Cipher SR).
-                // Exclude core series (candles, price line, volume) so they don't pollute the legend.
+                // Exclude core series (candles, price line, volume) AND any volume-profile
+                // series (VPVR / VPFR / TPO / any .IsProfile series) — those are their own
+                // visual element rendered by ProfileRenderLayer, not an overlay that needs
+                // a legend entry.
                 var mainOverlaySeries = mainSeries
+                    .Where(s => !s.IsProfile)
                     .Where(s => s.IndicatorCode?.ToUpperInvariant() is not ("CANDLES" or "PRICE" or "VOLUME" or "HEATMAP"))
                     .ToList();
                 if (mainOverlaySeries.Count > 0)
@@ -503,9 +507,9 @@ namespace AccessibleTrader.Core.Services
             // bright green/red bars sat directly underneath.
             var bgRect = new SKRect(bx, by, bx + boxW, by + boxH);
             var bgRound = new SKRoundRect(bgRect, 3 * density);
-            using (var bgPaint = new SKPaint { Color = new SKColor(15, 15, 18, 225), Style = SKPaintStyle.Fill })
+            using (var bgPaint = new SKPaint { Color = new SKColor(15, 15, 18, 245), Style = SKPaintStyle.Fill })
                 canvas.DrawRoundRect(bgRound, bgPaint);
-            using (var borderPaint = new SKPaint { Color = new SKColor(120, 120, 128, 180), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
+            using (var borderPaint = new SKPaint { Color = new SKColor(120, 120, 128, 200), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
                 canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;

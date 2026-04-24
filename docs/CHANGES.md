@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Legend polish round 2: VPVR filter + higher alpha
+
+Two refinements after reviewing the post-fix screenshot:
+
+- **VPVR / profile series filtered out of the main-pane overlay legend.**
+  The volume profile is rendered by `ProfileRenderLayer` as its own
+  right-edge visual, not as an indicator overlay, so its "Profile"
+  component was leaking into the top-left legend alongside WT Momentum
+  / Buy Signal / etc. `RenderPaneLegend`'s caller now chains a
+  `.Where(s => !s.IsProfile)` filter ahead of the existing core-series
+  exclusion so any `VPVR` / `VPFR` / `TPO` / `HEATMAP` series is
+  skipped.
+- **Legend background alpha 225 → 245.** The 225α panel still let
+  bright candle color bleed through the top-left text. At 245α the
+  legend reads as a crisp opaque panel; border alpha also nudged up
+  from 180 to 200 for a slightly firmer edge.
+
+537/537 tests still pass; 0 warnings / 0 errors on the Windows TFM
+build. The third item the user flagged (the yellow left-edge bar in
+the oscillator pane) is not in this commit — the code path that
+draws it wasn't locatable through renderer-side grep. Deferred until
+the user can narrow down where it's coming from.
+
+---
+
 ## [2026-04-24] — Visual polish + titlebar/Schwab bug fixes
 
 Five targeted fixes after the user screenshot review. 537/537 tests still
