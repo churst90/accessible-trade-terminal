@@ -111,8 +111,18 @@ namespace AccessibleTrader.Core.Services.Strategies
                 var bars = await GetBarsAsync(market, provider, symbol, timeframe, count).ConfigureAwait(false);
                 if (bars == null || bars.Count == 0) return;
 
+                // Populate defaults when the caller didn't supply parameters. ConfigurableStrategy's
+                // Initialize path intentionally passes an empty dict because tracking per-leaf
+                // parameter overrides would require a refactor through the condition tree — most
+                // HTF leaves want defaults anyway. Without this lookup the indicator runs with
+                // whatever the engine's zero-param fallback is, which for some indicators is a
+                // pathological empty-window compute that produces all-NaN output.
+                var effectiveParams = (parameters == null || parameters.Count == 0)
+                    ? BuildDefaultParameters(indicatorCode)
+                    : parameters;
+
                 var results = await _indicatorEngine.CalculateAsync(
-                    indicatorCode, bars, parameters ?? new Dictionary<string, object>(), default).ConfigureAwait(false);
+                    indicatorCode, bars, effectiveParams, default).ConfigureAwait(false);
                 if (results != null && results.Count > 0)
                 {
                     _indCache[key] = results;
@@ -135,6 +145,30 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         private static string MakeIndicatorKey(string provider, string symbol, string timeframe, string indicatorCode) =>
             $"{provider?.ToLowerInvariant()}|{symbol?.ToUpperInvariant()}|{timeframe?.ToLowerInvariant()}|{indicatorCode?.ToUpperInvariant()}";
+
+        /// <summary>
+        /// Resolves an indicator's <see cref="IndicatorMetadata.Parameters"/> default values into
+        /// the <c>Dictionary&lt;string, object&gt;</c> shape the engine expects. Returns an empty
+        /// dict if the indicator isn't registered or carries no parameters — preserves the prior
+        /// zero-param behaviour on that path rather than throwing.
+        /// </summary>
+        private Dictionary<string, object> BuildDefaultParameters(string indicatorCode)
+        {
+            var result = new Dictionary<string, object>();
+            if (_indicatorEngine == null) return result;
+
+            var provider = _indicatorEngine.GetProvider(indicatorCode);
+            if (provider == null) return result;
+
+            // Some providers expose multiple indicators; match by code (case-insensitive).
+            var meta = provider.GetIndicators()?
+                .Find(i => string.Equals(i.Code, indicatorCode, StringComparison.OrdinalIgnoreCase));
+            if (meta == null) return result;
+
+            foreach (var p in meta.Parameters)
+                result[p.Name] = p.DefaultValue;
+            return result;
+        }
 
         private static string MakeKey(string provider, string symbol, string timeframe) =>
             $"{provider?.ToLowerInvariant()}|{symbol?.ToUpperInvariant()}|{timeframe?.ToLowerInvariant()}";

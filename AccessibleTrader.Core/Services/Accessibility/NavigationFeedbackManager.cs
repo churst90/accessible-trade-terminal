@@ -499,9 +499,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     double val = data[dataIndex];
                     if (double.IsNaN(val)) continue;
 
-                    // Expand the signal speech template.
+                    // Expand the signal speech template. Magnitude-aware formatting so
+                    // sub-cent assets don't collapse {price} to "0".
                     string speech = comp.SignalSpeechTemplate
-                        .Replace("{price}", val.ToString("F0"))
+                        .Replace("{price}", SpeechPriceFormatter.FormatPrice(val))
                         .Replace("{name}", comp.DisplayName);
                     if (string.IsNullOrWhiteSpace(speech)) continue;
 

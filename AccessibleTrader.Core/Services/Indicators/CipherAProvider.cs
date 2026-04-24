@@ -482,7 +482,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             string direction = isBuy ? "upward" : "downward";
             string wt1Str    = double.IsNaN(wt1) ? "" : $" at {wt1:F1}";
-            return $"WT1 crossed WT2 {direction}{wt1Str}, price {closePrice:F2}.";
+            return $"WT1 crossed WT2 {direction}{wt1Str}, price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(closePrice)}.";
         }
 
         /// <summary>

@@ -2,6 +2,17 @@ using System;
 
 namespace AccessibleTrader.Sdk.Configuration
 {
+    /// <summary>
+    /// Legacy duplicate of <see cref="AccessibleTrader.Sdk.Models.TimeframeUtility"/>.
+    /// Prefer the <c>Models</c> version — it uses a single regex-based parser that
+    /// handles any <c>&lt;N&gt;&lt;unit&gt;</c> combination (3m, 8h, 2w, etc.) rather
+    /// than a hardcoded switch, and also exposes <c>AllTimeframes</c> /
+    /// <c>GetBestBaseTimeframe</c> / <c>GetPeriodStart</c> for provider timeframe
+    /// translation. Kept here so existing plugin DLLs that binary-link to this
+    /// namespace continue to load, but all in-tree callers have migrated.
+    /// </summary>
+    [Obsolete("Use AccessibleTrader.Sdk.Models.TimeframeUtility — it handles arbitrary " +
+              "<N><unit> combinations via regex and carries the shared timeframe list.")]
     public static class TimeframeUtility
     {
         public static int ToSeconds(string timeframe)

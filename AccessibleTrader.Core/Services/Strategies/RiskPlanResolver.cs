@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
@@ -389,18 +390,19 @@ namespace AccessibleTrader.Core.Services.Strategies
         private static string BuildNotes(StopSource s, OrderSide side, double stop, IReadOnlyList<Ohlcv> history)
         {
             string sideWord = side == OrderSide.Buy ? "below" : "above";
+            string stopStr = SpeechPriceFormatter.FormatPrice(stop);
             return s.Kind switch
             {
                 StopSourceKind.PercentOfPrice => $"Stop {sideWord} entry by {s.PercentValue:F2}%",
                 StopSourceKind.AtrMultiple    => $"Stop {sideWord} entry at {s.AtrMultiple:F1} × ATR({s.AtrPeriod})",
-                StopSourceKind.BelowSwingLow  => $"Stop {sideWord} {s.LookbackBars}-bar swing extreme at {stop:F4}",
-                StopSourceKind.Fixed          => $"Stop fixed at {stop:F4}",
-                StopSourceKind.BelowSupport   => $"Stop {sideWord} nearest S/R level at {stop:F4}",
-                StopSourceKind.BelowKijun     => $"Stop {sideWord} Ichimoku Kijun at {stop:F4}",
-                StopSourceKind.BelowKumo      => $"Stop {sideWord} Ichimoku Kumo at {stop:F4}",
-                StopSourceKind.BelowLvn       => $"Stop {sideWord} nearest volume profile LVN at {stop:F4}",
-                StopSourceKind.BelowComponent => $"Stop {sideWord} {s.IndicatorCode} {s.ComponentName} at {stop:F4}",
-                _                             => $"Stop at {stop:F4}"
+                StopSourceKind.BelowSwingLow  => $"Stop {sideWord} {s.LookbackBars}-bar swing extreme at {stopStr}",
+                StopSourceKind.Fixed          => $"Stop fixed at {stopStr}",
+                StopSourceKind.BelowSupport   => $"Stop {sideWord} nearest S/R level at {stopStr}",
+                StopSourceKind.BelowKijun     => $"Stop {sideWord} Ichimoku Kijun at {stopStr}",
+                StopSourceKind.BelowKumo      => $"Stop {sideWord} Ichimoku Kumo at {stopStr}",
+                StopSourceKind.BelowLvn       => $"Stop {sideWord} nearest volume profile LVN at {stopStr}",
+                StopSourceKind.BelowComponent => $"Stop {sideWord} {s.IndicatorCode} {s.ComponentName} at {stopStr}",
+                _                             => $"Stop at {stopStr}"
             };
         }
     }

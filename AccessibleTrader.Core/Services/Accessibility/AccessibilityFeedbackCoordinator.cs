@@ -91,8 +91,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             // Toggle confirmations that must fire even while playback is running.
             // Check these BEFORE the IsPlaying gate so Alt+C / Alt+L / F2 / F3 are always announced.
+            //
+            // Speech-toggle specifically also fires an Info earcon so the blind user hears an
+            // immediate audio cue for the state change. (The earcon goes through EarconService
+            // which gates on sonification-IsEnabled, so in the rare case where both speech AND
+            // sonification are off at the same time the earcon is silent — but in that mode
+            // the user has explicitly opted into full silence.)
+            //
+            // Sonification-toggle does NOT fire an earcon on purpose: turning sonification OFF
+            // while immediately playing a beep contradicts the intent, and turning it ON is
+            // immediately evidenced by the first subsequent navigation producing sound. The
+            // speech confirmation carries the state transition either way.
             if (state.IsSpeechEnabled != _previousState.IsSpeechEnabled)
+            {
+                _audioRouter.PlayEarcon(FeedbackType.Info);
                 _speechRouter.Speak(state.IsSpeechEnabled ? "Speech on" : "Speech off", interrupt: true);
+            }
             if (state.IsSonificationEnabled != _previousState.IsSonificationEnabled)
                 _speechRouter.Speak(state.IsSonificationEnabled ? "Sound on" : "Sound off", interrupt: true);
             if (state.IsHeikinAshi != _previousState.IsHeikinAshi)
@@ -354,6 +368,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     break;
 
                 case FeedbackType.Error:
+                    // Earcon FIRST so the blind user gets an immediate audio cue even if
+                    // the screen reader is mid-phrase. Speech then follows with the detail.
+                    // Previously this branch did speech only, which meant order-placement
+                    // failures, provider disconnects, and any ReportError(..., High) path
+                    // produced no earcon — violating the silent-failure rule.
+                    _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
                     if (!string.IsNullOrEmpty(e.Message))
                         _speechRouter.Speak(e.Message, interrupt: true);
                     break;

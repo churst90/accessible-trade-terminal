@@ -178,7 +178,7 @@ namespace AccessibleTrader.Plugins.Polygon
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Polygon] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
 
         private static string GetChannelPrefix(string market)

@@ -183,7 +183,7 @@ namespace AccessibleTrader.Plugins.Finnhub
 
                 _liveStream.OnNext(_lastCandle.Value);
             }
-            catch { /* malformed */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Finnhub] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
 
         public override async Task DisconnectAsync()

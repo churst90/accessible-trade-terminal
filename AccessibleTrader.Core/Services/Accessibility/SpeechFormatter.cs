@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Audio;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {
@@ -20,9 +22,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         private readonly IReadOnlyList<IComponentSpeechStrategy> _strategies;
         private readonly IComponentSpeechStrategy _fallback;
+        private readonly ILogger<SpeechFormatter> _logger;
 
-        public SpeechFormatter()
+        public SpeechFormatter() : this(NullLogger<SpeechFormatter>.Instance) { }
+
+        public SpeechFormatter(ILogger<SpeechFormatter> logger)
         {
+            _logger = logger;
             _strategies = new IComponentSpeechStrategy[]
             {
                 new HiddenComponentStrategy(),
@@ -233,15 +239,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 return _fallback.Format(ctx);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Accessibility path: a malformed template or missing companion series must
                 // not crash the speech pipeline -- a blind user listening for price updates
                 // relies on a continuous output. "error" is a bounded fallback string so the
-                // screen reader still has something to say. The trade-off is that a bug in
-                // a template will be silent -- debug by enabling the same path under a test
-                // harness, not by re-raising here.
-                return $"{comp.DisplayName}: error";
+                // screen reader still has something to say. LOG the exception so the bug is
+                // discoverable post-hoc -- previously the fallback was silent, meaning a
+                // broken provider template could emit "<name>: error" on every bar for weeks
+                // before anyone noticed.
+                _logger.LogWarning(ex,
+                    "SpeechFormatter template failed for component '{ComponentName}' on series '{SeriesId}' at dataIndex={DataIndex}.",
+                    comp?.Name ?? "(null)", series?.Id ?? "(null)", dataIndex);
+                return $"{comp?.DisplayName ?? "component"}: error";
             }
         }
 
@@ -455,7 +465,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (double.IsNaN(ctx.Value))
                 return $"{ctx.Comp.DisplayName}: no data";  // user needs to know where they are
-            string priceStr = ctx.Value.ToString("F0");
+            // Magnitude-aware formatting — sub-cent assets (SHIB, PEPE, KAS) would collapse
+            // to "0" under F0. SpeechPriceFormatter picks precision from the value's scale
+            // and always carries ~3 significant digits.
+            string priceStr = SpeechPriceFormatter.FormatPrice(ctx.Value);
             return ctx.Comp.SignalSpeechTemplate!
                 .Replace("{price}", priceStr)
                 .Replace("{name}", ctx.Comp.DisplayName);
@@ -511,6 +524,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     int digits = int.Parse(m.Groups[1].Value);
                     return double.IsNaN(val) ? "no data" : val.ToString("F" + digits);
                 });
+
+            // {value:price} is the magnitude-aware format token for price-space values
+            // on non-price series — e.g. Regime's Close-minus-SMA delta, or an indicator
+            // component that holds an absolute price level. Sub-cent assets (SHIB, PEPE,
+            // KAS) would otherwise collapse to "0.00" through the {value} / {value:F2}
+            // paths. Routes through SpeechPriceFormatter which scales precision by
+            // magnitude and always carries ~3 significant digits.
+            result = result.Replace("{value:price}",
+                double.IsNaN(val) ? "no data" : SpeechPriceFormatter.FormatPrice(val));
 
             return result
                 .Replace("{value}", valF2)

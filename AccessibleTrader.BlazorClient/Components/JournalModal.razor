@@ -3,6 +3,7 @@
 @inject IJournalService Journal
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
+@inject IAudioDriver AudioDriver
 @implements IDisposable
 
 @*
@@ -68,6 +69,26 @@
                       style="width:100%; box-sizing:border-box; font-family:Consolas,'Courier New',monospace;
                              font-size:0.85rem; background:#0b0b0b; color:#cfcfcf; border:1px solid #333;
                              padding:10px; border-radius:4px; resize:vertical; white-space:pre;">@_renderedText</textarea>
+
+            @* ── Audio telemetry row ─────────────────────────────────────────
+               Surfaces the AudioEngine ring-buffer drop counter so a blind user
+               can audit whether their session lost any sonification under load.
+               A non-zero figure here means voices were squelched; re-check with
+               the Reset button after adjusting density / volume settings. *@
+            <div role="status" aria-live="polite"
+                 style="margin-top:12px; padding:6px 8px; background:#111; border:1px solid #333; border-radius:4px;
+                        font-family:Consolas,'Courier New',monospace; font-size:0.8rem; color:#bbb;
+                        display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <span>
+                    Audio engine — dropped <strong style="color:@(AudioDriver.DroppedCommandCount > 0 ? "#f66" : "#4a4");">@AudioDriver.DroppedCommandCount</strong>
+                    of @AudioDriver.TotalCommandCount command(s) (@FormatDropPct())
+                </span>
+                <button type="button" @onclick="ResetAudioTelemetry"
+                        aria-label="Reset the audio drop counters to zero"
+                        style="padding:2px 8px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer;">
+                    Reset
+                </button>
+            </div>
 
             <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
                 <span style="color:#666; font-size:0.8rem;">
@@ -187,6 +208,20 @@
         Journal.Clear();
         Render();
         StateHasChanged();
+    }
+
+    private void ResetAudioTelemetry()
+    {
+        AudioDriver.ResetAudioTelemetry();
+        StateHasChanged();
+    }
+
+    private string FormatDropPct()
+    {
+        long total = AudioDriver.TotalCommandCount;
+        if (total <= 0) return "—";
+        double pct = (double)AudioDriver.DroppedCommandCount / total * 100.0;
+        return $"{pct:F2}%";
     }
 
     public void Dispose()

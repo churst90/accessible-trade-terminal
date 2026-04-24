@@ -65,19 +65,34 @@ namespace AccessibleTrader.Core.Services.Indicators
         // means CrowdingIndex never makes a redundant fetch even if it loads before the
         // FundingRate/OpenInterest indicators. Uses BinanceVision for deep multi-year
         // history (the only free source since Coinglass/CryptoQuant monetized in 2025).
-        private static readonly CrossSeriesRequest FundingRequest = new(
-            Market: "Derivatives",
-            Provider: "BinanceVision",
-            Symbol: "BTCUSDT_FUNDING",
-            Timeframe: "8h",
-            MaxPages: 10);
-
-        private static readonly CrossSeriesRequest OiRequest = new(
-            Market: "Derivatives",
-            Provider: "BinanceVision",
-            Symbol: "BTCUSDT_OI",
-            Timeframe: "1d",
-            MaxPages: 10);
+        // Requests derive their symbol per-call from the `__symbol` hint stamped by
+        // IndicatorOrchestrator so ETH/SOL/DOGE charts each resolve their own funding + OI.
+        private static (CrossSeriesRequest funding, CrossSeriesRequest oi) BuildRequests(
+            Dictionary<string, object> parameters)
+        {
+            string baseSym = "BTCUSDT";
+            if (parameters != null &&
+                parameters.TryGetValue("__symbol", out var raw) &&
+                raw is string active && !string.IsNullOrWhiteSpace(active))
+            {
+                string clean = active.Replace("/", "").Replace("-", "").ToUpperInvariant();
+                if (!clean.Contains("USDT")) clean += "USDT";
+                baseSym = clean;
+            }
+            var funding = new CrossSeriesRequest(
+                Market: "Derivatives",
+                Provider: "BinanceVision",
+                Symbol: baseSym + "_FUNDING",
+                Timeframe: "8h",
+                MaxPages: 10);
+            var oi = new CrossSeriesRequest(
+                Market: "Derivatives",
+                Provider: "BinanceVision",
+                Symbol: baseSym + "_OI",
+                Timeframe: "1d",
+                MaxPages: 10);
+            return (funding, oi);
+        }
 
         private readonly ICrossSeriesCache _xs;
 
@@ -224,8 +239,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // Pull both source caches. If either is empty, leave everything NaN — Crowding
             // is meaningless without both inputs.
-            var fundingTicks = _xs.GetOrFetch(FundingRequest);
-            var oiTicks      = _xs.GetOrFetch(OiRequest);
+            var (fundingRequest, oiRequest) = BuildRequests(parameters);
+            var fundingTicks = _xs.GetOrFetch(fundingRequest);
+            var oiTicks      = _xs.GetOrFetch(oiRequest);
             if (fundingTicks.Count == 0 || oiTicks.Count == 0) return;
 
             // Forward-fill both sources onto the chart bar timeline using local arrays so

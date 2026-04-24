@@ -352,8 +352,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             var cleanSymbol = request.Symbol.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
-            var step = AccessibleTrader.Sdk.Configuration.TimeframeUtility.ToSeconds(request.Timeframe);
-            if (step == -1) return (new List<Ohlcv>(), new List<(long, double)>());
+            // Regex-based parser handles every N<unit> combination; returns 0 on an
+            // unrecognised timeframe, which the guard below maps to the same empty-
+            // result shape the legacy ToSeconds returned for -1.
+            var step = AccessibleTrader.Sdk.Models.TimeframeUtility.ToSeconds(request.Timeframe);
+            if (step <= 0) return (new List<Ohlcv>(), new List<(long, double)>());
 
             int limit = Math.Min(request.Limit, 1000);
             string url = $"{BaseUrl}/ohlc/{cleanSymbol}/?step={step}&limit={limit}";
@@ -489,7 +492,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     return json["id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Bitstamp order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

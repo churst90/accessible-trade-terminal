@@ -320,6 +320,13 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private readonly ConcurrentDictionary<string, (int window, int dataCount)> _detectionCache = new();
 
+        // Per-symbol detection lock. Concurrent SuggestParameters calls for the same
+        // instrument would otherwise both pass Guard 1 + Guard 2 against a stale cache
+        // read, both write non-idempotent results, and both emit an announcement. Holding
+        // a per-key lock keeps the check-compute-update sequence atomic without serialising
+        // detection across unrelated symbols.
+        private readonly ConcurrentDictionary<string, object> _detectionLocks = new();
+
         public Dictionary<string, object>? SuggestParameters(
             ReadOnlySpan<Ohlcv> data,
             string instrumentCode,
@@ -333,32 +340,43 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (currentWindow != 0) return null;
 
             string key = string.IsNullOrEmpty(instrumentCode) ? "__default" : instrumentCode;
+            var keyLock = _detectionLocks.GetOrAdd(key, _ => new object());
 
-            // Guard 1: only re-detect when bar count is >= 1.5x the count at last detection.
-            if (_detectionCache.TryGetValue(key, out var cached))
+            // The span cannot cross the lock boundary (ref-struct locals are disallowed in
+            // async state machines and lock statement holders in some C# versions). Snapshot
+            // the detection + guards into a method that takes the span, then hold the lock
+            // only for the atomic cache-compare + update.
+            int detected;
+            int dataCountAtLastDetection;
+            int suggested;
+            int lastDetected;
+            bool skip;
+            lock (keyLock)
             {
-                if (n < (int)(cached.dataCount * 1.5))
+                if (_detectionCache.TryGetValue(key, out var cached) && n < (int)(cached.dataCount * 1.5))
+                {
+                    notificationMessage = null;
                     return null;
+                }
+
+                detected = DetectCycleWindow(data);
+                if (detected <= 0)
+                {
+                    _detectionCache[key] = (1500, n);
+                    return null;
+                }
+
+                suggested = Math.Clamp((int)(detected * 1.25), 200, 5000);
+                lastDetected = _detectionCache.TryGetValue(key, out var prev) ? prev.window : 0;
+                _detectionCache[key] = (suggested, n);
+                skip = false;
+                dataCountAtLastDetection = n;
             }
 
-            int detected = DetectCycleWindow(data);
-
-            if (detected <= 0)
-            {
-                _detectionCache[key] = (1500, n);
-                return null;
-            }
-
-            int suggested = Math.Clamp((int)(detected * 1.25), 200, 5000);
-
-            // Guard 2: only announce when change exceeds 15%.
-            int lastDetected = _detectionCache.TryGetValue(key, out var prev) ? prev.window : 0;
             bool significant = lastDetected == 0 ||
                 Math.Abs(suggested - lastDetected) / (double)lastDetected > 0.15;
 
-            _detectionCache[key] = (suggested, n);
-
-            if (significant)
+            if (significant && !skip)
             {
                 int troughCount = CountTroughs(data, out int medianInterval);
                 notificationMessage =

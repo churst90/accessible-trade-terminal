@@ -130,10 +130,14 @@ namespace AccessibleTrader.Core.Services
                     else
                         _currentBucketCandle = _currentBucketCandle.Value.UpdateWith(tick);
 
-                    // Only emit bars with a valid close price — drops malformed ticks before
-                    // they reach RecalculateLastAsync and corrupt indicator buffers.
-                    if (_currentBucketCandle.Value.Close > 0)
-                        _liveStreamChannel.Writer.TryWrite(_currentBucketCandle.Value);
+                    // Drop malformed ticks before they reach RecalculateLastAsync and corrupt
+                    // indicator buffers. Require all four OHLC legs > 0 (a zero on any leg
+                    // means the feed glitched — real market ticks satisfy Low <= Close <= High
+                    // and Low > 0 for any tradable instrument) and Volume >= 0 (first tick of
+                    // a new period legitimately has zero volume on thin books or pre-market).
+                    var bar = _currentBucketCandle.Value;
+                    if (bar.Open > 0 && bar.High > 0 && bar.Low > 0 && bar.Close > 0 && bar.Volume >= 0)
+                        _liveStreamChannel.Writer.TryWrite(bar);
                 }
             });
         }

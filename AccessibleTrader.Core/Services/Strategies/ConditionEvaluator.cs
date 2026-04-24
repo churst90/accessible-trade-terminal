@@ -21,7 +21,14 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly ISignalCatalog _catalog;
         private readonly IMultiTimeframeDataService? _mtf;
         private readonly ILevelService? _levels;
-        private static bool _htfWarningLogged;
+
+        // Per-(leafId,timeframe) warning dedup. Using static shared state previously
+        // meant the first HTF miss anywhere in the process silenced every subsequent
+        // degradation across every strategy and every session — a long-running app
+        // saw the warning once and never again. Per-key tracking lets each distinct
+        // leaf surface its degradation at least once per session, while still
+        // rate-limiting a single chatty leaf to one log line.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _htfWarningsEmitted = new();
 
         /// <summary>
         /// Records the most recent HTF-data gap encountered during evaluation, for UI surfacing.
@@ -202,9 +209,9 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // pre-warm completes, which is conservative and correct.
                 string msg = $"HTF leaf '{leaf.Id}' on timeframe '{leaf.Timeframe}' has no cached data — leaf returning false until pre-warm completes.";
                 LastHtfDegradation = msg;
-                if (!_htfWarningLogged)
+                string warningKey = $"{leaf.Id}|{leaf.Timeframe}";
+                if (_htfWarningsEmitted.TryAdd(warningKey, 0))
                 {
-                    _htfWarningLogged = true;
                     System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {msg} Fire IMultiTimeframeDataService PrewarmIndicatorAsync from the strategy's Initialize to resolve.");
                 }
                 return false;

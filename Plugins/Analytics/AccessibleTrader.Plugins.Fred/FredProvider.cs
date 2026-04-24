@@ -104,7 +104,14 @@ namespace AccessibleTrader.Plugins.Fred
                     return (true, "API key validated successfully");
                 return (false, $"Key validation failed ({response.StatusCode})");
             }
-            catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                // Avoid surfacing ex.Message verbatim: on rare HttpClient code paths (proxy
+                // errors, name-resolution failures) the exception can include the full
+                // request URL, which for FRED's REST API embeds the api_key query param.
+                // GetType().Name keeps the signal without leaking the key.
+                return (false, $"Key validation error: {ex.GetType().Name}");
+            }
         }
 
         public override Task EnsureConnectedAsync()
@@ -159,7 +166,9 @@ namespace AccessibleTrader.Plugins.Fred
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"FRED fetch error: {ex.Message}");
+                // Strip ex.Message — see ValidateApiKeyAsync for rationale (FRED api_key is
+                // URL-embedded; HttpRequestException messages occasionally include the URL).
+                _errorStream.OnNext($"FRED fetch error: {ex.GetType().Name}");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }

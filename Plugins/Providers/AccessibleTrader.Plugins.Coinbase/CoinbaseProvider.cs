@@ -28,6 +28,17 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         // Order update stream
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
+
+        /// <summary>
+        /// Coinbase product-id normalisation. The base <see cref="CleanSymbol"/> strips
+        /// every separator; Coinbase wants a dash ("BTC-USD"), so this is the one
+        /// provider that deviates from the shared normalisation. Consolidating the
+        /// three inline <c>Replace("/", "-").ToUpper()</c> sites here means a future
+        /// symbol-format change (e.g. fiat pairs with a different separator) is a
+        /// one-line edit rather than a three-site sweep.
+        /// </summary>
+        private static string ToProductId(string symbol)
+            => string.IsNullOrEmpty(symbol) ? string.Empty : symbol.Replace("/", "-").ToUpperInvariant();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
         // Order book streaming
@@ -122,7 +133,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 _ws.Dispose();
             }
 
-            var productId = symbol.Replace("/", "-").ToUpper();
+            var productId = ToProductId(symbol);
 
             _ws = new ReconnectingWebSocket(
                 "wss://advanced-trade-ws.coinbase.com",
@@ -267,7 +278,13 @@ namespace AccessibleTrader.Plugins.Coinbase
                     }
                 }
             }
-            catch { /* malformed message */ }
+            catch (Exception ex)
+            {
+                // One bad frame shouldn't kill the WebSocket, but staying silent meant the
+                // user never learned why their order updates stopped flowing after a feed
+                // change. Publish a one-shot diagnostic per type of failure.
+                _errorStream.OnNext($"Coinbase user-update parse failed: {ex.GetType().Name}");
+            }
         }
 
         private OrderStatus MapToOrderStatus(string status) => status.ToUpper() switch
@@ -314,7 +331,7 @@ namespace AccessibleTrader.Plugins.Coinbase
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
-            var product     = request.Symbol.Replace("/", "-").ToUpper();
+            var product     = ToProductId(request.Symbol);
             int granSec     = MapTimeframeToSeconds(request.Timeframe);
             int limit       = Math.Min(request.Limit, 350);
 
@@ -393,7 +410,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var cleanSymbol = symbol.Replace("/", "-").ToUpper();
+                    var cleanSymbol = ToProductId(symbol);
                     string path = "/api/v3/brokerage/product_book";
                     await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}?product_id={cleanSymbol}&limit={limit}");
@@ -461,7 +478,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     string path = "/api/v3/brokerage/orders/historical/batch";
                     string query = "?order_status=OPEN";
                     if (!string.IsNullOrEmpty(symbol))
-                        query += $"&product_id={symbol.Replace("/", "-").ToUpper()}";
+                        query += $"&product_id={ToProductId(symbol)}";
 
                     await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}{query}");
@@ -504,7 +521,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string productId = signal.Symbol.Replace("/", "-").ToUpper();
+                    string productId = ToProductId(signal.Symbol);
                     string clientOid = signal.ClientOid ?? Guid.NewGuid().ToString();
 
                     JObject orderConfig;
@@ -559,7 +576,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     return json["success_response"]?["order_id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Coinbase order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)
@@ -602,12 +619,13 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         private async Task AddAuthHeadersAsync(string method, string requestPath)
         {
-            _httpClient.DefaultRequestHeaders.Remove("Authorization");
+            _httpClient.DefaultRequestHeaders.Authorization = null;
             try
             {
                 var (apiKey, apiSecret) = await CheckoutCoinbaseCredentialsAsync().ConfigureAwait(false);
                 var jwt = GenerateJwt(apiKey, apiSecret, method, requestPath);
-                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bearer {jwt}");
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwt);
             }
             catch
             {

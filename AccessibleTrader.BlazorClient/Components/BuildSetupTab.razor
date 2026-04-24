@@ -470,7 +470,7 @@
                 <option value="">— Select —</option>
                 @foreach (var s in Library.All)
                 {
-                    <option value="@s.Id">@s.Name</option>
+                    <option @key="s.Id" value="@s.Id">@s.Name</option>
                 }
             </select>
 
@@ -682,7 +682,8 @@
         bool isSelected = _selectedNode != null && _selectedNode.Id == node.Id;
         string label = NodeLabel(node);
 
-        <li role="treeitem"
+        <li @key="node.Id"
+            role="treeitem"
             aria-level="@level"
             aria-selected="@(isSelected ? "true" : "false")"
             aria-expanded="@(node.IsGroup ? (node.Children.Count > 0 ? "true" : "false") : null)"

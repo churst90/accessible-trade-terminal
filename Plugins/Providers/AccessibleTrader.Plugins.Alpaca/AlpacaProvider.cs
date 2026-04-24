@@ -238,7 +238,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Alpaca] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
 
         private async Task StartTradeStreamAsync()
@@ -313,7 +313,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         status, false, false, DateTime.UtcNow));
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Alpaca] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
 
         public override async Task DisconnectAsync()
@@ -602,7 +602,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                     return json["id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Alpaca order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

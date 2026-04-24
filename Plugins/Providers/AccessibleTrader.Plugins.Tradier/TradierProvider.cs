@@ -113,12 +113,18 @@ namespace AccessibleTrader.Plugins.Tradier
 
             if (IsConfigured)
             {
+                // Use the strongly-typed Authorization header rather than string
+                // interpolation so the bearer token doesn't survive as a formatted
+                // string anywhere in the request pipeline — reduces the chance of
+                // the raw token appearing in HttpClient diagnostic logs.
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_accessToken}");
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
                 _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 
                 _streamClient.DefaultRequestHeaders.Clear();
-                _streamClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_accessToken}");
+                _streamClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
                 _streamClient.DefaultRequestHeaders.Add("Accept", "application/json");
             }
         }
@@ -595,7 +601,7 @@ namespace AccessibleTrader.Plugins.Tradier
                     return json["order"]?["id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Tradier order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

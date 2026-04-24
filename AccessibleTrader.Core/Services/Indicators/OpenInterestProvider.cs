@@ -42,12 +42,29 @@ namespace AccessibleTrader.Core.Services.Indicators
         // BinanceVision plugin pulls the EOD value out of each file. MaxPages=10
         // is unused here since the plugin returns the full history in one call,
         // but left at 10 for consistency with the funding request.
-        private static readonly CrossSeriesRequest OiRequest = new(
-            Market: "Derivatives",
-            Provider: "BinanceVision",
-            Symbol: "BTCUSDT_OI",
-            Timeframe: "1d",
-            MaxPages: 10);
+        //
+        // Symbol is resolved per-call from the `__symbol` hint stamped by
+        // IndicatorOrchestrator so multi-asset charts fetch their own OI history.
+        private const string DefaultSymbol = "BTCUSDT_OI";
+
+        private static CrossSeriesRequest BuildRequest(Dictionary<string, object> parameters)
+        {
+            string sym = DefaultSymbol;
+            if (parameters != null &&
+                parameters.TryGetValue("__symbol", out var raw) &&
+                raw is string active && !string.IsNullOrWhiteSpace(active))
+            {
+                string clean = active.Replace("/", "").Replace("-", "").ToUpperInvariant();
+                if (!clean.Contains("USDT")) clean += "USDT";
+                sym = clean + "_OI";
+            }
+            return new CrossSeriesRequest(
+                Market: "Derivatives",
+                Provider: "BinanceVision",
+                Symbol: sym,
+                Timeframe: "1d",
+                MaxPages: 10);
+        }
 
         private readonly ICrossSeriesCache _xs;
 
@@ -173,7 +190,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             if (n == 0) return;
 
-            var ticks = _xs.GetOrFetch(OiRequest);
+            var ticks = _xs.GetOrFetch(BuildRequest(parameters));
             if (ticks.Count == 0) return;
 
             CrossSeriesForwardFill.Fill(ticks, data, valueSpan);

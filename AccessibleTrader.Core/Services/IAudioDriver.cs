@@ -16,5 +16,13 @@ namespace AccessibleTrader.Core.Services
 
         void Pause();
         void Resume();
+
+        // ── Telemetry (post-audit W4 additions) ──
+        // Ring-buffer overflow counters surfaced so UI layers (JournalModal)
+        // can report session audio health. Drivers without a real engine —
+        // e.g. unit-test mocks — default all values to 0 / no-op.
+        long DroppedCommandCount => 0;
+        long TotalCommandCount => 0;
+        void ResetAudioTelemetry() { }
     }
 }

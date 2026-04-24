@@ -67,4 +67,21 @@ public interface IScriptWorkerLauncher
     /// (Android) may ignore the argument.
     /// </summary>
     IScriptWorkerProcess Launch(string workerExecutablePath);
+
+    /// <summary>
+    /// <c>true</c> when the last <see cref="Launch"/> call produced a
+    /// worker running inside the intended OS-level sandbox
+    /// (AppContainer on Windows, <c>sandbox-exec</c> on macOS,
+    /// <c>isolatedProcess</c>-bound service on Android). <c>false</c>
+    /// when the launcher fell back to an unsandboxed
+    /// <c>Process.Start</c> path because ACLs, the profile file, or
+    /// the AppContainer capability attribute were unavailable.
+    ///
+    /// The default implementation returns <c>false</c> so
+    /// <see cref="DefaultProcessLauncher"/> and any future launcher
+    /// that forgets to override the flag are treated conservatively —
+    /// surfacing the degradation to the user is strictly safer than
+    /// silently pretending to be sandboxed.
+    /// </summary>
+    bool SandboxApplied => false;
 }

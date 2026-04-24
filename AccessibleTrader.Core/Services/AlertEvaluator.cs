@@ -40,7 +40,15 @@ namespace AccessibleTrader.Core.Services
                     var fired = TryEvaluate(alert, state, newBar, previousBar, previousValues);
                     if (fired != null) results.Add(fired);
                 }
-                catch { /* skip silently — pure evaluation, no side effects */ }
+                catch (Exception ex)
+                {
+                    // A broken alert rule (e.g. missing indicator component, divide-by-zero on
+                    // a new data shape) used to silently stop firing, with no way for the user
+                    // to find out. Debug-log the failure keyed on the alert id so a targeted
+                    // repro can find the rule without spamming speech.
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[AlertEvaluator] Alert '{alert.Id}' evaluation failed: {ex.GetType().Name}: {ex.Message}");
+                }
             }
 
             return results;

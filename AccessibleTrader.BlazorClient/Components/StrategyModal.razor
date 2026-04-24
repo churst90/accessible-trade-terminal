@@ -114,7 +114,7 @@
                             {
                                 bool isActive = StrategyEngine.ActiveStrategies.Any(a =>
                                     string.Equals(a.Strategy.Id, spec.Id, StringComparison.OrdinalIgnoreCase));
-                                <tr style="border-bottom: 1px solid #333;">
+                                <tr @key="spec.Id" style="border-bottom: 1px solid #333;">
                                     <td style="padding: 6px 8px;">@spec.Name</td>
                                     <td style="padding: 6px 8px;">@spec.Side</td>
                                     <td style="padding: 6px 8px; color: @(isActive ? "#6f6" : "#888");">
@@ -179,7 +179,7 @@
                             @foreach (var active in StrategyEngine.ActiveStrategies)
                             {
                                 var m = active.Strategy.GetMetrics();
-                                <tr style="border-bottom: 1px solid #333;">
+                                <tr @key="active.InstanceId" style="border-bottom: 1px solid #333;">
                                     <td style="padding: 6px 8px;">
                                         @active.Strategy.Name
                                         @if (active.IsPaused)
@@ -241,7 +241,7 @@
                             <option value="">— Select a saved spec —</option>
                             @foreach (var s in StrategyLibrary.All)
                             {
-                                <option value="@s.Id">@s.Name (@s.Side)</option>
+                                <option @key="s.Id" value="@s.Id">@s.Name (@s.Side)</option>
                             }
                         </select>
                     </div>
@@ -352,7 +352,7 @@
                                         <tbody>
                                             @foreach (var t in _btResult.Trades)
                                             {
-                                                <tr style="border-bottom: 1px solid #2a2a2a; color: @(t.PnL.HasValue && t.PnL.Value >= 0 ? "#4a4" : "#f66");">
+                                                <tr @key="t" style="border-bottom: 1px solid #2a2a2a; color: @(t.PnL.HasValue && t.PnL.Value >= 0 ? "#4a4" : "#f66");">
                                                     <td style="padding: 3px 6px;">@t.EntryTime.ToString("MM/dd HH:mm")</td>
                                                     <td style="padding: 3px 6px;">@t.Side</td>
                                                     <td style="padding: 3px 6px; text-align: right;">@PriceFormatter.FormatPrice(t.EntryPrice)</td>

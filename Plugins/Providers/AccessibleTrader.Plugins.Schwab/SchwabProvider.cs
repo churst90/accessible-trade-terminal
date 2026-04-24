@@ -543,11 +543,13 @@ namespace AccessibleTrader.Plugins.Schwab
             }
             catch (SchwabReauthRequiredException ex)
             {
+                // Controlled exception — message is our own string, safe to surface.
                 return $"ORDER_FAILED:{ex.Message}";
             }
             catch (Exception ex)
             {
-                return $"ORDER_FAILED:{ex.Message}";
+                _errorStream.OnNext($"Schwab order error: {ex.GetType().Name}");
+                return $"ORDER_FAILED:{ex.GetType().Name}";
             }
         }
 

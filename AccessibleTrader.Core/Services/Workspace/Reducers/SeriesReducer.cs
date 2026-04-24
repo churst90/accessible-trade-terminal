@@ -90,21 +90,27 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             var target = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (target == null) return state;
-            // Mutate the ObservableCollection in place (triggers UI bindings),
-            // then rebuild the ImmutableList reference to trigger StateStream notification.
-            target.Levels.Add(level);
-            return state with { ActiveSeries = state.ActiveSeries.Select(s => s).ToImmutableList() };
+            // Clone the target so the prior state snapshot retains its own Levels collection —
+            // otherwise any subscriber holding an earlier state reference would observe the
+            // post-mutation collection before the StateStream notification fires.
+            var updated = target.Clone();
+            updated.Levels.Add(level);
+            return state with {
+                ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
+            };
         }
 
         private static WorkspaceState UpdateSeriesZoneBands(WorkspaceState state, string seriesId, IReadOnlyList<ZoneBandConfig> zoneBands)
         {
             var target = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (target == null) return state;
-            // Replace the zone bands list in place, then rebuild the ImmutableList reference to trigger StateStream.
-            target.ZoneBands.Clear();
+            var updated = target.Clone();
+            updated.ZoneBands.Clear();
             foreach (var band in zoneBands)
-                target.ZoneBands.Add(band.Clone());
-            return state with { ActiveSeries = state.ActiveSeries.Select(s => s).ToImmutableList() };
+                updated.ZoneBands.Add(band.Clone());
+            return state with {
+                ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
+            };
         }
 
         private static WorkspaceState UpdateSeriesParameters(WorkspaceState state, string seriesId, Dictionary<string, double> updates)
@@ -112,9 +118,12 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             var target = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (target == null) return state;
             // Merge only the supplied keys — leave unaffected parameters unchanged.
+            var updated = target.Clone();
             foreach (var kv in updates)
-                target.Config.Parameters[kv.Key] = kv.Value;
-            return state with { ActiveSeries = state.ActiveSeries.Select(s => s).ToImmutableList() };
+                updated.Config.Parameters[kv.Key] = kv.Value;
+            return state with {
+                ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
+            };
         }
 
         private static WorkspaceState RemoveSeries(WorkspaceState state, string id)

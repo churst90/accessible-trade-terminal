@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using System.IO;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
@@ -93,9 +95,33 @@ namespace AccessibleTrader.BlazorClient
             // via the settings panel or an export. Also mirrors each event
             // to ILogger at Warning level so file-sink logs still capture
             // it for post-incident review.
+            //
+            // Post-audit 2026-04-23: the ring-buffer log is optionally wrapped
+            // in a persistent JSONL file sink so events survive process
+            // crashes. Behaviour:
+            //   - Default ON: events appended to `%LocalAppData%/AccessibleTrader/SecurityEvents/security-events-YYYY-MM-DD.jsonl`.
+            //   - ACCESSIBLETRADER_SECURITY_EVENT_DIR=<path> overrides the directory.
+            //   - ACCESSIBLETRADER_SECURITY_EVENT_PERSIST=0 (or "false") disables the file sink entirely.
+            // The sink degrades gracefully to in-memory-only if the directory
+            // can't be created or a write fails (logs the failure via ILogger).
             services.AddSingleton<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
             services.AddSingleton<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
-                sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>());
+            {
+                var ringBuffer = sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
+                var persistEnv = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST");
+                bool persistEnabled = string.IsNullOrEmpty(persistEnv)
+                    || !(persistEnv.Equals("0", StringComparison.Ordinal)
+                      || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
+                if (!persistEnabled) return ringBuffer;
+
+                string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
+                    ?? Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "AccessibleTrader", "SecurityEvents");
+
+                var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
+                return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
+            });
             services.AddSingleton<GlobalInputService>();
 
             // Configuration, themes, and styling.

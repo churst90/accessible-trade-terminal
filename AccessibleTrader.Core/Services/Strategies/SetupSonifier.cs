@@ -44,9 +44,19 @@ namespace AccessibleTrader.Core.Services.Strategies
         private void OnArmed(SetupArmedEvent e)
         {
             _earcon.PlaySetupArmed(e.Side);
+            // Multi-rung TP ladder warning: live trading currently attaches only a single
+            // TakeProfit price to each order, so rungs beyond the first are not placed
+            // live on any broker. A trader relying on a 3-rung ladder needs to know they
+            // have to place the 2nd and 3rd rungs manually until broker-side bracket
+            // plumbing ships per provider. This one-line warning is orders of magnitude
+            // cheaper than the multi-day per-broker implementation and prevents the
+            // silent-failure path where the user thinks all three rungs are live.
+            string rungCount = e.ResolvedPlan.TpPrices.Count > 1
+                ? $" Ladder has {e.ResolvedPlan.TpPrices.Count} rungs — only the first target fires live until multi-rung bracket support ships."
+                : string.Empty;
             _speech.Speak(
                 $"{(e.Side == AccessibleTrader.Sdk.Plugins.OrderSide.Buy ? "Long" : "Short")} setup armed. " +
-                $"{e.TriggerDescription} Stop {e.ResolvedPlan.StopPrice:F4}, first target {e.ResolvedPlan.TpPrices[0]:F4}.",
+                $"{e.TriggerDescription} Stop {SpeechPriceFormatter.FormatPrice(e.ResolvedPlan.StopPrice)}, first target {SpeechPriceFormatter.FormatPrice(e.ResolvedPlan.TpPrices[0])}.{rungCount}",
                 interrupt: false);
         }
 
@@ -54,7 +64,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             _earcon.PlaySetupEntryReached(e.Side);
             _speech.Speak(
-                $"Entry zone reached at {e.TriggerPrice:F4}, {e.BarsArmed} bars after arming.",
+                $"Entry zone reached at {SpeechPriceFormatter.FormatPrice(e.TriggerPrice)}, {e.BarsArmed} bars after arming.",
                 interrupt: false);
         }
 

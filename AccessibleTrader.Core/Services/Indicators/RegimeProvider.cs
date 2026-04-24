@@ -55,7 +55,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
                         IsVisible = false,
                         SubscribedLevelNames = Array.Empty<string>(),
-                        SpeechTemplate = "Close minus S M A two hundred {value:F2}.",
+                        SpeechTemplate = "Close minus S M A two hundred {value:price}.",
                     },
                     new()
                     {
@@ -63,7 +63,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
                         IsVisible = false,
                         SubscribedLevelNames = Array.Empty<string>(),
-                        SpeechTemplate = "Close minus E M A two hundred {value:F2}.",
+                        SpeechTemplate = "Close minus E M A two hundred {value:price}.",
                     },
                     // Ternary regime state: +1 bull, -1 bear, 0 neutral/warmup.
                     // Strategies can use a single GreaterThan/LessThan leaf against this instead

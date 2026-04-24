@@ -5,10 +5,14 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.BlazorClient.Services
 @using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Services.Scripting
 @inject IWorkspaceStore Store
 @inject ISpeechManager SpeechManager
 @inject GlobalInputService InputService
 @inject IJSRuntime JSRuntime
+@inject IAudioFeedbackRouter AudioRouter
+@inject IScriptWorkerLauncher ScriptWorkerLauncher
 @*
     SetupSonifier is a singleton that subscribes to SetupConfirmed/Reconfirmed/Dropped
     events on construction. Injecting it into MainLayout forces DI to construct it at
@@ -123,6 +127,19 @@
                 try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setChartFocused", !evt.IsOpen); }
                 catch { /* non-critical */ }
 
+                // Earcon before speech so a blind user hears an immediate audio cue
+                // when any modal opens or closes — speech arrives ~100-300 ms later
+                // and not at all if the screen reader is in a pattern that dedupes
+                // the double-buffered live region. Info tone on open, boundary on close.
+                try
+                {
+                    AudioRouter.PlayEarcon(evt.IsOpen ? FeedbackType.Info : FeedbackType.Boundary);
+                }
+                catch (Exception ex)
+                {
+                    _layoutLogger.LogWarning(ex, "Modal earcon failed.");
+                }
+
                 if (string.IsNullOrEmpty(evt.ModalName)) return;
                 var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
                 InvokeAsync(() =>
@@ -169,6 +186,30 @@
             catch (Exception ex)
             {
                 _layoutLogger.LogError(ex, "StrategyAutoLoader failed.");
+            }
+
+            // Startup sandbox advisory. If the registered script-worker launcher is the
+            // plain DefaultProcessLauncher — i.e. none of the platform-specific OS sandboxes
+            // are in effect — the user is running custom indicators with only process-boundary
+            // isolation. On Windows or macOS this means the AppContainer / sandbox-exec
+            // primitives were unavailable (AV, GPO, corporate policy, or dev toolchain gap).
+            // Surface it explicitly at launch so the trader knows and can decide whether
+            // custom indicators are safe to run on this machine.
+            try
+            {
+                var launcherType = ScriptWorkerLauncher.GetType();
+                if (launcherType == typeof(DefaultProcessLauncher))
+                {
+                    const string msg = "Security notice: OS-level sandbox not available. Custom indicators run with process-boundary isolation only. Built-in indicators are unaffected.";
+                    _layoutLogger.LogWarning(msg);
+                    _eventBus.Publish(new AnnouncementEvent(msg, true));
+                    try { AudioRouter.PlayEarcon(FeedbackType.Alert); }
+                    catch { /* earcon is enhancement; message itself is what matters */ }
+                }
+            }
+            catch (Exception ex)
+            {
+                _layoutLogger.LogWarning(ex, "Sandbox advisory check failed.");
             }
         }
     }

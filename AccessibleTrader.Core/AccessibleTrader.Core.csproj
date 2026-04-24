@@ -28,4 +28,12 @@
     <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Test project needs access to internal helpers (AudioConstants.CalculatePan,
+         etc.) so the Tier 1 synthesis-path tests can exercise the pan arithmetic and
+         slot routing directly without introducing a public surface that production
+         callers shouldn't use. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

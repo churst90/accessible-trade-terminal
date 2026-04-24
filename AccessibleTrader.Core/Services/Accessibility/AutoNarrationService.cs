@@ -427,8 +427,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (_lastTouchCount.TryGetValue(tcKey, out int lastTouches) && currentTouches > lastTouches)
                     {
                         string touchMsg = isResistance
-                            ? $"{series.FriendlyName}: Price tested resistance at {currentVal:F0}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}."
-                            : $"{series.FriendlyName}: Price tested support at {currentVal:F0}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}.";
+                            ? $"{series.FriendlyName}: Price tested resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}."
+                            : $"{series.FriendlyName}: Price tested support at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}.";
                         _speechRouter.Speak(touchMsg, interrupt: false);
                     }
                     _lastTouchCount[tcKey] = currentTouches;
@@ -441,8 +441,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (nowNear && !wasNear)
                 {
                     string approachMsg = isResistance
-                        ? $"{series.FriendlyName}: Approaching resistance at {currentVal:F0}."
-                        : $"{series.FriendlyName}: Approaching support at {currentVal:F0}.";
+                        ? $"{series.FriendlyName}: Approaching resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}."
+                        : $"{series.FriendlyName}: Approaching support at {SpeechPriceFormatter.FormatPrice(currentVal)}.";
                     _speechRouter.Speak(approachMsg, interrupt: false);
                 }
                 _inProximity[zoneKey] = nowNear;
@@ -452,9 +452,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (_lastPriceAboveZone.TryGetValue(zoneKey, out bool wasAbove))
                 {
                     if (!wasAbove && priceAboveNow)
-                        bullishCrosses.Add($"{lineName} at {currentVal:F0}");
+                        bullishCrosses.Add($"{lineName} at {SpeechPriceFormatter.FormatPrice(currentVal)}");
                     else if (wasAbove && !priceAboveNow)
-                        bearishCrosses.Add($"{lineName} at {currentVal:F0}");
+                        bearishCrosses.Add($"{lineName} at {SpeechPriceFormatter.FormatPrice(currentVal)}");
                 }
                 _lastPriceAboveZone[zoneKey] = priceAboveNow;
             }
@@ -534,8 +534,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             WorkspaceState state, int barIndex)
         {
             string price = (state.Data != null && barIndex < state.Data.Count)
-                ? $"{(double)state.Data[barIndex].Close:F0}"
-                : $"{val:F2}";
+                ? SpeechPriceFormatter.FormatPrice(state.Data[barIndex].Close)
+                : SpeechPriceFormatter.FormatPrice(val);
             string valueStr = val.ToString("F1");
 
             if (!string.IsNullOrEmpty(comp.SignalSpeechTemplate))

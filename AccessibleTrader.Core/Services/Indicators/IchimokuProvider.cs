@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -322,18 +323,18 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 var n when n.Contains("Tenkan") =>
                     bar.Close > value
-                        ? $"Price above Tenkan at {value:F0}"
-                        : $"Price below Tenkan at {value:F0}",
+                        ? $"Price above Tenkan at {SpeechPriceFormatter.FormatPrice(value)}"
+                        : $"Price below Tenkan at {SpeechPriceFormatter.FormatPrice(value)}",
                 var n when n.Contains("Kijun") =>
                     bar.Close > value
-                        ? $"Price above Kijun at {value:F0}"
-                        : $"Price below Kijun at {value:F0}",
+                        ? $"Price above Kijun at {SpeechPriceFormatter.FormatPrice(value)}"
+                        : $"Price below Kijun at {SpeechPriceFormatter.FormatPrice(value)}",
                 var n when n.Contains("Senkou A") || n.Contains("Span A") =>
-                    $"Senkou A at {value:F0}",
+                    $"Senkou A at {SpeechPriceFormatter.FormatPrice(value)}",
                 var n when n.Contains("Senkou B") || n.Contains("Span B") =>
-                    $"Senkou B at {value:F0}",
+                    $"Senkou B at {SpeechPriceFormatter.FormatPrice(value)}",
                 var n when n.Contains("Chikou") =>
-                    $"Chikou span at {value:F0}",
+                    $"Chikou span at {SpeechPriceFormatter.FormatPrice(value)}",
                 _ => null
             };
         }
@@ -364,7 +365,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!double.IsNaN(kijun))
             {
                 string priceVsKijun = close > kijun ? "above" : close < kijun ? "below" : "at";
-                sb.Append($"Price {priceVsKijun} Kijun at {kijun:F2}. ");
+                sb.Append($"Price {priceVsKijun} Kijun at {SpeechPriceFormatter.FormatPrice(kijun)}. ");
             }
 
             // Sentence 3: Price vs Kumo

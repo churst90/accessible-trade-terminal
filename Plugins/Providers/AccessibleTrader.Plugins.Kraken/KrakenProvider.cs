@@ -211,7 +211,10 @@ namespace AccessibleTrader.Plugins.Kraken
 
                 await _authWs.ConnectAsync();
             }
-            catch { /* auth WS is enhancement */ }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken auth WS unavailable ({ex.GetType().Name}): order execution updates won't be delivered.");
+            }
         }
 
         private void HandlePublicMessage(string msg)
@@ -260,7 +263,10 @@ namespace AccessibleTrader.Plugins.Kraken
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken message parse failed: {ex.GetType().Name}");
+            }
         }
 
         private void HandleAuthMessage(string msg)
@@ -300,7 +306,10 @@ namespace AccessibleTrader.Plugins.Kraken
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken message parse failed: {ex.GetType().Name}");
+            }
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -677,7 +686,7 @@ namespace AccessibleTrader.Plugins.Kraken
                     return txids?.FirstOrDefault()?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Kraken order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)
@@ -731,14 +740,21 @@ namespace AccessibleTrader.Plugins.Kraken
                 apiSecret = _apiSecret!;
             }
 
-            // Bump past wall clock if it has moved forward, then increment — guarantees
-            // a strictly-increasing, never-reused nonce even for back-to-back calls.
+            // CAS loop guarantees strictly-increasing, never-reused nonces under concurrent
+            // signers. An Increment+Exchange+Increment sequence races: two threads can both
+            // observe `next < now`, both Exchange to `now`, then both Increment to `now+1`,
+            // producing a duplicate nonce that Kraken silently rejects.
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            long next = Interlocked.Increment(ref _nonceCounter);
-            if (next < now)
+            long next;
+            while (true)
             {
-                Interlocked.Exchange(ref _nonceCounter, now);
-                next = Interlocked.Increment(ref _nonceCounter);
+                long current = Interlocked.Read(ref _nonceCounter);
+                long candidate = Math.Max(current + 1, now);
+                if (Interlocked.CompareExchange(ref _nonceCounter, candidate, current) == current)
+                {
+                    next = candidate;
+                    break;
+                }
             }
             string nonce = next.ToString(CultureInfo.InvariantCulture);
             data["nonce"] = nonce;

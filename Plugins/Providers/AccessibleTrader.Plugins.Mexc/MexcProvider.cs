@@ -199,12 +199,18 @@ namespace AccessibleTrader.Plugins.Mexc
                 _keepAliveTimer.Elapsed += async (_, _) =>
                 {
                     try { await TradingClient.SpotApi.Account.KeepAliveUserStreamAsync(_listenKey!); }
-                    catch { /* non-critical */ }
+                    catch (Exception ex)
+                    {
+                        _errorStream.OnNext($"MEXC user-data keep-alive failed: {ex.GetType().Name}");
+                    }
                 };
                 _keepAliveTimer.AutoReset = true;
                 _keepAliveTimer.Start();
             }
-            catch { /* user-data stream is enhancement, not required for market data */ }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"MEXC user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
+            }
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -556,7 +562,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     return await PlaceSpotOrderAsync(signal);
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"MEXC order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         private async Task<string> PlaceSpotOrderAsync(TradeSignal signal)

@@ -32,6 +32,13 @@
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <Private>false</Private>
     </ProjectReference>
+    <!--
+      Plugin references exist solely so tests can reflect into a provider's
+      private normalisation helpers. The plugin's only non-SDK dependency
+      (Newtonsoft.Json) flows through transitively.
+    -->
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
   </ItemGroup>
 
 </Project>

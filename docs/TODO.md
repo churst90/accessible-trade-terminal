@@ -4,6 +4,256 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-23] — Unit-test gap analysis (triage)
+
+Produced after Week 4 + file-sink ship. Current coverage: **323 tests**
+across 32 test files. Biggest uncovered surfaces below. Tier 1 is
+in-flight this session; Tier 2/3 remain backlog.
+
+### Tier 1 — highest risk, highest leverage (complete 2026-04-23)
+
+60 new tests across 4 files; 383/383 total. See `docs/CHANGES.md`
+2026-04-23 Tier 1 entry.
+
+- [x] **`WorkspaceStore` + 5 reducers** — `WorkspaceStoreTests.cs`
+  (28 tests). Covers every action type plus two concurrency stress
+  tests. Pins the post-Week-1 `AddLevelAction` immutability fix.
+- [x] **`AudioEngine` synthesis hot path** — `AudioEngineSlotAndPanTests.cs`
+  (14 tests). Pan arithmetic, ViewportLength invariant, voice-slot
+  isolation, envelope triggering, Reset-silences-output. Added
+  `InternalsVisibleTo` so tests can reach `internal AudioConstants`.
+- [x] **`DataOrchestrator` resilience** — `DataOrchestratorResilienceTests.cs`
+  (8 tests). Per-provider Polly breaker isolation + full DataState
+  transition-table pin. Reproduces production config without needing
+  the mock farm (HistoricalDataFetcher + LiveStreamManager +
+  IDbContextFactory).
+- [x] **`StrategyBacktester` correctness** — `StrategyBacktesterTests.cs`
+  (10 tests). Warmup gate, stop exits (long+short), single TP, 3-rung
+  TP ladder with portion correctness, end-of-data close, date-range
+  slicing, equity-curve ordering.
+
+### Tier 2 — meaningful risk, moderate leverage (complete 2026-04-23)
+
+55 new tests across 5 files; 438/438 total. See `docs/CHANGES.md`
+2026-04-23 Tier 2 entry.
+
+- [x] **`ConditionEvaluator.HtfLastClosedIndexExclusive`** —
+  `ConditionEvaluatorHtfTests.cs` (10 tests). Reflection-tests the
+  private binary search for the four called-out edge cases (empty /
+  before-all / after-all / perfect-alignment) plus main-bar-between-
+  HTF-bars. Behavioural tests confirm HTF price + indicator leaf
+  paths clip to the exclusive index and that the per-(leafId,
+  timeframe) warning dedup surfaces each distinct leaf exactly once
+  via a `TraceListener` capture of `Debug.WriteLine`.
+- [x] **`NavigationSonifier` + `AudioSequencer`** —
+  `NavigationSonifierClusterTests.cs` (12 tests). Drives
+  `FireClusterTicksAsync` against a spy `IAudioDriver` to pin the
+  tier-ascending-then-positive-first ordering, NaN + focused-component
+  + IsZoneLine + non-marker skip rules, the 5-tick cap on slots 3-7,
+  and the navigation-vs-playback cross-series gating. Also pins the
+  slot-layout contract: `SyncNavigationSlots` stops slots 2-7 before
+  firing slot 0, and `PlayNote` round-robins strictly within 16-31.
+- [x] **`IndicatorOrchestrator` incremental path** —
+  `IndicatorOrchestratorIncrementalTests.cs` (7 tests). Direct
+  coverage for the grow-vs-overwrite branch: same-bar tick overwrite,
+  first-tick-of-new-bar grow, slow-data-arrival NaN fill for jumped
+  bars, unknown-key silent skip, empty-data early return, cancelled
+  token short-circuit, and mixed grow+overwrite across two components
+  in one series.
+- [x] **`BarDetailService` / `IndicatorContextAnalyzer`** —
+  `BarDetailContextTests.cs` (14 tests). Candle-path pattern
+  classifications (Marubozu, Hammer, Flat) + wick-percent phrasing,
+  indicator-path visible-component value listing, hidden + NaN skip.
+  Analyzer coverage: RSI OB/OS/Normal+Rising hints, MACD bullish
+  crossover detection, BB upper-band branch, NaN-current-value null,
+  out-of-range data-index null, unregistered-indicator fallback to
+  first visible component.
+- [x] **`SpeechFormatter` strategy chain** —
+  `SpeechFormatterDispatchTests.cs` (12 tests). One dispatch test
+  per strategy plus priority + token-expansion pins: Hidden wins
+  over Cloud when a cloud is hidden; Cloud announces direction +
+  width + price-position; PhaseName clamps out-of-range phase
+  indices; MarkerSignal expands {name}/{price} and returns
+  "no data" when the signal doesn't fire; StandardTemplate handles
+  the {value:F1} / ValueOnly / NaN paths as the fallback.
+
+### Tier 3 — lower risk / harder to unit-test (complete 2026-04-23)
+
+41 new tests across 3 files; 479/479 total. See `docs/CHANGES.md`
+2026-04-23 Tier 3 entry. Blazor-modal item stays deferred — still
+needs a new bUnit dependency.
+
+- [x] **Per-provider symbol normalisation** —
+  `ProviderSymbolNormalisationTests.cs` (20 tests). Drives
+  `BaseMarketDataProvider.CleanSymbol` via a test-only subclass, Kraken
+  `FormatPair`/`FormatRestPair` via reflection (new ProjectReference
+  to the Kraken plugin), and the inline Coinbase product-id transform
+  as a mirrored reference impl. Test csproj now references
+  `AccessibleTrader.Plugins.Kraken` so private statics resolve.
+- [x] **Pagination bound sweeps** — `PaginationBoundsTests.cs`
+  (9 tests). Reflects `HistoricalDataFetcher.ApplyFinalFilters` (every
+  fetch path funnels through it). Pins: since/until inclusive
+  boundary, zero-price forming-candle drop, partial-zero drop, limit
+  TakeLast (not TakeFirst), limit applied AFTER filtering, empty
+  input safe, limit > available returns all.
+- [x] **`DrawingService` + calculators** —
+  `DrawingCalculatorGeometryTests.cs` (12 tests). TrendLine linear fit
+  + extrapolation beyond anchor range + missing-anchor early return;
+  Channel baseline/upper/median at configured width + 5%-of-anchor
+  fallback; FibRetracement standard levels (0/23.6/38.2/50/61.8/78.6/
+  100) + inverted-anchor orientation; FibExtension levels including
+  161.8%/261.8%; Rectangle normalises corners + NaN outside date range
+  + reversed dates swap; HorizontalLine constant fill +
+  missing-anchor early return.
+- [ ] **Blazor modals** — still needs bUnit; deferred.
+
+---
+
+## [2026-04-23] — Post-audit 4-week plan
+
+Independent six-subsystem audit on 2026-04-23 produced an overall grade
+of **B**. Week 1 is correctness ship-blockers (started immediately);
+Weeks 2-4 are ordered by user impact for a blind trader. See
+`docs/CHANGES.md` 2026-04-23 entry for the per-subsystem grades and the
+full finding list.
+
+### Week 1 — correctness ship-blockers (complete 2026-04-23)
+
+303/303 tests pass across all 4 TFMs. Five of the seven audit
+ship-blockers landed; two were refuted on re-read. See
+`docs/CHANGES.md` 2026-04-23 Week 1 entry for the full list.
+
+- [x] **1. Bar X-alignment — audit finding refuted on re-read.**
+  `StandardRenderers.cs:252,299` — bars use `x = i*barWidth` as the
+  left edge of the cell, then `DrawRect(x+spacing, ..., barWidth-2*spacing, ...)`.
+  Rectangle center sits at `i*barWidth + barWidth/2 = i*barWidth + halfBar`,
+  which matches the line/dot/candle center anchors exactly. The audit
+  mistook the variable's meaning; no code change required. Re-verified
+  against `AudioConstants.ComputePanWidth` comment at
+  `AudioConstants.cs:14` ("bar at local index k sits at visual
+  fraction (k + 0.5) / ViewportLength").
+- [x] **2. `SeriesReducer` immutability leak.** Fixed. `AddLevel`,
+  `UpdateSeriesZoneBands`, `UpdateSeriesParameters` now each clone the
+  target series via `ChartSeries.Clone()`, mutate the clone, and
+  replace the target in `ActiveSeries` via `Select`. Stale "triggers
+  UI bindings" justifications removed — no consumer subscribes to
+  `CollectionChanged` on these collections.
+- [x] **3. `IndicatorOrchestrator` incremental array bounds — audit
+  finding refuted on re-read.** `IndicatorOrchestrator.cs:246-257` —
+  the branch `data.Count > arr.Length` routes first-tick-of-new-bar
+  to the grow-and-write path; `data.Count == arr.Length` (same-bar
+  tick update) goes to `arr[^1] = kvp.Value`, correctly overwriting
+  the current bar. The agent mis-read the branch condition. Logic is
+  correct as written.
+- [x] **4. IPC decoder bounds checks.** Fixed. Added
+  `MaxArrayElements = 1_000_000` cap on every decoded `u32` count via
+  `CheckCount(raw, field)`. `ByteReader.EnsureAvailable(n)` is called
+  before every primitive read. `ReadString` caps the length field at
+  `MaxStringBytes = 64 KB`. Malformed frames now throw typed
+  `InvalidDataException` at decode time, not OOM.
+- [x] **5. `@key` on live `@foreach` tables.** Fixed. `StrategyModal`
+  Library/Active/Trades/bt-spec-dropdown all keyed; `BuildSetupTab`
+  library dropdown keyed, and recursive condition-tree `<li>` keyed
+  by `node.Id`.
+- [x] **6. `LiveStreamManager` zero-value filter.** Fixed.
+  `LiveStreamManager.cs:135` now requires all four OHLC legs `> 0`
+  and `Volume >= 0` (Volume can legitimately be zero on the first
+  tick of a new period for thin books / pre-market).
+- [x] **7. `KrakenProvider` nonce.** Fixed. Replaced the
+  `Increment` + `Exchange` + `Increment` sequence (which had a TOCTOU
+  race producing duplicate nonces under concurrent signers) with a
+  `CompareExchange` spin loop that atomically moves `_nonceCounter`
+  to `max(current+1, now)`.
+
+### Week 2 — accessibility silent-failure sweep (complete 2026-04-23)
+
+303/303 tests pass. Four shipped, two refuted on re-read. See
+`docs/CHANGES.md` 2026-04-23 Week 2 entry.
+
+- [x] **Modal open/close earcons.** Fired from `MainLayout.razor` —
+  `Info` on open, `Boundary` on close, before speech.
+- [x] **F2 speech-toggle earcon.** Emits immediate `Info` earcon
+  alongside speech. F3 sonification toggle deliberately omitted (see
+  CHANGES for rationale).
+- [x] **Order-failure earcons (single-sink fix).** One fix at
+  `AccessibilityFeedbackCoordinator.OnFeedbackRequest` Error-case
+  covers all 14 trading providers since they all funnel through
+  `IGlobalErrorCoordinator.ReportError` → `FeedbackRequestEvent(Error)`.
+- [x] **Cloud NaN guard — already present.** `AudioSequencer.cs:399`
+  already has `if (double.IsNaN(signedWidth)) return;`.
+- [x] **`SpeechFormatter` exception logging.** `ILogger<SpeechFormatter>`
+  injected with parameterless fallback ctor for existing tests. Catch
+  block logs at Warning with component + series + dataIndex context.
+- [x] **Provider silent-catch audit.** Five critical silent catches
+  (Binance/MEXC user-data + keep-alive, Coinbase user-update parse,
+  Kraken auth WS + message parsers, TwelveData tick parse) now publish
+  to `_errorStream`.
+
+### Week 3 — security + correctness hardening (complete 2026-04-23)
+
+303/303 tests pass. All 8 items shipped. See `docs/CHANGES.md`
+2026-04-23 Week 3 entry.
+
+- [x] **Gate `ACCESSIBLETRADER_SCRIPT_IN_PROCESS` behind `#if DEBUG`.**
+- [x] **Surface `SandboxApplied=false` in startup UI.** Startup
+  advisory via `AnnouncementEvent` + `Alert` earcon when the
+  registered launcher is `DefaultProcessLauncher`.
+- [x] **FRED + TwelveData API keys in URL.** No header auth available;
+  instead scrubbed `ex.Message` → `ex.GetType().Name` in all catches
+  so URL with key cannot leak through exception messages.
+- [x] **Raw `ex.Message` in order-fail strings.** All 10 trading
+  providers (Binance, Bitstamp, Alpaca, Tradier, Oanda, Coinbase,
+  IBKR, Schwab, MEXC, Kraken) now return `ORDER_FAILED:{type}` +
+  publish typed error to `_errorStream`. Schwab's controlled
+  `SchwabReauthRequiredException.Message` kept intact.
+- [x] **Cipher S detection race.** Per-symbol lock via
+  `ConcurrentDictionary<string, object>`.
+- [x] **Bearer-token header interpolation.** Tradier / Oanda /
+  Coinbase now use `AuthenticationHeaderValue("Bearer", token)`.
+  Polygon + Schwab already correct.
+- [x] **Binance listen-key cleanup.** `_listenKey` nulled only on
+  `StopUserStreamAsync` success; failure publishes to `_errorStream`.
+- [x] **`ReconnectingWebSocket` 10 s connect timeout.** Linked CTS
+  with `CancelAfter(ConnectTimeout)` bounds the handshake.
+
+### Week 4 — tests + observability (complete 2026-04-23)
+
+316/316 tests pass (303 → 316; 13 new regression tests). All items
+shipped except the optional file-sink documentation. See
+`docs/CHANGES.md` 2026-04-23 Week 4 entry.
+
+- [x] **Unit tests for fixed bugs.** 13 new regression tests in
+  `PostAuditRegressionTests.cs` covering IPC decoder bounds, Kraken
+  nonce CAS idempotence under thread contention,
+  `LiveStreamManager` zero-value predicate, and
+  `ChartSeries.Clone` collection-isolation invariant.
+- [x] **Audio-drop row in Journal Modal.** `IAudioDriver` extended
+  with `DroppedCommandCount` / `TotalCommandCount` /
+  `ResetAudioTelemetry` as default-interface members;
+  `JournalModal.razor` renders a live status row at the bottom with
+  a Reset button.
+- [x] **Per-session HTF degradation warnings.** Replaced the static
+  `_htfWarningLogged` bool with a `ConcurrentDictionary<string, byte>`
+  keyed by `leafId|timeframe` so each distinct HTF leaf surfaces at
+  least once per session.
+- [x] **`ProfileService` null diagnostic logging.** Warning-level log
+  with series id + code + bar count before the empty-list fallback.
+- [x] **`SecurityEventLog` persistent file sink.** Shipped 2026-04-23
+  as `SecurityEventFileSink` decorator — daily-rotated JSONL at
+  `%LocalAppData%/AccessibleTrader/SecurityEvents/`, opt-out via
+  `ACCESSIBLETRADER_SECURITY_EVENT_PERSIST=0`, dir override via
+  `ACCESSIBLETRADER_SECURITY_EVENT_DIR`. 7 new tests.
+
+### Deferred (rationale holds)
+
+- [ ] BuildSetupTab UI split — deferral rationale from 2026-04-22
+  still applies; re-open only when a feature forces movement.
+- [ ] StrategyModal facade extraction.
+- [ ] SKPaint pooling — ~2500 allocations/frame at 500 bars × 5 panes.
+  Real GC win but needs profiling first to confirm on target devices.
+
+---
+
 ## Next sprint — audit backlog closed (only UI split deferred)
 
 Items 1, 2, 3, 4 all shipped on 2026-04-22. Item 5's Core-side extraction
@@ -91,13 +341,31 @@ See `docs/CHANGES.md` 2026-04-22 for the full diff.
 - [x] **`AIAnalystService` fallback retry** — `AskAsync` and `AnalyseAsync` iterate the full provider list, retrying on empty response or exception; publish a terminal error when every provider is exhausted.
 - [x] **`AudioEngine` command-buffer overflow telemetry** — atomic `DroppedCommandCount` / `TotalCommandCount` counters + `CommandDropped` event; `BlazorAudioDriver` records an `AudioCommandDropped` security-event every 10 drops. 4 new xunit tests.
 
-### Deferred architectural refactors (still pending)
+### Deferred architectural refactors
 
-- [ ] **`BuildSetupTab` split** — into (a) ConditionTree editor, (b) RiskPlan editor, (c) Summary/Export. Currently couples rendering, state, and validation.
-- [ ] **`StrategyModal` facade** — extract save/load/export/import into a dedicated facade; the modal is >900 lines.
-- [ ] **`WorkspaceStore.Reduce` decomposition** — ~150-line switch dispatching 25 action types, calls `ViewportNavigationService` + `ViewportRangeCalculator` + `VolumeService` inline. Split into per-domain reducers.
-- [ ] **`SpeechFormatter` plugin registry** — 470-line hardcoded conditional chain. Indicator providers should carry their own `ISpeechTemplateProvider`.
-- [ ] **Symbol-normalization common layer** + **timeframe-map common layer** — already in `project_architectural_followups_2026-04-19.md`.
+Canonical list lives in the 2026-04-22 "Deferred (rationale holds)" block
+higher in this file — duplicates collapsed 2026-04-23. Status:
+
+- [x] **`WorkspaceStore.Reduce` decomposition** — shipped 2026-04-22 as
+  5 per-domain reducers under `Services/Workspace/Reducers/`. Tests:
+  `WorkspaceStoreTests.cs` (28).
+- [x] **`SpeechFormatter` plugin registry** — shipped 2026-04-22 as the
+  5-strategy dispatch chain (`HiddenComponent` / `CloudComponent` /
+  `PhaseName` / `MarkerSignal` / `StandardTemplate`). Tests:
+  `SpeechFormatterDispatchTests.cs` (12).
+- [x] **Symbol-normalization common layer (Tier B.1 — 2026-04-23)** —
+  `BaseMarketDataProvider.CleanSymbol` is the shared layer. Coinbase's
+  five inline sites consolidated into `ToProductId` private helper
+  (2026-04-23). Kraken's `FormatPair` / `FormatRestPair` retained
+  (WS-vs-REST wire format is genuinely distinct). Pinned by
+  `ProviderSymbolNormalisationTests.cs` (20) + `TierBRegressionTests.cs` (5).
+- [x] **Timeframe-map common layer (Tier B.2 — 2026-04-23)** — the
+  `Models.TimeframeUtility` regex-based parser is the canonical common
+  layer. Legacy `Configuration.TimeframeUtility` flagged `[Obsolete]`;
+  Bitstamp migrated to the Models version (and now supports `8h`/`2w`/
+  arbitrary tokens the legacy switch couldn't). Per-provider wire-format
+  mappings (OANDA `H1`, Kraken `60`) remain inline — deferred until a
+  second provider needs the same translation table.
 
 ### Silent-failure sweep (cross-cutting, schedule after Day 4)
 
@@ -353,12 +621,23 @@ across two phases. Phase 1 is complete; phase 2 is open.
   its own 16 MB frame cap.
 
 ### Next priorities (broader codebase audit — 2026-04-17)
-- [ ] **Phase 5 — financial `double` → `decimal` migration.** Every
+- [~] **Phase 5 — financial `double` → `decimal` migration.** Every
   money-path record (`Ohlcv`, `OrderUpdate`, `Balance`, `Position`,
   `OrderBookEntry`) uses `double`, which accumulates binary-float
   rounding across ticks, fills, and P&L aggregation. Schema change
   across every provider, every indicator, the backtester, storage
   serialization. Its own dedicated phase.
+
+  **Tier A.5 decision (2026-04-23):** reframed and deferred. Full
+  migration would touch 14 trading providers, every `ITradingProvider`
+  record, the full StrategyBacktester arithmetic, every position sizer,
+  and backtest serialization — multi-day refactor. No reproducible
+  bug motivates it right now: float drift per-op is ~1e-15, the
+  display layer is now magnitude-aware (2026-04-23 sub-cent fix), and
+  Kelly's clamps absorb sub-penny drift. Re-open when the codebase
+  moves toward automated live trading with cumulative fill
+  accumulation over many sessions — the only scenario where float
+  drift is material in practice.
 - [ ] **Phase 5 — accessibility modal rework.** `ChartArea.razor`
   needs explicit `@onkeydown` binding; `OrderBookModal.razor` needs
   `role="status" aria-live="polite"` regions and sonification hooks
@@ -371,7 +650,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [ ] **Provider unit-test coverage** — `Plugins/Providers/**` and
   `Plugins/Analytics/**` have essentially zero unit tests. Requires
   mock REST/WS servers. Deep.
-- [ ] **Silent `catch {}` broader sweep** — 151 empty blocks
+- [x] **Silent `catch {}` sweep (Tier A.1 — 2026-04-23)** — shipped. Upgraded 9 user-facing silent catches to diagnostic `Debug.WriteLine` / `_logger.LogDebug`: `AlertEvaluator` (alert-rule failure), `AIAnalystService` (screenshot encode failure), and 7 provider feed parsers (Alpaca ×2, Finnhub, InteractiveBrokers, OANDA ×2, Polygon). Teardown/Dispose swallows and `OperationCanceledException` swallows retained as legitimate.
   codebase-wide. Most are correct (malformed WS frame, best-effort
   cleanup); the rest should at minimum log. Prioritized by call-path
   impact.
@@ -405,7 +684,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 
 ### Open gaps — next session
 - [ ] **Funding snapshot scale rewrite** — existing `xs_binancevision_*_funding_8h.json` files store raw fraction (0.0001). New live plugin returns percent (0.01). Sign-based strategies (v18 `Funding > 0`) work regardless, but threshold-based strategies (`Funding > 0.05`) behave differently live vs lab. Fix: one-shot rewrite of the 8 existing funding snapshot files × 100.
-- [ ] **Asset-aware Core FundingRate / OpenInterest / CrowdingIndex** — currently hardcoded to `BTCUSDT_FUNDING` / `BTCUSDT_OI`. For live multi-asset charts (v18 running on ETH/SOL/DOGE), the providers need `__symbol` hint routing — same pattern the lab providers already use. v18 runs BTC-only live until this lands.
+- [x] **Asset-aware Core FundingRate / OpenInterest / CrowdingIndex** — shipped 2026-04-23. `IndicatorOrchestrator` stamps `parameters["__symbol"]` from `state.Identity.Symbol` on both full-recalc and tick-update paths. Each provider's new private `BuildRequest`/`BuildRequests` helper derives the cross-series symbol per-call (normalises `/`, `-`, appends `USDT` for bare bases, falls back to BTCUSDT when the hint is absent). Tests: `AssetAwareCrossSeriesTests.cs` (15).
 - [ ] **Delete redundant BNVISION_FUNDING / BNVISION_OI lab providers** — now duplicating what Core FUNDING_RATE / OPEN_INTEREST provide. Still referenced by v18/v21 strategy leaves. Once v18/v21 are migrated to `FUNDING_RATE.Funding Rate` leaf, the lab providers can be deleted along with their command files.
 
 ### Uncommitted work
@@ -509,8 +788,8 @@ A user-buildable signal composer that combines indicator components from any reg
 - [x] **Journal shortcut corrected** to `Ctrl+Alt+Shift+J` from initial `Ctrl+J`.
 
 **Still pending in this scope (deferred to Session C+):**
-- [ ] **HTF indicator computation** — sync `IIndicatorRunner` or pre-warm cache so HTF leaves can reference indicators (e.g. "1H Cipher A buy signal"), not just price comparisons.
-- [ ] **Adaptive warmup auto-apply in StrategyModal** — analyzer is registered but the Backtest tab doesn't yet call it before running. Modal still uses manual user warmup input. Wire as a button "Auto" in the warmup field.
+- [x] **HTF indicator computation (Tier A.2 — 2026-04-23)** — infrastructure (PrewarmIndicatorAsync + GetCachedIndicator + ConfigurableStrategy.Initialize + pre-warm gate) was already wired. Closed the last gap: `MultiTimeframeDataService.PrewarmIndicatorAsync` now calls a new `BuildDefaultParameters` helper when the caller passes an empty parameter dict, looking up `IndicatorMetadata.Parameters` defaults from the indicator provider. Was previously passing an empty dict which made some providers emit all-NaN arrays. Regression pinned by `ConditionEvaluatorHtfTests.cs`.
+- [x] **Adaptive warmup auto-apply in StrategyModal (Tier B.3 verified 2026-04-23)** — already shipped. `StrategyModal.razor`'s `AutoWarmup()` wires the "Auto" button; `BuildSetupTab.razor:992` auto-applies `WarmupAnalyzer.RecommendedWarmup(spec)` in the preview flow.
 - [ ] **Pre-warm of HTF data on strategy add** — `ConfigurableStrategy.Initialize` should fire-and-forget `_mtf.GetBarsAsync(...)` for every leaf's `Timeframe`. Requires factory injection of MTF service.
 
 ### Session C — Support / resistance + volume profile as condition + risk sources (2026-04-07) — PARTIAL
@@ -574,7 +853,7 @@ User reported 0 trades after adding Cipher B + building a strategy. Audit reveal
 - [x] **Duplicate-add guard** in `BuildSetupTab.AddToEngine` — removes any existing instance with same spec id before adding the new one.
 
 **Still pending (polish, not blocking):**
-- [ ] **Live mode TP ladder execution** — broker-side bracket order plumbing per provider.
+- [~] **Live mode TP ladder execution** — broker-side bracket order plumbing per provider remains deferred (multi-day per broker: Binance OCO, Coinbase brackets, Schwab OCO, Alpaca brackets, Kraken conditional-close, plus emulation for brokers without native support). Tier B.5 (2026-04-23) shipped a safety warning: `SetupSonifier.OnArmed` now appends "Ladder has N rungs — only the first target fires live until multi-rung bracket support ships" when `TpPrices.Count > 1`. Closes the silent-failure path; multi-rung implementation stays on this list.
 - [ ] **Active tab metrics for Suggestion-mode strategies** — `BaseStrategy.GetMetrics()` is fill-based; needs signal-based tracking for non-Auto strategies.
 - [ ] **TreeView expand/collapse + arrow-key navigation** — BuildSetupTab tree polish.
 - [ ] **Custom Script tab Roslyn strategy persistence** — Roslyn-compiled strategies still aren't saved as `StrategySpec`s.
@@ -744,7 +1023,7 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 ### WorkspaceStore — Domain Section Comments
 - [x] Added domain-section comment headers to `Reduce()` switch expression (IDENTITY/MODE, DATA, NAVIGATION, PLAYBACK, etc.).
 - [x] Added XML doc comment to `Reduce()` explaining delegation pattern.
-- [ ] Full slice reducer decomposition into separate functions per domain — deferred to Phase 5+.
+- [x] Full slice reducer decomposition — shipped 2026-04-22 as 5 per-domain reducers.
 
 ---
 
@@ -920,16 +1199,16 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 
 ### Live Stream Audit
 - [x] **Alpaca:** Switched from 15s REST polling to WebSocket v2 live bars. OrderUpdateStream wired from `trade_updates` WebSocket.
-- [ ] **Binance OrderUpdateStream:** User Data Stream WebSocket (listenKey management) not yet implemented. Subject exists but is never pushed to.
-- [ ] **Bitstamp OrderUpdateStream:** WebSocket `order` channel exists but not yet mapped to `_orderUpdateSubject`.
+- [x] **Binance OrderUpdateStream:** verified 2026-04-23 — `_listenKey` + `KeepAliveUserStreamAsync` + `StopUserStreamAsync` wired in `BinanceProvider.cs`. See also the `[x]` entry in the Phase 7 block below.
+- [x] **Bitstamp OrderUpdateStream:** verified 2026-04-23 — `SubscribePrivateChannelAsync` + `private-my_orders-{pair}` handling shipped; see the `[x]` entry in the Phase 7 block below.
 
 ### Binance Plugin
 - [x] **Futures PlaceOrderAsync:** Routes to `UsdFuturesApi.Trading.PlaceOrderAsync` when `signal.SubType == "Futures"`. Applies leverage before order. Attaches TP stop as separate order.
-- [ ] **Binance User Data Stream:** listenKey create/keep-alive/close + fill → `OrderUpdate` mapping. Deferred.
+- [x] **Binance User Data Stream:** fully shipped per 2026-04-23 re-read — listenKey create/keep-alive/close + `onOrderUpdateMessage` callback produces `OrderUpdate` records (status PartiallyFilled / Filled / Cancelled / Rejected; Stop/TP flags derived from order type) and pushes through `_orderUpdateSubject`.
 
 ### Bitstamp Plugin
 - [x] HMAC-SHA256 trading fully implemented. WebSocket live trades + order book diff stream.
-- [ ] Wire `order` channel events → `OrderUpdateStream`. Deferred.
+- [x] Wire `order` channel events → `OrderUpdateStream` — shipped per `SubscribePrivateChannelAsync` in `BitstampProvider.cs`.
 
 ### Alpaca Plugin
 - [x] WebSocket v2 data stream (stocks + crypto). Trade update WebSocket wired to `OrderUpdateStream`.
@@ -956,10 +1235,10 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 ## PHASE 7 — Platform Parity & Feature Completion (Roadmap)
 
 ### Platform Parity
-- [ ] **Mac Keyboard Input:** `NSEvent.AddLocalMonitorForEventsMatchingMask` in `AppDelegate.cs` → `IInputService.ProcessKey`.
-- [ ] **Android Audio Output:** `AudioTrack`-based output in `BlazorAudioDriver` under `#if ANDROID`.
-- [ ] **iOS Audio Output:** `AVAudioEngine` render callback in `BlazorAudioDriver` under `#if IOS || MACCATALYST`.
-- [ ] **NAudio.Wasapi Removal:** After platform drivers validated, remove from `BlazorClient.csproj`.
+- [x] **Mac Keyboard Input:** shipped as `KeyboardPageHandler` + `KeyboardViewController` (line 1224 below).
+- [x] **Android Audio Output:** shipped as `AudioTrack` PCM-Float push loop (line 1225 below).
+- [x] **iOS/Mac Catalyst Audio Output:** shipped as `AVAudioEngine` + `AVAudioSourceNode` (line 1226 below).
+- [ ] **NAudio.Wasapi Removal:** after Android/iOS audio validated on device, remove from `BlazorClient.csproj`. *(Canonical entry — duplicates at lines 1227 + 1455 collapsed 2026-04-23.)*
 
 ### Remaining Provider Gaps
 - [x] **Binance User Data Stream:** `StartUserDataStreamAsync` creates listenKey, subscribes via `_socketClient.SpotApi.Account.SubscribeToUserDataUpdatesAsync`, 25-min keepalive timer, cleanup in `DisconnectAsync`.
@@ -974,7 +1253,7 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 - [x] **Mac Keyboard Input:** `KeyboardPageHandler` (custom `PageHandler`) with `KeyboardViewController` override of `PressesBegan`. Uses NSEvent Unicode private-use characters for special keys. Registered in `MauiProgram.cs` via `#if MACCATALYST`.
 - [x] **Android Audio Output:** `AudioTrack` PCM-Float push loop on `TaskCreationOptions.LongRunning` thread in `BlazorAudioDriver` under `#if ANDROID`.
 - [x] **iOS/Mac Catalyst Audio Output:** `AVAudioEngine` + `AVAudioSourceNode` render callback in `BlazorAudioDriver` under `#if IOS || MACCATALYST`. De-interleaved via `Marshal.Copy`.
-- [ ] **NAudio.Wasapi Removal:** After platform drivers validated on device, remove from `BlazorClient.csproj`.
+- [~] **NAudio.Wasapi Removal:** tracked above in the top Platform Parity section.
 
 ### Chart Focus Shortcut
 - [x] **Ctrl+Alt+Shift+C:** `SystemCommand.ChartFocus`, `ShortcutManager` binding, `CommandDispatcher` handler publishes `ChartFocusEvent` + `CONTEXT_SUMMARY` feedback. `HelpModal.razor` and `SHORTCUTS.md` updated.
@@ -1202,7 +1481,7 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 - [x] **`AutoNarrationService`:** `SeriesConfig.IsAutoNarrated` + `ChartSeries.IsAutoNarrated` delegation. `ToggleNarrationAction` in store. `Ctrl+Shift+N` toggles narration for focused series. `AutoNarrationService` subscribes to `IndicatorUpdatedEvent` + `StateStream`; detects new marker signals (non-NaN Dot/Arrow/Diamond/etc.) on closed bars and oscillator zone transitions; announces via `ISpeechFeedbackRouter` (non-interrupting). Seeding prevents retroactive announcements when narration is enabled. "narrating" appended to series state suffix in `NavigationFeedbackManager`. `Ctrl+Shift+D` (existing `BarDetailService`) already reads non-NaN column values for focused series. 10 tests added (`AutoNarrationTests.cs`). Build: 0 errors. Tests: 162/162. (2026-04-01)
 - [ ] **Three-tier level crossing earcons:** Tier 1 = approach (within 5% of OB/OS level, amplitude scales with proximity), Tier 2 = crossing (existing `PlayBoundary()`), Tier 3 = sustained beyond level >3 bars (looping low-amp background tone). Tracked per series/level in `LevelCrossingMonitor` singleton.
 - [x] **Live AI Technical Analyst:** `IAIAnalystService` + `ILLMProvider` plugin contract in Sdk. Providers: `ClaudeProvider` (claude-sonnet-4-6), `OpenAIProvider` (gpt-4o), `OllamaProvider` (local llama3). Priority: Claude → OpenAI → Ollama (first configured key wins; Ollama needs no key). `Ctrl+Alt+Shift+A` → `AIAnalystModal.razor` (auto-triggers on open). Announces "no API key configured" if none found. Builds OHLCV prompt (50 viewport bars) + indicator summary + offscreen PNG snapshot via `SKSurface`. Speech-reads result. Build: 0 errors. Tests: 176/176. (2026-04-01)
-- [ ] **NAudio.Wasapi removal:** After Android/iOS audio validated on device, remove NAudio.Wasapi conditional reference from `BlazorClient.csproj`.
+- [~] **NAudio.Wasapi removal:** tracked in Platform Parity section.
 
 ---
 
@@ -1323,12 +1602,7 @@ The v2-v6 strategy iteration sprint produced one walked-forward stable strategy 
   - Optionally surface touch count via a new operator (`PriceRejectsValidatedLevel`) or via a `MinTouchCount` parameter on the existing operators
   - Test: v5-style strategy with `MinLevelStrength=0.7` should produce fewer trades than the unfiltered version, but the trades should be at recently-formed pivots
 
-- [ ] **HTF future-leak bug fix in `EvaluateHtfIndicatorLeaf`** (~2-3h) — unblocks every true HTF strategy.
-  - Current bug: `ConditionEvaluator.cs:348-354` reads `htfData[^1]` unconditionally, surfacing the *latest* weekly value at every historical backtest bar
-  - Fix: pair HTF data arrays with their bar timestamps (probably via a new return type from `IMultiTimeframeDataService.GetCachedIndicator` that includes timestamps alongside the value array)
-  - In `EvaluateHtfIndicatorLeaf`, use the strategy's current `history[^1].Date` to find the index in HTF data where the HTF bar's timestamp is `≤` the current daily bar's timestamp, read from that index instead of `^1`
-  - Active-TF path already does this clipping correctly via `Math.Min(history.Count, data.Length) - 1`; HTF path was never written backtest-correct
-  - Test: build a strategy with `weekly Cipher B WT > 0` leaf, run on BTC 1d backtest, verify trades only fire when the *historical* weekly WT was positive at the corresponding date
+- [x] **HTF future-leak bug fix in `EvaluateHtfIndicatorLeaf`** — shipped. `ConditionEvaluator.HtfLastClosedIndexExclusive` clips HTF reads via strict-less-than binary search on `history[^1].Date`, and both `EvaluateHtfIndicatorLeaf` and `EvaluateHtfPriceLeaf` honour the exclusive end. Tests: `ConditionEvaluatorHtfTests.cs` (10) including perfect-alignment + before-all + after-all edges.
 
 - [ ] **VPVR backtest replay end-to-end verification** (~3-4h) — closes the documented "most important pending S/R correctness item."
   - `IBacktestProfileCache` exists with the intended design of bar-by-bar profile snapshots

@@ -104,7 +104,13 @@ namespace AccessibleTrader.Plugins.TwelveData
                 }
                 return (false, $"Key validation failed ({response.StatusCode})");
             }
-            catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                // TwelveData's apikey is a URL query param; HttpRequestException messages
+                // can include the URL on certain failure paths, which would leak the key.
+                // Type name gives the user enough signal without the key bleeding through.
+                return (false, $"Key validation error: {ex.GetType().Name}");
+            }
         }
 
         // ── Connection ──────────────────────────────────────────────────────
@@ -188,7 +194,10 @@ namespace AccessibleTrader.Plugins.TwelveData
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"TwelveData tick parse failed: {ex.GetType().Name}");
+            }
         }
 
         public override async Task DisconnectAsync()
@@ -260,7 +269,8 @@ namespace AccessibleTrader.Plugins.TwelveData
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"TwelveData fetch error: {ex.Message}");
+                // See ValidateApiKeyAsync: ex.Message can contain the URL including apikey.
+                _errorStream.OnNext($"TwelveData fetch error: {ex.GetType().Name}");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }

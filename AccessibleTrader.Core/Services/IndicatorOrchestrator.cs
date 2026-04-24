@@ -97,10 +97,20 @@ namespace AccessibleTrader.Core.Services
                     {
                         // Null-coalesce: some profile providers return null on edge-case inputs.
                         // An empty list is safe; the speech formatter and renderer both check Count.
-                        buffer.ProfileBins = (codeUpper switch {
+                        // Warn-log on null so a regression in the profile service doesn't silently
+                        // convert a real calculation failure into "no profile bars" forever.
+                        var calculated = codeUpper switch {
                             "TPO" => _profileService.CalculateMarketProfile(profileData),
                             _ => _profileService.CalculateVolumeProfile(profileData)
-                        }) ?? new List<ProfileBin>();
+                        };
+                        if (calculated == null)
+                        {
+                            _logger.LogWarning(
+                                "ProfileService returned null for series '{SeriesId}' ({Code}) with {BarCount} bars. " +
+                                "Falling back to empty ProfileBins — indicator pane will render blank.",
+                                s.Id, codeUpper, profileData.Count);
+                        }
+                        buffer.ProfileBins = calculated ?? new List<ProfileBin>();
                     }
                 }
                 // 3. DRAWINGS
@@ -120,6 +130,14 @@ namespace AccessibleTrader.Core.Services
                     try
                     {
                         var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
+
+                        // Stamp the active chart's symbol onto every Calculate call as a hidden
+                        // (`__`-prefixed so the parameter UI ignores it) hint. Cross-series
+                        // providers (FundingRate, OpenInterest, CrowdingIndex) read this to
+                        // route their remote fetch per asset instead of hard-coding "BTCUSDT".
+                        // Providers that don't care simply ignore the key.
+                        if (!string.IsNullOrEmpty(state.Identity.Symbol))
+                            parameters["__symbol"] = state.Identity.Symbol;
 
                         // ── Adaptive parameter detection ─────────────────────────────────────
                         // IAdaptiveIndicatorProvider (e.g. Cipher S) may inspect the loaded data
@@ -237,6 +255,14 @@ namespace AccessibleTrader.Core.Services
                     try
                     {
                         var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
+
+                        // Same symbol-hint stamping as the full-recalc branch — cross-series
+                        // providers need the active asset on tick-updates too so live funding /
+                        // OI for ETH don't get replaced by the first bar's BTC values.
+                        var curState = _store.State;
+                        if (!string.IsNullOrEmpty(curState.Identity.Symbol))
+                            parameters["__symbol"] = curState.Identity.Symbol;
+
                         var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
 
                         foreach (var kvp in results)

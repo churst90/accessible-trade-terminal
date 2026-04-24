@@ -69,13 +69,25 @@ namespace AccessibleTrader.Sdk.Services
         /// <summary>Register a callback for disconnection.</summary>
         public ReconnectingWebSocket OnDisconnected(Action handler) { _onDisconnected = handler; return this; }
 
+        /// <summary>
+        /// Hard cap on a single ConnectAsync attempt. Without this, a hung DNS
+        /// resolution or a silently-black-holed TLS handshake can wedge the
+        /// whole subscription path indefinitely because most callers pass
+        /// <see cref="CancellationToken.None"/>.
+        /// </summary>
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+
         /// <summary>Connects and starts the receive loop. Idempotent if already connected.</summary>
         public async Task ConnectAsync(CancellationToken ct = default)
         {
             if (IsConnected) return;
             _cts?.Cancel();
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            await ConnectInternalAsync(_cts.Token).ConfigureAwait(false);
+            // Local CTS bounds the handshake only; the long-lived _cts still governs the
+            // receive + heartbeat loops once connected.
+            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            connectCts.CancelAfter(ConnectTimeout);
+            await ConnectInternalAsync(connectCts.Token).ConfigureAwait(false);
             _ = ReceiveLoopAsync(_cts.Token);
             if (_heartbeatInterval > TimeSpan.Zero)
                 _ = HeartbeatLoopAsync(_cts.Token);

@@ -287,9 +287,13 @@ public sealed class AIAnalystService : IAIAnalystService
             using var data  = image.Encode(SKEncodedImageFormat.Png, 85);
             return Convert.ToBase64String(data.ToArray());
         }
-        catch
+        catch (Exception ex)
         {
-            return null; // Non-fatal — analysis continues without screenshot
+            // Non-fatal — analysis continues without screenshot. But if PNG encoding fails
+            // every time (e.g. SkiaSharp native bindings broken on a platform), the AI keeps
+            // flying blind. Log so the symptom is discoverable.
+            _logger?.LogDebug(ex, "AI Analyst: screenshot capture failed; continuing without image.");
+            return null;
         }
     }
 }

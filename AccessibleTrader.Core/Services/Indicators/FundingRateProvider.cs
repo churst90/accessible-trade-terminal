@@ -40,14 +40,33 @@ namespace AccessibleTrader.Core.Services.Indicators
         // cross-series cache as percent per 8h (the BinanceVision plugin multiplies the
         // raw fraction ×100 at fetch time). StrategyLab's snapshotting cache serves the
         // same key from pre-fetched xs_binancevision_*.json files when running offline.
-        // OKX fallback retained as a second request for resilience when BinanceVision
-        // is unreachable (rare — it's a static S3 bucket with no rate limits).
-        private static readonly CrossSeriesRequest FundingRequest = new(
-            Market: "Derivatives",
-            Provider: "BinanceVision",
-            Symbol: "BTCUSDT_FUNDING",
-            Timeframe: "8h",
-            MaxPages: 10);
+        //
+        // The request is now asset-aware: the active chart's symbol comes through the
+        // parameters dict as `__symbol` (stamped by IndicatorOrchestrator) and we derive
+        // the cross-series symbol `<BASE>USDT_FUNDING` from it. When the hint is absent
+        // (backward-compat: snapshot cache, tests) we fall back to BTCUSDT_FUNDING.
+        private const string DefaultSymbol = "BTCUSDT_FUNDING";
+
+        private static CrossSeriesRequest BuildRequest(Dictionary<string, object> parameters)
+        {
+            string sym = DefaultSymbol;
+            if (parameters != null &&
+                parameters.TryGetValue("__symbol", out var raw) &&
+                raw is string active && !string.IsNullOrWhiteSpace(active))
+            {
+                // Strip "/" and "-" so "BTC/USDT" → "BTCUSDT"; funding lives on perpetual
+                // USDT-quoted pairs, so assume USDT quote when the base is specified alone.
+                string clean = active.Replace("/", "").Replace("-", "").ToUpperInvariant();
+                if (!clean.Contains("USDT")) clean += "USDT";
+                sym = clean + "_FUNDING";
+            }
+            return new CrossSeriesRequest(
+                Market: "Derivatives",
+                Provider: "BinanceVision",
+                Symbol: sym,
+                Timeframe: "8h",
+                MaxPages: 10);
+        }
 
         private readonly ICrossSeriesCache _xs;
 
@@ -197,8 +216,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (n == 0) return;
 
             // Pull from the shared cache. First-add synchronously waits up to 5s; subsequent
-            // calls hit the in-memory cache and return immediately.
-            var ticks = _xs.GetOrFetch(FundingRequest);
+            // calls hit the in-memory cache and return immediately. The request symbol is
+            // derived from the __symbol hint so multi-asset charts each resolve their own
+            // funding history rather than sharing BTC's.
+            var request = BuildRequest(parameters);
+            var ticks = _xs.GetOrFetch(request);
             if (ticks.Count == 0) return;
 
             CrossSeriesForwardFill.Fill(ticks, data, rateSpan);

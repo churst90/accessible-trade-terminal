@@ -213,12 +213,23 @@ namespace AccessibleTrader.Plugins.Binance
                 _keepAliveTimer.Elapsed += async (_, _) =>
                 {
                     try { await TradingClient.SpotApi.Account.KeepAliveUserStreamAsync(_listenKey); }
-                    catch { /* non-critical */ }
+                    catch (Exception ex)
+                    {
+                        // If keep-alive fails repeatedly the listen key expires and order-update
+                        // delivery silently stops. Surface it so the UI can show a warning.
+                        _errorStream.OnNext($"Binance user-data keep-alive failed: {ex.GetType().Name}");
+                    }
                 };
                 _keepAliveTimer.AutoReset = true;
                 _keepAliveTimer.Start();
             }
-            catch { /* user data stream is enhancement, not required for market data */ }
+            catch (Exception ex)
+            {
+                // User-data stream is an enhancement over market data; failure here does not
+                // block trading. But staying silent meant a trader never knew why order fills
+                // weren't announcing. Publish a one-time error so the JournalModal records it.
+                _errorStream.OnNext($"Binance user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
+            }
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -299,10 +310,27 @@ namespace AccessibleTrader.Plugins.Binance
 
             if (!string.IsNullOrEmpty(_listenKey) && _tradingClient != null)
             {
-                try { await _tradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey); }
-                catch { /* best-effort */ }
+                // Only null the listen key if Binance acknowledged the stop. If the
+                // stop request failed (network blip mid-disconnect), the key remains
+                // valid on Binance's side and would pile up as a zombie across
+                // reconnect cycles — each disconnect/reconnect pair without success
+                // was previously creating a fresh key while leaking the old one.
+                bool stopped = false;
+                try
+                {
+                    var result = await _tradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey);
+                    stopped = result != null && result.Success;
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"Binance StopUserStream failed: {ex.GetType().Name}");
+                }
+                if (stopped) _listenKey = null;
             }
-            _listenKey = null;
+            else
+            {
+                _listenKey = null;
+            }
 
             // Dispose the authenticated client so its internally-held
             // credentials are released. The public _client stays — it holds
@@ -645,7 +673,7 @@ namespace AccessibleTrader.Plugins.Binance
                     }
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Binance order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

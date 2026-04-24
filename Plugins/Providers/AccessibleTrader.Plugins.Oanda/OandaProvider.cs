@@ -127,12 +127,16 @@ namespace AccessibleTrader.Plugins.Oanda
 
             if (!string.IsNullOrEmpty(_accessToken))
             {
+                // Strongly-typed Authorization header — avoids the raw token persisting
+                // as a formatted string in the request pipeline and any diagnostic logs.
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_accessToken}");
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
                 _httpClient.DefaultRequestHeaders.Add("Accept-Datetime-Format", "UNIX");
 
                 _streamClient.DefaultRequestHeaders.Clear();
-                _streamClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_accessToken}");
+                _streamClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
                 _streamClient.DefaultRequestHeaders.Add("Accept-Datetime-Format", "UNIX");
             }
         }
@@ -270,7 +274,7 @@ namespace AccessibleTrader.Plugins.Oanda
                             }
                             // HEARTBEAT type — just keep alive, no action needed
                         }
-                        catch { /* malformed line */ }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[OANDA] Malformed pricing line skipped: {ex.GetType().Name}"); }
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -338,7 +342,7 @@ namespace AccessibleTrader.Plugins.Oanda
                                     OrderStatus.Cancelled, false, false, DateTime.UtcNow));
                             }
                         }
-                        catch { /* malformed */ }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[OANDA] Malformed transaction line skipped: {ex.GetType().Name}"); }
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -704,7 +708,7 @@ namespace AccessibleTrader.Plugins.Oanda
                     return createTxnId ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Oanda order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

@@ -337,7 +337,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     }
                 }
             }
-            catch { /* malformed */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[IB] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
 
         public override async Task DisconnectAsync()
@@ -609,7 +609,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     return first?["order_id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }
-            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+            catch (Exception ex) { _errorStream.OnNext($"IBKR order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

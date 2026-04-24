@@ -61,6 +61,13 @@ public sealed record CalculateResponse(double[][] ComponentData);
 /// </summary>
 public static class MessageCodec
 {
+    // Defense-in-depth caps on untrusted u32 counts from decoded payloads.
+    // FrameCodec already enforces a 64 MB frame cap, but without per-field
+    // caps a single `u32=500_000_000` string/array length triggers an
+    // OOM-class allocation before the invalid read is detected.
+    private const int MaxArrayElements = 1_000_000;   // generous for bar arrays
+    private const int MaxStringBytes   = 64 * 1024;   // 64 KB covers any id/name/param
+
     // ── IndicatorMetadataMessage ───────────────────────────────────────
 
     public static byte[] EncodeMetadata(IndicatorMetadataMessage meta)
@@ -90,15 +97,15 @@ public static class MessageCodec
         var id    = r.ReadString();
         var name  = r.ReadString();
 
-        int nComp = (int)r.ReadU32();
+        int nComp = CheckCount(r.ReadU32(), "ComponentNames");
         var compNames = new string[nComp];
         for (int i = 0; i < nComp; i++) compNames[i] = r.ReadString();
 
-        int nDisp = (int)r.ReadU32();
+        int nDisp = CheckCount(r.ReadU32(), "DisplayTypeValues");
         var dispVals = new int[nDisp];
         for (int i = 0; i < nDisp; i++) dispVals[i] = r.ReadI32();
 
-        int nParam = (int)r.ReadU32();
+        int nParam = CheckCount(r.ReadU32(), "DefaultParameters");
         var parms = new Dictionary<string, double>(nParam);
         for (int i = 0; i < nParam; i++)
         {
@@ -129,11 +136,11 @@ public static class MessageCodec
     public static CalculateRequest DecodeCalculateRequest(byte[] payload)
     {
         var r = new ByteReader(payload);
-        int n = (int)r.ReadU32();
+        int n = CheckCount(r.ReadU32(), "Bars");
         var bars = new Ohlcv[n];
         for (int i = 0; i < n; i++) bars[i] = r.ReadOhlcv();
 
-        int p = (int)r.ReadU32();
+        int p = CheckCount(r.ReadU32(), "Parameters");
         var parms = new Dictionary<string, double>(p);
         for (int i = 0; i < p; i++)
         {
@@ -161,16 +168,23 @@ public static class MessageCodec
     public static CalculateResponse DecodeCalculateResponse(byte[] payload)
     {
         var r = new ByteReader(payload);
-        int k = (int)r.ReadU32();
+        int k = CheckCount(r.ReadU32(), "ComponentData");
         var components = new double[k][];
         for (int c = 0; c < k; c++)
         {
-            int l = (int)r.ReadU32();
+            int l = CheckCount(r.ReadU32(), "ComponentData[i]");
             var arr = new double[l];
             for (int i = 0; i < l; i++) arr[i] = r.ReadF64();
             components[c] = arr;
         }
         return new CalculateResponse(components);
+    }
+
+    private static int CheckCount(uint raw, string field)
+    {
+        if (raw > MaxArrayElements)
+            throw new InvalidDataException($"{field} count {raw} exceeds cap {MaxArrayElements}.");
+        return (int)raw;
     }
 
     // ── Primitives ─────────────────────────────────────────────────────
@@ -226,8 +240,16 @@ public static class MessageCodec
         private int _pos;
         public ByteReader(byte[] buf) { _buf = buf; _pos = 0; }
 
+        private void EnsureAvailable(int n)
+        {
+            if (n < 0 || _pos + n > _buf.Length)
+                throw new InvalidDataException(
+                    $"Truncated frame: attempted to read {n} bytes at offset {_pos}, buffer length {_buf.Length}.");
+        }
+
         public uint ReadU32()
         {
+            EnsureAvailable(4);
             var v = BinaryPrimitives.ReadUInt32BigEndian(_buf.AsSpan(_pos, 4));
             _pos += 4;
             return v;
@@ -235,6 +257,7 @@ public static class MessageCodec
 
         public int ReadI32()
         {
+            EnsureAvailable(4);
             var v = BinaryPrimitives.ReadInt32BigEndian(_buf.AsSpan(_pos, 4));
             _pos += 4;
             return v;
@@ -242,6 +265,7 @@ public static class MessageCodec
 
         public double ReadF64()
         {
+            EnsureAvailable(8);
             var v = BinaryPrimitives.ReadDoubleBigEndian(_buf.AsSpan(_pos, 8));
             _pos += 8;
             return v;
@@ -249,6 +273,7 @@ public static class MessageCodec
 
         public long ReadI64()
         {
+            EnsureAvailable(8);
             var v = BinaryPrimitives.ReadInt64BigEndian(_buf.AsSpan(_pos, 8));
             _pos += 8;
             return v;
@@ -256,8 +281,12 @@ public static class MessageCodec
 
         public string ReadString()
         {
-            int len = (int)ReadU32();
-            if (len == 0) return "";
+            uint rawLen = ReadU32();
+            if (rawLen == 0) return "";
+            if (rawLen > MaxStringBytes)
+                throw new InvalidDataException($"String length {rawLen} exceeds cap {MaxStringBytes}.");
+            int len = (int)rawLen;
+            EnsureAvailable(len);
             var s = Encoding.UTF8.GetString(_buf, _pos, len);
             _pos += len;
             return s;

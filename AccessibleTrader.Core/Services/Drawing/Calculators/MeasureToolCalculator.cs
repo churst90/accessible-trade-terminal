@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -23,7 +24,11 @@ namespace AccessibleTrader.Core.Services.Drawing.Calculators
             int barDist     = Math.Abs(i2 - i1);
             double priceDist = drawing.AnchorPrice2.Value - drawing.AnchorPrice1.Value;
             double pct       = (priceDist / drawing.AnchorPrice1.Value) * 100.0;
-            drawing.MeasureResult = $"{priceDist:F2} ({pct:F2}%), {barDist} bars";
+            // Magnitude-aware price formatting so SHIB/PEPE/KAS measure distances
+            // don't collapse to "0.00". The percent is left at F2 — percent values
+            // above 1% carry plenty of precision; below 1% the user is usually
+            // more interested in the price distance anyway.
+            drawing.MeasureResult = $"{SpeechPriceFormatter.FormatPrice(priceDist)} ({pct:F2}%), {barDist} bars";
 
             results["Measure"] = DrawingCalculatorHelper.CalculateLinearPoints(
                 drawing.AnchorDate1.Value, drawing.AnchorPrice1.Value,

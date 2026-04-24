@@ -136,14 +136,25 @@ namespace AccessibleTrader.Core.Services
         /// the out-of-process worker so a sandbox escape cannot reach the
         /// trading host. In-process is retained for breakpoint debugging.
         /// </summary>
+        /// <remarks>
+        /// The env var is honored ONLY in <c>DEBUG</c> builds. In <c>RELEASE</c>
+        /// builds it is ignored and the getter always returns <c>false</c> — a
+        /// compromised deployment or misconfigured installer setting the env
+        /// var must never be able to silently downgrade retail users to the
+        /// unsandboxed in-process path.
+        /// </remarks>
         private static bool InProcessOptIn
         {
             get
             {
+#if DEBUG
                 var v = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SCRIPT_IN_PROCESS");
                 return !string.IsNullOrEmpty(v)
                     && (v.Equals("1", StringComparison.Ordinal)
                      || v.Equals("true", StringComparison.OrdinalIgnoreCase));
+#else
+                return false;
+#endif
             }
         }
 
