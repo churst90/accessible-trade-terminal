@@ -4,6 +4,116 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Icon-toolbar composition fixes: WebView2 z-order + canvas margin
+
+Ship-polish follow-up to the initial icon-toolbar commit. The first pass
+wired the new circular icon buttons end-to-end and built clean, but the
+rendered app showed a blank WebView region — the Blazor toolbar never
+became visually visible (OCR could still read the accessibility tree,
+which is why the user remembered reading button text in prior sessions).
+Bisection across six commits pinned the real issues to the MAUI / WinUI
+composition stack, not the Razor layer. Build clean, 537/537 tests
+green across the whole sequence.
+
+### Root causes uncovered
+
+1. **`<base href="/">` + SVG `<use href="#id">` fragment-ref bug.**
+   `wwwroot/index.html:7` sets a base URL. With that in place, WebView2
+   resolves a bare `href="#icon-x"` on a `<use>` element as the URL
+   `"/#icon-x"` — an attempted navigation — rather than as a same-
+   document fragment reference. The lookup fails, the first rendered
+   `ToolbarIconButton` hits a broken `<use>`, and some WebView2 builds
+   cascade this into a render-pipeline abort that blanks the parent
+   component. Fixed in commit `099d0ca3` by emitting both `href` and
+   `xlink:href` on every `<use>` — the legacy SVG attribute ignores
+   `<base>` and resolves fragments directly, so modern engines get the
+   fast path while older engines still resolve via xlink.
+
+2. **Nested string literals inside Razor attribute values.** The
+   initial pattern `class="... @(IsToggleOn == true ? "icon-btn-on" :
+   null) ..."` asks the Razor tokenizer to walk a C# string literal
+   nested inside a `@()` block nested inside a double-quoted HTML
+   attribute. Compiled cleanly but was the pattern most likely to
+   mis-emit at runtime. Extracted every computed attribute value into
+   plain C# properties in the `@code` block — `ButtonClass`,
+   `EffectiveAriaLabel`, `PressedAttr`, `HashRef` — with the attribute
+   sites referencing them directly. Safer compilation shape.
+
+3. **`MainPage.xaml` z-order.** The Grid declared
+   `<BlazorWebView>` first and `<SKCanvasView>` second, which made the
+   canvas the top layer (Grid children composite in declaration
+   order). `OnCanvasPaint` calls `canvas.Clear(SKColors.Black)` on
+   every frame, painting opaque black over the WebView underneath.
+   Toolbar invisible since this was written; OCR / screen readers
+   could still read the accessibility tree, which is why this bug
+   sat unnoticed until the icon work shipped.
+
+4. **WebView2 composition does not honor sibling XAML controls
+   behind it.** First-pass fix reversed the Grid z-order to put the
+   WebView on top (toolbar visible). Chart area went solid black —
+   WebView2 on WinUI 3 composites its transparent pixels against the
+   parent Grid's `BackgroundColor`, not against sibling XAML controls
+   placed beneath it. Canvas-behind-WebView = canvas never visible.
+
+5. **`ChartArea.razor` outer div opaque.** Once the z-order was
+   corrected, the `<div role="application">` host still carried
+   `background: black` (a leftover from the old canvas-on-top model
+   where the div was always obscured). Changed to `transparent`.
+
+6. **`IsDataReadyToRender()` stricter than the canvas's own draw
+   condition.** The blackout-overlay required BOTH
+   `state.Data.Count > 0` AND `DataState == LiveStreaming /
+   GapFilling` to fade out, while `MainPage.xaml.cs OnCanvasPaint`
+   only checks `state.Data.Count > 0`. When data landed before the
+   orchestrator finished its state-machine transition, the overlay
+   stayed visible while the canvas was already drawing bars underneath.
+   Invisible under the old canvas-on-top z-order; now visible and
+   covering the chart. Simplified the overlay check to mirror the
+   canvas condition exactly.
+
+### Final architecture (shipped)
+
+- `BlazorWebView` **spans the full Grid**, hosting every interactive
+  surface end-to-end: header, toolbar, timeframe-quick-pick row,
+  chart-area overlay, indicator bar, footer, modals, ARIA live
+  regions, keyboard bridge.
+- `SKCanvasView` is **declared after** the WebView (top layer in the
+  composition) but **margin-constrained** to the middle chart region
+  via `Margin="0,185,0,100"`. Those DIP values clear the Blazor
+  chrome above (header + icon toolbar + timeframe row) and below
+  (indicator bar + footer), so those stay visible while the canvas
+  covers only the chart region with its pixel rendering.
+- If the Blazor chrome grows (extra toolbar row, taller indicator
+  bar), bump the margin numbers. For pixel-perfect sizing a future
+  enhancement can wire JS interop to report `ChartArea`'s live
+  `getBoundingClientRect()` to the host and set the margin
+  dynamically.
+
+### Commit trail
+
+| Commit | What it did |
+|---|---|
+| `d0da47e5` | Initial icon-toolbar wire-up + 25-symbol sprite |
+| `7ddefa76` | Reverted wire-up after the first blank-UI report |
+| `099d0ca3` | xlink:href shim + extracted computed properties |
+| `e43c4606` | Z-order swap (canvas behind WebView) — wrong direction |
+| `eef43106` | ChartArea outer div → transparent |
+| `2fe80a10` | Simplified `IsDataReadyToRender()` to match canvas condition |
+| `06b6bb13` | Reverted z-order; canvas on top with margin |
+| `7cfe2a61` | Bumped margin 140/60 → 185/100 after visual verification |
+
+### Accessibility confirmation
+
+Every `aria-label`, `aria-pressed`, `title` tooltip, and keyboard
+shortcut binding from the pre-icon toolbar is preserved end-to-end.
+Screen reader should announce each button by its `AriaLabel` (Object
+Tree / Drawing Tools / Trading Dashboard / etc. — not the short
+on-screen caption). Four redundant cues per button (icon + label +
+tooltip + aria-label) serve the full low-vision-through-no-vision
+spectrum.
+
+---
+
 ## [2026-04-24] — Icon toolbar: 25 custom SVG icons + circular button component
 
 Replaced the text-only toolbar + indicator bar with a circular-icon system

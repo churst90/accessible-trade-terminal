@@ -30,6 +30,39 @@ tests still green.
 - [x] **`Toolbar.razor` + `IndicatorBar.razor`** rewired to use the new
   component end-to-end.
 
+### Composition-layer fixes (follow-ups, same day)
+
+Shipping the icon toolbar required a six-commit bisection across
+composition issues that had been latent since the original
+`MainPage.xaml` was written — the text-button toolbar was always
+painted over by the Skia canvas, but the app was keyboard-driven +
+OCR/screen-reader-readable, so the missing pixels went unnoticed.
+Fixed as part of this sweep. Full writeup in
+`docs/CHANGES.md` "Icon-toolbar composition fixes" entry.
+
+- [x] **`<base href="/">` + SVG `<use href="#id">` fragment-ref bug**
+  — added `xlink:href` shim alongside `href` on every `<use>`.
+- [x] **Nested string literals in Razor attribute values** —
+  extracted to plain C# computed properties in `@code`.
+- [x] **`MainPage.xaml` z-order: canvas-on-top with margin** —
+  `BlazorWebView` spans the full Grid, `SKCanvasView` is declared
+  after it (top layer) but margin-constrained to the middle chart
+  region via `Margin="0,185,0,100"` so the toolbar / header / footer
+  / indicator bar from the WebView stay visible above and below.
+- [x] **`ChartArea.razor` outer div** → `background: transparent`.
+  Previously `black`, left over from the canvas-on-top-without-
+  margin era where the outer div was never visible.
+- [x] **`IsDataReadyToRender()`** simplified to the same condition
+  the canvas uses (`state.Data.Count > 0`). Old logic also required
+  the orchestrator state to be `LiveStreaming` / `GapFilling`,
+  which kept the blackout-overlay visible while the canvas had
+  already started drawing bars.
+- [ ] **Pixel-perfect canvas sizing via JS-interop bounding-rect**
+  — low priority. Current hardcoded margins work at ~100% DPI; if
+  the Blazor chrome grows or DPI changes, wire JS interop to report
+  `ChartArea`'s `getBoundingClientRect()` to the host and set the
+  canvas margin dynamically. ~40 lines of code.
+
 ---
 
 ## [2026-04-24] — Visual polish + titlebar/Schwab fixes (complete 2026-04-24)
