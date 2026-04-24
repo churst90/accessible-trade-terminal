@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Provider parse coverage round 3 + FakeApiKeyCheckout
+
+Builds on rounds 1+2. New `FakeApiKeyCheckout` fixture installs a canned
+credential bundle into `PluginHostServices.ApiKeys` for the duration of a
+test scope (deterministic Install/Dispose pattern). 16 new tests added to
+`ProviderFetchOhlcvTests`:
+
+- **OkxDerivatives** (3): unknown-suffix short-circuit, funding happy-path
+  (× 100 percent conversion + ascending sort across newest-first response),
+  malformed JSON.
+- **Mempool deeper** (3): hashrate nested-array parse to flat-OHLCV, block
+  fees top-level array parse, malformed-JSON empty.
+- **Glassnode** (4): not-configured / unknown-symbol short-circuits, happy
+  path (flat `[{t,v}]` array), API key embedded on query string.
+- **Etherscan** (2): not-configured / unknown-symbol short-circuits.
+- **Fred** (1): not-configured short-circuit.
+- **BinanceDerivatives** (1): unknown-suffix short-circuit.
+- **BGeometrics** (1): unknown-symbol short-circuit.
+- **CoinMetrics** (1): unknown-symbol short-circuit.
+
+Total provider fetch tests: 23 → 39. Suite total 674 → 690. 0 warnings,
+0 errors. ProjectReferences for the analytics plugins added so the test
+project can directly construct providers.
+
 ## [2026-04-24] — Pine transpiler Tier-3 warnings + credential checkout instrumentation
 
 **Pine transpiler — Tier 3 unsupported features now surface as warnings.**

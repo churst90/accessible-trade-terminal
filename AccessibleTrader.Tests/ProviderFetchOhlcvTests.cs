@@ -491,5 +491,326 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(handler.Captured);
             }
         }
+
+        // ── OkxDerivatives — funding-rate + OI history ───────────────────────
+        // Symbol convention: "{instId}_FUNDING" / "{instId}_OI"; unknown suffix → empty.
+        // Funding response: {"data":[{"fundingTime":"ms","fundingRate":"0.0001"},...]}
+        // — newest-first, value × 100 = percent. Sorted ascending after parse.
+
+        public class OkxDerivatives
+        {
+            private static AccessibleTrader.Plugins.OkxDerivatives.OkxDerivativesProvider NewProvider(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.OkxDerivatives.OkxDerivativesProvider();
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task UnknownSuffix_ReturnsEmpty_NoHttpCall()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "BTC-USDT-SWAP", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+
+            [Fact]
+            public async Task FundingHappyPath_MultipliesRateBy100_AndSortsAscending()
+            {
+                // OKX returns newest-first; provider reverses to ascending.
+                var handler = new FakeHttpMessageHandler().Get(@"funding-rate-history", """
+                    {"code":"0","data":[
+                      {"fundingTime":"1700000060000","fundingRate":"0.0002"},
+                      {"fundingTime":"1700000000000","fundingRate":"0.0001"}
+                    ]}
+                    """);
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "BTC-USDT-SWAP_FUNDING", "1h", 100));
+
+                Assert.Equal(2, result.Ohlcv.Count);
+                Assert.True(result.Ohlcv[0].Date < result.Ohlcv[1].Date);
+                // 0.0001 * 100 = 0.01 (percent).
+                Assert.Equal(0.01, result.Ohlcv[0].Close, 4);
+                Assert.Equal(0.02, result.Ohlcv[1].Close, 4);
+            }
+
+            [Fact]
+            public async Task FundingMalformedJson_ReturnsEmpty_NoThrow()
+            {
+                var handler = new FakeHttpMessageHandler().Get(@"funding-rate-history", "not-json");
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "BTC-USDT-SWAP_FUNDING", "1h", 100));
+
+                Assert.Empty(result.Ohlcv);
+            }
+        }
+
+        // ── Mempool — already had 1 unknown-symbol test; adding parse coverage.
+
+        public class MempoolDeeper
+        {
+            private static AccessibleTrader.Plugins.Mempool.MempoolProvider NewProvider(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.Mempool.MempoolProvider();
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task Hashrate_ParsesNestedArray_AsFlatOhlcv()
+            {
+                // /api/v1/mining/hashrate/{period} → {"hashrates":[{"timestamp":..,"avgHashrate":..}]}
+                var handler = new FakeHttpMessageHandler().Get(@"mempool\.space.*hashrate", """
+                    {"hashrates":[
+                      {"timestamp":1700000000,"avgHashrate":5e20},
+                      {"timestamp":1700086400,"avgHashrate":5.1e20}
+                    ]}
+                    """);
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "HASHRATE", "1d", 100));
+
+                Assert.Equal(2, result.Ohlcv.Count);
+                // Flat OHLCV: avgHashrate drives all four legs.
+                Assert.Equal(5e20, result.Ohlcv[0].Close, 0);
+                Assert.Equal(result.Ohlcv[0].Open, result.Ohlcv[0].Close);
+                Assert.Equal(result.Ohlcv[0].High, result.Ohlcv[0].Close);
+                Assert.Equal(result.Ohlcv[0].Low,  result.Ohlcv[0].Close);
+            }
+
+            [Fact]
+            public async Task BlockFees_ParsesTopLevelArray()
+            {
+                // /api/v1/mining/blocks/fees/{period} → top-level [{"timestamp":..,"avgFees":..}]
+                var handler = new FakeHttpMessageHandler().Get(@"mempool\.space.*fees", """
+                    [{"timestamp":1700000000,"avgFees":12345}]
+                    """);
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "BLOCK_FEES", "1d", 100));
+
+                Assert.Single(result.Ohlcv);
+                Assert.Equal(12345, result.Ohlcv[0].Close);
+            }
+
+            [Fact]
+            public async Task MalformedJson_PublishesToErrorStream_ButReturnsEmpty()
+            {
+                var handler = new FakeHttpMessageHandler().Get(@"mempool\.space", "garbage");
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "HASHRATE", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+            }
+        }
+
+        // ── Glassnode — auth-gated (api_key= query string) ───────────────────
+
+        public class Glassnode
+        {
+            private static AccessibleTrader.Plugins.Glassnode.GlassnodeProvider NewConfigured(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.Glassnode.GlassnodeProvider();
+                p.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task NotConfigured_ReturnsEmpty_NoHttp()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = new AccessibleTrader.Plugins.Glassnode.GlassnodeProvider();
+                SwapHttpClient(provider, handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "BTC_ACTIVE_ADDRS", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+
+            [Fact]
+            public async Task UnknownSymbol_ReturnsEmpty_NoHttp()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "NOT_A_METRIC", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+
+            [Fact]
+            public async Task HappyPath_ParsesGlassnodeMetricResponse()
+            {
+                // Glassnode metric response is a flat JSON array of {t, v} entries.
+                var handler = new FakeHttpMessageHandler().Get(@"glassnode\.com", """
+                    [{"t":1700000000,"v":1000000},{"t":1700086400,"v":1100000}]
+                    """);
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "BTC_ACTIVE_ADDRS", "1d", 100));
+
+                Assert.Equal(2, result.Ohlcv.Count);
+                Assert.Equal(1000000, result.Ohlcv[0].Close);
+                Assert.Equal(1100000, result.Ohlcv[1].Close);
+            }
+
+            [Fact]
+            public async Task ApiKeyEmbedded_OnQueryString()
+            {
+                var handler = new FakeHttpMessageHandler().Get(@"glassnode\.com", "[]");
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "BTC_HASH_RATE", "1d", 100));
+
+                Assert.NotEmpty(handler.Captured);
+                Assert.Contains("api_key=test", handler.Captured[0].RequestUri!.ToString());
+            }
+        }
+
+        // ── Etherscan — auth-gated; ETH stats ────────────────────────────────
+
+        public class Etherscan
+        {
+            private static AccessibleTrader.Plugins.Etherscan.EtherscanProvider NewConfigured(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.Etherscan.EtherscanProvider();
+                p.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task NotConfigured_ReturnsEmpty_NoHttp()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = new AccessibleTrader.Plugins.Etherscan.EtherscanProvider();
+                SwapHttpClient(provider, handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "ETH_GAS_PRICE", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+
+            [Fact]
+            public async Task UnknownSymbol_ReturnsEmpty()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "NOT_A_METRIC", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+            }
+        }
+
+        // ── Fred — FRED economic series, auth-gated ──────────────────────────
+
+        public class Fred
+        {
+            private static AccessibleTrader.Plugins.Fred.FredProvider NewConfigured(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.Fred.FredProvider();
+                p.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task NotConfigured_ReturnsEmpty_NoHttp()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = new AccessibleTrader.Plugins.Fred.FredProvider();
+                SwapHttpClient(provider, handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Macro", "DGS10", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+        }
+
+        // ── BinanceDerivatives — public, no auth ─────────────────────────────
+        // Symbol: "{BASE}_FUNDING" / "{BASE}_OI" (e.g. "BTC_FUNDING").
+
+        public class BinanceDerivatives
+        {
+            private static AccessibleTrader.Plugins.BinanceDerivatives.BinanceDerivativesProvider NewProvider(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.BinanceDerivatives.BinanceDerivativesProvider();
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task UnknownSuffix_ReturnsEmpty()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "BTC", "1h", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+        }
+
+        // ── BGeometrics — public, no auth ────────────────────────────────────
+
+        public class BGeometrics
+        {
+            private static AccessibleTrader.Plugins.BGeometrics.BGeometricsProvider NewProvider(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.BGeometrics.BGeometricsProvider();
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task UnknownSymbol_ReturnsEmpty()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "NOT_A_METRIC", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+        }
+
+        // ── CoinMetrics — public free tier, no auth ──────────────────────────
+
+        public class CoinMetrics
+        {
+            private static AccessibleTrader.Plugins.CoinMetrics.CoinMetricsProvider NewProvider(FakeHttpMessageHandler h)
+            {
+                var p = new AccessibleTrader.Plugins.CoinMetrics.CoinMetricsProvider();
+                SwapHttpClient(p, h);
+                return p;
+            }
+
+            [Fact]
+            public async Task UnknownSymbol_ReturnsEmpty()
+            {
+                var handler = new FakeHttpMessageHandler();
+                var provider = NewProvider(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("OnChain", "NOT_A_METRIC", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Empty(handler.Captured);
+            }
+        }
     }
 }
