@@ -25,6 +25,14 @@ namespace AccessibleTrader.Core.Services
         private readonly List<IRenderLayer> _layers;
         private readonly ProfileRenderLayer _profileLayer;
 
+        // Cross-pane Anchor Polarity hand-off. Set at the top of <see cref="Render"/>
+        // from the first CipherB-style series that exposes an "Anchor Polarity"
+        // component and consumed inside <see cref="RenderPane"/> when the "Main"
+        // pane renders. Using a per-frame field (not a layer parameter) avoids
+        // threading the value through every IRenderLayer contract for a feature
+        // that's only meaningful on the price pane.
+        private double[]? _crossPaneAnchorPolarity;
+
         public ChartRenderer(ThemeService theme, IStylingService styling, IProfileService profileService, IPaneLayoutService paneLayout, ILogger<ChartRenderer> logger, IAppLogger appLogger)
         {
             _theme = theme;
@@ -90,6 +98,16 @@ namespace AccessibleTrader.Core.Services
                 _textPaint.Color = _theme.Current.AxisText;
                 
                 canvas.Clear(_theme.Background);
+
+                // Find the first visible series exposing an "Anchor Polarity" component
+                // (Cipher B and friends). Cross-pane hand-off: the indicator is typically
+                // in its own sub-pane; this lets the Main pane tint its background with
+                // the HTF regime color so sighted users see bull/bear context while
+                // looking at price, not only while looking at the oscillator.
+                _crossPaneAnchorPolarity = seriesList
+                    .Where(s => s.IsVisible)
+                    .Select(s => s.GetComponentData("Anchor Polarity"))
+                    .FirstOrDefault(d => d != null && d.Length > 0);
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();
                 var allIndicatorGroups = seriesList.Where(s => s.Pane != "Main" && s.IsVisible).GroupBy(s => s.Pane).ToList();
@@ -257,7 +275,17 @@ namespace AccessibleTrader.Core.Services
             var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current);
 
             canvas.Save(); canvas.ClipRect(mainRect);
-            foreach (var layer in _layers) layer.Render(ctx, nonProfileSeries);
+            for (int li = 0; li < _layers.Count; li++)
+            {
+                _layers[li].Render(ctx, nonProfileSeries);
+                // Anchor-regime tint is painted immediately after the BackgroundLayer
+                // (index 0) so it sits *under* the candle/data/overlay layers but
+                // *over* the pane fill. Only the "Main" pane takes the tint — the
+                // indicator pane that owns the Anchor Polarity component already has
+                // its own cloud fill (Cipher B "Anchor Fill").
+                if (li == 0 && paneName == "Main" && _crossPaneAnchorPolarity != null)
+                    RenderAnchorRegimeTint(ctx, _crossPaneAnchorPolarity);
+            }
             if (profileSeries.Any()) _profileLayer.Render(ctx, profileSeries);
             canvas.Restore();
 
@@ -288,6 +316,37 @@ namespace AccessibleTrader.Core.Services
                 canvas.Restore();
 
                 subY += spHeight;
+            }
+        }
+
+        /// <summary>
+        /// Paints a per-bar regime tint across the main pane's background using
+        /// the cross-pane Anchor Polarity array. +1 bar = faint green, -1 bar =
+        /// faint red, 0 / NaN = transparent. Kept at very low alpha so the tint
+        /// whispers the HTF regime without drowning out candle colors — blind
+        /// users still get it via <see cref="Rendering.DataLayer"/>'s
+        /// sonification; this is the sighted-companion cue.
+        /// </summary>
+        private static void RenderAnchorRegimeTint(RenderContext ctx, double[] anchorPolarity)
+        {
+            const byte tintAlpha = 22; // whisper-quiet — adjust if overwhelming
+            var bullColor = new SKColor(0x26, 0xA6, 0x9A, tintAlpha);  // teal
+            var bearColor = new SKColor(0xEF, 0x53, 0x50, tintAlpha);  // soft red
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            using var bullLease = new SKPaint { Color = bullColor, Style = SKPaintStyle.Fill, IsAntialias = false };
+            using var bearLease = new SKPaint { Color = bearColor, Style = SKPaintStyle.Fill, IsAntialias = false };
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= anchorPolarity.Length) break;
+                double pol = anchorPolarity[dataIdx];
+                if (double.IsNaN(pol) || pol == 0) continue;
+
+                float x = i * barWidth;
+                var rect = new SKRect(x, ctx.Top, x + barWidth, ctx.Bottom);
+                ctx.Canvas.DrawRect(rect, pol > 0 ? bullLease : bearLease);
             }
         }
 
