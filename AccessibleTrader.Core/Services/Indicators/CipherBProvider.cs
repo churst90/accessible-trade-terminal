@@ -808,6 +808,29 @@ namespace AccessibleTrader.Core.Services.Indicators
             Array.Fill(hidBull, double.NaN);
             Array.Fill(hidBear, double.NaN);
 
+            // Companion arrays that record the first-pivot bar index (_anchorIdx)
+            // and the same offset Y (_anchorY) for every fired divergence. NaN on
+            // bars that don't fire. Read by the renderer to draw the slanted
+            // pivot-to-pivot line that real Market Cipher B shows alongside the
+            // dot — carries the "divergence from where to where" visual that a
+            // dot-only marker loses.
+            var bullDivIdx = new double[n];
+            var bearDivIdx = new double[n];
+            var hidBullIdx = new double[n];
+            var hidBearIdx = new double[n];
+            var bullDivY = new double[n];
+            var bearDivY = new double[n];
+            var hidBullY = new double[n];
+            var hidBearY = new double[n];
+            Array.Fill(bullDivIdx, double.NaN);
+            Array.Fill(bearDivIdx, double.NaN);
+            Array.Fill(hidBullIdx, double.NaN);
+            Array.Fill(hidBearIdx, double.NaN);
+            Array.Fill(bullDivY, double.NaN);
+            Array.Fill(bearDivY, double.NaN);
+            Array.Fill(hidBullY, double.NaN);
+            Array.Fill(hidBearY, double.NaN);
+
             // Rolling True Range SMA to gate "conviction" on the 2nd pivot.
             var tr = IndicatorMath.TrueRange(data);
             int trWin = Math.Max(20, wt1Period * 4);
@@ -868,9 +891,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                 bool deepEnough = wt1[prev] < -divergenceDepth && wt1[curr] < -divergenceDepth;
 
                 if (close[curr] < close[prev] && wt1[curr] > wt1[prev] && conviction && deepEnough)
+                {
                     bullDiv[curr] = wt1[curr] - 4.0;
+                    bullDivIdx[curr] = prev;
+                    bullDivY[curr]   = wt1[prev] - 4.0;
+                }
                 if (close[curr] > close[prev] && wt1[curr] < wt1[prev] && conviction)
+                {
                     hidBull[curr] = wt1[curr] - 4.0;
+                    hidBullIdx[curr] = prev;
+                    hidBullY[curr]   = wt1[prev] - 4.0;
+                }
             }
             for (int k = 1; k < pivotHighIdx.Count; k++)
             {
@@ -889,9 +920,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                 bool deepEnough = wt1[prev] > divergenceDepth && wt1[curr] > divergenceDepth;
 
                 if (close[curr] > close[prev] && wt1[curr] < wt1[prev] && conviction && deepEnough)
+                {
                     bearDiv[curr] = wt1[curr] + 4.0;
+                    bearDivIdx[curr] = prev;
+                    bearDivY[curr]   = wt1[prev] + 4.0;
+                }
                 if (close[curr] < close[prev] && wt1[curr] > wt1[prev] && conviction)
+                {
                     hidBear[curr] = wt1[curr] + 4.0;
+                    hidBearIdx[curr] = prev;
+                    hidBearY[curr]   = wt1[prev] + 4.0;
+                }
             }
 
             // ── Shallow / cross-based divergence detector (parallel to pivot-based) ──
@@ -931,6 +970,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (priceHigher && wtLower && conviction && double.IsNaN(bearDiv[i]))
                         {
                             bearDiv[i] = wt1[i] + 4.0;
+                            bearDivIdx[i] = prev;
+                            bearDivY[i]   = wt1[prev] + 4.0;
                             shallowBearCd = wt1Period;
                         }
                     }
@@ -948,6 +989,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (priceLower && wtHigher && conviction && double.IsNaN(bullDiv[i]))
                         {
                             bullDiv[i] = wt1[i] - 4.0;
+                            bullDivIdx[i] = prev;
+                            bullDivY[i]   = wt1[prev] - 4.0;
                             shallowBullCd = wt1Period;
                         }
                     }
@@ -974,6 +1017,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompBearDiv,        bearDiv,         n);
             WriteToBuffer(buffer, CompHidBull,        hidBull,         n);
             WriteToBuffer(buffer, CompHidBear,        hidBear,         n);
+            // Companion "_anchorIdx" / "_anchorY" arrays holding the first-pivot
+            // bar index and the same-offset Y value for every fired divergence.
+            // Picked up by <c>StandardRenderers.RenderDot</c> to draw the slanted
+            // pivot-to-pivot line that makes the divergence geometry legible to
+            // sighted users and keeps parity with the real Market Cipher B overlay.
+            WriteToBuffer(buffer, CompBullDiv + "_anchorIdx", bullDivIdx, n);
+            WriteToBuffer(buffer, CompBearDiv + "_anchorIdx", bearDivIdx, n);
+            WriteToBuffer(buffer, CompHidBull + "_anchorIdx", hidBullIdx, n);
+            WriteToBuffer(buffer, CompHidBear + "_anchorIdx", hidBearIdx, n);
+            WriteToBuffer(buffer, CompBullDiv + "_anchorY",   bullDivY,   n);
+            WriteToBuffer(buffer, CompBearDiv + "_anchorY",   bearDivY,   n);
+            WriteToBuffer(buffer, CompHidBull + "_anchorY",   hidBullY,   n);
+            WriteToBuffer(buffer, CompHidBear + "_anchorY",   hidBearY,   n);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)

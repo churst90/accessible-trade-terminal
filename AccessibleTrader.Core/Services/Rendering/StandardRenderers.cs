@@ -496,6 +496,18 @@ namespace AccessibleTrader.Core.Services.Rendering
             var colorData = series.GetComponentData(comp.Name + "_color"); // optional gradient source
             bool hasGradient = colorData != null && colorData.Length > 0;
 
+            // Optional companion arrays "{comp.Name}_anchorIdx" +
+            // "{comp.Name}_anchorY" = previous-pivot bar index and the same-offset
+            // Y value. When both present and non-NaN at a fired bar, the renderer
+            // draws a slanted line from that prior pivot to the current dot.
+            // Used by Cipher B's Bullish / Bearish / Hidden Continuation
+            // components to show divergence geometry, not just the second-pivot
+            // marker.
+            var anchorIdxData = series.GetComponentData(comp.Name + "_anchorIdx");
+            var anchorYData   = series.GetComponentData(comp.Name + "_anchorY");
+            bool hasAnchors = anchorIdxData != null && anchorYData != null
+                && anchorIdxData.Length == data.Length && anchorYData.Length == data.Length;
+
             // Gradient anchor colours matching real Market Cipher A palette:
             //   teal (#00FF9F) = oversold/bearish WT (deeply negative)
             //   gray (#90A4AE) = neutral midpoint (WT near zero)
@@ -537,6 +549,34 @@ namespace AccessibleTrader.Core.Services.Rendering
                 else
                 {
                     col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
+                }
+
+                // Slanted pivot-to-pivot line. Resolves the prior pivot's screen
+                // X/Y from the companion arrays' stored bar index + Y value. Skip
+                // when the prior pivot is off the left edge of the current viewport
+                // (line would stub off screen with no terminator visible).
+                if (hasAnchors)
+                {
+                    double anchorIdxD = anchorIdxData![dataIdx];
+                    double anchorVal  = anchorYData![dataIdx];
+                    if (!double.IsNaN(anchorIdxD) && !double.IsNaN(anchorVal))
+                    {
+                        int anchorIdx = (int)anchorIdxD;
+                        if (anchorIdx >= ctx.ViewportStart && anchorIdx < dataIdx)
+                        {
+                            int relAnchor = anchorIdx - ctx.ViewportStart;
+                            float ax = (relAnchor * barWidth) + halfBar;
+                            float ay = ChartMath.MapY(anchorVal, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+
+                            using var lineLease = SKPaintPool.Rent();
+                            var linePaint = lineLease.Paint;
+                            linePaint.Color = col.WithAlpha(180);
+                            linePaint.Style = SKPaintStyle.Stroke;
+                            linePaint.StrokeWidth = Math.Max(1f, comp.Thickness) * ctx.Density;
+                            linePaint.IsAntialias = true;
+                            ctx.Canvas.DrawLine(ax, ay, x, y, linePaint);
+                        }
+                    }
                 }
 
                 using var dotLease = SKPaintPool.Rent();
