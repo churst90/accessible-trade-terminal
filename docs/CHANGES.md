@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — WebSocket live-stream parse tests (round 4)
+
+New `ProviderLiveStreamTests` exercises each provider's WebSocket parse path
+without standing up a fake `ClientWebSocket`. Reflects into the private
+`HandleWebSocketMessage(string)` method directly and feeds it synthetic JSON
+frames, then asserts on the public IObservable streams (`LiveStream`,
+`OrderUpdateStream`, `SubscribeOrderBook`). Catches the live-stream bug
+class users hit on production: malformed frames, channel routing errors,
+missing field crashes, and silent-no-op frames that should still be
+observable somewhere.
+
+Coverage:
+
+- **Bitstamp** (6): trade-frame → LiveStream Ohlcv (price+volume), zero-price
+  drop, pre-Bitcoin-timestamp sentinel discard, `diff_order_book_*` channel
+  → SubscribeOrderBook with bid/ask round-trip, malformed-frame no-throw,
+  unknown-event no-emission.
+- **Coinbase** (5): `l2_data` → SubscribeOrderBook, `level2` alias also
+  routes (docs / live API have flipped between the two), empty-updates
+  array does not emit a phantom snapshot, malformed-frame no-throw,
+  unknown-channel no-emission.
+- **Polygon** (5): equity AM bar, crypto XA bar, all-zero-bar drop,
+  malformed-frame no-throw, batched multi-bar frame all emit.
+
+Total provider tests: 39 fetch + 16 live = 55. Suite total 690 → 706.
+0 warnings, 0 errors.
+
 ## [2026-04-24] — Provider parse coverage round 3 + FakeApiKeyCheckout
 
 Builds on rounds 1+2. New `FakeApiKeyCheckout` fixture installs a canned
