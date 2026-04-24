@@ -1,3 +1,4 @@
+using System;
 using SkiaSharp;
 using System.Collections.Generic;
 using AccessibleTrader.Sdk.Models;
@@ -21,12 +22,42 @@ namespace AccessibleTrader.Core.Services.Rendering
             using var bgPaint = new SKPaint { Color = _theme.Background, Style = SKPaintStyle.Fill };
             ctx.Canvas.DrawRect(ctx.PaneRect, bgPaint);
 
-            using var gridPaint = new SKPaint { Color = _theme.GridLines.WithAlpha(50), StrokeWidth = 1 * ctx.Density };
-            
-            // Draw a single horizontal midline as an anchor point
-            float yMid = ChartMath.MapY(ctx.Min + (ctx.Max - ctx.Min) / 2, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-            ctx.Canvas.DrawLine(ctx.PaneRect.Left, yMid, ctx.PaneRect.Right, yMid, gridPaint);
-            
+            // Minor + major gridlines at "nice number" intervals. Every 5th line is
+            // drawn brighter so the eye finds round-number anchors ($25k, $50k, etc.)
+            // without the grid turning into a wall.
+            using var gridMinor = new SKPaint { Color = _theme.GridLines.WithAlpha(35), StrokeWidth = 1 * ctx.Density };
+            using var gridMajor = new SKPaint { Color = _theme.GridLines.WithAlpha(90), StrokeWidth = 1 * ctx.Density };
+
+            double range = ctx.Max - ctx.Min;
+            if (range > 0 && !double.IsNaN(range) && !double.IsInfinity(range))
+            {
+                double roughStep = range / 7.0;
+                double stepMag = Math.Pow(10, Math.Floor(Math.Log10(roughStep)));
+                double stepFrac = roughStep / stepMag;
+                double niceStep;
+                if (stepFrac < 1.5) niceStep = 1 * stepMag;
+                else if (stepFrac < 3.5) niceStep = 2 * stepMag;
+                else if (stepFrac < 7.5) niceStep = 5 * stepMag;
+                else niceStep = 10 * stepMag;
+
+                double firstLine = Math.Ceiling(ctx.Min / niceStep) * niceStep;
+                int safety = 0;
+                for (double v = firstLine; v <= ctx.Max && safety < 200; v += niceStep, safety++)
+                {
+                    float y = ChartMath.MapY(v, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    // Major line whenever v is an integer multiple of niceStep * 5.
+                    double idx = v / niceStep;
+                    bool isMajor = Math.Abs(Math.Round(idx / 5.0) * 5.0 - idx) < 0.0001;
+                    ctx.Canvas.DrawLine(ctx.PaneRect.Left, y, ctx.PaneRect.Right, y, isMajor ? gridMajor : gridMinor);
+                }
+            }
+            else
+            {
+                // Fallback: single midline when the range is degenerate.
+                float yMid = ChartMath.MapY(ctx.Min + (ctx.Max - ctx.Min) / 2, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                ctx.Canvas.DrawLine(ctx.PaneRect.Left, yMid, ctx.PaneRect.Right, yMid, gridMinor);
+            }
+
             // Draw pane border
             using var borderPaint = new SKPaint { Color = _theme.GridLines, Style = SKPaintStyle.Stroke, StrokeWidth = 1 * ctx.Density };
             ctx.Canvas.DrawRect(ctx.PaneRect, borderPaint);

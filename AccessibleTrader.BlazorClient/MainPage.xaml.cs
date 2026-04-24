@@ -24,7 +24,7 @@ public partial class MainPage : ContentPage
     private IDisposable? _titleSub;
     private EventHandler<AccessibleTrader.Sdk.Theming.ChartTheme>? _themeChangedHandler;
     private int _openModalCount;
-    private string _lastTitleSymbol = "";
+    private string _lastTitleKey = "";
 
     public MainPage(
         IWorkspaceStore store,
@@ -76,13 +76,18 @@ public partial class MainPage : ContentPage
                 _chartCanvas.IsVisible = _openModalCount == 0;
             }));
         
-        // Update native window title when chart identity changes.
+        // Update native window title when any identity field changes — symbol,
+        // timeframe, or provider. Tracking only Symbol left the titlebar
+        // stamped with a stale timeframe after a dropdown change.
         _titleSub = _store.StateStream.Subscribe(state =>
         {
             var sym = state.Identity.Symbol ?? "";
-            if (sym != _lastTitleSymbol)
+            var tf  = state.Identity.Timeframe ?? "";
+            var prv = state.Identity.Provider ?? "";
+            var key = $"{sym}|{tf}|{prv}";
+            if (key != _lastTitleKey)
             {
-                _lastTitleSymbol = sym;
+                _lastTitleKey = key;
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     var window = Application.Current?.Windows.FirstOrDefault();
@@ -90,7 +95,7 @@ public partial class MainPage : ContentPage
                     {
                         window.Title = string.IsNullOrEmpty(sym)
                             ? "Accessible Trade Terminal"
-                            : $"Accessible Trade Terminal: {state.Identity.Symbol} {state.Identity.Timeframe} on {state.Identity.Provider}";
+                            : $"Accessible Trade Terminal: {sym} {tf} on {prv}";
                     }
                 });
             }

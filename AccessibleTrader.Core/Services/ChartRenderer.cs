@@ -151,8 +151,9 @@ namespace AccessibleTrader.Core.Services
                 double mainMax = viewportRange.Max;
 
                 var mainPaneRect = new SKRect(0, currentY, width - _axisWidth, currentY + mainPaneHeight);
+                var mainAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + mainPaneHeight);
                 RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density);
-                RenderYAxis(canvas, new SKRect(width - _axisWidth, currentY, width, currentY + mainPaneHeight), mainMin, mainMax, isLogScale, density);
+                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
                 // Legend for main-pane indicator overlays (e.g. Cipher A, Cipher SR).
                 // Exclude core series (candles, price line, volume) so they don't pollute the legend.
                 var mainOverlaySeries = mainSeries
@@ -160,6 +161,10 @@ namespace AccessibleTrader.Core.Services
                     .ToList();
                 if (mainOverlaySeries.Count > 0)
                     RenderPaneLegend(canvas, mainPaneRect, mainOverlaySeries, density);
+                // Small colored ticks on the Y-axis at each visible line indicator's
+                // most-recent value (WT Fast / Slow / MF etc.). No-op if no line
+                // components exist in the pane.
+                RenderYAxisSwatches(canvas, mainAxisRect, mainOverlaySeries, mainMin, mainMax, isLogScale, density);
                 currentY += mainPaneHeight;
 
                 float itemWidthForAxis = (width - _axisWidth) / Math.Max(1, viewportLength);
@@ -188,9 +193,11 @@ namespace AccessibleTrader.Core.Services
                     // Indicator panes always use raw (non-HA) data so PriceAction coloring (e.g. volume)
                     // reflects real open/close direction, not the HA-transformed direction.
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
+                    var indAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight);
                     RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges);
-                    RenderYAxis(canvas, new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight), min, max, false, density);
+                    RenderYAxis(canvas, indAxisRect, min, max, false, density);
                     RenderPaneLegend(canvas, paneRect, paneSeriesList, density);
+                    RenderYAxisSwatches(canvas, indAxisRect, paneSeriesList, min, max, false, density);
                     indicatorPaneInfos.Add((paneRect, min, max, paneSeriesList));
                     currentY += indicatorPaneHeight;
                 }
@@ -305,6 +312,43 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Draws a small colored tick on the left edge of the Y-axis strip at
+        /// the current live-bar Y position for every visible line/area component
+        /// in the pane. Gives an at-a-glance read of "where does each indicator
+        /// currently sit" without having to follow the line visually across a
+        /// busy canvas.
+        /// </summary>
+        private void RenderYAxisSwatches(SKCanvas canvas, SKRect axisRect, List<ChartSeries> paneSeries, double min, double max, bool isLogScale, float density)
+        {
+            if (paneSeries == null || paneSeries.Count == 0) return;
+            float tickW = 4 * density;
+            float tickH = 3 * density;
+            foreach (var s in paneSeries)
+            {
+                foreach (var comp in s.Components)
+                {
+                    if (!comp.IsVisible) continue;
+                    if (comp.DisplayType is not (ComponentDisplayType.Line or ComponentDisplayType.Area)) continue;
+                    var data = s.GetComponentData(comp.Name);
+                    if (data == null || data.Length == 0) continue;
+                    // Walk back from last bar until a non-NaN value is found — some
+                    // indicators produce NaN tails inside their warm-up region.
+                    double? v = null;
+                    for (int i = data.Length - 1; i >= 0 && i > data.Length - 20; i--)
+                    {
+                        if (!double.IsNaN(data[i])) { v = data[i]; break; }
+                    }
+                    if (!v.HasValue) continue;
+                    if (!SKColor.TryParse(comp.ColorHex, out var color)) continue;
+                    float y = ChartMath.MapY(v.Value, axisRect.Top, axisRect.Bottom, min, max, isLogScale);
+                    if (y < axisRect.Top || y > axisRect.Bottom) continue;
+                    using var p = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
+                    canvas.DrawRect(axisRect.Left, y - (tickH / 2f), axisRect.Left + tickW, y + (tickH / 2f), p);
+                }
+            }
+        }
+
         // Range-aware axis label formatter. A flat F2/F4 choice collapses to
         // "0.0000" for assets whose visible range is tiny (e.g. early KAS ticks
         // around $0.00003). Pick decimal count from the range magnitude so
@@ -348,13 +392,18 @@ namespace AccessibleTrader.Core.Services
             if (localIndex >= visibleData.Count) localIndex = visibleData.Count - 1;
             float cx = area.Left + (localIndex * itemWidth) + (itemWidth / 2);
 
-            using var vPaint = new SKPaint { Color = SKColors.Gray.WithAlpha(150), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
+            // Halo underpaint: a wider, low-alpha line below the crisp crosshair
+            // gives the pointer an actual readable contour against busy candles.
+            using var haloPaint = new SKPaint { Color = new SKColor(255, 255, 255, 40), StrokeWidth = 5 * density, Style = SKPaintStyle.Stroke };
+            using var vPaint    = new SKPaint { Color = SKColors.Gray.WithAlpha(170), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
 
             // Vertical crosshair spans full chart height (main + all indicator panes)
+            canvas.DrawLine(cx, 0, cx, area.Bottom, haloPaint);
             canvas.DrawLine(cx, 0, cx, area.Bottom, vPaint);
 
             // Horizontal crosshair in main pane (price)
             float cy = ChartMath.MapY(visibleData[localIndex].Close, area.Top, area.Top + mainPaneHeight, min, max, isLogScale);
+            canvas.DrawLine(area.Left, cy, area.Right, cy, haloPaint);
             canvas.DrawLine(area.Left, cy, area.Right, cy, vPaint);
 
             // Horizontal crosshair in each indicator pane at the cursor's indicator value
@@ -380,6 +429,7 @@ namespace AccessibleTrader.Core.Services
 
                 if (!val.HasValue) continue;
                 float iy = ChartMath.MapY(val.Value, paneRect.Top, paneRect.Bottom, paneMin, paneMax, false);
+                canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, haloPaint);
                 canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, indPaint);
 
                 // Y-value label at the right edge of the pane (matches RenderYAxis style)
@@ -448,8 +498,15 @@ namespace AccessibleTrader.Core.Services
             float bx   = paneRect.Left + pad * 2;
             float by   = paneRect.Top  + pad * 2;
 
-            using var bgPaint = new SKPaint { Color = new SKColor(20, 20, 20, 180), Style = SKPaintStyle.Fill };
-            canvas.DrawRoundRect(new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 3 * density), bgPaint);
+            // Denser alpha + a thin border gives the legend real separation from
+            // the candles / histogram behind it. At 180α the bg washed out when
+            // bright green/red bars sat directly underneath.
+            var bgRect = new SKRect(bx, by, bx + boxW, by + boxH);
+            var bgRound = new SKRoundRect(bgRect, 3 * density);
+            using (var bgPaint = new SKPaint { Color = new SKColor(15, 15, 18, 225), Style = SKPaintStyle.Fill })
+                canvas.DrawRoundRect(bgRound, bgPaint);
+            using (var borderPaint = new SKPaint { Color = new SKColor(120, 120, 128, 180), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
+                canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;
             foreach (var (color, label) in entries)

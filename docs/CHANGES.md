@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Visual polish + titlebar/Schwab bug fixes
+
+Five targeted fixes after the user screenshot review. 537/537 tests still
+green, 0 warnings, plugin count 25 → 26 (Schwab now built + shipped).
+
+### Titlebar stale after timeframe change (A)
+
+`MainPage.xaml.cs` subscribed to the workspace state stream and only
+updated the native `Window.Title` when `state.Identity.Symbol` changed.
+Changing only the timeframe (or only the provider) via the Toolbar
+dropdown left the window chrome showing the old label even though the
+in-page heading had updated. Fix: build a composite key
+`{Symbol}|{Timeframe}|{Provider}` and change-detect on that. Renamed
+`_lastTitleSymbol` → `_lastTitleKey`.
+
+### Schwab missing from stocks provider dropdown (B)
+
+Schwab was listed in `AccessibleTrader.slnx` but **not** as a
+`<ProjectReference>` in `AccessibleTrader.BlazorClient.csproj`. The
+MAUI app discovers plugin DLLs from the output directory (not from the
+solution), so without a project ref the Schwab assembly was never
+built + copied, which made it invisible to `DataService`'s plugin
+scanner. Added the missing line between Polygon and Tradier. The
+post-build `GeneratePluginTrustManifest` target auto-picks it up: the
+manifest now hashes 26 plugin DLLs instead of 25.
+
+### Legend background readability
+
+Pane legends (`RenderPaneLegend` in `ChartRenderer.cs`) already had a
+dark rounded-rect background, but the 180α was washing out when bright
+green / red candles sat directly underneath, and there was no border
+to set the panel apart from the pane. Bumped alpha to 225 and added a
+1px subtle border (`SKColor(120, 120, 128, 180)`) around the rounded
+rect. Same rounded-rect shape shared between fill + stroke.
+
+### Price-pane Y-gridline density
+
+`BackgroundLayer.Render` drew a single midline and called it a day.
+Rewrote with a "nice number" interval algorithm: compute
+`roughStep = range / 7`, round the fraction to 1 / 2 / 5 / 10 ×
+10ⁿ, and draw a gridline at every integer multiple of the resulting
+step. Every 5th line renders at 90α (major); the rest at 35α (minor).
+Round-number anchors ($25k / $50k on BTC, 0 / ±50 on oscillators) now
+land exactly on major lines. Safety cap of 200 iterations + graceful
+fallback to the old midline when the range is degenerate.
+
+### Crosshair halo
+
+`RenderCrosshair` drew a 1px gray line against busy candles; the line
+was easy to miss visually. Added a 5px low-alpha white halo
+(`SKColor(255, 255, 255, 40)`) painted just before the crisp line on
+every crosshair segment (vertical full-height + horizontal main pane +
+per-indicator-pane horizontal). Crosshair itself upgraded from 150α to
+170α. Readable against any background.
+
+### Y-axis color swatches at current indicator value
+
+New `RenderYAxisSwatches(canvas, axisRect, paneSeries, min, max,
+isLogScale, density)` method draws a 4×3 px colored tick on the left
+edge of the Y-axis strip at each visible Line / Area component's
+most-recent non-NaN value. Walks back up to 20 bars from the end so
+warmup-region NaNs don't suppress the tick. Called for the main pane
+after the main-overlay legend and for every indicator pane after its
+own legend. Gives a ruler-style read of "WT Fast is here, WT Slow is
+there, MF is there" at a glance.
+
+---
+
 ## [2026-04-24] — Settings-modal Alerts tab UI (post-sweep phase 2)
 
 Closes the UI gap left by today's alert-channel service layer. The

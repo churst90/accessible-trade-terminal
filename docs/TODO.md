@@ -4,6 +4,38 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-24] — Visual polish + titlebar/Schwab fixes (complete 2026-04-24)
+
+Post-screenshot-review sweep. 537/537 tests still green.
+
+- [x] **Titlebar stale after timeframe change** — `MainPage.xaml.cs`
+  tracked only `_lastTitleSymbol`; changing only the timeframe left the
+  titlebar stamped with the previous value. Now change-detects on a
+  composite `{Symbol}|{Timeframe}|{Provider}` key.
+- [x] **Schwab missing from stocks provider dropdown** — Schwab was in
+  `.slnx` but not referenced from `BlazorClient.csproj`, so the
+  assembly never shipped next to the host. Added the missing
+  `<ProjectReference>` between Polygon and Tradier; plugin trust
+  manifest auto-bumps 25 → 26 hashes on the next Release build.
+- [x] **Pane legend readability** — `RenderPaneLegend` bg α 180 → 225
+  and a 1px subtle border so the legend reads cleanly against bright
+  candles / histogram.
+- [x] **Y-gridline density** — `BackgroundLayer.Render` gained a
+  nice-number gridline algorithm (7 minor steps, every 5th line
+  major). Round-number anchors ($25k / $50k, ±50 on oscillators) land
+  on major lines.
+- [x] **Crosshair halo** — `RenderCrosshair` now paints a 5px white
+  40α halo under every crisp crosshair segment (vertical + horizontal
+  main + per-indicator-pane horizontal). Crosshair visibility survives
+  busy backgrounds.
+- [x] **Y-axis swatches at current indicator value** — new
+  `RenderYAxisSwatches` draws a 4×3 px colored tick on the left edge
+  of each pane's Y-axis strip at every visible Line/Area component's
+  most-recent value. Walks back up to 20 bars so warmup NaNs don't
+  suppress the tick.
+
+---
+
 ## [2026-04-24] — Settings-modal Alerts tab (complete 2026-04-24)
 
 Post-sweep phase 2. Closes the UI gap on the SMTP + Telegram channels
