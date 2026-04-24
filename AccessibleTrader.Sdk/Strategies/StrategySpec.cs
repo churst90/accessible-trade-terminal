@@ -24,6 +24,13 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// the Active tab's Remove button flips it back to false. Saved specs that aren't auto-activated
 /// remain available in the library as templates the user can load and edit later.
 /// </param>
+/// <param name="RoslynSource">
+/// Optional C# source of a Roslyn-compiled strategy. When non-null the spec is a
+/// Roslyn strategy, not a ConditionTree strategy — <c>Conditions</c> / <c>Risk</c>
+/// are placeholders and the auto-loader recompiles this source on startup through
+/// <c>IRoslynScriptingService</c> instead of going through
+/// <c>IConfigurableStrategyFactory</c>. Null for the default (ConditionTree) path.
+/// </param>
 public record StrategySpec(
     string Id,
     string Name,
@@ -34,5 +41,6 @@ public record StrategySpec(
     StrategyExecutionMode ExecutionMode = StrategyExecutionMode.Suggestion,
     DateTime CreatedUtc = default,
     DateTime UpdatedUtc = default,
-    bool IsAutoActivate = false
+    bool IsAutoActivate = false,
+    string? RoslynSource = null
 );

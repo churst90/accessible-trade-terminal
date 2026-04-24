@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
 
 namespace AccessibleTrader.Core.Services.Strategies
@@ -226,7 +227,45 @@ namespace AccessibleTrader.Core.Services.Strategies
 
                 var strategy = result.Strategy!;
                 _engine.AddStrategy(strategy, new Dictionary<string, object>(), execMode);
-                return StrategyCoordinatorResult.Ok($"Strategy '{strategy.Name}' compiled and added ({execMode} mode).");
+
+                // Persist the source as a StrategySpec in the library so
+                // StrategyAutoLoader can recompile and register it on the next app
+                // start. Conditions + Risk are placeholders for the JSON shape —
+                // the auto-loader dispatches on RoslynSource non-null and never
+                // evaluates them. IsAutoActivate mirrors the non-Roslyn "Add to
+                // Engine" behaviour: adding to the engine also arms autoload.
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    var spec = new StrategySpec(
+                        Id: string.IsNullOrWhiteSpace(strategy.Id) ? Guid.NewGuid().ToString() : strategy.Id,
+                        Name: strategy.Name,
+                        Description: "Roslyn-compiled custom script.",
+                        Side: OrderSide.Buy,
+                        Conditions: new ConditionGroup("roslyn-placeholder", LogicOperator.And, new List<ConditionNode>()),
+                        Risk: new RiskPlan(
+                            Stop:    new StopSource(StopSourceKind.PercentOfPrice, PercentValue: 1.0),
+                            TpLadder: Array.Empty<TpLadderRung>(),
+                            Sizing:  new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005),
+                            Entry:   new EntryTrigger(EntryTriggerKind.Immediate)),
+                        ExecutionMode: execMode,
+                        CreatedUtc: now,
+                        UpdatedUtc: now,
+                        IsAutoActivate: true,
+                        RoslynSource: code);
+                    _library.Upsert(spec);
+                    _library.Save();
+                }
+                catch (Exception persistEx)
+                {
+                    // Live instance is already running — report the persist failure but
+                    // keep the strategy active so the user's current session is intact.
+                    return StrategyCoordinatorResult.Ok(
+                        $"Strategy '{strategy.Name}' compiled and added ({execMode} mode), " +
+                        $"but persistence failed: {persistEx.Message}");
+                }
+
+                return StrategyCoordinatorResult.Ok($"Strategy '{strategy.Name}' compiled, added, and saved ({execMode} mode).");
             }
             catch (Exception ex)
             {

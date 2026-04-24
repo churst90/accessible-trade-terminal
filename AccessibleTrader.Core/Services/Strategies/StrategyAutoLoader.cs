@@ -22,6 +22,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly IStrategyLibrary _library;
         private readonly IConfigurableStrategyFactory _factory;
         private readonly IStrategyEngine _engine;
+        private readonly IRoslynScriptingService? _roslyn;
         private readonly IAppLogger _logger;
         private bool _hasLoaded;
 
@@ -29,11 +30,13 @@ namespace AccessibleTrader.Core.Services.Strategies
             IStrategyLibrary library,
             IConfigurableStrategyFactory factory,
             IStrategyEngine engine,
-            IAppLogger logger)
+            IAppLogger logger,
+            IRoslynScriptingService? roslyn = null)
         {
             _library = library;
             _factory = factory;
             _engine  = engine;
+            _roslyn  = roslyn;
             _logger  = logger;
         }
 
@@ -52,6 +55,37 @@ namespace AccessibleTrader.Core.Services.Strategies
                 if (!spec.IsAutoActivate) continue;
                 try
                 {
+                    // Roslyn-script specs carry C# source in spec.RoslynSource;
+                    // recompile and register those through IRoslynScriptingService
+                    // instead of the condition-tree factory. If the scripting
+                    // service isn't available (e.g. stripped in a constrained
+                    // build), skip with a warning rather than failing startup.
+                    if (!string.IsNullOrWhiteSpace(spec.RoslynSource))
+                    {
+                        if (_roslyn == null)
+                        {
+                            _logger.LogWarning(
+                                $"Auto-load skipped Roslyn strategy '{spec.Name}' — IRoslynScriptingService not registered.",
+                                nameof(StrategyAutoLoader));
+                            continue;
+                        }
+                        var task = _roslyn.CompileStrategyAsync(spec.RoslynSource!);
+                        task.Wait();
+                        var result = task.Result;
+                        if (!result.Success)
+                        {
+                            _logger.LogWarning(
+                                $"Auto-load failed to recompile Roslyn strategy '{spec.Name}' ({spec.Id}): "
+                                + string.Join("; ", result.Errors),
+                                nameof(StrategyAutoLoader));
+                            continue;
+                        }
+                        _engine.AddStrategy(result.Strategy!, new System.Collections.Generic.Dictionary<string, object>(),
+                                            spec.ExecutionMode);
+                        count++;
+                        continue;
+                    }
+
                     var strategy = _factory.Create(spec);
                     _engine.AddStrategy(strategy, new System.Collections.Generic.Dictionary<string, object>(),
                                         spec.ExecutionMode);
