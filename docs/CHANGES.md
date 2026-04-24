@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Pine transpiler Tier-3 warnings + credential checkout instrumentation
+
+**Pine transpiler — Tier 3 unsupported features now surface as warnings.**
+Previously TradingView strategies that used `line.new()` / `label.new()` /
+`strategy.entry()` / `strategy.exit()` / `strategy.close()` / `color.new()`
+silently transpiled to indicators that quietly dropped the call sites — the
+user got back a working indicator with mysteriously missing functionality.
+The transpiler now emits one warning per detected call site naming the
+specific feature, why it's not yet wired (DrawingService / TradeSignal /
+ColorRule require an `ICustomStrategy` host contract that's deferred to
+Phase 10-D.2), and where to look in the meantime (StrategyComposer's
+BuildSetupTab for trading logic). 8 pinning tests in
+`PineTranspilerWarningsTests`.
+
+**Credential checkout latency instrumentation.** New
+`CheckoutLatencyTracker` (per-provider rolling window of 256 samples with
+P50 / P95 / P99 / Max via NIST-handbook linear interpolation) and a
+`MauiApiKeyCheckoutAdapter` wrap that records every checkout into the
+tracker. Pure measurement layer — feeds the data-driven decision on whether
+the 60-second session cache discussed in `docs/TODO.md` ("Hot-path
+credential cache") is justified. Sustained per-call latency above 50 ms
+emits a Debug-level log; the tracker's `Snapshot()` returns providers
+ordered by P95 descending so the JournalModal can surface the slowest paths
+first when the cache decision is made. 6 pinning tests in
+`CheckoutLatencyTrackerTests`.
+
+660 → 674 tests green. 0 warnings, 0 errors.
+
 ## [2026-04-24] — Per-provider FetchOhlcvAsync parse tests (round 2)
 
 Builds on the earlier same-day broad pass. New `ProviderFetchOhlcvTests`

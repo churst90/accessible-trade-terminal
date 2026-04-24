@@ -55,6 +55,17 @@ namespace AccessibleTrader.Core.PineScript
         private static readonly Regex _taLowestRx   = new(@"ta\.lowest\s*\(\s*([^,)]+),\s*([^)]+)\)", RegexOptions.IgnoreCase);
         private static readonly Regex _taStdevRx    = new(@"ta\.stdev\s*\(\s*([^,)]+),\s*([^)]+)\)", RegexOptions.IgnoreCase);
         private static readonly Regex _requestSecRx = new(@"request\.security\s*\([^)]+\)", RegexOptions.IgnoreCase);
+        // Tier 3 unsupported feature detectors — surface a clear warning per
+        // call site so users importing TradingView strategies see exactly what
+        // didn't transpile, rather than getting silently-wrong indicators.
+        // Wiring these to DrawingService / TradeSignal requires an
+        // ICustomStrategy host contract (deferred to Phase 10-D.2).
+        private static readonly Regex _lineNewRx     = new(@"line\.new\s*\(",     RegexOptions.IgnoreCase);
+        private static readonly Regex _labelNewRx    = new(@"label\.new\s*\(",    RegexOptions.IgnoreCase);
+        private static readonly Regex _strategyEntryRx = new(@"strategy\.entry\s*\(", RegexOptions.IgnoreCase);
+        private static readonly Regex _strategyExitRx  = new(@"strategy\.exit\s*\(",  RegexOptions.IgnoreCase);
+        private static readonly Regex _strategyCloseRx = new(@"strategy\.close\s*\(", RegexOptions.IgnoreCase);
+        private static readonly Regex _colorNewRx      = new(@"color\.new\s*\(",      RegexOptions.IgnoreCase);
         // ta.change / rising / falling
         private static readonly Regex _taChangeRx   = new(@"ta\.change\s*\(\s*(\w+)(?:\s*,\s*(\d+))?\s*\)", RegexOptions.IgnoreCase);
         private static readonly Regex _taRisingRx   = new(@"ta\.rising\s*\(\s*(\w+)\s*,\s*(\d+)\s*\)", RegexOptions.IgnoreCase);
@@ -174,6 +185,31 @@ namespace AccessibleTrader.Core.PineScript
             {
                 warnings.Add($"request.security() is not supported — replaced with double.NaN. ({m.Value.Substring(0, Math.Min(40, m.Value.Length))}...)");
             }
+
+            // Drawing primitives. Mapping to AccessibleTrader's DrawingService
+            // requires an ICustomStrategy host contract (see Phase 10-D.2 in
+            // docs/TODO.md). Until that ships we surface each call site as a
+            // warning so the importer doesn't silently drop the geometry.
+            foreach (Match m in _lineNewRx.Matches(stripped))
+                warnings.Add("line.new() is not yet wired to DrawingService — drawing primitives are dropped at transpile time. Tracked in TODO.md (Pine line.new mapping).");
+            foreach (Match m in _labelNewRx.Matches(stripped))
+                warnings.Add("label.new() is not yet wired to DrawingService — text labels are dropped at transpile time. Tracked in TODO.md (Pine label.new mapping).");
+
+            // strategy.* calls. Indicators don't produce TradeSignals (that's
+            // ICustomStrategy territory). Surface a warning so users porting
+            // TradingView strategies know the trading logic was stripped.
+            foreach (Match m in _strategyEntryRx.Matches(stripped))
+                warnings.Add("strategy.entry() is not yet wired to TradeSignal — strategy entries are dropped. Use the StrategyComposer (BuildSetupTab) for now.");
+            foreach (Match m in _strategyExitRx.Matches(stripped))
+                warnings.Add("strategy.exit() is not yet wired to TradeSignal — strategy exits are dropped. Use the StrategyComposer for risk-plan exits.");
+            foreach (Match m in _strategyCloseRx.Matches(stripped))
+                warnings.Add("strategy.close() is not yet wired to TradeSignal — close-position calls are dropped.");
+
+            // color.new(r,g,b,t) — not yet mapped to a per-bar ColorRule. The
+            // existing transpiler emits Line components with static colors;
+            // dynamic per-bar coloring needs Tier 2 ColorRule support.
+            foreach (Match m in _colorNewRx.Matches(stripped))
+                warnings.Add("color.new() is not yet mapped to ColorRule — dynamic coloring falls back to the component default. Tracked in TODO.md (Conditional color rules).");
 
             // ── Build C# source ───────────────────────────────────────────────
             var sb = new StringBuilder();

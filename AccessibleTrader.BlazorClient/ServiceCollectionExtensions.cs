@@ -90,6 +90,10 @@ namespace AccessibleTrader.BlazorClient
             // Both are read via PluginHostServices static accessors from plugin
             // code; we register through DI here and hand the resolved instance
             // to PluginHostServices in MauiProgram after builder.Build().
+            // Per-provider P50/P95/P99 latency for the credential-checkout hot
+            // path. Pure measurement — feeds the data-driven decision on whether
+            // the 60-second session cache discussed in docs/TODO.md is justified.
+            services.AddSingleton<AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker>();
             services.AddSingleton<AccessibleTrader.Sdk.Services.IApiKeyCheckout, MauiApiKeyCheckoutAdapter>();
             services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, MauiPluginHttpClientFactory>();
 

@@ -819,9 +819,15 @@ across two phases. Phase 1 is complete; phase 2 is open.
   reaches for `File.WriteAllText` via a trick the Roslyn sandbox
   misses and asserts the OS sandbox blocks at runtime. Requires CI on
   each platform; today's xunit suite covers the Roslyn layer only.
-- [ ] **Hot-path credential cache** — per-provider 60s session cache if
+- [~] **Hot-path credential cache** — per-provider 60s session cache if
   per-request `CheckoutAsync` latency becomes user-visible on Android
-  KeyStore. Measure first.
+  KeyStore. Measure first. **Measurement layer shipped 2026-04-24:**
+  `CheckoutLatencyTracker` (per-provider rolling window of 256 samples,
+  P50/P95/P99/Max via NIST-handbook interpolation) wired into
+  `MauiApiKeyCheckoutAdapter`. Pending: a session of live data on
+  Android device + the JournalModal surface to read out the percentiles.
+  If sustained P95 stays under 15 ms the item closes as "no cost, no
+  fix needed"; over 15 ms green-lights the session-cache implementation.
 - [x] **macCatalyst scripting refusal** — shipped 2026-04-24. Rather than
   silently falling through to the in-process path,
   `RoslynScriptingService.CreateDefaultLauncher` now returns a
@@ -1736,12 +1742,12 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 #### Tier 2 — Extended Patterns ✅
 - [x] **`var` / `varip`:** Stripped to plain variable declaration.
 - [x] **`na` / `nz()` mapping:** `na` → `double.NaN`; `nz(x, d)` → `NzHelper`.
-- [ ] **Conditional color rules:** `color.new(...)` / ternary color expressions → ColorRule generation. Deferred.
+- [~] **Conditional color rules:** `color.new(...)` / ternary color expressions → ColorRule generation. **Detector shipped 2026-04-24** — every `color.new()` call site now emits a warning naming the feature so users know the dynamic coloring fell back to the component default. Mapping to `ColorRule` itself still deferred to the eventual ICustomStrategy host contract.
 
 #### Tier 3 — Stubs ✅
 - [x] **`request.security()`:** Replaced with `NanArr(n)` + warning in TranspileResult.Warnings.
-- [ ] **`line.new()` / `label.new()`:** Not yet mapped to DrawingService. Deferred.
-- [ ] **`strategy.*` functions:** Not yet mapped to TradeSignal. Deferred.
+- [~] **`line.new()` / `label.new()`:** **Detector shipped 2026-04-24** — every call site emits a `TranspileResult.Warnings` entry naming the feature and pointing to `docs/TODO.md` for the mapping path. Wiring to `DrawingService` itself still requires the `ICustomStrategy` host contract (Phase 10-D.2).
+- [~] **`strategy.*` functions:** **Detector shipped 2026-04-24** — `strategy.entry`/`strategy.exit`/`strategy.close` each emit a warning per call site pointing users to the StrategyComposer (BuildSetupTab) for trading logic. Mapping to `TradeSignal` still requires the `ICustomStrategy` host contract.
 
 ---
 
