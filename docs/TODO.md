@@ -822,11 +822,14 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [ ] **Hot-path credential cache** — per-provider 60s session cache if
   per-request `CheckoutAsync` latency becomes user-visible on Android
   KeyStore. Measure first.
-- [ ] **macCatalyst scripting** — currently falls through to the
-  in-process path because the net10.0 ScriptWorker can't be referenced
-  from a self-contained macCatalyst build. Could be resolved by
-  packaging a macCatalyst-compatible worker or by porting the
-  `ScriptWorkerService` pattern to Mac Catalyst via an NSXPC connection.
+- [x] **macCatalyst scripting refusal** — shipped 2026-04-24. Rather than
+  silently falling through to the in-process path,
+  `RoslynScriptingService.CreateDefaultLauncher` now returns a
+  `RefusingScriptWorkerLauncher` on macCatalyst that throws
+  `ScriptingNotSupportedOnPlatformException` at launch time (same refusal
+  as iOS, which joined explicitly here too). Dedicated macCatalyst worker
+  packaging remains an open enablement item for a future session if Mac
+  desktop users ever demand script support.
 
 ### Post-phase-4 polish (2026-04-17, complete)
 - [x] **Security event audit log** — `ISecurityEventLog` +
@@ -1504,7 +1507,11 @@ End-to-end complete. The composite signal-composer pipeline ships in 7 sessions:
 - [x] **Mac Keyboard Input:** shipped as `KeyboardPageHandler` + `KeyboardViewController` (line 1224 below).
 - [x] **Android Audio Output:** shipped as `AudioTrack` PCM-Float push loop (line 1225 below).
 - [x] **iOS/Mac Catalyst Audio Output:** shipped as `AVAudioEngine` + `AVAudioSourceNode` (line 1226 below).
-- [ ] **NAudio.Wasapi Removal:** after Android/iOS audio validated on device, remove from `BlazorClient.csproj`. *(Canonical entry — duplicates at lines 1227 + 1455 collapsed 2026-04-23.)*
+- [x] **NAudio.Wasapi Removal** — shipped 2026-04-24. `BlazorAudioDriver`
+  now plays Float32 on Windows via a winmm.dll P/Invoke (waveOut with a
+  three-buffer round-robin); package reference dropped from
+  `BlazorClient.csproj`. Android AudioTrack + iOS/macCatalyst AVAudioEngine
+  paths unchanged. User will verify Windows audio in a later session.
 
 ### Remaining Provider Gaps
 - [x] **Binance User Data Stream:** `StartUserDataStreamAsync` creates listenKey, subscribes via `_socketClient.SpotApi.Account.SubscribeToUserDataUpdatesAsync`, 25-min keepalive timer, cleanup in `DisconnectAsync`.

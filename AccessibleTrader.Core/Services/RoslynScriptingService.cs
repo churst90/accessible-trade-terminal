@@ -105,6 +105,16 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public static IScriptWorkerLauncher CreateDefaultLauncher()
         {
+            // iOS + macCatalyst: explicit refusal. iOS has never had a usable
+            // sandbox primitive for a child process that runs arbitrary user IL;
+            // macCatalyst joined 2026-04-24 because the self-contained
+            // macCatalyst build cannot reference the net10.0 ScriptWorker. Both
+            // surface ScriptingNotSupportedOnPlatformException at compile time
+            // rather than silently dropping into the in-process path.
+            if (OperatingSystem.IsIOS())
+                return new RefusingScriptWorkerLauncher("iOS");
+            if (OperatingSystem.IsMacCatalyst())
+                return new RefusingScriptWorkerLauncher("macCatalyst");
             if (OperatingSystem.IsAndroid())
                 return new AndroidIsolatedProcessLauncher();
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))

@@ -1,16 +1,14 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using Microsoft.Extensions.Logging;
 
-#if WINDOWS
-using NAudio.Wave;
-#elif ANDROID
+#if ANDROID
 using Android.Media;
 #elif IOS || MACCATALYST
-using System.Runtime.InteropServices;
 using AVFoundation;
 using AudioToolbox;
 #endif
@@ -19,15 +17,11 @@ namespace AccessibleTrader.BlazorClient.Services
 {
     /// <summary>
     /// Multi-platform audio driver.
-    /// Windows:          NAudio WASAPI output (pull model via ISampleProvider).
+    /// Windows:          winmm waveOut (Float32) via P/Invoke — no external package.
     /// Android:          AudioTrack PCM-Float push loop on a dedicated background thread.
     /// iOS / macCatalyst: AVAudioEngine + AVAudioSourceNode render callback (push model).
     /// </summary>
-    public class BlazorAudioDriver : IAudioDriver,
-#if WINDOWS
-        ISampleProvider,
-#endif
-        IDisposable
+    public class BlazorAudioDriver : IAudioDriver, IDisposable
     {
         private readonly AudioEngine _engine;
         private readonly ILogger<BlazorAudioDriver> _logger;
@@ -35,9 +29,22 @@ namespace AccessibleTrader.BlazorClient.Services
         private bool _disposed;
 
 #if WINDOWS
-        private WasapiOut? _wasapiOut;
-        private readonly WaveFormat _format;
-        public WaveFormat WaveFormat => _format;
+        // Three-buffer round-robin. waveOutWrite queues a buffer; WOM_DONE callback
+        // refills it and queues it back. Three buffers is the conventional minimum
+        // that keeps the device fed without adding audible latency.
+        private const int WinBufferFrames = 1024;
+        private const int WinNumBuffers = 3;
+        private IntPtr _hWaveOut = IntPtr.Zero;
+        private readonly WaveOutProc _callback;
+        private WaveHdrState[] _buffers = Array.Empty<WaveHdrState>();
+
+        private sealed class WaveHdrState
+        {
+            public WAVEHDR Header;
+            public GCHandle HeaderPin;
+            public GCHandle DataPin;
+            public float[] Data = Array.Empty<float>();
+        }
 
 #elif ANDROID
         private AudioTrack? _audioTrack;
@@ -59,10 +66,6 @@ namespace AccessibleTrader.BlazorClient.Services
             _engine = new AudioEngine();
             _engine.PointReached += index => PointReached?.Invoke(index);
 
-            // Surface ring-buffer overflow drops. We rate-limit the event-log writes to once
-            // per 10 drops so heavy sustained overload doesn't flood the ring with its own
-            // telemetry entries; the drop counter itself is still incremented on every
-            // occurrence so the JournalModal can report the exact figure.
             _engine.CommandDropped += droppedTotal =>
             {
                 if (droppedTotal % 10 != 0) return;
@@ -75,17 +78,12 @@ namespace AccessibleTrader.BlazorClient.Services
             };
 
 #if WINDOWS
-            _format = WaveFormat.CreateIeeeFloatWaveFormat(_engine.SampleRate, 2);
+            _callback = WaveOutCallback;
 #endif
         }
 
-        /// <summary>Current drop count from the underlying <see cref="AudioEngine"/>. Exposed for telemetry surfaces like JournalModal.</summary>
         public long DroppedCommandCount => _engine.DroppedCommandCount;
-
-        /// <summary>Total voice commands issued since the last <see cref="ResetAudioTelemetry"/> (or process start). Dividing <see cref="DroppedCommandCount"/> by this gives the drop ratio.</summary>
         public long TotalCommandCount => _engine.TotalCommandCount;
-
-        /// <summary>Clear the drop/total counters. Typically called when the user starts a new session or clears the journal.</summary>
         public void ResetAudioTelemetry() => _engine.ResetTelemetry();
 
         private void EnsureAudioInit()
@@ -96,14 +94,43 @@ namespace AccessibleTrader.BlazorClient.Services
 #if WINDOWS
             try
             {
-                _wasapiOut = new WasapiOut(NAudio.CoreAudioApi.AudioClientShareMode.Shared, 50);
-                _wasapiOut.Init(this);
-                _wasapiOut.Play();
+                var fmt = new WAVEFORMATEX
+                {
+                    wFormatTag = WAVE_FORMAT_IEEE_FLOAT,
+                    nChannels = (ushort)_engine.Channels,
+                    nSamplesPerSec = (uint)_engine.SampleRate,
+                    wBitsPerSample = 32,
+                    cbSize = 0,
+                };
+                fmt.nBlockAlign = (ushort)(fmt.nChannels * (fmt.wBitsPerSample / 8));
+                fmt.nAvgBytesPerSec = fmt.nSamplesPerSec * fmt.nBlockAlign;
+
+                int mmr = waveOutOpen(out _hWaveOut, WAVE_MAPPER, ref fmt, _callback, UIntPtr.Zero, CALLBACK_FUNCTION);
+                if (mmr != MMSYSERR_NOERROR)
+                {
+                    _logger.LogError("waveOutOpen failed: MMRESULT={MMR}", mmr);
+                    _hWaveOut = IntPtr.Zero;
+                    return;
+                }
+
+                _buffers = new WaveHdrState[WinNumBuffers];
+                int samplesPerBuffer = WinBufferFrames * _engine.Channels;
+                for (int i = 0; i < WinNumBuffers; i++)
+                {
+                    var s = new WaveHdrState { Data = new float[samplesPerBuffer] };
+                    // First fill: read from the engine so the first play has real audio.
+                    int got = _engine.Read(s.Data, 0, samplesPerBuffer);
+                    if (got < samplesPerBuffer)
+                        Array.Clear(s.Data, got, samplesPerBuffer - got);
+                    _engine.ProcessEvents();
+                    PrepareAndWriteBuffer(s);
+                    _buffers[i] = s;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Audio init failed (Windows).");
-                _wasapiOut = null;
+                _hWaveOut = IntPtr.Zero;
             }
 
 #elif ANDROID
@@ -152,7 +179,6 @@ namespace AccessibleTrader.BlazorClient.Services
             try
             {
                 _avEngine = new AVAudioEngine();
-                // Use (sampleRate, channels) constructor — creates standard non-interleaved Float32 format.
                 var format = new AVAudioFormat((double)_engine.SampleRate, (uint)Channels);
 
                 _sourceNode = new AVAudioSourceNode(format, (ref bool isSilence,
@@ -165,7 +191,6 @@ namespace AccessibleTrader.BlazorClient.Services
                     _engine.ProcessEvents();
                     isSilence = false;
 
-                    // De-interleave: copy per-channel samples to each AVAudioBuffer channel.
                     var channelBuf = new float[(int)frameCount];
                     for (int ch = 0; ch < outputData.Count && ch < Channels; ch++)
                     {
@@ -173,7 +198,7 @@ namespace AccessibleTrader.BlazorClient.Services
                             channelBuf[i] = buf[i * Channels + ch];
                         Marshal.Copy(channelBuf, 0, outputData[ch].Data, (int)frameCount);
                     }
-                    return 0; // noErr
+                    return 0;
                 });
 
                 _avEngine.AttachNode(_sourceNode);
@@ -189,6 +214,51 @@ namespace AccessibleTrader.BlazorClient.Services
             }
 #endif
         }
+
+#if WINDOWS
+        private void PrepareAndWriteBuffer(WaveHdrState s)
+        {
+            if (_hWaveOut == IntPtr.Zero) return;
+            s.DataPin = GCHandle.Alloc(s.Data, GCHandleType.Pinned);
+            s.Header = new WAVEHDR
+            {
+                lpData = s.DataPin.AddrOfPinnedObject(),
+                dwBufferLength = (uint)(s.Data.Length * sizeof(float)),
+                dwBytesRecorded = 0,
+                dwUser = UIntPtr.Zero,
+                dwFlags = 0,
+                dwLoops = 0,
+                lpNext = IntPtr.Zero,
+                reserved = UIntPtr.Zero,
+            };
+            s.HeaderPin = GCHandle.Alloc(s.Header, GCHandleType.Pinned);
+            waveOutPrepareHeader(_hWaveOut, s.HeaderPin.AddrOfPinnedObject(), (uint)Marshal.SizeOf<WAVEHDR>());
+            waveOutWrite(_hWaveOut, s.HeaderPin.AddrOfPinnedObject(), (uint)Marshal.SizeOf<WAVEHDR>());
+        }
+
+        private void WaveOutCallback(IntPtr hWaveOut, uint uMsg, UIntPtr dwInstance, UIntPtr dwParam1, UIntPtr dwParam2)
+        {
+            if (uMsg != WOM_DONE || _disposed || _hWaveOut == IntPtr.Zero) return;
+            // Refill the buffer and re-queue. Find which of our three buffers came back
+            // by matching the lpData pointer delivered via dwParam1 (= pointer to WAVEHDR).
+            IntPtr hdrPtr = (IntPtr)(long)dwParam1;
+            for (int i = 0; i < _buffers.Length; i++)
+            {
+                var s = _buffers[i];
+                if (s.HeaderPin.AddrOfPinnedObject() != hdrPtr) continue;
+                waveOutUnprepareHeader(_hWaveOut, hdrPtr, (uint)Marshal.SizeOf<WAVEHDR>());
+                s.HeaderPin.Free();
+                s.DataPin.Free();
+
+                int got = _engine.Read(s.Data, 0, s.Data.Length);
+                if (got < s.Data.Length)
+                    Array.Clear(s.Data, got, s.Data.Length - got);
+                _engine.ProcessEvents();
+                PrepareAndWriteBuffer(s);
+                return;
+            }
+        }
+#endif
 
         public void SetVoice(int slot, double frequency, float volume, float pan,
             string waveform, bool continuous, double durationSeconds = 0.2,
@@ -207,7 +277,7 @@ namespace AccessibleTrader.BlazorClient.Services
         public void Pause()
         {
 #if WINDOWS
-            _wasapiOut?.Pause();
+            if (_hWaveOut != IntPtr.Zero) waveOutPause(_hWaveOut);
 #elif ANDROID
             _audioTrack?.Pause();
 #elif IOS || MACCATALYST
@@ -218,7 +288,7 @@ namespace AccessibleTrader.BlazorClient.Services
         public void Resume()
         {
 #if WINDOWS
-            _wasapiOut?.Play();
+            if (_hWaveOut != IntPtr.Zero) waveOutRestart(_hWaveOut);
 #elif ANDROID
             _audioTrack?.Play();
 #elif IOS || MACCATALYST
@@ -226,21 +296,30 @@ namespace AccessibleTrader.BlazorClient.Services
 #endif
         }
 
-        // Windows ISampleProvider pull callback
-        public int Read(float[] buffer, int offset, int count)
-        {
-            int read = _engine.Read(buffer, offset, count);
-            _engine.ProcessEvents();
-            return read;
-        }
-
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
 #if WINDOWS
-            _wasapiOut?.Stop();
-            _wasapiOut?.Dispose();
+            if (_hWaveOut != IntPtr.Zero)
+            {
+                waveOutReset(_hWaveOut);
+                foreach (var s in _buffers)
+                {
+                    try
+                    {
+                        if (s.HeaderPin.IsAllocated)
+                        {
+                            waveOutUnprepareHeader(_hWaveOut, s.HeaderPin.AddrOfPinnedObject(), (uint)Marshal.SizeOf<WAVEHDR>());
+                            s.HeaderPin.Free();
+                        }
+                        if (s.DataPin.IsAllocated) s.DataPin.Free();
+                    }
+                    catch { }
+                }
+                waveOutClose(_hWaveOut);
+                _hWaveOut = IntPtr.Zero;
+            }
 #elif ANDROID
             _audioCts?.Cancel();
             _audioTrack?.Stop();
@@ -252,6 +331,66 @@ namespace AccessibleTrader.BlazorClient.Services
             _sourceNode?.Dispose();
 #endif
         }
+
+#if WINDOWS
+        // ── winmm.dll P/Invoke ──────────────────────────────────────────────────
+        private const int WAVE_MAPPER = -1;
+        private const int MMSYSERR_NOERROR = 0;
+        private const int CALLBACK_FUNCTION = 0x00030000;
+        private const ushort WAVE_FORMAT_IEEE_FLOAT = 0x0003;
+        private const uint WOM_DONE = 0x3BD;
+
+        private delegate void WaveOutProc(IntPtr hWaveOut, uint uMsg, UIntPtr dwInstance, UIntPtr dwParam1, UIntPtr dwParam2);
+
+        [StructLayout(LayoutKind.Sequential, Pack = 2)]
+        private struct WAVEFORMATEX
+        {
+            public ushort wFormatTag;
+            public ushort nChannels;
+            public uint nSamplesPerSec;
+            public uint nAvgBytesPerSec;
+            public ushort nBlockAlign;
+            public ushort wBitsPerSample;
+            public ushort cbSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WAVEHDR
+        {
+            public IntPtr lpData;
+            public uint dwBufferLength;
+            public uint dwBytesRecorded;
+            public UIntPtr dwUser;
+            public uint dwFlags;
+            public uint dwLoops;
+            public IntPtr lpNext;
+            public UIntPtr reserved;
+        }
+
+        [DllImport("winmm.dll", SetLastError = true)]
+        private static extern int waveOutOpen(out IntPtr hWaveOut, int uDeviceID, ref WAVEFORMATEX lpFormat,
+            WaveOutProc dwCallback, UIntPtr dwInstance, int dwFlags);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutPrepareHeader(IntPtr hWaveOut, IntPtr lpWaveOutHdr, uint uSize);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutUnprepareHeader(IntPtr hWaveOut, IntPtr lpWaveOutHdr, uint uSize);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutWrite(IntPtr hWaveOut, IntPtr lpWaveOutHdr, uint uSize);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutReset(IntPtr hWaveOut);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutPause(IntPtr hWaveOut);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutRestart(IntPtr hWaveOut);
+
+        [DllImport("winmm.dll")]
+        private static extern int waveOutClose(IntPtr hWaveOut);
+#endif
     }
 }
-

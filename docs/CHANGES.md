@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — NAudio.Wasapi dependency removed; macCatalyst scripting refused
+
+**NAudio removal.** `BlazorAudioDriver` now targets Windows via a winmm.dll
+P/Invoke implementation (Float32 streaming through `waveOutOpen` /
+`waveOutWrite` with a three-buffer round-robin refilled from a WOM_DONE
+callback). Drops the `NAudio.Wasapi` NuGet package and ~500 KB of runtime deps
+from the Windows build. Cross-platform drivers (Android AudioTrack,
+iOS/macCatalyst AVAudioEngine) unchanged.
+
+**macCatalyst scripting refusal.** `RoslynScriptingService.CreateDefaultLauncher`
+now returns a new `RefusingScriptWorkerLauncher` on `OperatingSystem.IsIOS()`
+and `OperatingSystem.IsMacCatalyst()`. Both surface
+`ScriptingNotSupportedOnPlatformException` at compile time rather than
+silently falling through to the in-process path. The macCatalyst refusal is
+because the self-contained macCatalyst build cannot reference the `net10.0`
+ScriptWorker executable; a dedicated macCatalyst worker packaging is listed
+in the backlog as a future enablement item.
+
 ## [2026-04-24] — ARIA tree arrow-key navigation + meaningful tree labels
 
 New `wwwroot/js/treeKeyboard.js` auto-wires standard WAI-ARIA tree keyboard
