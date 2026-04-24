@@ -3,6 +3,9 @@
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.Sdk.Alerts
+@using AccessibleTrader.Sdk.Analysis
+@using Newtonsoft.Json.Linq
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
@@ -11,6 +14,8 @@
 @inject IWorkspaceLibraryService WorkspaceLibrary
 @inject ISeriesManagementService SeriesManager
 @inject IShortcutManager ShortcutService
+@inject ISettingsManager Settings
+@inject IEnumerable<IAlertChannel> AlertChannels
 @implements IDisposable
 
 @if (_isVisible)
@@ -28,7 +33,7 @@
             @* ── Tab list ──────────────────────────────────────────────────── *@
             <div role="tablist" aria-label="Settings categories"
                  style="display:flex; gap:0; border-bottom:2px solid #bbb; margin-bottom:16px;">
-                @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "License", "About" })
+                @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "Alerts", "License", "About" })
                 {
                     bool active = _activeTab == tab;
                     <button role="tab"
@@ -289,6 +294,125 @@
                 </table>
             </div>
 
+            @* ── Alerts tab ─────────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-alerts"
+                 aria-labelledby="tab-alerts"
+                 hidden="@(_activeTab != "Alerts")">
+
+                <p style="font-size:0.85rem; color:#555; margin-bottom:12px;">
+                    Configure external delivery for fired alerts. Each channel activates
+                    only when its required fields are filled; unconfigured channels are
+                    silently skipped.
+                </p>
+
+                @* ── SMTP / Email ─────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Email (SMTP)</legend>
+
+                    <div class="modal-row">
+                        <label for="s-email-host">SMTP host</label>
+                        <input id="s-email-host" type="text"
+                               value="@_emailHost"
+                               placeholder="smtp.gmail.com"
+                               @onchange="e => _emailHost = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-port">Port</label>
+                        <input id="s-email-port" type="number" min="1" max="65535"
+                               value="@_emailPort"
+                               @onchange="e => _emailPort = int.TryParse(e.Value?.ToString(), out var p) ? p : _emailPort" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-tls">Use TLS</label>
+                        <input id="s-email-tls" type="checkbox"
+                               checked="@_emailUseTls"
+                               @onchange="e => _emailUseTls = e.Value is bool b ? b : _emailUseTls" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-user">Username</label>
+                        <input id="s-email-user" type="text"
+                               value="@_emailUsername"
+                               autocomplete="off"
+                               @onchange="e => _emailUsername = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-pass">Password</label>
+                        <input id="s-email-pass" type="password"
+                               value="@_emailPassword"
+                               autocomplete="new-password"
+                               @onchange="e => _emailPassword = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-from">From address</label>
+                        <input id="s-email-from" type="email"
+                               value="@_emailFrom"
+                               placeholder="alerts@example.com"
+                               @onchange="e => _emailFrom = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-email-to">To address</label>
+                        <input id="s-email-to" type="email"
+                               value="@_emailTo"
+                               placeholder="me@example.com"
+                               @onchange="e => _emailTo = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <span style="flex:1; font-size:0.85rem; color:#555;">
+                            Sends a sample alert using current values (saved on Close).
+                        </span>
+                        <button @onclick="TestEmailAsync"
+                                aria-label="Send a test email alert">Send test</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_emailStatus))
+                    {
+                        <p role="status"
+                           style="color:@(_emailStatusIsError ? "#c33" : "#4c8"); font-size:0.85rem; margin-top:6px;">
+                            @_emailStatus
+                        </p>
+                    }
+                </fieldset>
+
+                @* ── Telegram ─────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Telegram</legend>
+
+                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                        Create a bot via <strong>@@BotFather</strong>, send it a message, then paste the bot
+                        token and the numeric chat id returned by <code>getUpdates</code>.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-tg-token">Bot token</label>
+                        <input id="s-tg-token" type="password"
+                               value="@_tgBotToken"
+                               autocomplete="new-password"
+                               placeholder="123456:ABC-DEF…"
+                               @onchange="e => _tgBotToken = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-tg-chat">Chat id</label>
+                        <input id="s-tg-chat" type="text"
+                               value="@_tgChatId"
+                               placeholder="-100123456789"
+                               @onchange="e => _tgChatId = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="modal-row">
+                        <span style="flex:1; font-size:0.85rem; color:#555;">
+                            Sends a sample alert using current values (saved on Close).
+                        </span>
+                        <button @onclick="TestTelegramAsync"
+                                aria-label="Send a test Telegram alert">Send test</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_telegramStatus))
+                    {
+                        <p role="status"
+                           style="color:@(_telegramStatusIsError ? "#c33" : "#4c8"); font-size:0.85rem; margin-top:6px;">
+                            @_telegramStatus
+                        </p>
+                    }
+                </fieldset>
+            </div>
+
             @* ── License tab ───────────────────────────────────────────────── *@
             <div role="tabpanel" id="tabpanel-license"
                  aria-labelledby="tab-license"
@@ -347,6 +471,21 @@
     private string _candleDownColor = "#cc2200";
     private string _selectedTheme   = "HighContrastDark";
 
+    // Alerts tab — loaded from ISettingsManager on ShowAsync, persisted on Close.
+    private string _emailHost = string.Empty;
+    private int    _emailPort = 587;
+    private bool   _emailUseTls = true;
+    private string _emailUsername = string.Empty;
+    private string _emailPassword = string.Empty;
+    private string _emailFrom = string.Empty;
+    private string _emailTo = string.Empty;
+    private string _emailStatus = string.Empty;
+    private bool   _emailStatusIsError;
+    private string _tgBotToken = string.Empty;
+    private string _tgChatId = string.Empty;
+    private string _telegramStatus = string.Empty;
+    private bool   _telegramStatusIsError;
+
     private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
 
     protected override void OnInitialized()
@@ -387,6 +526,21 @@
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
         _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
         _selectedTheme   = ThemeService.Current.ThemeType.ToString();
+
+        // Alerts config — pull fresh from settings so another component's edits
+        // (or a crash-recovery re-open) show the persisted values.
+        _emailHost     = Settings.GetSetting("alerts.email.host")?.ToString() ?? string.Empty;
+        _emailPort     = Settings.GetSetting("alerts.email.port")?.ToObject<int>() ?? 587;
+        _emailUseTls   = Settings.GetSetting("alerts.email.useTls")?.ToObject<bool>() ?? true;
+        _emailUsername = Settings.GetSetting("alerts.email.username")?.ToString() ?? string.Empty;
+        _emailPassword = Settings.GetSetting("alerts.email.password")?.ToString() ?? string.Empty;
+        _emailFrom     = Settings.GetSetting("alerts.email.fromAddress")?.ToString() ?? string.Empty;
+        _emailTo       = Settings.GetSetting("alerts.email.toAddress")?.ToString() ?? string.Empty;
+        _emailStatus = string.Empty; _emailStatusIsError = false;
+
+        _tgBotToken = Settings.GetSetting("alerts.telegram.botToken")?.ToString() ?? string.Empty;
+        _tgChatId   = Settings.GetSetting("alerts.telegram.chatId")?.ToString() ?? string.Empty;
+        _telegramStatus = string.Empty; _telegramStatusIsError = false;
     }
 
     private async Task ShowAsync()
@@ -411,8 +565,81 @@
             WasapiLatency    = _wasapiLatency,
             BackgroundColor  = _backgroundColor
         }));
+
+        PersistAlertSettings();
+
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
+        StateHasChanged();
+    }
+
+    // ── Alerts tab persistence + test sends ──────────────────────────────────
+
+    private void PersistAlertSettings()
+    {
+        Settings.SetSetting("alerts.email.host",        JToken.FromObject(_emailHost));
+        Settings.SetSetting("alerts.email.port",        JToken.FromObject(_emailPort));
+        Settings.SetSetting("alerts.email.useTls",      JToken.FromObject(_emailUseTls));
+        Settings.SetSetting("alerts.email.username",    JToken.FromObject(_emailUsername));
+        Settings.SetSetting("alerts.email.password",    JToken.FromObject(_emailPassword));
+        Settings.SetSetting("alerts.email.fromAddress", JToken.FromObject(_emailFrom));
+        Settings.SetSetting("alerts.email.toAddress",   JToken.FromObject(_emailTo));
+        Settings.SetSetting("alerts.telegram.botToken", JToken.FromObject(_tgBotToken));
+        Settings.SetSetting("alerts.telegram.chatId",   JToken.FromObject(_tgChatId));
+        Settings.SaveSettings();
+    }
+
+    private async Task TestEmailAsync()
+    {
+        PersistAlertSettings();
+        await SendTestAlertAsync("email", s => { _emailStatus = s.Message; _emailStatusIsError = s.IsError; });
+    }
+
+    private async Task TestTelegramAsync()
+    {
+        PersistAlertSettings();
+        await SendTestAlertAsync("telegram", s => { _telegramStatus = s.Message; _telegramStatusIsError = s.IsError; });
+    }
+
+    private async Task SendTestAlertAsync(string channelId, Action<(string Message, bool IsError)> report)
+    {
+        var channel = AlertChannels.FirstOrDefault(c => c.Id == channelId);
+        if (channel == null)
+        {
+            report(("Channel not registered.", true));
+            return;
+        }
+        if (!channel.IsConfigured)
+        {
+            report(("Required fields are missing — fill them out and try again.", true));
+            StateHasChanged();
+            return;
+        }
+
+        var sample = new AlertFired(
+            Definition: new AlertDefinition
+            {
+                Id = "test-alert",
+                Name = "Accessible Trader test alert",
+                Target = AlertTarget.Price,
+                Condition = AlertCondition.CrossesAbove,
+                Delivery = AlertDelivery.Both,
+            },
+            TriggeringValue: 0.0,
+            PreviousValue: null,
+            SpeechText: "This is a test alert from the Settings modal.");
+
+        report(("Sending…", false));
+        StateHasChanged();
+        try
+        {
+            await channel.SendAsync(sample);
+            report(("Test sent successfully.", false));
+        }
+        catch (Exception ex)
+        {
+            report(($"Send failed: {ex.Message}", true));
+        }
         StateHasChanged();
     }
 

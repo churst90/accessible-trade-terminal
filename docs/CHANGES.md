@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Settings-modal Alerts tab UI (post-sweep phase 2)
+
+Closes the UI gap left by today's alert-channel service layer. The
+`SettingsModal.razor` gains a fifth tab ("Alerts") hosting two
+fieldsets:
+
+- **Email (SMTP)** — host / port / TLS toggle / username / password /
+  from address / to address. Each field two-way-bound to a private
+  `_email*` backing in the modal; `PersistAlertSettings()` writes every
+  field through `ISettingsManager.SetSetting` under `alerts.email.*`
+  and calls `SaveSettings()` on modal Close (and before every Test
+  send so a user doesn't have to close-and-reopen between edits).
+- **Telegram** — bot token + chat id, persisted under
+  `alerts.telegram.*` the same way. The fieldset includes a one-line
+  hint pointing the user at @BotFather + `getUpdates`.
+
+Each fieldset ships a **"Send test"** button. Test handler resolves
+the target channel by id from the DI-registered
+`IEnumerable<IAlertChannel>` (`"email"` / `"telegram"`), builds a stub
+`AlertFired` with a `Price / CrossesAbove` definition and the speech
+text "This is a test alert from the Settings modal.", and calls
+`IAlertChannel.SendAsync`. Success / failure surfaces in a per-channel
+status line (`role="status"`) using green / red text so screen-reader
+users hear the outcome.
+
+No service wiring changed: the existing `LoadEmailAlertConfig` /
+`LoadTelegramAlertConfig` helpers in `ServiceCollectionExtensions`
+already read the same key-paths per-send, so saved values take effect
+on the very next fired alert without any reload. The modal now also
+`@inject`s `ISettingsManager` and `IEnumerable<IAlertChannel>` (seven
+injections total, still under the refactor threshold).
+
+537/537 tests pass, 0 warnings / 0 errors on the Windows TFM build.
+
+---
+
 ## [2026-04-24] — Tier 3 sweep: BuildSetupTab split, StrategyModal facade, voice-slot pooling, EventBus coalesce, script-worker CPU + count caps, SMTP + Telegram alerts
 
 Six substantive items landed in the same day as the Tier 1 + Tier 2 sweep.

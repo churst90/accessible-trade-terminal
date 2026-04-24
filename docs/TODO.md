@@ -4,6 +4,25 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-04-24] — Settings-modal Alerts tab (complete 2026-04-24)
+
+Post-sweep phase 2. Closes the UI gap on the SMTP + Telegram channels
+shipped earlier same day. 537/537 tests still green, 0 warnings.
+
+- [x] **Alerts tab in `SettingsModal.razor`** — new sibling tab between
+  Keyboard and License. SMTP fieldset (host / port / TLS / username /
+  password / from / to) + Telegram fieldset (bot token / chat id) with
+  per-channel "Send test" buttons that build a stub `AlertFired` and
+  invoke `IAlertChannel.SendAsync` via the DI-registered channel list.
+  `PersistAlertSettings()` writes each field through
+  `ISettingsManager.SetSetting` + `SaveSettings()` on Close (and before
+  Test). The existing `LoadEmailAlertConfig` / `LoadTelegramAlertConfig`
+  helpers in `ServiceCollectionExtensions` continue reading the same
+  key-paths per-send, so saved values take effect on the very next
+  fired alert without any service reload.
+
+---
+
 ## [2026-04-24] — Tier 3 sweep (complete 2026-04-24)
 
 Six substantive items landed same-day as the Tier 1 + Tier 2 sweep. 537/537
@@ -55,9 +74,11 @@ tests still green. See `docs/CHANGES.md` 2026-04-24 Tier 3 entry.
   ConditionEvaluator + invalidation semantics backtester must honor);
   (c) GetCatalog extension (easy, but gated on (a) landing).
   Each needs its own 1-2 day session.
-- [ ] **Settings-modal Alerts tab UI** — paired with the alert channels
-  shipped today. Config shape + key-paths are in place; the tab design
-  is a separate 2-3h session.
+- [x] **Settings-modal Alerts tab UI** — shipped 2026-04-24 (same day).
+  New Alerts tab in `SettingsModal.razor` reads + writes the
+  `alerts.email.*` / `alerts.telegram.*` key-paths via `ISettingsManager`
+  and exposes a "Send test" button per channel that resolves the live
+  `IAlertChannel` from DI.
 
 ---
 
@@ -1598,14 +1619,14 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 
 ### Phase 10-H — Alerts, Multi-Workspace, Drawing Completions
 
-- [~] **Alert delivery channels (moved from Phase 10-G):** service-layer
+- [x] **Alert delivery channels (moved from Phase 10-G):** service-layer
   shipped 2026-04-24. `IAlertChannel` SDK contract, `EmailAlertChannel`
   (SMTP), `TelegramAlertChannel` (Bot API), `AlertDeliveryService` fan-out
   via `AlertFiredEvent`. Config lives under `alerts.email.*` /
   `alerts.telegram.*` setting keys and loads per-send via
-  `ISettingsManager`. **Follow-up still needed:** Settings-modal
-  "Alerts" tab UI for entering SMTP server + Telegram bot token +
-  chat id — 2-3h session.
+  `ISettingsManager`. Settings-modal **"Alerts" tab shipped 2026-04-24**
+  (same day) with per-channel "Send test" buttons that resolve the live
+  `IAlertChannel` from DI.
 - [x] **Multi-workspace tabs:** `WorkspaceState` extended with `TabSnapshots` + `ActiveTabIndex` + `TabCount`. `TabSnapshot` record freezes per-tab fields. `AddTabAction`, `CloseTabAction`, `SwitchTabAction`, `ToggleNarrationAction` reducer cases in `WorkspaceStore`. `TabBar.razor` renders between Toolbar and chart; hidden when only one tab open. Keyboard: `Ctrl+T` (new), `Ctrl+W` (close), `Ctrl+Tab` / `Ctrl+Shift+Tab` (cycle). `TabSwitchedEvent` published for audio engine stop. TTS announces tab label on switch. 14 tests added (`MultiTabTests.cs`). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **Drawing tool completions:** Audited all 16 registered drawing tools. All anchor counts and sequencing correct. One bug fixed: `GannBoxCalculator` price levels were spanning the entire chart instead of being bounded within the anchor date range — now fills NaN outside [i1,i2] and adds time subdivision points at Gann ratios. AVWAP confirmed correct (recalculated from scratch on each `Calculate()` call, so live bars work naturally). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **`AutoNarrationService`:** `SeriesConfig.IsAutoNarrated` + `ChartSeries.IsAutoNarrated` delegation. `ToggleNarrationAction` in store. `Ctrl+Shift+N` toggles narration for focused series. `AutoNarrationService` subscribes to `IndicatorUpdatedEvent` + `StateStream`; detects new marker signals (non-NaN Dot/Arrow/Diamond/etc.) on closed bars and oscillator zone transitions; announces via `ISpeechFeedbackRouter` (non-interrupting). Seeding prevents retroactive announcements when narration is enabled. "narrating" appended to series state suffix in `NavigationFeedbackManager`. `Ctrl+Shift+D` (existing `BarDetailService`) already reads non-NaN column values for focused series. 10 tests added (`AutoNarrationTests.cs`). Build: 0 errors. Tests: 162/162. (2026-04-01)
