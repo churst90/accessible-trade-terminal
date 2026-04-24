@@ -54,6 +54,10 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IMainThreadService, MauiMainThreadService>();
             services.AddSingleton<IEventBus, EventBus>();
 
+            // Blazor → native bridge so the SKCanvasView margin tracks the actual
+            // chart region rather than the hardcoded 185/100 DIP constants.
+            services.AddSingleton<ICanvasRegionProvider, CanvasRegionProvider>();
+
             // WorkspaceStore decomposition services — registered before the store itself.
             services.AddSingleton<IViewportRangeCalculator, ViewportRangeCalculator>();
             services.AddSingleton<IViewportNavigationService, ViewportNavigationService>();
@@ -367,6 +371,19 @@ namespace AccessibleTrader.BlazorClient
             // Strategy auto-loader: walks IStrategyLibrary at app startup and registers every
             // spec marked IsAutoActivate with the engine. Eagerly resolved via MainLayout.
             services.AddSingleton<StrategyAutoLoader>();
+
+            // DLL strategy plugins (Phase 10-F): scans the host-shipped Strategies/ folder
+            // plus the user-writable drop-in folder for DLLs matching
+            // AccessibleTrader.Plugins.Strategy.*.dll, loads each through the trust policy +
+            // isolated ALC (reusing the trading-provider loader infrastructure), and caches
+            // the exported ITradingStrategy templates for the unified strategy registry.
+            services.AddSingleton<IStrategyPluginRegistry>(sp =>
+                new StrategyPluginRegistry(
+                    sp.GetRequiredService<ILogger<StrategyPluginRegistry>>(),
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.PluginTrustPolicy>(),
+                    AccessibleTrader.Core.Services.Strategies.StrategyPluginDirectories.Default()));
+            services.AddSingleton<IStrategyRegistry, StrategyRegistry>();
+
             services.AddSingleton<ScriptingService>();
 
             // Script-worker launcher is registered separately so per-platform

@@ -1,4 +1,5 @@
 using System;
+using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Input;
@@ -17,11 +18,13 @@ public partial class MainPage : ContentPage
     private readonly ChartRenderer _renderer;
     private readonly IThemeService _themeService;
     private readonly IEventBus _eventBus;
+    private readonly ICanvasRegionProvider _canvasRegion;
     private readonly ILogger<MainPage> _logger;
     private IDisposable? _stateSub;
     private IDisposable? _redrawSub;
     private IDisposable? _modalSub;
     private IDisposable? _titleSub;
+    private IDisposable? _canvasRegionSub;
     private EventHandler<AccessibleTrader.Sdk.Theming.ChartTheme>? _themeChangedHandler;
     private int _openModalCount;
     private string _lastTitleKey = "";
@@ -32,6 +35,7 @@ public partial class MainPage : ContentPage
         IAppStartupService startupService,
         IThemeService themeService,
         IEventBus eventBus,
+        ICanvasRegionProvider canvasRegion,
         ILogger<MainPage> logger)
     {
         InitializeComponent();
@@ -40,6 +44,7 @@ public partial class MainPage : ContentPage
         _renderer = renderer;
         _themeService = themeService;
         _eventBus = eventBus;
+        _canvasRegion = canvasRegion;
         _logger = logger;
 
         // Subscribe before the handler attaches so no initialization event can be missed.
@@ -108,6 +113,15 @@ public partial class MainPage : ContentPage
         _themeChangedHandler = (_, _) =>
             MainThread.BeginInvokeOnMainThread(() => _chartCanvas.InvalidateSurface());
         _themeService.ThemeChanged += _themeChangedHandler;
+
+        // Track the Blazor ChartArea's live bounding rect and re-apply the canvas
+        // margin on the main thread. Supersedes the hardcoded 185/100 DIP values
+        // in MainPage.xaml once the first rect arrives from JS. The XAML values
+        // remain as a fallback for the brief moment before canvasRegion.start
+        // fires, and for test contexts that have no IJSRuntime.
+        _canvasRegionSub = _canvasRegion.BoundsChanged.Subscribe(b =>
+            MainThread.BeginInvokeOnMainThread(() =>
+                _chartCanvas.Margin = new Thickness(0, b.TopDip, 0, b.BottomDip)));
     }
 
     private void OnCanvasPaint(object? sender, SKPaintSurfaceEventArgs e)
@@ -199,6 +213,7 @@ public partial class MainPage : ContentPage
         _redrawSub?.Dispose();
         _modalSub?.Dispose();
         _titleSub?.Dispose();
+        _canvasRegionSub?.Dispose();
         if (_themeChangedHandler != null)
             _themeService.ThemeChanged -= _themeChangedHandler;
     }

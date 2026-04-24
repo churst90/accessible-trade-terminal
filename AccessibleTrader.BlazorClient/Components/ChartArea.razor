@@ -4,6 +4,8 @@
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Theming
+@using AccessibleTrader.BlazorClient.Services
+@using Microsoft.JSInterop
 @using System.Reactive.Linq
 @using SkiaSharp
 @inject IWorkspaceStore Store
@@ -12,6 +14,8 @@
 @inject IDataOrchestrator DataOrchestrator
 @inject IThemeService ThemeService
 @inject IPaneLayoutService PaneLayout
+@inject ICanvasRegionProvider CanvasRegion
+@inject IJSRuntime JS
 @implements IDisposable
 
 @* Transparent accessibility overlay that sits above the native SkiaSharp canvas.
@@ -108,6 +112,24 @@
     private string? _dragPaneName;
     private double _dragStartY;
     private double _containerHeight = 600; // initial estimate; updated on first drag
+
+    private DotNetObjectReference<ChartArea>? _jsRef;
+
+    [JSInvokable]
+    public void OnCanvasRegionChanged(double topDip, double bottomDip)
+    {
+        CanvasRegion.Report(topDip, bottomDip);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _jsRef = DotNetObjectReference.Create(this);
+            try { await JS.InvokeVoidAsync("canvasRegion.start", _jsRef); }
+            catch { /* host may lack IJSRuntime during unit tests */ }
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -256,5 +278,7 @@
         ThemeService.ThemeChanged -= OnThemeChanged;
         PaneLayout.LayoutChanged -= OnPaneLayoutChanged;
         _subs.Dispose();
+        try { _ = JS.InvokeVoidAsync("canvasRegion.stop"); } catch { }
+        _jsRef?.Dispose();
     }
 }

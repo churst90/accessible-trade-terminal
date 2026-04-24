@@ -95,6 +95,14 @@ public static class MauiProgram
 			var secLog = app.Services.GetService<AccessibleTrader.Sdk.Services.ISecurityEventLog>();
 			if (secLog != null)
 				AccessibleTrader.Sdk.Services.PluginHostServices.SecurityEvents = secLog;
+
+			// Phase 10-F(b): shared indicator cache bridge. DLL-plugin strategies and
+			// Roslyn strategies access it via PluginHostServices.IndicatorCache instead
+			// of the Core-only IStrategyIndicatorCache, so plugin assemblies don't need
+			// a Core reference.
+			var indicatorCache = app.Services.GetService<AccessibleTrader.Core.Services.IStrategyIndicatorCache>();
+			if (indicatorCache != null)
+				AccessibleTrader.Sdk.Services.PluginHostServices.IndicatorCache = indicatorCache;
 		}
 		catch { /* non-fatal — plugins fall back to their local behaviour */ }
 

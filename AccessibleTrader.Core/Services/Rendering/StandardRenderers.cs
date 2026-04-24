@@ -127,7 +127,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // OHLC range is conveyed via sonification and speech).
                 if (!hasPhaseOverride)
                 {
-                    using var wickPaint = new SKPaint { Color = wickColor, Style = SKPaintStyle.Stroke, StrokeWidth = wickThickness };
+                    using var wickLease = SKPaintPool.Rent();
+                    var wickPaint = wickLease.Paint;
+                    wickPaint.Color = wickColor;
+                    wickPaint.Style = SKPaintStyle.Stroke;
+                    wickPaint.StrokeWidth = wickThickness;
                     ctx.Canvas.DrawLine(x, yHigh, x, yLow, wickPaint);
                 }
 
@@ -136,7 +140,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float bottom = Math.Max(yOpen, yClose);
                 float bodyHeight = Math.Max(1, bottom - top);
 
-                using var bodyPaint = new SKPaint { Color = bodyColor, Style = SKPaintStyle.Fill };
+                using var bodyLease = SKPaintPool.Rent();
+                var bodyPaint = bodyLease.Paint;
+                bodyPaint.Color = bodyColor;
+                bodyPaint.Style = SKPaintStyle.Fill;
                 ctx.Canvas.DrawRect(x - (barWidth * 0.4f), top, barWidth * 0.8f, bodyHeight, bodyPaint);
             }
         }
@@ -168,7 +175,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                     if (prevX.HasValue)
                     {
                         var col = ResolveBarColor(comp, lineData, dataIdx) ?? paint.Color;
-                        using var segPaint = new SKPaint { Color = col, StrokeWidth = paint.StrokeWidth, Style = SKPaintStyle.Stroke, IsAntialias = true };
+                        using var segLease = SKPaintPool.Rent();
+                        var segPaint = segLease.Paint;
+                        segPaint.Color = col;
+                        segPaint.StrokeWidth = paint.StrokeWidth;
+                        segPaint.Style = SKPaintStyle.Stroke;
+                        segPaint.IsAntialias = true;
                         ctx.Canvas.DrawLine(prevX.Value, prevY!.Value, x, y, segPaint);
                     }
                     prevX = x; prevY = y;
@@ -282,8 +294,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                 upColor = parsedUp;
             if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
                 downColor = parsedDown;
-            using var upPaint   = new SKPaint { Color = upColor.WithAlpha(180), Style = SKPaintStyle.Fill };
-            using var downPaint = new SKPaint { Color = downColor.WithAlpha(180), Style = SKPaintStyle.Fill };
+            using var upPaint = SKPaintPool.Rent();
+            upPaint.Paint.Color = upColor.WithAlpha(180);
+            upPaint.Paint.Style = SKPaintStyle.Fill;
+            using var downPaint = SKPaintPool.Rent();
+            downPaint.Paint.Color = downColor.WithAlpha(180);
+            downPaint.Paint.Style = SKPaintStyle.Fill;
 
             bool useCandleDirection = comp.ColorSource == ColorSource.PriceAction;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;
@@ -304,12 +320,18 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float yZero  = ChartMath.MapY(barBase, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
 
                 SKPaint barPaint;
+                RentedPaint ruleLease = default;
+                bool ruleRented = false;
                 if (hasColorRules)
                 {
                     var col = ResolveBarColor(comp, barData, dataIdx);
                     if (col.HasValue)
                     {
-                        barPaint = new SKPaint { Color = col.Value, Style = SKPaintStyle.Fill };
+                        ruleLease = SKPaintPool.Rent();
+                        ruleRented = true;
+                        barPaint = ruleLease.Paint;
+                        barPaint.Color = col.Value;
+                        barPaint.Style = SKPaintStyle.Fill;
                     }
                     else
                     {
@@ -317,7 +339,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                         bool isUp = useCandleDirection
                             ? (i < ctx.Data.Count && ctx.Data[i].Close >= ctx.Data[i].Open)
                             : val >= comp.ColorBaseline;
-                        barPaint = isUp ? upPaint : downPaint;
+                        barPaint = isUp ? upPaint.Paint : downPaint.Paint;
                     }
                 }
                 else
@@ -325,13 +347,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                     bool isUp = useCandleDirection
                         ? (i < ctx.Data.Count && ctx.Data[i].Close >= ctx.Data[i].Open)
                         : val >= comp.ColorBaseline;
-                    barPaint = isUp ? upPaint : downPaint;
+                    barPaint = isUp ? upPaint.Paint : downPaint.Paint;
                 }
 
                 ctx.Canvas.DrawRect(x + spacing, Math.Min(yVal, yZero), barWidth - (2 * spacing), Math.Abs(yVal - yZero), barPaint);
 
-                // Dispose only if we created a new paint (not the shared up/downPaint)
-                if (hasColorRules && barPaint != upPaint && barPaint != downPaint) barPaint.Dispose();
+                if (ruleRented) ruleLease.Dispose();
             }
         }
 
@@ -518,7 +539,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                     col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 }
 
-                using var dotPaint = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var dotLease = SKPaintPool.Rent();
+                var dotPaint = dotLease.Paint;
+                dotPaint.Color = col;
+                dotPaint.Style = SKPaintStyle.Fill;
+                dotPaint.IsAntialias = true;
                 ctx.Canvas.DrawCircle(x, y, radius, dotPaint);
             }
         }
@@ -563,7 +588,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 path.Close();
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var arrowPaint = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var arrowLease = SKPaintPool.Rent();
+                var arrowPaint = arrowLease.Paint;
+                arrowPaint.Color = col;
+                arrowPaint.Style = SKPaintStyle.Fill;
+                arrowPaint.IsAntialias = true;
                 ctx.Canvas.DrawPath(path, arrowPaint);
             }
         }
@@ -637,7 +666,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 path.Close();
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var p = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var lease = SKPaintPool.Rent();
+                var p = lease.Paint;
+                p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawPath(path, p);
             }
         }
@@ -673,7 +704,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 path.Close();
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var p = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var lease = SKPaintPool.Rent();
+                var p = lease.Paint;
+                p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawPath(path, p);
             }
         }
@@ -709,7 +742,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 path.Close();
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var p = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var lease = SKPaintPool.Rent();
+                var p = lease.Paint;
+                p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawPath(path, p);
             }
         }
@@ -738,7 +773,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var p = new SKPaint { Color = col, Style = SKPaintStyle.Fill, IsAntialias = true };
+                using var lease = SKPaintPool.Rent();
+                var p = lease.Paint;
+                p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawRect(x - half, y - half, half * 2f, half * 2f, p);
             }
         }
@@ -767,12 +804,13 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                using var crossPaint = new SKPaint
-                {
-                    Color = col, Style = SKPaintStyle.Stroke,
-                    StrokeWidth = Math.Max(comp.Thickness * 0.5f, 1.5f) * ctx.Density,
-                    IsAntialias = true, StrokeCap = SKStrokeCap.Round
-                };
+                using var crossLease = SKPaintPool.Rent();
+                var crossPaint = crossLease.Paint;
+                crossPaint.Color = col;
+                crossPaint.Style = SKPaintStyle.Stroke;
+                crossPaint.StrokeWidth = Math.Max(comp.Thickness * 0.5f, 1.5f) * ctx.Density;
+                crossPaint.IsAntialias = true;
+                crossPaint.StrokeCap = SKStrokeCap.Round;
                 ctx.Canvas.DrawLine(x - arm, y - arm, x + arm, y + arm, crossPaint);
                 ctx.Canvas.DrawLine(x + arm, y - arm, x - arm, y + arm, crossPaint);
             }
