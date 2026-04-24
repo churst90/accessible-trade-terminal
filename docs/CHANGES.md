@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Per-provider FetchOhlcvAsync parse tests (round 2)
+
+Builds on the earlier same-day broad pass. New `ProviderFetchOhlcvTests`
+(23 tests) drives each provider's `FetchOhlcvAsync` end-to-end via the
+`FakeHttpMessageHandler` fixture, reflection-swapped into the private
+HttpClient field. Catches the bug class users actually hit — malformed
+field, wrong nesting, case-sensitivity drift, dropped zero-volume bars,
+ordering errors, silent-empty paths on auth/parse failure.
+
+Coverage shipped this pass:
+
+- **Bitstamp** (8 tests): happy parse, zero-OHLC drop, malformed JSON,
+  missing data node, non-success status, unknown timeframe short-circuits
+  before HTTP, USDT→USD quote-swap on URL, parallel volume series.
+- **Polygon** (6 tests): happy parse, not-configured short-circuit,
+  malformed JSON, missing results, symbol uppercased on URL, Bearer auth
+  applied from Configure.
+- **Tradier** (2 tests): not-configured, Bearer auth header (with
+  swap-before-Configure ordering — Tradier writes auth into
+  DefaultRequestHeaders inside Configure).
+- **Coinbase** (1 test): not-configured short-circuit.
+- **AlternativeMe** (4 tests): newest-first → chronological reverse,
+  flat-OHLCV broadcast, NaN value skip, malformed-JSON empty, missing-data
+  empty.
+- **Mempool** (1 test): unknown-symbol short-circuit.
+- **DefiLlama** (1 test): unknown-symbol short-circuit.
+
+Test count 637 → 660. 0 warnings, 0 errors.
+
 ## [2026-04-24] — Provider test coverage: timeframe contract + symbol normalization across all 26 plugins
 
 First broad-coverage pass for the `Plugins/Providers/**` and

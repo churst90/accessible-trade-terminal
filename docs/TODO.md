@@ -879,17 +879,24 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [x] **Per-user worker-count limit** — shipped 2026-04-24.
   `DefaultMaxConcurrentWorkers = 16` with atomic counter gate in
   `StartAsync`/`DisposeAsync`. Configurable via `SetMaxConcurrentWorkers`.
-- [~] **Provider unit-test coverage** — first broad pass shipped
+- [~] **Provider unit-test coverage** — first + second pass shipped
   2026-04-24. `ProviderTimeframeContractTests` (31 tests) pins every
   provider's NativelySupportedTimeframes against TimeframeUtility;
   `ProviderSymbolNormalisationTests` extended to cover Bitstamp / Oanda /
   Polygon / Schwab / Tradier / Finnhub / MEXC / Alpaca (plus Kraken and
-  Coinbase from the earlier round); `Fakes/FakeHttpMessageHandler` added
-  as the fixture for the next layer. **Remaining:** per-provider
-  FetchOhlcvAsync parse tests via FakeHttpMessageHandler + reflection into
-  the provider's private `_httpClient` field, one session per provider
-  because each plugin inlines its parse inside FetchOhlcvAsync rather than
-  as an extractable helper.
+  Coinbase from the earlier round); `Fakes/FakeHttpMessageHandler` shipped
+  as a route-table HTTP fixture; `ProviderFetchOhlcvTests` (23 tests across
+  Bitstamp / Polygon / Tradier / Coinbase / AlternativeMe / Mempool /
+  DefiLlama) drives FetchOhlcvAsync end-to-end via reflection-swapped
+  HttpClient covering happy parse, malformed JSON, missing root nodes,
+  bearer-auth headers, symbol round-trip, USDT→USD quote swap, NaN-skip.
+  **Remaining:** Binance / MEXC are SDK-managed (HttpClient lives inside
+  the SDK and isn't reachable via field reflection — would need adapter
+  layer); Alpaca / Kraken / Oanda need credential-checkout fakes for the
+  full parse path; analytics-only providers (BGeometrics / CoinMetrics /
+  Glassnode / OkxDerivatives / Etherscan / Fred / Fmp / FmpAnalytics /
+  CoinGecko / BinanceVision / BinanceDerivatives) each need ~3 tests once
+  the test fixture pattern proves stable.
 - [x] **Silent `catch {}` sweep (Tier A.1 — 2026-04-23)** — shipped. Upgraded 9 user-facing silent catches to diagnostic `Debug.WriteLine` / `_logger.LogDebug`: `AlertEvaluator` (alert-rule failure), `AIAnalystService` (screenshot encode failure), and 7 provider feed parsers (Alpaca ×2, Finnhub, InteractiveBrokers, OANDA ×2, Polygon). Teardown/Dispose swallows and `OperationCanceledException` swallows retained as legitimate.
   codebase-wide. Most are correct (malformed WS frame, best-effort
   cleanup); the rest should at minimum log. Prioritized by call-path
