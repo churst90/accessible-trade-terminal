@@ -1,6 +1,7 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @inject IApiKeyService ApiKeyService
+@inject IDataService DataService
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
 @implements IDisposable
@@ -65,6 +66,21 @@
                                         @onclick="() => SetActive(k.Nickname)"
                                         @onclick:stopPropagation="true">
                                     Activate
+                                </button>
+                            }
+
+                            @* Schwab OAuth: kicks off the interactive browser-based authorization
+                               flow so the provider can acquire its initial refresh token. The
+                               button shows only for Schwab profiles — every other provider
+                               authenticates directly with the saved key + secret and needs no
+                               second step. *@
+                            @if (string.Equals(k.Provider, "Schwab", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <button aria-label="Sign in to Schwab to grant API access for @k.Nickname"
+                                        title="Opens the Schwab sign-in page in your browser to authorize this profile."
+                                        @onclick="() => BeginSchwabAuthorizationAsync(k.Nickname)"
+                                        @onclick:stopPropagation="true">
+                                    Sign in
                                 </button>
                             }
 
@@ -294,6 +310,75 @@
         catch (Exception ex)
         {
             _formError = $"Failed to remove profile: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Kicks off the Schwab OAuth authorization-code flow for the selected profile.
+    /// Activates the profile first so the provider loads its client id / secret, then
+    /// reaches the Schwab provider through <see cref="IDataService.GetProviderAsync"/>
+    /// and calls its <c>BeginAuthorizationAsync</c> entry point. The method opens the
+    /// Schwab sign-in page in the OS default browser; the provider's embedded HTTP
+    /// listener captures the callback and stores the refresh token. Feedback lands
+    /// through the accessibility event bus so screen-reader users hear when the flow
+    /// starts, succeeds, or fails.
+    /// </summary>
+    private async Task BeginSchwabAuthorizationAsync(string nickname)
+    {
+        try
+        {
+            // Ensure the profile whose sign-in was requested is the active one. Without
+            // this the provider might still be holding another profile's client id.
+            await ApiKeyService.SetActiveKeyAsync(nickname);
+            _keys = await ApiKeyService.GetAllKeysAsync();
+
+            var provider = await DataService.GetProviderAsync("Schwab");
+            if (provider == null)
+            {
+                _formError = "Schwab provider not loaded. Is the plugin installed?";
+                StateHasChanged();
+                return;
+            }
+
+            // Reach the concrete method via reflection so the UI layer doesn't take a
+            // hard plugin dependency. BeginAuthorizationAsync is declared on the
+            // SchwabProvider concrete class (not on IMarketDataProvider) so a cast or
+            // reflection is required either way.
+            var method = provider.GetType().GetMethod(
+                "BeginAuthorizationAsync",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (method == null)
+            {
+                _formError = "Schwab provider missing BeginAuthorizationAsync; plugin version mismatch.";
+                StateHasChanged();
+                return;
+            }
+
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                "Opening Schwab sign-in in browser."));
+
+            // The BeginAuthorizationAsync(Action<string>? openBrowser = null, CancellationToken = default)
+            // contract: first arg is an optional browser-launch hook; passing null falls
+            // back to the provider's default Process.Start shell opener.
+            var task = (Task?)method.Invoke(provider, new object?[] { null, default(System.Threading.CancellationToken) });
+            if (task == null)
+            {
+                _formError = "Schwab authorization invocation returned null.";
+                StateHasChanged();
+                return;
+            }
+            await task.ConfigureAwait(true);
+
+            _formError = null;
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"Schwab sign-in complete for {nickname}."));
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Schwab sign-in failed: {ex.Message}";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _formError));
             StateHasChanged();
         }
     }

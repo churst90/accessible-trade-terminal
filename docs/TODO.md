@@ -399,7 +399,7 @@ reliability. All fixes landed in a single session; details in
 
 ### Follow-up (deferred — UX call)
 
-- [ ] **Make `RightMarginBars` a fraction of `ViewportLength` rather than absolute count** — currently hardcoded to 20 bars. At ViewportLength=500 (zoomed out), the margin is only 4% of canvas width; at ViewportLength=100 (default), it's 20%. If the goal is "always ~20% visual gap for projections," switch to `RightMarginFraction = 0.20` and compute `RightMarginBars = ceil(ViewportLength * fraction)` on demand. No user pushback yet — leave absolute unless it becomes friction.
+- [~] **Make `RightMarginBars` a fraction of `ViewportLength` rather than absolute count** — currently hardcoded to 20 bars. At ViewportLength=500 (zoomed out), the margin is only 4% of canvas width; at ViewportLength=100 (default), it's 20%. If the goal is "always ~20% visual gap for projections," switch to `RightMarginFraction = 0.20` and compute `RightMarginBars = ceil(ViewportLength * fraction)` on demand. *Deferred* — 20+ call sites read the field; no user pushback motivates the ripple. Re-open when friction surfaces.
 
 ---
 
@@ -683,7 +683,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [x] **Extended BinanceVision DOGE/ADA/LTC support** — `BinanceVisionFundingCommand.SymbolStartMonths`, `BinanceVisionOiCommand.SymbolStartDates`, and both lab providers' asset-resolution whitelists.
 
 ### Open gaps — next session
-- [ ] **Funding snapshot scale rewrite** — existing `xs_binancevision_*_funding_8h.json` files store raw fraction (0.0001). New live plugin returns percent (0.01). Sign-based strategies (v18 `Funding > 0`) work regardless, but threshold-based strategies (`Funding > 0.05`) behave differently live vs lab. Fix: one-shot rewrite of the 8 existing funding snapshot files × 100.
+- [x] **Funding snapshot scale rewrite (2026-04-23)** — 8 files in `strategy-lab-data/` rewritten ×100 via idempotent PowerShell (`ScaleAppliedPercent: true` marker guards re-runs). Threshold-based strategies (v18 `Funding > 0.05`) now fire identically in lab vs live.
 - [x] **Asset-aware Core FundingRate / OpenInterest / CrowdingIndex** — shipped 2026-04-23. `IndicatorOrchestrator` stamps `parameters["__symbol"]` from `state.Identity.Symbol` on both full-recalc and tick-update paths. Each provider's new private `BuildRequest`/`BuildRequests` helper derives the cross-series symbol per-call (normalises `/`, `-`, appends `USDT` for bare bases, falls back to BTCUSDT when the hint is absent). Tests: `AssetAwareCrossSeriesTests.cs` (15).
 - [ ] **Delete redundant BNVISION_FUNDING / BNVISION_OI lab providers** — now duplicating what Core FUNDING_RATE / OPEN_INTEREST provide. Still referenced by v18/v21 strategy leaves. Once v18/v21 are migrated to `FUNDING_RATE.Funding Rate` leaf, the lab providers can be deleted along with their command files.
 
@@ -701,7 +701,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [ ] **v13/v14/v15 cross-asset walk-forward** — never tested on non-BTC. May reveal additional survivors or confirm BTC-specialist pattern.
 - [ ] **Divergence line rendering** — real MCB draws slanted line between pivots; currently only a diamond at the 2nd pivot. Renderer feature, deferred.
 - [ ] **Cross-pane Anchor cloud** — tint price pane background with anchor regime color. Currently only in oscillator pane.
-- [ ] **Schwab UI**: no "Sign in" button wired — entry point is `schwabProvider.BeginAuthorizationAsync()`.
+- [x] **Schwab UI sign-in button (2026-04-23)** — per-row "Sign in" button added to `ApiKeysModal` for Schwab profiles. Activates the profile, reaches the provider via `IDataService`, invokes `BeginAuthorizationAsync` through reflection (keeps UI off the plugin hard-dep), publishes start/success/failure feedback for screen-reader users.
 
 ---
 

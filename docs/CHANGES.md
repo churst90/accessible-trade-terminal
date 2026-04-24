@@ -4,6 +4,71 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-23] — Housekeeping: Schwab sign-in UI + funding-snapshot scale rewrite
+
+Post-commit housekeeping sweep. Closes two of the trivial-tier items;
+two others re-classified as already-deferred or too-large after
+re-read.
+
+### Schwab OAuth sign-in button (ApiKeysModal)
+
+`SchwabProvider.BeginAuthorizationAsync` has been the documented
+entry point for OAuth authorization-code flow for some time, but the
+UI had no surface that invoked it — users had to launch the flow
+from the StrategyLab CLI. Added a per-row "Sign in" button in
+`ApiKeysModal` that appears only on rows with `Provider == "Schwab"`.
+The handler:
+- activates the selected profile via `ApiKeyService.SetActiveKeyAsync`
+  (so the provider picks up the correct client id / secret);
+- reaches the concrete Schwab provider through
+  `IDataService.GetProviderAsync("Schwab")`;
+- invokes `BeginAuthorizationAsync` via reflection (the UI layer
+  stays free of a hard plugin dependency);
+- publishes "Opening Schwab sign-in" / "Schwab sign-in complete"
+  feedback events so screen-reader users hear the state transition.
+
+### Funding-snapshot scale rewrite ×100
+
+Eight `xs_binancevision_*_funding_8h.json` snapshot files in
+`strategy-lab-data/` stored funding values as raw fractions (e.g.
+`-0.00012359`). The live `BinanceVisionProvider` returns percent
+(`-0.012359`). Threshold-based strategies (v18 "Funding > 0.05")
+fired differently in the snapshot-backed StrategyLab harness vs.
+live runs. Rewrote the 8 files with an idempotent PowerShell
+one-shot: multiplies every `Points[n].Value` by 100 and stamps a
+root-level `ScaleAppliedPercent: true` marker so re-running is a
+no-op.
+
+Files rewritten: ADA, BNB, BTC, DOGE, ETH, LTC, SOL, XRP — all
+`xs_binancevision_*_funding_8h.json` under `strategy-lab-data/`
+(gitignored so not committed to the repo; the rewrite is a local
+developer-data operation).
+
+### Re-classified on re-read
+
+- **RightMarginBars as fraction of ViewportLength** — the TODO
+  entry's own rationale ("No user pushback yet — leave absolute
+  unless it becomes friction") is an explicit deferral, not an
+  actionable item. Re-classifying as deferred. The field is consumed
+  at 20+ call sites; changing semantics from absolute-count to
+  fraction-computed would ripple through viewport navigation, zoom
+  clamps, and audio-pan math with no reproducible user pain
+  motivating the change.
+- **Delete broken strategy specs (v4r1 / v6 / v3)** — each entry has
+  an explicit pre-condition ("delete after Phase 12 HTF fix verified
+  working", "retain only if visual verification confirms Lead Sine
+  actually leads price turns"). Pre-conditions haven't been cleared;
+  not acting unilaterally.
+- **Delete BNVISION_FUNDING / BNVISION_OI lab providers** — gated on
+  "once v18/v21 migrate to `FUNDING_RATE.Funding Rate` leaf." That
+  migration hasn't landed; not acting.
+
+### Test + build
+
+**531/531 tests pass.** Build clean, 0 warnings across all 4 TFMs.
+
+---
+
 ## [2026-04-23] — Tier B roadmap enhancements (symbol/timeframe consolidation + TP ladder safety)
 
 Closes 5 Tier B items. Two of them (adaptive warmup auto-apply, Binance
