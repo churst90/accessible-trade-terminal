@@ -101,7 +101,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (i >= data.Count) break;
 
                 var bar = data[i];
-                float x = (i * barWidth) + halfBar;
+                // Pixel-align the bar center to a half-pixel so the 1-px-wide
+                // wick stroke and the body rect share a common visual axis.
+                // Without this, float coordinates fell on arbitrary sub-pixel
+                // positions and Skia's anti-aliasing produced asymmetric
+                // wicks (offset by fractions of a pixel from the body center)
+                // on thin-body doji-style candles at typical zoom levels.
+                float xRaw = (i * barWidth) + halfBar;
+                float x = (float)Math.Floor(xRaw) + 0.5f;
 
                 float yOpen = ChartMath.MapY((double)bar.Open, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                 float yHigh = ChartMath.MapY((double)bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
@@ -144,7 +151,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 var bodyPaint = bodyLease.Paint;
                 bodyPaint.Color = bodyColor;
                 bodyPaint.Style = SKPaintStyle.Fill;
-                ctx.Canvas.DrawRect(x - (barWidth * 0.4f), top, barWidth * 0.8f, bodyHeight, bodyPaint);
+                // Pixel-align body edges so the rect is symmetric around the
+                // same center as the wick stroke. Without flooring, the body's
+                // left edge and width both drifted on sub-pixel boundaries and
+                // the visual center no longer matched the wick's x.
+                float bodyHalfWidth = (float)Math.Floor(barWidth * 0.4f);
+                float bodyLeft = x - bodyHalfWidth;
+                float bodyWidthPx = bodyHalfWidth * 2f;
+                ctx.Canvas.DrawRect(bodyLeft, top, bodyWidthPx, bodyHeight, bodyPaint);
             }
         }
 

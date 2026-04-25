@@ -352,24 +352,41 @@ namespace AccessibleTrader.Core.Services
 
         private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density)
         {
-            // Use fewer labels for small indicator panes to prevent crowding.
-            double[] anchors = rect.Height < 100 * density
-                ? new[] { 0.0, 0.5, 1.0 }
-                : new[] { 0.0, 0.25, 0.5, 0.75, 1.0 };
+            // Round-number anchors. Old algorithm labeled at fixed fractions (0,
+            // 0.25, 0.5, 0.75, 1.0) of the raw min/max, producing labels like
+            // "76227.38" on a 64k-80k BTC view — accurate but useless; traders
+            // read in round thousands. Now we pick a nice-number step with the
+            // same algorithm BackgroundLayer uses for gridlines, then emit
+            // labels at the step boundaries. Label positions align exactly with
+            // major gridlines so the chart reads as a coherent grid, not a grid
+            // + an unrelated label track.
+            double range = max - min;
+            if (range <= 0 || double.IsNaN(range) || double.IsInfinity(range)) return;
+
+            // Pick target label density by pane height. Small indicator panes
+            // (<100px tall) want ~3 labels; full-size panes want ~5.
+            int targetLabelCount = rect.Height < 100 * density ? 3 : 5;
+            double roughStep = range / targetLabelCount;
+            double stepMag = Math.Pow(10, Math.Floor(Math.Log10(roughStep)));
+            double stepFrac = roughStep / stepMag;
+            double niceStep;
+            if (stepFrac < 1.5) niceStep = 1 * stepMag;
+            else if (stepFrac < 3.5) niceStep = 2 * stepMag;
+            else if (stepFrac < 7.5) niceStep = 5 * stepMag;
+            else niceStep = 10 * stepMag;
+
             float minLabelSpacing = _textFont.Size + (4 * density);
             float lastLabelY = float.MaxValue;
-            foreach (var a in anchors)
+
+            double firstLine = Math.Ceiling(min / niceStep) * niceStep;
+            int safety = 0;
+            for (double v = firstLine; v <= max && safety < 200; v += niceStep, safety++)
             {
-                double val = min + (max - min) * a;
-                float y = rect.Bottom - (float)(a * rect.Height);
-                // Skip labels that are too close to the previous one.
+                float y = ChartMath.MapY(v, rect.Top, rect.Bottom, min, max, isLogScale);
                 if (Math.Abs(y - lastLabelY) < minLabelSpacing) continue;
                 lastLabelY = y;
-                string label = FormatAxisValue(val, max - min);
+                string label = FormatAxisValue(v, range);
                 float lx = rect.Left + (3 * density);
-                // Clamp so baseline never falls below the pane bottom or above the cap-height boundary.
-                // Top pad bumped 2→6 px 2026-04-24 because the topmost label was
-                // clipping against the pane edge on typical monitors.
                 float textY = Math.Clamp(y + (4 * density),
                     rect.Top + _textFont.Size + (6 * density),
                     rect.Bottom - (3 * density));
@@ -486,7 +503,13 @@ namespace AccessibleTrader.Core.Services
                 prevLabelDate = d;
 
                 float textY = rect.Top + _textFont.Size + (6 * density);
-                canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
+                // Rightmost label right-aligns so it doesn't overshoot the axis
+                // edge; all others left-align from the tick position. Prevents
+                // the final label from clipping against the canvas edge at tight
+                // viewport widths.
+                SKTextAlign align = (i == labelCount) ? SKTextAlign.Right : SKTextAlign.Left;
+                float textX = (i == labelCount) ? rect.Right - (2 * density) : x;
+                canvas.DrawText(label, textX, textY, align, _textFont, _textPaint);
             }
         }
 

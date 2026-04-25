@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Round 2 visual polish: round-number Y-axis, symmetric wicks
+
+Follow-up to the earlier polish pass after a second screenshot review on the
+10h BTCUSDT chart. Four items:
+
+- **Round-number Y-axis anchors.** `RenderYAxis` was labeling at fixed
+  fractions (0, 0.25, 0.5, 0.75, 1.0) of the raw viewport min/max, producing
+  labels like `76227.38 / 80227.25` on a ~$64k–$80k BTC view — accurate but
+  not how traders read prices. Now uses the same nice-number-step algorithm
+  `BackgroundLayer` uses for gridlines (10 / 20 / 50 / 100 with magnitude
+  scaling). Labels land on `64000 / 68000 / 72000 / 76000 / 80000` and the
+  label positions align exactly with the major gridlines.
+- **Gridline alphas bumped again.** Minor 60 → 80, major 140 → 160 after the
+  second screenshot still showed the middle gridlines barely perceptible.
+- **Rightmost X-axis label right-aligned.** The last label on the X-axis
+  was left-anchored at its tick position and could clip past the axis edge
+  at tight viewport widths. Now right-aligns from `rect.Right - 2px`.
+- **Symmetric candle wicks.** Wicks on thin-body doji candles rendered
+  asymmetric at typical zoom levels because the bar center X was on an
+  arbitrary sub-pixel position. Now pixel-aligned: `x` snaps to half-pixel
+  boundaries (standard for 1-px stroke centering), and the body rect's
+  left edge + width floor to integer pixels so the body visually shares
+  the same axis as the wick stroke.
+
+731 / 731 tests still green. 0 warnings, 0 errors.
+
 ## [2026-04-24] — Visual polish sweep from screenshot review
 
 Post-screenshot review of the default BTCUSDT 6h chart. Six items shipped:
