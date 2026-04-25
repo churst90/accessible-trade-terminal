@@ -24,9 +24,12 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // Minor + major gridlines at "nice number" intervals. Every 5th line is
             // drawn brighter so the eye finds round-number anchors ($25k, $50k, etc.)
-            // without the grid turning into a wall.
-            using var gridMinor = new SKPaint { Color = _theme.GridLines.WithAlpha(35), StrokeWidth = 1 * ctx.Density };
-            using var gridMajor = new SKPaint { Color = _theme.GridLines.WithAlpha(90), StrokeWidth = 1 * ctx.Density };
+            // without the grid turning into a wall. Alphas bumped 2026-04-24 after
+            // a screenshot review showed them invisible at typical monitor DPI —
+            // the theme's GridLines color is already muted so the per-paint alpha
+            // needs more weight to land visibly.
+            using var gridMinor = new SKPaint { Color = _theme.GridLines.WithAlpha(60),  StrokeWidth = 1 * ctx.Density };
+            using var gridMajor = new SKPaint { Color = _theme.GridLines.WithAlpha(140), StrokeWidth = 1 * ctx.Density };
 
             double range = ctx.Max - ctx.Min;
             if (range > 0 && !double.IsNaN(range) && !double.IsInfinity(range))

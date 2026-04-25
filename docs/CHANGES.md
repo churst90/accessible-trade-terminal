@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-24] — Visual polish sweep from screenshot review
+
+Post-screenshot review of the default BTCUSDT 6h chart. Six items shipped:
+
+- **X-axis adaptive date labels.** The old formatter used hardcoded `HH:mm`,
+  so every label on a 6h chart read `06:00 06:00 06:00 06:00 06:00` — every
+  bar opens at a multiple of 6h UTC so the time-only format gave the user
+  no information. New logic picks the format off the visible span: < 2 days
+  → `HH:mm` (with date prefix when two adjacent labels straddle midnight);
+  2–60 days → `MM/dd`; > 60 days → `MMM d`.
+- **Gridline visibility.** BackgroundLayer major/minor alphas bumped from
+  35/90 → 60/140. The theme's `GridLines` base color is already muted; the
+  old per-paint alpha was too low to surface at typical monitor DPI.
+- **Right-margin default 20 → 10 bars.** The old 20 reserved ~10 % of
+  viewport width as blank right-margin future-space; on a 6h chart that
+  was five days of empty real estate. Ten bars matches TradingView's
+  default feel. `WorkspaceState.Initial.RightMarginBars` + the parameter
+  default on `ChartRenderer.Render` both updated.
+- **Native titlebar + app-header dedupe.** `MainLayout` was painting the
+  same `<h1>` text the native Windows titlebar already shows (via
+  `window.Title` set from `MainPage.xaml.cs`). The `<h1>` is now
+  `visually-hidden` — the banner landmark stays for screen readers, and
+  the 40-pixel strip is reclaimed for chart. `MainPage.xaml` canvas top
+  margin 185 → 145 to match.
+- **Y-axis top label padding 2 → 6 px.** The topmost Y-axis label was
+  clipping against the pane edge on typical monitors.
+- **Volume pane legend retained by design.** Indicator panes carry a
+  boxed rounded-rectangle legend for readability against busy bar pixels;
+  price pane stays unboxed because it has no overlay indicators. Not a
+  bug — documented here so it's not re-opened.
+
+731 / 731 tests still green. 0 warnings, 0 errors.
+
 ## [2026-04-24] — Provider coverage round 5 + JournalModal latency surface
 
 **Round 5 fetch parse — auth-gated trading providers (15 tests).**

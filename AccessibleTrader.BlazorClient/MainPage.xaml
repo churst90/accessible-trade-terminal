@@ -50,7 +50,7 @@
                            PaintSurface="OnCanvasPaint"
                            InputTransparent="True"
                            IgnorePixelScaling="True"
-                           Margin="0,185,0,100" />
+                           Margin="0,145,0,100" />
     </Grid>
 
 </ContentPage>

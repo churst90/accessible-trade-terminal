@@ -54,7 +54,7 @@ namespace AccessibleTrader.Core.Services
             _profileLayer = new ProfileRenderLayer(profileService, _theme, appLogger);
         }
 
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 20)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 10)
         {
             try
             {
@@ -368,8 +368,10 @@ namespace AccessibleTrader.Core.Services
                 string label = FormatAxisValue(val, max - min);
                 float lx = rect.Left + (3 * density);
                 // Clamp so baseline never falls below the pane bottom or above the cap-height boundary.
+                // Top pad bumped 2→6 px 2026-04-24 because the topmost label was
+                // clipping against the pane edge on typical monitors.
                 float textY = Math.Clamp(y + (4 * density),
-                    rect.Top + _textFont.Size + (2 * density),
+                    rect.Top + _textFont.Size + (6 * density),
                     rect.Bottom - (3 * density));
                 canvas.DrawText(label, lx, textY, SKTextAlign.Left, _textFont, _textPaint);
             }
@@ -430,17 +432,61 @@ namespace AccessibleTrader.Core.Services
         private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density)
         {
             if (!visibleData.Any()) return;
+
+            // Adaptive label format driven by the visible span. A 6h chart showing
+            // "06:00 06:00 06:00 06:00 06:00" tells the user nothing — every bar
+            // is at a multiple of 6h UTC. Pick a format based on the total span:
+            //
+            //   span < 2 days   → intraday, show "HH:mm" everywhere.
+            //   2–60 days       → swing/daily view, show "MM/dd" at each label and
+            //                     append " HH:mm" on the bar immediately after
+            //                     midnight so time-of-day context isn't lost.
+            //   > 60 days       → long-range, show "MMM d" (e.g. "Apr 24").
+            //
+            // Plus a date-boundary tick: when two adjacent labels straddle midnight
+            // on a 2-60 day chart, the later one forces the date prefix so the user
+            // always sees where one day ends and the next begins.
+            var span = visibleData[^1].Date - visibleData[0].Date;
+            string primaryFormat;
+            bool markDateBoundaries;
+            if (span.TotalDays < 2)
+            {
+                primaryFormat = "HH:mm";
+                markDateBoundaries = true;   // still surface the date at midnight
+            }
+            else if (span.TotalDays < 60)
+            {
+                primaryFormat = "MM/dd";
+                markDateBoundaries = false;
+            }
+            else
+            {
+                primaryFormat = "MMM d";
+                markDateBoundaries = false;
+            }
+
             int labelCount = 5;
             float step = rect.Width / labelCount;
+            DateTime? prevLabelDate = null;
             for (int i = 0; i <= labelCount; i++)
             {
                 float x = rect.Left + (i * step);
                 float barX = x - rect.Left;
                 int dIdx = (int)(barX / Math.Max(itemWidth, 1f));
                 dIdx = Math.Max(0, Math.Min(visibleData.Count - 1, dIdx));
-                // Position baseline in the upper portion of the axis strip so text never clips the canvas edge.
+                var d = visibleData[dIdx].Date;
+
+                string label = d.ToString(primaryFormat);
+                if (markDateBoundaries && prevLabelDate.HasValue && d.Date != prevLabelDate.Value.Date)
+                {
+                    // Day rolled over between labels — lead with the date so the
+                    // user sees the boundary.
+                    label = d.ToString("MM/dd ") + label;
+                }
+                prevLabelDate = d;
+
                 float textY = rect.Top + _textFont.Size + (6 * density);
-                canvas.DrawText(visibleData[dIdx].Date.ToString("HH:mm"), x, textY, SKTextAlign.Left, _textFont, _textPaint);
+                canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
             }
         }
 

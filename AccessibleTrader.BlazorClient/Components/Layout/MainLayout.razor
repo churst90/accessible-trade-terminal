@@ -34,10 +34,13 @@
     @* Icon sprite injected once — <use href="#icon-*"> in every button references these symbols. *@
     <IconSprite />
 
-    <header role="banner" class="app-header">
-        <h1 id="main-heading" style="font-size: 1.1rem; margin: 0; font-weight: bold;">
-            @GetTitle()
-        </h1>
+    @* Screen-reader-only banner landmark. The native Windows titlebar already
+       renders the same text as the window title (set by MainPage.xaml.cs), so
+       painting it a second time inside the WebView wasted a 40-pixel strip.
+       Keeping the <h1> as a `visually-hidden` landmark preserves the primary
+       heading for screen readers without the visual duplication. *@
+    <header role="banner" class="visually-hidden">
+        <h1 id="main-heading">@GetTitle()</h1>
     </header>
 
     <Toolbar />

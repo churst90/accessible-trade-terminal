@@ -95,9 +95,12 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>
         /// Number of empty future-space slots reserved on the right of the viewport.
         /// The last real bar always lands at slot (ViewportLength - RightMarginBars - 1).
-        /// Allows trendlines and drawings to project into future space. Default: 20 bars.
+        /// Allows trendlines and drawings to project into future space. Default: 10 bars
+        /// (was 20 before 2026-04-24; reduced after a screenshot review showed the 20-bar
+        /// margin was ~10% of viewport width on typical monitors, leaving most of the right
+        /// third of the chart blank).
         /// </summary>
-        int RightMarginBars = 20,
+        int RightMarginBars = 10,
         bool IsSpeechEnabled = true,
         bool IsSonificationEnabled = true,
         TerminalMode Mode = TerminalMode.Trading,
@@ -185,7 +188,7 @@ namespace AccessibleTrader.Sdk.Models
             CurrentDataIndex: -1,
             ViewportStartIndex: 0,
             ViewportLength: 100,
-            RightMarginBars: 20,
+            RightMarginBars: 10,
             ViewportRange: (0, 0),
             PaneRanges: ImmutableDictionary<string, (double Min, double Max)>.Empty,
             ChartVolume: 0.5f,
