@@ -27,6 +27,7 @@ try
         "xs-snapshot"  => await HandleXsSnapshot(args.Skip(1).ToArray()),
         "run"          => await HandleRun(args.Skip(1).ToArray()),
         "walk"         => await HandleWalk(args.Skip(1).ToArray()),
+        "walk-windows" => await HandleWalkWindows(args.Skip(1).ToArray()),
         "diagnostic"   => await HandleDiagnostic(args.Skip(1).ToArray()),
         "combo"        => await HandleCombo(args.Skip(1).ToArray()),
         "combo-sweep"  => await HandleComboSweep(args.Skip(1).ToArray()),
@@ -57,6 +58,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab xs-snapshot [--out strategy-lab-data] [--points 3000]   # funding/OI/FNG");
     Console.WriteLine("  StrategyLab run  --snapshot <path> --spec <id> [--start yyyy-mm-dd] [--end yyyy-mm-dd] [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
+    Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine();
@@ -87,8 +89,11 @@ static async Task<int> HandleSnapshot(string[] a)
     string tf     = GetFlag(a, "--tf") ?? "4h";
     int bars      = int.TryParse(GetFlag(a, "--bars"), out var b) ? b : 3000;
     string outDir = GetFlag(a, "--out") ?? "strategy-lab-data";
-    Console.WriteLine($"snapshot: {symbol} {tf} target={bars} → {outDir}");
-    return await SnapshotCommand.RunAsync(symbol, tf, bars, outDir);
+    string prov   = GetFlag(a, "--provider") ?? "bitstamp";
+    string? key   = GetFlag(a, "--key");
+    string? sec   = GetFlag(a, "--secret");
+    Console.WriteLine($"snapshot: [{prov}] {symbol} {tf} target={bars} → {outDir}");
+    return await SnapshotCommand.RunAsync(symbol, tf, bars, outDir, prov, key, sec);
 }
 
 static async Task<int> HandleRun(string[] a)
@@ -117,6 +122,20 @@ static async Task<int> HandleWalk(string[] a)
     if (specId == null)       { Console.Error.WriteLine("--spec is required"); return 1; }
 
     return await RunCommand.WalkAsync(snapshotPath, specId, warmup, noReverse);
+}
+
+static async Task<int> HandleWalkWindows(string[] a)
+{
+    string? snapshotPath = GetFlag(a, "--snapshot");
+    string? specId       = GetFlag(a, "--spec");
+    int windows = int.TryParse(GetFlag(a, "--windows"), out var ws) ? ws : 6;
+    int warmup  = int.TryParse(GetFlag(a, "--warmup"),  out var w)  ? w  : 200;
+    bool noReverse = HasFlag(a, "--no-reverse");
+
+    if (snapshotPath == null) { Console.Error.WriteLine("--snapshot is required"); return 1; }
+    if (specId == null)       { Console.Error.WriteLine("--spec is required"); return 1; }
+
+    return await WalkWindowsCommand.RunAsync(snapshotPath, specId, windows, warmup, noReverse);
 }
 
 static async Task<int> HandleXsSnapshot(string[] a)

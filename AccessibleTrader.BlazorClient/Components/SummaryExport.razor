@@ -33,13 +33,45 @@
         </button>
 
         <label for="bs-load">Load existing:</label>
+        @{
+            // Empirically-derived per-asset recommendation. Two-route lookup:
+            //   1. If the chart has enough bars (~565 = AssetClassifier needs 365 + 200
+            //      warmup), use the BEHAVIOR-DRIVEN classifier — works for any asset
+            //      including ones we've never tested (forex, equities, micro-caps).
+            //   2. Otherwise fall back to the symbol-string heuristic
+            //      (BTC/ETH → Faber-gated, XRP/LTC → bare v23, etc.).
+            var currentSymbol = Store.State.Identity.Symbol;
+            var currentTf     = Store.State.Identity.Timeframe;
+            var currentBars   = Store.State.Data;
+            string? recommendedId;
+            if (currentBars != null && currentBars.Count >= 565)
+            {
+                recommendedId = BuiltInStrategySeeds.GetV23LongPresetForBars(
+                    currentBars, currentSymbol, currentTf);
+            }
+            else
+            {
+                recommendedId = BuiltInStrategySeeds.GetV23LongPresetForAsset(currentSymbol, currentTf);
+            }
+        }
         <select id="bs-load" value="@Spec.LoadedId" @onchange="OnLoadChanged">
             <option value="">— Select —</option>
             @foreach (var s in Library.All)
             {
-                <option @key="s.Id" value="@s.Id">@s.Name</option>
+                bool recommended = recommendedId != null
+                    && string.Equals(s.Id, recommendedId, StringComparison.OrdinalIgnoreCase);
+                <option @key="s.Id" value="@s.Id">
+                    @(recommended ? "★ " : "")@s.Name@(recommended ? $" — recommended for {currentSymbol}" : "")
+                </option>
             }
         </select>
+        @if (recommendedId != null)
+        {
+            <button type="button" @onclick='() => OnLoadChanged(new ChangeEventArgs { Value = recommendedId })'
+                    aria-label="Load the empirically-recommended v23 long strategy for the current chart symbol">
+                Use recommended
+            </button>
+        }
 
         @if (!string.IsNullOrEmpty(Spec.LoadedId))
         {

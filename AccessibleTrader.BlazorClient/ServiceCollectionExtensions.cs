@@ -257,6 +257,11 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, PulseProvider>();
             services.AddSingleton<IIndicatorProvider, RegimeProvider>();
             services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
+            services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
+            services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
+            services.AddSingleton<IIndicatorProvider, HurstExponentProvider>();
+            services.AddSingleton<IIndicatorProvider, PivotLevelsProvider>();
+            services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
 
             // Runtime custom indicator registry — stores Roslyn/Pine compiled ICustomIndicator instances.
             services.AddSingleton<ICustomIndicatorRegistry, CustomIndicatorRegistry>();

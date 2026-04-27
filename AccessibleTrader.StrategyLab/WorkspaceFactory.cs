@@ -47,6 +47,22 @@ public static class WorkspaceFactory
         "FUNDING_RATE",
         "OPEN_INTEREST",
         "COINMETRICS",  // CoinMetrics community-tier on-chain (MVRV, active addresses, hash rate)
+
+        // v22 family — single-indicator reversal detector. Self-contained
+        // (no cross-series cache); included in the default pack so v22 specs
+        // work in walk-forward without caller plumbing.
+        "TOP_BOTTOM_DETECTOR",
+
+        // v23+ family — universal price-action indicators added 2026-04-27 e7
+        // for the KAS/TAO investigation. All self-contained, no cross-series.
+        "ANCHORED_VWAP",
+        "HURST",
+        "PIVOTS",
+
+        // BTC strength — synthetic, projected from a sibling BTC snapshot in the
+        // same strategy-lab-data folder. Skipped automatically if no matching BTC
+        // snapshot exists. Components: BtcRatio, BtcRatioMomentum.
+        "BTC_STRENGTH",
     };
 
     public static async Task<WorkspaceState> BuildAsync(
@@ -83,6 +99,19 @@ public static class WorkspaceFactory
             {
                 result = ProjectVolume(bars);
             }
+            else if (code == "BTC_STRENGTH")
+            {
+                // Synthetic: ratio of asset close vs BTC close on the same bar +
+                // 14-bar momentum of that ratio. Loaded from the sibling BTC snapshot
+                // file in the strategy-lab-data dir. Skipped (NaN columns) if BTC
+                // snapshot at the same TF doesn't exist.
+                result = ProjectBtcStrength(snapshot);
+                if (result.Count == 0)
+                {
+                    Console.WriteLine($"  - BTC_STRENGTH: no sibling BTC snapshot at {snapshot.Timeframe}, skipped");
+                    continue;
+                }
+            }
             else
             {
                 // Real indicator — empty parameters dict means providers use their declared
@@ -98,6 +127,18 @@ public static class WorkspaceFactory
                 {
                     ["__symbol"] = snapshot.Symbol,
                 };
+
+                // v22 family: enable timeframe-adaptive scaling so the same Bottom/Top
+                // Confirmed semantics apply across 4h/1d/1w. Without this, default
+                // bar-count gates (100-bar lookback, 5-ATR meaningful range) make 1w
+                // produce zero fires and 1d under-fire on shorter snapshots. Lab
+                // research has confirmed (2026-04-27) that 1d v22-LONG is the highest-
+                // quality setup; adapting the gates by detected bar interval lets that
+                // same setup fire reliably on weekly without changing semantics.
+                if (code == TopBottomDetectorProvider.Code)
+                {
+                    parameters["TimeframeAdaptive"] = 1;
+                }
                 try
                 {
                     result = await engine.CalculateAsync(code, bars, parameters, ct);
@@ -179,6 +220,104 @@ public static class WorkspaceFactory
         var vol = new double[bars.Count];
         for (int i = 0; i < bars.Count; i++) vol[i] = bars[i].Volume;
         return new Dictionary<string, double[]> { ["Volume"] = vol };
+    }
+
+    /// <summary>
+    /// BTC-relative strength: log(asset_close / btc_close_at_same_bar). Larger value =
+    /// asset outperforming BTC since baseline. Plus a 14-bar momentum component
+    /// (current ratio − ratio 14 bars ago). Asymmetric utility: for ALTCOIN charts,
+    /// BTC.D rising (BtcRatioMomentum &lt; 0 — alts losing to BTC) is bearish for
+    /// alt LONGs and bullish for alt SHORTs. For BTC charts, this whole indicator is
+    /// trivially zero / NaN — short-circuited.
+    ///
+    /// Snapshot lookup convention: looks for `{provider}_BTC_USDT_{tf}.json` in the
+    /// same directory as the active snapshot. If not found, returns empty (caller
+    /// skips the indicator gracefully, no exception). Both bitstamp_BTC_USDT_*.json
+    /// and mexc_BTC_USDT_*.json work; the loader tries the active snapshot's provider
+    /// first, then falls back to any provider it can find.
+    /// </summary>
+    private static Dictionary<string, double[]> ProjectBtcStrength(SnapshotFile snapshot)
+    {
+        // BTC charts: short-circuit. Ratio is identically 1 → zero log → no signal.
+        if (snapshot.Symbol.StartsWith("BTC", StringComparison.OrdinalIgnoreCase))
+            return new Dictionary<string, double[]>();
+
+        // Try to find a BTC snapshot at the same TF. Tries the active provider first.
+        // Lab convention: snapshot files live next to each other in `strategy-lab-data/`.
+        var dir = Path.GetDirectoryName(Path.GetFullPath("strategy-lab-data")) ?? Directory.GetCurrentDirectory();
+        // Walk up: callers run from various working directories. Find the canonical
+        // strategy-lab-data dir.
+        string? labDir = null;
+        var probe = Directory.GetCurrentDirectory();
+        for (int i = 0; i < 4 && probe != null; i++)
+        {
+            var candidate = Path.Combine(probe, "strategy-lab-data");
+            if (Directory.Exists(candidate)) { labDir = candidate; break; }
+            probe = Path.GetDirectoryName(probe);
+        }
+        if (labDir == null) return new Dictionary<string, double[]>();
+
+        var prov = string.IsNullOrEmpty(snapshot.Provider) ? "bitstamp" : snapshot.Provider.ToLowerInvariant();
+        var primary  = Path.Combine(labDir, $"{prov}_BTC_USDT_{snapshot.Timeframe}.json");
+        var fallback = Path.Combine(labDir, $"bitstamp_BTC_USDT_{snapshot.Timeframe}.json");
+        var path = File.Exists(primary) ? primary : (File.Exists(fallback) ? fallback : null);
+        if (path == null) return new Dictionary<string, double[]>();
+
+        SnapshotFile btc;
+        try { btc = SnapshotCommand.Load(path); }
+        catch { return new Dictionary<string, double[]>(); }
+
+        // Build a date → BTC close lookup. Use a sorted list and binary-search-by-date so
+        // bars don't need exact alignment to the millisecond.
+        var btcBars = btc.Bars.OrderBy(b => b.Date).ToList();
+        var btcDates = btcBars.Select(b => b.Date).ToArray();
+
+        int n = snapshot.Bars.Count;
+        var ratio = new double[n];
+        var momentum = new double[n];
+        for (int i = 0; i < n; i++) { ratio[i] = double.NaN; momentum[i] = double.NaN; }
+
+        // Bar-alignment behavior verified 2026-04-27 e11: MEXC altcoin and Bitstamp BTC
+        // snapshots align exactly at every 4h bar boundary on KAS 4h (7850/7850 exact
+        // matches). The BinarySearch is "closest <= bar" so even cross-provider snapshots
+        // with minor drift fall back to the previous BTC bar gracefully. We track total
+        // and max drift so future cross-provider mismatches surface in the run log.
+        int exactMatches = 0;
+        long maxDriftSec = 0;
+        long totalDriftSec = 0;
+        int driftSamples = 0;
+        for (int i = 0; i < n; i++)
+        {
+            var d = snapshot.Bars[i].Date;
+            int idx = Array.BinarySearch(btcDates, d);
+            if (idx >= 0) exactMatches++;
+            if (idx < 0) idx = ~idx - 1;            // closest <= bar
+            if (idx < 0 || idx >= btcBars.Count) continue;
+            long driftSec = (long)Math.Abs((d - btcDates[idx]).TotalSeconds);
+            totalDriftSec += driftSec;
+            driftSamples++;
+            if (driftSec > maxDriftSec) maxDriftSec = driftSec;
+            var btcClose = btcBars[idx].Close;
+            if (btcClose <= 0 || snapshot.Bars[i].Close <= 0) continue;
+            ratio[i] = Math.Log(snapshot.Bars[i].Close / btcClose);
+            if (i >= 14 && !double.IsNaN(ratio[i - 14]))
+                momentum[i] = ratio[i] - ratio[i - 14];
+        }
+
+        if (driftSamples > 0)
+        {
+            double meanDriftSec = (double)totalDriftSec / driftSamples;
+            Console.WriteLine(
+                $"  - BTC_STRENGTH: aligned {exactMatches}/{n} bars exact, " +
+                $"meanDrift={meanDriftSec:0.0}s, maxDrift={maxDriftSec}s " +
+                $"(source={Path.GetFileName(path)})");
+        }
+
+        return new Dictionary<string, double[]>
+        {
+            ["BtcRatio"]         = ratio,
+            ["BtcRatioMomentum"] = momentum,
+        };
     }
 
     /// <summary>

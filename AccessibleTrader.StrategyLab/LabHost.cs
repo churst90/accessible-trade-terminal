@@ -115,6 +115,11 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, CrowdingIndexProvider>();
         services.AddSingleton<IIndicatorProvider, RegimeProvider>();
         services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
+        services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
+        services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
+        services.AddSingleton<IIndicatorProvider, HurstExponentProvider>();
+        services.AddSingleton<IIndicatorProvider, PivotLevelsProvider>();
+        services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionFundingProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionOiProvider>();
         services.AddSingleton<IIndicatorProvider, CftcCotProvider>();

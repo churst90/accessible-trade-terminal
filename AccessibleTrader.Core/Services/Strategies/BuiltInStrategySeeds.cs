@@ -78,6 +78,225 @@ namespace AccessibleTrader.Core.Services.Strategies
         // quality bottom regime, the intersection should boost per-trade R.
         public const string LongV21MvrvCapitulationTrilogyId = "builtin.long.v21-mvrv-capitulation-trilogy";
 
+        // v22 — Capitulation Bottom (Long). Fires on the new TopBottomDetector
+        // "Bottom Confirmed" marker — single-bar capitulation event (volume spike +
+        // lower wick + below band + RSI oversold + momentum flip), gated to bottom
+        // 20% of the trailing window. The first long-side seed that explicitly
+        // operationalises the "bottoms are events" half of the asymmetry thesis.
+        public const string LongV22CapitulationBottomId = "builtin.long.v22-capitulation-bottom";
+
+        // v22r — Faber-gated capitulation long. v22 + REGIME.AboveSma200 > 0
+        // (price above 200-period SMA). Tests the hypothesis that the raw
+        // Capitulation Confirmed marker has real edge but is overwhelmed by
+        // bear-regime instances; pairing it with the most empirically robust
+        // single-gate filter in the suite (Faber MA, validated on v13/Faber-Pulse)
+        // should lift expectancy by suppressing the bear-half false positives.
+        public const string LongV22rCapitulationFaberId = "builtin.long.v22r-capitulation-faber";
+
+        // v22 — Distribution Top (Short). Fires on the new TopBottomDetector
+        // "Top Confirmed" marker — multi-bar distribution accumulator with
+        // exponential decay (bearish divergence + drying volume + volatility
+        // compression + upthrusts + sideways-at-highs). Gated to top 20% of the
+        // window. Operationalises the "tops are processes" half of the same
+        // thesis. Both v22 seeds use the same detector; the Side flips them.
+        public const string ShortV22DistributionTopId   = "builtin.short.v22-distribution-top";
+
+        // v22r — Bear-regime + crowded-funding gated distribution short. v22 +
+        // REGIME.AboveSma200 < 0 AND FUNDING_RATE.Funding Rate > 0 (crowded long).
+        // Mirrors the v18-refined-short pattern that's the only short in the suite
+        // that walk-forward survived: don't try to call tops in an uptrend, only
+        // ride distribution in confirmed bear regime where remaining longs are
+        // still paying funding. Tightest single hypothesis test: if any short
+        // built on v22's distribution marker can survive walk-forward, it's this one.
+        public const string ShortV22rDistributionBearFundedId = "builtin.short.v22r-distribution-bear-funded";
+
+        // v23 — Cipher B Weekly Reversal (long + short). Built on the structural
+        // observation that v22's single-bar event detector cannot fire on weekly
+        // bars because aggregation (168 hourly bars → 1 weekly bar) blurs the
+        // event spike out of the bar's volume/RSI/range. Cipher B's WaveTrend
+        // oscillator is itself a smoothing operation, so its semantic survives
+        // aggregation: a weekly Blue dot means "smoothed weekly momentum just
+        // crossed up out of weekly oversold," which is a coherent statement.
+        // Pairs the Blue/Red dot with a Bullish/Bearish Divergence OR-gate and
+        // an Anchor Wave regime gate. Risk plan tuned to weekly cadence —
+        // ATR×3 stops because weekly ATR is ~7× daily and a 2× stop gets noise-
+        // tagged; 2R/4R TP ladder because weekly trends span months when they work.
+        public const string LongV23CipherBWeeklyId  = "builtin.long.v23-cipherb-weekly";
+        public const string ShortV23CipherBWeeklyId = "builtin.short.v23-cipherb-weekly";
+
+        // v23r — Cipher B Weekly Reversal + Faber regime gate. The deeper-validation
+        // refinement of v23. Same trigger (WT Cross Bull / Blue / Bull Div within 2)
+        // and same Anchor regime gate, PLUS REGIME.AboveSma200 > 0 (long) or < 0
+        // (short) so we only fire reversals on the side of the long-term trend.
+        // Hypothesis: v23 base shows positive total P&L but marginal per-trade R
+        // because counter-trend entries in deep bear markets eat the bull-regime
+        // wins. Faber gate is the most empirically robust filter in the suite
+        // (validated on v13, Faber-Pulse, BareBullPulse) — should lift per-trade R.
+        public const string LongV23rCipherBFaberId  = "builtin.long.v23r-cipherb-faber";
+        public const string ShortV23rCipherBFaberId = "builtin.short.v23r-cipherb-faber";
+
+        // v23rf — Cipher B Weekly Reversal short + funding-crowded contrarian gate.
+        // The asymmetric short variant. v23-SHORT and v23r-SHORT both produced
+        // negative expectancy across BTC 4h/1d. The only short pattern that has
+        // ever worked on BTC is v18-refined-short's "fade rallies in confirmed
+        // bear regime when remaining longs are still paying funding." This applies
+        // the same gate to v23: bear trigger AND price < SMA200 AND funding > 0.
+        public const string ShortV23rfCipherBFundingId = "builtin.short.v23rf-cipherb-funding";
+
+        // v23p — Cipher B Reversal + Pivot zone gate (LONG). Promoted from
+        // FaceBatteryCommand cell after round-4 face-rolling proved this is the
+        // closest-to-ROBUST cell anywhere: ETH 1d 100% positive / 33% CI / +0.523R
+        // across 6 windows, BTC 1d 73% / 13% CI / +0.294R. Adds the Pivot Zone
+        // gate (price near classic S1/S2/S3/CamL3/CamL4) to v23 base. Pivots are
+        // institutional reference levels — firing reversals AT support is
+        // structurally meaningful, not a fitted heuristic.
+        public const string LongV23pCipherBPivotsId = "builtin.long.v23p-cipherb-pivots";
+
+        // v23h — Cipher B Reversal + Hurst regime gate (LONG and SHORT). Promoted
+        // from face-rolling cells: BTC 1d v23+HURST LONG = 71% / 14% / +0.411R
+        // (65% better per-trade R than v23 base on the same TF). KAS 4h
+        // v23+HURST SHORT = 62% / +0.207R (240% better than base). The gate is
+        // simple: fire reversals only when Hurst < 0.45 (mean-reverting regime
+        // where reversals SHOULD outperform) and skip in trending regimes where
+        // reversals get run over.
+        public const string LongV23hCipherBHurstId  = "builtin.long.v23h-cipherb-hurst";
+        public const string ShortV23hCipherBHurstId = "builtin.short.v23h-cipherb-hurst";
+
+        // v23a — Cipher B Reversal + AVWAP soft-bias gate. Promoted from
+        // FaceBatteryCommand cell after round 6 face-rolling: ETH 1d 100% positive
+        // / +0.277R / 22.7 trades; BTC 1d 80% / 7% CI / +0.203R. AVWAP soft bias
+        // is the looser version (close above EITHER anchor) which surfaces more
+        // signal than the strict version (close above BOTH).
+        public const string LongV23aCipherBAvwapId = "builtin.long.v23a-cipherb-avwap";
+
+        // v23or — Cipher B Reversal + (AVWAP Bias Soft OR Pivot Support) gate.
+        // Promoted from face-rolling round 8 (2026-04-27 evening 11): ETH 1d 100%
+        // positive / 0% CI / +0.335R / 25.3 trades; BTC 1d 73% / 7% CI / +0.188R /
+        // 24.3 trades. Higher trade count than either v23a or v23p individually
+        // (v23a: 22.7 / v23p ETH: 14). Per-trade R sits between the two pure
+        // gates. Use when you want broader coverage on liquid majors at daily;
+        // use v23p when you want peak conviction (per-trade R champion).
+        public const string LongV23orCipherBOrConfId = "builtin.long.v23or-cipherb-orconf";
+
+        // Asset-aware v23 preset map. Empirical research (2026-04-27 rounds 3-4):
+        // the right v23 variant depends on BOTH asset and timeframe.
+        //
+        // BTC/ETH 1d: v23p-Pivots is the strongest. ETH 1d hit 100% positive /
+        //   33% CI / +0.523R in face-rolling — closest to ROBUST anywhere.
+        // BTC/ETH 4h: v23r-Faber lifts R materially (validated cross-mechanism
+        //   alongside v13, Faber-Pulse, BareBullPulse).
+        // BTC/ETH 1w: v23 base — weekly trends survive aggregation cleanly.
+        // XRP/LTC any TF: v23 base — Faber gate hurts (cycle mismatch).
+        // KAS/TAO/altcoins: v23 base — same reasoning as XRP/LTC.
+        //
+        // Returns null for null/empty input — caller falls back to v23 base.
+        public static string? GetV23LongPresetForAsset(string symbol, string? timeframe = null)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return null;
+            var s = symbol.ToUpperInvariant().Replace("/", "").Replace("-", "");
+            var tf = (timeframe ?? string.Empty).ToLowerInvariant();
+
+            bool isBtcOrEth = s.StartsWith("BTC") || s.StartsWith("ETH");
+
+            if (isBtcOrEth)
+            {
+                // 1d on BTC/ETH: Pivots is the empirically strongest gate.
+                if (tf == "1d" || tf == "24h" || tf == "1day")
+                    return LongV23pCipherBPivotsId;
+                // 4h on BTC/ETH: Faber gate lifts R best at this TF.
+                if (tf == "4h" || tf == "240m" || tf == "240")
+                    return LongV23rCipherBFaberId;
+                // Default for BTC/ETH (no TF or other TF): Faber-gated.
+                return LongV23rCipherBFaberId;
+            }
+
+            // Altcoins (XRP/LTC/KAS/TAO/SOL/DOGE/etc.): Faber gate hurts. Bare v23.
+            return LongV23CipherBWeeklyId;
+        }
+
+        // Symmetric helper for SHORT side. v23h-Hurst is the per-trade-R champion
+        // on the short side (240% better than base on KAS 4h). For BTC 4h
+        // v22-distribution-top remains ROBUST and is the deployable champion.
+        public static string? GetV23ShortPresetForAsset(string symbol, string? timeframe = null)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return null;
+            var s = symbol.ToUpperInvariant().Replace("/", "").Replace("-", "");
+            var tf = (timeframe ?? string.Empty).ToLowerInvariant();
+
+            // BTC 4h: v22-distribution-top is the only ROBUST short anywhere — use it.
+            if ((s.StartsWith("BTC")) && (tf == "4h" || tf == "240m" || tf == "240"))
+                return ShortV22DistributionTopId;
+
+            // Everything else: Hurst-gated short.
+            return ShortV23hCipherBHurstId;
+        }
+
+        // Behavior-driven preset override. When the caller has actual bars for the
+        // chart, this route classifies the asset by its own price action (volatility,
+        // cycle, regime, liquidity) and returns the recommended seed. Falls back to
+        // the symbol-string heuristic above if classification fails (e.g. too few
+        // bars). Use this when you want to handle ANY asset (including ones we've
+        // never tested) without hard-coding new whitelist branches.
+        public static string GetV23LongPresetForBars(
+            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv> bars,
+            string symbol,
+            string? timeframe = null)
+        {
+            var profile = AssetClassifier.Classify(bars);
+            if (profile != null)
+                return AssetClassifier.RecommendV23Long(profile);
+            // Insufficient bars → fall back to the symbol-string heuristic.
+            return GetV23LongPresetForAsset(symbol, timeframe) ?? LongV23CipherBWeeklyId;
+        }
+
+        public static string GetV23ShortPresetForBars(
+            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv> bars,
+            string symbol,
+            string? timeframe = null)
+        {
+            var profile = AssetClassifier.Classify(bars);
+            if (profile != null)
+                return AssetClassifier.RecommendV23Short(profile);
+            return GetV23ShortPresetForAsset(symbol, timeframe) ?? ShortV23hCipherBHurstId;
+        }
+
+        /// <summary>
+        /// One-shot composite preset accessor. Returns the fully-resolved
+        /// <see cref="StrategySpec"/> for the recommended v23 LONG variant given a
+        /// symbol, timeframe, and optional bar history. Prefers the behavior-driven
+        /// classifier when bars are available; falls back to the symbol-string
+        /// heuristic; falls back to bare v23 if neither route resolves.
+        ///
+        /// Useful for callers (and a single UI button) that want "give me the right
+        /// spec for this chart" without picking a variant manually.
+        /// </summary>
+        public static StrategySpec? GetRecommendedV23LongSpec(
+            string symbol,
+            string? timeframe = null,
+            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv>? bars = null)
+        {
+            string? id = bars != null
+                ? GetV23LongPresetForBars(bars, symbol, timeframe)
+                : GetV23LongPresetForAsset(symbol, timeframe);
+            id ??= LongV23CipherBWeeklyId;
+            return GetAllSeeds().FirstOrDefault(s => s.Id == id);
+        }
+
+        /// <summary>
+        /// Symmetric SHORT-side accessor. See <see cref="GetRecommendedV23LongSpec"/>.
+        /// </summary>
+        public static StrategySpec? GetRecommendedV23ShortSpec(
+            string symbol,
+            string? timeframe = null,
+            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv>? bars = null)
+        {
+            string? id = bars != null
+                ? GetV23ShortPresetForBars(bars, symbol, timeframe)
+                : GetV23ShortPresetForAsset(symbol, timeframe);
+            id ??= ShortV23hCipherBHurstId;
+            return GetAllSeeds().FirstOrDefault(s => s.Id == id);
+        }
+
         // Pulse Long V2 — the cleanest pure-Pulse long signal produced as of 2026-04-09.
         // GreenDotV2 from PulseProvider: slope-confirmed RSI(14) midline cross + Regime
         // (SMA200 + slope) == +1 + ADX(14) ≥ 20 (lookback). Cross-instrument validated:
@@ -151,6 +370,20 @@ namespace AccessibleTrader.Core.Services.Strategies
             yield return BuildV17GoldTrilogy();
             yield return BuildV18RefinedShort();
             yield return BuildV21MvrvCapitulationTrilogy();
+            yield return BuildV22CapitulationBottom();
+            yield return BuildV22DistributionTop();
+            yield return BuildV22rCapitulationFaber();
+            yield return BuildV22rDistributionBearFunded();
+            yield return BuildV23CipherBWeeklyLong();
+            yield return BuildV23CipherBWeeklyShort();
+            yield return BuildV23rCipherBFaberLong();
+            yield return BuildV23rCipherBFaberShort();
+            yield return BuildV23rfCipherBFundingShort();
+            yield return BuildV23pCipherBPivotsLong();
+            yield return BuildV23hCipherBHurstLong();
+            yield return BuildV23hCipherBHurstShort();
+            yield return BuildV23aCipherBAvwapLong();
+            yield return BuildV23orCipherBOrConfLong();
         }
 
         // ─────────────────────────────────────────────────────────────────────────────
@@ -848,6 +1081,288 @@ namespace AccessibleTrader.Core.Services.Strategies
         }
 
         // ─────────────────────────────────────────────────────────────────────────────
+        // v22 — Capitulation Bottom Long.
+        //
+        // First seed built directly on the TopBottomDetector indicator. Fires the
+        // long entry on its single-bar "Bottom Confirmed" marker. The detector
+        // pre-gates to the bottom 20% of the trailing 100-bar window AND requires
+        // a multi-component capitulation score (volume z + range z + lower-wick
+        // rejection + below-band exhaustion + RSI oversold + momentum flip)
+        // ≥ 0.6 — so the marker is itself already a confluence signal; no
+        // additional gates needed at the strategy layer.
+        //
+        // Risk: ATR(14)×2 stop, 1.5R/3R TP ladder, BE-after-TP1, 0.5% risk —
+        // same family as v16/v17/v21 for clean cross-comparison in walk-forward.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV22CapitulationBottom()
+        {
+            var bottom = new ConditionLeaf(
+                Id: "v22l-bottom",
+                SignalDescriptorId: "TOP_BOTTOM_DETECTOR.Bottom Confirmed",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v22l-root",
+                Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { bottom });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV22CapitulationBottomId,
+                Name: "Single-Bar Capitulation Bottom — BTC 1d (Long)",
+                Description:
+                    "Fires on TOP_BOTTOM_DETECTOR.Bottom Confirmed within 2 bars. " +
+                    "The detector signals a single-bar capitulation event: volume " +
+                    "z-score spike + wide range + lower-wick rejection + low pierces " +
+                    "lower Bollinger by ATR-fraction + RSI oversold + momentum reversal. " +
+                    "Marker is gated to the bottom 20% of the trailing 100-bar window " +
+                    "so it cannot fire on healthy pullbacks in uptrends. " +
+                    "Operationalises the 'bottoms are events' half of the asymmetry " +
+                    "thesis — single-bar event detector, no multi-bar accumulator. " +
+                    "REQUIRES: TopBottomDetector loaded. Risk: ATR(14)×2 stop, " +
+                    "1.5R/3R ladder, BE after TP1, 0.5% risk.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v22 — Distribution Top Short.
+        //
+        // The asymmetric counterpart. Fires the short entry on the detector's
+        // "Top Confirmed" marker, which is itself the output of a multi-bar
+        // distribution accumulator with exponential decay. Evidence streams that
+        // contribute to the accumulator: bearish divergence on confirmed pivots,
+        // volume drying up at swing highs, volatility compression at price highs,
+        // upthrusts above prior pivots, and sideways consolidation near highs.
+        // Gated to the top 20% of the trailing window.
+        //
+        // Risk plan tracks v18 short conventions: ATR(14)×1.5 stop (tighter than
+        // longs to match the faster rhythm of bear moves in crypto) and a 1R/2R
+        // ladder. MinRR 1.0.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV22DistributionTop()
+        {
+            var top = new ConditionLeaf(
+                Id: "v22s-top",
+                SignalDescriptorId: "TOP_BOTTOM_DETECTOR.Top Confirmed",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v22s-root",
+                Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { top });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 1.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV22DistributionTopId,
+                Name: "Distribution Top — BTC 4h ROBUST (Short)",
+                Description:
+                    "Fires on TOP_BOTTOM_DETECTOR.Top Confirmed within 2 bars. " +
+                    "The detector accumulates distribution evidence over multiple " +
+                    "bars (bearish divergence on confirmed pivots, volume drying up " +
+                    "at swing highs, volatility compression at price highs, upthrusts " +
+                    "above prior pivots, sideways regime near highs) with exponential " +
+                    "decay; the marker fires when accumulated confidence crosses the " +
+                    "confirm threshold while price is in the top 20% of the trailing " +
+                    "window. Operationalises the 'tops are processes' half of the " +
+                    "asymmetry thesis. REQUIRES: TopBottomDetector loaded. Risk: " +
+                    "ATR(14)×1.5 stop, 1R/2R ladder (faster bear rhythm), 0.5% risk.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v22r — Capitulation Bottom + Faber regime filter (Long).
+        //
+        // Tests whether the raw v22 capitulation marker — which has real edge on
+        // ETH 1d, XRP 1d, XRP 4h but is mixed on BTC — can be lifted across the
+        // board by gating with the most empirically robust single filter in the
+        // suite (Close > SMA200, validated by v13 / Faber-Pulse rolling-window
+        // walk-forward). The hypothesis: capitulation events in bear regimes are
+        // dead-cat bounces that fail; capitulation events in bull regimes are
+        // pullback-buys that work. The Faber gate operationalises that split.
+        //
+        // Risk plan unchanged from v22-long: ATR(14)×2 stop, 1.5R/3R ladder,
+        // BE-after-TP1, 0.5% risk.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV22rCapitulationFaber()
+        {
+            var bottom = new ConditionLeaf(
+                Id: "v22rl-bottom",
+                SignalDescriptorId: "TOP_BOTTOM_DETECTOR.Bottom Confirmed",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var aboveSma = new ConditionLeaf(
+                Id: "v22rl-above-sma200",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v22rl-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { bottom, aboveSma });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV22rCapitulationFaberId,
+                Name: "v22r — Capitulation Bottom + Faber MA (Long) [DEPRECATED]",
+                Description:
+                    "[DEPRECATED 2026-04-27 round 5] Walk-windows verdict on BTC 4h: " +
+                    "high per-trade R (+1.03R) but trade count collapses to n=11 over " +
+                    "9 years — quality without quantity. Faber gate is too restrictive " +
+                    "on top of v22's existing bottom-20% gate. Prefer v23p (Pivots) for " +
+                    "BTC/ETH 1d, v23r-Faber for BTC/ETH 4h, or bare v22 for BTC 1d. " +
+                    "Kept in the seed library for reproducibility. " +
+                    "Original spec: v22 (TOP_BOTTOM_DETECTOR.Bottom Confirmed within 2 " +
+                    "bars) AND REGIME.AboveSma200 > 0 (price above 200-period SMA). " +
+                    "REQUIRES: TopBottomDetector + Regime indicators loaded.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v22r — Distribution Top + bear regime + positive funding (Short).
+        //
+        // The asymmetric counterpart, modelled exactly on v18-refined-short. v22's
+        // raw Top Confirmed marker fails walk-forward across all 9 asset/TF combos
+        // tested 2026-04-27 — no asset shows both halves positive at 1d. The v18
+        // pattern (don't call tops in uptrends, only ride distribution in
+        // confirmed bear regime where remaining longs still pay funding) is the
+        // only short pattern in the suite that survives walk-forward. This spec
+        // applies it to the v22 Top Confirmed marker.
+        //
+        // Risk plan: ATR(14)×1.5 stop + 1R/2R ladder, MinRR 1.0 — v18 conventions
+        // for the faster bear rhythm.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV22rDistributionBearFunded()
+        {
+            var top = new ConditionLeaf(
+                Id: "v22rs-top",
+                SignalDescriptorId: "TOP_BOTTOM_DETECTOR.Top Confirmed",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var belowSma = new ConditionLeaf(
+                Id: "v22rs-below-sma200",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.LessThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var fundingPositive = new ConditionLeaf(
+                Id: "v22rs-funding-positive",
+                SignalDescriptorId: "FUNDING_RATE.Funding Rate",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v22rs-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { top, belowSma, fundingPositive });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 1.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV22rDistributionBearFundedId,
+                Name: "v22r — Distribution Top + Bear Regime + Funding (Short) [DEPRECATED]",
+                Description:
+                    "[DEPRECATED 2026-04-27 round 5] Walk-windows verdict: mechanism " +
+                    "DEAD — fires zero times on BTC 1d/4h and ETH 1d/4h across all six " +
+                    "windows. The conjunction 'top 20% of trailing 100-bar window' AND " +
+                    "'price below SMA200' is logically rare by construction (if price is " +
+                    "in a bear regime, the 100-bar high is from before the bear). Same " +
+                    "negative result confirmed for v23rf SHORT (3 funding-gate variants, " +
+                    "all 0 valid windows). Prefer v22-distribution-top for BTC 4h " +
+                    "(only ROBUST short anywhere) or v23h-Hurst SHORT for everything else. " +
+                    "Kept for reproducibility. " +
+                    "Original spec: v22 + REGIME.AboveSma200 < 0 + FUNDING_RATE.Funding > 0. " +
+                    "REQUIRES: TopBottomDetector + Regime + FundingRate indicators loaded.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
         // REMOVED 2026-04-09: BuildChopBullPulse / BuildChopBearPulse. The chop-gated
         // Pulse pair did not survive a fresh-snapshot rerun (single-walk-forward artifact
         // — CIlo=0.00 H2 collapsed to -0.05 when the snapshot extended back to 2015 and
@@ -1179,6 +1694,770 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "REQUIRES: Cipher A + Cipher B + Cipher SR loaded on the chart.",
                 Side: OrderSide.Buy,
                 Conditions: bullPulse,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23 — Cipher B Weekly Reversal (long).
+        //
+        // The structural answer to v22's weekly-aggregation problem. v22 looks for a
+        // single-bar event spike (volume z, range z, RSI extreme, momentum flip) —
+        // weekly bars AVERAGE those spikes out, so v22 produces zero capitulation
+        // hits on weekly without aggressive gate relaxation. Cipher B's WaveTrend is
+        // itself a smoothing operation, so its semantic SURVIVES aggregation: a
+        // weekly Blue dot means "smoothed weekly momentum just crossed up out of
+        // weekly oversold," which is coherent at any TF.
+        //
+        // Trigger: Blue dot (Oversold Crossover) within 2 bars OR Bullish Divergence
+        // within 2 bars. The OR-gate gives the indicator two ways to mark a weekly
+        // capitulation — the cross is the moment, the divergence is the structural
+        // confirmation that the cross isn't noise.
+        //
+        // Regime: Anchor Wave < 0 ensures the broader (5× period) WaveTrend is in
+        // the bear half. Without this gate the strategy fires on every Blue dot,
+        // including counter-trend pullbacks in confirmed uptrends — those have
+        // edge but not weekly-magnitude edge.
+        //
+        // Risk plan: ATR(14)×3 stop because weekly ATR is ~7× daily ATR — a 2× stop
+        // gets immediately noise-tagged on weekly. 2R/4R TP ladder because weekly
+        // trends span months when they work; the 1.5R/3R ladder appropriate for daily
+        // gives away too much of the move. BE-after-TP1 preserved.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23CipherBWeeklyLong()
+        {
+            // Diagnostic on BTC 1w (2026-04-27 evening): the strict OS-confirmed Blue
+            // dot fires only 2× across 8 weekly years; Bull Divergence 0×; bare
+            // WaveTrend Cross Bull fires 15× per half (much more frequent and the
+            // primary directional signal at the weekly cadence). Including the bare
+            // cross in the trigger group gives the strategy enough sample to evaluate
+            // — quality is restored by the Anchor regime gate further down.
+            var blueDot = new ConditionLeaf(
+                Id: "v23l-blue",
+                SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var bullDiv = new ConditionLeaf(
+                Id: "v23l-bulldiv",
+                SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23l-wtx",
+                SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            // Trigger group: bare WT cross OR the confirmed Blue dot OR Bull Divergence.
+            var trigger = new ConditionGroup(
+                Id: "v23l-trigger",
+                Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23l-anchor",
+                SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23l-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23CipherBWeeklyId,
+                Name: "Cipher Reversal — Universal (Crypto Any TF, Long)",
+                Description:
+                    "Weekly-targeted long built on Cipher B's oscillator-based capitulation " +
+                    "rather than v22's single-bar event score. Fires when EITHER an Oversold " +
+                    "Crossover (Blue dot) OR a Bullish Divergence happened within the last 2 " +
+                    "bars AND the Anchor Wave (5× period WT) is bearish (< 0). The structural " +
+                    "rationale: WaveTrend is itself a smoothing operation, so its OS/OB " +
+                    "semantic survives aggregation from intra-week into weekly — unlike v22's " +
+                    "event score which gets averaged out. REQUIRES: Cipher B loaded. Risk: " +
+                    "ATR(14)×3 stop (weekly ATR ≈ 7× daily — tight stops noise-tag immediately), " +
+                    "2R/4R TP ladder (weekly trends span months when they work), BE after TP1, " +
+                    "0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23 — Cipher B Weekly Reversal (short). Symmetric mirror of the long.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23CipherBWeeklyShort()
+        {
+            var redDot = new ConditionLeaf(
+                Id: "v23s-red",
+                SignalDescriptorId: "CIPHER_B.Overbought Crossover",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var bearDiv = new ConditionLeaf(
+                Id: "v23s-beardiv",
+                SignalDescriptorId: "CIPHER_B.Bearish Divergence",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var wtCrossBear = new ConditionLeaf(
+                Id: "v23s-wtx",
+                SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bear",
+                Operator: LeafOperator.FiredWithin,
+                WithinNBars: 2,
+                Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23s-trigger",
+                Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBear, redDot, bearDiv });
+
+            var anchorBull = new ConditionLeaf(
+                Id: "v23s-anchor",
+                SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.GreaterThan,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23s-root",
+                Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBull });
+
+            // Tighter stop on the short side (matching v18/v22-short conventions) —
+            // bear moves in crypto are sharper; weekly bears can U-turn fast on
+            // short-cover squeezes.
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV23CipherBWeeklyId,
+                Name: "Cipher Reversal — Universal (Crypto Any TF, Short)",
+                Description:
+                    "Weekly-targeted short. Symmetric mirror of v23-LONG. Fires when EITHER " +
+                    "an Overbought Crossover (Red dot) OR a Bearish Divergence happened within " +
+                    "the last 2 bars AND the Anchor Wave is bullish (> 0). Tighter ATR(14)×2.5 " +
+                    "stop because crypto bear moves are sharper than bull moves and weekly bears " +
+                    "can U-turn fast on short-cover squeezes; 1.5R/3R TP ladder for the same " +
+                    "reason. REQUIRES: Cipher B loaded.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23r — Cipher B Weekly Reversal + Faber regime (long).
+        //
+        // Same trigger as v23-LONG (WT Cross Bull OR Blue dot OR Bull Divergence
+        // within 2 bars) AND Anchor Wave < 0 AND price > SMA200. The Faber gate
+        // restricts entries to bull regime — we only buy reversals on the side of
+        // the long-term trend. Tested via empirical validation across v13, Faber-
+        // Pulse, and BareBullPulse — the most cross-asset-validated filter in the
+        // suite. Hypothesis: v23 base shows positive total P&L but marginal per-
+        // trade R because counter-trend entries in deep bear markets eat the
+        // bull-regime wins. Filtering them out should lift expectancy.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23rCipherBFaberLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23rl-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23rl-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23rl-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23rl-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23rl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var faberBull = new ConditionLeaf(
+                Id: "v23rl-faber", SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23rl-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, faberBull });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23rCipherBFaberId,
+                Name: "Cipher Reversal + Trend Filter — BTC/ETH 4h (Long)",
+                Description:
+                    "v23 base trigger (WT Cross Bull / Blue dot / Bull Divergence within 2) " +
+                    "AND Anchor Wave < 0 AND price > SMA200. The Faber regime gate restricts " +
+                    "entries to bull regime — same gate that validated on v13, Faber-Pulse, " +
+                    "and BareBullPulse (most cross-asset-validated filter in the suite). " +
+                    "REQUIRES: Cipher B + Regime Filter loaded. Risk: ATR(14)×3 stop, 2R/4R " +
+                    "TP ladder, BE after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23r — Cipher B Weekly Reversal + Faber regime (short).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23rCipherBFaberShort()
+        {
+            var redDot = new ConditionLeaf(
+                Id: "v23rs-red", SignalDescriptorId: "CIPHER_B.Overbought Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bearDiv = new ConditionLeaf(
+                Id: "v23rs-beardiv", SignalDescriptorId: "CIPHER_B.Bearish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBear = new ConditionLeaf(
+                Id: "v23rs-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bear",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23rs-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBear, redDot, bearDiv });
+
+            var anchorBull = new ConditionLeaf(
+                Id: "v23rs-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            var faberBear = new ConditionLeaf(
+                Id: "v23rs-faber", SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23rs-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBull, faberBear });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV23rCipherBFaberId,
+                Name: "Cipher Reversal + Bear Trend Filter — BTC/ETH (Short)",
+                Description:
+                    "v23 short base trigger AND Anchor Wave > 0 AND price < SMA200. Mirror " +
+                    "of v23r-LONG. Mirrors v18-refined-short pattern: don't try to call tops " +
+                    "in an uptrend — only sell rips in confirmed bear regime. REQUIRES: Cipher " +
+                    "B + Regime Filter loaded.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23rf — Cipher B Weekly Reversal short + funding-crowded contrarian gate.
+        //
+        // v23-SHORT and v23r-SHORT both produced negative expectancy across
+        // BTC 4h/1d. The only short pattern that has ever worked on BTC is
+        // v18-refined-short's "fade rallies in confirmed bear regime when
+        // remaining longs are still paying funding." Apply the same gate to v23:
+        // bear trigger AND price < SMA200 AND funding > 0 (longs still paying).
+        // The funding gate is the contrarian flag — when most participants think
+        // the rally has more legs, paying to be long, the asymmetric edge favors
+        // the fade. Tighter ATR×1.5 stop because crypto bear moves are fast.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23rfCipherBFundingShort()
+        {
+            var redDot = new ConditionLeaf(
+                Id: "v23rfs-red", SignalDescriptorId: "CIPHER_B.Overbought Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bearDiv = new ConditionLeaf(
+                Id: "v23rfs-beardiv", SignalDescriptorId: "CIPHER_B.Bearish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBear = new ConditionLeaf(
+                Id: "v23rfs-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bear",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23rfs-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBear, redDot, bearDiv });
+
+            var anchorBull = new ConditionLeaf(
+                Id: "v23rfs-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            var faberBear = new ConditionLeaf(
+                Id: "v23rfs-faber", SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var fundingCrowded = new ConditionLeaf(
+                Id: "v23rfs-fund", SignalDescriptorId: "BNVISION_FUNDING.Funding",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23rfs-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBull, faberBear, fundingCrowded });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 1.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV23rfCipherBFundingId,
+                Name: "Cipher Reversal + Bear + Crowded-Long Funding (Short) [NEGATIVE]",
+                Description:
+                    "v23 short trigger AND Anchor Wave > 0 AND price < SMA200 AND funding > 0. " +
+                    "The only short setup that has historically worked on BTC: fade rallies in " +
+                    "confirmed bear regime when remaining longs are still paying funding. " +
+                    "Mirrors v18-refined-short pattern. Tight ATR×1.5 stop / 1R/2R ladder " +
+                    "because crypto bear moves are fast. REQUIRES: Cipher B + Regime Filter + " +
+                    "BNVISION_FUNDING loaded on the chart.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23p — Cipher B Reversal + Pivot zone (LONG).
+        //
+        // Promoted from FaceBatteryCommand cell (2026-04-27 round 4). Best
+        // single result anywhere: ETH 1d 100% positive / 33% CI / +0.523R / 6
+        // windows. BTC 1d 73% / 13% CI / +0.294R. Pivot zone is the bar's
+        // proximity (in ATR units) to classic floor-trader S1/S2/S3 or Camarilla
+        // L3/L4 levels — institutional reference levels that show up across
+        // equities, forex, commodities, and crypto. Gating reversals to fire AT
+        // support is structurally meaningful, not a fitted heuristic.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23pCipherBPivotsLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23pl-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23pl-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23pl-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23pl-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23pl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var atSupport = new ConditionLeaf(
+                Id: "v23pl-pivot", SignalDescriptorId: "PIVOTS.Pivot Zone",
+                Operator: LeafOperator.LessThan, Value: -0.5, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23pl-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, atSupport });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23pCipherBPivotsId,
+                Name: "Cipher Reversal at Pivot Support — BTC/ETH 1d (Long) ★",
+                Description:
+                    "v23 base trigger (WT Cross Bull / Blue / Bull Divergence within 2) " +
+                    "AND Anchor Wave < 0 AND PIVOTS.Pivot Zone < -0.5 (price within ATR-" +
+                    "tolerance of classic S1/S2/S3 or Camarilla L3/L4 support). Empirical " +
+                    "champion as of round 4 of the v23 investigation: ETH 1d 100% positive " +
+                    "/ 33% CI / +0.523R across 6 face-rolling windows; BTC 1d 73% / 13% / " +
+                    "+0.294R. REQUIRES: Cipher B + Pivot Levels indicators loaded. Risk: " +
+                    "ATR(14)×3 stop, 2R/4R TP ladder, BE after TP1, 0.5% risk per trade. " +
+                    "Best on liquid majors (BTC/ETH) at the daily timeframe.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23h — Cipher B Reversal + Hurst regime gate (LONG).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23hCipherBHurstLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23hl-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23hl-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23hl-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23hl-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23hl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var meanReverting = new ConditionLeaf(
+                Id: "v23hl-hurst", SignalDescriptorId: "HURST.Hurst",
+                Operator: LeafOperator.LessThan, Value: 0.45, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23hl-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, meanReverting });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23hCipherBHurstId,
+                Name: "Cipher Reversal in Mean-Reverting Regime — Universal (Long)",
+                Description:
+                    "v23 base trigger AND Anchor Wave < 0 AND HURST.Hurst < 0.45 " +
+                    "(mean-reverting regime). The Hurst gate explicitly filters out " +
+                    "trending regimes where reversal triggers get run over. Per-trade R " +
+                    "lifts materially with this gate: BTC 1d 71% / 14% CI / +0.411R " +
+                    "(65% better R than v23 base). Trades less often than v23 base but " +
+                    "with cleaner expectancy. REQUIRES: Cipher B + Hurst Exponent indicators. " +
+                    "Risk: ATR×3 stop, 2R/4R ladder.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23h — Cipher B Reversal + Hurst regime gate (SHORT).
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23hCipherBHurstShort()
+        {
+            var redDot = new ConditionLeaf(
+                Id: "v23hs-red", SignalDescriptorId: "CIPHER_B.Overbought Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bearDiv = new ConditionLeaf(
+                Id: "v23hs-beardiv", SignalDescriptorId: "CIPHER_B.Bearish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBear = new ConditionLeaf(
+                Id: "v23hs-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bear",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23hs-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBear, redDot, bearDiv });
+
+            var anchorBull = new ConditionLeaf(
+                Id: "v23hs-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            var meanReverting = new ConditionLeaf(
+                Id: "v23hs-hurst", SignalDescriptorId: "HURST.Hurst",
+                Operator: LeafOperator.LessThan, Value: 0.45, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23hs-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBull, meanReverting });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.5);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: ShortV23hCipherBHurstId,
+                Name: "Cipher Reversal in Mean-Reverting Regime — Universal (Short)",
+                // (continued below — see v23a builder for the new AVWAP seed)
+                Description:
+                    "v23 short trigger AND Anchor Wave > 0 AND HURST.Hurst < 0.45. The " +
+                    "best-performing v23 short gate by a wide margin: KAS 4h 62% / +0.207R " +
+                    "(240% better than bare v23 SHORT base of +0.061R). Hurst gate filters " +
+                    "out trending bull regimes where bear cipher signals get steamrolled. " +
+                    "REQUIRES: Cipher B + Hurst Exponent indicators. Note: BTC 4h shorts " +
+                    "should still use v22-distribution-top (the only ROBUST short anywhere); " +
+                    "v23h SHORT is for BTC 1d, ETH, and altcoins.",
+                Side: OrderSide.Sell,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23a — Cipher B Reversal + AVWAP soft-bias gate (LONG).
+        //
+        // Promoted from FaceBatteryCommand cell after round 6: ETH 1d 100% positive
+        // / +0.277R / 22.7 trades; BTC 1d 80% / 7% / +0.203R. AVWAP soft-bias is the
+        // looser version of the strict bias — accepts close above EITHER anchor
+        // (high-anchor or low-anchor) rather than requiring above BOTH. This
+        // surfaces materially more sample (avgTr 22.7 on ETH 1d vs 17.0 strict)
+        // while preserving 100% positive-window rate on the empirical champion TF.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23aCipherBAvwapLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23al-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23al-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23al-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23al-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23al-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var avwapBull = new ConditionLeaf(
+                Id: "v23al-avwap", SignalDescriptorId: "ANCHORED_VWAP.AVWAP Bias Soft",
+                Operator: LeafOperator.GreaterThan, Value: 0.5, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23al-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, avwapBull });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23aCipherBAvwapId,
+                Name: "Cipher Reversal + AVWAP Bias — BTC/ETH 1d (Long)",
+                Description:
+                    "Cipher B reversal trigger (WT Cross Bull / Blue / Bull Divergence within " +
+                    "2) AND Anchor Wave < 0 AND AVWAP Bias Soft > 0.5 (close above either " +
+                    "anchored-VWAP — institutional bull bias). Round 6 promoted: ETH 1d " +
+                    "100% positive / +0.277R / 22.7 trades / 6 windows; BTC 1d 80% / 7% CI / " +
+                    "+0.203R / 23 trades. The soft AVWAP gate fires more often than strict " +
+                    "(close above BOTH anchors) which over-restricts. REQUIRES: Cipher B + " +
+                    "Anchored VWAP indicators loaded. Risk: ATR(14)×3 stop, 2R/4R TP ladder, " +
+                    "BE after TP1, 0.5% risk per trade. Best on liquid majors at daily.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23or — Cipher B Reversal + (AVWAP Bias Soft OR Pivot Support) gate (LONG).
+        //
+        // Promoted from FaceBatteryCommand cell after round 8 (2026-04-27 evening 11):
+        // ETH 1d 100% positive / 0% CI / +0.335R / 25.3 trades; BTC 1d 73% / 7% CI /
+        // +0.188R / 24.3 trades. Trade count is the highest of the v23a / v23p / v23or
+        // family (v23or 25.3 > v23a 22.7 > v23p ETH 14.0). Per-trade R sits between
+        // the two — broader coverage at the cost of peak conviction. The OR-gate
+        // bridges two structurally different gate types: AVWAP is a price-relative
+        // bias level (institutional anchoring) and Pivot Zone is HLC-derived
+        // (classical pivot levels). Their disjunction broadens fire frequency
+        // without breaking edge.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23orCipherBOrConfLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23orl-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23orl-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23orl-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23orl-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23orl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            var avwapBull = new ConditionLeaf(
+                Id: "v23orl-avwap", SignalDescriptorId: "ANCHORED_VWAP.AVWAP Bias Soft",
+                Operator: LeafOperator.GreaterThan, Value: 0.5, Score: 1.0);
+            var pivotSupport = new ConditionLeaf(
+                Id: "v23orl-piv", SignalDescriptorId: "PIVOTS.Pivot Zone",
+                Operator: LeafOperator.LessThan, Value: -0.5, Score: 1.0);
+
+            var orGate = new ConditionGroup(
+                Id: "v23orl-orgate", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { avwapBull, pivotSupport });
+
+            var root = new ConditionGroup(
+                Id: "v23orl-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, orGate });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23orCipherBOrConfId,
+                Name: "Cipher Reversal + AVWAP-or-Pivot Confluence — BTC/ETH 1d (Long)",
+                Description:
+                    "Cipher B reversal trigger (WT Cross Bull / Blue / Bull Divergence within " +
+                    "2) AND Anchor Wave < 0 AND (AVWAP Bias Soft > 0.5 OR Pivot Zone < -0.5). " +
+                    "Round 8 promoted (2026-04-27 evening 11): ETH 1d 100% positive / +0.335R / " +
+                    "25.3 trades / 6 windows; BTC 1d 73% / 7% CI / +0.188R / 24.3 trades. The " +
+                    "OR-gate trades peak conviction for broader coverage — trade count exceeds " +
+                    "either v23a (AVWAP only) or v23p (Pivots only) individually, with per-trade " +
+                    "R sitting between the two. Use this seed when you want more setups on liquid " +
+                    "majors at daily; use v23p when you want maximum per-trade R. REQUIRES: " +
+                    "Cipher B + Anchored VWAP + Pivots indicators loaded. Risk: ATR(14)×3 stop, " +
+                    "2R/4R TP ladder, BE after TP1, 0.5% risk per trade. Best on BTC/ETH at 1d.",
+                Side: OrderSide.Buy,
+                Conditions: root,
                 Risk: risk,
                 ExecutionMode: StrategyExecutionMode.Suggestion,
                 CreatedUtc: DateTime.UtcNow,

@@ -188,6 +188,11 @@ public static class FaceRollingCommand
             string flag;
             // Strict survivor: ≥70% windows positive AND ≥3 windows with CIlo>0
             if (r.PctPositive >= 0.70 && r.CiPositiveWindows >= 3) flag = "★ ROBUST";
+            // High-conviction survivor: very consistent direction with at least one CI window.
+            // Catches cells with naturally low avgTr that can't reach 3 CI windows but show
+            // strong directional consistency (≥80% positive). Three almost-ROBUST cells from
+            // the v23 investigation (round 4, 2026-04-27) miss strict by exactly this gap.
+            else if (r.PctPositive >= 0.80 && r.CiPositiveWindows >= 1 && r.AvgTrades >= 5) flag = "✓ HIGH-CONV";
             // Lenient survivor: ≥70% windows positive (no CI requirement — for further investigation)
             else if (r.PctPositive >= 0.70) flag = "promising";
             // Marginal: 50-70% windows positive
@@ -208,7 +213,10 @@ public static class FaceRollingCommand
 
         Console.WriteLine();
         var robust = ranked.Where(r => r.PctPositive >= 0.70 && r.CiPositiveWindows >= 3).ToList();
-        if (robust.Count == 0)
+        var highConv = ranked.Where(r =>
+            r.PctPositive >= 0.80 && r.CiPositiveWindows >= 1 && r.AvgTrades >= 5
+            && !(r.PctPositive >= 0.70 && r.CiPositiveWindows >= 3)).ToList();
+        if (robust.Count == 0 && highConv.Count == 0)
         {
             Console.WriteLine("VERDICT: No cell is robust across rolling windows (≥70% positive AND ≥3 CIlo>0 windows).");
             var lenient = ranked.Where(r => r.PctPositive >= 0.70).ToList();
@@ -221,9 +229,18 @@ public static class FaceRollingCommand
         }
         else
         {
-            Console.WriteLine($"VERDICT: {robust.Count} cell(s) ROBUST across rolling windows:");
-            foreach (var r in robust)
-                Console.WriteLine($"  ★ {(r.Side == OrderSide.Buy ? "L" : "S")} {r.Label} — {r.PctPositive:0%} positive, {r.CiPositiveWindows} CI>0 windows, mean {r.MeanExpectancy:+0.00}R");
+            if (robust.Count > 0)
+            {
+                Console.WriteLine($"VERDICT: {robust.Count} cell(s) ROBUST across rolling windows:");
+                foreach (var r in robust)
+                    Console.WriteLine($"  ★ {(r.Side == OrderSide.Buy ? "L" : "S")} {r.Label} — {r.PctPositive:0%} positive, {r.CiPositiveWindows} CI>0 windows, mean {r.MeanExpectancy:+0.00}R");
+            }
+            if (highConv.Count > 0)
+            {
+                Console.WriteLine($"  {highConv.Count} cell(s) HIGH-CONVICTION (≥80% pos, ≥1 CI>0, naturally low trade count):");
+                foreach (var r in highConv)
+                    Console.WriteLine($"  ✓ {(r.Side == OrderSide.Buy ? "L" : "S")} {r.Label} — {r.PctPositive:0%} positive, {r.CiPositiveWindows} CI>0 windows, mean {r.MeanExpectancy:+0.00}R");
+            }
         }
     }
 

@@ -1,25 +1,66 @@
 using AccessibleTrader.Plugins.Bitstamp;
+using AccessibleTrader.Plugins.Mexc;
+using AccessibleTrader.Plugins.Alpaca;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 using Newtonsoft.Json;
 
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
-/// Pulls historical OHLCV from Bitstamp via the live <see cref="BitstampProvider"/> plugin
-/// (instantiated directly, no DI / no plugin loader) and serializes to JSON on disk so the
-/// research loop can replay deterministic data offline forever after a single fetch.
+/// Pulls historical OHLCV from a chosen provider (Bitstamp or MEXC) via the live
+/// provider plugin (instantiated directly, no DI / no plugin loader) and serializes
+/// to JSON on disk so the research loop can replay deterministic data offline.
 ///
 /// Walks backward via <c>MarketDataRequest.Until</c> until either <paramref name="targetBars"/>
-/// is reached or the provider returns an empty page (history exhausted). Bitstamp's max page
-/// size is 1000 bars, so 4h/1d ranges of several years take only a few requests.
+/// is reached or the provider returns an empty page (history exhausted). Page size
+/// is provider-determined (Bitstamp 1000, MEXC 500 per <c>MaxBarsPerRequest</c>).
 /// </summary>
 public static class SnapshotCommand
 {
-    public static async Task<int> RunAsync(string symbol, string timeframe, int targetBars, string outputDir)
+    public static async Task<int> RunAsync(string symbol, string timeframe, int targetBars, string outputDir, string providerName = "bitstamp", string? apiKey = null, string? apiSecret = null)
     {
         Directory.CreateDirectory(outputDir);
 
-        var provider = new BitstampProvider();
+        BaseMarketDataProvider provider;
+        string providerLabel;
+        int pageLimit;
+        string market = "Spot";
+        // Pagination direction. Bitstamp/MEXC support `Until`-only walk-back from "now"
+        // toward the past. Alpaca's REST historical bar endpoint pages forward from a
+        // `Since` timestamp instead — `Until`-only fetches return only the most recent
+        // bar. So we run a forward-walk for Alpaca: seed a far-past `Since`, advance
+        // one bar past the newest result each iteration, until we have targetBars or
+        // the provider returns an empty page (i.e. caught up to the present).
+        bool walkForward = false;
+        switch (providerName.ToLowerInvariant())
+        {
+            case "mexc":
+                provider = new MexcProvider();
+                providerLabel = "mexc";
+                pageLimit = 500;
+                break;
+            case "alpaca":
+                var ap = new AlpacaProvider();
+                if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret))
+                    ap.Configure(new Dictionary<string, string>
+                    {
+                        ["ApiKey"]    = apiKey,
+                        ["ApiSecret"] = apiSecret,
+                    });
+                provider = ap;
+                providerLabel = "alpaca";
+                pageLimit = 10000;
+                market = "Stock";  // default to equities; "Crypto" also supported
+                walkForward = true;
+                break;
+            case "bitstamp":
+            default:
+                provider = new BitstampProvider();
+                providerLabel = "bitstamp";
+                pageLimit = 1000;
+                break;
+        }
         var stepSeconds = TimeframeToSeconds(timeframe);
         if (stepSeconds <= 0)
         {
@@ -27,22 +68,31 @@ public static class SnapshotCommand
             return 1;
         }
 
-        // Walk-back loop. We accumulate into a dictionary keyed by Date so duplicate bars
+        // Walk loop. We accumulate into a dictionary keyed by Date so duplicate bars
         // returned across overlapping pages are naturally de-duplicated. Each page costs ~1
-        // HTTP request — Bitstamp's rate limiter inside the provider handles throttling.
+        // HTTP request — provider rate limiting is handled inside the provider.
         var bars = new SortedDictionary<DateTime, Ohlcv>();
         long? until = null;
+        // Forward-walk seed: 20 years before "now" — well before any equity provider's
+        // history depth. Daily equity bars from 2005 are deeper than any retail use needs.
+        // Intraday (5m / 1m) on Alpaca only goes back ~6-8 years anyway; the empty-page
+        // exit catches the actual history-depth boundary.
+        long? since = walkForward
+            ? new DateTimeOffset(DateTime.UtcNow.AddYears(-20), TimeSpan.Zero).ToUnixTimeMilliseconds()
+            : (long?)null;
         int pageCount = 0;
-        const int maxPages = 20; // hard safety cap — 20 * 1000 = 20k bars upper bound
+        // Hard safety cap on requests: lift to 100 so we can fully back-fill multi-year
+        // intraday histories (e.g. KAS/USDT 1h since 2022 ≈ 25k bars / 500 per page = 50 pages).
+        const int maxPages = 100;
 
         while (bars.Count < targetBars && pageCount < maxPages)
         {
             var request = new MarketDataRequest(
-                Market: "Spot",
+                Market: market,
                 Symbol: symbol,
                 Timeframe: timeframe,
-                Limit: 1000,
-                Since: null,
+                Limit: pageLimit,
+                Since: since,
                 Until: until);
 
             var (page, _) = await provider.FetchOhlcvAsync(request);
@@ -64,11 +114,19 @@ public static class SnapshotCommand
             var newest = page[^1].Date;
             Console.WriteLine($"  page {pageCount}: {page.Count} bars [{oldest:yyyy-MM-dd} → {newest:yyyy-MM-dd}], +{newBars} new (total {bars.Count})");
 
-            // No new bars? We're walking past the start of available history; bail.
+            // No new bars? We're walking past the boundary of available history; bail.
             if (newBars == 0) break;
 
-            // Step backward: next page ends one second before this page's oldest bar.
-            until = (new DateTimeOffset(oldest, TimeSpan.Zero).ToUnixTimeMilliseconds()) - 1000;
+            if (walkForward)
+            {
+                // Step forward: next page starts one second after this page's newest bar.
+                since = new DateTimeOffset(newest, TimeSpan.Zero).ToUnixTimeMilliseconds() + 1000;
+            }
+            else
+            {
+                // Step backward: next page ends one second before this page's oldest bar.
+                until = new DateTimeOffset(oldest, TimeSpan.Zero).ToUnixTimeMilliseconds() - 1000;
+            }
         }
 
         if (bars.Count == 0)
@@ -80,7 +138,7 @@ public static class SnapshotCommand
         var ordered = bars.Values.ToList();
         var snapshot = new SnapshotFile
         {
-            Provider = "Bitstamp",
+            Provider = providerLabel,
             Symbol = symbol,
             Timeframe = timeframe,
             FetchedUtc = DateTime.UtcNow,
@@ -91,7 +149,7 @@ public static class SnapshotCommand
         };
 
         var safeSymbol = symbol.Replace("/", "_").Replace("\\", "_");
-        var path = Path.Combine(outputDir, $"bitstamp_{safeSymbol}_{timeframe}.json");
+        var path = Path.Combine(outputDir, $"{providerLabel}_{safeSymbol}_{timeframe}.json");
         var json = JsonConvert.SerializeObject(snapshot, Formatting.None);
         await File.WriteAllTextAsync(path, json);
 
@@ -151,7 +209,12 @@ public static class SnapshotCommand
 
         var dir = Path.GetDirectoryName(srcPath) ?? ".";
         var safeSymbol = src.Symbol.Replace("/", "_").Replace("\\", "_");
-        var outPath = Path.Combine(dir, $"bitstamp_{safeSymbol}_{newTimeframe}.json");
+        // Preserve the source provider name so aggregated MEXC snapshots (and any
+        // other future providers) keep their lineage instead of being mislabeled.
+        var providerLabel = string.IsNullOrWhiteSpace(src.Provider)
+            ? "bitstamp"
+            : src.Provider.ToLowerInvariant();
+        var outPath = Path.Combine(dir, $"{providerLabel}_{safeSymbol}_{newTimeframe}.json");
         var json = JsonConvert.SerializeObject(outFile, Formatting.None);
         await File.WriteAllTextAsync(outPath, json);
 

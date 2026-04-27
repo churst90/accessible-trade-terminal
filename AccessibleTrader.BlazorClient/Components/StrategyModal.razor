@@ -94,6 +94,30 @@
                 }
                 else
                 {
+                    // Empirically-derived recommendation from the v23 investigation.
+                    // We surface this here so the user can spot the suggested seed at
+                    // a glance in the Library table for the asset they're charting.
+                    var symbolLabel = Store.State.Identity.Symbol;
+                    var tfLabel     = Store.State.Identity.Timeframe;
+                    var currentBars = Store.State.Data;
+                    string? recommendedId;
+                    if (currentBars != null && currentBars.Count >= 565)
+                    {
+                        // Behavior-driven classification (works for any asset including untested ones).
+                        recommendedId = BuiltInStrategySeeds.GetV23LongPresetForBars(currentBars, symbolLabel, tfLabel);
+                    }
+                    else
+                    {
+                        // Insufficient bars → fall back to symbol-string heuristic.
+                        recommendedId = BuiltInStrategySeeds.GetV23LongPresetForAsset(symbolLabel, tfLabel);
+                    }
+                    @if (recommendedId != null && !string.IsNullOrEmpty(symbolLabel))
+                    {
+                        <p style="margin-top: 8px; color: #ffb84d; font-size: 0.85rem;">
+                            ★ For <strong>@symbolLabel</strong> the empirically-recommended v23 long strategy is
+                            highlighted below. Pick from the table to load.
+                        </p>
+                    }
                     <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
                         <thead>
                             <tr style="border-bottom: 1px solid #555;">
@@ -109,8 +133,13 @@
                             {
                                 bool isActive = Coordinator.ActiveStrategies.Any(a =>
                                     string.Equals(a.Strategy.Id, spec.Id, StringComparison.OrdinalIgnoreCase));
-                                <tr @key="spec.Id" style="border-bottom: 1px solid #333;">
-                                    <td style="padding: 6px 8px;">@spec.Name</td>
+                                bool isRecommended = recommendedId != null
+                                    && string.Equals(spec.Id, recommendedId, StringComparison.OrdinalIgnoreCase);
+                                <tr @key="spec.Id" style="border-bottom: 1px solid #333; @(isRecommended ? "background: #2a2a14;" : "")">
+                                    <td style="padding: 6px 8px;">
+                                        @if (isRecommended) { <span aria-label="Recommended" title="Empirically-recommended for @symbolLabel">★ </span> }
+                                        @spec.Name
+                                    </td>
                                     <td style="padding: 6px 8px;">@spec.Side</td>
                                     <td style="padding: 6px 8px; color: @(isActive ? "#6f6" : "#888");">
                                         @(isActive ? "Active" : "Stopped")
