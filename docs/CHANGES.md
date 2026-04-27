@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-27 evening 13] — Round 10: post-strategy cleanup pass
+
+User-requested sweep through every non-strategy TODO. One new feature shipped
+(cross-pane TBD distribution tint), three TODOs verified already-shipped and
+documented, three obsolete entries pruned, one user-flagged audio-conflict
+clarified. 790/790 tests passing, 0 warnings, 0 errors.
+
+### Cross-pane TBD distribution tint (NEW)
+
+`ChartRenderer.RenderTbdDistributionTint` paints the Main pane background red
+on bars where `Distribution Confidence ≥ 0.5`. Mirrors the existing Anchor-
+regime tint architecture: a parallel `_crossPaneTbdDistribution` field is
+populated from any visible series exposing a `Distribution Confidence`
+component (`TopBottomDetectorProvider`), and rendered at layer-0 immediately
+after the BackgroundLayer so it sits under data layers.
+
+Alpha scales with confidence: maps `[0.5, 1.0] → [0.2, 1.0]` of a
+`MaxTintAlpha=32` cap, soft red. The visual cue strengthens as the
+distribution thesis builds — a sustained-accumulator value justifies a
+sustained visual cue, mirroring the architectural asymmetry that "bottoms
+are events, tops are processes."
+
+### TODO entries verified already-shipped (no code change)
+
+- **Three-tier level-crossing earcons** — `LevelCrossingMonitor` exists and is
+  wired in `SonificationManager`. Tier 1 = approach ping (5% band, amplitude
+  scales with proximity), Tier 2 = existing `PlayBoundary` path, Tier 3 =
+  single one-shot confirmation tone after `SustainedBarsThreshold` consecutive
+  bars beyond the level. Implementation deliberately uses a one-shot tone
+  rather than the originally-spec'd "looping low-amp background tone" so the
+  passive zone-noise texturing in `AudioZoneHelper.ComputeZoneNoise` remains
+  the persistent "still in zone" cue. The two systems coexist by design.
+
+- **Cross-pane Anchor cloud** — `ChartRenderer.RenderAnchorRegimeTint` already
+  paints `_crossPaneAnchorPolarity` from any visible series exposing an
+  `Anchor Polarity` component into the Main pane (faint teal/red, α=22).
+
+- **Divergence line rendering** — `StandardRenderers.RenderDot` reads
+  `{Comp}_anchorIdx` + `{Comp}_anchorY` companion arrays and draws a slanted
+  line from the first pivot to the second-pivot diamond. `CipherBProvider`
+  populates these arrays for `Bullish Divergence`, `Bearish Divergence`, and
+  `Hidden Continuation` (bull + bear).
+
+### Obsolete TODO entries pruned
+
+- "Commit this session's work in logical groups" (line 1339) — long since
+  committed across many subsequent sessions.
+- "Commit all uncommitted work (~120+ files modified)" (line 1395) — same.
+- "v3 / v4 r1 / v6 stale Crypto Face seeds" (lines 2371-2373) — verified absent
+  from `BuiltInStrategySeeds.cs` (already deleted in an earlier cleanup pass).
+
+### Tooling
+
+`grep -c "^- \[ \]" docs/TODO.md` count drops from 39 to 31 open items
+(8 closed: 1 new feature shipped + 4 verified already-shipped + 3 pruned obsolete).
+
+---
+
 ## [2026-04-27 evening 12] — Round 9: closing the v23 investigation backlog
 
 Final pass through every open follow-up after round 8. Six concrete deliverables

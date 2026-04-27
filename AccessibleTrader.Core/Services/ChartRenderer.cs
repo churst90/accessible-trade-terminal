@@ -32,6 +32,7 @@ namespace AccessibleTrader.Core.Services
         // threading the value through every IRenderLayer contract for a feature
         // that's only meaningful on the price pane.
         private double[]? _crossPaneAnchorPolarity;
+        private double[]? _crossPaneTbdDistribution;
 
         public ChartRenderer(ThemeService theme, IStylingService styling, IProfileService profileService, IPaneLayoutService paneLayout, ILogger<ChartRenderer> logger, IAppLogger appLogger)
         {
@@ -107,6 +108,17 @@ namespace AccessibleTrader.Core.Services
                 _crossPaneAnchorPolarity = seriesList
                     .Where(s => s.IsVisible)
                     .Select(s => s.GetComponentData("Anchor Polarity"))
+                    .FirstOrDefault(d => d != null && d.Length > 0);
+
+                // Cross-pane TBD distribution confidence tint. Sustained accumulator
+                // (TopBottomDetectorProvider.CompDistribution) → sustained visual cue:
+                // when distribution ≥ 0.5 the asset is statistically in a multi-bar
+                // distribution phase. Painted as a faint red overlay on the Main pane
+                // so traders see "topping conditions present" while looking at price,
+                // not only while looking at the oscillator pane.
+                _crossPaneTbdDistribution = seriesList
+                    .Where(s => s.IsVisible)
+                    .Select(s => s.GetComponentData("Distribution Confidence"))
                     .FirstOrDefault(d => d != null && d.Length > 0);
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();
@@ -285,6 +297,8 @@ namespace AccessibleTrader.Core.Services
                 // its own cloud fill (Cipher B "Anchor Fill").
                 if (li == 0 && paneName == "Main" && _crossPaneAnchorPolarity != null)
                     RenderAnchorRegimeTint(ctx, _crossPaneAnchorPolarity);
+                if (li == 0 && paneName == "Main" && _crossPaneTbdDistribution != null)
+                    RenderTbdDistributionTint(ctx, _crossPaneTbdDistribution);
             }
             if (profileSeries.Any()) _profileLayer.Render(ctx, profileSeries);
             canvas.Restore();
@@ -347,6 +361,41 @@ namespace AccessibleTrader.Core.Services
                 float x = i * barWidth;
                 var rect = new SKRect(x, ctx.Top, x + barWidth, ctx.Bottom);
                 ctx.Canvas.DrawRect(rect, pol > 0 ? bullLease : bearLease);
+            }
+        }
+
+        /// <summary>
+        /// Paints a red tint on bars where TBD distribution confidence ≥ 0.5.
+        /// The TBD distribution accumulator is a slow process — sustained values
+        /// indicate multi-bar topping conditions, mirroring the architectural
+        /// asymmetry that bottoms are events and tops are processes. Alpha scales
+        /// with confidence (0.5→0.20×, 1.0→1.00× of the cap) so the visual cue
+        /// strengthens as the distribution thesis builds.
+        /// </summary>
+        private static void RenderTbdDistributionTint(RenderContext ctx, double[] distribution)
+        {
+            const double Threshold = 0.5;
+            const byte MaxTintAlpha = 32; // a touch heavier than Anchor since it's a proper signal, not just regime
+            var baseColor = new SKColor(0xEF, 0x53, 0x50, 0); // soft red, alpha set per-bar
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            using var paint = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = false };
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= distribution.Length) break;
+                double dist = distribution[dataIdx];
+                if (double.IsNaN(dist) || dist < Threshold) continue;
+
+                // Map [0.5, 1.0] → [0.2, 1.0] of MaxTintAlpha, clamped above 1.0.
+                double scale = Math.Clamp((dist - Threshold) / (1.0 - Threshold), 0.0, 1.0);
+                byte alpha = (byte)(MaxTintAlpha * (0.2 + 0.8 * scale));
+                paint.Color = baseColor.WithAlpha(alpha);
+
+                float x = i * barWidth;
+                var rect = new SKRect(x, ctx.Top, x + barWidth, ctx.Bottom);
+                ctx.Canvas.DrawRect(rect, paint);
             }
         }
 

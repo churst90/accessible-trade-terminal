@@ -333,11 +333,11 @@ default to `walk-windows` over `walk`.
   BTC 4h to see if higher-conviction fires lift per-trade R. Lower
   priority now that we know v22-LONG's actual sweet spot is 1d, not
   4h. 4h is the noisy/degraded operating point.
-- [ ] **Cross-pane TBD distribution tint** — paint price pane
-  background red-tinted when distribution confidence ≥ 0.5, mirroring
-  the cross-pane Anchor regime tint shipped 2026-04-24. Slow
-  accumulator → sustained visual cue is the right primitive. UI work,
-  unrelated to the walk-windows pipeline.
+- [x] **Cross-pane TBD distribution tint** — shipped 2026-04-27.
+  `ChartRenderer.RenderTbdDistributionTint` paints `_crossPaneTbdDistribution`
+  from any visible series exposing a `Distribution Confidence` component (e.g.
+  `TopBottomDetectorProvider`). Threshold ≥ 0.5; alpha scales with confidence
+  (max α=32, soft red). Mirrors the Anchor regime tint architecture.
 
 ### [2026-04-27 evening] Cross-TF survey + TimeframeAdaptive scaling — complete
 
@@ -1336,19 +1336,14 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [ ] **Delete redundant BNVISION_FUNDING / BNVISION_OI lab providers** — now duplicating what Core FUNDING_RATE / OPEN_INTEREST provide. Still referenced by v18/v21 strategy leaves. Once v18/v21 are migrated to `FUNDING_RATE.Funding Rate` leaf, the lab providers can be deleted along with their command files.
 
 ### Uncommitted work
-- [ ] **Commit this session's work in logical groups**:
-  - (a) Zone band + OB/OS fix (ZoneBandConfig, StandardRenderers, CipherBProvider)
-  - (b) Dead strategy cleanup (v1-v12 + v13s + v19 + v20 deletion)
-  - (c) New strategy seeds (v18 Refined Short + v21 MVRV Capitulation Trilogy)
-  - (d) BinanceVision plugin creation + Core indicator repointing + slnx/csproj registration
-  - (e) StrategyLab BinanceVision extension for DOGE/ADA/LTC/BNB
-  - (f) Deep OHLCV snapshot refresh + cross-series data
+- [x] **Commit this session's work** — obsolete; all listed groups long since
+  committed in subsequent sessions. Pruned 2026-04-27.
 
 ### Strategy work — future
 - [ ] **Cross-asset matrix rerun with v18 asset-aware**: once Core providers accept `__symbol`, re-run v18 on ETH/SOL/XRP/DOGE in LIVE mode to verify parity with StrategyLab.
 - [ ] **v13/v14/v15 cross-asset walk-forward** — never tested on non-BTC. May reveal additional survivors or confirm BTC-specialist pattern.
-- [ ] **Divergence line rendering** — real MCB draws slanted line between pivots; currently only a diamond at the 2nd pivot. Renderer feature, deferred.
-- [ ] **Cross-pane Anchor cloud** — tint price pane background with anchor regime color. Currently only in oscillator pane.
+- [x] **Divergence line rendering** — already shipped. `StandardRenderers.RenderDot` reads `{Comp}_anchorIdx` + `{Comp}_anchorY` companion arrays and draws a slanted line from the first pivot to the second-pivot diamond when both anchors are non-NaN. `CipherBProvider` populates these arrays for `Bullish Divergence`, `Bearish Divergence`, `Hidden Continuation` (bull + bear). Pruned 2026-04-27.
+- [x] **Cross-pane Anchor cloud** — already shipped. `ChartRenderer.RenderAnchorRegimeTint` paints `_crossPaneAnchorPolarity` from any visible series exposing an `Anchor Polarity` component into the Main pane background (faint teal/red, α=22). Pruned 2026-04-27.
 - [x] **Schwab UI sign-in button (2026-04-23)** — per-row "Sign in" button added to `ApiKeysModal` for Schwab profiles. Activates the profile, reaches the provider via `IDataService`, invokes `BeginAuthorizationAsync` through reflection (keeps UI off the plugin hard-dep), publishes start/success/failure feedback for screen-reader users.
 
 ---
@@ -1397,7 +1392,7 @@ across two phases. Phase 1 is complete; phase 2 is open.
 - [ ] Adaptive WT thresholds for Cipher B — dynamic OB/OS levels based on oscillator's own distribution (percentile-based)
 - [ ] Pulse indicator simplification — consider decomposing v1/v2/v3 signal tiers into strategy conditions
 - [ ] Phase 12 Session 3 — v9 backtest + thesis validation
-- [ ] Commit all uncommitted work (~120+ files modified/created across 2 sessions)
+- [x] Commit all uncommitted work — obsolete; long since committed across many subsequent sessions. Pruned 2026-04-27.
 
 ### Data Landscape Reference (updated)
 Free: BGeometrics (BTC 154+ metrics), CoinMetrics Community (9 assets MVRV), DefiLlama (TVL, stablecoins), Mempool.space (BTC mining), Etherscan (ETH gas/supply), OKX public (307 perps funding/OI), Binance public (derivatives), Alternative.me (FNG), CoinGecko (dominance), FRED (macro), FMP free tier (250 req/day).
@@ -2214,7 +2209,7 @@ Three-tier pattern-based transpiler (no ANTLR — hand-written regex/pattern app
 - [x] **Multi-workspace tabs:** `WorkspaceState` extended with `TabSnapshots` + `ActiveTabIndex` + `TabCount`. `TabSnapshot` record freezes per-tab fields. `AddTabAction`, `CloseTabAction`, `SwitchTabAction`, `ToggleNarrationAction` reducer cases in `WorkspaceStore`. `TabBar.razor` renders between Toolbar and chart; hidden when only one tab open. Keyboard: `Ctrl+T` (new), `Ctrl+W` (close), `Ctrl+Tab` / `Ctrl+Shift+Tab` (cycle). `TabSwitchedEvent` published for audio engine stop. TTS announces tab label on switch. 14 tests added (`MultiTabTests.cs`). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **Drawing tool completions:** Audited all 16 registered drawing tools. All anchor counts and sequencing correct. One bug fixed: `GannBoxCalculator` price levels were spanning the entire chart instead of being bounded within the anchor date range — now fills NaN outside [i1,i2] and adds time subdivision points at Gann ratios. AVWAP confirmed correct (recalculated from scratch on each `Calculate()` call, so live bars work naturally). Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [x] **`AutoNarrationService`:** `SeriesConfig.IsAutoNarrated` + `ChartSeries.IsAutoNarrated` delegation. `ToggleNarrationAction` in store. `Ctrl+Shift+N` toggles narration for focused series. `AutoNarrationService` subscribes to `IndicatorUpdatedEvent` + `StateStream`; detects new marker signals (non-NaN Dot/Arrow/Diamond/etc.) on closed bars and oscillator zone transitions; announces via `ISpeechFeedbackRouter` (non-interrupting). Seeding prevents retroactive announcements when narration is enabled. "narrating" appended to series state suffix in `NavigationFeedbackManager`. `Ctrl+Shift+D` (existing `BarDetailService`) already reads non-NaN column values for focused series. 10 tests added (`AutoNarrationTests.cs`). Build: 0 errors. Tests: 162/162. (2026-04-01)
-- [ ] **Three-tier level crossing earcons:** Tier 1 = approach (within 5% of OB/OS level, amplitude scales with proximity), Tier 2 = crossing (existing `PlayBoundary()`), Tier 3 = sustained beyond level >3 bars (looping low-amp background tone). Tracked per series/level in `LevelCrossingMonitor` singleton.
+- [x] **Three-tier level crossing earcons:** Shipped via `LevelCrossingMonitor` (`AccessibleTrader.Core/Services/Audio/LevelCrossingMonitor.cs`), wired in `SonificationManager` and DI. Tier 1 = approach ping (5% band, amplitude scales with proximity), Tier 2 = crossing (existing `PlayBoundary` path), Tier 3 = single one-shot confirmation tone after `SustainedBarsThreshold` consecutive bars beyond. **Note:** the original spec called for a "looping low-amp background tone" for Tier 3, which would have stepped on the existing OB/OS noise-texturing in `AudioZoneHelper.ComputeZoneNoise`. Implementation deliberately uses a one-shot tone instead so the passive zone-noise texture remains the persistent "still in zone" cue while the Tier 3 tone cleanly marks the threshold-crossing event.
 - [x] **Live AI Technical Analyst:** `IAIAnalystService` + `ILLMProvider` plugin contract in Sdk. Providers: `ClaudeProvider` (claude-sonnet-4-6), `OpenAIProvider` (gpt-4o), `OllamaProvider` (local llama3). Priority: Claude → OpenAI → Ollama (first configured key wins; Ollama needs no key). `Ctrl+Alt+Shift+A` → `AIAnalystModal.razor` (auto-triggers on open). Announces "no API key configured" if none found. Builds OHLCV prompt (50 viewport bars) + indicator summary + offscreen PNG snapshot via `SKSurface`. Speech-reads result. Build: 0 errors. Tests: 176/176. (2026-04-01)
 - [~] **NAudio.Wasapi removal:** tracked in Platform Parity section.
 
@@ -2373,9 +2368,9 @@ The v2-v6 strategy iteration sprint produced one walked-forward stable strategy 
 
 ### Strategies that should be deleted from the library after v7 lands
 
-- [ ] **v4 r1 (`builtin.cryptoface.long.v4-claude`)** — broken HTF leaf, kept as teaching example. Delete after Phase 12 HTF fix is verified working.
-- [ ] **v6 (`builtin.long.v6-cipher-c-cycle`)** — no edge in either walk-forward half. Cipher C cycle math may not latch onto BTC daily; retain only if visual verification confirms Lead Sine actually leads price turns.
-- [ ] **v3 (`builtin.cryptoface.long.v3`)** — empirically refuted by being worse than v2 in absolute terms. Could delete as well, or keep as a reference example of the literal Crypto Face stage gates.
+- [x] **v4 r1, v6, v3 stale Crypto Face seeds** — verified absent from
+  `BuiltInStrategySeeds.cs` (already deleted in an earlier cleanup pass).
+  Pruned 2026-04-27.
 
 ### Open question (no work item, just documented)
 
