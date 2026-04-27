@@ -4,6 +4,90 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-27 evening 14] — bUnit modal-coverage spike
+
+User-requested validation pass on whether bUnit can test the existing Blazor
+modal surface. Spike delivered: bUnit 1.40 wired into `AccessibleTrader.Tests`,
+six tests passing against a representative fixture component, and a documented
+rollout plan for testing the real modals once a Razor Class Library extraction
+unblocks the project reference. **796/796 tests passing** (790 prior + 6 spike).
+
+### What shipped
+
+- **bUnit 1.40 PackageReference** added to `AccessibleTrader.Tests.csproj`;
+  SDK switched from `Microsoft.NET.Sdk` → `Microsoft.NET.Sdk.Razor` so .razor
+  files in the test project compile alongside the existing C# tests.
+- **`AccessibleTrader.Tests/BlazorSpike/`** new directory containing:
+  - `_Imports.razor` — `@using Microsoft.AspNetCore.Components` +
+    `@using Microsoft.AspNetCore.Components.Web` (the latter is mandatory —
+    without it, `@onclick` and friends are silently no-op'd).
+  - `StrategyModalFixture.razor` — stripped-down replica of the real
+    `StrategyModal`'s testable interaction surface. Mirrors the four
+    contracts we want to validate: coordinator-mock seam, behavior-driven
+    preset selector, symbol-string fallback, and JS-interop `focusElement`
+    call.
+  - `StrategyModalFixtureTests.cs` — six tests covering all four contracts:
+    `StartButton_InvokesCoordinatorStartSpecOnce`,
+    `StopButton_InvokesCoordinatorStopSpecOnce`,
+    `Recommended_WithEnoughBars_TakesClassifierRoute`,
+    `Recommended_WithFewBars_FallsBackToSymbolHeuristic`,
+    `OnFirstRender_FocusesTitleViaJsInterop`,
+    `NoSymbol_LeavesRecommendedEmpty`.
+
+### Architectural blocker (documented, not solved)
+
+The real `StrategyModal.razor` lives in `AccessibleTrader.BlazorClient`
+which has `<UseMaui>true</UseMaui>` and only targets mobile/desktop TFMs
+(`net10.0-windows / -android / -ios / -maccatalyst`). It **cannot** be
+referenced from a plain `net10.0` test project. Two remediation paths:
+
+- **Path A (recommended, 1-2 days):** extract `BlazorClient/Components/` into a
+  new Razor Class Library `AccessibleTrader.BlazorClient.Components` that
+  targets `net10.0`. The MAUI BlazorClient adds a project reference to the
+  RCL; the test project does too. **No component code changes required** —
+  the components compile identically against either host.
+- Path B (not recommended): add a `net10.0` TFM to the BlazorClient itself
+  with conditional MAUI exclusion. Fights `<UseMaui>true</UseMaui>`'s default
+  build pipeline, brittle.
+
+After Path A, per-modal bUnit coverage rolls out file-by-file (~1-3 hours
+each) using the four patterns demonstrated in the spike. Estimate ~40-50
+tests covering the four big modals (StrategyModal, BuildSetupTab,
+PropertiesModal, SettingsModal).
+
+### Recipe summary (validated)
+
+For future bUnit tests in this codebase:
+
+```csharp
+// 1. Build a TestContext, register mocked services.
+var ctx = new TestContext();
+ctx.Services.AddSingleton<IStrategyModalCoordinator>(stubCoord);
+
+// 2. Shim every IJSRuntime call the component makes BEFORE rendering.
+ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
+
+// 3. Render with parameters.
+var cut = ctx.RenderComponent<MyModal>(p => p.Add(c => c.IsOpen, true));
+
+// 4. Use [data-testid] selectors for stable targeting.
+cut.Find("[data-testid='load-button']").Click();
+
+// 5. Verify mock interactions.
+Assert.Equal(1, stubCoord.LoadCallCount);
+```
+
+Two gotchas worth documenting:
+
+1. **`@using Microsoft.AspNetCore.Components.Web` is mandatory in `_Imports.razor`.**
+   Without it, `@onclick`, `@onchange`, etc. compile cleanly but produce no event
+   handler, and bUnit reports `MissingEventHandlerException` on click. Confusing
+   because the C# compiles — only the runtime event-binding fails.
+2. **Capture loop variables locally before passing to `@onclick` lambdas.**
+   The Razor compiler may bind the wrong iteration's value otherwise.
+
+---
+
 ## [2026-04-27 evening 13] — Round 10: post-strategy cleanup pass
 
 User-requested sweep through every non-strategy TODO. One new feature shipped

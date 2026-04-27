@@ -1,0 +1,102 @@
+@*
+    bUnit modal-coverage spike fixture (2026-04-27 evening 14).
+
+    This fixture component is a stripped-down replica of the testable
+    interaction surface of `AccessibleTrader.BlazorClient.Components.StrategyModal`.
+    It exists only inside the test project because the real modal lives in
+    a MAUI host project (UseMaui=true) that cannot be referenced from a plain
+    net10.0 test assembly.
+
+    The fixture mirrors the real modal's behavior for the four interaction
+    patterns we want to validate are testable with bUnit:
+
+      1. Coordinator-mock seam — Start/Stop button clicks invoke
+         IStrategyModalCoordinator.{StartSpec, StopSpec} exactly once each.
+      2. Behavior-driven preset selector — when given enough bars + a known
+         symbol, the auto-recommend renders the classifier route's pick id.
+      3. Symbol-string fallback — with too few bars, falls back to
+         GetV23LongPresetForAsset rather than null-ing out.
+      4. JS-interop call — InvokeVoidAsync("accessibleTrader.focusElement", ...)
+         on first render is captured by the bUnit JSInterop mock.
+
+    Once the BlazorClient/Components folder is extracted into a Razor Class
+    Library targeting net10.0, the real StrategyModal can be tested directly
+    using these same patterns. See test file header for the full rollout plan.
+*@
+
+@using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Strategies
+@using Microsoft.JSInterop
+@inject IStrategyModalCoordinator Coordinator
+@inject IJSRuntime JSRuntime
+
+<div class="strategy-modal-fixture">
+    <h2 id="strategy-title" data-testid="title">Strategy manager (fixture)</h2>
+
+    <div data-testid="recommended-id">@_recommendedId</div>
+
+    <div class="library">
+        @foreach (var spec in Library)
+        {
+            var startId = "start-" + spec.Id;
+            var stopId  = "stop-" + spec.Id;
+            var capturedId = spec.Id;
+            <div class="row">
+                <span data-testid="spec-name">@spec.Name</span>
+                <button data-testid="@startId" @onclick="@(() => Start(capturedId))">Start</button>
+                <button data-testid="@stopId" @onclick="@(() => Stop(capturedId))">Stop</button>
+            </div>
+        }
+    </div>
+
+    <div data-testid="last-result">@_lastResultMessage</div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<StrategySpec> Library { get; set; } = Array.Empty<StrategySpec>();
+    [Parameter] public string? Symbol { get; set; }
+    [Parameter] public string? Timeframe { get; set; }
+    [Parameter] public IReadOnlyList<Ohlcv>? Bars { get; set; }
+
+    private string? _recommendedId;
+    private string _lastResultMessage = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        // Mirror StrategyModal.razor lines 100-115: prefer bars-classified
+        // recommendation when bars are available; fall back to symbol heuristic.
+        if (!string.IsNullOrWhiteSpace(Symbol))
+        {
+            if (Bars != null && Bars.Count >= 565)
+            {
+                _recommendedId = BuiltInStrategySeeds.GetV23LongPresetForBars(Bars, Symbol!, Timeframe);
+            }
+            else
+            {
+                _recommendedId = BuiltInStrategySeeds.GetV23LongPresetForAsset(Symbol!, Timeframe);
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Mirror StrategyModal.razor line 527 — focus the title for screen readers.
+            await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "strategy-title");
+        }
+    }
+
+    private void Start(string specId)
+    {
+        var r = Coordinator.StartSpec(specId);
+        _lastResultMessage = r.Message;
+    }
+
+    private void Stop(string specId)
+    {
+        var r = Coordinator.StopSpec(specId);
+        _lastResultMessage = r.Message;
+    }
+}

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -12,6 +12,23 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!--
+      bUnit modal-coverage spike (2026-04-27 evening 14).
+
+      Architectural note: the MAUI BlazorClient project (UseMaui=true) cannot be
+      referenced from a plain net10.0 test project — it targets only mobile/
+      desktop TFMs. The spike validates the bUnit testing toolchain (JS interop
+      shim, DI mocks, click+verify pattern) using fixture components that live
+      inside the test project, with a documented rollout path:
+        1. Extract Components/ from BlazorClient into a Razor Class Library
+           targeting net10.0 (e.g. AccessibleTrader.BlazorClient.Components).
+        2. BlazorClient references the RCL; tests reference the RCL too.
+        3. Per-modal coverage rolls out file-by-file once the RCL exists.
+
+      bUnit 1.40+ requires Microsoft.AspNetCore.Components 9.x; we pin to the
+      latest 1.x line that supports net10.0.
+    -->
+    <PackageReference Include="bunit" Version="1.40.0" />
   </ItemGroup>
 
   <ItemGroup>

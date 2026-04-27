@@ -725,7 +725,17 @@ needs a new bUnit dependency.
   161.8%/261.8%; Rectangle normalises corners + NaN outside date range
   + reversed dates swap; HorizontalLine constant fill +
   missing-anchor early return.
-- [ ] **Blazor modals** — still needs bUnit; deferred.
+- [~] **Blazor modals — bUnit spike complete (2026-04-27 e14).** bUnit 1.40
+  installed in `AccessibleTrader.Tests`; six fixture tests pass against
+  `AccessibleTrader.Tests/BlazorSpike/StrategyModalFixture.razor` validating
+  the four interaction patterns we'll need across the modal sweep:
+  coordinator-mock seam, classifier-route auto-recommend, symbol-string
+  fallback, and `IJSRuntime` shim. Architectural blocker for testing the
+  real modals: the MAUI BlazorClient (`UseMaui=true`) cannot be referenced
+  from a plain net10.0 test project. **Rollout path** documented in the
+  test file header — extract `BlazorClient/Components` into a Razor Class
+  Library targeting net10.0, then per-modal coverage rolls out file-by-file
+  using the patterns demonstrated in the spike (~1-3 hours per modal).
 
 ---
 
