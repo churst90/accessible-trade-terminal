@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    AccessibleTrader.BlazorClient.Components — platform-agnostic Razor Class
+    Library housing every Razor component for the trading terminal UI.
+    Extracted from AccessibleTrader.BlazorClient (the MAUI host) on 2026-04-27
+    so components compile against plain net10.0 and can be referenced from:
+
+      • The MAUI host (AccessibleTrader.BlazorClient) for shipping the app.
+      • The test project (AccessibleTrader.Tests) for bUnit modal coverage.
+      • Any future ASP.NET Core or Blazor WebAssembly host.
+
+    The RCL must NOT take a hard dependency on Microsoft.Maui.* — that is the
+    structural contract this extraction enforces. If a component needs a
+    platform capability (file picker, native share, device info), expose it
+    via an interface in AccessibleTrader.Core and let the MAUI host implement
+    it. See IRuntimePlatform for the established pattern.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AccessibleTrader.BlazorClient.Components</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

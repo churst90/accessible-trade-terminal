@@ -6,12 +6,12 @@
 @using AccessibleTrader.Core.PineScript
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Sdk.Models
-@using Microsoft.Maui.Devices
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
 @inject IRoslynScriptingService ScriptingService
 @inject ISeriesManagementService SeriesManager
 @inject IWorkspaceStore Store
+@inject IRuntimePlatform RuntimePlatform
 @implements IDisposable
 
 @if (_isVisible)
@@ -294,7 +294,7 @@
         // every path into CompileIndicatorAsync is refused on iOS — not just
         // .atpkg imports. The editor textarea still works as a text editor;
         // it just can't execute.
-        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        if (RuntimePlatform.IsIos)
         {
             _compileErrors = new[] { IosRefusalMessage };
             StateHasChanged();
@@ -375,7 +375,7 @@
     {
         _importFeedback = "";
         _importSuccess = false;
-        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        if (RuntimePlatform.IsIos)
         {
             _importFeedback = IosRefusalMessage;
             _importSuccess = false;
@@ -467,7 +467,7 @@
     private async Task ImportAtpkgJson()
     {
         if (string.IsNullOrWhiteSpace(_importJson)) return;
-        if (DeviceInfo.Current.Platform == DevicePlatform.iOS)
+        if (RuntimePlatform.IsIos)
         {
             _importFeedback = IosRefusalMessage;
             _importSuccess = false;

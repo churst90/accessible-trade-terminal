@@ -34,6 +34,7 @@
     <Project Path="Plugins/Strategies/AccessibleTrader.Plugins.Strategy.Fixture/AccessibleTrader.Plugins.Strategy.Fixture.csproj" />
   </Folder>
   <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
+  <Project Path="AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.csproj" />
   <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
   <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />
   <Project Path="AccessibleTrader.ScriptSandbox/AccessibleTrader.ScriptSandbox.csproj" />

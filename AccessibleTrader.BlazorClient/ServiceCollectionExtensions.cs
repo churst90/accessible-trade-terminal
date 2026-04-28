@@ -51,6 +51,7 @@ namespace AccessibleTrader.BlazorClient
             // else in the application depends on at least one of these.
             services.AddSingleton<IAppLogger, MauiAppLogger>();
             services.AddSingleton<IPlatformPathService, MauiPathService>();
+            services.AddSingleton<IRuntimePlatform, MauiRuntimePlatform>();
             services.AddSingleton<IMainThreadService, MauiMainThreadService>();
             services.AddSingleton<IEventBus, EventBus>();
 

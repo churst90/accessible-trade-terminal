@@ -4,6 +4,107 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-27 evening 15] — Razor Class Library extraction + first real-component bUnit tests
+
+Followed through on the bUnit spike's documented architectural blocker by
+extracting `AccessibleTrader.BlazorClient/Components/` into a new
+`AccessibleTrader.BlazorClient.Components` Razor Class Library targeting
+plain `net10.0`. The MAUI host references the RCL; the test project does
+too; every Razor component now compiles in a platform-agnostic project
+that can be referenced from any Blazor host (MAUI, ASP.NET Core, WebAssembly).
+**795/795 tests passing** (790 backend + 5 real-component bUnit tests; net
+-1 vs prior because the spike's six fixture tests are replaced with five
+tests against the actual `StrategyModal`).
+
+### What shipped
+
+**RCL: `AccessibleTrader.BlazorClient.Components`**
+- `Microsoft.NET.Sdk.Razor` SDK, `<TargetFramework>net10.0</TargetFramework>`,
+  references `AccessibleTrader.Core` + `AccessibleTrader.Sdk` + the
+  `Microsoft.AspNetCore.Components.Web` package.
+- 33 `.razor` files, `_Imports.razor`, `ModalBase.cs`, `Layout/` subdir,
+  `Pages/` subdir — all moved via `git mv` so blame history follows.
+- Six platform-agnostic services moved alongside (`GlobalInputService`,
+  `CanvasRegionProvider` + `ICanvasRegionProvider`, `BlazorInputService`,
+  `BlazorSpeechManager`, `BlazorAudioDriver`, `PriceFormatter`). Their
+  namespace stays `AccessibleTrader.BlazorClient.Services` so no
+  consumer-side changes are needed — same-named namespace in two assemblies
+  is fully supported by the .NET type system.
+
+**MAUI dependency-removal: `IRuntimePlatform`**
+- New tiny interface in `AccessibleTrader.Core.Services`. Surfaces
+  `IsIos`/`IsAndroid`/`IsWindows`/`IsMacCatalyst`. The MAUI host registers
+  `MauiRuntimePlatform` (backed by `Microsoft.Maui.Devices.DeviceInfo`).
+- `CustomScriptsModal` was the only component with a hard MAUI dep
+  (`Microsoft.Maui.Devices.DeviceInfo.Current.Platform == DevicePlatform.iOS`,
+  used to disable Roslyn compilation on iOS). Refactored to inject
+  `IRuntimePlatform.IsIos` instead. Three call sites updated; behavior
+  identical.
+
+**`Routes.razor` AppAssembly seam**
+- Was hard-coded to `typeof(MauiProgram).Assembly`. Now uses
+  `typeof(Routes).Assembly`, which IS the RCL — and that's where every
+  `@page` directive lives (only `Pages/Home.razor` today). If a future host
+  adds host-local routable components, parameterize via `[Parameter]`
+  AdditionalAssemblies.
+
+**MainPage.xaml composition stays unchanged.** The `xmlns:components` already
+points at `clr-namespace:AccessibleTrader.BlazorClient.Components` which
+now resolves to the RCL assembly. `<components:Routes>` in the
+`BlazorWebView` continues to work because the namespace + type pair
+resolve correctly across assemblies.
+
+### Real-component bUnit coverage (replaces the spike fixture)
+
+Five tests in `AccessibleTrader.Tests/Blazor/StrategyModalTests.cs` exercise
+the actual `AccessibleTrader.BlazorClient.Components.StrategyModal`:
+
+1. `StrategyModal_HiddenByDefault_RendersEmpty` — modal renders no DOM
+   until opened.
+2. `StrategyModal_LibraryCount_ReflectsLibrarySize` — `Library (3)` tab
+   label matches `IStrategyLibrary.All.Count`.
+3. `StrategyModal_RecommendationBanner_ShowsForKnownSymbol` — with
+   BTC/USDT 1d in workspace state and < 565 bars, the symbol-string
+   heuristic shows the recommendation banner.
+4. `StrategyModal_NoSymbol_SuppressesRecommendation` — with no symbol set,
+   the recommendation banner is hidden.
+5. `StrategyModal_EmptyLibrary_ShowsEmptyState` — with 0 specs, the "No
+   saved strategies yet" empty state renders.
+
+The test harness pattern (recipe documented in the test file header):
+register stub `IStrategyModalCoordinator` + `IStrategyLibrary` +
+`IWorkspaceStore` + the real `EventBus`; shim
+`accessibleTrader.focusElement` JS interop call; render the component,
+then publish `OpenStrategiesEvent` to drive the open path. Mirrors
+production exactly.
+
+### Cost paid + benefit gained
+
+- **One-time cost:** ~3 hours (scaffold RCL, move 33 components + 6
+  services, refactor one MAUI dependency, fix `Routes.razor`, migrate the
+  spike tests). No production-code behavior changes.
+- **Recurring wins:**
+  - Per-modal bUnit coverage now ~1-3 hours each (template established).
+  - Build times: editing a component no longer triggers full multi-target
+    MAUI rebuild.
+  - Compile-time enforcement: components literally cannot import
+    `Microsoft.Maui.*` (their assembly doesn't reference it).
+  - Reuse: future Blazor Server/WASM host can reference the same RCL.
+
+### Where the previously-reported "gotcha 2" went
+
+The bUnit spike notes mentioned a "capture loop variables locally before
+passing to `@onclick` lambdas" gotcha. Re-examined: this was a misdiagnosis.
+Modern C# 5+ `foreach` already scopes loop variables per-iteration, so the
+lambda capture is correct by language spec. The real `StrategyModal.razor`
+uses the un-captured `@onclick="() => StartSpec(spec.Id)"` form throughout
+and works correctly. The spike's local-capture refactor ran in parallel
+with the actual fix (the missing `@using Microsoft.AspNetCore.Components.Web`
+import) and didn't change behavior. Documented here so the false guidance
+doesn't propagate.
+
+---
+
 ## [2026-04-27 evening 14] — bUnit modal-coverage spike
 
 User-requested validation pass on whether bUnit can test the existing Blazor
