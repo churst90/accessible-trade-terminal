@@ -6,13 +6,18 @@ window.accessibleTrader = {
     // modal to thread a selector string through.
     _openModalCount: 0,
 
-    // Tracks whether the chart canvas currently has "focus" — set by .NET whenever
-    // the chart surface is the active UI region (pan/zoom/cursor navigation is in
-    // play). Used to gate single-letter chart commands (h, m, p, drawing-tool
-    // letters) so they only trap keystrokes when the chart is the active target.
-    // Without this, typing 'h' inside any custom (non-native) input that sits over
-    // the chart would trigger the "hide" command instead of inserting the letter.
-    _chartFocused: true,
+    // Tracks whether the chart element currently has keyboard focus. Driven by
+    // ChartArea's @onfocus/@onblur handlers which call setChartFocused(true|false).
+    // Used to gate single-letter chart commands (h, m, p, drawing-tool letters)
+    // so they only trap keystrokes when the chart is the active focus target.
+    // Without this, typing 'h' inside any custom (non-native) input would trigger
+    // the "hide" command instead of inserting the letter.
+    //
+    // Starts FALSE because the app launches with focus on the WebView's banner
+    // heading, not the chart — chart commands should not fire until the user has
+    // explicitly put focus into the chart (via Tab, mouse click, or
+    // Ctrl+Alt+Shift+C).
+    _chartFocused: false,
 
     /**
      * Called from .NET (CommandDispatcher / ChartFocusService) when the focus ring

@@ -38,6 +38,17 @@ namespace AccessibleTrader.Core.Models
         bool IsJump = false);
 
     public record ChartFocusEvent();
+
+    /// <summary>
+    /// Asks <see cref="BlazorClient.Components.ChartArea"/> to programmatically move
+    /// keyboard focus to the chart element. Published by <see cref="CommandDispatcher"/>
+    /// when the user presses Ctrl+Alt+Shift+C, and by <see cref="ModalBase.CloseModal"/>
+    /// to return focus to the chart after every modal closes. ChartArea responds by
+    /// invoking <c>accessibleTrader.focusElement("chart-interact-zone")</c> via JS;
+    /// the resulting native focus event then fires <see cref="ChartFocusEvent"/> as a
+    /// side effect, which is what flips the chart-active gate in CommandDispatcher.
+    /// </summary>
+    public record RequestChartFocusEvent();
     public record RedrawEvent();
     public record ConnectionStatusEvent(string Provider, ConnectionState State, string Message);
 

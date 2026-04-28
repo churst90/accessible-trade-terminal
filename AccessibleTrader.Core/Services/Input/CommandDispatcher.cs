@@ -39,11 +39,17 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IDisposable _blurSub;
         private readonly IDisposable _modalSub;
 
-        // Chart focus gate: navigation and drawing commands require the chart to be active.
-        // Starts true so keyboard navigation works immediately on app start without requiring
-        // an explicit click on the chart div. Debounce on deactivate prevents the race where
-        // the JS keydown callback arrives milliseconds before the Blazor onblur fires.
-        private volatile bool _isChartActive = true;
+        // Chart focus gate: every chart-scoped command (navigation, viewport, playback,
+        // drawing, indicator toggle, properties, detail summary, etc.) requires the chart
+        // element to actually have keyboard focus. Starts FALSE so commands don't fire
+        // before the user has put focus into the chart — the app launches with focus on
+        // the WebView's banner heading, not the chart. ChartArea publishes ChartFocusEvent
+        // on @onfocus and DeactivateEvent on @onblur, which flip the flag. Debounce on
+        // deactivate prevents the race where a JS keydown callback arrives milliseconds
+        // before the Blazor @onblur fires (e.g. focus moves to a toolbar button via Tab).
+        // Global commands (F-keys, modal opens, accessibility toggles, volume controls,
+        // tab management, workspace management) are NOT gated — see IsChartScopedCommand.
+        private volatile bool _isChartActive = false;
         private Timer? _deactivateDebounce;
         private const int DEACTIVATE_DEBOUNCE_MS = 50;
 
@@ -82,6 +88,13 @@ namespace AccessibleTrader.Core.Services.Input
             // Modal input trap: when ANY modal is open, suppress every chart command so the
             // user's keystrokes belong to the modal rather than leaking into chart navigation.
             // Modals already publish ModalStateChangedEvent on open/close — we just count.
+            //
+            // Phase 5 keyboard scope: when the LAST modal closes, publish
+            // RequestChartFocusEvent so focus returns to the chart automatically. Without
+            // this, focus lands wherever Blazor / the browser default puts it (often the
+            // body), which is bad UX for screen-reader users — they'd have to Tab to find
+            // the chart again. The user's own modal-close speech ("X dialog closed") is
+            // already in flight, so we don't add a separate announcement here.
             _modalSub = _eventBus.AsObservable<ModalStateChangedEvent>()
                 .Subscribe(e =>
                 {
@@ -90,6 +103,9 @@ namespace AccessibleTrader.Core.Services.Input
                     else
                         System.Threading.Interlocked.Decrement(ref _openModalCount);
                     if (_openModalCount < 0) _openModalCount = 0;
+
+                    if (!e.IsOpen && _openModalCount == 0)
+                        _eventBus.Publish(new RequestChartFocusEvent());
                 });
         }
 
@@ -135,10 +151,16 @@ namespace AccessibleTrader.Core.Services.Input
                 if (!allowedWhileModalOpen) return;
             }
 
-            // Sub-pane navigation — needs chart data and focus gate, handled after those gates.
+            // Chart-focus gate: chart-scoped commands (navigation, viewport, playback,
+            // drawing, indicator toggle, OpenProperties, detail summary, etc.) only fire
+            // when the chart element actually has keyboard focus. Global commands (F-keys,
+            // modal opens, accessibility toggles, volume controls, tab/workspace management)
+            // bypass this gate so the user can drive the app from any focus location.
+            if (!_isChartActive && IsChartScopedCommand(command)) return;
+
+            // Sub-pane navigation — needs chart data; focus gate already handled above.
             if (command == SystemCommand.NavSubPaneNext || command == SystemCommand.NavSubPanePrev)
             {
-                if (!_isChartActive) return;
                 if (_store.State.Data == null || !_store.State.Data.Any())
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No chart loaded.", true));
@@ -151,7 +173,6 @@ namespace AccessibleTrader.Core.Services.Input
             // Intra-pane component navigation — cycles components within the focused component's pane.
             if (command == SystemCommand.NavComponentInPaneNext || command == SystemCommand.NavComponentInPanePrev)
             {
-                if (!_isChartActive) return;
                 if (_store.State.Data == null || !_store.State.Data.Any())
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No chart loaded.", true));
@@ -241,8 +262,16 @@ namespace AccessibleTrader.Core.Services.Input
                 }
                 case SystemCommand.ContextSummary: _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY", true)); return;
                 case SystemCommand.ChartFocus:
-                    _eventBus.Publish(new ChartFocusEvent());
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY", true));
+                    // Ask ChartArea to programmatically focus the chart element. The
+                    // resulting native focus event will fire ChartFocusEvent as a side
+                    // effect, which flips _isChartActive. Don't publish ChartFocusEvent
+                    // here — that would mark the gate active even if the focus call
+                    // failed (e.g. JS bridge not yet initialised).
+                    _eventBus.Publish(new RequestChartFocusEvent());
+                    _eventBus.Publish(new FeedbackRequestEvent(
+                        FeedbackType.Info,
+                        "Focus on trading chart area.",
+                        Interrupt: true));
                     return;
                 case SystemCommand.ScrollPanesUp:
                     _store.Dispatch(new ScrollIndicatorPanesAction(-1));
@@ -287,11 +316,9 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.VolChartDown: _eventBus.Publish(new VolumeChangeEvent("CHART", -0.1f)); return;
             }
 
-            // 2. CHART-FOCUS GATE (Navigation/drawing require chart to be active)
-            if (!_isChartActive && (IsNavigationCommand(command) || IsPlaybackCommand(command) || IsDrawingCommand(command)))
-                return;
-
-            // 3. DATA VALIDATION (Chart commands require a loaded chart)
+            // 2. DATA VALIDATION (Chart commands require a loaded chart).
+            //    Chart-focus gate already ran at the top — anything that reaches this
+            //    point either has chart focus or is a global command.
             if (_store.State.Data == null || !_store.State.Data.Any())
             {
                 // If the user tries to navigate or interact with an empty chart, announce it.
@@ -302,7 +329,7 @@ namespace AccessibleTrader.Core.Services.Input
                 return;
             }
 
-            // 4. NAVIGATION & VIEWPORT
+            // 3. NAVIGATION & VIEWPORT
             if (IsNavigationCommand(command))
             {
                 // NavLeftJump and NavRightJump require custom crossing-detection logic.
@@ -320,14 +347,14 @@ namespace AccessibleTrader.Core.Services.Input
                 return;
             }
 
-            // 5. PLAYBACK ENGINE
+            // 4. PLAYBACK ENGINE
             if (IsPlaybackCommand(command))
             {
                 HandlePlayback(command);
                 return;
             }
 
-            // 6. SETTINGS & VISUAL TOGGLES
+            // 5. SETTINGS & VISUAL TOGGLES
             switch (command)
             {
                 case SystemCommand.ToggleHeikinAshi: _store.Dispatch(new ToggleHeikinAshiAction()); break;
@@ -491,6 +518,92 @@ namespace AccessibleTrader.Core.Services.Input
         {
             if (string.IsNullOrEmpty(subPaneName)) return "Main pane";
             return subPaneName + " pane";
+        }
+
+        /// <summary>
+        /// Returns true for commands that should only fire while the chart element has
+        /// keyboard focus. The complementary set — global commands — fire regardless of
+        /// focus location so the user can drive the app from anywhere (open modals,
+        /// toggle speech, change volume, switch tabs, save workspace, focus the chart
+        /// itself via Ctrl+Alt+Shift+C, etc.).
+        ///
+        /// Per the Phase 5 keyboard-scope rule: F-keys are global EXCEPT Shift+F12 which
+        /// binds to OpenProperties (chart-scoped because it operates on the focused
+        /// series). Everything not bound to an F-key is chart-scoped.
+        /// </summary>
+        internal static bool IsChartScopedCommand(SystemCommand c)
+        {
+            // Navigation, viewport, playback, drawing — already covered by the existing
+            // category helpers; reuse them directly.
+            switch (c)
+            {
+                case SystemCommand.NavLeft:
+                case SystemCommand.NavRight:
+                case SystemCommand.NavUp:
+                case SystemCommand.NavDown:
+                case SystemCommand.NavHome:
+                case SystemCommand.NavEnd:
+                case SystemCommand.NavPageUp:
+                case SystemCommand.NavPageDown:
+                case SystemCommand.NavLeftJump:
+                case SystemCommand.NavRightJump:
+                case SystemCommand.JumpToLatest:
+                case SystemCommand.NavSubPaneNext:
+                case SystemCommand.NavSubPanePrev:
+                case SystemCommand.NavComponentInPaneNext:
+                case SystemCommand.NavComponentInPanePrev:
+                case SystemCommand.SelectNextSeries:
+                case SystemCommand.SelectPrevSeries:
+                case SystemCommand.ZoomIn:
+                case SystemCommand.ZoomOut:
+                case SystemCommand.PanLeft:
+                case SystemCommand.PanRight:
+                case SystemCommand.GranularityUp:
+                case SystemCommand.GranularityDown:
+                case SystemCommand.ScrollPanesUp:
+                case SystemCommand.ScrollPanesDown:
+                case SystemCommand.PlayChart:
+                case SystemCommand.PlaySeries:
+                case SystemCommand.PlayComponent:
+                case SystemCommand.PlayPause:
+                case SystemCommand.PlayStop:
+                case SystemCommand.PlaySpeedUp:
+                case SystemCommand.PlaySpeedDown:
+                case SystemCommand.ToggleHeikinAshi:
+                case SystemCommand.ToggleLogScale:
+                case SystemCommand.ToggleHeatmap:
+                case SystemCommand.ToggleIndicatorVisibility:
+                case SystemCommand.ToggleIndicatorAudio:
+                case SystemCommand.ToggleNarration:
+                case SystemCommand.AddReferenceLevel:
+                case SystemCommand.OpenProperties:        // Shift+F12 — the F-key exception
+                case SystemCommand.RemoveSelectedSeries:
+                case SystemCommand.DetailedPointSummary:
+                case SystemCommand.CancelDrawing:
+                case SystemCommand.ConfirmCoordinateEntry:
+                case SystemCommand.DrawTrend:
+                case SystemCommand.DrawHorizontal:
+                case SystemCommand.DrawVertical:
+                case SystemCommand.DrawChannel:
+                case SystemCommand.DrawFibonacci:
+                case SystemCommand.DrawLabel:
+                case SystemCommand.DrawFibExtension:
+                case SystemCommand.DrawRectangle:
+                case SystemCommand.DrawGannFan:
+                case SystemCommand.DrawRiskReward:
+                case SystemCommand.DrawAnchoredVwap:
+                case SystemCommand.DrawMeasure:
+                case SystemCommand.DrawGannBox:
+                case SystemCommand.DrawPitchfork:
+                case SystemCommand.DrawAngleFib:
+                    return true;
+
+                // Everything else (modal opens, accessibility toggles, volume, tabs,
+                // workspace, ContextSummary, ChartFocus, data-source changes, None)
+                // is global.
+                default:
+                    return false;
+            }
         }
 
         private bool IsNavigationCommand(SystemCommand c)

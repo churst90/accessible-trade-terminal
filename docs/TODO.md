@@ -1275,10 +1275,46 @@ across two phases. Phase 1 is complete; phase 2 is open.
   moves toward automated live trading with cumulative fill
   accumulation over many sessions — the only scenario where float
   drift is material in practice.
-- [ ] **Phase 5 — accessibility modal rework.** `ChartArea.razor`
-  needs explicit `@onkeydown` binding; `OrderBookModal.razor` needs
-  `role="status" aria-live="polite"` regions and sonification hooks
-  for depth changes. This is the product's reason to exist.
+- [x] **Phase 5 — accessibility modal rework** — shipped 2026-04-27 e17.
+  Five-part fix per the user's design conversation: SystemCommand Global
+  vs ChartScoped categorization in `CommandDispatcher` (with a
+  categorization-coverage sentinel test); `_isChartActive` and JS
+  `_chartFocused` re-anchored to actual chart-element focus instead of
+  modal open/close; Ctrl+Alt+Shift+C now publishes `RequestChartFocusEvent`
+  which `ChartArea` consumes via `accessibleTrader.focusElement`, with a
+  plain `"Focus on trading chart area."` announcement; modal close
+  auto-returns focus to the chart; `OrderBookModal` rewritten with live
+  depth-stream subscription via new
+  `IOrderExecutionService.SubscribeOrderBookAsync`, 20 levels per side,
+  `tabindex="0"` + `aria-label="Bid/Ask price, size"` on every row, and
+  the noisy per-refresh `AnnounceDepthChange` speech deleted. 102 new
+  tests (95 categorization pins + 7 OrderBookModal bUnit). 937/937 passing,
+  0 warnings, 0 errors. Full writeup in `docs/CHANGES.md` 2026-04-27 e17.
+
+- [ ] **Esc-doesn't-close-Help (Phase 5 follow-up, surfaced 2026-04-27 e18).**
+  When the Help modal is open, pressing Esc fails to close it. Possibly the
+  `IsChartScopedCommand` categorisation now filters Esc through the modal
+  trap allowlist (`F1` / `F2` / `F3` only), or the Help modal's own
+  `@onkeydown` handler isn't bound. Investigate which path is blocking. Apply
+  to all modal close-on-Esc behaviours since the same gate is shared.
+
+- [ ] **Toolbar button labels showing raw shortcut keys (surfaced
+  2026-04-27 e18).** User reports buttons rendering as `'t'`, `'a'`,
+  `'objects'` instead of friendly names. Likely a `Toolbar.razor` template
+  binding raw shortcut-key strings into the visible text or `aria-label`
+  where the button's display name should live. Audit `Toolbar.razor` /
+  `IconSprite.razor` button definitions and the corresponding
+  `ShortcutManager` bindings.
+
+- [ ] **Phase 5 v2: order book large-order detection.** Adaptive
+  rolling-median size threshold (default `K = 10×` median of last 60s) plus
+  absolute notional floor (default `$25k`) plus rate-limit (one
+  announcement per ~4s, batching the largest qualifier in the window).
+  Format: `"Large bid 5.2 BTC at 67230"`. Settings UI under a new
+  "Order book" section in `SettingsModal`. Placement-only at first;
+  large-cancellation / large-fill announcements deferred to v3 if needed.
+  Per the user's spec, this layers on top of v1 once v1 is verified in
+  app — does not block other Phase 5 work.
 - [x] **CPU quota on script worker** — shipped 2026-04-24.
   `DefaultMaxCpuFraction = 0.9`; polls `TotalProcessorTime` delta vs
   wall-clock every 2 s; sustained overage triggers kill + security

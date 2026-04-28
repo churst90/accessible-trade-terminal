@@ -1,11 +1,12 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Sdk.Models
+@using System.Reactive.Linq
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IOrderExecutionService OrderService
-@inject IEarconService Earcons
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -23,18 +24,19 @@
                 <h2 id="orderbook-title" tabindex="-1" style="margin:0;">
                     Order Book — @(Store.State.Identity.Symbol ?? "No Symbol")
                 </h2>
-                <button @onclick="RefreshAsync" aria-label="Refresh order book" style="padding:4px 10px;">
-                    Refresh
-                </button>
-            </div>
-
-            @* Depth-change status region. `role="status"` + `aria-live="polite"`
-               means screen readers pick up the contents whenever it changes without
-               stealing focus. Updated on every refresh with a plain-English delta
-               against the previous snapshot. *@
-            <div role="status" aria-live="polite" aria-atomic="true"
-                 style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;">
-                @_depthChangeAnnouncement
+                @if (!_isLive)
+                {
+                    @* Snapshot-only providers: manual refresh button. Live providers update
+                       automatically via SubscribeOrderBookAsync — no button needed. *@
+                    <button @onclick="RefreshSnapshotAsync" aria-label="Refresh order book"
+                            style="padding:4px 10px;">
+                        Refresh
+                    </button>
+                }
+                else
+                {
+                    <span aria-hidden="true" style="color:#888; font-size:0.8rem;">Live</span>
+                }
             </div>
 
             @if (_isLoading)
@@ -49,8 +51,10 @@
             }
             else
             {
-                @* Spread summary — announced immediately on open *@
-                <p style="font-size:0.85rem; color:#aaa; margin-bottom:8px;" aria-live="polite">
+                @* Spread / top-of-book summary. Updates silently with the rest of the book —
+                   no aria-live so the user reads it on focus rather than being interrupted
+                   by every depth change. The visual labels stay obvious to sighted users. *@
+                <p style="font-size:0.85rem; color:#aaa; margin-bottom:8px;">
                     Best bid: <strong style="color:#44BB44;">@(_bids.FirstOrDefault().Price.ToString("G6"))</strong>
                     &nbsp;|&nbsp;
                     Best ask: <strong style="color:#FF4444;">@(_asks.FirstOrDefault().Price.ToString("G6"))</strong>
@@ -65,7 +69,8 @@
                         <h3 id="bids-heading" style="color:#44BB44; margin:0 0 6px; font-size:0.9rem;">
                             Bids (Buy Orders)
                         </h3>
-                        <table role="table" aria-label="Bid orders" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                        <table role="table" aria-label="Bid orders, top 20 price levels"
+                               style="width:100%; border-collapse:collapse; font-size:0.85rem;">
                             <thead>
                                 <tr>
                                     <th scope="col" style="text-align:left; padding:4px 6px; border-bottom:1px solid #333;">Price</th>
@@ -82,7 +87,11 @@
                                 {
                                     bidCumul += bid.Quantity;
                                     double pct = totalBidSize > 0 ? bidCumul / totalBidSize : 0;
-                                    <tr @key="bid.Price" style="background: linear-gradient(to left, rgba(68,187,68,0.15) @(pct.ToString("P0")), transparent @(pct.ToString("P0")))">
+                                    var rowLabel = $"Bid {bid.Price.ToString("G6")}, size {bid.Quantity.ToString("G4")}";
+                                    <tr @key="bid.Price"
+                                        tabindex="0"
+                                        aria-label="@rowLabel"
+                                        style="background: linear-gradient(to left, rgba(68,187,68,0.15) @(pct.ToString("P0")), transparent @(pct.ToString("P0"))); outline-offset: -2px;">
                                         <td style="padding:3px 6px; color:#44BB44;">@bid.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@bid.Quantity.ToString("G4")</td>
                                         <td style="padding:3px 6px; text-align:right; color:#888;">@bidCumul.ToString("G4")</td>
@@ -97,7 +106,8 @@
                         <h3 id="asks-heading" style="color:#FF4444; margin:0 0 6px; font-size:0.9rem;">
                             Asks (Sell Orders)
                         </h3>
-                        <table role="table" aria-label="Ask orders" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                        <table role="table" aria-label="Ask orders, top 20 price levels"
+                               style="width:100%; border-collapse:collapse; font-size:0.85rem;">
                             <thead>
                                 <tr>
                                     <th scope="col" style="text-align:left; padding:4px 6px; border-bottom:1px solid #333;">Price</th>
@@ -114,7 +124,11 @@
                                 {
                                     askCumul += ask.Quantity;
                                     double pct2 = totalAskSize > 0 ? askCumul / totalAskSize : 0;
-                                    <tr @key="ask.Price" style="background: linear-gradient(to right, rgba(255,68,68,0.15) @(pct2.ToString("P0")), transparent @(pct2.ToString("P0")))">
+                                    var rowLabel = $"Ask {ask.Price.ToString("G6")}, size {ask.Quantity.ToString("G4")}";
+                                    <tr @key="ask.Price"
+                                        tabindex="0"
+                                        aria-label="@rowLabel"
+                                        style="background: linear-gradient(to right, rgba(255,68,68,0.15) @(pct2.ToString("P0")), transparent @(pct2.ToString("P0"))); outline-offset: -2px;">
                                         <td style="padding:3px 6px; color:#FF4444;">@ask.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@ask.Quantity.ToString("G4")</td>
                                         <td style="padding:3px 6px; text-align:right; color:#888;">@askCumul.ToString("G4")</td>
@@ -135,21 +149,30 @@
 }
 
 @code {
+    // Phase 5 (2026-04-27): live navigable order book.
+    //
+    // Design (per user spec):
+    //   - 20 price levels per side.
+    //   - Live volume updates render silently — no aria-live, no per-update speech.
+    //     Screen readers read each row when focus lands on it via Tab/arrow.
+    //   - Each <tr> has tabindex="0" + aria-label so the user can tab into the
+    //     bid/ask lists and read price+size with a single key press.
+    //   - When the active provider implements IOrderBookProvider, we subscribe to
+    //     SubscribeOrderBookAsync for live updates and hide the manual Refresh
+    //     button. Non-IOrderBookProvider providers fall back to snapshot+button.
+    //   - Large-order announcements (v2 follow-up) are NOT in this commit; depth
+    //     deltas update silently for now.
+
+    private const int OrderBookDepth = 20;
+
     private bool _isVisible;
     private bool _isLoading;
     private string? _errorMessage;
+    private bool _isLive;
     private List<OrderBookEntry> _bids = new();
     private List<OrderBookEntry> _asks = new();
     private IDisposable? _eventSub;
-
-    // Previous-snapshot state for depth-change detection. Kept alongside the
-    // live list so every refresh can compute a delta before overwriting. Null
-    // on the very first refresh so the first announcement is initial-snapshot,
-    // not a delta.
-    private double? _prevBestBid;
-    private double? _prevBestAsk;
-    private double _prevBidImbalance;
-    private string _depthChangeAnnouncement = string.Empty;
+    private IDisposable? _depthSub;
 
     protected override void OnInitialized()
     {
@@ -161,29 +184,31 @@
         _isVisible = true;
         _isLoading = true;
         _errorMessage = null;
-        // Reset snapshot state so the first refresh announces an initial snapshot,
-        // not a delta against the previous session's book (especially relevant if
-        // the user reopens on a different symbol).
-        _prevBestBid = null;
-        _prevBestAsk = null;
-        _prevBidImbalance = 0;
-        _depthChangeAnnouncement = string.Empty;
+        _isLive = false;
         EventBus.Publish(new ModalStateChangedEvent(true, "Order book"));
         StateHasChanged();
-        await Task.Yield();
-        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "orderbook-title"); } catch { }
-        await LoadOrderBookAsync();
+
+        // Do snapshot + subscribe before the focus call so the modal body has
+        // settled by the time focus moves. Each await returns a completed Task
+        // when the substituted IOrderExecutionService runs in unit tests, so the
+        // entire chain unwinds synchronously without yielding to the dispatcher
+        // — which keeps bUnit's renderer in step with the test thread.
+        await LoadInitialSnapshotAsync();
+        await SubscribeLiveUpdatesAsync();
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "orderbook-title"); }
+        catch { /* JS bridge may not be ready during early renders or unit tests */ }
     }
 
-    private async Task RefreshAsync()
+    private async Task RefreshSnapshotAsync()
     {
         _isLoading = true;
         _errorMessage = null;
         StateHasChanged();
-        await LoadOrderBookAsync();
+        await LoadInitialSnapshotAsync();
     }
 
-    private async Task LoadOrderBookAsync()
+    private async Task LoadInitialSnapshotAsync()
     {
         try
         {
@@ -199,14 +224,12 @@
                 return;
             }
 
-            var (bids, asks) = await OrderService.GetOrderBookAsync(provider, symbol, 15);
-            _bids = bids ?? new();
-            _asks = asks ?? new();
+            var (bids, asks) = await OrderService.GetOrderBookAsync(provider, symbol, OrderBookDepth);
+            _bids = TrimToDepth(bids);
+            _asks = TrimToDepth(asks);
 
             if (_bids.Count == 0 && _asks.Count == 0)
                 _errorMessage = $"Order book is not available for {symbol} on {provider}.";
-            else
-                AnnounceDepthChange();
         }
         catch (Exception ex)
         {
@@ -219,77 +242,49 @@
         }
     }
 
-    // Compares the new snapshot against the previous one, emits a screen-reader
-    // announcement into the `role="status"` region, and plays a short earcon
-    // keyed to the direction of the change. Bid improving (buyers pushing up)
-    // is a success cue; bid worsening or ask improving (sellers pushing down)
-    // is an info cue; material imbalance shifts ring boundary.
-    private void AnnounceDepthChange()
+    private async Task SubscribeLiveUpdatesAsync()
     {
-        double bestBid = _bids.FirstOrDefault().Price;
-        double bestAsk = _asks.FirstOrDefault().Price;
-        double bidSize = _bids.Sum(b => b.Quantity);
-        double askSize = _asks.Sum(a => a.Quantity);
-        double totalSize = bidSize + askSize;
-        double bidImbalance = totalSize > 0 ? (bidSize - askSize) / totalSize : 0;
+        _depthSub?.Dispose();
+        _depthSub = null;
 
-        if (_prevBestBid is null || _prevBestAsk is null)
+        var state = Store.State;
+        string? provider = state.Identity.Provider;
+        string? symbol = state.Identity.Symbol;
+        if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
+
+        IObservable<OrderBookUpdate>? stream;
+        try { stream = await OrderService.SubscribeOrderBookAsync(provider, symbol); }
+        catch { stream = null; }
+
+        if (stream == null)
         {
-            _depthChangeAnnouncement = $"Initial snapshot. Bid {bestBid:G6}, ask {bestAsk:G6}, "
-                + $"{(bidImbalance >= 0 ? "buy-side" : "sell-side")} imbalance "
-                + $"{Math.Abs(bidImbalance) * 100:F0} percent.";
-            try { Earcons.PlayInfo(); } catch { }
-        }
-        else
-        {
-            var parts = new List<string>();
-            double bidDelta = bestBid - _prevBestBid.Value;
-            double askDelta = bestAsk - _prevBestAsk.Value;
-            double imbalanceShift = bidImbalance - _prevBidImbalance;
-
-            if (Math.Abs(bidDelta) > 0)
-            {
-                parts.Add(bidDelta > 0
-                    ? $"Bid improved to {bestBid:G6}."
-                    : $"Bid dropped to {bestBid:G6}.");
-            }
-            if (Math.Abs(askDelta) > 0)
-            {
-                parts.Add(askDelta < 0
-                    ? $"Ask tightened to {bestAsk:G6}."
-                    : $"Ask widened to {bestAsk:G6}.");
-            }
-            if (Math.Abs(imbalanceShift) >= 0.10) // 10 pp threshold to avoid chatter
-            {
-                parts.Add(imbalanceShift > 0
-                    ? $"Buy pressure up to {bidImbalance * 100:F0} percent."
-                    : $"Sell pressure up to {-bidImbalance * 100:F0} percent.");
-            }
-
-            if (parts.Count == 0)
-            {
-                _depthChangeAnnouncement = "Depth unchanged.";
-            }
-            else
-            {
-                _depthChangeAnnouncement = string.Join(" ", parts);
-
-                // Earcon routing: bid-improved → success (positive cue);
-                // ask-tightened OR material imbalance shift → info;
-                // bid-dropped → boundary (adverse cue).
-                try
-                {
-                    if (bidDelta > 0) Earcons.PlaySuccess();
-                    else if (bidDelta < 0) Earcons.PlayBoundary();
-                    else if (askDelta < 0 || Math.Abs(imbalanceShift) >= 0.10) Earcons.PlayInfo();
-                }
-                catch { }
-            }
+            // Snapshot-only provider — modal stays static until the user clicks Refresh.
+            _isLive = false;
+            return;
         }
 
-        _prevBestBid = bestBid;
-        _prevBestAsk = bestAsk;
-        _prevBidImbalance = bidImbalance;
+        _isLive = true;
+        _depthSub = stream.Subscribe(update =>
+        {
+            // Provider-side stream may push from a non-UI thread — marshal to the
+            // Blazor render context before mutating component fields.
+            InvokeAsync(() =>
+            {
+                if (update.Bids != null && update.Bids.Count > 0) _bids = TrimToDepth(update.Bids);
+                if (update.Asks != null && update.Asks.Count > 0) _asks = TrimToDepth(update.Asks);
+                StateHasChanged();
+            });
+        });
+        StateHasChanged();
+    }
+
+    private static List<OrderBookEntry> TrimToDepth(IEnumerable<OrderBookEntry> entries)
+    {
+        // Defensive trim: providers may return more than OrderBookDepth levels even
+        // when we asked for that count. Use Take so the downstream rendering loop
+        // never blows past the user's chosen depth.
+        var list = entries as List<OrderBookEntry> ?? entries.ToList();
+        return list.Count <= OrderBookDepth ? list : list.GetRange(0, OrderBookDepth);
     }
 
     private string ComputeSpread()
@@ -303,6 +298,9 @@
     private void Close()
     {
         _isVisible = false;
+        _depthSub?.Dispose();
+        _depthSub = null;
+        _isLive = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Order book"));
         StateHasChanged();
     }
@@ -310,5 +308,6 @@
     public void Dispose()
     {
         _eventSub?.Dispose();
+        _depthSub?.Dispose();
     }
 }

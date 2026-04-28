@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 
@@ -36,6 +38,16 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>Returns the current order book depth for <paramref name="symbol"/>.</summary>
         Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string provider, string symbol, int depth = 10);
+
+        /// <summary>
+        /// Returns a live observable stream of order-book updates from
+        /// <paramref name="symbol"/> on <paramref name="provider"/>, or null if the
+        /// provider does not implement <see cref="IOrderBookProvider"/> (most analytics
+        /// providers, FRED, etc.). Modal subscribers should fall back to repeated
+        /// <see cref="GetOrderBookAsync"/> polling — or simply leave the snapshot
+        /// static — when this returns null.
+        /// </summary>
+        Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string provider, string symbol);
 
         /// <summary>Returns recent filled trades for the account on the given provider.</summary>
         Task<List<TradeFill>> GetFillsAsync(string provider, string? symbol = null, int limit = 50);

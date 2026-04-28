@@ -20,6 +20,14 @@ namespace AccessibleTrader.BlazorClient.Services
     /// Windows:          winmm waveOut (Float32) via P/Invoke — no external package.
     /// Android:          AudioTrack PCM-Float push loop on a dedicated background thread.
     /// iOS / macCatalyst: AVAudioEngine + AVAudioSourceNode render callback (push model).
+    ///
+    /// MUST live in the MAUI host project, NOT the platform-agnostic
+    /// AccessibleTrader.BlazorClient.Components RCL. The Components RCL targets
+    /// plain net10.0, so the WINDOWS / ANDROID / IOS / MACCATALYST conditional
+    /// symbols are never defined and every platform branch becomes dead code.
+    /// Building the MAUI host then resolves a driver with no `EnsureAudioInit`
+    /// body — no audio device opens, the entire audio engine is silent.
+    /// (See 2026-04-27 evening 18 — audio-driver-relocation fix in CHANGES.md.)
     /// </summary>
     public class BlazorAudioDriver : IAudioDriver, IDisposable
     {
@@ -30,13 +38,20 @@ namespace AccessibleTrader.BlazorClient.Services
 
 #if WINDOWS
         // Three-buffer round-robin. waveOutWrite queues a buffer; WOM_DONE callback
-        // refills it and queues it back. Three buffers is the conventional minimum
-        // that keeps the device fed without adding audible latency.
+        // signals a worker that refills it and queues it back. Three buffers is the
+        // conventional minimum that keeps the device fed without adding audible
+        // latency.
+        //
+        // The refill MUST NOT happen inside the winmm callback. Win32 docs:
+        // "Calling other wave functions [from this callback] will cause deadlock."
+        // We post the returning header pointer to a ThreadPool work item so the
+        // unprepare/refill/write sequence runs outside winmm's callback context.
         private const int WinBufferFrames = 1024;
         private const int WinNumBuffers = 3;
         private IntPtr _hWaveOut = IntPtr.Zero;
         private readonly WaveOutProc _callback;
         private WaveHdrState[] _buffers = Array.Empty<WaveHdrState>();
+        private readonly object _refillLock = new();
 
         private sealed class WaveHdrState
         {
@@ -239,23 +254,54 @@ namespace AccessibleTrader.BlazorClient.Services
         private void WaveOutCallback(IntPtr hWaveOut, uint uMsg, UIntPtr dwInstance, UIntPtr dwParam1, UIntPtr dwParam2)
         {
             if (uMsg != WOM_DONE || _disposed || _hWaveOut == IntPtr.Zero) return;
-            // Refill the buffer and re-queue. Find which of our three buffers came back
-            // by matching the lpData pointer delivered via dwParam1 (= pointer to WAVEHDR).
+            // PER WIN32 DOCS: refilling MUST NOT happen inside this callback —
+            // calling waveOutUnprepareHeader / waveOutPrepareHeader / waveOutWrite
+            // from the callback context can deadlock the winmm subsystem on some
+            // drivers. Hand the returning header pointer off to a ThreadPool worker
+            // which performs the wave calls without restriction.
+            //
+            // UnsafeQueueUserWorkItem skips ExecutionContext capture (we don't need
+            // it for an audio refill) and dispatches faster than the safe variant.
             IntPtr hdrPtr = (IntPtr)(long)dwParam1;
-            for (int i = 0; i < _buffers.Length; i++)
+            ThreadPool.UnsafeQueueUserWorkItem(static state =>
             {
-                var s = _buffers[i];
-                if (s.HeaderPin.AddrOfPinnedObject() != hdrPtr) continue;
-                waveOutUnprepareHeader(_hWaveOut, hdrPtr, (uint)Marshal.SizeOf<WAVEHDR>());
-                s.HeaderPin.Free();
-                s.DataPin.Free();
+                var (driver, ptr) = ((BlazorAudioDriver, IntPtr))state!;
+                driver.RefillBufferOnWorker(ptr);
+            }, (this, hdrPtr));
+        }
 
-                int got = _engine.Read(s.Data, 0, s.Data.Length);
-                if (got < s.Data.Length)
-                    Array.Clear(s.Data, got, s.Data.Length - got);
-                _engine.ProcessEvents();
-                PrepareAndWriteBuffer(s);
-                return;
+        // Runs on a ThreadPool worker thread, NOT inside the winmm WOM_DONE callback.
+        // Locks across multiple in-flight refills so that two simultaneously-returning
+        // buffers (rare with 3-buffer round-robin but possible if the audio service
+        // batches notifications) can't race on the shared _engine.Read / pin state.
+        private void RefillBufferOnWorker(IntPtr hdrPtr)
+        {
+            if (_disposed || _hWaveOut == IntPtr.Zero) return;
+            lock (_refillLock)
+            {
+                if (_disposed || _hWaveOut == IntPtr.Zero) return;
+                for (int i = 0; i < _buffers.Length; i++)
+                {
+                    var s = _buffers[i];
+                    if (!s.HeaderPin.IsAllocated || s.HeaderPin.AddrOfPinnedObject() != hdrPtr) continue;
+                    try
+                    {
+                        waveOutUnprepareHeader(_hWaveOut, hdrPtr, (uint)Marshal.SizeOf<WAVEHDR>());
+                        s.HeaderPin.Free();
+                        s.DataPin.Free();
+
+                        int got = _engine.Read(s.Data, 0, s.Data.Length);
+                        if (got < s.Data.Length)
+                            Array.Clear(s.Data, got, s.Data.Length - got);
+                        _engine.ProcessEvents();
+                        PrepareAndWriteBuffer(s);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Audio buffer refill failed.");
+                    }
+                    return;
+                }
             }
         }
 #endif
@@ -303,22 +349,28 @@ namespace AccessibleTrader.BlazorClient.Services
 #if WINDOWS
             if (_hWaveOut != IntPtr.Zero)
             {
+                // waveOutReset returns all queued buffers as WOM_DONE; each fires a
+                // ThreadPool refill work item. Acquire _refillLock to drain any
+                // in-flight refill before we free the pins out from under it.
                 waveOutReset(_hWaveOut);
-                foreach (var s in _buffers)
+                lock (_refillLock)
                 {
-                    try
+                    foreach (var s in _buffers)
                     {
-                        if (s.HeaderPin.IsAllocated)
+                        try
                         {
-                            waveOutUnprepareHeader(_hWaveOut, s.HeaderPin.AddrOfPinnedObject(), (uint)Marshal.SizeOf<WAVEHDR>());
-                            s.HeaderPin.Free();
+                            if (s.HeaderPin.IsAllocated)
+                            {
+                                waveOutUnprepareHeader(_hWaveOut, s.HeaderPin.AddrOfPinnedObject(), (uint)Marshal.SizeOf<WAVEHDR>());
+                                s.HeaderPin.Free();
+                            }
+                            if (s.DataPin.IsAllocated) s.DataPin.Free();
                         }
-                        if (s.DataPin.IsAllocated) s.DataPin.Free();
+                        catch { }
                     }
-                    catch { }
+                    waveOutClose(_hWaveOut);
+                    _hWaveOut = IntPtr.Zero;
                 }
-                waveOutClose(_hWaveOut);
-                _hWaveOut = IntPtr.Zero;
             }
 #elif ANDROID
             _audioCts?.Cancel();

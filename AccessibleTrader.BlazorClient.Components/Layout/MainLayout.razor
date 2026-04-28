@@ -132,12 +132,13 @@
                 try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setModalOpen", evt.IsOpen); }
                 catch { /* non-critical */ }
 
-                // Gate single-letter chart commands on "chart is active". The
-                // simplest safe rule: chart is active when no modal is open.
-                // Individual toolbar inputs are already handled by the form-control
-                // guard in keyboard.js; this covers the gap for modal inputs.
-                try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setChartFocused", !evt.IsOpen); }
-                catch { /* non-critical */ }
+                // Note: chart-focus tracking is NOT driven from modal open/close any
+                // more. ChartArea publishes ChartFocusEvent / DeactivateEvent on its
+                // own @onfocus / @onblur, and those drive both the .NET-side
+                // _isChartActive gate (CommandDispatcher) and the JS-side
+                // _chartFocused gate (keyboard.js single-letter trap). Tying the JS
+                // flag to !modalOpen made chart commands fire from the toolbar /
+                // body any time no modal was open — Phase 5 keyboard scope fix.
 
                 // Earcon before speech so a blind user hears an immediate audio cue
                 // when any modal opens or closes — speech arrives ~100-300 ms later

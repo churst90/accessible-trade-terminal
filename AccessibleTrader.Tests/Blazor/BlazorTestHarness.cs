@@ -53,6 +53,7 @@ public sealed class BlazorTestHarness : IDisposable
     public ISpeechManager SpeechManager { get; }
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
+    public IOrderExecutionService OrderService { get; }
 
     private readonly List<IAlertChannel> _alertChannels = new();
 
@@ -93,6 +94,11 @@ public sealed class BlazorTestHarness : IDisposable
         SpeechManager               = Substitute.For<ISpeechManager>();
         StrategyBacktester          = Substitute.For<IStrategyBacktester>();
         BacktestWarmupAnalyzer      = Substitute.For<IBacktestWarmupAnalyzer>();
+        OrderService                = Substitute.For<IOrderExecutionService>();
+        OrderService.GetOrderBookAsync(default!, default!, default).ReturnsForAnyArgs(
+            _ => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>())));
+        OrderService.SubscribeOrderBookAsync(default!, default!).ReturnsForAnyArgs(
+            _ => Task.FromResult<IObservable<OrderBookUpdate>?>(null));
 
         Ctx.Services.AddSingleton(EventBus);
         Ctx.Services.AddSingleton(WorkspaceStore);
@@ -113,6 +119,7 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(SpeechManager);
         Ctx.Services.AddSingleton(StrategyBacktester);
         Ctx.Services.AddSingleton(BacktestWarmupAnalyzer);
+        Ctx.Services.AddSingleton(OrderService);
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);
 
         // Most modals call accessibleTrader.focusElement on first render via

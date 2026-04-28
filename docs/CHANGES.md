@@ -4,6 +4,239 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-27 evening 18] — BlazorAudioDriver relocation: fixes silent Windows audio after RCL extraction
+
+Critical regression fix discovered while testing Phase 5 (entry below). On
+Windows the entire audio engine had been dead since commit `6b10b15d` (the
+RCL extraction, 2026-04-27): no earcons, no navigation sonification, no
+level-crossing alerts, no F2/F3 toggle earcons. Speech still worked (separate
+path via `BlazorSpeechManager`) so the regression hid in plain sight.
+
+### Root cause
+
+`BlazorAudioDriver.cs` moved from `AccessibleTrader.BlazorClient/Services/`
+(MAUI host, multi-targets `net10.0-windows10.0.19041.0` / `net10.0-android` /
+`net10.0-ios` / `net10.0-maccatalyst` — all of which define the corresponding
+`WINDOWS` / `ANDROID` / `IOS` / `MACCATALYST` symbols) into
+`AccessibleTrader.BlazorClient.Components/Services/` (RCL, plain `net10.0`
+only — none of those symbols are ever defined). The driver's
+`EnsureAudioInit`, `WaveOutCallback`, every wave-handling method, and the
+entire winmm P/Invoke surface are gated by `#if WINDOWS`. With `WINDOWS`
+undefined inside the RCL, every platform branch became dead code — the
+compiled `EnsureAudioInit` had zero statements between its braces. No audio
+device was ever opened. `SetVoice` succeeded (`_engine.SetVoice` queues a
+voice) but no buffer ever pulled samples back out.
+
+### Fix
+
+- **Moved `BlazorAudioDriver.cs` back to `AccessibleTrader.BlazorClient/Services/`**
+  — the only project where the platform symbols actually compile in.
+- Added a load-bearing class-level XML comment explaining why the driver
+  must live in the MAUI host (so a future RCL-cleanup pass doesn't silently
+  move it again).
+- Verified no other files in `AccessibleTrader.BlazorClient.Components` use
+  `#if WINDOWS|ANDROID|IOS|MACCATALYST` — this was the only file with the
+  silent-disable bug.
+
+### Bonus: WOM_DONE callback hardening
+
+While diagnosing the regression I also fixed a latent winmm correctness bug
+flagged by Win32 docs. The previous `WaveOutCallback` called
+`waveOutUnprepareHeader` / `waveOutPrepareHeader` / `waveOutWrite` directly
+inside the callback — Microsoft's documentation explicitly warns this can
+deadlock the winmm subsystem on some drivers. The callback now does nothing
+but `ThreadPool.UnsafeQueueUserWorkItem(...)` to a new
+`RefillBufferOnWorker(IntPtr)` method which performs the wave calls outside
+the callback context. A `_refillLock` serialises overlapping refills (rare
+with the 3-buffer round-robin but possible if the audio service batches
+notifications), and `Dispose` acquires the same lock before freeing pinned
+buffer memory so an in-flight refill can't run on freed pins.
+
+### Manual verification (user, 2026-04-27)
+
+- F1 (Help open): Info earcon plays + "Help dialog opened" speech.
+- Ctrl+Alt+Shift+C: focus moves to chart + "Focus on trading chart area" speaks.
+- Left/Right arrow after focus: navigation sonification per bar.
+- F2 / F3: status announcement + Info earcon (F2 only — F3 deliberately silent).
+
+937/937 tests passing, 0 warnings, 0 errors. Windows host builds clean.
+
+### Open follow-ups discovered during testing (deferred)
+
+- **Esc-doesn't-close-Help.** The Help modal's Esc-to-close path doesn't fire.
+  Possibly the Phase 5 `IsChartScopedCommand` categorisation is filtering
+  Esc, or the modal's own keyboard handler isn't bound. Needs separate
+  investigation.
+- **Toolbar button labels are wrong** ('t' / 'a' / 'objects'). Likely a
+  raw-shortcut-key string leaking into `aria-label` or visible text where
+  the friendly button name should be. Needs separate investigation.
+
+---
+
+## [2026-04-27 evening 17] — Phase 5 keyboard scope fix + order book live/navigable rework
+
+Closes the Phase 5 line item from `docs/TODO.md:1278`. Two distinct user-reported
+bugs and one feature gap, addressed in five logically-ordered changes plus
+docs + 102 new tests (95 categorization pin tests + 7 OrderBookModal bUnit
+tests). 937/937 tests passing, 0 warnings, 0 errors.
+
+### What the user reported (2026-04-27 design conversation)
+
+1. **Chart commands fired even when focus was not on the chart.** Pressing
+   arrow keys after a modal closed still moved the chart cursor regardless
+   of whether focus had landed back on the chart, on the toolbar, or on the
+   body. Root cause: `MainLayout.razor:139` set
+   `accessibleTrader.setChartFocused(!evt.IsOpen)` — the JS-side flag
+   tracked "no modal open" instead of "chart element has focus." Combined
+   with the `keyboard.js` single-letter gate only covering `[a-z0-9]` keys
+   (arrows, brackets, etc. fell through), this meant chart-scoped commands
+   leaked to any DOM target whenever no modal was open.
+2. **Ctrl+Alt+Shift+C announced but did not move focus.** The shortcut
+   published `ChartFocusEvent` and a `CONTEXT_SUMMARY` feedback message but
+   never called `.focus()` on the chart element — the user had to Tab
+   through the toolbar to reach the chart even after pressing the
+   dedicated focus shortcut.
+3. **Order book modal was hard to interact with.** Rows had no `tabindex`
+   so Tab skipped past the data; depth was hardcoded to 15; refresh was
+   manual via a button; every Refresh fired a verbose
+   `AnnounceDepthChange` speech describing bid/ask deltas plus an earcon —
+   noisy and not what the user wanted ("I only need price and volume").
+
+### Five-part fix
+
+#### 1. `SystemCommand` Global vs ChartScoped categorization
+
+- New `internal static bool CommandDispatcher.IsChartScopedCommand(SystemCommand)`
+  enumerates every chart-scoped command. Per the user's rule (2026-04-27):
+  F-keys are global EXCEPT Shift+F12 which binds to `OpenProperties`
+  (chart-scoped because it operates on the focused series). All non-F-key
+  bindings are chart-scoped except modal-open / accessibility-toggle /
+  volume / tab-management / workspace-management / data-source-change
+  workflow commands, which the user needs to fire from any focus location.
+- Categorization-coverage sentinel test
+  (`Phase5KeyboardScopeTests.Categorization_AllValuesCovered`) asserts every
+  defined `SystemCommand` value appears in one of the two `[Theory]` lists.
+  Adding a new command without categorising it fails the test immediately.
+- New chart-focus gate at the top of `CommandDispatcher.Dispatch` blocks
+  every chart-scoped command when `_isChartActive == false`. Replaces the
+  prior narrower gate (which only covered nav + playback + drawing) and
+  the redundant per-block checks in `NavSubPaneNext/Prev` and
+  `NavComponentInPaneNext/Prev`.
+
+#### 2. `_isChartActive` semantics re-anchored to actual element focus
+
+- `_isChartActive` initial state changed from `true` to `false`. The app
+  launches with focus on the WebView's banner heading, not the chart —
+  there's nothing to navigate at startup, so chart commands shouldn't
+  fire from the body even before any modal opens.
+- `MainLayout.razor:139` line removed. The JS-side `_chartFocused` flag is
+  no longer tied to modal open/close; it now follows actual element focus.
+- `ChartArea.razor` `OnChartFocused` / `OnChartBlurred` handlers now also
+  invoke `accessibleTrader.setChartFocused(true|false)` via `IJSRuntime` in
+  addition to publishing `ChartFocusEvent` / `DeactivateEvent`. Both gates
+  (.NET `_isChartActive` and JS `_chartFocused`) now share a single source
+  of truth: actual chart-element focus.
+- `keyboard.js` `_chartFocused` initial value changed from `true` to
+  `false` for the same reason.
+
+#### 3. Ctrl+Alt+Shift+C actually moves focus
+
+- New event record `RequestChartFocusEvent` in `Events.cs`.
+  `CommandDispatcher.ChartFocus` case now publishes `RequestChartFocusEvent`
+  instead of `ChartFocusEvent` directly — the `_isChartActive` flip
+  happens as a side effect of the resulting native focus event firing
+  through `ChartArea.OnChartFocused`, so the gate state can never get out
+  of sync with actual focus.
+- `ChartArea.razor` subscribes to `RequestChartFocusEvent` and responds by
+  calling `accessibleTrader.focusElement("chart-interact-zone")` via
+  `IJSRuntime`.
+- Announcement string changed from `"CONTEXT_SUMMARY"` (which expanded to
+  `"{symbol}{provider}, {timeframe}"` via the feedback coordinator's
+  format-string handling) to plain `"Focus on trading chart area."` per
+  the user's request ("nothing fancy").
+
+#### 4. Modal close → focus returns to the chart
+
+- `CommandDispatcher`'s `ModalStateChangedEvent` subscriber now publishes
+  `RequestChartFocusEvent` when `_openModalCount` transitions from `1 →
+  0` (last modal closes). Stacked-modal aware: closing one of several
+  modals doesn't refocus the chart until the entire stack drains.
+- No additional speech announcement on auto-return — the modal's own
+  `"X dialog closed"` phrase is already in flight via the existing
+  `MainLayout` ARIA-live pipeline. Adding a second announcement would
+  step on the first.
+
+#### 5. Order book modal v1: live + 20 levels + navigable rows + silent updates
+
+- `IOrderExecutionService` gains
+  `Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string provider, string symbol)`.
+  `GeneralOrderService` implements via
+  `provider.GetCapability<IOrderBookProvider>()?.SubscribeOrderBook(symbol)`,
+  returning `null` for non-IOrderBookProvider providers (FRED, BinanceVision,
+  etc.) — modal falls back to snapshot-only with a manual Refresh button.
+- `OrderBookModal.razor` rewritten:
+  - Depth raised from 15 → 20.
+  - On open: snapshot via `GetOrderBookAsync` (depth=20) → subscribe via
+    `SubscribeOrderBookAsync`. On live update, replace `_bids` / `_asks` and
+    call `StateHasChanged()` — DOM updates silently, no `aria-live` on
+    rows, no per-update speech, no earcon.
+  - Each `<tr>` gets `tabindex="0"` plus `aria-label="Bid {price}, size
+    {size}"` / `aria-label="Ask {price}, size {size}"`. Screen reader reads
+    each row only when focus lands on it via Tab/arrow — exactly the
+    "price + volume" reading contract the user asked for.
+  - When `_isLive == true`, the manual Refresh button is hidden and a
+    plain `Live` indicator takes its place.
+  - The previous `AnnounceDepthChange` per-refresh delta speech and
+    earcon routing are deleted entirely. Large-order detection (v2) will
+    re-introduce a minimal, rate-limited speech path for unusually-large
+    placements only — not part of this commit.
+- `Close()` and `Dispose()` both dispose the depth subscription so the
+  provider's WS handler stops dispatching to a hidden modal.
+
+### Test coverage added
+
+- `Phase5KeyboardScopeTests.cs` — **95 tests** pinning every defined
+  `SystemCommand` to its scope, plus a sentinel that fails when a new enum
+  value is added without categorisation.
+- `OrderBookModalTests.cs` — **7 bUnit tests** covering: hidden-by-default
+  empty markup; open-without-symbol error path; depth=20 snapshot request;
+  20-rows-per-side rendering; per-row `tabindex="0"` + price/size aria-label;
+  `ModalStateChangedEvent` open + close pair on full lifecycle; live
+  `OrderBookUpdate` replacing row content silently (no `aria-live` on
+  rows, just updated `aria-label`).
+- `BlazorTestHarness.cs` extended with `IOrderExecutionService` substitute
+  defaulting to empty-snapshot + null-stream — overridable per-test.
+
+### Files touched
+
+- `AccessibleTrader.Core/Models/Events.cs` — `RequestChartFocusEvent` added.
+- `AccessibleTrader.Core/Services/Input/CommandDispatcher.cs` — initial
+  `_isChartActive`, modal-trap subscriber, gate move, `IsChartScopedCommand`.
+- `AccessibleTrader.Core/Services/IOrderExecutionService.cs` —
+  `SubscribeOrderBookAsync` added.
+- `AccessibleTrader.Core/Services/GeneralOrderService.cs` — implementation.
+- `AccessibleTrader.BlazorClient.Components/ChartArea.razor` —
+  `OnChartFocused`/`OnChartBlurred` JS sync, `RequestChartFocusEvent`
+  subscription.
+- `AccessibleTrader.BlazorClient.Components/Layout/MainLayout.razor` —
+  `setChartFocused` line removed.
+- `AccessibleTrader.BlazorClient.Components/OrderBookModal.razor` — rewritten.
+- `AccessibleTrader.BlazorClient/wwwroot/js/keyboard.js` — `_chartFocused`
+  initial value.
+- `AccessibleTrader.Tests/Phase5KeyboardScopeTests.cs` — new.
+- `AccessibleTrader.Tests/Blazor/OrderBookModalTests.cs` — new.
+- `AccessibleTrader.Tests/Blazor/BlazorTestHarness.cs` — `OrderService` slot.
+
+### Deferred
+
+- **Order book v2: large-order detection.** Adaptive rolling-median
+  threshold + multiplier + absolute floor + rate-limited speech
+  ("Large bid 5.2 BTC at 67230"). User requested v1 stand on its own
+  before v2 layers on top. Settings UI under a new "Order book" section
+  in `SettingsModal` will land with v2.
+
+---
+
 ## [2026-04-27 evening 16] — bUnit per-modal coverage sweep
 
 Following the RCL extraction, this round delivered the per-modal sweep

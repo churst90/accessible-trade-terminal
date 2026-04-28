@@ -163,6 +163,19 @@
 
         // 4. Re-render dividers whenever ChartRenderer recalculates pane layout
         PaneLayout.LayoutChanged += OnPaneLayoutChanged;
+
+        // 5. Programmatic focus requests (Ctrl+Alt+Shift+C, modal close).
+        // CommandDispatcher and ModalBase publish RequestChartFocusEvent; we respond
+        // by calling the JS focus helper on the chart-interact-zone element. The
+        // native focus event then fires our @onfocus handler which publishes
+        // ChartFocusEvent and flips the chart-active gate.
+        var focusSub = EventBus.AsObservable<RequestChartFocusEvent>()
+            .Subscribe(_ => InvokeAsync(async () =>
+            {
+                try { await JS.InvokeVoidAsync("accessibleTrader.focusElement", "chart-interact-zone"); }
+                catch { /* JS bridge may not be ready during early renders or unit tests */ }
+            }));
+        _subs.Add(focusSub);
     }
 
     private void OnDividerMouseDown(MouseEventArgs e, string paneName)
@@ -263,11 +276,18 @@
     private void OnChartFocused()
     {
         EventBus.Publish(new ChartFocusEvent());
+        // Sync the JS-side single-letter-key gate with actual element focus. Without
+        // this, single letters (h, m, p, drawing tool letters) would be silently
+        // dropped at the JS layer even after focus lands on the chart.
+        try { _ = JS.InvokeVoidAsync("accessibleTrader.setChartFocused", true); }
+        catch { /* non-critical — JS bridge may not be ready during early renders */ }
     }
 
     private void OnChartBlurred()
     {
         EventBus.Publish(new DeactivateEvent());
+        try { _ = JS.InvokeVoidAsync("accessibleTrader.setChartFocused", false); }
+        catch { /* non-critical */ }
     }
 
     // Phase 5: element-scoped keyboard fallback. The window-level JS handler in

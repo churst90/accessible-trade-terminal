@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reactive.Disposables;
 using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
@@ -203,6 +204,22 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogWarning(ex, "GetOrderBook failed for {Symbol}", symbol);
                 return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
+        }
+
+        public async Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string providerName, string symbol)
+        {
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
+            var ob = provider?.GetCapability<IOrderBookProvider>();
+            if (ob == null) return null;
+            try
+            {
+                return ob.SubscribeOrderBook(symbol);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SubscribeOrderBook failed for {Symbol} on {Provider}", symbol, providerName);
+                return null;
             }
         }
 
