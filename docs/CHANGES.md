@@ -4,6 +4,114 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-04-27 evening 16] — bUnit per-modal coverage sweep
+
+Following the RCL extraction, this round delivered the per-modal sweep
+flagged in the prior changelog as the next logical step. **40 new modal
+tests** across the four highest-touch modals; 835/835 tests passing
+(795 prior + 40 new); 0 warnings, 0 errors.
+
+### Coverage shipped
+
+| Modal              | File                              | Tests | Focus |
+|--------------------|-----------------------------------|------:|-------|
+| AlertsModal        | `Blazor/AlertsModalTests.cs`      | 6     | Add/delete flow + ARIA empty-state |
+| SettingsModal      | `Blazor/SettingsModalTests.cs`    | 12    | Tab navigation + Send-test flow + persistence |
+| PropertiesModal    | `Blazor/PropertiesModalTests.cs`  | 12    | Open-with-series guard + four-tab structure |
+| BuildSetupTab      | `Blazor/BuildSetupTabTests.cs`    | 10    | Composition + spec-identity round-trip |
+| **Total new**      |                                   | **40**|       |
+
+### Shared scaffolding: `BlazorTestHarness.cs`
+
+Every modal under test injects 5-15 services from Core + Sdk. Hand-stubbing
+each across each test file would explode the codebase. `BlazorTestHarness`
+centralizes the boilerplate:
+
+- One harness instance per test, IDisposable. Construction wires up
+  `IWorkspaceStore` (Substitute, returns `WorkspaceState.Initial`), real
+  `EventBus` (so `Open*Event` flows through subscriptions), real
+  `ThemeService` (its only dep is `ISettingsManager` which is itself stubbed),
+  plus NSubstitute-backed stubs for ~15 other services covering both the
+  modal-inject set and the indicator-pipeline + strategy-pipeline interfaces
+  used by their child components.
+- Each registered service is exposed as a property on the harness so tests
+  can override individual returns: `h.SettingsManager.GetSetting(...).Returns(...)`,
+  `h.WorkspaceStore.State.Returns(_ => myState)`, etc.
+- `OpenModal<TModal>(Action<IEventBus> publishOpenEvent)` is the single
+  open-path helper — render the component, then publish whichever
+  `OpenXxxEvent` drives the modal's subscription. Mirrors the production
+  Toolbar-button → EventBus → Modal flow.
+- `OverrideAlertChannels(...)` swaps the empty default `IEnumerable<IAlertChannel>`
+  for test-specific channels — used by `SettingsModal_SendTestEmail_*` tests
+  to assert SendAsync interaction without spinning up real SMTP/Telegram clients.
+
+### NSubstitute added to the test project
+
+`NSubstitute 5.3.0` package added. Justification: services like
+`ISeriesManagementService` (10+ methods) and `IIndicatorPreferencesService`
+(8+ methods) would each require ~50 lines of hand-written no-op stubs per
+test file. NSubstitute auto-generates these and lets tests override
+individual members lazily (`returns x` / `Received().X(args)` semantics
+are familiar from Moq).
+
+### Coverage notes
+
+- **AlertsModal**: smallest surface (one inject, `IAlertOrchestrator`).
+  Tests prove the Add/Delete flow + empty-state without stubbing the alert
+  pipeline.
+- **SettingsModal**: largest surface (10 injects). Tests prove tab
+  navigation, the Send-test routing logic (`AlertChannels.FirstOrDefault(c
+  => c.Id == channelId)`), the missing-channel + misconfigured-channel +
+  exception-on-send error-message branches, and the
+  `PersistAlertSettings()` side-effect that writes through ~15 settings
+  keys before each test send.
+- **PropertiesModal**: opens via `OpenPropertiesEvent(seriesId)` which
+  resolves against `WorkspaceStore.State.ActiveSeries`. Tests prove the
+  guard branches (no-focused-series early-return, missing-id early-return)
+  and the four-tab structure (General / Appearance / Sonification /
+  Speech). Edge case: the modal always emits a `<style>` block so
+  empty-markup assertions check absence of `[role='dialog']` instead.
+- **BuildSetupTab**: thin coordinator over three sibling editors. Tests
+  prove composition works (no DI-graph errors) and the spec-identity
+  fields round-trip through Blazor's `@bind`-equivalent `@onchange`
+  callbacks.
+
+### Recipe: adding bUnit coverage for a new modal
+
+```csharp
+public class MyNewModalTests
+{
+    [Fact]
+    public void MyModal_DoesTheThing_TriggersExpectedCall()
+    {
+        using var h = new BlazorTestHarness();
+        h.SomeService.SomeMethod(default).Returns(myCannedResult);
+
+        var cut = h.OpenModal<MyNewModal>(bus => bus.Publish(new OpenMyNewModalEvent()));
+        cut.Find("[data-testid='do-the-thing']").Click();
+
+        h.SomeService.Received().AnotherMethod(Arg.Any<...>());
+    }
+}
+```
+
+If the modal injects a service the harness doesn't already register, add
+it to the harness or use `h.With<TService>(impl)` to register a one-off.
+
+### Where each modal still needs additional coverage
+
+These tests cover the high-traffic paths and the regression-prone branches.
+Areas left for future per-touch coverage as those features evolve:
+
+- **PropertiesModal**: per-component editor flows (color, waveform, level
+  thresholds), drawing-coordinate fields, speech-template editor.
+- **BuildSetupTab**: child-component delegation (clicking a Save button
+  on `SummaryExport` actually invokes `IStrategyLibraryFacade.Save`).
+- **SettingsModal**: General tab toggles, theme dropdown wiring,
+  shortcut-rebinding flow.
+
+---
+
 ## [2026-04-27 evening 15] — Razor Class Library extraction + first real-component bUnit tests
 
 Followed through on the bUnit spike's documented architectural blocker by

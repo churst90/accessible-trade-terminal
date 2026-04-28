@@ -725,13 +725,15 @@ needs a new bUnit dependency.
   161.8%/261.8%; Rectangle normalises corners + NaN outside date range
   + reversed dates swap; HorizontalLine constant fill +
   missing-anchor early return.
-- [~] **Blazor modals — bUnit infrastructure complete, per-modal sweep
-  pending (2026-04-27 e15).** Components extracted into the
-  `AccessibleTrader.BlazorClient.Components` Razor Class Library; the
-  test project references it directly. Five real-component tests against
-  `StrategyModal` pass (`AccessibleTrader.Tests/Blazor/StrategyModalTests.cs`).
-  Remaining work: write tests for `BuildSetupTab`, `PropertiesModal`,
-  `SettingsModal`, and the smaller modals (~1-3 hours each).
+- [x] **Blazor modals — bUnit infrastructure + per-modal sweep complete
+  (2026-04-27 e16).** RCL extracted (e15); shared `BlazorTestHarness`
+  covers ~15 services + JS interop shim; per-modal tests shipped:
+  StrategyModal (5), AlertsModal (6), SettingsModal (12), PropertiesModal
+  (12), BuildSetupTab (10). 45 new modal tests total; 835/835 passing.
+  Future per-touch coverage areas listed in the round-16 changelog entry
+  (PropertiesModal sub-editor flows, BuildSetupTab child delegation,
+  SettingsModal General tab, etc.) are now per-feature work, not
+  infrastructure backlog.
 
 ---
 

@@ -29,6 +29,9 @@
       latest 1.x line that supports net10.0.
     -->
     <PackageReference Include="bunit" Version="1.40.0" />
+    <!-- NSubstitute used to stub services with deep interface surfaces (ISeriesManagementService,
+         IThemeService, etc.) without writing 50+ no-op methods per modal-test file. -->
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
 
   <ItemGroup>
