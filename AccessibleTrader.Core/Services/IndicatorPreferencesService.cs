@@ -190,7 +190,7 @@ namespace AccessibleTrader.Core.Services
         private void WriteFile(string indicatorCode, IndicatorPrefsFile file)
         {
             var json = JsonConvert.SerializeObject(file, Formatting.Indented);
-            File.WriteAllText(FilePath(indicatorCode), json);
+            AtomicFile.WriteAllText(FilePath(indicatorCode), json);
         }
 
         private string FilePath(string indicatorCode)

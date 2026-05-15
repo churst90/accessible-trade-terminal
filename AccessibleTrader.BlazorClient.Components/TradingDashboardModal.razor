@@ -299,6 +299,7 @@
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
     private System.Threading.Timer? _refreshTimer;
 
     // Order entry
@@ -340,6 +341,10 @@
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenTradingDashboardEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Trading dashboard") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -516,6 +521,7 @@
     public void Dispose()
     {
         _eventSub?.Dispose();
+        _closeSub?.Dispose();
         _refreshTimer?.Dispose();
     }
 }

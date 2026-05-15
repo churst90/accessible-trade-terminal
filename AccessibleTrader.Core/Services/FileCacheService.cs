@@ -72,7 +72,7 @@ namespace AccessibleTrader.Core.Services
                 };
                 
                 var json = JsonSerializer.Serialize(entry);
-                await File.WriteAllTextAsync(GetPath(key), json).ConfigureAwait(false);
+                await AtomicFile.WriteAllTextAsync(GetPath(key), json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

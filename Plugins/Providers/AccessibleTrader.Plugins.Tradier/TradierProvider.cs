@@ -423,7 +423,11 @@ namespace AccessibleTrader.Plugins.Tradier
                         .ToList();
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetSymbolsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>
@@ -485,7 +489,11 @@ namespace AccessibleTrader.Plugins.Tradier
                     };
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -510,7 +518,11 @@ namespace AccessibleTrader.Plugins.Tradier
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -540,7 +552,11 @@ namespace AccessibleTrader.Plugins.Tradier
                         )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -613,7 +629,11 @@ namespace AccessibleTrader.Plugins.Tradier
                     await _httpClient.DeleteAsync($"{_baseUrl}/accounts/{_accountId}/orders/{orderId}"));
                 return response.IsSuccessStatusCode;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier CancelOrderAsync failed for {orderId} ({ex.GetType().Name}): {ex.Message}");
+                return false;
+            }
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);

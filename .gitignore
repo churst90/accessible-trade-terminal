@@ -6,6 +6,14 @@
 x64/
 x86/
 
+# Third-party SDKs — not committed; download separately per docs/PLATFORMS.md.
+# Dot Inc's Dot Pad SDK is ~850MB across all platforms and vendor-licensed.
+# The build's CopyDotPadSdkWindows target skips gracefully if the SDK is missing.
+dotpad-sdk/
+
+# Personal correspondence drafts (not for public repos).
+docs/EMAIL_*.md
+
 # Visual Studio
 .vs/
 *.suo

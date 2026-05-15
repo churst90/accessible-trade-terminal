@@ -173,10 +173,15 @@
     private List<OrderBookEntry> _asks = new();
     private IDisposable? _eventSub;
     private IDisposable? _depthSub;
+    private IDisposable? _closeSub;
 
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenOrderBookEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Order book") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -309,5 +314,6 @@
     {
         _eventSub?.Dispose();
         _depthSub?.Dispose();
+        _closeSub?.Dispose();
     }
 }

@@ -22,6 +22,10 @@
 *@
 @inject SetupSonifier _setupSonifier
 @inject StrategyAutoLoader _autoLoader
+@* TactileCanvasCoordinator subscribes to RedrawEvent + StateStream on construction
+   so the Dot Pad mirrors the chart automatically. Eager-resolved here so the
+   subscriptions are wired before the first redraw can fire. *@
+@inject ITactileCanvasCoordinator _tactileCoordinator
 @* AlertDeliveryService eagerly resolved here so its AlertFiredEvent subscription
    is live before any alert can fire — the service does nothing on its own
    beyond subscribing, and DI would otherwise lazy-construct it only on first

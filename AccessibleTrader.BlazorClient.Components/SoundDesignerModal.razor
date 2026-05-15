@@ -225,6 +225,7 @@
 @code {
     private bool _isVisible;
     private IDisposable? _sub;
+    private IDisposable? _closeSub;
 
     private List<SoundPatch> _patches = new();
     private string? _selectedId;
@@ -253,6 +254,10 @@
     {
         _sub = EventBus.AsObservable<OpenSoundDesignerEvent>()
             .Subscribe(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Sound designer") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -393,5 +398,5 @@
         EventBus.Publish(new ModalStateChangedEvent(false, "Sound designer"));
     }
 
-    public void Dispose() => _sub?.Dispose();
+    public void Dispose() { _sub?.Dispose(); _closeSub?.Dispose(); }
 }

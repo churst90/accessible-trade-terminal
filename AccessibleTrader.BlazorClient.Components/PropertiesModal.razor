@@ -545,10 +545,15 @@
     private List<IndicatorParameterMetadata> _paramMeta = new();
     private string? _error;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
 
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenPropertiesEvent>(ev => InvokeAsync(() => ShowAsync(ev.SeriesId)));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Properties") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync(string? overrideId)
@@ -822,5 +827,5 @@
         else if (anchor == 2) d.AnchorDate2 = dt;
     }
 
-    public void Dispose() => _eventSub?.Dispose();
+    public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
 }

@@ -344,7 +344,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     return arr.Select(p => p["url_symbol"]?.ToString().ToUpper() ?? "").OrderBy(s => s).ToList();
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp GetSymbolsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedTimeframesAsync() => Task.FromResult(new List<string> { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "3d", "1w", "1M" });
@@ -436,7 +440,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     return result;
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
@@ -462,7 +470,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -505,7 +517,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 var json = JObject.Parse(response);
                 return json["status"]?.ToString() != "error";
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp CancelOrderAsync failed for {orderId} ({ex.GetType().Name}): {ex.Message}");
+                return false;
+            }
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);

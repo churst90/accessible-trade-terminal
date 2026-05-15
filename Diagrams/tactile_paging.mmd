@@ -1,22 +1,25 @@
 graph TD
     subgraph Core Engine (.NET 10)
         HB[History Buffer - Ohlcv Data]
-        VC[Virtual Canvas - 960x400]
+        VC[Virtual Canvas]
         VP[Viewport Manager]
     end
 
     subgraph Hardware Driver (MAUI Interop)
         TD[ITactileDriver]
-        MTD[MonarchTactileDriver]
-        PD[Physical Device - 96x40]
+        DTD[DotpadTactileDriver]
+        SDK[DotPadSDK 3.0.0 native DLL]
+        PD[Dot Pad 2nd-gen - 300 graphic cells + 20 braille cells]
     end
 
     HB -->|Render Full History| VC
     VC -->|Paging Logic| VP
-    VP -->|Slice 96x40 Window| TD
-    TD -->|Push Bit-Array| MTD
-    MTD -->|USB/HID| PD
-    
-    PD -->|Buttons| MTD
-    MTD -->|Navigate Event| VP
+    VP -->|Slice Device-Sized Window| TD
+    TD -->|Push Packed Dot Buffer| DTD
+    DTD -->|P/Invoke| SDK
+    SDK -->|USB-Serial or BLE| PD
+
+    PD -->|Pan / Function Keys| SDK
+    SDK -->|Key Callback| DTD
+    DTD -->|Navigate Event| VP
     VP -->|Update Window Offset| VC

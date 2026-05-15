@@ -49,6 +49,13 @@ namespace AccessibleTrader.Core.Services
         private readonly ILogger<DataManager> _logger;
         private readonly IServiceProvider _serviceProvider;
         private TimeSeriesBuffer<Ohlcv> _cache = TimeSeriesBuffer<Ohlcv>.Empty;
+        // Guards every write to _cache against concurrent live-tick and prepend
+        // mutations. TimeSeriesBuffer<Ohlcv> is immutable so reads (reference
+        // assignment from a single field) are atomic on any 64-bit runtime;
+        // only writers contend. Without this, a live tick that interleaves with
+        // PrependOlderDataAsync's mutation could be silently dropped because
+        // both produce a new _cache snapshot from the pre-mutation reference.
+        private readonly object _cacheLock = new();
         private readonly Subject<TimeSeriesBuffer<Ohlcv>> _dataStream = new();
         private readonly Subject<TimeSeriesBuffer<Ohlcv>> _initialLoadStream = new();
         private CancellationTokenSource? _liveCts;
@@ -92,7 +99,7 @@ namespace AccessibleTrader.Core.Services
 
                 if (newData != null && newData.Any())
                 {
-                    _cache = new TimeSeriesBuffer<Ohlcv>(newData);
+                    lock (_cacheLock) { _cache = new TimeSeriesBuffer<Ohlcv>(newData); }
 
                     _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: true));
                     _store.Dispatch(new ZoomAction(100));
@@ -130,7 +137,7 @@ namespace AccessibleTrader.Core.Services
                 // Step 1 — Restore snapshot immediately so the store sees the full history
                 // without waiting for a network round-trip. IsInitialLoad=false so the
                 // snapshot-restored cursor/viewport from WorkspaceState is preserved.
-                _cache = snapshotData;
+                lock (_cacheLock) { _cache = snapshotData; }
                 _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
                 NotifyDataUpdate(isInitialLoad: false);
 
@@ -154,11 +161,14 @@ namespace AccessibleTrader.Core.Services
 
                     if (gapBars.Any())
                     {
-                        foreach (var bar in gapBars)
+                        lock (_cacheLock)
                         {
-                            _cache = _cache.Append(bar);
-                            if (_cache.Count > MaxBarsInCache)
-                                _cache = _cache.RemoveFirst();
+                            foreach (var bar in gapBars)
+                            {
+                                _cache = _cache.Append(bar);
+                                if (_cache.Count > MaxBarsInCache)
+                                    _cache = _cache.RemoveFirst();
+                            }
                         }
                         _logger.LogInformation("DataManager: Gap-filled {Count} bars for {Symbol}.", gapBars.Count, identity.Symbol);
                     }
@@ -167,7 +177,7 @@ namespace AccessibleTrader.Core.Services
                         // No new bars — but update the live bar in case it changed intra-bar.
                         var latest = recent.Last();
                         if (latest.Date == lastKnownDate)
-                            _cache = _cache.ReplaceLast(latest);
+                            lock (_cacheLock) { _cache = _cache.ReplaceLast(latest); }
                     }
 
                     _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
@@ -233,9 +243,12 @@ namespace AccessibleTrader.Core.Services
                     var uniqueOlder = olderData.Where(o => o.Date < firstBar.Date).ToList();
                     if (uniqueOlder.Any())
                     {
-                        _cache = _cache.PrependRange(uniqueOlder);
-                        while (_cache.Count > MaxBarsInCache)
-                            _cache = _cache.RemoveLast();
+                        lock (_cacheLock)
+                        {
+                            _cache = _cache.PrependRange(uniqueOlder);
+                            while (_cache.Count > MaxBarsInCache)
+                                _cache = _cache.RemoveLast();
+                        }
                         _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
                         _logger.LogInformation("Prepended {Count} bars.", uniqueOlder.Count);
                         NotifyDataUpdate(false);
@@ -274,12 +287,18 @@ namespace AccessibleTrader.Core.Services
                     if (_store.State.DataStatus == DataStatus.LoadingHistorical)
                         continue;
 
-                    var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
-                    if (_cache.Count == 0 || tick.Date > lastBar.Date) {
-                        _cache = _cache.Append(tick);
-                        if (_cache.Count > 2000) _cache = _cache.RemoveFirst();
-                    } else {
-                        _cache = _cache.ReplaceLast(tick);
+                    lock (_cacheLock)
+                    {
+                        var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
+                        if (_cache.Count == 0 || tick.Date > lastBar.Date)
+                        {
+                            _cache = _cache.Append(tick);
+                            if (_cache.Count > 2000) _cache = _cache.RemoveFirst();
+                        }
+                        else
+                        {
+                            _cache = _cache.ReplaceLast(tick);
+                        }
                     }
                     _store.Dispatch(new UpdateDataAction(_cache, false));
                 }

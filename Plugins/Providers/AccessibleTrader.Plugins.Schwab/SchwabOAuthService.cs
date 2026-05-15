@@ -95,15 +95,25 @@ namespace AccessibleTrader.Plugins.Schwab
             LoadPersistedRefreshToken();
         }
 
+        // Random state captured at the start of each authorization-code flow and
+        // validated against the callback's `state` query parameter. Without this
+        // an attacker can trick the user into opening a crafted authorize URL on
+        // a shared/untrusted device and silently bind their own Schwab app to the
+        // user's account. Generated fresh per `RunAuthorizationCodeFlowAsync` call.
+        private string? _expectedState;
+
         /// <summary>
         /// Builds the full Schwab authorization URL that the user should open
-        /// in a browser to start the auth-code flow.
+        /// in a browser to start the auth-code flow. Pass the same <paramref
+        /// name="state"/> value that the callback handler will validate.
         /// </summary>
-        public string BuildAuthorizationUrl()
+        public string BuildAuthorizationUrl(string? state = null)
         {
             var query = $"?client_id={Uri.EscapeDataString(ClientId)}"
                       + $"&redirect_uri={Uri.EscapeDataString(RedirectUri)}"
                       + "&response_type=code";
+            if (!string.IsNullOrEmpty(state))
+                query += $"&state={Uri.EscapeDataString(state)}";
             return AuthorizeUrl + query;
         }
 
@@ -141,7 +151,12 @@ namespace AccessibleTrader.Plugins.Schwab
                     ex);
             }
 
-            (openBrowser ?? LaunchDefaultBrowser)(BuildAuthorizationUrl());
+            // Generate a fresh CSRF-style state token per flow and stash it; the
+            // callback handler below will reject any callback whose `state` query
+            // parameter doesn't match. Mitigates the audit's CSRF gap on shared/
+            // untrusted devices (2026-04-27 e19).
+            _expectedState = Guid.NewGuid().ToString("N");
+            (openBrowser ?? LaunchDefaultBrowser)(BuildAuthorizationUrl(_expectedState));
 
             // Stop() races with the finally block below and with listener.Close() --
             // ObjectDisposedException / InvalidOperationException are expected when we
@@ -155,10 +170,19 @@ namespace AccessibleTrader.Plugins.Schwab
                 var context = await listener.GetContextAsync().ConfigureAwait(false);
                 code = context.Request.QueryString["code"];
                 var error = context.Request.QueryString["error"];
+                var returnedState = context.Request.QueryString["state"];
+
+                // CSRF: the callback's state MUST match the value we put on the
+                // outgoing authorize URL. Mismatch means either an unsolicited
+                // callback (attacker-crafted URL) or a stale flow — refuse either.
+                bool stateMatches = !string.IsNullOrEmpty(_expectedState)
+                                 && string.Equals(returnedState, _expectedState, StringComparison.Ordinal);
 
                 var body = error != null
                     ? $"<html><body><h2>Schwab authorization failed: {WebUtility.HtmlEncode(error)}</h2></body></html>"
-                    : "<html><body><h2>Schwab authorization complete. You can close this window.</h2></body></html>";
+                    : !stateMatches
+                        ? "<html><body><h2>Schwab callback rejected: state mismatch (possible CSRF). Re-run the sign-in flow.</h2></body></html>"
+                        : "<html><body><h2>Schwab authorization complete. You can close this window.</h2></body></html>";
 
                 var buffer = Encoding.UTF8.GetBytes(body);
                 context.Response.ContentType = "text/html";
@@ -168,6 +192,9 @@ namespace AccessibleTrader.Plugins.Schwab
 
                 if (!string.IsNullOrEmpty(error))
                     throw new InvalidOperationException($"Schwab returned authorization error: {error}");
+                if (!stateMatches)
+                    throw new InvalidOperationException(
+                        "Schwab callback rejected: state token mismatch. The callback may have been triggered by an unsolicited URL (CSRF) or by a stale authorization flow. Re-run sign-in.");
                 if (string.IsNullOrEmpty(code))
                     throw new InvalidOperationException("Schwab callback did not contain an authorization code.");
             }
@@ -177,6 +204,7 @@ namespace AccessibleTrader.Plugins.Schwab
                 // above; Close() is the authoritative release.
                 try { listener.Stop(); } catch { }
                 listener.Close();
+                _expectedState = null;
             }
 
             return await ExchangeAuthorizationCodeAsync(code!, ct).ConfigureAwait(false);

@@ -25,6 +25,22 @@ namespace AccessibleTrader.Core.Services
         private IDisposable? _orderStreamSub;
         private string? _subscribedProvider;
 
+        // ── Sanity clamps + idempotency dedup ────────────────────────────────
+        // Hard upper bound for any single-order quantity. Real users will never
+        // legitimately submit 1e7 of any asset; a Roslyn strategy bug emitting
+        // 1e308 would otherwise tie up liquidity or trigger circuit breakers.
+        // Per-asset precision is enforced by the exchange — we just block
+        // obviously-broken payloads at the top of the call.
+        private const double MaxOrderQuantity = 10_000_000.0;
+
+        // In-memory dedup window: any PlaceOrderAsync attempt with the same
+        // (provider, ClientOid) tuple within DedupWindow is rejected as a probable
+        // double-submit. Covers UI double-click and post-network-flap retries.
+        // Provider-side ClientOid enforcement (Binance) catches the rest.
+        private static readonly TimeSpan DedupWindow = TimeSpan.FromSeconds(30);
+        private readonly Dictionary<string, DateTime> _recentOrders = new();
+        private readonly object _recentOrdersLock = new();
+
         public GeneralOrderService(
             IDataService dataService,
             IGlobalErrorCoordinator errorCoordinator,
@@ -104,10 +120,79 @@ namespace AccessibleTrader.Core.Services
 
         // ── Order execution ────────────────────────────────────────────────────
 
-        public async Task<string> PlaceOrderAsync(string providerName, TradeSignal signal)
+        public async Task<string> PlaceOrderAsync(string providerName, TradeSignal providedSignal)
         {
-            _logger.LogInformation("Placing {Side} order for {Symbol} via {Provider}",
-                signal.Side, signal.Symbol, providerName);
+            // ── 1. Sanity clamps. Real-money path: a Roslyn-strategy bug that
+            //    emits Quantity = 1e308 must not reach the exchange. NaN/Infinity
+            //    on Limit-order Price is the same shape of bug — block it here.
+            if (!IsFinitePositive(providedSignal.Quantity) || providedSignal.Quantity > MaxOrderQuantity)
+            {
+                _errorCoordinator.ReportError(
+                    $"Order rejected: quantity {providedSignal.Quantity} is outside the allowed range (0, {MaxOrderQuantity}].",
+                    ErrorSeverity.High);
+                _logger.LogWarning(
+                    "Order rejected at submission: out-of-range quantity {Quantity} on {Symbol}/{Provider}",
+                    providedSignal.Quantity, providedSignal.Symbol, providerName);
+                return "ORDER_REJECTED_QUANTITY";
+            }
+            if (providedSignal.Type == OrderType.Limit
+                || providedSignal.Type == OrderType.StopLimit
+                || providedSignal.Type == OrderType.TakeProfitLimit)
+            {
+                if (providedSignal.Price is not double p || !IsFinitePositive(p))
+                {
+                    _errorCoordinator.ReportError(
+                        $"Order rejected: limit-style order requires a finite positive Price (got {providedSignal.Price?.ToString() ?? "null"}).",
+                        ErrorSeverity.High);
+                    _logger.LogWarning(
+                        "Order rejected at submission: invalid limit Price {Price} on {Symbol}/{Provider}",
+                        providedSignal.Price, providedSignal.Symbol, providerName);
+                    return "ORDER_REJECTED_PRICE";
+                }
+            }
+
+            // ── 2. Idempotency: ensure ClientOid is set so dedup + provider-side
+            //    enforcement both work. Generate from a deterministic-ish source
+            //    (random GUID — UI strategies don't need server-side reproducibility,
+            //    they just need *some* unique tag for the dedup gate to operate on).
+            var signal = providedSignal.ClientOid is null
+                ? providedSignal with { ClientOid = "atc-" + Guid.NewGuid().ToString("N").Substring(0, 16) }
+                : providedSignal;
+
+            // ── 3. Dedup gate. A second Submit with the same (provider, ClientOid)
+            //    inside the dedup window is treated as a probable double-fire (UI
+            //    double-click, post-network-flap retry) and refused. The first
+            //    submission's outcome is whatever it was — we don't second-guess it.
+            string dedupKey = $"{providerName}|{signal.ClientOid}";
+            DateTime now = DateTime.UtcNow;
+            lock (_recentOrdersLock)
+            {
+                // Sweep expired entries on every insert. O(n) but n is tiny in
+                // practice (orders/min is bounded) and keeps the map from growing.
+                if (_recentOrders.Count > 64)
+                {
+                    var stale = _recentOrders
+                        .Where(kv => now - kv.Value > DedupWindow)
+                        .Select(kv => kv.Key)
+                        .ToList();
+                    foreach (var k in stale) _recentOrders.Remove(k);
+                }
+                if (_recentOrders.TryGetValue(dedupKey, out var ts) && now - ts < DedupWindow)
+                {
+                    _logger.LogWarning(
+                        "Duplicate order suppressed: ClientOid {ClientOid} on {Provider} already submitted {SecondsAgo:F1}s ago",
+                        signal.ClientOid, providerName, (now - ts).TotalSeconds);
+                    _errorCoordinator.ReportError(
+                        "Duplicate order suppressed (same client id submitted moments ago).",
+                        ErrorSeverity.Medium);
+                    return "ORDER_DUPLICATE_SUPPRESSED";
+                }
+                _recentOrders[dedupKey] = now;
+            }
+
+            _logger.LogInformation(
+                "Placing {Side} order for {Symbol} via {Provider} (qty={Quantity}, type={Type}, clientOid={ClientOid})",
+                signal.Side, signal.Symbol, providerName, signal.Quantity, signal.Type, signal.ClientOid);
 
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null)
@@ -128,10 +213,44 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
+                // Recovery hint: an exception during PlaceOrderAsync does NOT confirm
+                // the order failed to post — a network drop after the exchange
+                // accepted the payload looks identical to a connection refused. We
+                // can't query by ClientOid (no SDK surface for it) but we CAN scan
+                // the open-orders list for a matching qty/symbol/side recently and
+                // warn the user to verify before retrying. The dedup gate above
+                // already prevents the next 30s of accidental resubmits.
+                _logger.LogError(ex,
+                    "PlaceOrder threw for {Symbol} via {Provider} (clientOid={ClientOid}). Order may or may not have posted — user should verify before retrying.",
+                    signal.Symbol, providerName, signal.ClientOid);
+                try
+                {
+                    var open = await tp.GetOpenOrdersAsync(signal.Symbol).ConfigureAwait(false);
+                    var maybe = open.FirstOrDefault(o =>
+                        o.Symbol == signal.Symbol
+                        && o.Side == signal.Side
+                        && Math.Abs(o.Quantity - signal.Quantity) < signal.Quantity * 1e-6);
+                    if (maybe != null)
+                    {
+                        _errorCoordinator.ReportError(
+                            $"Order failed mid-submit but a matching open order ({maybe.Id}) is on the exchange. VERIFY before retrying.",
+                            ErrorSeverity.High);
+                        return $"ORDER_UNCERTAIN:{maybe.Id}";
+                    }
+                }
+                catch (Exception scanEx)
+                {
+                    _logger.LogWarning(scanEx,
+                        "Recovery scan after PlaceOrder failure also failed for {Symbol}/{Provider}.",
+                        signal.Symbol, providerName);
+                }
                 _errorCoordinator.ReportError($"Order failed: {ex.Message}", ErrorSeverity.High);
                 return "ORDER_FAILED";
             }
         }
+
+        private static bool IsFinitePositive(double v) =>
+            !double.IsNaN(v) && !double.IsInfinity(v) && v > 0.0;
 
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {

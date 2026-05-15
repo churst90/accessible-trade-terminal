@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.Core.Services.Strategies
 {
@@ -55,10 +56,8 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             try
             {
-                string? dir = Path.GetDirectoryName(_filepath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 string json = JsonSerializer.Serialize(_specs, _options);
-                File.WriteAllText(_filepath, json);
+                AtomicFile.WriteAllText(_filepath, json);
             }
             catch (Exception ex)
             {

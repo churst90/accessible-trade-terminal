@@ -375,7 +375,11 @@ namespace AccessibleTrader.Plugins.Schwab
                     return (bids, asks);
                 }).ConfigureAwait(false);
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Schwab GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new(), new());
+            }
         }
 
         // ── ITradingProvider ────────────────────────────────────────────────

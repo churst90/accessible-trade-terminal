@@ -115,6 +115,20 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record ModalStateChangedEvent(bool IsOpen, string? ModalName = null);
 
+    /// <summary>
+    /// Published by <see cref="CommandDispatcher"/> when the user presses Escape with
+    /// at least one modal open. <see cref="ModalName"/> identifies the topmost open
+    /// modal — the dispatcher maintains a stack of <see cref="ModalStateChangedEvent"/>
+    /// names and peeks the top on Escape. Each modal subscribes once at OnInitialized
+    /// and self-closes only when both <c>_isVisible == true</c> and
+    /// <c>e.ModalName == thisModalName</c>, so stacked modals close one-at-a-time.
+    ///
+    /// Without a single dispatcher case, every modal would have to re-implement Escape
+    /// handling on its own keydown surface — error-prone and inconsistent (the audit
+    /// found HelpModal's Escape silently failed on 2026-04-27 e18).
+    /// </summary>
+    public record CloseTopModalEvent(string? ModalName);
+
     // ── Tab Events ────────────────────────────────────────────────────────────
     /// <summary>Fired after a tab switch completes so audio/sonification services can stop playback.</summary>
     public record TabSwitchedEvent(int NewTabIndex, string Label);

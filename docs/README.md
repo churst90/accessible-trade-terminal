@@ -54,7 +54,7 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 
 - **Native Speech Integration:** Announcements to screen readers (NVDA, JAWS, Narrator, VoiceOver, TalkBack) via ARIA live regions (`aria-live="assertive"` double-buffer in `MainLayout.razor`).
 - **Object Tree:** Hierarchical view to manage chart layers, indicators, and drawings (`Alt+O`).
-- **Tactile Virtual Canvas:** Virtual buffer for tactile displays (Monarch, Graphiti) — `MonarchTactileDriver` skeleton; full implementation in Phase 7 roadmap.
+- **Tactile Display Output:** One officially supported display — the **Dot Pad 2nd-gen** (300-cell graphic area + 20-cell braille text strip). Renders a two-pane 50/50 graphic (top series + focused series) with 1-pin candles and dynamic-gap bar density, plus a minimal value/X-value strip and F1-F4 device-side speech queries. **Dot Pad X** should also work (same SDK) but has not been on-device tested. Driver is Windows-only via `DotpadTactileDriver` + `DotPadSDK-3.0.0.dll`; the SDK is not committed to the repo — see [PLATFORMS.md §7](PLATFORMS.md#7-tactile-display-support) for the install steps. Other tactile devices (APH Monarch, etc.) are not yet supported.
 
 ## EventBus vs Rx — Quick Reference
 

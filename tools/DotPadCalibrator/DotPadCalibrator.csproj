@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <RootNamespace>AccessibleTrader.Tools.DotPadCalibrator</RootNamespace>
+    <AssemblyName>DotPadCalibrator</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The Dot Pad SDK is a native DLL with several dependency DLLs and a tables/
+    folder used by LibLouis. The calibrator loads the SDK at runtime via
+    LoadLibrary (through WindowsDotPadNative), so every artifact below must
+    sit next to the .exe in the build output directory.
+  -->
+  <ItemGroup>
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll"
+          Link="DotPadSDK-3.0.0.dll"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\Mecab.dll"
+          Link="Mecab.dll"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\TTBEngine.dll"
+          Link="TTBEngine.dll"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\jsoncpp.dll"
+          Link="jsoncpp.dll"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\liblouis.dll"
+          Link="liblouis.dll"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\mecabrc"
+          Link="mecabrc"
+          CopyToOutputDirectory="Always" />
+    <None Include="..\..\dotpad-sdk\Windows\dotpad-3.0.0\tables\**\*"
+          Link="tables\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
+</Project>

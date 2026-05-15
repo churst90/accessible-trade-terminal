@@ -98,8 +98,10 @@ namespace AccessibleTrader.Core.Models
 
         // Detail / Drawing
         DetailedPointSummary, // Ctrl+Shift+D: speak full candle pattern analysis
-        CancelDrawing,        // Escape: cancel an in-progress drawing placement
+        CancelDrawing,        // Escape (no modal): cancel an in-progress drawing placement
         ConfirmCoordinateEntry, // Enter: confirm anchor point during Coordinate Entry mode
+        OpenDrawingContextMenu, // ContextMenu key / Shift+F10: open the drawing context menu on the focused drawing
+        CloseModal,           // Escape (modal open): close the topmost open modal
 
         // Data/Market
         ChangeProvider,

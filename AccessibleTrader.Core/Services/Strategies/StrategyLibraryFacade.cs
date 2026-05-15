@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.Core.Services.Strategies
 {
@@ -132,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                     WriteIndented = true,
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
-                File.WriteAllText(path, JsonSerializer.Serialize(s, options));
+                AtomicFile.WriteAllText(path, JsonSerializer.Serialize(s, options));
                 return StrategyLibraryResult.Ok($"Exported to {path}");
             }
             catch (Exception ex)

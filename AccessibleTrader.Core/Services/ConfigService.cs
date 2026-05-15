@@ -49,7 +49,7 @@ namespace AccessibleTrader.Core.Services
         public void SaveConfig<T>(string section, T config)
         {
             _config[section] = JToken.FromObject(config!);
-            File.WriteAllText(_configPath, _config.ToString(Formatting.Indented));
+            AtomicFile.WriteAllText(_configPath, _config.ToString(Formatting.Indented));
         }
     }
 }

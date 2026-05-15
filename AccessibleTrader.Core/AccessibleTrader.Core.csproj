@@ -21,6 +21,12 @@
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="Skender.Stock.Indicators" Version="2.5.0" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
+    <!-- System.IO.Ports.SerialPort.GetPortNames() is used by the Dot Pad driver to
+         enumerate COM ports without going through the SDK's USB_SCAN (which appears
+         to put the SDK into a state where subsequent ConnectSerial calls never
+         complete). The package ships a Windows-only implementation; on non-Windows
+         the call throws PlatformNotSupportedException which the driver catches. -->
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

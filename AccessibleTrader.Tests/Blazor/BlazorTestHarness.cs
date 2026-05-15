@@ -16,6 +16,7 @@
 
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
@@ -51,6 +52,7 @@ public sealed class BlazorTestHarness : IDisposable
     public IStrategyLibraryFacade StrategyLibraryFacade { get; }
     public IConfigurableStrategyFactory ConfigurableStrategyFactory { get; }
     public ISpeechManager SpeechManager { get; }
+    public ISpeechFeedbackRouter SpeechRouter { get; }
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
@@ -92,6 +94,7 @@ public sealed class BlazorTestHarness : IDisposable
         StrategyLibraryFacade       = Substitute.For<IStrategyLibraryFacade>();
         ConfigurableStrategyFactory = Substitute.For<IConfigurableStrategyFactory>();
         SpeechManager               = Substitute.For<ISpeechManager>();
+        SpeechRouter                = Substitute.For<ISpeechFeedbackRouter>();
         StrategyBacktester          = Substitute.For<IStrategyBacktester>();
         BacktestWarmupAnalyzer      = Substitute.For<IBacktestWarmupAnalyzer>();
         OrderService                = Substitute.For<IOrderExecutionService>();
@@ -117,6 +120,7 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(StrategyLibraryFacade);
         Ctx.Services.AddSingleton(ConfigurableStrategyFactory);
         Ctx.Services.AddSingleton(SpeechManager);
+        Ctx.Services.AddSingleton(SpeechRouter);
         Ctx.Services.AddSingleton(StrategyBacktester);
         Ctx.Services.AddSingleton(BacktestWarmupAnalyzer);
         Ctx.Services.AddSingleton(OrderService);

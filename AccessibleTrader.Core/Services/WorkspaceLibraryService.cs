@@ -93,7 +93,7 @@ namespace AccessibleTrader.Core.Services
             {
                 string path = Path.Combine(_libraryDir, $"{safe}.json");
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                File.WriteAllText(path, json);
+                AtomicFile.WriteAllText(path, json);
                 _logger.LogInformation("Workspace profile {Name} saved.", safe);
             }
             catch (Exception ex)
@@ -224,7 +224,7 @@ namespace AccessibleTrader.Core.Services
             {
                 string path = Path.Combine(_libraryDir, "alerts.json");
                 string json = JsonConvert.SerializeObject(alerts, Formatting.Indented);
-                File.WriteAllText(path, json);
+                AtomicFile.WriteAllText(path, json);
                 _logger.LogInformation("Alerts saved.");
             }
             catch (Exception ex)

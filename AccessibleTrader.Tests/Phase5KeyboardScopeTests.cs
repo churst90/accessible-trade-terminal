@@ -86,6 +86,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.DrawGannBox)]
         [InlineData(SystemCommand.DrawPitchfork)]
         [InlineData(SystemCommand.DrawAngleFib)]
+        // Drawing context menu — keyboard equivalent of right-click; must require focus
+        [InlineData(SystemCommand.OpenDrawingContextMenu)]
         public void ChartScopedCommand_RequiresFocus(SystemCommand cmd)
         {
             Assert.True(CommandDispatcher.IsChartScopedCommand(cmd),
@@ -137,6 +139,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.ChangeSymbol)]
         [InlineData(SystemCommand.ChangeTimeframe)]
         [InlineData(SystemCommand.RefreshData)]
+        // CloseModal — global so it can fire from any focus location while a modal is open
+        [InlineData(SystemCommand.CloseModal)]
         // Sentinel
         [InlineData(SystemCommand.None)]
         public void GlobalCommand_DoesNotRequireFocus(SystemCommand cmd)
@@ -186,7 +190,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.DrawGannFan, SystemCommand.DrawRiskReward,
                 SystemCommand.DrawAnchoredVwap, SystemCommand.DrawMeasure,
                 SystemCommand.DrawGannBox, SystemCommand.DrawPitchfork,
-                SystemCommand.DrawAngleFib,
+                SystemCommand.DrawAngleFib, SystemCommand.OpenDrawingContextMenu,
                 // Global
                 SystemCommand.OpenSettings, SystemCommand.OpenHelp,
                 SystemCommand.OpenObjectTree, SystemCommand.OpenTradingDashboard,
@@ -205,6 +209,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
+                SystemCommand.CloseModal,
                 SystemCommand.None,
             };
 

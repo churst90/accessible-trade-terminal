@@ -5,6 +5,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {
@@ -86,10 +87,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             try
             {
-                string? dir = Path.GetDirectoryName(_filePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 string json = JsonConvert.SerializeObject(_templates, Formatting.Indented);
-                File.WriteAllText(_filePath, json);
+                AtomicFile.WriteAllText(_filePath, json);
             }
             catch (Exception ex) { System.Diagnostics.Trace.TraceWarning($"SpeechTemplateService: Failed to save templates: {ex.Message}"); }
         }

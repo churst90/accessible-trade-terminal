@@ -4,6 +4,543 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-15] — Dot Pad device-feedback follow-ups + SDK redistribution policy
+
+First on-device session after the 2026-05-14 MVP ship surfaced five
+device-only issues. All five fixed in a single follow-up cycle; 49 dotpad
+tests / 1007 in the full suite, 0 regressions. Repository distribution
+also tightened: the Dot Inc vendor SDK is now gitignored (~850MB),
+build target gracefully degrades when it's missing.
+
+### Repository distribution
+
+- **Dot Inc SDK now gitignored.** `dotpad-sdk/` (~850MB across Windows /
+  Android / iOS / Linux / Web platforms, plus historical SDK versions)
+  is no longer committed. Users wanting Dot Pad support follow the
+  install steps in `docs/PLATFORMS.md` §7 to download the
+  `Windows/3.0.0/` subset from Dot Inc's
+  [dotpad-sample-code](https://github.com/dotincorp/dotpad-sample-code)
+  repo and place it at `dotpad-sdk/Windows/dotpad-3.0.0/`.
+- **Build degrades gracefully when SDK is missing.** `WarnIfDotPadSdkMissing`
+  MSBuild target emits a one-line message; `CopyDotPadSdkWindows` is
+  Exists()-gated on the main DLL so it's skipped silently when the SDK
+  is absent. Runtime: `WindowsDotPadNative` reports the library
+  unavailable and `NullDotPadNative` short-circuits all driver calls,
+  so the rest of the app builds and runs identically.
+- **Dot Pad X documented as expected-but-unverified compatible.** Uses
+  the same DotPadSDK-3.0.0 native ABI, so the driver should bind without
+  code changes. PLATFORMS.md §7 captures this; verification is on the
+  device-pending list in `docs/TODO.md`.
+- **Personal correspondence gitignored.** `docs/EMAIL_*.md` pattern added
+  to `.gitignore` to keep business-outreach drafts out of public commits.
+
+- **Strip cold message now appears on launch.** The StateStream's
+  BehaviorSubject replay fired during the coordinator's constructor BEFORE
+  `ConnectAsync` had resolved, so `SafelyRenderStrip` returned early on
+  `!IsConnected` and the cold "no chart loaded..." text never reached the
+  device. `TryConnectAsync` now forces an initial strip render alongside
+  the existing initial graphic render once the driver is connected.
+- **Letter spacing in graphic-area braille.** Without an inter-cell gap,
+  adjacent characters' right and left columns touch and the text reads
+  as one continuous blob. `GraphicTextRenderer` now uses a 3-col
+  horizontal stride (2 cell cols + 1 separator gap), capping at
+  `(cols + 1) / 3` cells per row (20 on the 60-wide canvas, down from 30).
+  Vertical adjacency remains 4 rows per cell — the user reported only
+  the horizontal issue. A new test pins the gap column stays empty.
+- **`h` (hide series) now triggers a tactile redraw + renders the hidden
+  pane blank.** The graphic-trigger Rx projection had no field that
+  changed on a `ToggleHideAction` (which creates a new `ActiveSeries`
+  list with a `Cloned` series), so DistinctUntilChanged dropped the
+  re-render. The projection now includes a `VisibilityKey` snapshot —
+  a string of `"id:vis,compName:vis,…;…"` pairs walked across
+  `ActiveSeries`. Live ticks don't change visibility so they don't fire
+  this trigger. `BuildSeriesCanvas` short-circuits to a blank pane when
+  `series.IsVisible == false` — the tactile signal that says "this pane
+  is hidden." The user can still PgDn/PgUp to a hidden series and
+  re-press `h` to unhide.
+- **F1-F4 speech mirrored to the 20-cell strip.** Users on the device
+  with their hands on the tactile area can't always reach for headphones;
+  seeing what was spoken on the strip is the accessibility equivalent.
+  New private `SpeakAndShow(message)` helper now backs every F-key
+  handler — both speaks AND renders to the strip. The next state change
+  (live tick, cursor move) naturally overwrites the strip; these
+  messages are transient by design.
+- **Up/Down component navigation now updates the strip value.** The candle
+  series's `upper_wick` and `lower_wick` components BOTH carry
+  `Role=PriceAction` in `CoreIndicatorProvider` metadata — the only
+  thing distinguishing them is `DataMapping` ("high" vs "low"). The old
+  `BuildStripText` switched on Role, so both wicks fell through to the
+  default Close case and the strip stayed stuck on the body value when
+  the user pressed up/down. The strip now routes by `DataMapping`
+  ("open"/"high"/"low"/"close"/"volume") via a new `MapOhlcvField`
+  helper, so each wick reads its own OHLCV column.
+
+### Files touched
+
+- `AccessibleTrader.Core/Services/Accessibility/TactileCanvasCoordinator.cs`
+  — TryConnectAsync initial strip render, VisibilityKey projection,
+  `BuildVisibilityKey` helper, `BuildSeriesCanvas` IsVisible short-circuit,
+  `SpeakAndShow` helper, all four F-key handlers updated, `MapOhlcvField`
+  helper, `BuildStripText` DataMapping switch.
+- `AccessibleTrader.Core/Services/Accessibility/GraphicTextRenderer.cs`
+  — 3-col `HorizontalCellStride` const + math, doc comment update.
+- `AccessibleTrader.Tests/DotpadTactileDriverTests.cs` — updated position
+  expectations on the existing single-letter test; +3 new tests
+  (inter-cell gap, hidden series blank, upper/lower wick value
+  differentiation).
+
+### Still unverified on device
+
+The 5 fixes above resolve the symptoms the user reported on 2026-05-14
+evening. Other items from the empirical-verification list in
+`docs/TODO.md [2026-05-14]` are still pending — pan-key wire-up
+empirical check, splash centering on the physical canvas, F4 pause auto-
+reset under live identity changes, X-value timeout feel under live nav,
+and body+wick+gap legibility at full canvas size.
+
+---
+
+## [2026-05-14] — Dot Pad tactile-display: driver hardening + UX spec adopted
+
+Multi-session work on Dot Pad 2nd-gen integration spanning hardware
+calibration, SDK behavior characterization, and a comprehensive UX spec
+rework. Most driver-level work shipped earlier in the day; the UX rework
+is scoped here but not yet implemented (code reflects pre-spec state).
+Backlog in `docs/TODO.md` `[2026-05-14]`.
+
+### Driver-level shipped this work cycle
+
+- **8-dot cell packer (columnar bit layout).** `DotpadTactileDriver.PackViewport`
+  packs the 60×40 dot canvas into the 300-byte cell buffer using the
+  empirically-verified columnar mapping (`bit = subY + subX*4`), row-major
+  byte order. Earlier assumption of a 6-dot 2×3 cell wasted 25 % vertical
+  resolution for weeks before correction to the actual 2×4 8-dot cell.
+- **Reset-before-each-frame + wait-for-quiet pattern.** Per-frame sequence
+  is `DOT_PAD_RESET_DISPLAY → wait device quiet → DOT_PAD_DISPLAY_DATA →
+  wait device quiet`. The reset is a single atomic command (not a 300-byte
+  stream) and is the only reliable way to drop all pins, so any pin from
+  the previous frame that the new frame doesn't explicitly set can't
+  linger. Resolves the "random per-byte pin failures" symptom reported
+  2026-05-14 morning — root cause was stale-pin leak-through, NOT a serial
+  reliability problem.
+- **Multi-send-per-frame tested and rejected.** Earlier hypothesis was that
+  serial transmission to the device had a small per-byte error rate, fixed
+  by sending each frame N times. Tested; the SDK detects unchanged buffers
+  (`DOT_ERROR_DISPLAY_DATA_UNCHAGNED`) and re-sends either no-op or collide
+  with the first send's in-flight per-line transmission. Single send +
+  reset-before-frame + wait-for-quiet is the correct sequence. Lock-in
+  comment at `DotpadTactileDriver.cs:32-36`.
+- **Dispatch by `ComponentDisplayType`, not `ComponentRole`.**
+  `TactileCanvasCoordinator.BuildCanvas` was Role-keyed; Role=PriceAction
+  caught both the candle series and the close-price line, so the line was
+  rendering as OHLC bars. Fixed by switching to DisplayType-based dispatch.
+  Regression pinned in `DotpadTactileDriverTests`.
+- **Strip reset before each update.** `RenderBrailleTextAsync` calls
+  `DOT_PAD_RESET_BRAILLE_DISPLAY` before each `DISPLAY_BRAILLE_TEXT` so a
+  shorter new string doesn't leave stale cells raised past its end.
+- **NullDotPadNative for non-Windows.** `IDotPadNative` interface lets the
+  driver no-op cleanly on Android/iOS/macCatalyst, where
+  `DotPadSDK-3.0.0.dll` cannot load.
+- **Calibrator CLI.** Standalone test harness at
+  `tools/DotPadCalibrator/Program.cs` reusing `WindowsDotPadNative`
+  directly. Bit-order probe, cell-index probe, coordinate dot probe,
+  stripe tests, diagonal, strip text, key-listen. How the cell layout and
+  bit mapping were verified empirically.
+- **21 dotpad tests** passing in `AccessibleTrader.Tests/DotpadTactileDriverTests.cs`.
+  Covers packer math + Price-line-as-line dispatch regression.
+
+### Revised UX spec — MVP shipped this work cycle
+
+After a working session with the user 2026-05-14 evening, the prior backlog
+(volume bar tiering, strip pager, drop-symbol, etc.) was superseded by a
+comprehensive UX rework. **All 6 MVP items below shipped in the same cycle.**
+46 dotpad tests passing; 1004/1004 in the full suite, 0 regressions.
+
+- **1-pin bar/candle bodies + 1-pin wick gap + dynamic horizontal spacing.**
+  `BuildOhlcCanvas` rewritten — body fills open→close, 1-pin vertical gap
+  immediately above body top and below body bottom, upper/lower wicks extend
+  past the gap to high/low. New `BarColumn(i, N, cols)` helper places every
+  bar at exactly one column with `N = min(visibleBars, cols)`. At N == cols
+  bars touch (continuous); below that they spread evenly across the canvas
+  with growing gaps as the user zooms in. No aggregation past N — beyond-N
+  viewports show the rightmost N bars and the user pans tactile to see more.
+  `BuildBarsFromBaseline` / `BuildLineCanvas` / `BuildMarkerDots` all switched
+  to the same density rule; lines use a Bresenham helper to keep the trace
+  continuous between density cols.
+- **Splash mode.** New `GraphicTextRenderer.RenderCentered` with a hardcoded
+  Grade-1 ASCII→8-dot table (lowercase a-z + space, columnar bit layout
+  matching `DotpadTactileDriver.PackViewport`). On cold start (`state.Data`
+  empty), the graphic area paints "accessible trade terminal ready" centered
+  in the canvas, wrap-broken on word boundaries. Strip shows
+  `"no chart loaded..."`. Both replaced as soon as chart data arrives.
+  `SafelyRenderGraphic` no longer short-circuits on empty data — the splash
+  branch in `BuildCanvas` handles it.
+- **Two-pane top/bottom split (50/50).** `BuildCanvas` extracted the
+  per-series dispatch into a new `BuildSeriesCanvas` helper, then composes
+  two stacked panes at `rows/2` heights. Tactile cycle (`GetTactileCycle`)
+  filters `CoreSeriesIds.Price` out — focusing the price line falls back to
+  candles, because the price line overlays candles visually rather than
+  occupying its own pane. PgDn cycle: newly-focused → bottom slot;
+  `cycle[focused-1]` → top slot. At cycle index 0, top = focused itself,
+  bottom = `cycle[1]` (the candles+volume cold load).
+- **Minimal contextual strip.** `BuildStripText(state, bool showXValue)` now
+  has three modes — cold ("no chart loaded..."), value-only (default),
+  X-value timestamp (e.g. "mar 12 14:30") on cursor move. The coordinator
+  tracks cursor-index changes via `Interlocked.Exchange`; on a ←/→ move it
+  switches to X-value mode and schedules a single 1.5 s `Observable.Timer`
+  to revert. Rapid cursor moves replace the timer rather than stack them.
+- **F1/F2/F3/F4 functions.** Coordinator now injects `ISpeechFeedbackRouter`
+  and subscribes to `_driver.KeyPressed`:
+  - F1 → speak focused series friendly name (or "candles" for the primary
+    series, "no chart loaded" cold).
+  - F2 → speak focused component `DisplayName` (falls back to first visible
+    component when none specifically focused).
+  - F3 → speak "`{symbol} {timeframe} {provider}`" (or "no chart loaded" if
+    identity is empty).
+  - F4 → toggle `_isPaused` flag (volatile bool). While paused,
+    `SafelyRenderGraphic` returns early; strip keeps updating with cursor
+    nav. Resume re-renders current state immediately. Auto-cleared on
+    workspace identity change via a `Skip(1)` subscription on `Identity`.
+- **Pan key wiring.** `TactileKey.PanLeft` / `PanRight` from the device's
+  panning buttons route through `ICommandDispatcher.Dispatch(SystemCommand.PanLeft / PanRight)`
+  — identical path to the `[` / `]` keyboard shortcuts. Chart pans + tactile
+  redraws via the existing viewport-change subscription, with the
+  dispatcher's chart-focus gate still applying. `TactileKey.PanAll` is
+  intentionally unhandled (no spec yet).
+
+### Constructor/DI changes
+
+`TactileCanvasCoordinator` constructor signature grew from
+`(ITactileDriver, IWorkspaceStore, ILogger)` to
+`(ITactileDriver, IWorkspaceStore, ISpeechFeedbackRouter, ICommandDispatcher, ILogger)`.
+Both new dependencies were already registered in
+`AccessibleTrader.BlazorClient/ServiceCollectionExtensions.cs` so DI
+resolves automatically — no registration change required.
+
+### Test coverage (46 dotpad tests)
+
+- 9 packer tests (cell layout, bit positions, byte ordering, oob clamp).
+- 12 renderer tests (OHLC body/wick/gap, density rule, line Bresenham,
+  bars-from-baseline, markers, viewport-larger-than-canvas).
+- 5 splash + GraphicTextRenderer tests (single-letter dot, centering,
+  vertical wrap, empty/tiny canvas safety).
+- 4 two-pane composition tests (cycle filtering, cold load split,
+  PgDn focus-on-bottom, price-line fallback).
+- 5 strip tests (cold, value-only, X-value timestamp, both cold gates).
+- 8 F-key handler tests (F1 cold / primary / non-primary, F2 focused /
+  fallback, F3 identity / cold, F4 toggle, F4 auto-reset on identity change).
+- 3 pan-key tests (PanLeft → SystemCommand.PanLeft, symmetric PanRight,
+  PanAll explicitly unhandled).
+
+### Out-of-scope items deferred
+
+- 3-pane mode (candles + 2 oscillators at 24/8/8 splits).
+- Price-line overlay on candles pane (currently OHLC-only).
+- Dynamic per-series height proportions.
+- BLE connection path.
+- DOT_PAD_BRAILLE_ASCII_DISPLAY (using Grade-2 SDK path instead).
+
+### Files touched this work cycle
+
+- `AccessibleTrader.Core/Services/Accessibility/Dotpad/` — new directory:
+  `DotpadTactileDriver.cs`, `IDotPadNative.cs`, `WindowsDotPadNative.cs`,
+  `NullDotPadNative.cs`, `DotPadCodes.cs`, `DotPadDiagnostics.cs`.
+- `AccessibleTrader.Core/Services/Accessibility/TactileCanvasCoordinator.cs`
+  — DisplayType-based dispatch, focused-component rasterisation,
+  per-DisplayType renderer (line / bars / area / markers / OHLC).
+- `AccessibleTrader.Core/Services/Accessibility/ITactileDriver.cs` —
+  device-agnostic interface; `MonarchTactileDriver` removed (was a
+  placeholder, no shipping driver).
+- `AccessibleTrader.Tests/DotpadTactileDriverTests.cs` — 21 tests, packer
+  + dispatch regression.
+- `tools/DotPadCalibrator/Program.cs` — standalone calibrator CLI.
+- `dotpad-sdk/` — vendor SDK 3.0.0 (Windows / Android / iOS / Linux / Web).
+- Memory: `project_dotpad_dev_2026-05-14.md` updated with revised spec.
+
+### Up next
+
+Backlog items 1-6 in `docs/TODO.md` `[2026-05-14]`, in order:
+bar rendering rework → splash → two-pane split → strip rework → F1-F4
+handler → pan-key wiring. Each ships independently with its own tests.
+
+---
+
+## [2026-04-27 evening 19] — Pre-commercial-release health audit + Phase A quick wins
+
+Six-axis audit (architecture / code-quality / security / accessibility /
+robustness / docs) ran across the full ~540-file solution after the Phase 5,
+order book v1, and BlazorAudioDriver-relocation work shipped earlier in the
+day. Findings consolidated as a prioritized backlog under
+`docs/TODO.md` `[2026-04-27 evening 19]`. Memory updated with three new
+entries: `project_pre_commercial_audit_2026-04-27.md`,
+`feedback_chart_scoped_drawing_commands.md`,
+`feedback_app_key_opens_context_menu.md`.
+
+### Phase A quick wins shipped this session
+
+- **WCAG color tokens.** Recomputed contrast ratios properly: `#aaaaaa` on
+  `#121212` is ~8.07:1 (passes AA *and* AAA on dark surfaces — the audit
+  agent miscalculated). Real failure was `--text-muted: #aaa` rendering on
+  the light `#f2f2f2` modal panel where contrast is ~2.08:1. `app.css`
+  `.modal-content` now scope-overrides `--text-muted: #555` (~6.7:1 on the
+  light bg). HelpModal.razor:24,228 already use `var(--text-muted, #555)`
+  so they pick up the fix automatically. Inline `color:#888`/`color:#aaa`
+  literals across ~30 modal sites still need replacing — flagged for a
+  follow-up sweep.
+- **DrawingContextMenu action-confirmation feedback.** Per the silent-failure
+  rule, `OnDelete` and `OnDuplicate` in `DrawingContextMenu.razor` now speak
+  a confirmation (`"{name} deleted."` / `"{name} created."`) via
+  `ISpeechFeedbackRouter`, queued so it follows the modal-close announcement
+  instead of clipping it. `OnProperties` triggers the PropertiesModal's own
+  announcement and needs no change. `BlazorTestHarness.cs` extended with an
+  `ISpeechFeedbackRouter` substitute for future tests that render
+  DrawingContextMenu transitively.
+
+### Verified-clean items (no changes needed)
+
+- **SHORTCUTS.md sync.** Audit agent flagged 5 bindings as missing; manual
+  re-read of `docs/SHORTCUTS.md:195,201,202,204,205` confirmed every binding
+  registered in `ShortcutManager.cs:302-309` is documented. Agent misread
+  the file.
+- **Toolbar button labels.** Audit flagged a possible `aria-label` /
+  shortcut-key leak from the e18 user report; verified
+  `ToolbarIconButton.razor:18,31` resolves text and `aria-label` exclusively
+  from `Label`/`AriaLabel` parameters, with shortcut keys placed only in
+  `Tooltip` (e.g. `Tooltip="Open order book (Alt+B)"`). Every call site in
+  `Toolbar.razor` follows the safe pattern. The user's earlier observation
+  that the regression cleared is correct.
+- **SVG icon library.** All 27 symbols in `IconSprite.razor` use consistent
+  attributes, every reference in `Toolbar.razor` / `IndicatorBar.razor`
+  resolves, CSS variants drive theme color via `--btn-color`, focus
+  indication is a 3px outer ring at variant color. Theme blending is
+  correct — no changes needed.
+
+### Files touched
+
+- `AccessibleTrader.BlazorClient/wwwroot/app.css` — `--text-muted` scope
+  override inside `.modal-content`.
+- `AccessibleTrader.BlazorClient.Components/DrawingContextMenu.razor` —
+  inject `ISpeechFeedbackRouter`, add Speak calls in OnDelete + OnDuplicate.
+- `AccessibleTrader.Tests/Blazor/BlazorTestHarness.cs` — register
+  `ISpeechFeedbackRouter` substitute.
+- `docs/TODO.md` — full audit backlog appended under
+  `[2026-04-27 evening 19]`; quick-win items marked complete.
+
+937/937 tests passing, 0 errors. Build clean (only pre-existing
+libsodium 16KB-page-size Android warning).
+
+### Up next (Phase B — critical accessibility & UX, ship-blockers)
+
+- Esc-to-close modals — single dispatcher case, all 17 modals fixed.
+- Application/Menu key + Shift+F10 → `OpenDrawingContextMenu`.
+- Drawing-tool commands gated to chart area via `IsChartScopedCommand`.
+
+### Phase B shipped this session
+
+**Esc-to-close modals (single fix, all 17 affected).**
+- New `SystemCommand.CloseModal` + `CloseTopModalEvent(string? ModalName)`.
+- `CommandDispatcher` tracks a `Stack<string?>` of modal names from
+  `ModalStateChangedEvent` (push on open, pop on close, falls back to
+  linear-scan removal if modals close out of order). On Escape with a modal
+  open, the keyboard binding `Escape → CancelDrawing` is rewritten to
+  `CloseModal`, which peeks the top of the stack and publishes
+  `CloseTopModalEvent(name)`. Pressing Escape with no modal open still fires
+  `CancelDrawingEvent` exactly as before.
+- `ModalBase.OnInitialized` subscribes once to `CloseTopModalEvent` and
+  self-closes when `_isVisible == true` and `e.ModalName == ModalName` —
+  covers the 4 ModalBase users (Alerts / AIAnalyst / Save / Load workspace).
+- The 14 inline-publish modals each got an explicit subscription that
+  filters by their hardcoded ModalName: AddIndicator, ApiKeys,
+  CustomScripts, DrawingContextMenu, DrawingTools, Help, Journal, ObjectTree,
+  OrderBook, Properties, Settings, SoundDesigner, Strategy, TradingDashboard.
+- Resolves the TODO.md:1294 Phase 5 follow-up.
+
+**Application/Menu key + Shift+F10 → drawing context menu.**
+- New `SystemCommand.OpenDrawingContextMenu` (chart-scoped). `keyboard.js`
+  now traps the `ContextMenu` key and normalises it to `CONTEXTMENU` for
+  the .NET shortcut bridge. `ShortcutManager` binds `CONTEXTMENU` and
+  `Shift+F10` to the new command.
+- Dispatcher publishes `OpenDrawingContextMenuEvent(seriesId, NaN, NaN)`
+  for the focused drawing; `DrawingContextMenu.razor` interprets NaN
+  coordinates as "self-position center-screen at 40vw/40vh and focus the
+  Delete button" via `accessibleTrader.focusElement("drawing-ctx-delete")`.
+  Mouse right-click still passes real cursor coordinates and gets the
+  prior cursor-anchored placement.
+- If no drawing is focused, the dispatcher emits a "No drawing focused."
+  feedback announcement instead of opening an empty menu.
+
+**Drawing-tool commands chart-scope verification.**
+- All 15 drawing-tool commands (DrawTrend through DrawAngleFib, plus
+  CancelDrawing and ConfirmCoordinateEntry) were already correctly
+  categorised in `CommandDispatcher.IsChartScopedCommand` lines 584-598.
+  The Phase 5 sentinel test pins each. Added `OpenDrawingContextMenu` to
+  the same chart-scoped list this round.
+
+### Test coverage added this session
+
+- `ModalCloseDispatchTests.cs` — **5 new tests**:
+  `CloseModal_PublishesEvent_WhenSingleModalOpen`,
+  `CloseModal_TargetsTopmostName_WhenStacked`,
+  `EscapeAsCancelDrawing_ReroutesToCloseModal_WhenModalOpen`,
+  `OpenDrawingContextMenu_FiresEvent_ForFocusedDrawing`,
+  `OpenDrawingContextMenu_FeedbackError_WhenNoDrawingFocused`.
+- `Phase5KeyboardScopeTests` extended with `[InlineData]` for the two
+  new SystemCommand values plus the sentinel-coverage hashset entry.
+
+### Files touched
+
+- `AccessibleTrader.Core/Models/SystemCommand.cs` — `OpenDrawingContextMenu`,
+  `CloseModal`.
+- `AccessibleTrader.Core/Models/Events.cs` — `CloseTopModalEvent`.
+- `AccessibleTrader.Core/Services/Input/CommandDispatcher.cs` — modal stack,
+  Escape-reroute, CloseModal + OpenDrawingContextMenu cases, chart-scope
+  allowlist updated.
+- `AccessibleTrader.Core/Services/ShortcutManager.cs` — `CONTEXTMENU` and
+  `Shift+F10` bindings.
+- `AccessibleTrader.BlazorClient/wwwroot/js/keyboard.js` — `ContextMenu` key
+  trap + normalise.
+- `AccessibleTrader.BlazorClient.Components/ModalBase.cs` — auto-subscribe
+  to `CloseTopModalEvent` + dispose hygiene.
+- 14 inline modals: `_closeSub` field + `EventBus.Subscribe<CloseTopModalEvent>`
+  in `OnInitialized` + `Dispose` updated.
+- `DrawingContextMenu.razor` — keyboard-origin path positions menu at
+  `40vw/40vh`, focuses Delete button via JS interop.
+- `AccessibleTrader.Tests/ModalCloseDispatchTests.cs` — 5 new tests.
+- `AccessibleTrader.Tests/Phase5KeyboardScopeTests.cs` — categorisation
+  extended.
+
+944/944 tests passing, 0 errors. Build clean (only the pre-existing
+libsodium 16KB-page-size Android warning).
+
+### Up next (Phase C — critical robustness, ship-blockers)
+
+- Order placement idempotency + verify-by-ClientOid retry.
+- Order quantity/price sanity bounds.
+- Bare-catch sweep round 2 (15+ provider sites).
+- Fire-and-forget exception logging.
+- WebSocket dispose race.
+- `DataManager._cache` mutation race.
+- Atomic JSON writes (`IAtomicJsonWriter` helper).
+- Provider timer disposal audit.
+- Schwab OAuth `state` parameter.
+
+### Phase C shipped this session
+
+**Order safety (`GeneralOrderService.PlaceOrderAsync`).**
+- **Sanity bounds.** Quantity ≤ 0 / NaN / ±Infinity / > 10,000,000 returns
+  `ORDER_REJECTED_QUANTITY` before the provider sees the signal. Limit /
+  StopLimit / TakeProfitLimit orders missing a finite positive Price return
+  `ORDER_REJECTED_PRICE`. A buggy Roslyn strategy emitting `1e308` no longer
+  reaches the exchange.
+- **ClientOid auto-generation + dedup gate.** Missing ClientOids get an
+  `atc-{8-byte-hex}` tag; an in-memory `(provider, ClientOid)` map with a
+  30-second TTL refuses duplicate submits with
+  `ORDER_DUPLICATE_SUPPRESSED`. Covers UI double-click and post-network-flap
+  retry; provider-side ClientOid enforcement (Binance) catches the rest.
+- **Exception recovery scan.** A throw during the underlying
+  `ITradingProvider.PlaceOrderAsync` no longer means "definitely failed."
+  The service now scans `GetOpenOrdersAsync(symbol)` for a matching
+  qty/symbol/side and returns `ORDER_UNCERTAIN:{exchangeOrderId}` so the
+  user is told to verify before retrying. The 30-second dedup window
+  guards the next 30 seconds of accidental resubmits.
+
+**14 new pin tests** in `OrderSafetyTests.cs`.
+
+**Schwab OAuth CSRF protection.** `SchwabOAuthService.RunAuthorizationCodeFlowAsync`
+generates a fresh `Guid.NewGuid("N")` state per flow, embeds it on the
+authorize URL via `BuildAuthorizationUrl(state)`, and refuses any callback
+whose returned `state` doesn't match — both with a user-facing HTML
+response and an `InvalidOperationException` from the flow.
+
+**Atomic JSON writes (`AtomicFile`).** New
+`AccessibleTrader.Core.Services.AtomicFile.WriteAllText{Async}` writes to a
+sibling `.tmp-{guid}` file, calls `Flush(true)` on the FileStream, then
+`File.Move(temp, final, overwrite: true)` for atomic visibility. Replaced
+`File.WriteAllText` / `WriteAllTextAsync` at 9 sites: `ConfigService`,
+`WorkspaceLibraryService` (×2), `StrategyLibraryFacade`, `SoundPatchLibrary`
+(×2), `SettingsManager`, `ShortcutManager`, `JsonStrategyLibrary`,
+`SpeechTemplateService`, `IndicatorPreferencesService`, `ApiKeyService`,
+`FileCacheService`. A power loss mid-write now leaves either the previous
+or the new valid file — never a half-written JSON that bricks a workspace.
+
+**Bare-catch sweep round 2.** Replaced 14 silent
+`catch { return new List/false/0/1.0 }` blocks across `BinanceProvider` (8),
+`AlpacaProvider` (4), `TradierProvider` (4), `BitstampProvider` (4),
+`SchwabProvider` (1) with `catch (Exception ex) { _errorStream.OnNext(...) }`
+using each provider's existing error-stream Subject. CancelOrder,
+GetOrderBook, GetSymbols, GetBalances, GetPositions, GetOpenOrders,
+SetLeverage, FetchOhlcv all now surface failures to the UI instead of
+returning empty/`false`/`1.0` silently.
+
+**`ReconnectingWebSocket` dispose race.** Now implements `IAsyncDisposable`
+alongside `IDisposable`. Both Dispose paths capture the receive + heartbeat
+loop task references at `ConnectAsync` time and await them on teardown
+(sync `Dispose()` bounds at 500ms via `Task.WhenAll(loops).Wait`;
+`DisposeAsync()` awaits unbounded). Receive + heartbeat catch handlers add
+`when (_disposed) break;` so no `_onError` noise fires once Dispose has
+been called. Closes the audit gap where in-flight callbacks could hit a
+disposed socket and surface false errors.
+
+**`DataManager._cache` mutation race.** New `_cacheLock` (object) serialises
+every write to `_cache` across `RefreshDataAsync`,
+`CatchUpFromSnapshotAsync` gap-fill, `PrependOlderDataAsync`, and
+`StartLiveUpdates` live-tick. Reads remain lock-free (single-field reference
+reads are atomic on 64-bit). The live tick that previously could race
+against `PrependOlderDataAsync` and silently lose its mutation now blocks
+for at most one prepend snapshot computation.
+
+**Provider timer disposal audit (verified).** `BinanceProvider.cs:296-298`,
+`MexcProvider.cs:288-290`, and `InteractiveBrokersProvider.cs:345-347`
+already stop+dispose+null all keepalive/tickle timers in their
+`DisconnectAsync` paths — the audit was wrong on this one. Added a
+Debug-level breadcrumb to the IB tickle's silent catch so wedged sessions
+are diagnosable.
+
+**Fire-and-forget exception logging (verified clean).** The audit's call-out
+of `AlertDeliveryService.cs:45` and the provider Task.Run sites was wrong:
+each is wrapped in a try/catch that logs to `ILogger` + records a
+SecurityEvent, or delegates to an inner async method that owns its own
+try/catch with `_errorStream.OnNext(...)`. Surface verified clean.
+
+### Test coverage added this session
+
+- `OrderSafetyTests.cs` — **14 new tests** pinning every reject path
+  (5 quantity rejections + 4 price rejections), ClientOid auto-generation,
+  the dedup gate (suppress same-id, allow different-id, segregate by
+  provider), and the recovery scan on submit-time exception.
+
+### Files touched
+
+- `AccessibleTrader.Core/Services/GeneralOrderService.cs` — sanity bounds,
+  ClientOid auto-gen, dedup gate, recovery scan.
+- `AccessibleTrader.Core/Services/AtomicFile.cs` — new helper.
+- 9 services migrated off `File.WriteAllText` to `AtomicFile.WriteAllText{Async}`.
+- `Plugins/Providers/AccessibleTrader.Plugins.Schwab/SchwabOAuthService.cs` —
+  state token generation + callback validation.
+- `Plugins/Providers/.../{Binance,Alpaca,Tradier,Bitstamp,Schwab,InteractiveBrokers}*.cs`
+  — bare-catch sweep + IB tickle breadcrumb.
+- `AccessibleTrader.Sdk/Services/ReconnectingWebSocket.cs` —
+  `IAsyncDisposable`, loop task capture, bounded sync wait, suppress-on-dispose.
+- `AccessibleTrader.Core/Services/DataManager.cs` — `_cacheLock` across all
+  four mutation sites.
+- `AccessibleTrader.Tests/OrderSafetyTests.cs` — new test class.
+
+958/958 tests passing, 0 errors. Build clean.
+
+### Up next (Phase D — security; Phase E — build-system safeguards;
+###       Phase F — documentation; Phase G — architectural refactors)
+
+Tracked in `docs/TODO.md` `[2026-04-27 evening 19]`. Phase D onwards is the
+remaining commercial-readiness backlog: code-signing release binaries,
+Coinbase credential checkout migration, CPU-quota sliding window, sync-over-
+async cleanup (3 sites), RCL Roslyn analyzer, DI lifetime validator,
+customer-facing README rewrite, USER_GUIDE coverage gaps, sample plugin DLL,
+Tests/README.md, plus the larger architectural items (god-modal split,
+WorkspaceStore immutable snapshots, plugin manifest v2, per-strategy
+timeout override).
+
+---
+
 ## [2026-04-27 evening 18] — BlazorAudioDriver relocation: fixes silent Windows audio after RCL extraction
 
 Critical regression fix discovered while testing Phase 5 (entry below). On

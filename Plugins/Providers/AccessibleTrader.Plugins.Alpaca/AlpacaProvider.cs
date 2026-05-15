@@ -400,7 +400,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                         .ToList();
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca GetSymbolsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override async Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => new List<string> { "Spot" };
@@ -490,7 +494,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                     };
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -512,7 +520,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -540,7 +552,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -617,7 +633,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                 });
                 return response.IsSuccessStatusCode;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca CancelOrderAsync failed for {orderId} ({ex.GetType().Name}): {ex.Message}");
+                return false;
+            }
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);

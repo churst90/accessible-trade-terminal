@@ -253,10 +253,15 @@
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
 
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenHelpEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Help") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -289,5 +294,5 @@
         return sb.ToString();
     }
 
-    public void Dispose() => _eventSub?.Dispose();
+    public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
 }

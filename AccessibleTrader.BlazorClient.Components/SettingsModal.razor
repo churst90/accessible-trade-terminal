@@ -457,6 +457,7 @@
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
     private string _activeTab = "General";
 
     // Local copies for pending changes — General tab
@@ -491,6 +492,10 @@
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenSettingsEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Settings") InvokeAsync(Close);
+        });
         ThemeService.ThemeChanged += OnThemeServiceChanged;
         ResetLocal();
         _uniqueBindings = ShortcutService.GetAllBindings()
@@ -765,6 +770,7 @@
     {
         _dotNetRef?.Dispose();
         _eventSub?.Dispose();
+        _closeSub?.Dispose();
         ThemeService.ThemeChanged -= OnThemeServiceChanged;
     }
 }

@@ -70,11 +70,8 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                string? dir = Path.GetDirectoryName(_filepath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
                 string json = JsonConvert.SerializeObject(CurrentProfile, Formatting.Indented);
-                File.WriteAllText(_filepath, json);
+                AtomicFile.WriteAllText(_filepath, json);
             }
             catch (Exception ex)
             {
@@ -264,11 +261,17 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.DrawAnchoredVwap, "W", Ctrl: true, Shift: true));
             s.Add(new(SystemCommand.DrawGannBox,      "B", Ctrl: true, Shift: true));
             s.Add(new(SystemCommand.DrawAngleFib,     "J", Ctrl: true, Shift: true));
-            // Escape cancels an in-progress drawing placement.
+            // Escape cancels an in-progress drawing placement when the chart has focus,
+            // OR closes the topmost open modal — CommandDispatcher re-routes Escape to
+            // CloseModal whenever _openModalCount > 0.
             s.Add(new(SystemCommand.CancelDrawing,  "ESCAPE"));
             // Enter confirms an anchor during Coordinate Entry mode.
             s.Add(new(SystemCommand.ConfirmCoordinateEntry, "ENTER"));
             s.Add(new(SystemCommand.ConfirmCoordinateEntry, "RETURN"));
+            // Application/Menu key + Shift+F10: open the right-click context menu on
+            // the focused drawing — keyboard parity with mouse right-click.
+            s.Add(new(SystemCommand.OpenDrawingContextMenu, "CONTEXTMENU"));
+            s.Add(new(SystemCommand.OpenDrawingContextMenu, "F10", Shift: true));
             // Ctrl+Left/Right: jump to nearest trendline-price crossing
             s.Add(new(SystemCommand.NavLeftJump,  "LEFT",  Ctrl: true));
             s.Add(new(SystemCommand.NavRightJump, "RIGHT", Ctrl: true));

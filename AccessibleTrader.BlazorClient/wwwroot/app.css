@@ -252,8 +252,12 @@ label {
     z-index: 9999;
 }
 
-/* Light gray/white modal panel — high contrast for low-vision users */
+/* Light gray/white modal panel — high contrast for low-vision users.
+   --text-muted is scope-overridden here: the global value (#aaa) is tuned
+   for dark surfaces (~8:1 on #121212) and would render at ~2.1:1 against
+   the light modal panel — a WCAG AA fail. #555 on #f2f2f2 is ~6.7:1 (AA). */
 .modal-content {
+    --text-muted: #555;
     background: #f2f2f2;
     color: #111;
     padding: 28px 32px;

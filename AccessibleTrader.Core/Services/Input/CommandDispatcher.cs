@@ -60,6 +60,13 @@ namespace AccessibleTrader.Core.Services.Input
         // Modals already publish ModalStateChangedEvent on open/close; we just subscribe here.
         private int _openModalCount;
 
+        // Modal name stack. Parallel to _openModalCount but tracks the ModalName of each
+        // open modal so SystemCommand.CloseModal can target only the topmost. Without this,
+        // an Escape press in a stacked Help-inside-Strategy scenario would close both modals
+        // at once, dumping the user out of Strategy unexpectedly.
+        private readonly Stack<string?> _modalStack = new();
+        private readonly object _modalStackLock = new();
+
         public CommandDispatcher(
             IEventBus eventBus,
             INavigationEngine navEngine,
@@ -99,9 +106,37 @@ namespace AccessibleTrader.Core.Services.Input
                 .Subscribe(e =>
                 {
                     if (e.IsOpen)
+                    {
                         System.Threading.Interlocked.Increment(ref _openModalCount);
+                        lock (_modalStackLock) { _modalStack.Push(e.ModalName); }
+                    }
                     else
+                    {
                         System.Threading.Interlocked.Decrement(ref _openModalCount);
+                        lock (_modalStackLock)
+                        {
+                            // Pop the matching name. Most-recent-first removal handles the common
+                            // case of LIFO close order; the linear scan covers the rare case
+                            // where modals close out of order (e.g. a parent forcibly closes a
+                            // child via API rather than user gesture).
+                            if (_modalStack.Count > 0 && _modalStack.Peek() == e.ModalName)
+                            {
+                                _modalStack.Pop();
+                            }
+                            else
+                            {
+                                var remaining = new Stack<string?>();
+                                bool removed = false;
+                                while (_modalStack.Count > 0)
+                                {
+                                    var n = _modalStack.Pop();
+                                    if (!removed && n == e.ModalName) { removed = true; continue; }
+                                    remaining.Push(n);
+                                }
+                                while (remaining.Count > 0) _modalStack.Push(remaining.Pop());
+                            }
+                        }
+                    }
                     if (_openModalCount < 0) _openModalCount = 0;
 
                     if (!e.IsOpen && _openModalCount == 0)
@@ -139,12 +174,22 @@ namespace AccessibleTrader.Core.Services.Input
 
             // Modal input trap: when any modal is open, every chart command is suppressed so
             // the user's keystrokes are owned by the modal. Tab / Shift+Tab / arrow keys inside
-            // forms / Escape close are all handled by Blazor and the browser without going
-            // through this dispatcher. The few global commands that should still work while a
-            // modal is open (Escape to close, F2 toggle speech) are explicitly allowlisted below.
+            // forms are handled by Blazor and the browser without going through this dispatcher.
+            // The few global commands that should still work while a modal is open are
+            // explicitly allowlisted below.
+            //
+            // Escape special case: the keyboard binding `Escape → CancelDrawing` is still in
+            // place, but when a modal is open we re-route Escape to CloseModal (publishes
+            // CloseTopModalEvent) so every modal closes by Escape via a single dispatcher path.
+            // Closes the audit gap where each modal had to re-implement its own Escape
+            // handler — and HelpModal's silently failed on 2026-04-27 e18.
             if (_openModalCount > 0)
             {
+                if (command == SystemCommand.CancelDrawing)
+                    command = SystemCommand.CloseModal;
+
                 bool allowedWhileModalOpen =
+                    command == SystemCommand.CloseModal         ||  // Escape — close topmost modal
                     command == SystemCommand.ToggleSpeech       ||  // F2 — global accessibility toggle
                     command == SystemCommand.ToggleSonification ||  // F3 — same
                     command == SystemCommand.OpenHelp;              // F1 — help is always reachable
@@ -199,6 +244,42 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenSoundDesigner: _eventBus.Publish(new OpenSoundDesignerEvent()); return;
                 case SystemCommand.OpenAIAnalyst: _eventBus.Publish(new OpenAIAnalystEvent()); return;
                 case SystemCommand.OpenJournal: _eventBus.Publish(new OpenJournalEvent()); return;
+
+                // Application/Menu key + Shift+F10: open the right-click context menu on
+                // the focused drawing — keyboard parity with mouse right-click. Sentinel
+                // NaN coordinates tell DrawingContextMenu to self-position rather than
+                // anchor at a cursor location. Lives in the GLOBAL section because the
+                // command operates on existing series state, not bar data — placing it
+                // below the data-validation gate would block it on empty workspaces.
+                // Chart-focus is still required (categorised as ChartScoped above).
+                case SystemCommand.OpenDrawingContextMenu:
+                {
+                    var focusedId = _store.State.FocusedSeriesId;
+                    var focused = string.IsNullOrEmpty(focusedId)
+                        ? null
+                        : _store.State.ActiveSeries.FirstOrDefault(s => s.Id == focusedId);
+                    if (focused == null || !focused.IsDrawing)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Error, "No drawing focused.", true));
+                        return;
+                    }
+                    _eventBus.Publish(new OpenDrawingContextMenuEvent(focused.Id, double.NaN, double.NaN));
+                    return;
+                }
+                case SystemCommand.CloseModal:
+                {
+                    // Peek the topmost modal name from the stack and target only that one.
+                    // Each modal subscribes to CloseTopModalEvent and self-closes when the
+                    // ModalName matches its own — stacked modals close one-at-a-time.
+                    string? top;
+                    lock (_modalStackLock)
+                    {
+                        top = _modalStack.Count > 0 ? _modalStack.Peek() : null;
+                    }
+                    _eventBus.Publish(new CloseTopModalEvent(top));
+                    return;
+                }
                 case SystemCommand.SaveWorkspace: _eventBus.Publish(new OpenSaveWorkspaceEvent()); return;
                 case SystemCommand.LoadWorkspace: _eventBus.Publish(new OpenLoadWorkspaceEvent()); return;
                 case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
@@ -581,6 +662,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.DetailedPointSummary:
                 case SystemCommand.CancelDrawing:
                 case SystemCommand.ConfirmCoordinateEntry:
+                case SystemCommand.OpenDrawingContextMenu:
                 case SystemCommand.DrawTrend:
                 case SystemCommand.DrawHorizontal:
                 case SystemCommand.DrawVertical:

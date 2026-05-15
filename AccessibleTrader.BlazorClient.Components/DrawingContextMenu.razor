@@ -1,9 +1,12 @@
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @inject IEventBus EventBus
 @inject IWorkspaceStore Store
 @inject ISeriesManagementService SeriesManager
+@inject ISpeechFeedbackRouter Speech
+@inject Microsoft.JSInterop.IJSRuntime Js
 @implements IDisposable
 
 @*
@@ -29,7 +32,7 @@
          style="@_menuStyle"
          @onclick:stopPropagation="true"
          @oncontextmenu:preventDefault="true">
-        <button role="menuitem" class="ctx-item" @onclick="OnDelete">Delete</button>
+        <button id="drawing-ctx-delete" role="menuitem" class="ctx-item" @onclick="OnDelete">Delete</button>
         <button role="menuitem" class="ctx-item" @onclick="OnDuplicate">Duplicate</button>
         <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
     </div>
@@ -59,11 +62,16 @@
     private ChartSeries? _series;
     private string _menuStyle = "";
     private IDisposable? _sub;
+    private IDisposable? _closeSub;
 
     protected override void OnInitialized()
     {
         _sub = EventBus.Subscribe<OpenDrawingContextMenuEvent>(ev =>
             InvokeAsync(() => Open(ev.SeriesId, ev.ViewportX, ev.ViewportY)));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "DrawingContextMenu") InvokeAsync(Close);
+        });
     }
 
     // Anchor the menu at viewport coordinates. The JS mouse handler reports coords
@@ -79,20 +87,49 @@
         var series = Store.State.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
         if (series == null) return;
         _series = series;
-        // Position the menu near the cursor. The coords are relative to the interact
-        // zone; we convert to viewport coords using a JS-sized offset passed through
-        // the browser's fixed positioning. Keep it simple: use the raw offsets and let
-        // the viewport clamp overflow.
-        double left = x + 4;
-        double top  = y + 4;
-        _menuStyle =
-            $"position:fixed; left:{left.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
-            $"top:{top.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
-            "z-index:9999; min-width:140px; background:#1c1c1e; border:1px solid #333; " +
-            "border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+
+        // Two open paths: mouse right-click passes real cursor coords; keyboard
+        // (Application/Menu key, Shift+F10) passes double.NaN to mean "self-position
+        // at a sensible default location near the chart center." We keep the same
+        // event surface so DrawingInteractionManager and CommandDispatcher don't
+        // need divergent code paths.
+        bool keyboardOrigin = double.IsNaN(x) || double.IsNaN(y);
+        if (keyboardOrigin)
+        {
+            // Center-ish placement: 40 % from left, 40 % from top of the viewport.
+            // Far enough from edges to avoid clipping; close enough to where the
+            // chart usually is. The user can Tab through items and Escape to close.
+            _menuStyle =
+                "position:fixed; left:40vw; top:40vh; " +
+                "z-index:9999; min-width:140px; background:#1c1c1e; border:1px solid #333; " +
+                "border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+        }
+        else
+        {
+            // Position the menu near the cursor. The coords are relative to the interact
+            // zone; we convert to viewport coords using a JS-sized offset passed through
+            // the browser's fixed positioning. Keep it simple: use the raw offsets and let
+            // the viewport clamp overflow.
+            double left = x + 4;
+            double top  = y + 4;
+            _menuStyle =
+                $"position:fixed; left:{left.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
+                $"top:{top.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; " +
+                "z-index:9999; min-width:140px; background:#1c1c1e; border:1px solid #333; " +
+                "border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+        }
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "DrawingContextMenu"));
         await InvokeAsync(StateHasChanged);
+
+        // Keyboard origin: focus the first menu item so the user can act without
+        // having to find it via Tab. Best-effort — JS focusElement no-ops if the
+        // bridge isn't ready.
+        if (keyboardOrigin)
+        {
+            try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "drawing-ctx-delete"); }
+            catch { /* non-critical */ }
+        }
     }
 
     private void Close()
@@ -108,8 +145,14 @@
     {
         if (_series == null) return;
         var id = _series.Id;
+        var name = _series.FriendlyName;
         Close();
         EventBus.Publish(new DeleteSeriesEvent(id));
+        // Per the silent-failure rule: confirm the destructive action so a
+        // keyboard-only user knows the deletion took effect. ModalStateChangedEvent
+        // already speaks "Drawing context menu dialog closed" when Close() runs;
+        // this layer adds the action result on top.
+        Speech.Speak($"{name} deleted.", interrupt: false);
     }
 
     private void OnDuplicate()
@@ -157,6 +200,8 @@
         Store.Dispatch(new AddSeriesAction(dup));
         SeriesManager.PersistWorkspace();
         EventBus.Publish(new RedrawEvent());
+        // Confirm the duplicate landed; silent-failure rule.
+        Speech.Speak($"{newConfig.FriendlyName} created.", interrupt: false);
     }
 
     private void OnProperties()
@@ -167,5 +212,5 @@
         EventBus.Publish(new OpenPropertiesEvent(id));
     }
 
-    public void Dispose() => _sub?.Dispose();
+    public void Dispose() { _sub?.Dispose(); _closeSub?.Dispose(); }
 }

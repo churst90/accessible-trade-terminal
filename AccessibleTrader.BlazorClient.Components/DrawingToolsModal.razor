@@ -37,6 +37,7 @@
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
 
     private readonly Dictionary<string, string> _tools = new()
     {
@@ -56,6 +57,10 @@
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenDrawingToolsEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Drawing tools") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -84,5 +89,5 @@
         Close();
     }
 
-    public void Dispose() => _eventSub?.Dispose();
+    public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
 }

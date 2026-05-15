@@ -203,11 +203,16 @@
     private bool _isVisible;
     private IDisposable? _eventSub;
     private IDisposable? _stateSub;
+    private IDisposable? _closeSub;
 
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenObjectTreeEvent>(_ => InvokeAsync(ShowAsync));
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Object tree") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -288,5 +293,6 @@
     {
         _eventSub?.Dispose();
         _stateSub?.Dispose();
+        _closeSub?.Dispose();
     }
 }

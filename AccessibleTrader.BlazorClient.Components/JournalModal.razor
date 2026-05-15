@@ -162,6 +162,7 @@
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
     private JournalEntryKind? _filter; // null = all
     private string _renderedText = string.Empty;
     private int _visibleCount;
@@ -181,6 +182,10 @@
     {
         _eventSub = EventBus.Subscribe<OpenJournalEvent>(_ =>
             InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Journal") InvokeAsync(Close);
+        });
 
         // Live update — when a new entry is appended while the modal is open, re-render.
         Journal.EntryAdded += OnEntryAdded;
@@ -292,6 +297,7 @@
     public void Dispose()
     {
         _eventSub?.Dispose();
+        _closeSub?.Dispose();
         Journal.EntryAdded -= OnEntryAdded;
     }
 }

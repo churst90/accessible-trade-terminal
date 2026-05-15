@@ -72,6 +72,53 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 | **Audio Output** | ✅ (WASAPI) | ✅ (`AudioTrack`) | ✅ (`AVAudioEngine`) | ✅ (`AVAudioEngine`) |
 | **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) |
 | **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) |
-| **Tactile Display** | 🏗️ (`MonarchTactileDriver` skeleton) | ❌ | ❌ | ❌ |
+| **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ |
 
 *(✅ = Fully Supported, 🏗️ = In Development / Stubbed, ⏸ = Intentionally Deferred, ❌ = Not Yet Implemented)*
+
+## 7. Tactile Display Support
+
+One refreshable tactile graphics display is officially supported:
+
+| Device | Status | Notes |
+| :--- | :---: | :--- |
+| **Dot Pad 2nd-gen** (30 × 10 graphic cells + 20-cell strip) | ✅ Tested | Primary target. Connection via USB-Serial; SDK uses `DOT_PAD_CONNECT_SERIAL`. |
+| **Dot Pad X** (same SDK family) | ⚠️ Untested but expected to work | Uses the same DotPadSDK-3.0.0 native ABI, so the driver should bind without code changes. Verified driver code-path, but no on-device confirmation yet. |
+| APH Monarch | ❌ Not implemented | Requires a different SDK (Dot Inc proprietary, vendor-restricted). |
+
+### Wiring summary
+
+- Driver: `AccessibleTrader.Core/Services/Accessibility/Dotpad/DotpadTactileDriver.cs`
+  — Windows-only via `NativeLibrary.TryLoad` against `DotPadSDK-3.0.0.dll`.
+  Falls back to `NullDotPadNative` on Android / iOS / macCatalyst so the
+  rest of the app still builds and runs.
+- Coordinator: `AccessibleTrader.Core/Services/Accessibility/TactileCanvasCoordinator.cs`
+  — composes a two-pane 50/50 graphic + 20-cell strip from
+  `WorkspaceState` on every navigation event, and routes the device's
+  F1-F4 + Pan keys through the existing speech / command pipeline.
+- Calibrator: `tools/DotPadCalibrator/Program.cs` — standalone CLI for
+  bit-order, cell-index, and stripe probing on a physical device.
+- Diagnostics: `dotpad-diagnose.bat` + `dotpad-diagnose.ps1` at the repo
+  root — captures COM-port + USB inventory + Dot Pad device info to a
+  log file. Useful when the driver can't find the device on first plug-in.
+
+### SDK installation (required for Dot Pad support)
+
+The Dot Inc SDK is **not committed to the repo** (~850MB, vendor-licensed
+binaries). To enable Dot Pad support locally:
+
+1. Download the sample-code bundle from
+   [https://github.com/dotincorp/dotpad-sample-code](https://github.com/dotincorp/dotpad-sample-code)
+   (or the Dot Inc developer portal).
+2. Place the `Windows/3.0.0/` directory at
+   `dotpad-sdk/Windows/dotpad-3.0.0/` relative to the repo root.
+   The build expects to find `DotPadSDK-3.0.0.dll`, `TTBEngine.dll`,
+   `Mecab.dll`, `jsoncpp.dll`, `liblouis.dll`, `mecabrc`, and the
+   `tables/` + `ipadic/` extracted directories there.
+3. Build normally. The `CopyDotPadSdkWindows` MSBuild target stages
+   everything alongside the app binary.
+
+The build also runs WITHOUT the SDK present — `WarnIfDotPadSdkMissing`
+emits a one-line MSBuild message and Dot Pad support is simply
+unavailable at runtime (`DotpadTactileDriver` reports not-connected via
+the `NullDotPadNative` fallback).

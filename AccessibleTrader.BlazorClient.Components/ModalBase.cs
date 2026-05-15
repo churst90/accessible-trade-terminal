@@ -44,6 +44,23 @@ namespace AccessibleTrader.BlazorClient.Components
         protected IDisposable? _eventSub;
 
         /// <summary>
+        /// Subscription to <see cref="CloseTopModalEvent"/>. CommandDispatcher publishes
+        /// this on Escape with the topmost modal's name; we self-close when the match
+        /// fires. Stacked modals close one-at-a-time. Disposed automatically with the rest.
+        /// </summary>
+        private IDisposable? _closeRequestSub;
+
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+            _closeRequestSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+            {
+                if (_isVisible && e.ModalName == ModalName)
+                    InvokeAsync(CloseModal);
+            });
+        }
+
+        /// <summary>
         /// Opens the modal: sets _isVisible, publishes ModalStateChangedEvent(true),
         /// triggers a re-render, then shifts keyboard focus to the modal's heading element.
         /// <para>
@@ -105,6 +122,7 @@ namespace AccessibleTrader.BlazorClient.Components
         public virtual void Dispose()
         {
             _eventSub?.Dispose();
+            _closeRequestSub?.Dispose();
         }
     }
 }

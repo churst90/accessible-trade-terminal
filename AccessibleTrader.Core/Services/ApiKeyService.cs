@@ -57,11 +57,8 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                var dir = Path.GetDirectoryName(_filePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                
                 var json = JsonSerializer.Serialize(_cache, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+                await AtomicFile.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

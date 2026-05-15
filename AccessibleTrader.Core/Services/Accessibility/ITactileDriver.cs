@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 
 namespace AccessibleTrader.Core.Services.Accessibility
@@ -6,15 +7,50 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         bool IsConnected { get; }
         string DeviceName { get; }
+
+        /// <summary>Width of the device's graphic area in dots. Zero until ConnectAsync resolves the device.</summary>
         int DisplayWidth { get; }
+
+        /// <summary>Height of the device's graphic area in dots. Zero until ConnectAsync resolves the device.</summary>
         int DisplayHeight { get; }
+
+        /// <summary>Number of separate braille cells on the text strip (0 if the device has no strip).</summary>
+        int BrailleCellCount { get; }
+
+        /// <summary>Raised when the user activates a panning key on the device (pan-all / pan-left / pan-right).</summary>
+        event EventHandler<TactileKeyEvent>? KeyPressed;
 
         Task ConnectAsync();
         Task DisconnectAsync();
-        
-        /// <summary>
-        /// Renders a window of a larger virtual canvas onto the physical device.
-        /// </summary>
+
+        /// <summary>Renders a DisplayWidth×DisplayHeight window of a larger virtual canvas onto the physical device's graphic area.</summary>
         Task RenderViewportAsync(bool[,] virtualCanvas, int startX, int startY);
+
+        /// <summary>Renders plain text to the device's braille text strip. The driver is responsible for any text→braille translation.</summary>
+        Task RenderBrailleTextAsync(string text);
+    }
+
+    /// <summary>Device-agnostic key event surfaced by ITactileDriver implementations.</summary>
+    public enum TactileKey
+    {
+        PanLeft,
+        PanRight,
+        PanAll,
+        Function1,
+        Function2,
+        Function3,
+        Function4,
+        Other
+    }
+
+    public sealed class TactileKeyEvent : EventArgs
+    {
+        public TactileKey Key { get; }
+        public string? RawCode { get; }
+        public TactileKeyEvent(TactileKey key, string? rawCode = null)
+        {
+            Key = key;
+            RawCode = rawCode;
+        }
     }
 }

@@ -482,6 +482,7 @@ public class MyStrategy : BaseStrategy
 @code {
     private bool _isVisible;
     private IDisposable? _eventSub;
+    private IDisposable? _closeSub;
     private string _activeTab = "library";
 
     // Library tab status messages
@@ -513,6 +514,10 @@ public class MyStrategy : BaseStrategy
     {
         _eventSub = EventBus.Subscribe<OpenStrategiesEvent>(_ =>
             InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "Strategy manager") InvokeAsync(Close);
+        });
     }
 
     private async Task ShowAsync()
@@ -713,5 +718,5 @@ public class MyStrategy : BaseStrategy
         }
     }
 
-    public void Dispose() => _eventSub?.Dispose();
+    public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
 }

@@ -98,6 +98,10 @@ window.accessibleTrader = {
                 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
                 'Home', 'End', 'PageUp', 'PageDown',
                 'Delete', 'Escape',
+                // Application/Menu key (the dedicated context-menu key on most Windows
+                // keyboards). Bound to OpenDrawingContextMenu in ShortcutManager — keyboard
+                // parity with right-click.
+                'ContextMenu',
                 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7',
                 'F9', 'F10', 'F11', 'F12',
                 ' ', '[', ']', '{', '}', '\\', '-', '=', '_', '+',
@@ -158,6 +162,7 @@ window.accessibleTrader = {
             else if (key === '+') key = 'OEMPLUS';
             else if (key === 'Delete') key = 'DELETE';
             else if (key === 'Escape') key = 'ESCAPE';
+            else if (key === 'ContextMenu') key = 'CONTEXTMENU';
 
             dotnetHelper.invokeMethodAsync('OnKeyDown',
                 key.toUpperCase(), e.shiftKey, e.ctrlKey, e.altKey);

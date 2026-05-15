@@ -238,6 +238,57 @@
         found" anyway since the ProjectReference guard skips the worker's
         build dependency on those targets.
     -->
+    <!--
+        Stage the Dot Pad 2nd-gen SDK runtime alongside the host binary on Windows.
+        DotPadSDK-3.0.0.dll is loaded at runtime by WindowsDotPadNative via
+        NativeLibrary.TryLoad; the SDK's internal modules (TTBEngine, Mecab, jsoncpp,
+        liblouis) expect to find each other in the same directory. The tables/
+        directory holds LibLouis translation tables and ipadic/ holds the Japanese
+        dictionary — both shipped by Dot Inc as zips, extracted in-repo so the build
+        can copy them as files. mecabrc is the MeCab config file.
+
+        The SDK is NOT committed to the repo (gitignored — vendor binaries, ~850MB).
+        Both the Exists() guard on this target's Condition and the missing-SDK
+        warning below make the build succeed on a fresh clone; Dot Pad tactile
+        support is simply disabled at runtime until the user follows the
+        download steps in docs/PLATFORMS.md.
+
+        Windows-only because the SDK is shipped as .dll files; Linux/macOS will need
+        their own staging target when we bind to those SDKs.
+    -->
+    <Target Name="WarnIfDotPadSdkMissing"
+            AfterTargets="Build"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll')">
+        <Message Importance="high" Text="Dot Pad SDK not found at dotpad-sdk/Windows/dotpad-3.0.0/. Tactile-display support will be unavailable at runtime. Download the SDK from https://github.com/dotincorp/dotpad-sample-code and extract Windows/3.0.0/ into dotpad-sdk/Windows/dotpad-3.0.0/. See docs/PLATFORMS.md." />
+    </Target>
+
+    <Target Name="CopyDotPadSdkWindows"
+            AfterTargets="Build"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll')">
+        <ItemGroup>
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll" />
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\TTBEngine.dll" />
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\Mecab.dll" />
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\jsoncpp.dll" />
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\liblouis.dll" />
+            <DotPadSdkBinaries Include="..\dotpad-sdk\Windows\dotpad-3.0.0\mecabrc" />
+            <DotPadSdkTables Include="..\dotpad-sdk\Windows\dotpad-3.0.0\tables\**\*.*" />
+            <DotPadSdkIpadic Include="..\dotpad-sdk\Windows\dotpad-3.0.0\ipadic\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(DotPadSdkBinaries)"
+              DestinationFolder="$(OutDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(DotPadSdkBinaries)' != '' " />
+        <Copy SourceFiles="@(DotPadSdkTables)"
+              DestinationFolder="$(OutDir)tables\%(RecursiveDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(DotPadSdkTables)' != '' " />
+        <Copy SourceFiles="@(DotPadSdkIpadic)"
+              DestinationFolder="$(OutDir)ipadic\%(RecursiveDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(DotPadSdkIpadic)' != '' " />
+    </Target>
+
     <Target Name="CopyScriptWorker"
             AfterTargets="Build"
             BeforeTargets="GeneratePluginTrustManifest"

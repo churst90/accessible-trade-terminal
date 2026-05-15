@@ -242,7 +242,13 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                 _tickleTimer.Elapsed += async (_, _) =>
                 {
                     try { await _httpClient.PostAsync($"{_gatewayUrl}/tickle", null); }
-                    catch { /* non-critical */ }
+                    catch (Exception ex)
+                    {
+                        // Tickle failures are non-fatal (the next tick retries) but
+                        // were silently swallowed; surface a Debug-level breadcrumb so
+                        // a wedged session is diagnosable.
+                        System.Diagnostics.Debug.WriteLine($"[IBKR] tickle failed: {ex.Message}");
+                    }
                 };
                 _tickleTimer.AutoReset = true;
                 _tickleTimer.Start();

@@ -373,7 +373,11 @@ namespace AccessibleTrader.Plugins.Binance
                     }
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetSymbolsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override async Task<List<string>> GetSupportedTimeframesAsync() => new List<string> { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M" };
@@ -406,7 +410,11 @@ namespace AccessibleTrader.Plugins.Binance
                     return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
         }
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
@@ -424,7 +432,11 @@ namespace AccessibleTrader.Plugins.Binance
                     );
                 });
             }
-            catch { return (new List<OrderBookEntry>(), new List<OrderBookEntry>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
         }
 
         // ── IOrderBookProvider ─────────────────────────────────────────────────
@@ -486,7 +498,11 @@ namespace AccessibleTrader.Plugins.Binance
                         .ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -512,7 +528,11 @@ namespace AccessibleTrader.Plugins.Binance
                         .ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -538,7 +558,11 @@ namespace AccessibleTrader.Plugins.Binance
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -688,7 +712,11 @@ namespace AccessibleTrader.Plugins.Binance
                 });
                 return r.Success;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance CancelOrderAsync failed for {orderId}/{symbol} ({ex.GetType().Name}): {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
@@ -702,7 +730,11 @@ namespace AccessibleTrader.Plugins.Binance
                     CleanSymbol(symbol), lev);
                 return r.Success ? (double)r.Data.Leverage : 1.0;
             }
-            catch { return 1.0; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance SetLeverageAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
+                return 1.0;
+            }
         }
 
         // ── Private helpers ─────────────────────────────────────────────────

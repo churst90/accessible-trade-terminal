@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text;
@@ -11,7 +12,7 @@ namespace AccessibleTrader.Sdk.Services
     /// WebSocket wrapper with automatic reconnection, heartbeat, and subscription memory.
     /// Providers subclass or compose this to get resilient WebSocket behaviour.
     /// </summary>
-    public sealed class ReconnectingWebSocket : IDisposable
+    public sealed class ReconnectingWebSocket : IDisposable, IAsyncDisposable
     {
         /// <summary>
         /// Maximum bytes we will accumulate for a single WebSocket message before
@@ -27,7 +28,17 @@ namespace AccessibleTrader.Sdk.Services
         private readonly TimeSpan _heartbeatInterval;
         private readonly TimeSpan _reconnectBaseDelay;
         private readonly int _maxReconnectAttempts;
-        private bool _disposed;
+        private volatile bool _disposed;
+
+        // Loop task handles. Captured at ConnectAsync so DisposeAsync can await
+        // their completion before returning, eliminating the race where the
+        // receive/heartbeat callback hits a disposed socket after Dispose has
+        // already nulled the underlying ClientWebSocket.
+        private Task? _receiveLoopTask;
+        private Task? _heartbeatLoopTask;
+        // Hard upper bound on how long sync Dispose() will block waiting for
+        // the loops to drain. Async DisposeAsync waits without a ceiling.
+        private static readonly TimeSpan SyncDisposeWait = TimeSpan.FromMilliseconds(500);
 
         // Callbacks
         private Func<ReconnectingWebSocket, Task>? _onConnected;
@@ -88,9 +99,10 @@ namespace AccessibleTrader.Sdk.Services
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             connectCts.CancelAfter(ConnectTimeout);
             await ConnectInternalAsync(connectCts.Token).ConfigureAwait(false);
-            _ = ReceiveLoopAsync(_cts.Token);
-            if (_heartbeatInterval > TimeSpan.Zero)
-                _ = HeartbeatLoopAsync(_cts.Token);
+            _receiveLoopTask = ReceiveLoopAsync(_cts.Token);
+            _heartbeatLoopTask = _heartbeatInterval > TimeSpan.Zero
+                ? HeartbeatLoopAsync(_cts.Token)
+                : null;
         }
 
         private async Task ConnectInternalAsync(CancellationToken ct)
@@ -201,8 +213,10 @@ namespace AccessibleTrader.Sdk.Services
                         _onMessage?.Invoke(message);
                 }
                 catch (OperationCanceledException) { break; }
+                catch (ObjectDisposedException) when (_disposed) { break; }
                 catch (Exception ex)
                 {
+                    if (_disposed) break;  // suppress noise during teardown
                     _onError?.Invoke($"WebSocket receive error: {ex.Message}");
                     _ws?.Dispose();
                     _ws = null;
@@ -228,8 +242,10 @@ namespace AccessibleTrader.Sdk.Services
                     }
                 }
                 catch (OperationCanceledException) { break; }
+                catch (ObjectDisposedException) when (_disposed) { break; }
                 catch (Exception ex)
                 {
+                    if (_disposed) break;
                     // Heartbeat failures are non-fatal (the reconnect loop handles socket
                     // death), but swallowing silently hid the count=0 bug for months.
                     System.Diagnostics.Debug.WriteLine($"[ReconnectingWebSocket] heartbeat error: {ex.Message}");
@@ -241,8 +257,43 @@ namespace AccessibleTrader.Sdk.Services
         {
             if (_disposed) return;
             _disposed = true;
-            _cts?.Cancel();
+            try { _cts?.Cancel(); } catch { /* already disposed */ }
+            // Best-effort drain on the synchronous path. Bounded so a wedged
+            // ReceiveAsync doesn't block the calling thread (e.g. the MAUI
+            // shutdown handler) for more than SyncDisposeWait. The receive
+            // loop's ObjectDisposedException handler exits cleanly when
+            // _disposed is set, so the wait usually completes in well under
+            // the timeout. Async callers should prefer DisposeAsync().
+            try
+            {
+                var loops = new List<Task>(2);
+                if (_receiveLoopTask != null) loops.Add(_receiveLoopTask);
+                if (_heartbeatLoopTask != null) loops.Add(_heartbeatLoopTask);
+                if (loops.Count > 0)
+                    Task.WhenAll(loops).Wait(SyncDisposeWait);
+            }
+            catch { /* loops always exit cleanly via the canceled token */ }
             _ws?.Dispose();
+            _ws = null;
+            _cts?.Dispose();
+            _cts = null;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            try { _cts?.Cancel(); } catch { /* already disposed */ }
+            try
+            {
+                if (_receiveLoopTask != null) await _receiveLoopTask.ConfigureAwait(false);
+                if (_heartbeatLoopTask != null) await _heartbeatLoopTask.ConfigureAwait(false);
+            }
+            catch { /* loops always exit cleanly via the canceled token */ }
+            _ws?.Dispose();
+            _ws = null;
+            _cts?.Dispose();
+            _cts = null;
         }
     }
 }

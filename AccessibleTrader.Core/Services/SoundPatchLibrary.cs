@@ -84,7 +84,7 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                File.WriteAllText(_patchesPath, JsonConvert.SerializeObject(_patches, Formatting.Indented));
+                AtomicFile.WriteAllText(_patchesPath, JsonConvert.SerializeObject(_patches, Formatting.Indented));
             }
             catch (Exception ex)
             {
@@ -96,7 +96,7 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                File.WriteAllText(_earconPath, JsonConvert.SerializeObject(EarconOverrides, Formatting.Indented));
+                AtomicFile.WriteAllText(_earconPath, JsonConvert.SerializeObject(EarconOverrides, Formatting.Indented));
             }
             catch (Exception ex)
             {

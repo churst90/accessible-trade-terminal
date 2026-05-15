@@ -4,6 +4,390 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-05-14] — Dot Pad tactile-display backlog
+
+Multi-session work on Dot Pad 2nd-gen integration. Hardware/SDK facts and
+driver-level reliability (reset-before-frame + single-send + wait-for-quiet)
+are pinned; the random-pin issue from earlier today is resolved. Revised UX
+spec adopted with the user 2026-05-14 evening — captures everything below.
+
+Full design notes and the rationale behind each item live in the
+`project-dotpad-dev-2026-05-14` memory file; this list is just the work
+units.
+
+### Driver-level (shipped, kept here for traceability)
+
+- [x] **8-dot cell packer** — `DotpadTactileDriver.PackViewport` uses
+  columnar bit layout `bit = subY + subX*4`, row-major byte order, verified
+  via the calibrator tool's bit-order probe. Bit map:
+  bit 0 = top-left, bit 4 = top-right, bits 1-3 = down the left column,
+  bits 5-7 = down the right column. Effective canvas = 60×40 dots on the
+  30×10-cell Dot Pad 2nd gen.
+- [x] **Reset-before-each-frame + WaitForQuiet pattern** —
+  `DotpadTactileDriver.RenderViewportAsync` always calls
+  `DOT_PAD_RESET_DISPLAY` before `DOT_PAD_DISPLAY_DATA` and waits 500 ms of
+  callback silence between each step. Resolves stale-pin leak-through that
+  manifested as "random missing dots" symptom.
+- [x] **Reset-before-each-strip-update** — `RenderBrailleTextAsync` calls
+  `DOT_PAD_RESET_BRAILLE_DISPLAY` before each `DISPLAY_BRAILLE_TEXT` so a
+  shorter new string doesn't leave stale cells raised past its end.
+- [x] **Multi-send-per-frame rejected** — tested; SDK detects unchanged
+  buffers (`DOT_ERROR_DISPLAY_DATA_UNCHAGNED`) and fast re-sends either
+  no-op or collide with the first send's in-flight per-line transmission.
+  Lock-in comment at `DotpadTactileDriver.cs:32-36`.
+- [x] **Dispatch by DisplayType, not Role** — Role=PriceAction was
+  catching the close-price line and routing it through OHLC-bar rendering.
+  Fixed in `TactileCanvasCoordinator.BuildCanvas` — dispatch is now keyed
+  on `ComponentDisplayType`. Regression-pinned in
+  `DotpadTactileDriverTests`.
+- [x] **Calibrator CLI** at `tools/DotPadCalibrator/Program.cs` — standalone
+  test harness reusing `WindowsDotPadNative` directly. Tests: clear, fill,
+  bit-order probe, cell-index probe, coordinate dot probe, stripe tests,
+  diagonal, strip text, key-listen.
+- [x] **NullDotPadNative for non-Windows** — `IDotPadNative` interface
+  lets the driver no-op cleanly on Android/iOS/macCatalyst, where
+  `DotPadSDK-3.0.0.dll` cannot load.
+
+### Revised UX spec — MVP shipped 2026-05-14 evening
+
+All 6 MVP items below shipped in a single work cycle. 46 dotpad tests
+pass; 1004/1004 in the full suite, 0 regressions.
+
+- [x] **Bar/candle rendering rework.** `BuildOhlcCanvas` rebuilt with the
+  1-pin-body + 1-pin-vertical-gap + 1-pin-wicks layout. Density rule
+  `BarColumn(i, N, cols) = (int)((i + 0.5) * cols / N)` placed every bar
+  at exactly one column, capped at `N = min(visibleBars, cols)`. No
+  aggregation past N — beyond-N viewports show the rightmost N bars.
+  `BuildBarsFromBaseline` / `BuildLineCanvas` / `BuildMarkerDots` /
+  `BuildFilledArea` all switched to the same density rule. Lines use a
+  Bresenham helper to keep the trace continuous between density cols.
+- [x] **Splash mode.** New `GraphicTextRenderer.RenderCentered` with a
+  Grade-1 ASCII→8-dot table (lowercase a-z + space). Cold-state branch
+  in `BuildCanvas` paints "accessible trade terminal ready" centered in
+  the canvas. `BuildStripText` returns `"no chart loaded..."`.
+  `SafelyRenderGraphic` no longer short-circuits on empty data.
+- [x] **Two-pane top/bottom split.** `BuildCanvas` extracted per-series
+  dispatch into `BuildSeriesCanvas`, then composes a top/bottom pair at
+  50/50. Tactile cycle (`GetTactileCycle`) filters `CoreSeriesIds.Price`
+  out — focusing price falls back to candles. PgDn rule: newly-focused
+  goes to bottom; series at cycle index `focused-1` goes to top. Index 0
+  case: top = focused, bottom = next in cycle (the candles+volume cold
+  load).
+- [x] **Strip rework.** `BuildStripText(state, bool showXValue)` now has
+  three modes — cold (`"no chart loaded..."`), value-only (default), and
+  X-value timestamp (`"mar 12 14:30"`) on cursor move. The coordinator
+  subscribes pairwise via `Interlocked.Exchange` cursor-tracking; on a
+  ←/→ move it switches to X-value mode and schedules a single 1.5s
+  `Observable.Timer` to revert. Rapid cursor moves replace the timer
+  rather than stack them.
+- [x] **F1-F4 handler + pause flag.** Coordinator now injects
+  `ISpeechFeedbackRouter` and `ICommandDispatcher`, subscribes to
+  `_driver.KeyPressed`, and routes:
+  - F1 → speak series friendly name (or "candles" for primary, "no chart
+    loaded" cold).
+  - F2 → speak focused component DisplayName (falls back to first
+    visible component when none focused).
+  - F3 → speak `"{symbol} {timeframe} {provider}"` (or "no chart loaded"
+    when identity is empty).
+  - F4 → toggle `_isPaused` (volatile bool). While paused,
+    `SafelyRenderGraphic` returns early; strip keeps updating. Resume
+    re-renders the current state immediately. Auto-cleared on workspace
+    identity change via a `Skip(1)` subscription on `Identity` changes.
+- [x] **Pan key wiring.** `TactileKey.PanLeft` / `PanRight` →
+  `ICommandDispatcher.Dispatch(SystemCommand.PanLeft / PanRight)` —
+  identical path to `[` / `]` keyboard shortcuts. Chart pans + tactile
+  redraws via the existing viewport-change subscription. `TactileKey.PanAll`
+  is intentionally unhandled (no spec yet).
+
+### Empirical verification
+
+- [x] Splash text displays on launch (2026-05-15 device session). Letter
+  spacing fix shipped same day after the user reported letters running
+  together — now 3-col stride, 20 chars per line.
+- [x] Cold strip "no chart loaded..." appears on launch (fix shipped
+  2026-05-15 after first device session found it missing).
+- [x] Candle body + volume bars look solid and clean (2026-05-15 user
+  feedback).
+- [x] `h` (hide series) triggers a tactile redraw + the hidden pane
+  goes blank (fix shipped 2026-05-15).
+- [x] F1-F4 speech also writes to the 20-cell strip (fix shipped
+  2026-05-15).
+- [x] Up/Down component-nav on candles updates the strip value (was
+  stuck on Body's Close — fix shipped 2026-05-15: route by
+  DataMapping, not Role).
+- [ ] PgDn/PgUp cycle skips price-line and produces sensible top/bottom
+  pairs on the actual device.
+- [ ] F4 pause resumes cleanly after workspace identity change (auto-reset).
+- [ ] Pan keys empirically belong to graphic vs strip on the actual device.
+  If they belong to the strip, rewire to strip pager logic instead of
+  dispatching `SystemCommand.PanLeft` / `PanRight`.
+- [ ] Strip X-value timeout (~1.5 s) feels right under live arrow nav.
+- [ ] Body+wick+gap structure is tactile-distinguishable at 4 dot rows
+  per cell vs at the full 40-row canvas. Adjust gap-width rule if the
+  body+wick separation isn't reading.
+- [ ] **Dot Pad X compatibility.** Driver code-path is identical (same
+  DotPadSDK-3.0.0 ABI), but it has never been tested on a physical
+  Dot Pad X. If the device reports different cell dimensions via
+  `DOT_PAD_GET_DISPLAY_INFO`, the rasterisation math falls out
+  automatically. If the bit layout differs at all (e.g. different
+  generation firmware), the calibrator tool flags it via the
+  bit-order probe.
+
+### Out of scope (deferred to future iterations)
+
+- [ ] **3-pane mode.** F-key chord toggle (e.g. F12) cycling 1 / 2 / 3
+  pane layouts. 24 / 8 / 8 row splits for candles + 2 oscillators. 8
+  pins is the minimum oscillator height per user spec.
+- Dynamic per-series height proportions matching on-screen pane heights —
+  user signed off on flat 50/50 for MVP and revisiting later only if
+  needed.
+- Price-line overlay rendered on top of the candles pane (visual chart
+  parity). Currently the candles pane shows OHLC only.
+- DOT_PAD_BRAILLE_ASCII_DISPLAY path — currently using
+  DOT_PAD_BRAILLE_DISPLAY with Grade-2 SDK translation. Switching to
+  ASCII-direct only if Grade-2 fails on a chart label.
+- BLE connection path — currently serial-only (`DOT_PAD_CONNECT_SERIAL`).
+  Not blocking commercial release.
+
+### Empirical verification (after each ship)
+
+- [ ] Splash actually centers in 60×40 with the chosen font table.
+- [ ] PgDn/PgUp cycle skips price-line and produces sensible top/bottom
+  pairs.
+- [ ] F4 pause resumes cleanly after workspace identity change (auto-reset).
+- [ ] Pan keys empirically belong to graphic vs strip on the actual device.
+- [ ] Strip X-value timeout (~1.5 s) feels right under live arrow nav.
+
+### Out of scope / future
+
+- Dynamic per-series height proportions matching on-screen pane heights —
+  user signed off on flat 50/50 for MVP and revisiting later only if
+  needed.
+- DOT_PAD_BRAILLE_ASCII_DISPLAY path — currently using
+  DOT_PAD_BRAILLE_DISPLAY with Grade-2 SDK translation. Switching to
+  ASCII-direct only if Grade-2 fails on a chart label.
+- BLE connection path — currently serial-only (`DOT_PAD_CONNECT_SERIAL`).
+  Not blocking commercial release.
+
+---
+
+## [2026-04-27 evening 19] — Pre-commercial-release health audit backlog
+
+Six-axis audit (architecture / quality / security / accessibility / robustness / docs)
+ran over the full ~540-file solution after the Phase 5 + order book v1 + audio
+relocation work. Findings consolidated below as a concrete action plan, ordered
+small wins → big tasks. Plan-of-action recorded inline; in-progress items will
+flip `[~]` and complete items `[x]` as they ship.
+
+### Quick wins (≤30 min each)
+
+- [x] **App-key opens drawing context menu** — shipped 2026-04-27 e19. New
+  `SystemCommand.OpenDrawingContextMenu` bound to `ContextMenu` key + `Shift+F10`
+  in `ShortcutManager`. Dispatcher (chart-scoped, GLOBAL section so empty-data
+  workspaces still work) publishes `OpenDrawingContextMenuEvent` with sentinel
+  `double.NaN` coordinates; `DrawingContextMenu.razor` interprets NaN as
+  "self-position center-screen and focus the Delete button" via
+  `accessibleTrader.focusElement("drawing-ctx-delete")`. `keyboard.js` traps
+  the `ContextMenu` key and normalises to `CONTEXTMENU`. Tested via
+  `ModalCloseDispatchTests.OpenDrawingContextMenu_*`.
+- [x] **SHORTCUTS.md sync** — verified 2026-04-27 e19. The docs-audit agent
+  reported Alt+S / Alt+, / Alt+W / Ctrl+Alt+Shift+J / Alt+A as missing;
+  they're actually all present in `docs/SHORTCUTS.md` lines 195, 201, 202,
+  204, 205. No changes needed.
+- [x] **DrawingContextMenu action confirmation feedback** — shipped 2026-04-27
+  e19. `DrawingContextMenu.razor` now injects `ISpeechFeedbackRouter` and
+  speaks `"{name} deleted."` after `OnDelete` and `"{name} created."` after
+  `OnDuplicate`, queued (interrupt:false) so it follows the modal-close
+  announcement instead of clipping it. `OnProperties` already triggers the
+  PropertiesModal's own announcement, no change needed there.
+  `BlazorTestHarness.cs` extended with an `ISpeechFeedbackRouter` substitute
+  for future tests that render DrawingContextMenu transitively. 937/937 tests
+  passing, 0 errors.
+- [~] **WCAG-compliant color tokens.** Recomputed contrast ratios properly
+  2026-04-27 e19. `#aaaaaa` on `#121212` is actually ~8.07:1 — passes AA *and*
+  AAA on dark surfaces; the audit agent miscalculated. Real failure was
+  `--text-muted: #aaa` rendering on the light `#f2f2f2` modal panel where
+  contrast is ~2.08:1 (FAILS AA). **Fix shipped:** `app.css` `.modal-content`
+  now scope-overrides `--text-muted: #555` (~6.7:1 on the light modal bg).
+  HelpModal.razor:24,228 already use `var(--text-muted, #555)` so they pick
+  up the fix. **Remaining:** ~30+ inline `color:#888`/`color:#aaa` literals
+  across CustomScriptsModal, ConditionTreeEditor, JournalModal,
+  ObjectTreeModal, OrderBookModal, PropertiesModal, SaveWorkspaceModal,
+  SettingsModal, SoundDesignerModal, StrategyModal, TradingDashboardModal —
+  each renders ~3.2:1 (#888) or ~2.1:1 (#aaa) on the light modal bg. Replace
+  with `var(--text-muted)` in a follow-up sweep; some nested dark panels
+  (TradingDashboardModal `.panel/.side-btn/.book-spread`) will need
+  context-aware substitution.
+- [x] **Toolbar button label spot-check.** Verified 2026-04-27 e19. Every
+  `ToolbarIconButton` invocation in `Toolbar.razor` passes an explicit friendly
+  `Label`, optional `AriaLabel`, and shortcut keys only in `Tooltip` (e.g.
+  `Tooltip="Open order book (Alt+B)"`). `ToolbarIconButton.razor:18,31` resolve
+  `aria-label` and visible text from `Label`/`AriaLabel` exclusively. No leak
+  surface; the user's earlier observation that the regression cleared is
+  correct.
+- [x] **SVG icon visual polish** — verified 2026-04-27 e19. All 27 symbols in
+  `IconSprite.razor` use consistent `viewBox="0 0 28 28"`, `fill="none"`,
+  `stroke="currentColor"`, `stroke-width="2"`, rounded caps/joins. Every
+  `Icon=` reference in `Toolbar.razor` / `IndicatorBar.razor` resolves to a
+  defined symbol. CSS variants (`icon-btn-data/-action/-warning/-danger/
+  -neutral/-thought`) drive `--btn-color` which the SVG inherits via
+  `currentColor`. Focus indication is a 3px outer ring at variant color
+  (`box-shadow` on `.icon-btn-glyph`); hover bumps background alpha. Theme
+  blending is correct.
+
+### Critical robustness (MUST ship before commercial release)
+
+- [x] **Esc-to-close modals (single fix, all 17 affected)** — shipped
+  2026-04-27 e19. New `SystemCommand.CloseModal` + `CloseTopModalEvent(string?
+  ModalName)`. The dispatcher tracks a `Stack<string?>` of modal names from
+  every `ModalStateChangedEvent` so it can target only the topmost open modal
+  (stacked Help-inside-Strategy closes Help first, leaves Strategy open).
+  Pressing Escape with a modal open re-routes `CancelDrawing → CloseModal`
+  via the modal-trap path; pressing Escape on a chart with no modal still
+  fires `CancelDrawingEvent`. `ModalBase` subscribes once to
+  `CloseTopModalEvent` and self-closes the 4 ModalBase users (Alerts /
+  AIAnalyst / Save / Load workspace) for free. The 14 inline-publish modals
+  each got an explicit subscription that filters by their own ModalName.
+  Resolves the TODO.md:1294 Phase 5 follow-up. Tested via 4 new
+  `ModalCloseDispatchTests` covering single-modal close, stacked-modal
+  topmost-only close, and Escape-rerouting semantics.
+- [x] **Drawing-tool commands gated to chart area** — verified 2026-04-27 e19.
+  Already correctly categorised in `CommandDispatcher.IsChartScopedCommand`
+  lines 584-598: DrawTrend, DrawHorizontal, DrawVertical, DrawChannel,
+  DrawFibonacci, DrawLabel, DrawFibExtension, DrawRectangle, DrawGannFan,
+  DrawRiskReward, DrawAnchoredVwap, DrawMeasure, DrawGannBox, DrawPitchfork,
+  DrawAngleFib, plus CancelDrawing, ConfirmCoordinateEntry. Phase 5 sentinel
+  test pins each. Added `OpenDrawingContextMenu` to the same chart-scoped
+  list this round. No code changes needed for the original drawing tools.
+- [x] **Order placement idempotency + verify-by-ClientOid retry** — shipped
+  2026-04-27 e19. `GeneralOrderService.PlaceOrderAsync` now (a) auto-generates
+  a `ClientOid` (`atc-{8-byte-hex}`) when the caller hasn't supplied one,
+  (b) gates duplicate submits via an in-memory `(provider, ClientOid)` map
+  with a 30-second TTL — a UI double-click or post-network-flap retry returns
+  `ORDER_DUPLICATE_SUPPRESSED` instead of double-firing, (c) on a mid-submit
+  exception scans `GetOpenOrdersAsync(symbol)` for a matching qty/symbol/side
+  and returns `ORDER_UNCERTAIN:{exchangeOrderId}` so the user is told to
+  verify before retrying. Backed by 7 new tests in `OrderSafetyTests`.
+- [x] **Order quantity/price sanity bounds** — shipped 2026-04-27 e19.
+  `GeneralOrderService.PlaceOrderAsync` rejects qty ≤ 0 / NaN / ±Infinity /
+  > 10,000,000 with `ORDER_REJECTED_QUANTITY` and Limit-style orders missing
+  a finite positive Price with `ORDER_REJECTED_PRICE` — both paths log and
+  surface a user-facing error before the provider sees the payload. 7 new
+  tests in `OrderSafetyTests` pin every rejection path.
+- [x] **Bare-catch sweep round 2** — shipped 2026-04-27 e19. Replaced 14 silent
+  catches across `BinanceProvider` (8 sites), `AlpacaProvider` (4),
+  `TradierProvider` (4), `BitstampProvider` (4), `SchwabProvider` (1) with
+  `catch (Exception ex) { _errorStream.OnNext($"... ({ex.GetType().Name}): {ex.Message}"); ... }`
+  using each provider's existing error-stream Subject. CancelOrder, GetOrderBook,
+  GetSymbols, GetBalances, GetPositions, GetOpenOrders, SetLeverage, FetchOhlcv
+  all now surface failures to the UI instead of returning empty/`false`/`1.0`
+  silently.
+- [x] **Fire-and-forget exception logging** — verified 2026-04-27 e19.
+  `AlertDeliveryService.cs:45-64` already wraps each `_ = Task.Run` in a
+  try/catch with structured logger + security-event recording; the audit was
+  wrong about that one. Provider Task.Run sites (Schwab/Oanda/Tradier/Binance)
+  already delegate to inner methods that own their own try/catch with
+  `_errorStream.OnNext(...)`. Surface verified clean.
+- [x] **WebSocket dispose race** — shipped 2026-04-27 e19.
+  `ReconnectingWebSocket` now implements `IAsyncDisposable` alongside
+  `IDisposable`; both methods capture references to the receive + heartbeat
+  loop tasks at `ConnectAsync` time, await them on dispose (sync `Dispose()`
+  bounds the wait at 500ms; `DisposeAsync()` waits unbounded), and the
+  receive/heartbeat catch handlers exit cleanly when `_disposed` is set so
+  no `_onError` noise fires during teardown.
+- [x] **`DataManager._cache` mutation race** — shipped 2026-04-27 e19. New
+  `_cacheLock` serialises every write to `_cache` across the four mutation
+  sites (refresh / catch-up gap-fill / prepend / live-tick). Reads remain
+  lock-free (single-field reference reads are atomic on 64-bit). The live
+  tick that previously could race against `PrependOlderDataAsync` and
+  silently lose its mutation now blocks for at most one prepend snapshot
+  computation.
+- [x] **Atomic JSON writes** — shipped 2026-04-27 e19. New
+  `AccessibleTrader.Core.Services.AtomicFile` (write-temp + Flush(true) +
+  rename) replaces 9 `File.WriteAllText`/`WriteAllTextAsync` sites:
+  `ConfigService`, `WorkspaceLibraryService` (×2), `StrategyLibraryFacade`,
+  `SoundPatchLibrary` (×2), `SettingsManager`, `ShortcutManager`,
+  `JsonStrategyLibrary`, `SpeechTemplateService`,
+  `IndicatorPreferencesService`, `ApiKeyService`, `FileCacheService`. A
+  power loss or process kill mid-write now leaves either the previous valid
+  file or the new valid file — never a half-written JSON.
+- [x] **Provider timer disposal** — verified 2026-04-27 e19. The audit cited
+  Binance/Mexc/InteractiveBrokers timers as undisposed; on inspection
+  `BinanceProvider.cs:296-298`, `MexcProvider.cs:288-290`, and
+  `InteractiveBrokersProvider.cs:345-347` all already stop+dispose+null in
+  their respective `DisconnectAsync` paths. Added a Debug-level breadcrumb
+  to the IB tickle's silent catch so wedged sessions are diagnosable.
+- [x] **Schwab OAuth `state` parameter** — shipped 2026-04-27 e19.
+  `SchwabOAuthService.RunAuthorizationCodeFlowAsync` now generates a fresh
+  `Guid.NewGuid("N")` state per flow, includes it on the authorize URL
+  (`BuildAuthorizationUrl(state)`), and refuses any callback whose `state`
+  query parameter doesn't match — both with a user-facing HTML response
+  and an `InvalidOperationException` thrown from the flow. Closes the CSRF
+  gap.
+
+### Important security
+
+- [ ] **Sign ScriptWorker.exe + plugin DLLs.** Use a code-signing cert; verify
+  via `WinVerifyTrust` before launching the worker. Closes the supply-chain
+  vector flagged in SANDBOX_DESIGN.md:240.
+- [ ] **Coinbase + remaining-providers credential-checkout migration.**
+  `CoinbaseProvider.cs:95-99` still holds `_apiKey`/`_apiSecret` long-lived.
+  Audit every provider against `CREDENTIAL_CHECKOUT_MIGRATION.md` and remove
+  the fallback fields where checkout is wired.
+- [ ] **CPU quota uses sliding window.** `OutOfProcessScriptHost.cs:262-301`
+  kills on a single 2s polling spike; legitimate Kalman/EMA bursts get killed
+  unfairly. Require sustained ≥3 consecutive intervals over 0.9 fraction.
+- [ ] **Sync-over-async cleanup (3 sites).** `StrategyAutoLoader.cs:73-74`
+  (low-risk, startup), `OutOfProcessIndicator.cs:56` (deadlock-risk on
+  contention), `LiveStreamManager.cs:267` (disconnect path). Convert callers
+  to async or run on a `Task.Run` boundary.
+
+### Build-system safeguards
+
+- [ ] **RCL platform-code Roslyn analyzer.** Error on
+  `#if WINDOWS|ANDROID|IOS|MACCATALYST` inside any project whose TFM doesn't
+  define those symbols. Prevents recurrence of the 2026-04-27 e18
+  silent-audio-disable regression.
+- [ ] **DI lifetime validator.** Add a startup pass that walks the registered
+  service graph and asserts no Singleton-consumes-Scoped or
+  Transient-resolved-from-Singleton patterns. Cheap insurance over the
+  ~940-line `ServiceCollectionExtensions.cs`.
+
+### Documentation
+
+- [ ] **Customer-facing README rewrite.** Current README is 90% architecture.
+  Add an above-the-fold user section: install/run, supported platforms grid,
+  feature checklist, screenshots/demo link, license, contributing.
+- [ ] **USER_GUIDE coverage gaps.** Add sections for: strategy building,
+  alerts/channels, custom Roslyn indicators, AI Analyst, broker setup,
+  journal, sound designer. Current guide stops at navigation/sonification.
+- [ ] **Sample plugin DLL.** Ship `Plugins/Samples/SimpleRsiProvider.cs` (or
+  similar) with comments referenced from `PLUGIN_AUTHORING.md` Section 9.
+  First-party plugin authors currently must reverse-engineer from production.
+- [ ] **`Tests/README.md`** — fixture conventions, `BlazorTestHarness` recipe,
+  mock-setup checklist for the ~80 test files / 937 tests.
+
+### Architectural follow-ups (post-1.0; large)
+
+- [ ] **God-modal split.** `PropertiesModal.razor` (826 lines),
+  `SettingsModal.razor` (770), `StrategyModal.razor` (717),
+  `TradingDashboardModal.razor` (~25KB) — each tab → its own component with
+  its own injection scope. Reduces shared mutable state and merge-conflict
+  surface.
+- [ ] **`WorkspaceStore` immutable snapshots.** Replace direct property
+  mutation with a reducer pattern + `IObservable<State>`. Fixes the
+  20-consumers-mutating-shared-state risk; large refactor but high leverage.
+- [ ] **Plugin manifest v2.** Version, signature chain, capability declaration
+  (`requires_network`/`_credentials`/`_workspace_write`), expiry. Closes the
+  "approved-once-approved-forever" gap in the current SHA-256 manifest.
+- [ ] **Modal close-on-Esc + open-on-app-key as single dispatcher cases.**
+  Centralize the bug surface that the Phase 5 categorization mostly fixed.
+- [ ] **Per-strategy timeout override.** `OutOfProcessScriptHost`
+  `DefaultCalculateTimeout` (5s) is hardcoded; legitimate slow strategies
+  get killed. Surface as a per-strategy spec field.
+
+---
+
 ## [2026-04-27 evening 12] — Round 9: closing the v23 investigation backlog (complete)
 
 Final pass through every open follow-up after round 8. Six concrete deliverables
@@ -1291,12 +1675,10 @@ across two phases. Phase 1 is complete; phase 2 is open.
   tests (95 categorization pins + 7 OrderBookModal bUnit). 937/937 passing,
   0 warnings, 0 errors. Full writeup in `docs/CHANGES.md` 2026-04-27 e17.
 
-- [ ] **Esc-doesn't-close-Help (Phase 5 follow-up, surfaced 2026-04-27 e18).**
-  When the Help modal is open, pressing Esc fails to close it. Possibly the
-  `IsChartScopedCommand` categorisation now filters Esc through the modal
-  trap allowlist (`F1` / `F2` / `F3` only), or the Help modal's own
-  `@onkeydown` handler isn't bound. Investigate which path is blocking. Apply
-  to all modal close-on-Esc behaviours since the same gate is shared.
+- [x] **Esc-doesn't-close-Help (Phase 5 follow-up, surfaced 2026-04-27 e18).**
+  Resolved 2026-04-27 e19 via the unified `CloseTopModalEvent` route — see
+  the `[2026-04-27 evening 19]` section at the top of this file. Affects all
+  17 modals through one dispatcher case + `ModalBase`/inline subscriptions.
 
 - [ ] **Toolbar button labels showing raw shortcut keys (surfaced
   2026-04-27 e18).** User reports buttons rendering as `'t'`, `'a'`,

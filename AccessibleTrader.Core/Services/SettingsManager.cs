@@ -164,9 +164,7 @@ namespace AccessibleTrader.Core.Services
         {
             try
             {
-                var dir = Path.GetDirectoryName(_filepath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_filepath, JsonConvert.SerializeObject(_settings, Formatting.Indented));
+                AtomicFile.WriteAllText(_filepath, JsonConvert.SerializeObject(_settings, Formatting.Indented));
             }
             catch (Exception ex)
             {

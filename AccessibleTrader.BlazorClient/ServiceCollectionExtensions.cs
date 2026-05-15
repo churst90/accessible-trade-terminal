@@ -488,6 +488,25 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
             services.AddSingleton<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
 
+            // Tactile output for the Dot Pad 2nd-gen refreshable display. The Windows
+            // native binding (DotPadSDK-3.0.0.dll via P/Invoke) is the only real
+            // implementation today; non-Windows platforms get a null stub so DI still
+            // resolves and the driver no-ops cleanly. The coordinator subscribes to
+            // RedrawEvent + StateStream in its constructor — eager-resolved in
+            // MainLayout to wire those subscriptions before the first chart paint.
+            if (OperatingSystem.IsWindows())
+            {
+                services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
+                                       AccessibleTrader.Core.Services.Accessibility.Dotpad.WindowsDotPadNative>();
+            }
+            else
+            {
+                services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
+                                       AccessibleTrader.Core.Services.Accessibility.Dotpad.NullDotPadNative>();
+            }
+            services.AddSingleton<ITactileDriver, AccessibleTrader.Core.Services.Accessibility.Dotpad.DotpadTactileDriver>();
+            services.AddSingleton<ITactileCanvasCoordinator, TactileCanvasCoordinator>();
+
             // Journal — captures every TTS phrase, alert, strategy signal, and error
             // for review in the JournalModal (Ctrl+J). Singleton so it can be queried
             // by the modal at any time.
