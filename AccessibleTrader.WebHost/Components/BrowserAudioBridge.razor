@@ -1,0 +1,42 @@
+@*
+    Subscribes to WebHostBrowserAudioSink and forwards each float32 PCM chunk
+    to the browser via accessibleTrader.audioPush. Mirrors BrowserSpeechBridge —
+    no DOM, one instance per circuit, lives for the circuit's full lifetime.
+
+    When the server has a local PCM sink (pw-cat / pacat / aplay on Linux) the
+    sink has no publisher and this bridge sits idle. On Windows / macOS / cloud
+    deploys the WebHostAudioDriver flips into browser mode and starts pushing.
+*@
+@using System.Reactive.Linq
+@using AccessibleTrader.WebHost.Services
+@inject WebHostBrowserAudioSink Sink
+@inject IJSRuntime JS
+@implements IDisposable
+
+@code {
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        // Each chunk is a fire-and-forget interop call. We deliberately don't
+        // await it on the producer thread — the sink's Subject is synchronous,
+        // so blocking here would stall the audio pump and break pacing.
+        _sub = Sink.Chunks.Subscribe(chunk => _ = PushAsync(chunk));
+    }
+
+    private async Task PushAsync(byte[] chunk)
+    {
+        try
+        {
+            // Blazor serializes byte[] as base64 in JSON automatically.
+            await JS.InvokeVoidAsync("accessibleTrader.audioPush", Convert.ToBase64String(chunk));
+        }
+        catch
+        {
+            // Circuit closing, audio.js not loaded yet, or browser context
+            // gone — silently drop. Next chunk will arrive in ~23 ms.
+        }
+    }
+
+    public void Dispose() => _sub?.Dispose();
+}

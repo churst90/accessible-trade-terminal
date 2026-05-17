@@ -152,20 +152,36 @@ Replace `WebHostAudioDriver`'s silent stub with a real audio backend so
 sonification (chart-tone navigation) + earcons (modal open/close, alerts,
 boundary hits) work on Linux. Two candidate backends, both viable:
 
-- [ ] **(L3-A) Server-side audio via PipeWire / PulseAudio / ALSA.**
-  Mirrors the speech pattern. `AudioEngine` already produces raw
-  `float[]` PCM frames; pipe them through `pw-cat --raw` (PipeWire)
-  or `pacat` (PulseAudio) or `aplay` (ALSA). Pro: low latency, native
-  voice quality matches OS audio config. Con: doesn't work for the
-  public-website demo where the server is remote.
-- [ ] **(L3-B) Browser audio via WebAudio.** Ship the `float[]` frames
-  over JS interop into an `AudioWorkletNode`. Pro: works everywhere
-  including the website demo. Con: ~50-100 ms latency, requires
-  COOP/COEP headers if we use SharedArrayBuffer.
-- [ ] **Recommended path:** ship both with the same runtime-detection
-  pattern speech uses. PipeWire/Pulse-on-Linux when available;
-  WebAudio fallback otherwise. The demo deploy gets WebAudio
-  automatically.
+- [x] **(L3-A) Server-side audio via PipeWire / PulseAudio / ALSA.**
+  Shipped 2026-05-16 (see earlier section).
+- [x] **(L3-B) Browser audio via WebAudio.** Shipped 2026-05-17.
+  `WebHostAudioDriver` falls back to a `Subject<byte[]>`-backed
+  `WebHostBrowserAudioSink` when `PickPlayer` returns null. New
+  `BrowserAudioBridge.razor` subscribes per circuit and forwards each
+  ~8 KB chunk as base64 via JS interop to `accessibleTrader.audioPush`
+  in `wwwroot/js/audio.js`, which schedules them head-to-tail on
+  `AudioContext.nextStartTime` (lazy-init on first user gesture).
+  Wall-clock pacing in the pump (~23 ms/chunk) replaces the pipe
+  back-pressure the local-sink path got from the OS. Verified on
+  Windows + Brave. Used `AudioBufferSourceNode` rather than
+  `AudioWorkletNode` — the COOP/COEP / SharedArrayBuffer overhead
+  wasn't worth it for the modest 50-100 ms latency budget here.
+- [x] **(L3 — combined recommendation)** Both backends shipped with the
+  runtime-detection pattern the speech ladder uses. PipeWire/Pulse/ALSA
+  when available, WebAudio fallback otherwise; the public-website
+  demo deploy will get WebAudio automatically.
+
+### Shipped 2026-05-17 — WebHost Windows fixes
+
+- [x] **Static-assets manifest loads everywhere.** Added
+  `builder.WebHost.UseStaticWebAssets()` in `Program.cs` so
+  `blazor.web.js`, scoped CSS bundles, and `wwwroot/js/*.js` resolve
+  without depending on `ASPNETCORE_ENVIRONMENT=Development`.
+  (A local `Properties/launchSettings.json` is recommended for
+  `dotnet run` parity with `dotnet watch`, but it's gitignored so it
+  doesn't ship.)
+- [x] **L3-B browser WebAudio** (above) — closes the Linux/Windows
+  audio gap.
 
 ### Pending — L5 / L6 / L7
 

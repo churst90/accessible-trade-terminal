@@ -8,6 +8,13 @@ using AccessibleTrader.WebHost.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load the static-web-assets manifest in every environment, not just
+// Development. CreateBuilder only auto-calls this when ASPNETCORE_ENVIRONMENT
+// is "Development" — without it, blazor.web.js, the RCL's scoped-CSS bundle,
+// and host-app styles all 404 in Production-style runs (e.g. plain `dotnet
+// run` on Windows without a launchSettings.json).
+builder.WebHost.UseStaticWebAssets();
+
 // --demo  → public website chart demo mode (read-only, no API keys, no orders).
 //           Wired in phase L7. Recognised at L1 only as a flag we don't crash on.
 // --no-launch → skip the browser auto-launch (useful when running headless or

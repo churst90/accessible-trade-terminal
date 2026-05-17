@@ -96,6 +96,10 @@ namespace AccessibleTrader.WebHost
                     sp.GetRequiredService<IEventBus>(),
                     sp.GetRequiredService<ILogger<WebHostSpeechManager>>()));
 
+            // Browser WebAudio fallback sink (L3-B). Constructed even when a
+            // local PCM sink is present so DI is uniform; HasSubscribers will
+            // simply stay false and the publish path is never exercised.
+            services.AddSingleton<WebHostBrowserAudioSink>();
             services.AddSingleton<IAudioDriver, WebHostAudioDriver>();
 
             // Single instance backing both interfaces, mirroring the MAUI head's pattern.

@@ -45,6 +45,7 @@ namespace AccessibleTrader.WebHost.Services
 
         private readonly AudioEngine _engine = new();
         private readonly ILogger<WebHostAudioDriver> _logger;
+        private readonly WebHostBrowserAudioSink _browserSink;
         private readonly string? _playerPath;
         private readonly string[] _playerArgs = Array.Empty<string>();
 
@@ -54,6 +55,11 @@ namespace AccessibleTrader.WebHost.Services
         private CancellationTokenSource? _cts;
         private volatile bool _paused;
         private bool _disposed;
+        // True when no local PCM sink was found and we're streaming to the
+        // browser instead. Pump uses a wall-clock pacer (no pipe back-pressure
+        // to throttle the producer) and short-circuits to silence when no
+        // circuit is subscribed.
+        private readonly bool _browserMode;
 
         public event Action<int>? PointReached;
         public int SampleRate => _engine.SampleRate;
@@ -63,9 +69,10 @@ namespace AccessibleTrader.WebHost.Services
         public long TotalCommandCount   => _engine.TotalCommandCount;
         public void ResetAudioTelemetry() => _engine.ResetTelemetry();
 
-        public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger)
+        public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink)
         {
             _logger = logger;
+            _browserSink = browserSink;
 
             // PointReached + drop telemetry flow through to the same surfaces the
             // MAUI driver exposes, so SonificationManager / JournalModal don't care
@@ -79,8 +86,14 @@ namespace AccessibleTrader.WebHost.Services
             (_playerPath, _playerArgs) = PickPlayer(File.Exists);
             if (_playerPath is null)
             {
+                // No local sink — fall back to the browser WebAudio path. The
+                // pump still runs but writes chunks to WebHostBrowserAudioSink
+                // instead of a child process's stdin, and BrowserAudioBridge
+                // forwards them over the SignalR circuit to audio.js.
+                _browserMode = true;
+                StartPump();
                 _logger.LogInformation(
-                    "Audio: no local PCM sink found (pw-cat / pacat / aplay). Sonification is silent until a server-side audio backend or browser WebAudio fallback is added.");
+                    "Audio: no local PCM sink found (pw-cat / pacat / aplay). Streaming to browser via WebAudio fallback.");
                 return;
             }
 
@@ -154,6 +167,13 @@ namespace AccessibleTrader.WebHost.Services
             var bytes  = new byte[BytesPerBuffer];
             var token = _cts!.Token;
 
+            // Wall-clock pacer for browser mode. In local-sink mode the OS pipe
+            // to pw-cat/pacat/aplay back-pressures naturally; here we have to
+            // pace ourselves so we don't generate ~44 kHz of frames into a
+            // channel the browser drains at audio rate.
+            long pumpStartTicks = Environment.TickCount64;
+            long framesSent = 0;
+
             try
             {
                 while (!token.IsCancellationRequested)
@@ -161,6 +181,23 @@ namespace AccessibleTrader.WebHost.Services
                     if (_paused)
                     {
                         Thread.Sleep(20);
+                        // Reset the pacing reference so the wall-clock catch-up
+                        // logic doesn't burst-emit the lost interval on resume.
+                        pumpStartTicks = Environment.TickCount64;
+                        framesSent = 0;
+                        continue;
+                    }
+
+                    // Skip work entirely when nobody is listening on the browser
+                    // side. The engine still ticks via ProcessEvents so voice
+                    // state advances and PointReached callbacks fire; we just
+                    // don't generate samples nobody will hear.
+                    if (_browserMode && !_browserSink.HasSubscribers)
+                    {
+                        _engine.ProcessEvents();
+                        Thread.Sleep(20);
+                        pumpStartTicks = Environment.TickCount64;
+                        framesSent = 0;
                         continue;
                     }
 
@@ -177,10 +214,28 @@ namespace AccessibleTrader.WebHost.Services
                     int byteLen = produced * sizeof(float);
                     Buffer.BlockCopy(floats, 0, bytes, 0, byteLen);
 
-                    if (_playerStdin is null) return;
-                    _playerStdin.Write(bytes, 0, byteLen);
-                    // No explicit Flush — pw-cat / pacat read continuously and the
-                    // OS pipe buffer naturally back-pressures the producer at audio rate.
+                    if (_browserMode)
+                    {
+                        // Allocate a per-chunk copy — Subject<byte[]> delivers
+                        // the reference downstream; reusing `bytes` would race
+                        // with the JS-interop serializer.
+                        var chunk = new byte[byteLen];
+                        Buffer.BlockCopy(bytes, 0, chunk, 0, byteLen);
+                        _browserSink.Publish(chunk);
+
+                        framesSent += produced / ChannelCount;
+                        long dueMs = framesSent * 1000L / RateHz;
+                        long elapsedMs = Environment.TickCount64 - pumpStartTicks;
+                        int sleepMs = (int)(dueMs - elapsedMs);
+                        if (sleepMs > 1) Thread.Sleep(sleepMs);
+                    }
+                    else
+                    {
+                        if (_playerStdin is null) return;
+                        _playerStdin.Write(bytes, 0, byteLen);
+                        // No explicit Flush — pw-cat / pacat read continuously and the
+                        // OS pipe buffer naturally back-pressures the producer at audio rate.
+                    }
                 }
             }
             catch (Exception ex) when (!token.IsCancellationRequested)

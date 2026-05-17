@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-05-17] — WebHost Windows fixes (static-assets 404 + L3-B browser WebAudio)
+
+Two follow-ups landed after a first Windows smoke-test of the WebHost. The
+Linux build had worked end-to-end on Fedora; on Windows the WebHost served
+HTML but no CSS, no JS, no Blazor circuit — and even after that was fixed,
+sonification was silent because the L3 audio path is Linux-only by design.
+
+### Static-assets manifest now loads in every environment
+
+`builder.WebHost.UseStaticWebAssets()` added to `Program.cs` (right after
+`CreateBuilder`). `WebApplication.CreateBuilder` only auto-invokes
+`UseStaticWebAssets` when `ASPNETCORE_ENVIRONMENT == Development`; without it
+the static-web-assets manifest never loads → `blazor.web.js`, the RCL's scoped
+CSS bundle, the host app styles, and every `wwwroot/js/*.js` file all 404.
+Symptom on Windows: page renders with default browser styles, "An unhandled
+error has occurred. Reload" banner appears, and the Market dropdown's
+`@onchange` never fires (because the Blazor Server SignalR circuit never
+connected). Linux happened to have the env var set in the user's shell.
+
+A local `Properties/launchSettings.json` is also recommended (sets the env
+var + binds to the right URL) but `launchSettings.json` is gitignored in
+this repo so it stays per-developer. The `UseStaticWebAssets()` call is the
+actual fix that ships.
+
+### L3-B browser WebAudio fallback (shipped)
+
+`WebHostAudioDriver` now falls back to a browser-bound delivery path when the
+local-sink probe finds nothing. The previous behaviour ("stays silent — engine
+still ticks ... a future L3-B phase will add a browser WebAudio fallback") is
+replaced; sonification now plays through Brave / Chrome / Firefox on Windows /
+macOS / headless-cloud WebHost deploys.
+
+Files:
+- **`Services/WebHostBrowserAudioSink.cs`** (new) — singleton fan-out sink.
+  Wraps a `Subject<byte[]>`; exposes `IObservable<byte[]> Chunks` for the
+  bridge to subscribe to and `bool HasSubscribers` so the driver can
+  short-circuit the engine read when nobody is listening.
+- **`Services/WebHostAudioDriver.cs`** — picker unchanged; new `_browserMode`
+  flag latched when `PickPlayer` returns null. Pump still starts. Loop now has
+  three branches: paused (sleep), browser-mode-no-subscribers
+  (ProcessEvents + sleep so the engine drains command queue but produces no
+  samples), and produce (publish chunk, then wall-clock pace to 1024 frames /
+  44 100 Hz ≈ 23 ms so we don't generate audio faster than the browser drains).
+  Local-sink branch preserved unchanged.
+- **`wwwroot/js/audio.js`** (new) — `accessibleTrader.audioPush(base64)` +
+  `accessibleTrader.audioState()`. Lazy-creates an `AudioContext` at
+  44 100 Hz, deinterleaves L/R, schedules each chunk head-to-tail on
+  `nextStartTime` so they play gap-free. Listens for keydown/click/pointerdown
+  on document capture-phase to `resume()` a suspended AudioContext (Chrome's
+  user-gesture autoplay gate). Drops chunks while suspended so they don't
+  burst-play once the context wakes.
+- **`Components/BrowserAudioBridge.razor`** (new) — mirrors
+  `BrowserSpeechBridge`. Subscribes to `WebHostBrowserAudioSink.Chunks`,
+  forwards each chunk as a base64 string via `IJSRuntime` to
+  `accessibleTrader.audioPush`. Fire-and-forget per chunk so the producer
+  thread isn't stalled by interop latency.
+- **`Components/App.razor`** — adds `<BrowserAudioBridge>` next to
+  `BrowserSpeechBridge`, plus `<script src="js/audio.js">` after `webSpeech.js`.
+- **`ServiceCollectionExtensions.cs`** — registers `WebHostBrowserAudioSink`
+  as a singleton before `IAudioDriver`. Constructed unconditionally so DI is
+  uniform; on Linux with `pw-cat` present, `HasSubscribers` stays false and
+  the publish path is never exercised.
+
+Bandwidth budget: ~344 KB/s down the SignalR circuit at full audio
+(8 KB chunks × 43 chunks/s). WebSocket carries this comfortably.
+
+### Result
+
+- Solution builds clean on Windows + Linux, 0 warnings, 0 errors.
+- Tests: **1038 / 1038** still passing on Windows (no test changes — the L3-B
+  path is exercised end-to-end at runtime; PickPlayer behavior unchanged so
+  existing backend-picker tests still hold).
+- Verified on Windows + Brave: chart loads, sonification audible, speech via
+  `window.speechSynthesis` continues to work alongside the audio circuit.
+
+---
+
 ## [2026-05-16] — Linux WebHost port (L1 → L4 complete)
 
 New `AccessibleTrader.WebHost` project — an ASP.NET Core Blazor Server
