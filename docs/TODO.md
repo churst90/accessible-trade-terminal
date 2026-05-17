@@ -4,6 +4,212 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-05-16] — Linux WebHost port
+
+New ASP.NET Core Blazor Server host (`AccessibleTrader.WebHost`) that
+brings the terminal to Linux and any browser-reachable platform. MAUI
+heads (Windows/macOS/iOS/Android) untouched — RCL changes are
+runtime-gated on `IRuntimePlatform.IsBrowserHost`.
+
+### Shipped (phases L1 → L2 + Orca speech)
+
+- [x] **L1 — WebHost project scaffold.** ASP.NET Core (net10.0) referencing
+  the RCL + Core + Sdk + ScriptSandbox. 8 platform-shim services
+  (`WebHostAppLogger`, `WebHostPathService` XDG-aware, `WebHostRuntimePlatform`,
+  `WebHostMainThreadService`, `WebHostSecureStorageService` via DataProtection,
+  `WebHostPluginHttpClientFactory`, `WebHostApiKeyCheckoutAdapter`,
+  `WebHostAudioDriver` silent stub). Kestrel @ `http://localhost:5145`, auto-
+  opens browser via `xdg-open` / `open` / `start`.
+- [x] **L1.5 — Plugin wiring.** 14 provider + 12 analytics ProjectReferences
+  duplicated from the MAUI csproj. `HashPluginDlls` inline MSBuild task
+  emits `plugins_trusted.manifest` after every build, identical pattern to
+  the MAUI head.
+- [x] **AppStartupService bootstrap.** Lifetime hook in `Program.cs`
+  invokes `IAppStartupService.InitializeAsync()` once Kestrel binds,
+  mirroring what `MainPage.xaml.cs` does for MAUI. Without it the
+  `DataService` stays uninitialised and every `LoadSymbolsAsync` silently
+  returns empty.
+- [x] **L2 — Browser chart rendering (server-side PNG).** ChartArea.razor
+  renders an `<img>` whose `src` is a base64-encoded PNG produced by the
+  same `ChartRenderer.Render(SKCanvas, ...)` MAUI uses. Throttled to
+  100 ms via a Reactive subject. Triggers on Store.StateStream,
+  RedrawEvent, ThemeService.ThemeChanged. Guarded by
+  `IRuntimePlatform.IsBrowserHost` so MAUI keeps its native overlay path.
+- [x] **Speech via Orca D-Bus.** `WebHostSpeechManager` decorates
+  `BlazorSpeechManager`. Backend chosen at startup: Orca's
+  `org.gnome.Orca1.Service.PresentMessage` (preferred — respects Orca's
+  voice config), then `spd-say` (SpeechDispatcher default voice),
+  then browser `SpeechSynthesis` via `BrowserSpeechBridge` + JS interop.
+  Interrupt = `spd-say -S` before the new utterance. Verified on
+  Fedora 44 + Orca + voxin.
+- [x] **Diagnostic endpoint** `/diag/journal` (dev mode or `--enable-diag`):
+  returns last 100 journal entries as JSON for triaging the speech
+  pipeline.
+- [x] **Tactile decision documented.** Linux uses `NullDotPadNative`
+  (same path iOS/macCatalyst take). The official Linux Dot Pad SDK is
+  v1.0.0 / 20-cell text strip only / no graphic API. Full tactile on
+  Linux is blocked on upstream — track Dot Inc shipping a Linux 3.0.0
+  SDK.
+
+### Shipped (continued — L3 + L4 partial)
+
+- [x] **L3 — Audio output via PipeWire / PulseAudio / ALSA.**
+  `WebHostAudioDriver` rewritten from L1 silent stub. Constructs an
+  internal `AudioEngine`; dedicated pump thread pulls float32 frames
+  and pipes them into `pw-cat` (preferred) / `pacat` / `aplay`.
+  Backend chosen by file-existence probe at startup. Verified on
+  Fedora 44 + PipeWire — sonification + earcons play cleanly.
+- [x] **L4 (partial) — Drawing-tool keyboard chords remapped.**
+  New `WebHostShortcutRemap` swaps `Ctrl+Shift+letter` → `Alt+Shift+letter`
+  for every drawing tool + `DetailedPointSummary` (16 bindings) at
+  WebHost startup. Firefox reserves several `Ctrl+Shift+*` chords at
+  browser chrome and they are not cancellable from page JS. Remap is
+  in-memory only; `shortcuts.json` on disk is not modified. MAUI heads
+  untouched. See `docs/SHORTCUTS.md` for the per-host chord table.
+- [x] **`ChartCommandManager` exception swallows fixed.** Seven
+  `Debug.WriteLine` calls in volume/mute/hide/delete/tool/drawing
+  event handlers replaced with `ILogger<ChartCommandManager>?.LogError`.
+  Surfaces previously-invisible exceptions in the server log; benefits
+  both MAUI and WebHost.
+
+### Shipped (L4 — input polish)
+
+- [x] **L4-B — Mouse coordinate mapping verification (2026-05-16).**
+  Pinned the browser mouse pipeline with two test files, 6 cases total:
+  - `DrawingInteractionManagerMouseDispatchTests` (4 cases) — verifies
+    `(x, y, w, h)` → `(date, price)` → anchor placement through
+    `HandleMouseEvent`; covers the fast-reject branches (no pending
+    drawing, x past right margin, idle click on empty workspace).
+  - `MouseHandlerWiringTests` (2 cases) — `GlobalInputService.InitializeAsync`
+    calls JS `accessibleTrader.registerMouseHandler` with the
+    `"chart-interact-zone"` DOM id; `BlazorInputService.ProcessMouse`
+    forwards `(x, y, type, w, h)` unchanged to `MouseEvent` subscribers.
+  Uses bUnit's `JSRuntimeMode.Loose` so awaited `InvokeVoidAsync` calls
+  auto-complete without per-call `SetVoidResult()`.
+- [x] **L4-C — `pointer-events` decision (2026-05-16).** Kept permanent
+  `pointer-events: none` on the chart `<img>`. The img is a child of the
+  `chart-interact-zone` div, so mouse events naturally fall through to
+  the parent where `keyboard.js`'s `registerMouseHandler` is bound; no
+  IsDrawing toggle needed. Comment added to `ChartArea.razor` so a
+  future reader sees why the property is fixed.
+- [x] **`@onkeydown` element-scope fallback retained on `ChartArea`**
+  (decision recorded 2026-05-16). The window-level `keyboard.js` is the
+  primary path, but screen readers in browse mode dispatch synthetic
+  keydowns at element scope only, and unit tests run without the JS
+  bridge — see the dedupe comment at `GlobalInputService.cs:25-31`.
+  Removing the element binding would silently regress AT users.
+
+### Shipped 2026-05-16 (high-value unit tests for the WebHost work)
+
+Five test files in `AccessibleTrader.Tests/WebHost/`, 25 new cases,
+1032/1032 total passing.
+
+- [x] **`WebHostAudioDriverBackendPickerTests`** (6 cases) — pins
+  pw-cat → pacat → aplay priority + argument formatting. Uses
+  `Func<string,bool>` predicate; no filesystem touches.
+- [x] **`WebHostSpeechManagerBackendSelectionTests`** (5 cases) — pins
+  Orca → spd-say → browser ladder with the static `SelectBackend`
+  picker. No real `gdbus` / `spd-say` invocation.
+- [x] **`WebHostSpeechManagerForwardingTests`** (6 cases) — pins
+  decorator contract: inner Speak / Silence always called first so
+  journal + ARIA wiring stays alive; OnSpeak / IsSpeechEnabled
+  property access forwards transparently. Uses the new internal
+  ctor that skips OS probes.
+- [x] **`WebHostSecureStorageServiceTests`** (6 cases) — roundtrip,
+  missing-key, remove, corrupt-blob graceful-fallback,
+  path-traversal-resistant filenames, overwrite. Uses
+  `EphemeralDataProtectionProvider` + temp directory.
+- [x] **`ChartAreaBrowserCanvasBranchTests`** (2 bUnit cases) — pins
+  the MAUI-safety contract: `<img>` element is rendered only when
+  `IsBrowserHost=true`. MAUI heads (where `IsBrowserHost=false` via
+  default-interface impl) never get the WebHost chart surface
+  rendered on top of their native overlay.
+
+Supporting refactors (additive, no production-behaviour change):
+- `PickPlayer` / `FindOnPath` made internal, take `Func<string,bool>`.
+- `WebHostSpeechManager` gained `public enum SpeechBackend`,
+  `internal static SelectBackend(...)`, and an `internal` ctor that
+  takes pre-computed probe results.
+- `InternalsVisibleTo("AccessibleTrader.Tests")` added to WebHost csproj.
+- `AccessibleTrader.Tests` gained a `ProjectReference` to WebHost.
+
+### Medium-value tests still pending
+
+- [ ] `WebHostPathServiceXdgTests` (2 cases) — directory ends with
+  `/AccessibleTrader`; created on construction. Defer until after
+  L5 so the test fixture can share temp-dir helpers.
+- [ ] `WebHostAppLoggerDedupTests` (3 cases) — same-(source,message)
+  inside 3s dedupe behaviour.
+- [ ] `WebHostProgramStartupSmokeTests` (1 case) — boots host via
+  `WebApplicationFactory<Program>`, `GET /` returns 200, all DI
+  singletons resolvable. Defer until L4-B / L4-C ship so the smoke
+  test covers them.
+- [ ] `DiagJournalEndpointTests` (2 cases) — empty / newest-first.
+
+### Next — L3 retained for traceability: WebHost audio output
+
+Replace `WebHostAudioDriver`'s silent stub with a real audio backend so
+sonification (chart-tone navigation) + earcons (modal open/close, alerts,
+boundary hits) work on Linux. Two candidate backends, both viable:
+
+- [ ] **(L3-A) Server-side audio via PipeWire / PulseAudio / ALSA.**
+  Mirrors the speech pattern. `AudioEngine` already produces raw
+  `float[]` PCM frames; pipe them through `pw-cat --raw` (PipeWire)
+  or `pacat` (PulseAudio) or `aplay` (ALSA). Pro: low latency, native
+  voice quality matches OS audio config. Con: doesn't work for the
+  public-website demo where the server is remote.
+- [ ] **(L3-B) Browser audio via WebAudio.** Ship the `float[]` frames
+  over JS interop into an `AudioWorkletNode`. Pro: works everywhere
+  including the website demo. Con: ~50-100 ms latency, requires
+  COOP/COEP headers if we use SharedArrayBuffer.
+- [ ] **Recommended path:** ship both with the same runtime-detection
+  pattern speech uses. PipeWire/Pulse-on-Linux when available;
+  WebAudio fallback otherwise. The demo deploy gets WebAudio
+  automatically.
+
+### Pending — L5 / L6 / L7
+
+- [ ] **L5 — Linux script sandbox.** New `LinuxBwrapLauncher`
+  implementing `IScriptWorkerLauncher`. Use `bwrap --unshare-all
+  --ro-bind / / --proc /proc --dev /dev --new-session` baseline.
+  Parallels `WindowsAppContainerLauncher` /
+  `AndroidIsolatedProcessLauncher` / `MacSandboxExecLauncher`.
+  Today on Linux scripts run with process-isolation only (logged by
+  `MainLayout` as "Security notice: OS-level sandbox not available").
+- [ ] **L6 — Docs.** Update `docs/PLATFORMS.md` with Linux compat row
+  and the tactile-deferred decision. File an upstream issue at
+  `dotincorp/dotpad-sdk-guide` requesting Linux 3.0.0 parity.
+- [ ] **L7 — Demo deploy.** Implement the `--demo` gate so it actually
+  hides modals + disables order entry + locks the toolbar. New
+  `/demo/chart?provider=X&symbol=Y&tf=Z` route that renders only the
+  chart area. Iframe-embeddable for the marketing site. Add a
+  rate-limiter on demo circuits so a public site can't be DOSed via
+  Blazor Server connections.
+- [ ] **L8 — Desktop shell.** SKIPPED per user choice (2026-05-16).
+  Browser auto-launch via `xdg-open` is sufficient. Photino / Avalonia
+  shells remain available as future options if the UX warrants it.
+
+### Cosmetic + known issues
+
+- [ ] **Chart pixel density.** Server renders at fixed 1280×720; CSS
+  scales the `<img>` to container size. On HiDPI displays the result is
+  fuzzy. Read browser `devicePixelRatio` via JS interop and re-render
+  at native size. ~half day's work.
+- [ ] **Binance plugin load failure on WebHost.** Logs
+  `Could not load type 'CryptoExchange.Net.Interfaces.IRestClient' from
+  assembly 'CryptoExchange.Net, Version=11.1.0.0'`. Doesn't block any
+  other provider; user can use Bitstamp/Kraken/Coinbase etc. Pre-existing
+  package-version skew, not introduced by the L* work. Worth a separate
+  triage pass.
+- [ ] **Drawing-tool mouse interactions in browser.** With the chart
+  `<img>` at `pointer-events: none`, clicks fall through to the
+  `chart-interact-zone` div which receives the mouse. Confirm
+  drawing-tool placement works end-to-end on the WebHost; if pixel
+  coordinates don't map cleanly, may need a JS bridge similar to the
+  one MAUI uses for the native overlay.
+
+---
+
 ## [2026-05-14] — Dot Pad tactile-display backlog
 
 Multi-session work on Dot Pad 2nd-gen integration. Hardware/SDK facts and

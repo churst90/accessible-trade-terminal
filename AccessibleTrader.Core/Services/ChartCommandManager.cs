@@ -4,6 +4,7 @@ using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -24,6 +25,7 @@ namespace AccessibleTrader.Core.Services
         private readonly ISeriesManagementService _seriesManager;
         private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
         private readonly IWorkspaceStore _store;
+        private readonly ILogger<ChartCommandManager>? _logger;
 
         public ChartCommandManager(
             IEventBus eventBus,
@@ -32,7 +34,8 @@ namespace AccessibleTrader.Core.Services
             ISpeechManager speechManager,
             ISonificationManager sonificationManager,
             ISeriesManagementService seriesManager,
-            IWorkspaceStore store)
+            IWorkspaceStore store,
+            ILogger<ChartCommandManager>? logger = null)
         {
             _eventBus = eventBus;
             _dataManager = dataManager;
@@ -41,6 +44,7 @@ namespace AccessibleTrader.Core.Services
             _sonificationManager = sonificationManager;
             _seriesManager = seriesManager;
             _store = store;
+            _logger = logger;
 
             InitializeSubscriptions();
         }
@@ -104,7 +108,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] VolumeChangeEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] VolumeChangeEvent error");
                 }
             }));
 
@@ -138,7 +142,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] ToggleMuteEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] ToggleMuteEvent error");
                 }
             }));
 
@@ -172,7 +176,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] ToggleHideEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] ToggleHideEvent error");
                 }
             }));
 
@@ -198,7 +202,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] DeleteSeriesEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] DeleteSeriesEvent error");
                 }
             }));
 
@@ -222,7 +226,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] ToggleToolEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] ToggleToolEvent error");
                 }
             }));
 
@@ -234,7 +238,7 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ChartCommandManager] AddDrawingEvent error: {ex.Message}");
+                    _logger?.LogError(ex, "[ChartCommandManager] AddDrawingEvent error");
                 }
             }));
         }

@@ -27,6 +27,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.5" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <!--
+      Note: SkiaSharp.Views.Blazor was tried for L2 but uses
+      System.Runtime.InteropServices.JavaScript which is WASM-only and
+      crashes the Blazor Server circuit on first render. The WebHost
+      instead renders Skia to a PNG server-side and pushes a base64 data
+      URL into an <img>. Plain SkiaSharp (already transitively referenced
+      via Core) is enough; no extra Blazor-Skia package needed.
+    -->
   </ItemGroup>
 
   <ItemGroup>

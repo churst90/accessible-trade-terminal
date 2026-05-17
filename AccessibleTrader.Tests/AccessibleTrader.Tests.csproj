@@ -43,6 +43,11 @@
     <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
     <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+    <!-- WebHost ProjectReference: lets tests reach `internal` helpers
+         (PickPlayer / SelectBackend / FindOnPath / internal ctor on
+         WebHostSpeechManager) granted via InternalsVisibleTo in
+         AccessibleTrader.WebHost.csproj. -->
+    <ProjectReference Include="..\AccessibleTrader.WebHost\AccessibleTrader.WebHost.csproj" />
     <!--
       Build the ScriptWorker before the tests so the roundtrip integration
       test can spawn it. Don't link the worker assembly into the test; we

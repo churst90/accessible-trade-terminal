@@ -89,3 +89,8 @@ strategy-lab-data/
 
 # StrategyLab walk-forward runtime outputs — regenerate per run
 AccessibleTrader.StrategyLab/walk_forward_results.json
+
+# WebHost runtime data fallback location — used when XDG_DATA_HOME is unset.
+# DataCache/ holds OHLCV per-symbol caches, secrets/ holds DataProtection-
+# encrypted API keys. Both are user-specific and regenerated at runtime.
+AccessibleTrader.WebHost/AccessibleTrader/

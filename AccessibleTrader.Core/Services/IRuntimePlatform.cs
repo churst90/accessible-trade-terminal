@@ -25,5 +25,18 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>True when running on macCatalyst.</summary>
         bool IsMacCatalyst { get; }
+
+        /// <summary>
+        /// True when the UI is being served to a web browser (ASP.NET Core
+        /// Blazor Server / WebAssembly), as opposed to a native WebView
+        /// hosted by MAUI. Lets the chart-area component pick between the
+        /// native SKCanvasView overlay (MAUI) and an inline browser
+        /// SKCanvasView (web host).
+        ///
+        /// Default-impl returns false so existing platform implementations
+        /// (MauiRuntimePlatform, test fakes) don't need source changes; the
+        /// WebHost implementation overrides to true.
+        /// </summary>
+        bool IsBrowserHost => false;
     }
 }

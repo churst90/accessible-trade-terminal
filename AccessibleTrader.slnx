@@ -36,6 +36,7 @@
   <Project Path="AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj" />
   <Project Path="AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.csproj" />
   <Project Path="AccessibleTrader.Core/AccessibleTrader.Core.csproj" />
+  <Project Path="AccessibleTrader.WebHost/AccessibleTrader.WebHost.csproj" />
   <Project Path="AccessibleTrader.Sdk/AccessibleTrader.Sdk.csproj" />
   <Project Path="AccessibleTrader.ScriptSandbox/AccessibleTrader.ScriptSandbox.csproj" />
   <Project Path="AccessibleTrader.ScriptWorker/AccessibleTrader.ScriptWorker.csproj" />

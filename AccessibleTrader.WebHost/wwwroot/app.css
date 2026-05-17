@@ -1,0 +1,539 @@
+/* ── Transparency Layering ──────────────────────────────────────────────────
+   The entire Blazor stack must be transparent for the native SkiaSharp canvas
+   to be visible. Individual UI components (Toolbar, Header) define their own
+   opaque backgrounds to look like a standard Windows application. */
+html, body {
+    background: transparent !important;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#app {
+    height: 100%;
+    background: transparent !important;
+}
+
+:root {
+    --bg-primary:    #121212;
+    --bg-toolbar:    #1e1e1e;
+    --bg-header:     #111111;
+    --text-primary:  #ffffff;
+    --text-muted:    #aaaaaa;
+    --border-color:  #444444;
+    --accent-color:  #0078d4;
+    --focus-outline: 2px solid #ffff00;
+}
+
+.app-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: transparent !important;
+}
+
+.app-header {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-header);
+    color: var(--text-primary);
+}
+
+.app-footer {
+    padding: 5px 12px;
+    background: var(--bg-header);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+/* ── Toolbars ──────────────────────────────────────────────────────────────── */
+
+.toolbar {
+    background-color: var(--bg-toolbar);
+    border-bottom: 1px solid var(--border-color);
+    padding: 5px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+
+.indicator-bar {
+    background-color: var(--bg-toolbar);
+    border-top: 1px solid var(--border-color);
+    padding: 5px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+    background-color: #0d0d0d;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    padding: 2px 8px 0;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.tab-button {
+    background: #1a1a1a;
+    color: var(--text-muted);
+    border: 1px solid #333;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    padding: 3px 10px 3px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: background 0.1s;
+}
+
+.tab-button:hover {
+    background: #252525;
+    color: var(--text-primary);
+}
+
+.tab-active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    font-weight: 600;
+}
+
+.tab-close {
+    opacity: 0.5;
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.tab-close:hover {
+    opacity: 1;
+    background: rgba(255,255,255,0.15);
+}
+
+.tab-new {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 3px 8px;
+    font-size: 1.0rem;
+    cursor: pointer;
+    align-self: center;
+    border-radius: 4px;
+}
+
+.tab-new:hover {
+    background: #252525;
+    color: var(--text-primary);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+
+button {
+    background-color: #2d2d2d;
+    color: var(--text-primary);
+    border: 1px solid #555;
+    padding: 4px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+button:hover {
+    background-color: #3a3a3a;
+    border-color: #777;
+}
+
+button:active {
+    background-color: #1a1a1a;
+}
+
+/* aria-pressed="true" — visually indicates the pressed/active state */
+button[aria-pressed="true"],
+button[aria-checked="true"] {
+    background-color: #444;
+    border-color: #aaa;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+button.primary {
+    background-color: var(--accent-color);
+    border-color: #005a9e;
+}
+
+button.primary:hover {
+    background-color: #1a8ad4;
+}
+
+button:disabled,
+button[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Focus Indicators (WCAG AA minimum) ──────────────────────────────────── */
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
+}
+
+/* ── Form Elements ─────────────────────────────────────────────────────────── */
+
+select, input[type="text"] {
+    background-color: #111;
+    color: var(--text-primary);
+    border: 1px solid #555;
+    padding: 3px 6px;
+    font-size: 0.9rem;
+}
+
+label {
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+/* ── Accessibility Utilities ────────────────────────────────────────────────── */
+
+/* Visually hidden but announced by screen readers */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+    z-index: 9999;
+}
+
+/* Light gray/white modal panel — high contrast for low-vision users.
+   --text-muted is scope-overridden here: the global value (#aaa) is tuned
+   for dark surfaces (~8:1 on #121212) and would render at ~2.1:1 against
+   the light modal panel — a WCAG AA fail. #555 on #f2f2f2 is ~6.7:1 (AA). */
+.modal-content {
+    --text-muted: #555;
+    background: #f2f2f2;
+    color: #111;
+    padding: 28px 32px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    min-width: 400px;
+    max-width: 640px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    border-bottom: 2px solid #999;
+    padding-bottom: 10px;
+    font-size: 1.1rem;
+    color: #111;
+}
+
+/* Form controls inside modals */
+.modal-content label {
+    color: #111;
+    font-weight: 600;
+}
+
+.modal-content select,
+.modal-content input[type="text"],
+.modal-content input[type="password"],
+.modal-content input[type="number"],
+.modal-content input[type="range"] {
+    background: #fff;
+    color: #111;
+    border: 1px solid #999;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+}
+
+.modal-content button {
+    background: #ddd;
+    color: #111;
+    border: 1px solid #888;
+}
+
+.modal-content button:hover {
+    background: #ccc;
+}
+
+.modal-content button.primary {
+    background: #0078d4;
+    color: #fff;
+    border-color: #005a9e;
+}
+
+.modal-content button.primary:hover {
+    background: #005a9e;
+}
+
+.modal-content .modal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.modal-content .modal-row label {
+    min-width: 140px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid #ccc;
+}
+
+/* Object tree list items */
+.object-tree-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #ddd;
+    color: #111;
+}
+
+.object-tree-item:focus {
+    outline: 2px solid #0078d4;
+    outline-offset: -2px;
+    background: #e0eeff;
+}
+
+.object-tree-item.focused-row {
+    background: #d0e8ff;
+    font-weight: 600;
+}
+
+/* Shortcut help table */
+.shortcuts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    color: #111;
+}
+
+.shortcuts-table th {
+    background: #ddd;
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 2px solid #aaa;
+}
+
+.shortcuts-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.shortcuts-table tr:nth-child(even) {
+    background: #e8e8e8;
+}
+
+/* ── Blazor Error UI ───────────────────────────────────────────────────────── */
+
+#blazor-error-ui {
+    background: #700;
+    color: white;
+    bottom: 0;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 2000;
+    display: none;
+    border-top: 2px solid #f44;
+    font-size: 0.9rem;
+}
+
+#blazor-error-ui .reload {
+    color: #ffff88;
+    font-weight: bold;
+    margin: 0 10px;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    float: right;
+    padding: 0 4px;
+}
+
+/* ── Icon Toolbar Buttons ──────────────────────────────────────────────────
+   Circular glyph above a short label. Color is driven by a CSS custom
+   property --btn-color set per variant; the SVG <use> inherits it via
+   stroke="currentColor". Focus / hover / aria-pressed all modify ONLY the
+   background alpha + ring so the hue never shifts — muscle memory stays
+   intact for low-vision users.                                             */
+
+.icon-btn {
+    /* Reset native button chrome */
+    background: transparent;
+    border: none;
+    margin: 0;
+
+    /* Layout: glyph circle stacked over label */
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 3px;
+    padding: 2px 4px;
+    cursor: pointer;
+    min-width: 52px;
+
+    --btn-color: rgb(180, 180, 200);
+    color: var(--btn-color);
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: transform 0.08s ease-out;
+}
+
+.icon-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.icon-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* The circular glyph container. Background is the variant color at low alpha
+   so the icon reads against a tinted disc rather than a flat empty circle. */
+.icon-btn-glyph {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--btn-color) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--btn-color) 35%, transparent);
+    transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+
+.icon-btn:hover:not(:disabled) .icon-btn-glyph {
+    background: color-mix(in srgb, var(--btn-color) 25%, transparent);
+    border-color: color-mix(in srgb, var(--btn-color) 70%, transparent);
+}
+
+.icon-btn-glyph svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+    /* stroke="currentColor" is inherited from the button's color */
+}
+
+.icon-btn-label {
+    color: #dcdce2;
+    letter-spacing: 0.01em;
+}
+
+/* Focus ring: 3 px solid outer ring at full variant color. Replaces the
+   tab-navigation-visibility gap of a 1 px dotted default outline.         */
+.icon-btn:focus-visible {
+    outline: none;
+}
+
+.icon-btn:focus-visible .icon-btn-glyph {
+    box-shadow: 0 0 0 3px var(--btn-color);
+    background: color-mix(in srgb, var(--btn-color) 30%, transparent);
+}
+
+/* aria-pressed="true" or IsToggleOn — filled disc + saturated icon */
+.icon-btn-on .icon-btn-glyph,
+.icon-btn[aria-pressed="true"] .icon-btn-glyph {
+    background: color-mix(in srgb, var(--btn-color) 40%, transparent);
+    border-color: var(--btn-color);
+    box-shadow: inset 0 0 0 1px var(--btn-color);
+}
+
+/* Primary: solid filled disc — use sparingly (Load, Add). */
+.icon-btn-primary .icon-btn-glyph {
+    background: var(--btn-color);
+    color: #0a0a0a; /* icon rides on dark ink against filled disc */
+    border-color: var(--btn-color);
+}
+
+.icon-btn-primary:hover:not(:disabled) .icon-btn-glyph {
+    filter: brightness(1.1);
+}
+
+/* ── Variants (color only — shape and sizing are shared) ───────────────── */
+.icon-btn-data     { --btn-color: rgb(0, 200, 120); }   /* green: add / overlay */
+.icon-btn-action   { --btn-color: rgb(0, 180, 255); }   /* cyan: execute */
+.icon-btn-warning  { --btn-color: rgb(255, 180, 0); }   /* amber: alerts, flags */
+.icon-btn-danger   { --btn-color: rgb(255, 80, 80); }   /* red: destructive */
+.icon-btn-neutral  { --btn-color: rgb(180, 180, 200); } /* slate: meta / help */
+.icon-btn-thought  { --btn-color: rgb(180, 100, 255); } /* violet: strategy / AI */
+
+/* Toolbar group containers: visually separate semantic clusters with an
+   inset vertical rule instead of the single pixel line used before.      */
+.toolbar-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 2px 10px;
+}
+
+.toolbar-group + .toolbar-group {
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}

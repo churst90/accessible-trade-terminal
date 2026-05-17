@@ -1,6 +1,37 @@
 # Accessible Trading Terminal — Keyboard Shortcuts
 
-All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Users can customise bindings via the Sound Designer or by editing the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json`.
+All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Users can customise bindings via the Sound Designer or by editing the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json` (MAUI heads) or `~/.local/share/AccessibleTrader/shortcuts.json` (Linux WebHost).
+
+## Host-specific note: WebHost remaps `Ctrl+Shift+letter` to `Alt+Shift+letter`
+
+Firefox (and most browsers) reserve several `Ctrl+Shift+letter` chords at the browser-chrome level — `Ctrl+Shift+T` reopens a closed tab, `Ctrl+Shift+H` opens history, `Ctrl+Shift+P` starts a private window, `Ctrl+Shift+J` opens the browser console, etc. — and they are NOT cancellable from page-level JavaScript even with `preventDefault`. So the Linux WebHost rewrites those bindings in-memory at startup: every `Ctrl+Shift+letter` chord becomes `Alt+Shift+letter` (Firefox does not reserve `Alt+Shift+*`). Same letter, same command, different modifier. Two-modifier chords with three modifiers (`Ctrl+Alt+Shift+N` etc.) are untouched.
+
+| Drawing tool | MAUI head (Win/Mac/iOS/Android) | Linux WebHost |
+| --- | --- | --- |
+| Trend line | `Ctrl+Shift+T` | `Alt+Shift+T` |
+| Horizontal line | `Ctrl+Shift+H` | `Alt+Shift+H` |
+| Vertical line | `Ctrl+Shift+V` | `Alt+Shift+V` |
+| Channel | `Ctrl+Shift+C` | `Alt+Shift+C` |
+| Fibonacci retracement | `Ctrl+Shift+F` | `Alt+Shift+F` |
+| Text label | `Ctrl+Shift+L` | `Alt+Shift+L` |
+| Fibonacci extension | `Ctrl+Shift+E` | `Alt+Shift+E` |
+| Andrews Pitchfork | `Ctrl+Shift+A` | `Alt+Shift+A` |
+| Rectangle | `Ctrl+Shift+R` | `Alt+Shift+R` |
+| Measure tool | `Ctrl+Shift+M` | `Alt+Shift+M` |
+| Gann fan | `Ctrl+Shift+G` | `Alt+Shift+G` |
+| Risk/reward | `Ctrl+Shift+P` | `Alt+Shift+P` |
+| Anchored VWAP | `Ctrl+Shift+W` | `Alt+Shift+W` |
+| Gann box | `Ctrl+Shift+B` | `Alt+Shift+B` |
+| Angle Fibonacci | `Ctrl+Shift+J` | `Alt+Shift+J` |
+| Detailed point summary | `Ctrl+Shift+D` | `Alt+Shift+D` |
+
+The remap is purely in-memory and never persisted to `shortcuts.json`, so the disk profile remains portable between hosts. The Help dialog (`F1`) reads the live in-memory profile, so each host self-documents its current bindings — you always see the right modifier on the host you're using.
+
+Other Firefox-reserved chords that are NOT remapped because they have no clean alternative or because in-app behaviour can be reached another way:
+
+- `Ctrl+T` (would be AddTab) — Firefox opens a new browser tab. Use the toolbar's tab `+` button instead.
+- `Ctrl+W` (would be CloseTab) — Firefox closes the browser tab. Use the tab's `×` button.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` (would be SwitchTabNext/Prev) — Firefox switches browser tabs. Use the toolbar.
 
 ---
 

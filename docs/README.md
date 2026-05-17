@@ -1,6 +1,13 @@
 # Accessible Trading Terminal
 
-A professional-grade trading and analytics platform built on **.NET 10 MAUI Blazor Hybrid**, specifically engineered for blind and visually impaired traders. It combines high-performance data processing with a "Hybrid Voice" architecture, merging real-time sonification (audio-mapped trends) with synchronized speech feedback via native screen reader integration.
+A professional-grade trading and analytics platform specifically engineered for blind and visually impaired traders. It combines high-performance data processing with a "Hybrid Voice" architecture, merging real-time sonification (audio-mapped trends) with synchronized speech feedback via native screen reader integration.
+
+The same Razor component library is hosted two ways:
+
+- **.NET 10 MAUI Blazor Hybrid** on Windows / macOS / iOS / Android. Native `SKCanvasView` chart overlay, platform-native audio (WASAPI / AudioTrack / AVAudioEngine), and platform-native screen reader integration.
+- **ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`)** on Linux and any browser-reachable target. Same `ChartRenderer` paints to an in-memory SKBitmap that's PNG-encoded and streamed to an `<img>` element; speech routes through Orca's D-Bus `PresentMessage` (respecting the user's voxin/SpeechDispatcher voice config), with `spd-say` and browser `SpeechSynthesis` as fallbacks. This is also the deploy target for the public-website chart demo.
+
+Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and the 26 provider/analytics plugins. Behaviour under MAUI is unchanged by the WebHost — the two host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`.
 
 ## Core Philosophy
 
@@ -19,11 +26,13 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 
 ## Rendering Stack
 
-`MainPage.xaml` hosts a Grid with two layers:
+**Under MAUI:** `MainPage.xaml` hosts a Grid with two layers:
 1. **`SKCanvasView` (layer 0, bottom):** SkiaSharp renders the chart natively. All chart drawing goes here.
 2. **`BlazorWebView` (layer 1, top, transparent):** Blazor UI chrome (toolbar, modals, status) overlays the canvas.
 
-**Important:** `UseSkiaSharp()` must be present in `MauiProgram.cs`. `SkiaSharp.Views.Blazor` is NOT used (removed — caused WebGL crash).
+`UseSkiaSharp()` must be present in `MauiProgram.cs`. `SkiaSharp.Views.Blazor` is NOT used in the MAUI head (and was found to be unusable under Blazor Server too — depends on WASM-only `System.Runtime.InteropServices.JavaScript`).
+
+**Under the WebHost (Linux + public website):** `ChartArea.razor` renders an inline `<img>` whose `src` is a base64-encoded PNG. The same `ChartRenderer.Render(SKCanvas, ...)` paints to an off-screen `SKBitmap`; PNG-encoded; pushed to the browser via SignalR. Throttled to ~10 fps via a Reactive subject so live ticks don't flood the circuit. Both rendering paths are guarded by `IRuntimePlatform.IsBrowserHost`, so MAUI keeps its native overlay and WebHost keeps its server-rendered surface — no cross-talk.
 
 ## Key Subsystems
 
@@ -225,23 +234,28 @@ Any component can declare `SubPaneName` / `SubPaneHeightRatio` in `IndicatorComp
 
 ### Platform Status
 
-| Platform | Chart | Audio | Keyboard | Trading |
-|---|---|---|---|---|
-| Windows | ✅ WASAPI | ✅ | ✅ JS bridge | ✅ All providers |
-| Android | ✅ | ✅ AudioTrack | ✅ DispatchKeyEvent | ✅ |
-| iOS | ✅ | ✅ AVAudioEngine | ⚠️ On-screen only | ✅ |
-| Mac Catalyst | ✅ | ✅ AVAudioEngine | ✅ KeyboardPageHandler | ✅ |
+| Platform | Host | Chart | Audio | Keyboard | Speech | Trading |
+|---|---|---|---|---|---|---|
+| Windows | MAUI | ✅ Native SkiaSharp | ✅ WASAPI | ✅ JS bridge | ✅ NVDA + ARIA | ✅ All providers |
+| Android | MAUI | ✅ | ✅ AudioTrack | ✅ DispatchKeyEvent | ✅ TalkBack | ✅ |
+| iOS | MAUI | ✅ | ✅ AVAudioEngine | ⚠️ On-screen only | ✅ VoiceOver | ✅ |
+| Mac Catalyst | MAUI | ✅ | ✅ AVAudioEngine | ✅ KeyboardPageHandler | ✅ VoiceOver | ✅ |
+| **Linux** | **WebHost** | **✅ Server PNG @ 10 fps** | **✅ pw-cat / pacat / aplay** | **✅ JS bridge (Ctrl+Shift+letter remapped to Alt+Shift+letter)** | **✅ Orca D-Bus** | **✅ same plugins** |
 
-See `TODO.md` for the full Phase 10 roadmap and `PLATFORMS.md` for platform-specific details.
+See `TODO.md` for the full Phase 10 + Linux WebHost L5–L7 roadmap and `PLATFORMS.md` for platform-specific details including the dual-host architecture.
 
 ## Development
 
-Built with **.NET 10 MAUI Blazor Hybrid**.
+Built with **.NET 10**. Two hosts share the same component library and core.
 
-- **Core:** `AccessibleTrader.Core` — Business logic, custom DSP engine, Orchestrators.
-- **UI:** `AccessibleTrader.BlazorClient` — MAUI host, Blazor WebView, SkiaSharp rendering (SKCanvasView).
+- **Core:** `AccessibleTrader.Core` — Business logic, custom DSP engine, Orchestrators. Platform-agnostic net10.0.
+- **RCL:** `AccessibleTrader.BlazorClient.Components` — All Razor components (toolbar, modals, ChartArea, MainLayout). Platform-agnostic net10.0; consumed by both hosts unchanged.
+- **MAUI host:** `AccessibleTrader.BlazorClient` — MAUI head for Windows / macOS / iOS / Android. Blazor WebView + native SkiaSharp `SKCanvasView` overlay.
+- **WebHost:** `AccessibleTrader.WebHost` — ASP.NET Core Blazor Server head for Linux + public-website demo. Kestrel + server-side PNG chart rendering + Orca D-Bus speech.
 - **SDK:** `AccessibleTrader.Sdk` — Plugin contracts and immutable performance models.
 - **Plugins:** `Plugins/` — 26 exchange, data, and analytics provider plugins (14 trading + 12 analytics).
 - **ScriptSandbox:** `AccessibleTrader.ScriptSandbox` — shared host/worker IPC contract (frame codec + opcodes + message DTOs).
 - **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators in a separate OS process.
-- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (383 tests, all passing).
+- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (1038 tests, all passing).
+
+To run on Linux: `dotnet run --project AccessibleTrader.WebHost`. To run the MAUI head: build on the appropriate platform (Windows/macOS for the MAUI workloads).

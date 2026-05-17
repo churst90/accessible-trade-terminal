@@ -1,0 +1,161 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    AccessibleTrader.WebHost — ASP.NET Core Blazor Server host for the
+    trading terminal. Provides a cross-platform desktop experience
+    (Linux / macOS / Windows) by serving the existing
+    AccessibleTrader.BlazorClient.Components RCL through Kestrel and
+    opening it in the user's default browser. The same project is also the
+    deployment target for the public chart demo on the marketing site
+    (gated by the demo-mode CLI switch in Program.cs).
+
+    Intentionally NOT a MAUI head. The Components RCL was extracted
+    precisely so that a non-MAUI host could reuse every Razor component
+    without modification (see the RCL csproj header comment, line 11).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AccessibleTrader.WebHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Internal helpers (PickPlayer / SelectBackend / FindOnPath / internal
+         ctor on WebHostSpeechManager) exposed to the test project so unit
+         tests can pin the backend-selection logic without spawning real
+         pw-cat / gdbus / spd-say processes. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
+    <!-- SkiaSharp native runtime. Core's Rendering/* uses SKPaint/SKCanvas; the
+         MAUI head gets the native .so transitively via SkiaSharp.Views.Maui.Controls,
+         but the WebHost has no MAUI dep so we need the per-OS native asset
+         packages directly. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessibleTrader.BlazorClient.Components\AccessibleTrader.BlazorClient.Components.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Providers (tradeable market data). Mirrors the MAUI head's csproj. -->
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Binance\AccessibleTrader.Plugins.Binance.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Finnhub\AccessibleTrader.Plugins.Finnhub.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Fmp\AccessibleTrader.Plugins.Fmp.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.InteractiveBrokers\AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Mexc\AccessibleTrader.Plugins.Mexc.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Oanda\AccessibleTrader.Plugins.Oanda.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Polygon\AccessibleTrader.Plugins.Polygon.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Schwab\AccessibleTrader.Plugins.Schwab.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Tradier\AccessibleTrader.Plugins.Tradier.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.TwelveData\AccessibleTrader.Plugins.TwelveData.csproj" />
+    <!-- Analytics (non-tradeable: on-chain, derivatives, sentiment, economic) -->
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceVision\AccessibleTrader.Plugins.BinanceVision.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Etherscan\AccessibleTrader.Plugins.Etherscan.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Fred\AccessibleTrader.Plugins.Fred.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Glassnode\AccessibleTrader.Plugins.Glassnode.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Mempool\AccessibleTrader.Plugins.Mempool.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
+  </ItemGroup>
+
+  <!--
+    Plugin trust manifest generation. Identical inline-task pattern to the MAUI
+    head's csproj — walks OutDir for AccessibleTrader.Plugins.*.dll, hashes
+    each with SHA-256, writes plugins_trusted.manifest alongside the host
+    binary so PluginTrustPolicy accepts them on first run.
+  -->
+  <UsingTask TaskName="HashPluginDlls"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <PluginsDir ParameterType="System.String" Required="true" />
+      <ManifestPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        if (!Directory.Exists(PluginsDir))
+        {
+            Log.LogMessage(MessageImportance.Normal, $"Plugins dir {PluginsDir} not found — skipping manifest generation.");
+            return true;
+        }
+
+        var dlls = Directory
+            .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
+            .Select(p => new { Path = p, Name = Path.GetFileName(p) })
+            .GroupBy(x => x.Name)
+            .Select(g => g.First())
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (dlls.Count == 0)
+        {
+            Log.LogMessage(MessageImportance.Normal, $"No AccessibleTrader.Plugins.*.dll found under {PluginsDir} — skipping manifest generation.");
+            return true;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# AccessibleTrader plugin trust manifest");
+        sb.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
+        sb.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
+        sb.AppendLine("# Generated automatically by the WebHost build target.");
+        sb.AppendLine();
+
+        using (var sha = SHA256.Create())
+        {
+            foreach (var dll in dlls)
+            {
+                byte[] hash;
+                using (var fs = File.OpenRead(dll.Path))
+                    hash = sha.ComputeHash(fs);
+                var hex = BitConverter.ToString(hash).Replace("-", "");
+                sb.Append(hex).Append("  # ").AppendLine(dll.Name);
+            }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(ManifestPath));
+        File.WriteAllText(ManifestPath, sb.ToString());
+        Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {ManifestPath}");
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="GeneratePluginTrustManifest"
+          AfterTargets="Build"
+          Condition=" '$(OutDir)' != '' ">
+    <HashPluginDlls
+      PluginsDir="$(OutDir)"
+      ManifestPath="$(OutDir)plugins_trusted.manifest" />
+  </Target>
+
+</Project>

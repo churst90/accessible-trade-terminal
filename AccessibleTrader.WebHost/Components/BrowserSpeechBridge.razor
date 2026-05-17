@@ -1,0 +1,37 @@
+@*
+    Listens for BrowserSpeakRequest events and routes them to the browser's
+    window.speechSynthesis API via JS interop. Renders no DOM — purely a
+    Blazor-driven event-to-JS bridge. Placed once at the App.razor root so
+    it lives for the full circuit lifetime.
+*@
+@using System.Reactive.Linq
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.WebHost.Services
+@inject IEventBus EventBus
+@inject IJSRuntime JS
+@implements IDisposable
+
+@code {
+    private IDisposable? _sub;
+
+    protected override void OnInitialized()
+    {
+        _sub = EventBus.AsObservable<BrowserSpeakRequest>()
+            .Subscribe(req => _ = SpeakAsync(req));
+    }
+
+    private async Task SpeakAsync(BrowserSpeakRequest req)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("accessibleTrader.speak", req.Text, req.Interrupt);
+        }
+        catch
+        {
+            // Circuit may be closing or the JS function may not have loaded
+            // yet on first render — silently drop.
+        }
+    }
+
+    public void Dispose() => _sub?.Dispose();
+}

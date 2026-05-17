@@ -1,0 +1,17 @@
+@*
+    Mirror of the RCL's own Routes.razor, but pinned to the RCL assembly so
+    the Router discovers every @page directive in
+    AccessibleTrader.BlazorClient.Components (Pages/Home.razor today; any
+    future routable components dropped into the RCL get picked up here for
+    free).
+*@
+<Router AppAssembly="typeof(AccessibleTrader.BlazorClient.Components.Routes).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(AccessibleTrader.BlazorClient.Components.Layout.MainLayout)" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(AccessibleTrader.BlazorClient.Components.Layout.MainLayout)">
+            <p role="alert">Page not found.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

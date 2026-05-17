@@ -62,19 +62,46 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 
 ## 6. Platform Compatibility Matrix
 
-| Feature | Windows | Android | macOS | iOS |
-| :--- | :---: | :---: | :---: | :---: |
-| **Chart Rendering** | ✅ | ✅ | ✅ | ✅ |
-| **Chart Sonification** | ✅ | ✅ | ✅ | ✅ |
-| **Speech / Screen Reader** | ✅ | ✅ | ✅ | ✅ |
-| **Market Data** | ✅ | ✅ | ✅ | ✅ |
-| **Keyboard Navigation** | ✅ | ✅ | ✅ | ✅ |
-| **Audio Output** | ✅ (WASAPI) | ✅ (`AudioTrack`) | ✅ (`AVAudioEngine`) | ✅ (`AVAudioEngine`) |
-| **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) |
-| **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) |
-| **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ |
+| Feature | Windows | Android | macOS | iOS | Linux (WebHost) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Host shell** | MAUI Blazor Hybrid | MAUI Blazor Hybrid | MAUI Blazor Hybrid | MAUI Blazor Hybrid | ASP.NET Core Blazor Server (browser) |
+| **Chart Rendering** | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Server-side Skia → base64 PNG → `<img>` (~10 fps throttled) |
+| **Chart Sonification** | ✅ | ✅ | ✅ | ✅ | ✅ Same `AudioEngine` → pw-cat / pacat / aplay |
+| **Speech / Screen Reader** | ✅ NVDA/Narrator + ARIA | ✅ TalkBack via ARIA | ✅ VoiceOver via ARIA | ✅ VoiceOver via ARIA | ✅ Orca via D-Bus `PresentMessage` → respects voxin / SpeechDispatcher voice |
+| **Market Data** | ✅ | ✅ | ✅ | ✅ | ✅ (same plugins) |
+| **Keyboard Navigation** | ✅ | ✅ | ✅ | ✅ | ✅ Same JS bridge; `Ctrl+Shift+letter` drawing chords remapped to `Alt+Shift+letter` (Firefox reserves the originals) |
+| **Mouse / Drawing-tool placement** | ✅ Native pointer events | n/a | ✅ Native pointer events | n/a | ✅ JS `registerMouseHandler` on `chart-interact-zone` → `(x, y, w, h)` → anchor placement (L4-B pinned by tests) |
+| **Audio Output** | ✅ (WASAPI) | ✅ (`AudioTrack`) | ✅ (`AVAudioEngine`) | ✅ (`AVAudioEngine`) | ✅ pw-cat (PipeWire) → pacat (PulseAudio) → aplay (ALSA), picked by file-existence probe at startup |
+| **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) | 🏗️ Process-isolation only (L5 — `bwrap` planned) |
+| **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) | ✅ (ASP.NET Core DataProtection, encrypted-at-rest in `{XDG_DATA_HOME}/AccessibleTrader/secrets/`) |
+| **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ | ❌ (vendor Linux SDK is text-only / 20-cell — see §7) |
 
 *(✅ = Fully Supported, 🏗️ = In Development / Stubbed, ⏸ = Intentionally Deferred, ❌ = Not Yet Implemented)*
+
+### 6.1 The Linux WebHost path
+
+`AccessibleTrader.WebHost` is an ASP.NET Core Blazor Server project (net10.0)
+that serves the existing `AccessibleTrader.BlazorClient.Components` RCL
+without going through MAUI. MAUI has no Linux head, so Linux is the
+WebHost's primary target; the same project is also the deploy target for
+the public-website chart demo (any OS that runs a modern browser can be
+the client).
+
+Two RCL changes were required, both gated on
+`IRuntimePlatform.IsBrowserHost`:
+
+- `IRuntimePlatform` gained a default-implementation `bool IsBrowserHost
+  => false;`. MAUI's `MauiRuntimePlatform` inherits the default and gets
+  `false` automatically — no source edit needed in the MAUI head.
+  `WebHostRuntimePlatform` overrides to `true`.
+- `ChartArea.razor` renders an inline `<img>` chart surface only when
+  `IsBrowserHost` is true; the MAUI path keeps using its native
+  `SKCanvasView` overlay declared in `MainPage.xaml`.
+
+Behaviour under MAUI is bit-for-bit unchanged. The WebHost runs locally
+(`dotnet run --project AccessibleTrader.WebHost`, opens
+`http://localhost:5145` in the user's default browser via `xdg-open` /
+`open` / `start`) and never requires a MAUI workload to be installed.
 
 ## 7. Tactile Display Support
 
@@ -85,6 +112,7 @@ One refreshable tactile graphics display is officially supported:
 | **Dot Pad 2nd-gen** (30 × 10 graphic cells + 20-cell strip) | ✅ Tested | Primary target. Connection via USB-Serial; SDK uses `DOT_PAD_CONNECT_SERIAL`. |
 | **Dot Pad X** (same SDK family) | ⚠️ Untested but expected to work | Uses the same DotPadSDK-3.0.0 native ABI, so the driver should bind without code changes. Verified driver code-path, but no on-device confirmation yet. |
 | APH Monarch | ❌ Not implemented | Requires a different SDK (Dot Inc proprietary, vendor-restricted). |
+| **Linux (any device)** | ❌ Vendor SDK gap | Verified 2026-05-16 against `dotincorp/dotpad-sdk-guide` and `dotincorp/dotpad-sample-code`: the official Linux SDK is **v1.0.0**, ships only a text-strip API (`displayTextData` / `setBrailleLanguage`), supports 20-cell devices only, and exposes **no graphic display API at all**. Sample app confirms `/dev/ttyUSB0` text-only. Per the all-or-nothing tactile rule, Linux uses `NullDotPadNative` until Dot Inc publishes a Linux 3.0.0 SDK with graphic parity. Track upstream at the dotincorp repos. |
 
 ### Wiring summary
 

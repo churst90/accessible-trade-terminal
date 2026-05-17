@@ -17,11 +17,19 @@
 @inject ICanvasRegionProvider CanvasRegion
 @inject IJSRuntime JS
 @inject GlobalInputService GlobalInput
+@inject IRuntimePlatform RuntimePlatform
+@inject ChartRenderer Renderer
 @implements IDisposable
 
-@* Transparent accessibility overlay that sits above the native SkiaSharp canvas.
-   Handles keyboard focus, ARIA role, and chart-focus events. The actual chart
-   pixels are drawn by MainPage.xaml.cs → ChartRenderer on the native SKCanvasView. *@
+@* Under MAUI this div is a transparent accessibility overlay sitting above the
+   native SkiaSharp canvas declared in MainPage.xaml. The chart pixels are drawn
+   by MainPage.xaml.cs → ChartRenderer on the native SKCanvasView.
+
+   Under the WebHost (IRuntimePlatform.IsBrowserHost == true) there is no native
+   overlay — instead a Blazor SKCanvasView is rendered as the first child of this
+   div (z-index 0, pointer-events: none) and the same ChartRenderer paints into
+   it via OnPaintSurface. The pane dividers, blackout overlay, and ARIA wiring
+   stack on top exactly as before. *@
 <div role="application"
      aria-label="@GetChartLabel()"
      tabindex="0"
@@ -33,6 +41,22 @@
      @onkeydown="OnKeyDown"
      @onmousemove="OnMouseMove"
      @onmouseup="OnMouseUp">
+
+    @if (RuntimePlatform.IsBrowserHost)
+    {
+        @* Browser-side chart surface. Skia renders to an off-screen SKBitmap on
+           the server; the PNG bytes are base64-embedded into this <img>. We can't
+           use SkiaSharp.Views.Blazor because it depends on the WASM-only
+           System.Runtime.InteropServices.JavaScript and crashes the circuit under
+           Blazor Server. pointer-events: none is permanent (not toggled on
+           IDrawingInteractionManager.IsDrawing): the <img> is a child of the
+           chart-interact-zone div, so mouse events naturally fall through to the
+           parent where keyboard.js's registerMouseHandler is bound. *@
+        <img src="@(_chartImageDataUrl ?? BlankBlackPixel)"
+             alt=""
+             aria-hidden="true"
+             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; object-fit: fill;" />
+    }
 
     @* Pane divider drag handles — positioned by IPaneLayoutService fractions.
        Hidden from screen readers; keyboard users use Alt+Up/Down instead. *@
@@ -117,6 +141,18 @@
 
     private DotNetObjectReference<ChartArea>? _jsRef;
 
+    // Browser-only chart surface state (WebHost). Holds the latest base64 PNG
+    // rendered by RenderChartImageAsync. The MAUI path never sets this.
+    private string? _chartImageDataUrl;
+    private readonly System.Reactive.Subjects.Subject<System.Reactive.Unit> _renderTrigger = new();
+    private const int BrowserRenderWidth = 1280;
+    private const int BrowserRenderHeight = 720;
+
+    // 1×1 black PNG. Shown until the first real render lands so the chart
+    // area never flashes white before data arrives.
+    private const string BlankBlackPixel =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=";
+
     [JSInvokable]
     public void OnCanvasRegionChanged(double topDip, double bottomDip)
     {
@@ -157,6 +193,30 @@
                 InvokeAsync(StateHasChanged);
             });
         _subs.Add(storeSub);
+
+        // 2b. Browser-only chart re-render. Under MAUI the native canvas is
+        // repainted by MainPage subscribing to the same streams; here we
+        // funnel state/redraw/theme triggers through a 100 ms throttle and
+        // re-encode the chart to PNG. Skipped entirely under MAUI.
+        if (RuntimePlatform.IsBrowserHost)
+        {
+            var renderSub = _renderTrigger
+                .Throttle(TimeSpan.FromMilliseconds(100))
+                .Subscribe(_ => InvokeAsync(RenderChartImageAsync));
+            _subs.Add(renderSub);
+
+            var canvasStoreSub = Store.StateStream.Subscribe(_ =>
+                _renderTrigger.OnNext(System.Reactive.Unit.Default));
+            _subs.Add(canvasStoreSub);
+
+            var redrawSub = EventBus.AsObservable<RedrawEvent>()
+                .Subscribe(_ => _renderTrigger.OnNext(System.Reactive.Unit.Default));
+            _subs.Add(redrawSub);
+
+            // First-paint kick so the chart area isn't a black hole before
+            // the first state mutation lands.
+            _renderTrigger.OnNext(System.Reactive.Unit.Default);
+        }
 
         // 3. Listen to Theme changes for the blackout overlay
         ThemeService.ThemeChanged += OnThemeChanged;
@@ -306,6 +366,68 @@
     private void OnThemeChanged(object? sender, AccessibleTrader.Sdk.Theming.ChartTheme theme)
     {
         InvokeAsync(StateHasChanged);
+        if (RuntimePlatform.IsBrowserHost)
+        {
+            _renderTrigger.OnNext(System.Reactive.Unit.Default);
+        }
+    }
+
+    // ── Browser chart rendering (WebHost only) ──────────────────────────────
+
+    /// <summary>
+    /// Render the current chart state to an off-screen SKBitmap, encode as
+    /// PNG, and push the base64 data URL to the bound &lt;img&gt; element.
+    /// Mirrors MAUI's <c>MainPage.OnCanvasPaint</c> pixel-for-pixel — same
+    /// ChartRenderer, same parameters — so both surfaces draw identically.
+    /// </summary>
+    private async Task RenderChartImageAsync()
+    {
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0)
+        {
+            if (_chartImageDataUrl is not null)
+            {
+                _chartImageDataUrl = null;
+                StateHasChanged();
+            }
+            return;
+        }
+
+        // Render + encode off the renderer's caller thread so the SignalR
+        // hub thread isn't pinned for the full ~5-20 ms cost.
+        string dataUrl = await Task.Run(() =>
+        {
+            var info = new SKImageInfo(BrowserRenderWidth, BrowserRenderHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.Black);
+
+            Renderer.Render(
+                canvas,
+                BrowserRenderWidth,
+                BrowserRenderHeight,
+                state.Data,
+                state.ActiveSeries,
+                state.CurrentDataIndex,
+                state.ViewportStartIndex,
+                state.ViewportLength,
+                state.ViewportRange,
+                state.PaneRanges,
+                state.IsHeikinAshi,
+                state.IsLogScale,
+                density: 1.0f,
+                state.PaneHeightRatios,
+                state.IndicatorPaneScrollIndex,
+                state.RightMarginBars);
+
+            canvas.Flush();
+            using var image = surface.Snapshot();
+            using var pngData = image.Encode(SKEncodedImageFormat.Png, 90);
+            return "data:image/png;base64," + Convert.ToBase64String(pngData.ToArray());
+        }).ConfigureAwait(false);
+
+        _chartImageDataUrl = dataUrl;
+        StateHasChanged();
     }
 
     public void Dispose()

@@ -1,0 +1,40 @@
+@*
+    Top-level Blazor Web App document. The Router lives in Routes.razor;
+    everything in <head> and the framework script live here so the SSR'd
+    response is a complete HTML page.
+
+    The RCL ships scoped component CSS as a bundle at
+    _content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css
+    when the RCL is referenced as a ProjectReference. Without that link,
+    component-scoped styles (anything in a *.razor.css) won't apply.
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="_content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css" />
+    <link rel="stylesheet" href="AccessibleTrader.WebHost.styles.css" />
+    <link rel="icon" href="data:,">
+    <HeadOutlet @rendermode="RenderMode.InteractiveServer" />
+</head>
+<body>
+    <BrowserSpeechBridge @rendermode="RenderMode.InteractiveServer" />
+    <AppRoutes @rendermode="RenderMode.InteractiveServer" />
+
+    <div id="blazor-error-ui" role="alert" aria-live="assertive" data-nosnippet>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss" role="button" tabindex="0" aria-label="Dismiss error">&#x2715;</span>
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="js/keyboard.js"></script>
+    <script src="js/canvasRegion.js"></script>
+    <script src="js/treeKeyboard.js"></script>
+    <script src="js/webSpeech.js"></script>
+</body>
+</html>
