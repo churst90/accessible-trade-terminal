@@ -86,7 +86,15 @@ public static class AssetProfileCommand
             Console.Write($"  · {snapshot.Symbol,-10} {bars.Count,5} bars  building indicators… ");
             var host = LabHost.Build();
             WorkspaceState state;
-            try { state = await WorkspaceFactory.BuildAsync(host.Services, snapshot); }
+            // Always profile with look-ahead-honest divergence markers — a research
+            // tool that reports DEPLOYABLE edge must never read a divergence at its
+            // pivot bar (only confirmable pivotBars later). See CipherBProvider
+            // DivergenceConfirmLag + the 2026-06-12 look-ahead audit.
+            var honest = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CIPHER_B"] = new Dictionary<string, object> { ["DivergenceConfirmLag"] = 1.0 }
+            };
+            try { state = await WorkspaceFactory.BuildAsync(host.Services, snapshot, parameterOverrides: honest); }
             catch (Exception ex) { Console.WriteLine($"FAILED ({ex.Message})"); continue; }
             var factory = host.Services.GetRequiredService<IConfigurableStrategyFactory>();
             var backtester = host.Services.GetRequiredService<IStrategyBacktester>();

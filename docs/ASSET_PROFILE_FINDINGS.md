@@ -147,10 +147,59 @@ What changed vs the 1d table, honestly:
   divergence-long is real; one TAO short is intriguing; the rest is small. The edge lives in
   *which signal on which asset*, not in a volatility meta-rule.
 
+## Round 12c — CRITICAL: divergence look-ahead bias found, and the corrected table
+
+While validating "is ETH divergence-long deployable," the divergence signal was found to have
+**look-ahead bias**. `CipherBProvider` confirms a WaveTrend pivot at bar `p` by inspecting
+`wt1[p+1 … p+pivotBars]` (the right shoulder), but stamps the divergence marker **at the pivot
+bar `p`**. `ConditionEvaluator` reads the marker at the current bar with no offset, so a backtest
+enters at bar `p` on a signal that cannot physically exist until `p+pivotBars` (3 bars on 1d,
+2 on 4h) — i.e. it buys the exact pivot low with hindsight. This inflated **every divergence-based
+result** in the suite (v15, v23's divergence leg, rounds 11–12's "divergence champion").
+
+Fix: added an opt-in `CIPHER_B.DivergenceConfirmLag` parameter that shifts the strategy-consumable
+markers forward to the confirmation bar (`p+pivotBars`) so a backtest matches what is live-actionable.
+Default OFF preserves the chart dot on the pivot (matches real Market Cipher B); the lab profiler
+now forces it ON because a research tool must report deployable edge.
+
+**Corrected honest table (1d, look-ahead removed):**
+```
+Asset     ratio    L:v23      L:div      ...      Δ L:div vs look-ahead
+SOL/USDT   0.76  +0.67/100% +0.15/50%            +0.75 → +0.15  (CRUSHED — was mostly look-ahead)
+ETH/USDT   0.63  +0.26/86%  +0.13/43%            +0.37 → +0.13  (halved)
+LTC/USDT   0.72  +0.10/67%  +0.48/83%            +0.61 → +0.48  (survives — lone strong div-long)
+BCH/USDT   0.67  +0.54/100%   —                  L:v23 unaffected
+BTC/USDT   0.51  +0.26/79%  +0.14/64%            v23 robust
+L:div mean: +0.37R (3 strong) → +0.23R (1 strong).   L:v23 mean: +0.19R UNCHANGED (4 strong).
+```
+4h honest: L:div mean +0.17R → +0.08R; ETH 4h L:div survives best at +0.40R/100% (lag only 2 bars).
+
+**What this reverses:** "divergence is the per-trade-R champion" (rounds 11–12) was largely a
+look-ahead artifact. Once corrected, **`L:v23` — the simple OR-trigger (WT-cross OR blue OR div)
++ Anchor gate — is the genuine robust universal long**: completely unaffected by the fix (it leans
+on the *clean* WT-cross/blue legs), +0.19R across all 10 assets, 4 strong (SOL +0.67/100%,
+BCH +0.54/100%, BTC +0.26/79%, ETH +0.26/86%). Divergence retains *some* honest edge on LTC 1d
+(+0.48/83%) and ETH 4h (+0.40/100%) but is no longer special.
+
+## Bottom line (final, after the look-ahead correction)
+
+- **The deploy candidate is `L:v23` long** (OR-trigger + Anchor<0) on the strong-long assets:
+  SOL, BCH, BTC, ETH. It is clean, robust, and universal. This is the session's real result.
+- **Divergence is NOT the champion** — that was look-ahead. It keeps marginal honest edge only on
+  LTC 1d and ETH 4h. Any existing divergence-based seed must be re-validated with
+  `DivergenceConfirmLag` ON; its current library numbers are inflated.
+- **Required follow-up (correctness, not research):** the LIVE strategy path should default
+  divergence consumption to the confirmation-lagged markers, or live will diverge from every
+  backtest. Tracked as the next code task.
+- **Negatives, all firm:** blue-dot-alone ~0 (5× confirmed), Hurst useless as a classifier
+  (0.57–0.60 across 17 asset-tf combos), shorts no general edge (lone TAO `S:red` +0.76R/100%/4h,
+  N=1 narrative token), and every volatility *router* (gate / percentile / maturation) failed to
+  beat the simple cells across rounds 10–12.
+
 ## Next
 
 - Add stocks once the Alpaca key is available — the real generality test (different drift/vol
   structure). `StrategyLab snapshot --provider alpaca --symbol SPY --tf 1d --key … --secret …`.
-- Promote ETH divergence-long (4h + 1d) as a seed; paper-trade in Suggestion mode.
-- Investigate the TAO short on more young high-vol narrative tokens before trusting it.
+- Make the live strategy engine consume divergence with `DivergenceConfirmLag` ON (correctness).
+- Promote `L:v23` long on SOL/BCH/BTC/ETH as asset-scoped seeds; paper-trade in Suggestion mode.
 - Stop building volatility *routers*; the evidence says they don't beat the simple cells.

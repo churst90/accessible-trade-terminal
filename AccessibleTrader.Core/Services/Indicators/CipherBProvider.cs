@@ -1014,6 +1014,29 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompBlue,           blueSignal,      n);
             WriteToBuffer(buffer, CompRed,            redSignal,       n);
             WriteToBuffer(buffer, CompGold,           goldSignal,      n);
+            // ── Look-ahead honesty: divergence confirmation lag ──────────────────
+            // A pivot at bar p is only CONFIRMED after seeing wt1[p+1..p+pivotBars]
+            // (the right-shoulder check in the pivot loop above). But the marker is
+            // stamped at p. A strategy that reads the marker at bar p is therefore
+            // trading on information that does not exist until p+pivotBars — entering
+            // at the exact pivot low with hindsight. That look-ahead inflates every
+            // divergence-based backtest (audit 2026-06-12).
+            //
+            // When DivergenceConfirmLag is enabled, the strategy-consumable markers
+            // are shifted forward to the confirmation bar (p+pivotBars) so a backtest
+            // matches what is live-actionable. Default OFF preserves the chart visual
+            // (the dot stays on the pivot, matching real Market Cipher B) and existing
+            // numbers; strategies/research opt in. The display companion arrays
+            // (_anchorIdx/_anchorY) are NOT shifted — they only drive the drawn line.
+            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", false);
+            if (confirmLag && pivotBars > 0)
+            {
+                bullDiv = ShiftMarkersForward(bullDiv, pivotBars, n);
+                bearDiv = ShiftMarkersForward(bearDiv, pivotBars, n);
+                hidBull = ShiftMarkersForward(hidBull, pivotBars, n);
+                hidBear = ShiftMarkersForward(hidBear, pivotBars, n);
+            }
+
             WriteToBuffer(buffer, CompBullDiv,        bullDiv,         n);
             WriteToBuffer(buffer, CompBearDiv,        bearDiv,         n);
             WriteToBuffer(buffer, CompHidBull,        hidBull,         n);
@@ -1227,5 +1250,25 @@ namespace AccessibleTrader.Core.Services.Indicators
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
         private static string GetStr(Dictionary<string, object> p, string k, string def) => p.TryGetValue(k, out var v) && v is string s ? s : def;
         private static bool   GetBool(Dictionary<string, object> p, string k, bool   def) => p.TryGetValue(k, out var v) ? Convert.ToBoolean(v) : def;
+
+        /// <summary>
+        /// Returns a copy of a sparse marker array with every non-NaN value moved
+        /// forward by <paramref name="lag"/> bars (pivot bar → confirmation bar).
+        /// Markers whose confirmation bar falls past the end of the data are dropped
+        /// (they could not have been acted on in-sample). Used by the
+        /// DivergenceConfirmLag look-ahead-honesty option.
+        /// </summary>
+        private static double[] ShiftMarkersForward(double[] src, int lag, int n)
+        {
+            var dst = new double[n];
+            Array.Fill(dst, double.NaN);
+            for (int i = 0; i < n; i++)
+            {
+                if (double.IsNaN(src[i])) continue;
+                int j = i + lag;
+                if (j < n) dst[j] = src[i];
+            }
+            return dst;
+        }
     }
 }
