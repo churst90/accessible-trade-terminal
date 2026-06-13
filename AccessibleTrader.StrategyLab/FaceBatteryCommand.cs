@@ -1217,6 +1217,84 @@ public static class FaceBatteryCommand
                 Lt("c-v23rssrr-sma", "REGIME.AboveSma200", 0),
                 Fired("c-v23rssrr-sr", "CIPHER_SR.Resistance", withinBars: 5))));
 
+        // ── v24 — VOL_REGIME gate cells (round 10, 2026-06-12) ────────────────────
+        // Era-robustness hypothesis: the v2-v23 universal decay pattern (every cell
+        // worse in recent windows) is partly CALIBRATION decay, not signal death —
+        // reversal entries still work when volatility is elevated relative to the
+        // asset's own era baseline, and the dead trades are the low-relative-vol
+        // ones that barely existed in early-BTC conditions. VOL_REGIME.VolRatio
+        // (30/365-bar realized-vol ratio) is stationary across eras by construction.
+        // Combo evidence (BTC 1d halves): WT Cross Bull + Ratio>1.0 left H1 alone
+        // and lifted H2 +0.046→+0.241 R/tr. ETH halves did not replicate at 0.9 —
+        // rolling windows are the referee.
+        //
+        // ROUND-10 VERDICT (same day): FALSIFIED as a hard gate. BTC 1d: v24
+        // (ratio>0.9) doubled per-trade R (+0.248→+0.445) but cut n 27→6/window,
+        // zero CI-pass; the falsification cell (compression) was mediocre as
+        // predicted. ETH 1d: the FALSIFICATION cell won (100% pos, +0.543R,
+        // HIGH-CONV) while elevated-vol did nothing — the exact mirror of BTC.
+        // Opposite-sign "best gates" per asset on 6-15 windows = fitted noise,
+        // not signal. v23 base stayed the top cell on BOTH assets. Conclusion
+        // matches the suite's standing lesson: filter restraint beats stacked
+        // confluence; a binary vol gate destroys more (trade count → CI power)
+        // than its conditioning gains. Cells retained as the documented negative
+        // result. Next angle: era-adaptation INSIDE the trigger (Cipher B
+        // ThresholdMode=Percentile) which moves entries instead of discarding
+        // them, and vol-target SIZING which needs no gate at all.
+
+        // v24 LONG — the headline candidate: v23 trigger + Anchor gate + elevated vol.
+        cells.Add(("v24 LONG: trigger + Anchor<0 + VolRatio>0.9",
+            OrderSide.Buy,
+            Group("c-v24l", LogicOperator.And,
+                V23BullTrigger("c-v24l"),
+                Lt("c-v24l-anc", "CIPHER_B.Anchor Wave", 0),
+                Gt("c-v24l-vr", "VOL_REGIME.VolRatio", 0.9))));
+
+        // Stricter variant — washout-quality entries only.
+        cells.Add(("v24s LONG: trigger + Anchor<0 + VolRatio>1.1",
+            OrderSide.Buy,
+            Group("c-v24sl", LogicOperator.And,
+                V23BullTrigger("c-v24sl"),
+                Lt("c-v24sl-anc", "CIPHER_B.Anchor Wave", 0),
+                Gt("c-v24sl-vr", "VOL_REGIME.VolRatio", 1.1))));
+
+        // Vol gate WITHOUT the Anchor gate — isolates whether the vol gate carries
+        // edge on its own or only composes with the oscillator regime.
+        cells.Add(("v24x LONG: trigger + VolRatio>0.9 (no Anchor)",
+            OrderSide.Buy,
+            Group("c-v24xl", LogicOperator.And,
+                V23BullTrigger("c-v24xl"),
+                Gt("c-v24xl-vr", "VOL_REGIME.VolRatio", 0.9))));
+
+        // Percentile-rank form — even more era-stationary than the ratio (pure rank
+        // within the trailing distribution; no threshold units at all).
+        cells.Add(("v24p LONG: trigger + Anchor<0 + VolPctile>0.5",
+            OrderSide.Buy,
+            Group("c-v24pl", LogicOperator.And,
+                V23BullTrigger("c-v24pl"),
+                Lt("c-v24pl-anc", "CIPHER_B.Anchor Wave", 0),
+                Gt("c-v24pl-pct", "VOL_REGIME.VolPercentile", 0.5))));
+
+        // Short-side mirror — shorts have never survived without the bear+funding
+        // gate, so this is exploratory rather than expected to pass.
+        cells.Add(("v24 SHORT: trigger + Anchor>0 + VolRatio>1.0",
+            OrderSide.Sell,
+            Group("c-v24sh", LogicOperator.And,
+                V23BearTrigger("c-v24sh"),
+                Gt("c-v24sh-anc", "CIPHER_B.Anchor Wave", 0),
+                Gt("c-v24sh-vr", "VOL_REGIME.VolRatio", 1.0))));
+
+        // FALSIFICATION cell — compression-gated reversals. The combo run said this
+        // destroys the edge (H1 +0.450→-0.449 on the blue dot). If face-rolling
+        // disagrees and this cell ranks well, the elevated-vol interpretation above
+        // is wrong and the v24 family should not be promoted.
+        cells.Add(("v24c LONG (falsif.): trigger + Anchor<0 + VolState<0",
+            OrderSide.Buy,
+            Group("c-v24cl", LogicOperator.And,
+                V23BullTrigger("c-v24cl"),
+                Lt("c-v24cl-anc", "CIPHER_B.Anchor Wave", 0),
+                Lt("c-v24cl-vs", "VOL_REGIME.VolState", 0))));
+
         return cells;
     }
 
