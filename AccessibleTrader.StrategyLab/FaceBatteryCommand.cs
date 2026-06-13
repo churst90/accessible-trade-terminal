@@ -1385,6 +1385,61 @@ public static class FaceBatteryCommand
                 Fired("c-v26df-div", "CIPHER_B.Bullish Divergence", withinBars: 5),
                 Gt("c-v26df-sma", "REGIME.AboveSma200", 0))));
 
+        // ── v27 — CONFLUENCE LADDER (round 13, 2026-06-12, post look-ahead fix) ───
+        // Tests the user's core buy thesis directly and measures the MARGINAL value of
+        // each confluence layer on signal quality (per-trade R) vs frequency:
+        //   "buy when a cycle indicator is at the bottom AND a Cipher B buy fires AND
+        //    we're at Cipher SR support."
+        // Plus the open question: does SENTIMENT (Fear&Greed, funding) add anything?
+        // All run with honest divergence (DivergenceConfirmLag default ON). The v23
+        // base cell above is the control; these layer onto the same trigger + Anchor.
+        ConditionGroup CipherCBottom(string id) => Group(id, LogicOperator.Or,
+            Fired($"{id}-s", "CIPHER_C.Bottom Single", withinBars: 5),
+            Fired($"{id}-d", "CIPHER_C.Bottom Double", withinBars: 5),
+            Fired($"{id}-t", "CIPHER_C.Bottom Triple", withinBars: 5));
+
+        // v27 +SR — price-structure layer alone (Cipher B buy at support).
+        cells.Add(("v27 +SR LONG: v23 + SR.Support within 5",
+            OrderSide.Buy,
+            Group("c-v27sr", LogicOperator.And,
+                V23BullTrigger("c-v27sr"),
+                Lt("c-v27sr-anc", "CIPHER_B.Anchor Wave", 0),
+                Fired("c-v27sr-sup", "CIPHER_SR.Support", withinBars: 5))));
+
+        // v27 FULL — THE THESIS: Cipher B buy + cycle bottom + at support.
+        cells.Add(("v27 FULL LONG: v23 + CipherC.Bottom + SR.Support",
+            OrderSide.Buy,
+            Group("c-v27full", LogicOperator.And,
+                V23BullTrigger("c-v27full"),
+                Lt("c-v27full-anc", "CIPHER_B.Anchor Wave", 0),
+                CipherCBottom("c-v27full-cb"),
+                Fired("c-v27full-sup", "CIPHER_SR.Support", withinBars: 7))));
+
+        // Sentiment layers (the open question).
+        cells.Add(("v27 +FEAR LONG: v23 + FearGreed.Sentiment<30",
+            OrderSide.Buy,
+            Group("c-v27fg", LogicOperator.And,
+                V23BullTrigger("c-v27fg"),
+                Lt("c-v27fg-anc", "CIPHER_B.Anchor Wave", 0),
+                Lt("c-v27fg-s", "FEAR_GREED.Sentiment", 30.0))));
+
+        cells.Add(("v27 +NEGFUND LONG: v23 + Funding<0",
+            OrderSide.Buy,
+            Group("c-v27nf", LogicOperator.And,
+                V23BullTrigger("c-v27nf"),
+                Lt("c-v27nf-anc", "CIPHER_B.Anchor Wave", 0),
+                Lt("c-v27nf-f", "BNVISION_FUNDING.Funding", 0.0))));
+
+        // v27 FULL+FEAR — does sentiment ADD to the price confluence, or just thin it?
+        cells.Add(("v27 FULL+FEAR LONG: v23 + CipherC + SR + Sentiment<40",
+            OrderSide.Buy,
+            Group("c-v27ff", LogicOperator.And,
+                V23BullTrigger("c-v27ff"),
+                Lt("c-v27ff-anc", "CIPHER_B.Anchor Wave", 0),
+                CipherCBottom("c-v27ff-cb"),
+                Fired("c-v27ff-sup", "CIPHER_SR.Support", withinBars: 7),
+                Lt("c-v27ff-s", "FEAR_GREED.Sentiment", 40.0))));
+
         return cells;
     }
 
