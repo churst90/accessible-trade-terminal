@@ -1022,19 +1022,33 @@ namespace AccessibleTrader.Core.Services.Indicators
             // at the exact pivot low with hindsight. That look-ahead inflates every
             // divergence-based backtest (audit 2026-06-12).
             //
-            // When DivergenceConfirmLag is enabled, the strategy-consumable markers
-            // are shifted forward to the confirmation bar (p+pivotBars) so a backtest
-            // matches what is live-actionable. Default OFF preserves the chart visual
-            // (the dot stays on the pivot, matching real Market Cipher B) and existing
-            // numbers; strategies/research opt in. The display companion arrays
-            // (_anchorIdx/_anchorY) are NOT shifted — they only drive the drawn line.
-            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", false);
+            // DivergenceConfirmLag shifts every divergence marker forward to the bar
+            // it is actually confirmable (p+pivotBars) so backtest == live == chart all
+            // see the divergence at the same, honest bar. DEFAULT ON since the 2026-06-12
+            // audit: with it OFF, a backtest reading the pivot-stamped marker enters at
+            // the bar's low using future bars, while LIVE never sees the marker at the
+            // current bar at all (it only appears pivotBars later) — backtest and live
+            // disagree by construction. ON fixes both. The line-geometry companions
+            // (_anchorIdx/_anchorY) are shifted in lockstep so the drawn pivot-to-pivot
+            // line still anchors correctly from the (now confirmation-bar) marker.
+            // Power users who want the pure Market-Cipher-B pivot-stamped dot for chart
+            // review only can set DivergenceConfirmLag=false, accepting that any strategy
+            // reading those markers in backtest is then look-ahead-biased.
+            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", true);
             if (confirmLag && pivotBars > 0)
             {
                 bullDiv = ShiftMarkersForward(bullDiv, pivotBars, n);
                 bearDiv = ShiftMarkersForward(bearDiv, pivotBars, n);
                 hidBull = ShiftMarkersForward(hidBull, pivotBars, n);
                 hidBear = ShiftMarkersForward(hidBear, pivotBars, n);
+                bullDivIdx = ShiftMarkersForward(bullDivIdx, pivotBars, n);
+                bearDivIdx = ShiftMarkersForward(bearDivIdx, pivotBars, n);
+                hidBullIdx = ShiftMarkersForward(hidBullIdx, pivotBars, n);
+                hidBearIdx = ShiftMarkersForward(hidBearIdx, pivotBars, n);
+                bullDivY = ShiftMarkersForward(bullDivY, pivotBars, n);
+                bearDivY = ShiftMarkersForward(bearDivY, pivotBars, n);
+                hidBullY = ShiftMarkersForward(hidBullY, pivotBars, n);
+                hidBearY = ShiftMarkersForward(hidBearY, pivotBars, n);
             }
 
             WriteToBuffer(buffer, CompBullDiv,        bullDiv,         n);
@@ -1258,7 +1272,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// (they could not have been acted on in-sample). Used by the
         /// DivergenceConfirmLag look-ahead-honesty option.
         /// </summary>
-        private static double[] ShiftMarkersForward(double[] src, int lag, int n)
+        internal static double[] ShiftMarkersForward(double[] src, int lag, int n)
         {
             var dst = new double[n];
             Array.Fill(dst, double.NaN);
