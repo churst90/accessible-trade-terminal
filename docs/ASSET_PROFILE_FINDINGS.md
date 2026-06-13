@@ -95,10 +95,62 @@ as an indicator would be redundant — it does not vary intra-asset on the times
   `StrategyLab snapshot --provider alpaca --symbol SPY --tf 1d --bars 3000 --key … --secret …`
   would add them.
 
+## 4h re-run (round 12b) — the harder test, and what survived it
+
+Re-ran the same probes on 7 4h snapshots (19–63 windows per asset, vs 4–14 on 1d). More
+windows = a far firmer verdict. It **deflated** several 1d findings and **confirmed** one.
+
+```
+Asset     ratio  Hurst  bull%     L:v23      L:div     L:blue      S:v23      S:div     S:red
+BTC/USDT   0.55   0.59    53%   +0.08/59%  +0.22/64% +0.11/57%   -0.05/46%  -0.04/38% -0.01/54%
+XRP/USDT   0.57   0.59    43%   +0.04/48%  -0.00/46% +0.03/44%   +0.02/50%  +0.07/41% -0.02/42%
+ETH/USDT   0.62   0.60    50%   +0.06/58%  +0.69/100% +0.09/53%  +0.02/46%  +0.05/51% +0.05/49%
+KAS/USDT   0.65   0.59    47%   +0.23/73%  +0.35/57% +0.22/62%   +0.00/45%  +0.07/50% -0.05/50%
+TAO/USDT   0.67   0.57    41%   +0.02/53%  +0.06/47% -0.23/27%   +0.01/47%  -0.17/32% +0.76/100%
+SOL/USDT   0.76   0.59    49%   -0.04/39%  -0.03/43% -0.10/43%   -0.03/39%  +0.09/61%   —
+DOGE/USDT  1.06   0.58    42%   -0.06/50%  -0.09/45% -0.32/30%   +0.01/55%  -0.04/50% +0.09/65%
+```
+
+What changed vs the 1d table, honestly:
+
+- **Edges shrink with more windows.** `L:v23` mean +0.19R → +0.05R; `L:div` +0.37R → +0.17R.
+  The 1d magnitudes were partly small-sample optimism. The *signs* mostly held; the *sizes* did not.
+- **ETH bullish divergence is the genuine, firm standout: `+0.69R / 100% over 59 windows`.**
+  This is the single most robust result of the whole research session. At 4h the signal fires
+  often enough (every one of 59 windows) that the earlier "too rare to be standalone" caveat
+  no longer applies *for ETH at 4h*. `L:div` is the best long probe at both timeframes.
+- **`L:blue` is dead — fourth independent confirmation** (−0.03R, 0 assets strong).
+- **The maturation→divergence correlation is NOT robust: it flipped sign** (1d +0.56, 4h −0.47).
+  RETRACT the specific claim that divergence pays more on expanding (or matured) assets. The
+  maturation ratio *describes* assets but does not cleanly *predict* divergence edge.
+- **The "shorts on young assets" thread mostly softened.** On 4h, matured-major shorts are flat
+  (≈0, not strongly negative), and most young-asset shorts faded too. The one survivor is
+  striking: **TAO `S:red` +0.76R / 100% over 19 windows.** TAO (Bittensor) is a 2024 AI-narrative
+  token with violent euphoric spikes; an overbought-crossover short catching its distribution
+  tops is mechanistically plausible — but it is N=1 asset and must not be generalized without
+  more young high-vol narrative names.
+- **Hurst carries no cross-asset information — now confirmed across 17 asset-timeframe combos**
+  (0.57–0.60 on every single one). This is the firmest negative result in the file.
+
+## Bottom line (after both timeframes)
+
+- **Deploy candidate:** bullish-divergence + Anchor<0 long on the deep, liquid majors — ETH
+  above all (firmest evidence anywhere), then LTC/SOL/KAS. `L:v23` as the broad long base
+  (weak-positive but universal). Both are LONG; shorts did not earn a general deployment.
+- **Asset analysis recipe:** vol-maturation ratio + bull% are the only descriptors that vary
+  across assets (Hurst and mean-reversion% are constant and useless). They *characterize* an
+  asset but — per the sign-flip — are descriptive, not a clean predictive router. Use them to
+  bucket assets (matured major vs young alt) and to set expectations, not as a hard switch.
+- **The honest meta-finding:** across rounds 10–12, every attempt to *predict/route* edge from
+  a volatility statistic (vol-gate, percentile threshold, maturation router) has failed to beat
+  the simple universal cells. What survives is signal-specific and asset-specific: ETH
+  divergence-long is real; one TAO short is intriguing; the rest is small. The edge lives in
+  *which signal on which asset*, not in a volatility meta-rule.
+
 ## Next
 
-- Re-run on **4h** snapshots (more windows per asset → firmer short-edge verdicts on young assets).
-- Add stocks once the Alpaca key is available — test whether the maturation→long/short thread
-  holds outside crypto (the real generality test).
-- Promote `L:v23` long-only for matured majors and a `S:v23`/`S:red` short for young alts as
-  paired, asset-routed seeds rather than one universal strategy.
+- Add stocks once the Alpaca key is available — the real generality test (different drift/vol
+  structure). `StrategyLab snapshot --provider alpaca --symbol SPY --tf 1d --key … --secret …`.
+- Promote ETH divergence-long (4h + 1d) as a seed; paper-trade in Suggestion mode.
+- Investigate the TAO short on more young high-vol narrative tokens before trusting it.
+- Stop building volatility *routers*; the evidence says they don't beat the simple cells.

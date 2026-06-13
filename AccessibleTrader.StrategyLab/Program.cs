@@ -40,7 +40,8 @@ try
         "face-rolling" => await HandleFaceRolling(args.Skip(1).ToArray()),
         "asset-profile" => await AssetProfileCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
-            GetFlag(args.Skip(1).ToArray(), "--only")),
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };

@@ -30,8 +30,9 @@ public static class AssetProfileCommand
 {
     private const int Warmup = 150;
     private const int MinTradesPerWindow = 3;
+    private static double _annualizationBars = 365;
 
-    public static async Task<int> RunAsync(string snapshotDir, string? only)
+    public static async Task<int> RunAsync(string snapshotDir, string? only, string tf = "1d")
     {
         if (!Directory.Exists(snapshotDir))
         {
@@ -39,8 +40,15 @@ public static class AssetProfileCommand
             return 1;
         }
 
+        // Per-timeframe annualization factor for realized vol (bars per year).
+        double barsPerYear = tf.ToLowerInvariant() switch
+        {
+            "1w" => 52, "1d" => 365, "12h" => 730, "4h" => 2190, "1h" => 8760, _ => 365
+        };
+        _annualizationBars = barsPerYear;
+
         // Price snapshots only — skip the xs_* cross-series economic files.
-        var files = Directory.GetFiles(snapshotDir, "*_1d.json")
+        var files = Directory.GetFiles(snapshotDir, $"*_{tf}.json")
             .Where(f => !Path.GetFileName(f).StartsWith("xs_", StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f)
             .ToList();
@@ -51,7 +59,7 @@ public static class AssetProfileCommand
         }
         if (files.Count == 0) { Console.Error.WriteLine("No matching snapshots."); return 1; }
 
-        Console.WriteLine($"Profiling {files.Count} asset(s) at 1d. Warmup {Warmup} bars.\n");
+        Console.WriteLine($"Profiling {files.Count} asset(s) at {tf}. Warmup {Warmup} bars.\n");
 
         var makeSpec = typeof(FaceBatteryCommand).GetMethod("MakeSpec", BindingFlags.NonPublic | BindingFlags.Static)!;
         var runMethod = typeof(FaceBatteryCommand).GetMethod("Run", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -190,7 +198,7 @@ public static class AssetProfileCommand
         if (slice.Count < 2) return double.NaN;
         double mean = slice.Average();
         double var = slice.Select(x => (x - mean) * (x - mean)).Average();
-        return Math.Sqrt(var) * Math.Sqrt(365) * 100; // percent
+        return Math.Sqrt(var) * Math.Sqrt(_annualizationBars) * 100; // percent
     }
 
     private static double[]? ReadComponent(WorkspaceState state, string code, string component)
