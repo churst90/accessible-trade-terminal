@@ -59,6 +59,10 @@ public static class WorkspaceFactory
         "HURST",
         "PIVOTS",
 
+        // v24 research — fast/slow realized-vol ratio regime (era-stationary by
+        // construction, immune to secular vol decay). Self-contained. 2026-06-12.
+        "VOL_REGIME",
+
         // BTC strength — synthetic, projected from a sibling BTC snapshot in the
         // same strategy-lab-data folder. Skipped automatically if no matching BTC
         // snapshot exists. Components: BtcRatio, BtcRatioMomentum.

@@ -228,6 +228,7 @@ namespace AccessibleTrader.WebHost
             services.AddSingleton<IIndicatorProvider, CrowdingIndexProvider>();
             services.AddSingleton<IIndicatorProvider, PulseProvider>();
             services.AddSingleton<IIndicatorProvider, RegimeProvider>();
+            services.AddSingleton<IIndicatorProvider, VolRegimeProvider>();
             services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
             services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
             services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
