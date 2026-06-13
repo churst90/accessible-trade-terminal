@@ -1295,6 +1295,96 @@ public static class FaceBatteryCommand
                 Lt("c-v24cl-anc", "CIPHER_B.Anchor Wave", 0),
                 Lt("c-v24cl-vs", "VOL_REGIME.VolState", 0))));
 
+        // ── v25 — percentile-mode threshold isolation cells (round 11, 2026-06-12) ──
+        // Round 10 vol-GATE was falsified (n-starvation). This is the inside-the-
+        // trigger angle: run the SAME cell against a percentile-mode Cipher B via
+        // `--set CIPHER_B.ThresholdMode=Percentile`, which replaces the fixed ±53
+        // OB/OS levels with the rolling 5th/95th percentile of WaveTrend's OWN recent
+        // distribution (era-adaptive by construction). It MOVES entry levels instead
+        // of discarding trades, so the trade count survives.
+        //
+        // CRITICAL: the v23/v24 cells are threshold-INSENSITIVE because their trigger
+        // OR's in the raw "WaveTrend Cross Bull" leg, which already captures every
+        // blue-dot bar (a blue dot is just a WT cross that lands in OS). To actually
+        // see the percentile effect the trigger must ISOLATE the threshold-dependent
+        // signal — blue dot (Oversold Crossover) alone, divergence alone. These
+        // cells do that. Run each twice: once bare (fixed mode) and once with
+        // --set CIPHER_B.ThresholdMode=Percentile; the delta is the era-adaptation.
+
+        // Blue dot ALONE + Anchor regime gate. The pure oversold-crossover entry.
+        cells.Add(("v25 BLUE-ONLY LONG: OversoldCross within 2 + Anchor<0",
+            OrderSide.Buy,
+            Group("c-v25bl", LogicOperator.And,
+                Fired("c-v25bl-blue", "CIPHER_B.Oversold Crossover", withinBars: 2),
+                Lt("c-v25bl-anc", "CIPHER_B.Anchor Wave", 0))));
+
+        // Blue dot ALONE, no anchor gate — maximum sensitivity to the threshold.
+        cells.Add(("v25 BLUE-BARE LONG: OversoldCross within 2 (no gate)",
+            OrderSide.Buy,
+            Group("c-v25bbl", LogicOperator.Or,
+                Fired("c-v25bbl-blue", "CIPHER_B.Oversold Crossover", withinBars: 2))));
+
+        // Bullish divergence ALONE + Anchor gate. Divergence detection keys off the
+        // adaptive OS band too (the "near OS" gate at line ~982 of the provider).
+        cells.Add(("v25 DIV-ONLY LONG: BullDiv within 2 + Anchor<0",
+            OrderSide.Buy,
+            Group("c-v25dl", LogicOperator.And,
+                Fired("c-v25dl-div", "CIPHER_B.Bullish Divergence", withinBars: 2),
+                Lt("c-v25dl-anc", "CIPHER_B.Anchor Wave", 0))));
+
+        // Short-side blue-dot mirror (overbought crossover alone + anchor>0).
+        cells.Add(("v25 RED-ONLY SHORT: OverboughtCross within 2 + Anchor>0",
+            OrderSide.Sell,
+            Group("c-v25rs", LogicOperator.And,
+                Fired("c-v25rs-red", "CIPHER_B.Overbought Crossover", withinBars: 2),
+                Gt("c-v25rs-anc", "CIPHER_B.Anchor Wave", 0))));
+
+        // ── v26 — Bullish-Divergence focus (round 11 follow-up) ───────────────────
+        // The percentile experiment's real payoff: isolating signals surfaced
+        // Bullish Divergence + Anchor<0 as the strongest cross-asset cell in the
+        // suite (FIXED mode) — BTC +0.794R/100%/HIGH-CONV (9 win), ETH +0.480R/83%,
+        // LTC +0.853R/100%/HIGH-CONV (3 win). Its only weakness is rarity: ~6
+        // trades/window, fires 0 trades on XRP/BCH.
+        //
+        // ROUND-11 VERDICT (width-5 follow-up):
+        //  • The anchor gate is REDUNDANT — on BTC DIV-W5 and DIV-BARE-W5 are
+        //    byte-identical, because every bullish divergence already forms in
+        //    oversold (Anchor<0). The divergence signal alone IS the edge.
+        //  • Widening within-2 → within-5 does NOT lift trade count (divergence is
+        //    just rare: ~5.6/window either way) and DEGRADES quality (BTC
+        //    +0.794→+0.636, ETH +0.480→collapsed to 50% marginal). within-2 timing
+        //    matters; keep it tight.
+        //  • DIV-FABER = 0 trades — divergences never coincide with price>SMA200
+        //    (they form at bottoms, below the 200MA). Structurally a bottom-fisher,
+        //    incompatible with trend filters.
+        //  DISPOSITION: a genuine high-quality, irreducibly LOW-FREQUENCY signal.
+        //  Promote as a peak-conviction overlay for liquid majors (BTC/ETH/LTC),
+        //  cleanest form = "Bullish Divergence within 2" alone (no gate needed).
+        //  NOT a standalone strategy — too few trades to stand on its own CI.
+        //  Same category as v23p pivots: conviction over coverage.
+
+        cells.Add(("v26 DIV-W5 LONG: BullDiv within 5 + Anchor<0",
+            OrderSide.Buy,
+            Group("c-v26d5", LogicOperator.And,
+                Fired("c-v26d5-div", "CIPHER_B.Bullish Divergence", withinBars: 5),
+                Lt("c-v26d5-anc", "CIPHER_B.Anchor Wave", 0))));
+
+        // Divergence with NO anchor gate at width 5 — isolates the divergence
+        // signal's own standalone edge at a usable trade count.
+        cells.Add(("v26 DIV-BARE-W5 LONG: BullDiv within 5 (no gate)",
+            OrderSide.Buy,
+            Group("c-v26d5b", LogicOperator.Or,
+                Fired("c-v26d5b-div", "CIPHER_B.Bullish Divergence", withinBars: 5))));
+
+        // Divergence + Faber regime (the most empirically robust gate in the suite)
+        // instead of the Anchor oscillator gate — tests whether the trend filter
+        // composes better than the oscillator-state filter on the divergence entry.
+        cells.Add(("v26 DIV-FABER LONG: BullDiv within 5 + SMA200>0",
+            OrderSide.Buy,
+            Group("c-v26df", LogicOperator.And,
+                Fired("c-v26df-div", "CIPHER_B.Bullish Divergence", withinBars: 5),
+                Gt("c-v26df-sma", "REGIME.AboveSma200", 0))));
+
         return cells;
     }
 

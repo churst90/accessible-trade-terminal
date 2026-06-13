@@ -73,7 +73,8 @@ public static class WorkspaceFactory
         IServiceProvider services,
         SnapshotFile snapshot,
         IEnumerable<string>? indicatorCodes = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Dictionary<string, Dictionary<string, object>>? parameterOverrides = null)
     {
         var engine = services.GetRequiredService<IIndicatorEngine>();
         var codes = (indicatorCodes ?? DefaultIndicatorPack).ToArray();
@@ -142,6 +143,18 @@ public static class WorkspaceFactory
                 if (code == TopBottomDetectorProvider.Code)
                 {
                     parameters["TimeframeAdaptive"] = 1;
+                }
+
+                // Research-knob overrides (e.g. --set CIPHER_B.ThresholdMode=Percentile
+                // from face-rolling). Applied last so they win over the defaults above —
+                // this is how era-adaptive threshold experiments load the SAME battery
+                // cells against a differently-parameterised indicator instead of
+                // duplicating cell definitions.
+                if (parameterOverrides != null && parameterOverrides.TryGetValue(code, out var overrides))
+                {
+                    foreach (var (k, v) in overrides)
+                        parameters[k] = v;
+                    Console.WriteLine($"  ~ {code}: parameter overrides applied ({string.Join(", ", overrides.Select(o => $"{o.Key}={o.Value}"))})");
                 }
                 try
                 {

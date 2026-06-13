@@ -260,8 +260,40 @@ static async Task<int> HandleFaceRolling(string[] a)
     int step   = int.TryParse(GetFlag(a, "--step"),   out var stp) ? stp : 250;
     int warmup = int.TryParse(GetFlag(a, "--warmup"), out var w)   ? w   : 200;
     string? filter = GetFlag(a, "--filter");
+    var overrides = ParseSetOverrides(a);
     if (snap == null) { Console.Error.WriteLine("--snapshot is required"); return 1; }
-    return await FaceRollingCommand.RunAsync(snap, window, step, filter, warmup);
+    return await FaceRollingCommand.RunAsync(snap, window, step, filter, warmup, overrides);
+}
+
+// Parses repeatable `--set CODE.Param=Value` flags into per-indicator parameter
+// overrides for WorkspaceFactory. Numeric values become double (what GetDbl/GetInt
+// readers expect); everything else stays a string (e.g. ThresholdMode=Percentile).
+// Example: --set CIPHER_B.ThresholdMode=Percentile --set CIPHER_B.AdaptiveLookback=250
+static Dictionary<string, Dictionary<string, object>>? ParseSetOverrides(string[] a)
+{
+    Dictionary<string, Dictionary<string, object>>? result = null;
+    for (int i = 0; i < a.Length - 1; i++)
+    {
+        if (!string.Equals(a[i], "--set", StringComparison.OrdinalIgnoreCase)) continue;
+        string assignment = a[i + 1];
+        int dot = assignment.IndexOf('.');
+        int eq  = assignment.IndexOf('=');
+        if (dot <= 0 || eq <= dot + 1)
+        {
+            Console.Error.WriteLine($"Ignoring malformed --set '{assignment}' (expected CODE.Param=Value)");
+            continue;
+        }
+        string code  = assignment[..dot];
+        string param = assignment[(dot + 1)..eq];
+        string raw   = assignment[(eq + 1)..];
+        object value = double.TryParse(raw, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : raw;
+        result ??= new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
+        if (!result.TryGetValue(code, out var map))
+            result[code] = map = new Dictionary<string, object>();
+        map[param] = value;
+    }
+    return result;
 }
 
 static bool HasFlag(string[] a, string flag)

@@ -37,7 +37,8 @@ namespace AccessibleTrader.StrategyLab;
 /// </summary>
 public static class FaceRollingCommand
 {
-    public static async Task<int> RunAsync(string snapshotPath, int windowBars, int stepBars, string? labelFilter, int warmupBars)
+    public static async Task<int> RunAsync(string snapshotPath, int windowBars, int stepBars, string? labelFilter, int warmupBars,
+        Dictionary<string, Dictionary<string, object>>? paramOverrides = null)
     {
         if (!File.Exists(snapshotPath))
         {
@@ -54,7 +55,7 @@ public static class FaceRollingCommand
         // Build host + workspace once (indicator computation is the heavy step).
         Console.WriteLine("Building host + computing indicators (one-time)...");
         var host = LabHost.Build();
-        var state = await WorkspaceFactory.BuildAsync(host.Services, snapshot);
+        var state = await WorkspaceFactory.BuildAsync(host.Services, snapshot, parameterOverrides: paramOverrides);
         var factory = host.Services.GetRequiredService<IConfigurableStrategyFactory>();
         var backtester = host.Services.GetRequiredService<IStrategyBacktester>();
 
