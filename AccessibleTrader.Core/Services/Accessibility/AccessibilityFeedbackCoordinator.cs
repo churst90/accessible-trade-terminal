@@ -85,7 +85,61 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Live bar events — gated by AnnounceNewBars setting
             _subscriptions.Add(_eventBus.Subscribe<NewBarEvent>(OnNewBar));
             _subscriptions.Add(_eventBus.Subscribe<IntraBarUpdateEvent>(OnIntraBarUpdate));
+
+            // Order lifecycle events — money events are NEVER gated on speech/sonification
+            // toggles, playback state, or narration settings. Like the Error branch in
+            // OnFeedbackRequest: earcon first (immediate cue even mid-phrase), then
+            // interrupting speech with the detail. Speech is mirrored to the journal by
+            // the speech manager, so every fill is reviewable after the fact.
+            _subscriptions.Add(_eventBus.Subscribe<OrderFilledEvent>(e =>
+            {
+                _earconService.PlayOrderFill(e.Order.Side);
+                _speechRouter.Speak(FormatFill("Order filled", e.Order), interrupt: true);
+            }));
+            _subscriptions.Add(_eventBus.Subscribe<OrderPartialFillEvent>(e =>
+            {
+                _earconService.PlayOrderFill(e.Order.Side);
+                _speechRouter.Speak(FormatPartialFill(e.Order), interrupt: true);
+            }));
+            _subscriptions.Add(_eventBus.Subscribe<StopHitEvent>(e =>
+            {
+                _earconService.PlayStopHit();
+                _speechRouter.Speak(FormatFill("Stop loss hit", e.Order), interrupt: true);
+            }));
+            _subscriptions.Add(_eventBus.Subscribe<TakeProfitHitEvent>(e =>
+            {
+                _earconService.PlayTakeProfitHit();
+                _speechRouter.Speak(FormatFill("Take profit hit", e.Order), interrupt: true);
+            }));
+            _subscriptions.Add(_eventBus.Subscribe<OrderRejectedEvent>(e =>
+            {
+                _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
+                _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.", interrupt: true);
+            }));
         }
+
+        // ── Order speech formatting ────────────────────────────────────────────
+        // Internal static so OrderEventAnnouncementTests can verify formats directly.
+
+        internal static string FormatFill(string prefix, Sdk.Trading.OrderUpdate o)
+        {
+            string side = o.Side == Sdk.Plugins.OrderSide.Buy ? "bought" : "sold";
+            string at = o.FilledPrice > 0 ? $" at {SpeechPriceFormatter.FormatPrice(o.FilledPrice)}" : "";
+            return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.";
+        }
+
+        internal static string FormatPartialFill(Sdk.Trading.OrderUpdate o)
+        {
+            string baseMsg = FormatFill("Partial fill", o);
+            return o.RemainingQuantity > 0
+                ? $"{baseMsg} {FormatQty(o.RemainingQuantity)} remaining."
+                : baseMsg;
+        }
+
+        private static string FormatQty(double qty) => qty.ToString("0.########");
+
+        private static string Capitalize(string s) =>
+            s.Length > 0 ? char.ToUpperInvariant(s[0]) + s.Substring(1) : s;
 
         private void OnStateChanged(WorkspaceState state)
         {

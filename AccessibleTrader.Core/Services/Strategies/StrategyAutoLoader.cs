@@ -43,8 +43,11 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// <summary>
         /// Idempotent — safe to call multiple times. The first call walks the library and
         /// activates every spec marked IsAutoActivate; subsequent calls are no-ops.
+        /// Async because Roslyn-script specs are recompiled here — the old synchronous
+        /// version blocked a thread-pool thread on <c>task.Wait()</c> during startup,
+        /// a visible stall on mobile when the library held several script strategies.
         /// </summary>
-        public void LoadAll()
+        public async System.Threading.Tasks.Task LoadAllAsync()
         {
             if (_hasLoaded) return;
             _hasLoaded = true;
@@ -69,9 +72,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                                 nameof(StrategyAutoLoader));
                             continue;
                         }
-                        var task = _roslyn.CompileStrategyAsync(spec.RoslynSource!);
-                        task.Wait();
-                        var result = task.Result;
+                        var result = await _roslyn.CompileStrategyAsync(spec.RoslynSource!).ConfigureAwait(false);
                         if (!result.Success)
                         {
                             _logger.LogWarning(

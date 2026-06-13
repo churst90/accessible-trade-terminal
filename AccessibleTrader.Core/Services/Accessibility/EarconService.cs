@@ -39,6 +39,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// (the conditions-met bell) so the user can tell apart "setup forming" from "in trade".
         /// </summary>
         void PlaySetupEntryReached(OrderSide side);
+
+        /// <summary>
+        /// Order-execution confirmation — fired when an exchange reports a fill (full or
+        /// partial). Two quick staccato notes then a sustained tone, so it reads as
+        /// "transaction complete" and can't be confused with the setup bells (chords) or
+        /// PlaySuccess (plain rising octave). Buy = rising sine, sell = falling triangle,
+        /// matching the long/short sound language used across the setup earcons.
+        /// </summary>
+        void PlayOrderFill(OrderSide side);
+
+        /// <summary>
+        /// Protective stop executed. Urgent low descending figure — more serious than
+        /// PlayOrderFill but distinct from PlayError: a stop firing is the system working,
+        /// not a malfunction.
+        /// </summary>
+        void PlayStopHit();
+
+        /// <summary>
+        /// Take-profit executed. Bright ascending arpeggio — unambiguously positive.
+        /// </summary>
+        void PlayTakeProfitHit();
     }
 
     public class EarconService : IEarconService
@@ -220,6 +241,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _sonificationManager.PlayNote(183,  0.55, "triangle", 0.13f * 0.85f, 0f);
                 _sonificationManager.PlayNote(138,  0.30, "sine",     0.13f * 0.5f,  0f);
             }
+        }
+
+        public void PlayOrderFill(OrderSide side)
+        {
+            string key = $"order_fill_{(side == OrderSide.Buy ? "buy" : "sell")}";
+            if (!CanPlay(key)) return;
+            if (side == OrderSide.Buy)
+            {
+                // Two staccato pickups then a sustained resolve a fourth up.
+                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f);   // D5
+                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f);   // D5
+                _sonificationManager.PlayNote(784, 0.45, "sine", 0.13f, 0f);   // G5 sustained
+            }
+            else
+            {
+                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f); // D4
+                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f); // D4
+                _sonificationManager.PlayNote(196, 0.45, "triangle", 0.13f, 0f); // G3 sustained
+            }
+        }
+
+        public void PlayStopHit()
+        {
+            if (!CanPlay("stop_hit")) return;
+            // Urgent but orderly: low minor-third descent, square for bite — deliberately
+            // shorter and cleaner than PlayError's dissonant beating pair.
+            _sonificationManager.PlayNote(220, 0.18, "square", 0.16f, 0f); // A3
+            _sonificationManager.PlayNote(185, 0.18, "square", 0.16f, 0f); // F#3
+            _sonificationManager.PlayNote(147, 0.40, "square", 0.14f, 0f); // D3 sustained
+        }
+
+        public void PlayTakeProfitHit()
+        {
+            if (!CanPlay("tp_hit")) return;
+            // Bright major arpeggio up — the "win" sound.
+            _sonificationManager.PlayNote(523,  0.10, "sine", 0.12f, 0f); // C5
+            _sonificationManager.PlayNote(659,  0.10, "sine", 0.12f, 0f); // E5
+            _sonificationManager.PlayNote(784,  0.10, "sine", 0.12f, 0f); // G5
+            _sonificationManager.PlayNote(1046, 0.40, "sine", 0.13f, 0f); // C6 sustained
         }
 
         public void PlayConnectionState(ConnectionState state)

@@ -102,6 +102,9 @@ namespace AccessibleTrader.Core.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "IndicatorPrefs: failed to load {IndicatorCode}.", indicatorCode);
+                // Preserve the corrupt original; the next SavePreferences for this
+                // indicator would otherwise overwrite it with fresh defaults.
+                CorruptFileQuarantine.MoveAside(FilePath(indicatorCode), ex);
                 return null;
             }
         }

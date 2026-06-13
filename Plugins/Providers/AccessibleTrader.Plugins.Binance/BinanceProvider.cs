@@ -604,30 +604,34 @@ namespace AccessibleTrader.Plugins.Binance
 
                         if (!r.Success) return $"ORDER_FAILED:{r.Error?.Message}";
 
-                        // Attach take-profit if requested
+                        // ── Protective-order attach ──────────────────────────────
+                        // TP/SL are separate orders on Binance futures, so the entry
+                        // can succeed while protection fails (network blip, price
+                        // already through the trigger, exchange rejection). The
+                        // results were previously discarded entirely — a naked
+                        // position with no stop and no notification. Now: one retry,
+                        // then a LOUD error on the stream so the user hears about it.
+                        // reduceOnly guarantees a protective order can only ever
+                        // close the position, never open a fresh one.
+                        var exitSide = side == global::Binance.Net.Enums.OrderSide.Buy
+                            ? global::Binance.Net.Enums.OrderSide.Sell
+                            : global::Binance.Net.Enums.OrderSide.Buy;
+
                         if (signal.TakeProfit.HasValue)
                         {
-                            var tpSide = side == global::Binance.Net.Enums.OrderSide.Buy
-                                ? global::Binance.Net.Enums.OrderSide.Sell
-                                : global::Binance.Net.Enums.OrderSide.Buy;
-                            await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                                symbol, tpSide, global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
-                                quantity: (decimal)signal.Quantity,
-                                stopPrice: (decimal)signal.TakeProfit.Value,
-                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled);
+                            await AttachProtectiveOrderAsync(
+                                symbol, exitSide, global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
+                                (decimal)signal.Quantity, (decimal)signal.TakeProfit.Value,
+                                DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit");
                         }
 
                         // Attach stop-loss as a separate order if not included in the primary order
                         if (signal.StopLoss.HasValue && futType == global::Binance.Net.Enums.FuturesOrderType.Market)
                         {
-                            var slSide = side == global::Binance.Net.Enums.OrderSide.Buy
-                                ? global::Binance.Net.Enums.OrderSide.Sell
-                                : global::Binance.Net.Enums.OrderSide.Buy;
-                            await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                                symbol, slSide, global::Binance.Net.Enums.FuturesOrderType.StopMarket,
-                                quantity: (decimal)signal.Quantity,
-                                stopPrice: (decimal)signal.StopLoss.Value,
-                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled);
+                            await AttachProtectiveOrderAsync(
+                                symbol, exitSide, global::Binance.Net.Enums.FuturesOrderType.StopMarket,
+                                (decimal)signal.Quantity, (decimal)signal.StopLoss.Value,
+                                DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
                         }
 
                         return r.Data.Id.ToString();
@@ -698,6 +702,64 @@ namespace AccessibleTrader.Plugins.Binance
                 });
             }
             catch (Exception ex) { _errorStream.OnNext($"Binance order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
+        }
+
+        /// <summary>
+        /// Places a futures protective order (TP/SL) with one retry, surfacing a loud
+        /// error if both attempts fail. A failed protective attach means the position
+        /// is live WITHOUT its stop or target — the user must hear about that
+        /// immediately, not discover it in the order book later.
+        /// </summary>
+        private async Task AttachProtectiveOrderAsync(
+            string symbol,
+            global::Binance.Net.Enums.OrderSide exitSide,
+            global::Binance.Net.Enums.FuturesOrderType type,
+            decimal quantity,
+            decimal triggerPrice,
+            string? clientOrderId,
+            string label)
+        {
+            string? lastError = null;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    var r = await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
+                        symbol, exitSide, type,
+                        quantity: quantity,
+                        stopPrice: triggerPrice,
+                        timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
+                        reduceOnly: true,
+                        newClientOrderId: clientOrderId);
+                    if (r.Success) return;
+                    lastError = r.Error?.Message;
+                    // A duplicate-clientOrderId rejection on the retry means the first
+                    // attempt actually landed (response was lost) — protection exists.
+                    if (attempt == 1 && lastError != null &&
+                        lastError.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                        return;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                }
+            }
+            _errorStream.OnNext(
+                $"POSITION UNPROTECTED: {label} order for {symbol} failed to attach after retry " +
+                $"({lastError}). The entry order is live without its {label}. " +
+                $"Place the {label} manually or close the position.");
+        }
+
+        /// <summary>
+        /// Derives an idempotent client order id for a protective order from the entry's
+        /// ClientOid, so a retry after a lost response cannot double-place protection.
+        /// Binance caps clientOrderId at 36 chars.
+        /// </summary>
+        private static string? DeriveProtectiveOid(string? entryOid, string suffix)
+        {
+            if (string.IsNullOrEmpty(entryOid)) return null;
+            string baseOid = entryOid.Length > 32 ? entryOid.Substring(0, 32) : entryOid;
+            return $"{baseOid}-{suffix}";
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

@@ -1,0 +1,256 @@
+using System;
+using System.IO;
+using System.Linq;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Strategies;
+using Microsoft.Extensions.Logging.Abstractions;
+using Newtonsoft.Json.Linq;
+using Xunit;
+
+namespace AccessibleTrader.Tests
+{
+    /// <summary>
+    /// First test coverage for the persistence layer (2026-06-12 audit fix 6 — the
+    /// subsystem previously had ZERO tests). Pins three behaviours:
+    ///
+    ///  1. AtomicFile write semantics (roundtrip, overwrite, parent-dir creation,
+    ///     no stray temp files).
+    ///  2. Graceful missing-file defaults across ConfigService / SettingsManager /
+    ///     JsonStrategyLibrary.
+    ///  3. The corrupt-file quarantine: an unreadable store is moved aside to
+    ///     *.corrupt-* (recoverable) instead of being silently overwritten by the
+    ///     next save — the old behaviour permanently destroyed user data, worst
+    ///     case the entire strategy library.
+    /// </summary>
+    public class PersistenceHardeningTests : IDisposable
+    {
+        private readonly string _dir;
+
+        public PersistenceHardeningTests()
+        {
+            _dir = Path.Combine(Path.GetTempPath(), "atc-persist-tests-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_dir);
+        }
+
+        public void Dispose()
+        {
+            try { Directory.Delete(_dir, recursive: true); } catch { /* best-effort */ }
+        }
+
+        private sealed class FakePathService : IPlatformPathService
+        {
+            public FakePathService(string dir) { AppDataDirectory = dir; CacheDirectory = dir; }
+            public string AppDataDirectory { get; }
+            public string CacheDirectory { get; }
+        }
+
+        // ── AtomicFile ──────────────────────────────────────────────────────────
+
+        [Fact]
+        public void AtomicFile_RoundTripsAndOverwrites()
+        {
+            string path = Path.Combine(_dir, "atomic.txt");
+
+            AtomicFile.WriteAllText(path, "first");
+            Assert.Equal("first", File.ReadAllText(path));
+
+            AtomicFile.WriteAllText(path, "second");
+            Assert.Equal("second", File.ReadAllText(path));
+        }
+
+        [Fact]
+        public void AtomicFile_CreatesParentDirectories()
+        {
+            string path = Path.Combine(_dir, "nested", "deeper", "file.json");
+
+            AtomicFile.WriteAllText(path, "{}");
+
+            Assert.Equal("{}", File.ReadAllText(path));
+        }
+
+        [Fact]
+        public void AtomicFile_LeavesNoTempFilesBehind()
+        {
+            string path = Path.Combine(_dir, "clean.txt");
+            for (int i = 0; i < 5; i++)
+                AtomicFile.WriteAllText(path, $"write {i}");
+
+            var strays = Directory.GetFiles(_dir, "*.tmp-*");
+            Assert.Empty(strays);
+        }
+
+        // ── CorruptFileQuarantine ───────────────────────────────────────────────
+
+        [Fact]
+        public void Quarantine_MovesFileAsideAndRecordsReport()
+        {
+            string path = Path.Combine(_dir, "broken.json");
+            File.WriteAllText(path, "{ not valid json !!");
+
+            string? quarantined = CorruptFileQuarantine.MoveAside(path, new Exception("boom"));
+
+            Assert.NotNull(quarantined);
+            Assert.False(File.Exists(path));
+            Assert.True(File.Exists(quarantined));
+            Assert.Equal("{ not valid json !!", File.ReadAllText(quarantined!));
+            Assert.Contains(CorruptFileQuarantine.SessionReports,
+                r => r.Contains("broken.json"));
+        }
+
+        [Fact]
+        public void Quarantine_MissingFile_StillRecordsReportWithoutThrowing()
+        {
+            string path = Path.Combine(_dir, "never-existed.json");
+
+            string? quarantined = CorruptFileQuarantine.MoveAside(path, new Exception("boom"));
+
+            Assert.Null(quarantined);
+            Assert.Contains(CorruptFileQuarantine.SessionReports,
+                r => r.Contains("never-existed.json"));
+        }
+
+        // ── ConfigService ───────────────────────────────────────────────────────
+
+        private sealed class TestSection
+        {
+            public string Name { get; set; } = "";
+            public int Value { get; set; }
+        }
+
+        [Fact]
+        public void ConfigService_MissingFile_ReturnsDefaults()
+        {
+            var svc = new ConfigService($"missing-{Guid.NewGuid():N}.json");
+
+            var section = svc.GetConfig<TestSection>("anything");
+
+            Assert.Equal("", section.Name);
+            Assert.Equal(0, section.Value);
+        }
+
+        [Fact]
+        public void ConfigService_RoundTripsSection()
+        {
+            string filename = $"roundtrip-{Guid.NewGuid():N}.json";
+            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename);
+            try
+            {
+                var svc = new ConfigService(filename);
+                svc.SaveConfig("test", new TestSection { Name = "hello", Value = 42 });
+
+                var reloaded = new ConfigService(filename).GetConfig<TestSection>("test");
+                Assert.Equal("hello", reloaded.Name);
+                Assert.Equal(42, reloaded.Value);
+            }
+            finally
+            {
+                try { File.Delete(fullPath); } catch { }
+            }
+        }
+
+        [Fact]
+        public void ConfigService_CorruptFile_QuarantinesInsteadOfDestroying()
+        {
+            string filename = $"corrupt-{Guid.NewGuid():N}.json";
+            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename);
+            try
+            {
+                File.WriteAllText(fullPath, "{ definitely not json");
+
+                var svc = new ConfigService(filename);
+
+                // Fresh defaults in use…
+                Assert.Equal(0, svc.GetConfig<TestSection>("test").Value);
+                // …the corrupt original is preserved, not awaiting destruction by the next save…
+                var quarantined = Directory.GetFiles(
+                    AppDomain.CurrentDomain.BaseDirectory, filename + ".corrupt-*");
+                Assert.Single(quarantined);
+                Assert.Equal("{ definitely not json", File.ReadAllText(quarantined[0]));
+
+                // …and a subsequent save starts a clean file without touching the backup.
+                svc.SaveConfig("test", new TestSection { Name = "recovered", Value = 1 });
+                Assert.True(File.Exists(quarantined[0]));
+                foreach (var q in quarantined) File.Delete(q);
+            }
+            finally
+            {
+                try { File.Delete(fullPath); } catch { }
+            }
+        }
+
+        // ── SettingsManager ─────────────────────────────────────────────────────
+
+        [Fact]
+        public void SettingsManager_MissingFile_UsesDefaults()
+        {
+            var mgr = new SettingsManager(new FakePathService(_dir), NullLogger<SettingsManager>.Instance);
+
+            Assert.Null(mgr.GetSetting("nothing.here"));
+            Assert.Equal(7, mgr.GetSetting("nothing.here", new JValue(7))!.Value<int>());
+        }
+
+        [Fact]
+        public void SettingsManager_KeyPathRoundTrip_SurvivesReload()
+        {
+            var mgr = new SettingsManager(new FakePathService(_dir), NullLogger<SettingsManager>.Instance);
+            mgr.SetSetting("audio.master.volume", new JValue(0.8));
+            mgr.SaveSettings();
+
+            var reloaded = new SettingsManager(new FakePathService(_dir), NullLogger<SettingsManager>.Instance);
+            Assert.Equal(0.8, reloaded.GetSetting("audio.master.volume")!.Value<double>(), 9);
+        }
+
+        [Fact]
+        public void SettingsManager_CorruptFile_QuarantinesAndStartsClean()
+        {
+            string path = Path.Combine(_dir, "settings.json");
+            File.WriteAllText(path, "not even close to json");
+
+            var mgr = new SettingsManager(new FakePathService(_dir), NullLogger<SettingsManager>.Instance);
+
+            Assert.Null(mgr.GetSetting("any.key"));
+            var quarantined = Directory.GetFiles(_dir, "settings.json.corrupt-*");
+            Assert.Single(quarantined);
+            Assert.Equal("not even close to json", File.ReadAllText(quarantined[0]));
+        }
+
+        // ── JsonStrategyLibrary ─────────────────────────────────────────────────
+
+        [Fact]
+        public void StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset()
+        {
+            // THE data-loss scenario from the audit: corrupt strategies.json used to be
+            // replaced by seeds-only on the next save, destroying every user strategy.
+            string path = Path.Combine(_dir, "strategies.json");
+            File.WriteAllText(path, "[ { \"Id\": \"user.precious\", TRUNCATED GARBAGE");
+
+            var lib = new JsonStrategyLibrary(new FakePathService(_dir));
+
+            // The library starts from seeds (best-effort), but the user's original
+            // file is recoverable from quarantine…
+            var quarantined = Directory.GetFiles(_dir, "strategies.json.corrupt-*");
+            Assert.Single(quarantined);
+            Assert.Contains("user.precious", File.ReadAllText(quarantined[0]));
+
+            // …and an explicit save does not touch the quarantined backup.
+            lib.Save();
+            Assert.True(File.Exists(quarantined[0]));
+            Assert.Contains("user.precious", File.ReadAllText(quarantined[0]));
+        }
+
+        [Fact]
+        public void StrategyLibrary_UserSpecSurvivesReload()
+        {
+            var lib = new JsonStrategyLibrary(new FakePathService(_dir));
+            int seedCount = lib.All.Count;
+
+            var spec = lib.All[0] with { Id = "user.mine", Name = "My Strategy" };
+            lib.Upsert(spec);
+
+            var reloaded = new JsonStrategyLibrary(new FakePathService(_dir));
+            Assert.Equal(seedCount + 1, reloaded.All.Count);
+            Assert.NotNull(reloaded.GetById("user.mine"));
+            Assert.Equal("My Strategy", reloaded.GetById("user.mine")!.Name);
+        }
+    }
+}

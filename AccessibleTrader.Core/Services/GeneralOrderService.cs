@@ -209,6 +209,21 @@ namespace AccessibleTrader.Core.Services
             {
                 var result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);
                 _errorCoordinator.ReportSuccess($"Order placed: {signal.Side} {signal.Quantity} {signal.Symbol}");
+
+                // ── 4. Protective-order verification net (provider-agnostic). If the
+                //    signal asked for a stop loss or take profit, confirm something
+                //    protective actually exists on the exchange. Providers attach
+                //    TP/SL as separate orders after the entry; that attach can fail
+                //    (or be silently unsupported for the order type) leaving a naked
+                //    position. Runs in the background so order placement isn't
+                //    delayed; speaks up only when NOTHING protective can be found.
+                if ((signal.StopLoss.HasValue || signal.TakeProfit.HasValue) && !IsErrorSentinel(result))
+                {
+                    var capturedSignal = signal;
+                    SafeFireAndForget.Run(
+                        () => VerifyProtectiveOrdersAsync(tp, providerName, capturedSignal),
+                        _logger, "VerifyProtectiveOrders");
+                }
                 return result;
             }
             catch (Exception ex)
@@ -251,6 +266,66 @@ namespace AccessibleTrader.Core.Services
 
         private static bool IsFinitePositive(double v) =>
             !double.IsNaN(v) && !double.IsInfinity(v) && v > 0.0;
+
+        /// <summary>True when a PlaceOrderAsync return value is a failure sentinel rather than an order id.</summary>
+        private static bool IsErrorSentinel(string result) =>
+            result.StartsWith("ORDER_", StringComparison.Ordinal)
+            || result.StartsWith("PROVIDER_", StringComparison.Ordinal);
+
+        /// <summary>
+        /// Confirms that a bracket order's protective legs are visible on the exchange.
+        /// Conservative by design: it only alarms when NO open order could plausibly be
+        /// the protection — either a conditional (stop/TP-type) order on the opposite
+        /// side, or any order for the symbol carrying the requested SL/TP values
+        /// (providers that embed protection in the entry order). False alarms train the
+        /// user to ignore the warning, so uncertainty is phrased as "verify", and a
+        /// failed scan is reported as such rather than as a missing stop.
+        /// </summary>
+        // Settle time before the verification scan — list endpoints lag slightly
+        // behind order placement. Internal so tests can shorten it.
+        internal TimeSpan ProtectionVerifyDelay = TimeSpan.FromSeconds(2);
+
+        internal async Task VerifyProtectiveOrdersAsync(ITradingProvider tp, string providerName, TradeSignal signal)
+        {
+            // Give the exchange a moment to register the protective legs — they are
+            // posted immediately after the entry, but list endpoints lag slightly.
+            await Task.Delay(ProtectionVerifyDelay).ConfigureAwait(false);
+
+            List<OpenOrder> open;
+            try
+            {
+                open = await tp.GetOpenOrdersAsync(signal.Symbol).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Protective-order verification scan failed for {Symbol}/{Provider}.",
+                    signal.Symbol, providerName);
+                _errorCoordinator.ReportError(
+                    $"Could not verify stop loss or take profit for {signal.Symbol} — check your open orders.",
+                    ErrorSeverity.High);
+                return;
+            }
+
+            bool hasProtection = open.Any(o =>
+                (IsProtectiveType(o.Type) && o.Side != signal.Side)
+                || o.StopLoss.HasValue
+                || o.TakeProfit.HasValue);
+
+            if (!hasProtection)
+            {
+                _logger.LogWarning(
+                    "No protective order found after bracket placement: {Symbol} on {Provider} (SL={StopLoss}, TP={TakeProfit}).",
+                    signal.Symbol, providerName, signal.StopLoss, signal.TakeProfit);
+                _errorCoordinator.ReportError(
+                    $"Warning: no stop loss or take profit found on the exchange for {signal.Symbol}. " +
+                    "The position may be unprotected — verify your open orders.",
+                    ErrorSeverity.High);
+            }
+        }
+
+        private static bool IsProtectiveType(OrderType t) =>
+            t == OrderType.StopMarket || t == OrderType.StopLimit
+            || t == OrderType.TakeProfitMarket || t == OrderType.TakeProfitLimit;
 
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {

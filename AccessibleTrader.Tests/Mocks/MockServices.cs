@@ -114,6 +114,14 @@ namespace AccessibleTrader.Tests.Mocks
         public void PlaySetupBell(OrderSide side, bool isLeg) { }
         public void PlaySetupArmed(OrderSide side) { }
         public void PlaySetupEntryReached(OrderSide side) { }
+
+        public int OrderFillCount;
+        public OrderSide? LastOrderFillSide;
+        public int StopHitCount;
+        public int TakeProfitHitCount;
+        public void PlayOrderFill(OrderSide side) { OrderFillCount++; LastOrderFillSide = side; }
+        public void PlayStopHit() { StopHitCount++; }
+        public void PlayTakeProfitHit() { TakeProfitHitCount++; }
     }
 
     public class MockStylingService : IStylingService

@@ -59,7 +59,17 @@ public record StrategyMetrics(
     double WinRate,
     double MaxDrawdown,
     double TotalPnL,
-    double SharpeRatio
+    double SharpeRatio,
+    /// <summary>
+    /// Sum of P&amp;L over winning trades only (≥ 0). Together with <see cref="GrossLoss"/>
+    /// this lets position sizers compute real average win/loss instead of approximating
+    /// from net <see cref="TotalPnL"/> — the net-PnL approximation forced
+    /// KellyPositionSizer to fabricate one side of the formula whenever the strategy
+    /// was net-profitable. Defaults keep the 6-arg constructor calls compiling.
+    /// </summary>
+    double GrossProfit = 0.0,
+    /// <summary>Sum of |P&amp;L| over losing trades (≥ 0, stored as a positive magnitude).</summary>
+    double GrossLoss = 0.0
 );
 
 public interface ITradingStrategy

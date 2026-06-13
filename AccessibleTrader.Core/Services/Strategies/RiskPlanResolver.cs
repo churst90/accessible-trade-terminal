@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -60,6 +61,20 @@ namespace AccessibleTrader.Core.Services.Strategies
                 portions.Add(Math.Clamp(rung.ClosePortion, 0.0, 1.0));
             }
             if (tpPrices.Count == 0) return null;
+
+            // Normalise over-allocated ladders. Per-rung clamping can't catch portions
+            // that individually sit in [0,1] but SUM past 1.0 ([0.5, 0.5, 0.5] = 150% of
+            // the position) — downstream the backtester's Math.Min(remaining, …) silently
+            // shrank the later rungs, so the user's configured ladder wasn't what actually
+            // executed. Scale every rung proportionally so the shape of the ladder is
+            // preserved and the total never exceeds the position. Sums UNDER 1.0 are
+            // intentional ("let the remainder ride") and left untouched.
+            double portionSum = portions.Sum();
+            if (portionSum > 1.0)
+            {
+                for (int i = 0; i < portions.Count; i++)
+                    portions[i] /= portionSum;
+            }
 
             // First-target reward/risk ratio is the gate.
             double firstTpReward = side == OrderSide.Buy ? tpPrices[0] - entry : entry - tpPrices[0];

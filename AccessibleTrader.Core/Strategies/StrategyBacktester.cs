@@ -494,13 +494,20 @@ public class StrategyBacktester : IStrategyBacktester
         // Sharpe: (annualised return) / (annualised stddev of daily returns)
         double sharpe = ComputeSharpe(equityCurve);
 
+        // Gross profit/loss feed both the profit factor below and position sizers
+        // (Kelly needs real avg win/loss, not a net-PnL approximation).
+        double grossProfit = trades.Where(t => t.PnL.GetValueOrDefault() > 0).Sum(t => t.PnL!.Value);
+        double grossLoss   = trades.Where(t => t.PnL.GetValueOrDefault() < 0).Sum(t => -t.PnL!.Value);
+
         var metrics = new StrategyMetrics(
             TotalSignals: totalTrades,
             WinningTrades: winningTrades,
             WinRate: winRate,
             MaxDrawdown: maxDrawdown,
             TotalPnL: totalPnL,
-            SharpeRatio: sharpe
+            SharpeRatio: sharpe,
+            GrossProfit: grossProfit,
+            GrossLoss: grossLoss
         );
 
         int evaluatedBars = Math.Max(0, data.Count - warmupBars);
@@ -521,9 +528,7 @@ public class StrategyBacktester : IStrategyBacktester
         double expectancy = avgR; // expectancy in R per trade is the same statistic
 
         // Profit factor: sum of winning P&L over absolute sum of losing P&L.
-        double winSum  = trades.Where(t => t.PnL.GetValueOrDefault() > 0).Sum(t => t.PnL!.Value);
-        double lossSum = trades.Where(t => t.PnL.GetValueOrDefault() < 0).Sum(t => -t.PnL!.Value);
-        double profitFactor = lossSum > 0 ? winSum / lossSum : double.NaN;
+        double profitFactor = grossLoss > 0 ? grossProfit / grossLoss : double.NaN;
 
         // Average bars-in-trade.
         double avgBars = trades.Count > 0 ? trades.Average(t => (double)t.BarsInTrade) : 0.0;
@@ -568,7 +573,8 @@ public class StrategyBacktester : IStrategyBacktester
         }
     }
 
-    private static double ComputeSharpe(List<(DateTime Date, double EquityValue)> curve)
+    // Internal for test access (Sharpe annualisation pins in StrategyBacktesterTests).
+    internal static double ComputeSharpe(List<(DateTime Date, double EquityValue)> curve)
     {
         if (curve.Count < 2) return 0.0;
 
@@ -588,8 +594,17 @@ public class StrategyBacktester : IStrategyBacktester
 
         if (stdDev == 0) return 0.0;
 
-        // Annualise assuming ~252 trading periods per year
-        return mean / stdDev * Math.Sqrt(252);
+        // Annualise by the OBSERVED sampling frequency. The curve points land on trade
+        // events, not calendar days, and the bar interval varies by timeframe — the old
+        // hardcoded √252 understated intraday Sharpe by ~20× on 1m charts and overstated
+        // weekly ones. periodsPerYear = how many equity observations actually occurred
+        // per year of backtest span; √(that) is the correct annualisation for the
+        // return series we actually measured.
+        double years = (curve[^1].Date - curve[0].Date).TotalDays / 365.25;
+        if (years <= 0) return 0.0;
+        double periodsPerYear = returns.Count / years;
+
+        return mean / stdDev * Math.Sqrt(periodsPerYear);
     }
 
     /// <summary>

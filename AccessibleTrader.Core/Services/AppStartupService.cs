@@ -69,14 +69,41 @@ namespace AccessibleTrader.Core.Services
             // 6. Strategy Auto-Loader — activate any library specs marked IsAutoActivate.
             //    Must run after data services are ready (steps 1-2) so strategies can
             //    resolve their indicator references. Idempotent — safe if MainLayout also
-            //    calls LoadAll().
+            //    calls LoadAllAsync(). Awaited so Roslyn recompiles happen off the
+            //    blocking path instead of via task.Wait().
             var autoLoader = _services.GetService<Strategies.StrategyAutoLoader>();
-            autoLoader?.LoadAll();
+            if (autoLoader != null)
+                await autoLoader.LoadAllAsync().ConfigureAwait(false);
 
             // 7. Announce any platform features that are stubbed on the current target.
             // This converts silent no-ops into audible warnings so users and testers can
             // identify missing capabilities without needing to read source code.
             WarnAboutUnimplementedPlatformFeatures();
+
+            // 8. Surface persistence-file quarantines. Stores (config, settings,
+            //    strategy library, indicator prefs) load before any speech pipeline
+            //    exists, so corrupt-file events are collected in CorruptFileQuarantine
+            //    and announced here — a silent settings "reset" with no explanation is
+            //    exactly the kind of invisible failure this app must never have.
+            AnnounceQuarantinedFiles();
+        }
+
+        private void AnnounceQuarantinedFiles()
+        {
+            var reports = CorruptFileQuarantine.SessionReports;
+            if (reports.Count == 0) return;
+
+            foreach (var report in reports)
+                _logger.LogWarning("Persistence quarantine: {Report}", report);
+
+            var eventBus = _services.GetService<IEventBus>();
+            eventBus?.Publish(new FeedbackRequestEvent(
+                FeedbackType.Error,
+                reports.Count == 1
+                    ? $"Warning: {reports[0]} Defaults are in use."
+                    : $"Warning: {reports.Count} settings files were unreadable and have been reset. " +
+                      "Backups were saved next to the originals with a corrupt extension. Defaults are in use.",
+                IsUserInitiated: false));
         }
 
         private void WarnAboutUnimplementedPlatformFeatures()

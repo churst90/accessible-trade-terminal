@@ -71,23 +71,28 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             try
             {
+                // NOTE: no early returns here — the missing/empty branches must still
+                // fall through to EnsureSeeded below, otherwise a fresh install (no
+                // strategies.json yet) starts with a completely empty library.
                 if (!File.Exists(_filepath))
                 {
                     _specs = new List<StrategySpec>();
-                    return;
                 }
-                string json = File.ReadAllText(_filepath);
-                if (string.IsNullOrWhiteSpace(json))
+                else
                 {
-                    _specs = new List<StrategySpec>();
-                    return;
+                    string json = File.ReadAllText(_filepath);
+                    _specs = string.IsNullOrWhiteSpace(json)
+                        ? new List<StrategySpec>()
+                        : JsonSerializer.Deserialize<List<StrategySpec>>(json, _options) ?? new List<StrategySpec>();
                 }
-                var loaded = JsonSerializer.Deserialize<List<StrategySpec>>(json, _options);
-                _specs = loaded ?? new List<StrategySpec>();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load strategies: {ex.Message}");
+                // CRITICAL data-loss guard: without the quarantine, EnsureSeeded below
+                // repopulates seeds-only and the next Save() permanently overwrites the
+                // user's entire strategy library with the corrupt file's replacement.
+                CorruptFileQuarantine.MoveAside(_filepath, ex);
                 _specs = new List<StrategySpec>();
             }
 

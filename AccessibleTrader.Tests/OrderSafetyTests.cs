@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
@@ -172,6 +173,85 @@ namespace AccessibleTrader.Tests
 
             Assert.StartsWith("ORDER_UNCERTAIN:", result);
             Assert.Contains("ORDER_999", result);
+        }
+
+        // ── Protective-order verification net (2026-06-12 audit fix 2) ──────────
+        // Providers attach TP/SL as separate orders after the entry; that attach
+        // can fail silently, leaving a naked position. GeneralOrderService now
+        // scans open orders after a bracket placement and alarms when nothing
+        // protective is found.
+
+        [Fact]
+        public async Task VerifyProtection_Alarms_WhenNoProtectiveOrderExists()
+        {
+            var (svc, tp, _, err) = BuildService();
+            svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            // Exchange shows only the entry order — no stop, no TP.
+            tp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>
+            {
+                new("E1", "BTC/USD", OrderSide.Buy, OrderType.Limit, 0.01, 45000, "open")
+            }));
+            var bracket = SaneSignal with { StopLoss = 44000.0 };
+
+            await svc.VerifyProtectiveOrdersAsync(tp, "Binance", bracket);
+
+            err.Received().ReportError(
+                Arg.Is<string>(m => m.Contains("unprotected") || m.Contains("no stop loss")),
+                ErrorSeverity.High,
+                Arg.Any<ErrorCategory>());
+        }
+
+        [Fact]
+        public async Task VerifyProtection_Quiet_WhenOppositeSideStopExists()
+        {
+            var (svc, tp, _, err) = BuildService();
+            svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            tp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>
+            {
+                new("SL1", "BTC/USD", OrderSide.Sell, OrderType.StopMarket, 0.01, 0.0, "open")
+            }));
+            var bracket = SaneSignal with { StopLoss = 44000.0 };
+
+            await svc.VerifyProtectiveOrdersAsync(tp, "Binance", bracket);
+
+            err.DidNotReceive().ReportError(
+                Arg.Any<string>(), Arg.Any<ErrorSeverity>(), Arg.Any<ErrorCategory>());
+        }
+
+        [Fact]
+        public async Task VerifyProtection_Quiet_WhenEntryCarriesEmbeddedStop()
+        {
+            var (svc, tp, _, err) = BuildService();
+            svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            // Providers that embed SL/TP in the entry order surface them as fields.
+            tp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>
+            {
+                new("E1", "BTC/USD", OrderSide.Buy, OrderType.Limit, 0.01, 45000, "open",
+                    StopLoss: 44000.0)
+            }));
+            var bracket = SaneSignal with { StopLoss = 44000.0 };
+
+            await svc.VerifyProtectiveOrdersAsync(tp, "Binance", bracket);
+
+            err.DidNotReceive().ReportError(
+                Arg.Any<string>(), Arg.Any<ErrorSeverity>(), Arg.Any<ErrorCategory>());
+        }
+
+        [Fact]
+        public async Task VerifyProtection_ReportsVerifyFailure_WhenScanThrows()
+        {
+            var (svc, tp, _, err) = BuildService();
+            svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            tp.GetOpenOrdersAsync(Arg.Any<string?>())
+                .Returns<Task<List<OpenOrder>>>(_ => throw new TimeoutException("exchange down"));
+            var bracket = SaneSignal with { TakeProfit = 50000.0 };
+
+            await svc.VerifyProtectiveOrdersAsync(tp, "Binance", bracket);
+
+            err.Received().ReportError(
+                Arg.Is<string>(m => m.Contains("Could not verify")),
+                ErrorSeverity.High,
+                Arg.Any<ErrorCategory>());
         }
     }
 }

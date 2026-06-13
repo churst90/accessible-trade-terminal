@@ -23,6 +23,8 @@ public abstract class BaseStrategy : ITradingStrategy
     private int _closedTrades;     // completed round-trip trades (open fill → close fill)
     private int _winningTrades;
     private double _totalPnL;
+    private double _grossProfit;   // sum of winning-trade P&L (for avg-win in sizers)
+    private double _grossLoss;     // sum of |losing-trade P&L| (positive magnitude)
     private double _peakEquity;
     private double _maxDrawdown;
     private double _currentEquity = 10_000.0; // notional starting capital for drawdown tracking
@@ -52,6 +54,8 @@ public abstract class BaseStrategy : ITradingStrategy
     private int _theoreticalClosed;    // theoretical trades that hit Stop or TP
     private int _theoreticalWins;      // theoretical trades that hit TP before Stop
     private double _theoreticalPnL;
+    private double _theoreticalGrossProfit;
+    private double _theoreticalGrossLoss;
     private double _theoreticalPeakEquity;
     private double _theoreticalMaxDrawdown;
     private double _theoreticalEquity = 10_000.0;
@@ -111,7 +115,8 @@ public abstract class BaseStrategy : ITradingStrategy
                 : (_openPrice - fill.FilledPrice) * fill.FilledQuantity;
 
             _totalPnL += pnl;
-            if (pnl > 0) _winningTrades++;
+            if (pnl > 0) { _winningTrades++; _grossProfit += pnl; }
+            else _grossLoss += -pnl;
 
             _currentEquity += pnl;
             if (_currentEquity > _peakEquity) _peakEquity = _currentEquity;
@@ -158,7 +163,9 @@ public abstract class BaseStrategy : ITradingStrategy
             WinRate:       winRate,
             MaxDrawdown:   maxDd,
             TotalPnL:      totalPnL,
-            SharpeRatio:   double.NaN   // Computed by StrategyBacktester only; not meaningful in live mode
+            SharpeRatio:   double.NaN,  // Computed by StrategyBacktester only; not meaningful in live mode
+            GrossProfit:   _grossProfit + _theoreticalGrossProfit,
+            GrossLoss:     _grossLoss + _theoreticalGrossLoss
         );
     }
 
@@ -216,6 +223,8 @@ public abstract class BaseStrategy : ITradingStrategy
         _theoreticalPnL += pnl;
         _theoreticalClosed++;
         if (isWin) _theoreticalWins++;
+        if (pnl > 0) _theoreticalGrossProfit += pnl;
+        else _theoreticalGrossLoss += -pnl;
 
         _theoreticalEquity += pnl;
         if (_theoreticalEquity > _theoreticalPeakEquity) _theoreticalPeakEquity = _theoreticalEquity;

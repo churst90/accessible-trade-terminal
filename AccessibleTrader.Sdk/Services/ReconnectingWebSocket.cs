@@ -225,8 +225,19 @@ namespace AccessibleTrader.Sdk.Services
             }
         }
 
+        /// <summary>
+        /// Consecutive heartbeat send failures tolerated before the socket is declared
+        /// dead. A single failure can be a transient buffer issue; three in a row
+        /// (default 90s of silence at the 30s interval) means the connection is gone
+        /// even if the OS hasn't noticed — e.g. a half-open TCP connection after a
+        /// NAT timeout. On user-data streams this is the difference between hearing
+        /// about your fills and silently missing them.
+        /// </summary>
+        public const int MaxConsecutiveHeartbeatFailures = 3;
+
         private async Task HeartbeatLoopAsync(CancellationToken ct)
         {
+            int consecutiveFailures = 0;
             while (!ct.IsCancellationRequested)
             {
                 try
@@ -239,6 +250,7 @@ namespace AccessibleTrader.Sdk.Services
                         // as a no-op; idle sockets would then time out and force a reconnect.
                         var pingBytes = Encoding.UTF8.GetBytes("ping");
                         await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, pingBytes.Length), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
+                        consecutiveFailures = 0;
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -246,9 +258,18 @@ namespace AccessibleTrader.Sdk.Services
                 catch (Exception ex)
                 {
                     if (_disposed) break;
-                    // Heartbeat failures are non-fatal (the reconnect loop handles socket
-                    // death), but swallowing silently hid the count=0 bug for months.
-                    System.Diagnostics.Debug.WriteLine($"[ReconnectingWebSocket] heartbeat error: {ex.Message}");
+                    consecutiveFailures++;
+                    // Single failures stay quiet (the reconnect loop handles outright socket
+                    // death), but repeated failures mean a half-open connection the receive
+                    // loop can't see — surface it and kill the socket so reconnect kicks in.
+                    System.Diagnostics.Debug.WriteLine($"[ReconnectingWebSocket] heartbeat error ({consecutiveFailures}/{MaxConsecutiveHeartbeatFailures}): {ex.Message}");
+                    if (consecutiveFailures >= MaxConsecutiveHeartbeatFailures)
+                    {
+                        consecutiveFailures = 0;
+                        _onError?.Invoke($"Heartbeat failed {MaxConsecutiveHeartbeatFailures} times in a row — connection presumed dead, reconnecting: {ex.Message}");
+                        try { _ws?.Dispose(); } catch { /* best-effort */ }
+                        _ws = null; // receive loop sees a dead socket and reconnects
+                    }
                 }
             }
         }
