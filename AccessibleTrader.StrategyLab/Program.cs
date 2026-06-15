@@ -42,6 +42,11 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
+        "ml-export" => await MlExportCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "ml-data.csv"),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
