@@ -7,7 +7,7 @@
 
 @* Help modal: combined keyboard shortcut reference and usage guide.
    Content sources: docs/SHORTCUTS.md (key bindings) + docs/USER_GUIDE.md (conceptual sections).
-   Opens via OpenHelpEvent from CommandDispatcher (Alt+H shortcut). *@
+   Opens via OpenHelpEvent from CommandDispatcher (F1 shortcut). *@
 
 @if (_isVisible)
 {
@@ -176,7 +176,6 @@
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
                         <tr><td>F1</td><td>Open this Help dialog</td></tr>
-                        <tr><td>Alt+H</td><td>Open this Help dialog</td></tr>
                         <tr><td>Alt+A</td><td>Open Indicator search</td></tr>
                         <tr><td>Alt+S</td><td>Open Strategy Manager</td></tr>
                         <tr><td>Alt+O</td><td>Open Object Tree (series list)</td></tr>
@@ -189,8 +188,13 @@
                         <tr><td>Alt+,</td><td>Open Custom Scripts</td></tr>
                         <tr><td>Alt+C</td><td>Toggle Heikin-Ashi candle mode</td></tr>
                         <tr><td>Alt+L</td><td>Toggle log scale / linear scale</td></tr>
+                        <tr><td>Alt+H</td><td>Toggle volume heatmap overlay</td></tr>
                         <tr><td>P / Shift+F12</td><td>Open Properties for focused indicator</td></tr>
                         <tr><td>Ctrl+Shift+D</td><td>Detailed bar summary (candle pattern + all indicators)</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+A</td><td>Open the AI Technical Analyst</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+N</td><td>Toggle auto-narration for the focused series</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+J</td><td>Open the Journal (speech / alerts / setups / errors)</td></tr>
+                        <tr><td>ContextMenu / Shift+F10</td><td>Open the context menu for the focused drawing</td></tr>
                         <tr><td>Delete</td><td>Remove focused indicator</td></tr>
                         <tr><td>Tab / Shift+Tab</td><td>Navigate toolbar controls</td></tr>
                     </tbody>
@@ -199,6 +203,12 @@
 
             <details style="margin-bottom:12px;">
                 <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Drawing Tools</summary>
+                <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
+                    On the Linux web host, every <strong>Ctrl+Shift+&lt;letter&gt;</strong> drawing chord below is
+                    remapped to <strong>Alt+Shift+&lt;letter&gt;</strong> (Firefox reserves several Ctrl+Shift chords).
+                    Same letter, same tool. The "All Keyboard Shortcuts (Live)" section above always shows the
+                    bindings actually in effect on this host.
+                </p>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
@@ -211,7 +221,7 @@
                         <tr><td>Ctrl+Shift+J</td><td>Draw angle Fibonacci (2 anchors)</td></tr>
                         <tr><td>Ctrl+Shift+R</td><td>Draw rectangle (2 anchors)</td></tr>
                         <tr><td>Ctrl+Shift+A</td><td>Draw Andrews' Pitchfork (3 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+G</td><td>Draw Gann Fan (1 anchor)</td></tr>
+                        <tr><td>Ctrl+Shift+G</td><td>Draw Gann Fan (2 anchors)</td></tr>
                         <tr><td>Ctrl+Shift+B</td><td>Draw Gann Box (2 anchors)</td></tr>
                         <tr><td>Ctrl+Shift+P</td><td>Draw Risk/Reward zone (2 anchors)</td></tr>
                         <tr><td>Ctrl+Shift+W</td><td>Draw Anchored VWAP (1 anchor)</td></tr>

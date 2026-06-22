@@ -76,8 +76,11 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record OpenDrawingContextMenuEvent(string SeriesId, double ViewportX, double ViewportY);
     /// <summary>
-    /// Fired by <see cref="CommandDispatcher"/> when the user confirms both anchors in Coordinate Entry mode.
-    /// <see cref="DrawingInteractionManager"/> subscribes and calls <c>HandleAddDrawing</c> twice — once per anchor — to complete the drawing.
+    /// RESERVED / UNUSED. Never published or subscribed. Drawing placement actually flows through
+    /// <see cref="AddDrawingEvent"/>: <see cref="Input.CommandDispatcher"/> publishes one
+    /// <c>AddDrawingEvent</c> each time the user re-presses a drawing shortcut, and
+    /// <see cref="ChartCommandManager"/> calls <c>HandleAddDrawing</c> once per press — the
+    /// <see cref="Accessibility.DrawingInteractionManager"/> state machine advances one anchor per call.
     /// </summary>
     public record CoordinateEntryCompleteEvent(string DrawingTypeName, int Anchor1DataIndex, int Anchor2DataIndex);
     public record IndicatorUpdatedEvent(string? SeriesId = null);

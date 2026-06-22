@@ -210,7 +210,7 @@ See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BAS
 - **Phase F** — Cluster/shapes-as-ticks: N marker signals on a bar produce N audio ticks 100 ms apart in significance order.
 - **Phase G** — Contextual speech: `SignalSpeechTemplate` on `ComponentConfig`, provider-declared signal descriptions via `GetComponentSpeech`, multi-signal sequencing in NavigationFeedbackManager. 2026-04-24: per-indicator speech templates are now user-editable via the **Speech tab in the Indicator Properties modal** (`PropertiesModal.razor`) — continuous (`SpeechTemplate`) and signal (`SignalSpeechTemplate`) fields per component with a Reset-to-default button that restores provider metadata defaults.
 - **Phase H** — Cloud sonification: `CloudSonificationConfig` on `CloudFillConfig`, AudioSequencer cloud pass (slots 64–79), EMA Fill + WT Fill + Ichimoku cloud audio wired.
-- **Phase I** — Drawing Coordinate Entry: keyboard-first anchor placement via CE mode (`Enter` to set each anchor, `Escape` to cancel), TTS price+timestamp feedback, change-from-anchor speech.
+- **Phase I** — Drawing keyboard placement: keyboard-first **sequential anchoring** — re-press the tool's own shortcut (e.g. `Ctrl+Shift+T`) at each anchor, `Escape` to cancel — with TTS price+timestamp feedback and change-from-anchor speech. (Note: there is no Enter-to-confirm; the `ConfirmCoordinateEntry` command is reserved/unused.)
 - **Phase J** — Ctrl+Left/Right redesign: context-aware crossing (ZeroLine/Threshold/MACross/Band/Trendline/SparseMarker) dispatched from `HandleTrendlineCrossJump`.
 - **Phase K** — Ichimoku Kinko Hyo indicator: 5 classical lines (Tenkan, Kijun, Senkou A/B, Chikou) + 3 post-phase additions (hidden Kumo Polarity strategy leaf, TK Bull / TK Bear confirmed-cross dots), Kumo cloud fill with 520/180 Hz sonification, displacement-shifted arrays, `GetDetailFact` context speech.
 - **Phase L** — Test coverage expansion: 69 → 146 tests across 9 new test files covering all Phase B–K systems.
@@ -259,3 +259,13 @@ Built with **.NET 10**. Two hosts share the same component library and core.
 - **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (1038 tests, all passing).
 
 To run on Linux: `dotnet run --project AccessibleTrader.WebHost`. To run the MAUI head: build on the appropriate platform (Windows/macOS for the MAUI workloads).
+
+## License
+
+Copyright (C) 2026 Cody Hurst.
+
+Accessible Trading Terminal is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License, version 3** (GPLv3) as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the full license text in [`LICENSE`](../LICENSE) at the repository root, or <https://www.gnu.org/licenses/gpl-3.0.html>.
+
+SPDX-License-Identifier: `GPL-3.0-or-later`
+
+> Note: the bundled third-party SDKs and provider libraries (e.g. the Dot Pad SDK, exchange client SDKs) remain under their own licenses; GPLv3 covers the Accessible Trading Terminal source in this repository.

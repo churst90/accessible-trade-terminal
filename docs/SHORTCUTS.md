@@ -182,15 +182,20 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 ---
 
-## Drawing Tools — Coordinate Entry Mode
+## Drawing Tools — Sequential Anchoring
 
-All drawing shortcuts enter **Coordinate Entry mode**. In this mode:
-1. Speech announces: "Coordinate entry mode. Navigate to first anchor point and press Enter."
-2. Use Left/Right arrows to navigate to the desired bar.
-3. Press Enter to set the first anchor. Speech announces the price and timestamp of the anchor and prompts for the next step.
-4. Navigate to the second anchor bar (if required by the tool).
-5. Press Enter to complete the drawing. Speech confirms placement.
-6. Press Escape at any time to cancel placement and exit Coordinate Entry mode.
+All drawing shortcuts use **sequential anchoring**: there is no separate "mode" and no Enter key. Each anchor is set by **pressing the same tool shortcut again** at the current cursor bar. The `DrawingInteractionManager` state machine advances one anchor per press.
+
+1. Navigate to the first bar with the Left/Right arrows.
+2. Press the tool shortcut (e.g. `Ctrl+Shift+T`) to set anchor 1 at the current bar. Speech announces the price and timestamp and prompts: "Navigate to next point and press the shortcut again."
+3. Navigate to the next bar.
+4. Press the **same** shortcut again to set anchor 2. For two-anchor tools this completes the drawing and speech confirms placement.
+5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), press the shortcut once more for anchor 3.
+6. Press Escape at any time to cancel the in-progress placement.
+
+Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) complete on the first press.
+
+> The default profile also keeps a mouse path (click/drag to place, drag a handle to reposition), but the keyboard re-press flow above is the canonical accessible path. **Enter/Return is not used for drawing** — the `ConfirmCoordinateEntry` command is reserved/unused and has no key binding or dispatch handler.
 
 | Key | Tool | Anchors Required |
 |-----|------|-----------------|
@@ -212,8 +217,9 @@ All drawing shortcuts enter **Coordinate Entry mode**. In this mode:
 
 | Key | Drawing Placement Action |
 |-----|--------------------------|
-| Enter / Return | Confirm anchor at current bar position |
-| Escape | Cancel active drawing / exit Coordinate Entry mode |
+| (re-press the tool shortcut) | Set the next anchor at the current bar position |
+| ContextMenu / Shift+F10 | Open the context menu for the focused drawing |
+| Escape | Cancel the active in-progress drawing |
 
 ---
 
@@ -258,4 +264,4 @@ The Journal is the persistent review surface for everything the application has 
 - **Ctrl+I** is not assigned. The Add Indicator dialog is Alt+A.
 - **Ctrl+Shift+C** opens a Price Channel drawing — it is not a trendline shortcut. Trendlines use Ctrl+Shift+T.
 - The **P** key opens indicator properties regardless of whether you use it alone or as Shift+F12. Both route to the same `OpenProperties` command.
-- Drawing tools do **not** use a double-press model. Each tool is activated once and then uses Coordinate Entry mode (navigate + Enter) to set anchors.
+- Drawing tools use **sequential anchoring**: press the tool shortcut once per anchor (navigate, re-press the same shortcut). There is **no** Enter-to-confirm and **no** Coordinate Entry mode — `Enter`/`Return` is not bound to drawing.

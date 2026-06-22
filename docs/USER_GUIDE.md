@@ -19,7 +19,7 @@ This guide is for new users who want to understand how Accessible Trader works, 
 9. Controlling Volume and Speech
 10. Working with Indicators
 11. Drawing Tools
-12. Analysis and Context
+12. Analysis, AI, and Context (AI Analyst, Auto-Narration, Journal)
 13. Modals, Panels, and Dialogs
 14. Volume Profile Navigation
 15. Heatmap Overlay
@@ -353,19 +353,26 @@ Press Alt+L to toggle logarithmic (log) scale on the price chart. Log scale is u
 
 Drawing tools let you place reference lines and shapes on the chart that are then audible during navigation and playback — for example, the cursor will announce when it crosses a trendline you have placed.
 
-All drawing tools use Coordinate Entry mode. You do not hold keys and drag. Instead you navigate to the point you want, then press Enter to set it. This makes every drawing tool fully accessible.
+All drawing tools use **sequential anchoring**. You do not hold keys and drag, and you do not press Enter. Instead you navigate the cursor to the point you want and **press the same drawing shortcut again** to set each anchor at the current bar. This makes every drawing tool fully accessible.
 
-### The Coordinate Entry Workflow
+### The Sequential Anchoring Workflow
 
-When you press a drawing shortcut, speech announces: "Coordinate entry mode. Navigate to first anchor point and press Enter."
+Take a trendline (Ctrl+Shift+T) as the example:
 
-1. Use Left and Right arrows to move to the desired bar.
-2. Press Enter to set the anchor. Speech announces the price and timestamp of the anchor you just set, and tells you what to do next.
-3. If the tool requires a second anchor (most do), navigate to the second point.
-4. Press Enter to complete the drawing. Speech announces the completed drawing: for example, "Trendline placed from 42,500.00 at 14:30 to 43,100.00 at 16:00."
-5. Press Escape at any time during anchor placement to cancel and exit Coordinate Entry mode.
+1. Navigate the cursor to the first point using the Left and Right arrows.
+2. Press the drawing shortcut (Ctrl+Shift+T) to set the first anchor at the current bar. Speech announces the price and timestamp of the anchor and tells you what to do next — for example: "Trend line: anchor 1 set at 42,500.00, 14:30. Navigate to next point and press the shortcut again."
+3. Navigate to the second point.
+4. Press the **same** shortcut again (Ctrl+Shift+T) to set the second anchor and complete the drawing. Speech announces the completed drawing: for example, "Trend line placed from 42,500.00 to 43,100.00."
+5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), repeat: navigate, then press the shortcut a third time to set the final anchor.
+6. Press Escape at any time during placement to cancel the in-progress drawing.
+
+Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) complete on the first press — they place immediately at the current bar.
+
+> **Note:** Enter does **not** confirm anchors. Each anchor is set by pressing the tool's own shortcut again. (If you have a mouse, you can also click or drag to place anchors, and drag an existing anchor handle to reposition it — but the keyboard workflow above is the primary, fully accessible path.)
 
 ### Drawing Shortcuts
+
+> **Linux web host users:** every `Ctrl+Shift+<letter>` chord below becomes `Alt+Shift+<letter>` in the browser (Firefox reserves several `Ctrl+Shift` chords at the browser level). Same letter, same tool — see [Platform Support](#17-platform-support). The desktop/mobile apps use `Ctrl+Shift` as shown.
 
 | Key | Tool |
 |-----|------|
@@ -400,7 +407,7 @@ Ctrl+Shift+P starts the Risk/Reward tool. After you set the entry and stop-loss 
 
 ---
 
-## 12. Analysis and Context
+## 12. Analysis, AI, and Context
 
 ### Detailed Point Analysis
 
@@ -423,6 +430,32 @@ This is useful for a thorough understanding of a specific bar before making a de
 | F4 | Announce symbol, data provider, and timeframe |
 | Ctrl+Alt+Shift+C | Focus chart area and announce full context summary |
 
+### AI Technical Analyst
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+A | Open the AI Analyst modal |
+
+The AI Analyst sends a snapshot of the current chart — recent candle data, a summary of your active indicators, and (where the provider supports vision) an image of the chart — to a large language model and reads back a concise, plain-language technical analysis written for text-to-speech: trend direction, key support/resistance levels, momentum signals, and a short-term outlook.
+
+To use it you must first add an API key for at least one AI provider in the **API key manager (Alt+K)**. Supported providers are tried in order — **Claude, then OpenAI, then Ollama** — and the first one you have configured is used. If no key is configured, the Analyst tells you so rather than failing silently. Because the request goes to an external service, only use it with a provider you trust with your chart data.
+
+### Auto-Narration
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+N | Toggle auto-narration on/off for the focused series |
+
+Auto-narration watches the focused indicator series and **speaks new signals and zone transitions as they occur on live bar closes** — for example, a fresh marker firing, or an oscillator entering or leaving an overbought/oversold zone. Only signals that appear *after* you enable narration are announced; pre-existing historical signals are not replayed. Toggle it per series, so you can leave narration running on the one indicator you care about without being interrupted by the rest of the chart.
+
+### The Journal
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+J | Open the Journal |
+
+The Journal is a persistent, screen-reader-friendly record of everything the application has spoken or alerted on during the current session — speech, alerts, strategy setups, errors, and backtest results. It is the primary tool for reviewing things that scrolled past in speech. The view is a monospace text area you can Tab into to read or copy any line, with filter buttons (All / Speech / Alerts / Setups / Errors / Backtests) and a "Copy visible" button. The buffer holds up to 2000 entries, newest at the bottom. Composite-strategy setups appear with their full rationale — side, score, stop price, first target, risk/reward, and stop placement notes.
+
 ---
 
 ## 13. Modals, Panels, and Dialogs
@@ -443,6 +476,8 @@ All modals and panels are opened by keyboard shortcut and navigated with Tab, Sh
 | Alt+S | Strategy manager: load, configure, and run automated strategies |
 | Alt+W | Sound designer: customize indicator timbres and bell patch assignments |
 | Alt+, | Custom scripts panel: load and run PineScript or custom strategy scripts |
+| Ctrl+Alt+Shift+A | AI Analyst: AI-powered technical analysis of the current chart (see [Analysis, AI, and Context](#12-analysis-ai-and-context)) |
+| Ctrl+Alt+Shift+J | Journal: review every speech utterance, alert, setup, and error this session |
 
 ### Help Dialog (F1)
 
@@ -510,7 +545,7 @@ The Sound Designer panel gives you a comprehensive view of all audio assignments
 
 ## 17. Platform Support
 
-Accessible Trader runs on four platforms. The core keyboard navigation and audio model are the same on all platforms. Platform-specific notes:
+Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windows, Android, iOS, Mac) and as a self-hosted browser application (the "Linux web host"). The core keyboard navigation and audio model are the same everywhere. Platform-specific notes:
 
 **Windows:**
 - Works with NVDA, JAWS, and Narrator
@@ -531,6 +566,34 @@ Accessible Trader runs on four platforms. The core keyboard navigation and audio
 - Works with VoiceOver
 - Full keyboard support with hardware keyboard
 - AVAudioEngine audio
+
+**Linux (web host, runs in a browser such as Firefox):**
+- Works with Orca and other browser-compatible screen readers
+- **Modifier remap:** browsers (especially Firefox) reserve several `Ctrl+Shift+<letter>` chords at the browser-chrome level — `Ctrl+Shift+T` (reopen tab), `Ctrl+Shift+H` (history), `Ctrl+Shift+P` (private window), `Ctrl+Shift+J` (console), `Ctrl+Shift+R` (reload), `Ctrl+Shift+W` (close window) — and the page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is remapped to `Alt+Shift+<letter>`**. This affects all drawing tools *and* the detailed point summary (`Ctrl+Shift+D` → `Alt+Shift+D`). The letter and the command are unchanged — only the modifier differs.
+- Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are **not** remapped — browsers don't reserve them.
+- A few single-`Ctrl` browser chords have no clean in-page override and are not remapped: use the toolbar's tab **+** button instead of `Ctrl+T`, the tab's **×** button instead of `Ctrl+W`, and the toolbar to switch tabs instead of `Ctrl+Tab` / `Ctrl+Shift+Tab`.
+- The Help dialog (F1) and its live shortcut table always read the bindings actually in effect on your host, so you will always see the correct modifier for the platform you are using.
+
+#### MAUI head vs. Linux web host — drawing tool modifiers
+
+| Drawing tool | Desktop/mobile app (`Ctrl+Shift`) | Linux web host (`Alt+Shift`) |
+|---|---|---|
+| Trendline | Ctrl+Shift+T | Alt+Shift+T |
+| Horizontal line | Ctrl+Shift+H | Alt+Shift+H |
+| Vertical line | Ctrl+Shift+V | Alt+Shift+V |
+| Channel | Ctrl+Shift+C | Alt+Shift+C |
+| Fibonacci retracement | Ctrl+Shift+F | Alt+Shift+F |
+| Fibonacci extension | Ctrl+Shift+E | Alt+Shift+E |
+| Text label | Ctrl+Shift+L | Alt+Shift+L |
+| Rectangle | Ctrl+Shift+R | Alt+Shift+R |
+| Measure / range | Ctrl+Shift+M | Alt+Shift+M |
+| Andrews' pitchfork | Ctrl+Shift+A | Alt+Shift+A |
+| Gann fan | Ctrl+Shift+G | Alt+Shift+G |
+| Gann box | Ctrl+Shift+B | Alt+Shift+B |
+| Angle / Fibonacci angle | Ctrl+Shift+J | Alt+Shift+J |
+| Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
+| Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
+| Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
 
 ---
 
@@ -653,8 +716,11 @@ Accessible Trader runs on four platforms. The core keyboard navigation and audio
 | Ctrl+Shift+P | Risk/Reward tool |
 | Ctrl+Shift+W | Anchored VWAP |
 | Alt+D | Open drawing tools panel |
-| Enter | Set anchor point during Coordinate Entry |
-| Escape | Cancel Coordinate Entry / close dialog |
+| (re-press the tool shortcut) | Set each anchor at the current bar; the same shortcut advances anchor 1 → 2 → 3 and completes the drawing |
+| ContextMenu / Shift+F10 | Open the context menu for the focused drawing (keyboard equivalent of right-click) |
+| Escape | Cancel an in-progress drawing / close dialog |
+
+> On the Linux web host these `Ctrl+Shift` drawing chords are `Alt+Shift` — see [Platform Support](#17-platform-support).
 
 ### Panels and Dialogs
 

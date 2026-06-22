@@ -194,8 +194,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.ChartFocus, "C", Ctrl: true, Alt: true, Shift: true));
 
             // Series navigation is Page Up / Page Down (defined above as NavPageUp/NavPageDown).
-            // Ctrl+Up and Ctrl+Down are NOT used for series switching — they would shadow
-            // the component navigation (Up/Down) and are not defined in the user's shortcut scheme.
+            // Ctrl+Up / Ctrl+Down are bound below to intra-pane component navigation
+            // (NavComponentInPaneNext/Prev) — see the "Intra-pane component navigation" block.
+            // They are NOT used for series switching.
 
             // Visibility & State
             s.Add(new(SystemCommand.ToggleIndicatorVisibility, "H"));
@@ -265,9 +266,10 @@ namespace AccessibleTrader.Core.Services
             // OR closes the topmost open modal — CommandDispatcher re-routes Escape to
             // CloseModal whenever _openModalCount > 0.
             s.Add(new(SystemCommand.CancelDrawing,  "ESCAPE"));
-            // Enter confirms an anchor during Coordinate Entry mode.
-            s.Add(new(SystemCommand.ConfirmCoordinateEntry, "ENTER"));
-            s.Add(new(SystemCommand.ConfirmCoordinateEntry, "RETURN"));
+            // NOTE: There is no Enter/Return binding for drawing. Anchors are set by
+            // re-pressing the same tool shortcut (e.g. Ctrl+Shift+T) at each point — the
+            // DrawingInteractionManager state machine advances one anchor per press.
+            // ConfirmCoordinateEntry is reserved/unused (no handler in CommandDispatcher).
             // Application/Menu key + Shift+F10: open the right-click context menu on
             // the focused drawing — keyboard parity with mouse right-click.
             s.Add(new(SystemCommand.OpenDrawingContextMenu, "CONTEXTMENU"));
@@ -278,7 +280,7 @@ namespace AccessibleTrader.Core.Services
 
             // Detail summary: Ctrl+Shift+D speaks full candle pattern analysis for the current bar.
             s.Add(new(SystemCommand.DetailedPointSummary, "D", Ctrl: true, Shift: true));
-            // Narration toggle: Ctrl+Shift+N enables/disables auto-narration for the focused series.
+            // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.
             s.Add(new(SystemCommand.ToggleNarration, "N", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+N
 
             // Multi-tab shortcuts

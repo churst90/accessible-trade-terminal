@@ -10,9 +10,9 @@ namespace AccessibleTrader.Core.Models
         OpenObjectTree,     // Alt+O
         OpenTradingDashboard, // Alt+T
         OpenOrderBook,      // Alt+B
-        OpenHelp,           // Alt+H
+        OpenHelp,           // F1
         OpenApiKeys,        // Alt+K
-        OpenAlerts,         // Alt+A
+        OpenAlerts,         // Alt+J
         OpenIndicators,     // Alt+A
         OpenDrawingTools,
         OpenStrategies,     // Alt+S
@@ -25,7 +25,7 @@ namespace AccessibleTrader.Core.Models
         // Accessibility Toggles
         ToggleSpeech,
         ToggleSonification,
-        ToggleNarration,    // Ctrl+Shift+N: toggle auto-narration for the focused series
+        ToggleNarration,    // Ctrl+Alt+Shift+N: toggle auto-narration for the focused series
         // Navigation (Historical/Static)
         NavLeft,
         NavRight,
@@ -99,7 +99,7 @@ namespace AccessibleTrader.Core.Models
         // Detail / Drawing
         DetailedPointSummary, // Ctrl+Shift+D: speak full candle pattern analysis
         CancelDrawing,        // Escape (no modal): cancel an in-progress drawing placement
-        ConfirmCoordinateEntry, // Enter: confirm anchor point during Coordinate Entry mode
+        ConfirmCoordinateEntry, // RESERVED / unused: drawings are placed by re-pressing the tool shortcut at each anchor (see DrawingInteractionManager). No default key binding and no dispatch handler; kept for profile/back-compat only.
         OpenDrawingContextMenu, // ContextMenu key / Shift+F10: open the drawing context menu on the focused drawing
         CloseModal,           // Escape (modal open): close the topmost open modal
 
