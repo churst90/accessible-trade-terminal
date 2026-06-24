@@ -186,10 +186,14 @@ jobs:
         with:
           dotnet-version: '10.0.100'
 
-      - name: Install MAUI workload (band-matched to GA SDK)
+      - name: Install MAUI workload (GA, pinned)
         run: |
+          # Pin BOTH the SDK (above) and the workload SET to 10.0.100. SDK-only
+          # left the workload at latest (MacCatalyst 26.5 → Xcode 26.5); workload-
+          # only left the SDK at 10.0.301 (runtime-pack 10.0.0 mismatch, NU1102).
+          # Both at GA → MacCatalyst 26.0 (Xcode 26.0) + coherent 10.0.0 runtime.
           dotnet --version
-          dotnet workload install maui
+          dotnet workload install maui --version 10.0.100
 
       - name: Publish MAUI Mac Catalyst (universal)
         run: |
