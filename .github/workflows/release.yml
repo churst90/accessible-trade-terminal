@@ -181,8 +181,16 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI workload
-        run: dotnet workload install maui
+      - name: Install MAUI workload (pinned)
+        run: |
+          # The LATEST MAUI workload ships a MacCatalyst pack that requires
+          # Xcode 26.5, which GitHub runners don't have yet (newest is 26.3).
+          # Pin to the .NET 10 GA workload set, whose MacCatalyst pack targets
+          # an Xcode the runner actually has. Print available set versions so we
+          # can re-pin if this exact string ever stops being offered.
+          echo "=== available workload set versions ==="
+          dotnet workload search version 2>&1 | head -25 || true
+          dotnet workload install maui --version 10.0.100
 
       - name: Publish MAUI Mac Catalyst (universal)
         run: |
@@ -190,13 +198,32 @@ jobs:
           # scoped per-TFM, gated on ReleasePublish=true) so it can't be passed
           # as a single bogus RID to the net10.0 dependency projects (NETSDK1083).
           # CreatePackage=false yields a .app (not a .pkg) to zip. Unsigned (ad-hoc).
-          dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj \
-            --framework net10.0-maccatalyst \
-            --configuration Release \
-            -p:ReleasePublish=true \
-            -p:CreatePackage=false \
-            -p:Version=${{ needs.meta.outputs.version }} \
-            -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }}
+          #
+          # If the build still version-mismatches on Xcode, parse the exact
+          # required version from the error and re-select that Xcode, then retry
+          # once — the runner carries several 26.x Xcodes side by side.
+          set +e
+          publish() {
+            dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj \
+              --framework net10.0-maccatalyst \
+              --configuration Release \
+              -p:ReleasePublish=true \
+              -p:CreatePackage=false \
+              -p:Version=${{ needs.meta.outputs.version }} \
+              -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} 2>&1 | tee /tmp/pub.log
+            return ${PIPESTATUS[0]}
+          }
+          publish && exit 0
+          REQ=$(grep -oE 'requires Xcode [0-9.]+' /tmp/pub.log | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          echo "First attempt failed; build wants Xcode '$REQ'. Trying to select it."
+          for CAND in "$REQ" "${REQ}.0" "${REQ}.1"; do
+            D="/Applications/Xcode_${CAND}.app"
+            if [ -n "$REQ" ] && [ -d "$D" ]; then
+              echo "Selecting $D"; sudo xcode-select -s "$D/Contents/Developer"; break
+            fi
+          done
+          xcodebuild -version
+          publish
 
       - name: Locate + zip .app
         run: |
