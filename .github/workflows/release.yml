@@ -1,0 +1,232 @@
+name: release
+
+# Builds the distributable heads and publishes them to a GitHub Release.
+#
+# Two heads ship (see AccessibleTrader.WebHost.csproj header and
+# AccessibleTrader.BlazorClient.csproj):
+#
+#   1. WebHost  — ASP.NET Core Blazor Server, net10.0, no MAUI. Self-contained
+#                 per-RID; cross-builds every OS from one Ubuntu runner because
+#                 the SkiaSharp native assets come from per-RID NuGet packages,
+#                 not the build host. Users need NO .NET install.
+#   2. MAUI BlazorClient — native heads. Windows is unpackaged
+#                 (WindowsPackageType=None → a runnable folder, no MSIX); macOS
+#                 is Mac Catalyst (universal x64+arm64). These need the matching
+#                 OS runner and the `maui` workload.
+#
+# Trigger: push a tag like v1.0.0, OR run manually (workflow_dispatch) with a
+# tag name — handy for shaking out the MAUI jobs with a pre-release tag such as
+# v0.0.1-test before cutting a real release.
+#
+# NOTE ON SIGNING: the MAUI Windows and macOS artifacts are UNSIGNED. End users
+# will see SmartScreen (Windows) / Gatekeeper (macOS) warnings on first launch.
+# Wiring in real code-signing certs (stored as repo secrets) is a follow-up;
+# the WebHost artifacts are unaffected since they're plain zips.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag / version to build and release (e.g. v0.0.1-test)'
+        required: true
+        type: string
+
+permissions:
+  contents: write          # required to create the GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Resolve the version once so every artifact name is consistent.
+  # ---------------------------------------------------------------------------
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building tag=$TAG version=$VERSION"
+
+  # ---------------------------------------------------------------------------
+  # WebHost — all four RIDs from a single Ubuntu runner.
+  # ---------------------------------------------------------------------------
+  webhost:
+    needs: meta
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, win-x64, osx-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WebHost (${{ matrix.rid }})
+        shell: bash
+        run: |
+          dotnet publish AccessibleTrader.WebHost/AccessibleTrader.WebHost.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:Version=${{ needs.meta.outputs.version }} \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            --output "publish/${{ matrix.rid }}"
+
+      - name: Zip
+        shell: bash
+        run: |
+          mkdir -p dist
+          NAME="AccessibleTrader-WebHost-${{ needs.meta.outputs.version }}-${{ matrix.rid }}"
+          (cd "publish/${{ matrix.rid }}" && zip -r -q "$OLDPWD/dist/$NAME.zip" .)
+          ls -lh dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webhost-${{ matrix.rid }}
+          path: dist/*.zip
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # MAUI Windows head (unpackaged). Runs on a Windows runner.
+  # First-run note: if the publish output path differs, adjust the glob in the
+  # "Locate + zip" step — the rest of the job is stable.
+  # ---------------------------------------------------------------------------
+  maui-windows:
+    needs: meta
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui
+
+      - name: Publish MAUI Windows
+        shell: pwsh
+        run: |
+          dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
+            --framework net10.0-windows10.0.19041.0 `
+            --configuration Release `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:Version=${{ needs.meta.outputs.version }} `
+            -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} `
+            --output publish/maui-win
+
+      - name: Locate + zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $name = "AccessibleTrader-Windows-${{ needs.meta.outputs.version }}-win-x64.zip"
+          Compress-Archive -Path publish/maui-win/* -DestinationPath "dist/$name" -Force
+          Get-ChildItem dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maui-windows
+          path: dist/*.zip
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # MAUI macOS head (Mac Catalyst, universal x64+arm64). Runs on a Mac runner.
+  # UNSIGNED — see the signing note at the top of this file. We locate the
+  # produced .app and archive it with `ditto` to preserve the bundle.
+  # ---------------------------------------------------------------------------
+  maui-mac:
+    needs: meta
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui
+
+      - name: Publish MAUI Mac Catalyst (universal)
+        run: |
+          dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj \
+            --framework net10.0-maccatalyst \
+            --configuration Release \
+            -p:RuntimeIdentifiers="maccatalyst-x64;maccatalyst-arm64" \
+            -p:CreatePackage=false \
+            -p:Version=${{ needs.meta.outputs.version }} \
+            -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }}
+
+      - name: Locate + zip .app
+        run: |
+          mkdir -p dist
+          APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 3 -name '*.app' -type d | head -1)"
+          if [ -z "$APP" ]; then echo "::error::No .app bundle found"; exit 1; fi
+          echo "Found app bundle: $APP"
+          NAME="AccessibleTrader-macOS-${{ needs.meta.outputs.version }}-universal.zip"
+          ditto -c -k --keepParent "$APP" "dist/$NAME"
+          ls -lh dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maui-mac
+          path: dist/*.zip
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Collect every artifact, checksum it, and publish the GitHub Release.
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [meta, webhost, maui-windows, maui-mac]
+    # always() so a single failing head (e.g. a first-run MAUI hiccup) still
+    # publishes every head that DID build, rather than blocking the release.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: incoming
+
+      - name: Flatten + checksum
+        shell: bash
+        run: |
+          mkdir -p release
+          find incoming -name '*.zip' -exec cp {} release/ \;
+          (cd release && sha256sum *.zip > SHA256SUMS.txt)
+          echo "=== Release contents ==="
+          ls -lh release
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.meta.outputs.tag }}
+          name: ${{ needs.meta.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.zip
+            release/SHA256SUMS.txt
