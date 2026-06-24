@@ -127,21 +127,14 @@ jobs:
       - name: Publish MAUI Windows
         shell: pwsh
         run: |
-          # Constrain TargetFrameworks to ONLY the Windows TFM for this
-          # invocation. The project multi-targets android/ios/maccatalyst too;
-          # without this, a global -p:RuntimeIdentifier=win-x64 leaks onto the
-          # Android TFM (Mono runtime) and restore fails looking for the
-          # nonexistent Microsoft.NETCore.App.Runtime.Mono.win-x64 pack.
-          # Self-contained + WindowsAppSDKSelfContained so the unzipped folder
-          # runs with no .NET / WindowsAppRuntime install on the user's box.
+          # RID / self-contained config lives in the csproj, scoped per-TFM and
+          # gated on ReleasePublish=true, so it can't contaminate the net10.0
+          # dependency projects or the android/ios heads. We pass nothing
+          # RID-related on the command line — only the flag and the TFM select.
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
-            -p:TargetFrameworks=net10.0-windows10.0.19041.0 `
             --framework net10.0-windows10.0.19041.0 `
             --configuration Release `
-            -p:RuntimeIdentifier=win-x64 `
-            --self-contained true `
-            -p:WindowsPackageType=None `
-            -p:WindowsAppSDKSelfContained=true `
+            -p:ReleasePublish=true `
             -p:Version=${{ needs.meta.outputs.version }} `
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} `
             --output publish/maui-win
@@ -182,16 +175,14 @@ jobs:
 
       - name: Publish MAUI Mac Catalyst (universal)
         run: |
-          # Constrain to ONLY the maccatalyst TFM (avoids android/ios
-          # contamination during restore) and escape the RID-list separator as
-          # %3B — a literal ';' gets split by the shell/CLI into a bogus second
-          # switch (MSB1006). %3B reaches MSBuild as a single RuntimeIdentifiers
-          # property, producing a universal x64+arm64 .app. Unsigned (ad-hoc).
+          # The universal x64+arm64 RID list lives in the csproj (RuntimeIdentifiers,
+          # scoped per-TFM, gated on ReleasePublish=true) so it can't be passed
+          # as a single bogus RID to the net10.0 dependency projects (NETSDK1083).
+          # CreatePackage=false yields a .app (not a .pkg) to zip. Unsigned (ad-hoc).
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj \
-            -p:TargetFrameworks=net10.0-maccatalyst \
             --framework net10.0-maccatalyst \
             --configuration Release \
-            -p:RuntimeIdentifiers=maccatalyst-x64%3Bmaccatalyst-arm64 \
+            -p:ReleasePublish=true \
             -p:CreatePackage=false \
             -p:Version=${{ needs.meta.outputs.version }} \
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }}

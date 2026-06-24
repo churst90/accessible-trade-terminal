@@ -48,6 +48,32 @@
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
     </PropertyGroup>
 
+    <!--
+        Release-publish RID configuration, consumed by the CI release workflow
+        (.github/workflows/release.yml). These live INSIDE this project and are
+        scoped per-TFM via Condition so they never flow to the referenced
+        net10.0 libraries or to the other heads' TFMs (android/ios) — which is
+        exactly what passing -r / -p:RuntimeIdentifier(s) on the command line
+        does, producing NETSDK1005 / NETSDK1083 / Mono runtime-pack errors.
+
+        Gated on ReleasePublish=true (the workflow passes -p:ReleasePublish=true)
+        so ordinary local builds and VS F5 are completely unaffected.
+
+          - Windows: self-contained, unpackaged (WindowsPackageType=None above)
+            win-x64 so the unzipped folder runs with no .NET / WindowsAppRuntime
+            install on the user's machine.
+          - Mac Catalyst: RuntimeIdentifiers (plural) builds one universal
+            x64 + arm64 .app. Unsigned (ad-hoc) — see the workflow header.
+    -->
+    <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <SelfContained>true</SelfContained>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+        <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers>
+    </PropertyGroup>
+
     <ItemGroup>
         <!-- App Icon -->
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
