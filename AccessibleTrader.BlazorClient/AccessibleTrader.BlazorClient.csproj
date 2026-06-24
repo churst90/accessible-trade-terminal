@@ -81,6 +81,15 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
         <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers>
+        <!--
+            Use the Mono interpreter instead of full AOT for the release .app.
+            Release Mac Catalyst defaults to AOT, which fails on this large
+            multi-plugin app ("AOT compiler exited with code 1"). The interpreter
+            yields a working unsigned .app with slightly slower startup; identical
+            behaviour otherwise. Revisit if/when AOT is needed for App Store size.
+        -->
+        <UseInterpreter>true</UseInterpreter>
+        <RunAOTCompilation>false</RunAOTCompilation>
     </PropertyGroup>
 
     <ItemGroup>
