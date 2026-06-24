@@ -161,9 +161,20 @@ jobs:
   # ---------------------------------------------------------------------------
   maui-mac:
     needs: meta
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        # The net10.0 MacCatalyst SDK pack tracks a specific Xcode; the default
+        # runner Xcode can be too old (NETSDK: "requires Xcode 26.5"). Pick the
+        # highest Xcode installed on the image and log all candidates so we can
+        # see what's actually available if the build still version-mismatches.
+        run: |
+          echo "Installed Xcodes:"; ls -d /Applications/Xcode_*.app 2>/dev/null || true
+          LATEST="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$LATEST" ]; then sudo xcode-select -s "$LATEST/Contents/Developer"; fi
+          xcodebuild -version
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4

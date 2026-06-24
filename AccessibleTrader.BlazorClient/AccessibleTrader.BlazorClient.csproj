@@ -67,7 +67,16 @@
     -->
     <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-        <SelfContained>true</SelfContained>
+        <!--
+            Framework-dependent on purpose. The host ProjectReferences the
+            ScriptWorker — a non-self-contained net10.0 exe copied next to the
+            host so custom scripts can run. A SELF-contained host referencing a
+            non-self-contained exe fails NETSDK1150, so we keep the .NET runtime
+            framework-dependent (users install the .NET 10 Desktop Runtime).
+            WindowsAppSDK stays self-contained, so no separate WindowsAppRuntime
+            install is needed.
+        -->
+        <SelfContained>false</SelfContained>
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     </PropertyGroup>
     <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
