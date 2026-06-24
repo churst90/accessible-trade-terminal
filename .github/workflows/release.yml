@@ -127,10 +127,21 @@ jobs:
       - name: Publish MAUI Windows
         shell: pwsh
         run: |
+          # Constrain TargetFrameworks to ONLY the Windows TFM for this
+          # invocation. The project multi-targets android/ios/maccatalyst too;
+          # without this, a global -p:RuntimeIdentifier=win-x64 leaks onto the
+          # Android TFM (Mono runtime) and restore fails looking for the
+          # nonexistent Microsoft.NETCore.App.Runtime.Mono.win-x64 pack.
+          # Self-contained + WindowsAppSDKSelfContained so the unzipped folder
+          # runs with no .NET / WindowsAppRuntime install on the user's box.
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
+            -p:TargetFrameworks=net10.0-windows10.0.19041.0 `
             --framework net10.0-windows10.0.19041.0 `
             --configuration Release `
             -p:RuntimeIdentifier=win-x64 `
+            --self-contained true `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true `
             -p:Version=${{ needs.meta.outputs.version }} `
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} `
             --output publish/maui-win
@@ -171,10 +182,16 @@ jobs:
 
       - name: Publish MAUI Mac Catalyst (universal)
         run: |
+          # Constrain to ONLY the maccatalyst TFM (avoids android/ios
+          # contamination during restore) and escape the RID-list separator as
+          # %3B — a literal ';' gets split by the shell/CLI into a bogus second
+          # switch (MSB1006). %3B reaches MSBuild as a single RuntimeIdentifiers
+          # property, producing a universal x64+arm64 .app. Unsigned (ad-hoc).
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj \
+            -p:TargetFrameworks=net10.0-maccatalyst \
             --framework net10.0-maccatalyst \
             --configuration Release \
-            -p:RuntimeIdentifiers="maccatalyst-x64;maccatalyst-arm64" \
+            -p:RuntimeIdentifiers=maccatalyst-x64%3Bmaccatalyst-arm64 \
             -p:CreatePackage=false \
             -p:Version=${{ needs.meta.outputs.version }} \
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }}
@@ -182,7 +199,7 @@ jobs:
       - name: Locate + zip .app
         run: |
           mkdir -p dist
-          APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 3 -name '*.app' -type d | head -1)"
+          APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 4 -name '*.app' -type d | head -1)"
           if [ -z "$APP" ]; then echo "::error::No .app bundle found"; exit 1; fi
           echo "Found app bundle: $APP"
           NAME="AccessibleTrader-macOS-${{ needs.meta.outputs.version }}-universal.zip"
