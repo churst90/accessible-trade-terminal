@@ -165,32 +165,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select newest Xcode
-        # The net10.0 MacCatalyst SDK pack tracks a specific Xcode; the default
-        # runner Xcode can be too old (NETSDK: "requires Xcode 26.5"). Pick the
-        # highest Xcode installed on the image and log all candidates so we can
-        # see what's actually available if the build still version-mismatches.
+      # Pin the ENTIRE toolchain to .NET 10 GA so the SDK, the MAUI workload,
+      # and the runtime packs are one coherent set. Pinning only the workload
+      # (with a 10.0.301 SDK) made restore look for runtime packs at 10.0.0 that
+      # don't line up (NU1102). GA's MacCatalyst pack also targets Xcode 26.0,
+      # which the runner has — unlike the latest workload, which needs Xcode 26.5.
+      - name: Pin SDK to .NET 10 GA (global.json)
         run: |
+          cat > global.json <<'JSON'
+          { "sdk": { "version": "10.0.100", "rollForward": "latestPatch" } }
+          JSON
           echo "Installed Xcodes:"; ls -d /Applications/Xcode_*.app 2>/dev/null || true
-          LATEST="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
-          if [ -n "$LATEST" ]; then sudo xcode-select -s "$LATEST/Contents/Developer"; fi
+          # GA MacCatalyst pack expects Xcode 26.0; select it explicitly.
+          XC="$(ls -d /Applications/Xcode_26.0*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC/Contents/Developer"; fi
           xcodebuild -version
 
-      - name: Setup .NET 10
+      - name: Setup .NET 10 GA
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.100'
 
-      - name: Install MAUI workload (pinned)
+      - name: Install MAUI workload (band-matched to GA SDK)
         run: |
-          # The LATEST MAUI workload ships a MacCatalyst pack that requires
-          # Xcode 26.5, which GitHub runners don't have yet (newest is 26.3).
-          # Pin to the .NET 10 GA workload set, whose MacCatalyst pack targets
-          # an Xcode the runner actually has. Print available set versions so we
-          # can re-pin if this exact string ever stops being offered.
-          echo "=== available workload set versions ==="
-          dotnet workload search version 2>&1 | head -25 || true
-          dotnet workload install maui --version 10.0.100
+          dotnet --version
+          dotnet workload install maui
 
       - name: Publish MAUI Mac Catalyst (universal)
         run: |
