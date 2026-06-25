@@ -1,10 +1,16 @@
 # Accessible Order Panel — Design Spec
 
-**Status:** Draft / not yet implemented. Captures the full target design for a
-complete, fully accessible trading order panel, the data-model and provider changes
-it needs, and the exact spoken announcements for every order event. Written
-2026-06-24. Companion to the user-facing Trading chapter in `USER_MANUAL.md` (which
-currently documents the minimal panel and notes trailing exits as "planned").
+**Status:** Partially implemented (updated 2026-06-25). **Shipped:** labels/ARIA
+account tabs with full columns, large BUY/SELL buttons, all order types
+(Market/Limit/Stop-Market/Stop-Limit/TP-Market/TP-Limit) + Trigger Price,
+close/flatten button, risk-based sizing, **trailing stop** and **trailing
+take-profit** (activation), time-in-force, post-only, reduce-only, position-side,
+realized-P&L + trailing-hit announcements (paper), and capability-gated trailing
+controls (`GetCapabilitiesAsync` → `ProviderCapabilities`). **Remaining:**
+History/closed-trades tab + real fees + pre-submit spoken review for live orders;
+real-provider realized P&L; alerts→speech verification; Alt+B order-book smart
+announcements; spot-side reduce-only/position-side (futures-only today). The full
+target design follows; treat unshipped items as the roadmap. Written 2026-06-24.
 
 Related: [[trading-order-panel-gaps]] memory, `docs/codebase-audit-2026-06` items
 (order-fill announcements, bracket atomicity, TP-ladder).

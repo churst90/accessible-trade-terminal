@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-06-25] — Order ticket completion (types, trigger, close, risk sizing, trailing, TIF, flags, capability gating)
+
+### Added
+- **Order types** in the ticket — Stop-Market, Stop-Limit, Take-Profit-Market,
+  Take-Profit-Limit — with a Trigger Price field (`TradeSignal.TriggerPrice`).
+- **Close/flatten** button on each open position; **risk-based sizing** (risk %
+  of balance over the entry-to-stop distance).
+- **Trailing stop** and **trailing take-profit** (percent or amount; trailing TP
+  takes an activation price). The paper broker fully simulates both — a moving
+  high-water mark, persisted — and announces "Trailing stop/take-profit hit"
+  via the new `OrderUpdate.Trailing` flag.
+- **Time-in-force** (GTC/IOC/FOK), **post-only**, **reduce-only**, and
+  **position-side** (hedge) controls.
+- **Capability gating** — `IOrderExecutionService.GetCapabilitiesAsync` exposes a
+  provider's `ProviderCapabilities`; the panel shows the trailing controls only
+  when the provider advertises `TrailingStop`.
+
+### Changed
+- **Binance** honours the new fields: futures TIF (incl. `GTX` post-only),
+  `reduceOnly`, `positionSide`, and `TRAILING_STOP_MARKET` attaches (trailing stop
+  and trailing-TP-with-activation via `callbackRate`); spot honours TIF
+  (GTC/IOC/FOK) and post-only (`LIMIT_MAKER`).
+- **Docs** — `USER_GUIDE.md` renamed to `QUICKSTART.md` (Quick Start Guide).
+
+### Notes
+- Paper trading is the testable path for all of the above; real-provider order
+  behaviour is unverified (Binance is geo-blocked). Realized-P&L announcements are
+  paper-only until providers report it.
+
+---
+
 ## [2026-06-24] — Trading, audio latency, Binance direct API, paper trading
 
 ### Added
