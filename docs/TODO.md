@@ -211,12 +211,15 @@ boundary hits) work on Linux. Two candidate backends, both viable:
   scales the `<img>` to container size. On HiDPI displays the result is
   fuzzy. Read browser `devicePixelRatio` via JS interop and re-render
   at native size. ~half day's work.
-- [ ] **Binance plugin load failure on WebHost.** Logs
+- [x] **Binance plugin load failure on WebHost.** *(Fixed 2026-06-24.)* Was
   `Could not load type 'CryptoExchange.Net.Interfaces.IRestClient' from
-  assembly 'CryptoExchange.Net, Version=11.1.0.0'`. Doesn't block any
-  other provider; user can use Bitstamp/Kraken/Coinbase etc. Pre-existing
-  package-version skew, not introduced by the L* work. Worth a separate
-  triage pass.
+  assembly 'CryptoExchange.Net, Version=11.1.0.0'` — a version clash with the
+  MEXC plugin's `JK.Mexc.Net` (CryptoExchange.Net 11.x) in the shared plugin
+  output dir, which displaced Binance's 7.2.0. Binance was rewritten to call the
+  REST/WebSocket API directly (no `Binance.Net` / `CryptoExchange.Net`), removing
+  the conflict. NOTE: plugins still share one output dir, so two plugins needing
+  different versions of the same package can still clash — the general fix is
+  per-plugin dependency folders + load-context resolution.
 - [ ] **Drawing-tool mouse interactions in browser.** With the chart
   `<img>` at `pointer-events: none`, clicks fall through to the
   `chart-interact-zone` div which receives the mouse. Confirm
@@ -1676,7 +1679,7 @@ future session can act on them without re-deriving the tradeoffs.
 
 #### 2. Timeframe-mapping consolidation (7+ providers)
 
-**State:** Most providers use the exchange SDK's strongly-typed enum (`Binance.Net.Enums.KlineInterval`, `JKorf.Mexc.Net.Enums.KlineInterval`, etc.), not strings. A shared `Dictionary<string,string>` doesn't fit.
+**State:** Some providers use an exchange SDK's strongly-typed enum (e.g. `JK.Mexc.Net.Enums.KlineInterval`), not strings, so a shared `Dictionary<string,string>` doesn't fit them. (Binance was rewritten to a direct API and now maps timeframes as plain strings — see its `MapInterval`.)
 
 **What is worth extracting:** `TimeframeDuration(string)` returning a `TimeSpan`. `MexcProvider` already has it for pagination math; it's a pure function with no provider-specific flavor.
 

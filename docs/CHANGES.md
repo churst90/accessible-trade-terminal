@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-06-24] — Trading, audio latency, Binance direct API, paper trading
+
+### Added
+- **Paper trading mode.** Simulated broker (`PaperTradingProvider`) that fills
+  against the real-time live price feed (market at the live price; limit/stop/TP
+  fill on price cross), a persistent virtual account with a Reset button, and
+  realized-P&L announcements. Toggle in Settings → General; bottom-bar indicator;
+  routes all trading to the simulator regardless of the loaded data provider.
+- **Accessible order panel (phase 1).** `<label>`/ARIA on every order-ticket
+  field, an ARIA tablist for Balances/Positions/Orders with full columns and
+  labeled cancel actions, large circular green/red BUY/SELL buttons, and clearer
+  placed/canceled speech. Realized P&L appended to fill / stop-loss / take-profit
+  announcements.
+- **MAUI boot screen.** Branded loading screen in the BlazorWebView host page to
+  cover the first-launch startup gap.
+
+### Changed
+- **Binance provider rewritten to a direct REST/WebSocket API** (no `Binance.Net`
+  / `CryptoExchange.Net`), resolving a shared-output version clash with the MEXC
+  plugin that broke Binance loading. Spot + futures klines, order book, user-data
+  order stream, and full trading preserved.
+- **WebHost navigation audio latency reduced** — stop streaming silent PCM
+  buffers, cap the browser scheduler lead, and request low latency from
+  pw-cat/pacat. Release WebHost builds run windowed (no console window) on Windows.
+- **Strategy Manager / StrategyLab labeled Experimental** with a backtest caveat.
+
+### Docs
+- New `USER_MANUAL.md` (orientation, onboarding, and trading chapters) and
+  `ORDER_PANEL_SPEC.md` (accessible order-panel design).
+
+---
+
 ## [2026-05-17] — WebHost Windows fixes (static-assets 404 + L3-B browser WebAudio)
 
 Two follow-ups landed after a first Windows smoke-test of the WebHost. The
