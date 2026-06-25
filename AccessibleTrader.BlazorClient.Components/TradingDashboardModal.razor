@@ -70,9 +70,13 @@
 
                         <section class="panel order-entry">
                             <h3>Place Order</h3>
-                            <div class="entry-row" role="group" aria-label="Order side">
-                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' aria-pressed="@(_orderSide == "Buy" ? "true" : "false")" @onclick='() => _orderSide = "Buy"'>BUY</button>
-                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' aria-pressed="@(_orderSide == "Sell" ? "true" : "false")" @onclick='() => _orderSide = "Sell"'>SELL</button>
+                            <div class="entry-row side-row" role="group" aria-label="Order side">
+                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' aria-pressed="@(_orderSide == "Buy" ? "true" : "false")" @onclick='() => _orderSide = "Buy"'>
+                                    <span class="side-arrow" aria-hidden="true">▲</span>BUY
+                                </button>
+                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' aria-pressed="@(_orderSide == "Sell" ? "true" : "false")" @onclick='() => _orderSide = "Sell"'>
+                                    <span class="side-arrow" aria-hidden="true">▼</span>SELL
+                                </button>
                             </div>
                             
                             <div class="entry-row">
@@ -304,9 +308,26 @@
     .order-entry label { flex: 1; font-size: 0.85rem; }
     .order-entry input, .order-entry select { background: #222; border: 1px solid #444; color: #fff; padding: 5px; border-radius: 3px; width: 120px; }
 
-    .side-btn { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; background: #333; color: #888; }
-    .side-btn.buy.active { background: #007d35; color: #fff; }
-    .side-btn.sell.active { background: #a50000; color: #fff; }
+    /* Large, high-contrast circular BUY/SELL controls. Unselected dims to make
+       the active side unmistakable at a glance; a thick focus ring keeps it
+       obvious for keyboard users. aria-pressed conveys the same state to screen
+       readers (see markup). */
+    .side-row { justify-content: center; gap: 22px; margin-bottom: 16px; }
+    .side-btn {
+        width: 96px; height: 96px; border-radius: 50%;
+        border: 3px solid transparent;
+        display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 2px; font-weight: 800; font-size: 1.05rem; letter-spacing: 0.5px;
+        cursor: pointer; background: #2a2a2a; opacity: 0.5;
+        transition: transform .08s ease, box-shadow .12s ease, background .12s ease, opacity .12s ease;
+    }
+    .side-btn .side-arrow { font-size: 1.1rem; line-height: 1; }
+    .side-btn.buy  { color: #5ef08c; }
+    .side-btn.sell { color: #ff7b7b; }
+    .side-btn.buy.active  { background: #008f3e; color: #fff; border-color: #00e676; opacity: 1; box-shadow: 0 0 0 4px rgba(0,230,118,0.35); }
+    .side-btn.sell.active { background: #c0001b; color: #fff; border-color: #ff5252; opacity: 1; box-shadow: 0 0 0 4px rgba(255,82,82,0.35); }
+    .side-btn:hover { transform: scale(1.04); opacity: 1; }
+    .side-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
     .submit-btn { width: 100%; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     .submit-btn.buy { background: #008f3e; color: #fff; }
