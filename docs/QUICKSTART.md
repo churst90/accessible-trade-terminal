@@ -1,4 +1,4 @@
-# Accessible Trader: User Guide
+# Accessible Trader: Quick Start Guide
 
 ## For Blind and Visually Impaired Traders
 

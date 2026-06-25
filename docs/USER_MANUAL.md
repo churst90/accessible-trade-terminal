@@ -8,8 +8,8 @@ and take-profits, trailing stops, moving averages, oscillators — and concentra
 on how those ideas are expressed and controlled inside this application.
 
 If all you want is a one-line-per-shortcut crib sheet, press **F1** inside the app
-or read `SHORTCUTS.md`. If you are brand new, the shorter `USER_GUIDE.md` is a
-gentler tour. This manual is the place to come when you want to actually operate a
+or read `SHORTCUTS.md`. If you are brand new, the shorter `QUICKSTART.md`
+(Quick Start Guide) is a gentler tour. This manual is the place to come when you want to actually operate a
 feature and understand what it is doing.
 
 ## How to read this manual
