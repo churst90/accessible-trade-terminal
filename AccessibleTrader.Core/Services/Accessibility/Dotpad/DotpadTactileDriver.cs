@@ -92,6 +92,7 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
         public int BrailleCellCount { get; private set; }
 
         public event EventHandler<TactileKeyEvent>? KeyPressed;
+        public event EventHandler<TactileConnectionEvent>? ConnectionChanged;
 
         public DotpadTactileDriver(IDotPadNative native, ILogger<DotpadTactileDriver> logger)
         {
@@ -251,8 +252,21 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
                 DotPadDiagnostics.Log($"Display reset threw (non-fatal): {ex.GetType().Name}: {ex.Message}");
             }
 
+            // Ask the device for its friendly name so the connect announcement can
+            // use it. The reply arrives asynchronously via the message callback
+            // (DotPadDataCode.DeviceName); if it hasn't landed by the time we announce,
+            // DeviceName is still the sensible default "Dot Pad".
+            try { _native.RequestDeviceName(_deviceHandle); } catch { /* best-effort */ }
+
             IsConnected = true;
             DotPadDiagnostics.Log("Driver fully connected. Ready for frames.");
+            RaiseConnectionChanged(connected: true);
+        }
+
+        private void RaiseConnectionChanged(bool connected)
+        {
+            try { ConnectionChanged?.Invoke(this, new TactileConnectionEvent(connected, DeviceName)); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Subscriber to ITactileDriver.ConnectionChanged threw."); }
         }
 
         public Task DisconnectAsync()
@@ -408,9 +422,14 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
                     break;
 
                 case DotPadDataCode.Disconnected:
+                    // Device-initiated disconnect (the display was unplugged). Distinct
+                    // from DisconnectAsync (app-initiated), which deliberately does NOT
+                    // raise this event. The coordinator announces "{name} disconnected"
+                    // and its hot-plug watch will reconnect if the device returns.
                     IsConnected = false;
                     _deviceHandle = IntPtr.Zero;
                     _logger.LogInformation("Dot Pad disconnected.");
+                    RaiseConnectionChanged(connected: false);
                     break;
 
                 case DotPadDataCode.DeviceName when !string.IsNullOrEmpty(message):

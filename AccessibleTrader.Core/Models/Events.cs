@@ -153,6 +153,9 @@ namespace AccessibleTrader.Core.Models
     /// <summary>Raised when the user toggles paper trading mode in settings.</summary>
     public record PaperModeToggledEvent(bool Enabled);
 
+    /// <summary>Raised when the user toggles braille / tactile-display output in settings.</summary>
+    public record BrailleModeToggledEvent(bool Enabled);
+
     // ── Strategy Events ───────────────────────────────────────────────────────
     public record StrategySignalEvent(string StrategyName, StrategySignal Signal, string InstanceId);
 

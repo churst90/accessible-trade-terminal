@@ -765,11 +765,14 @@ namespace AccessibleTrader.Tests
             public int DisplayHeight => 0;
             public int BrailleCellCount => 0;
             public event EventHandler<TactileKeyEvent>? KeyPressed;
+            public event EventHandler<TactileConnectionEvent>? ConnectionChanged;
             public Task ConnectAsync() => Task.CompletedTask;
             public Task DisconnectAsync() => Task.CompletedTask;
             public Task RenderViewportAsync(bool[,] virtualCanvas, int startX, int startY) => Task.CompletedTask;
             public Task RenderBrailleTextAsync(string text) => Task.CompletedTask;
             public void Raise(TactileKey key) => KeyPressed?.Invoke(this, new TactileKeyEvent(key));
+            public void RaiseConnection(bool connected, string name = "fake")
+                => ConnectionChanged?.Invoke(this, new TactileConnectionEvent(connected, name));
         }
 
         private static (TactileCanvasCoordinator coord, FakeTactileDriver driver, ISpeechFeedbackRouter speech, ICommandDispatcher dispatcher, BehaviorSubject<WorkspaceState> stream)
@@ -779,10 +782,12 @@ namespace AccessibleTrader.Tests
             var speech = Substitute.For<ISpeechFeedbackRouter>();
             var dispatcher = Substitute.For<ICommandDispatcher>();
             var store = Substitute.For<IWorkspaceStore>();
+            var settings = Substitute.For<ISettingsManager>();
+            var eventBus = Substitute.For<IEventBus>();
             var stream = new BehaviorSubject<WorkspaceState>(initial ?? WorkspaceState.Initial);
             store.StateStream.Returns(stream);
             store.State.Returns(_ => stream.Value);
-            var coord = new TactileCanvasCoordinator(driver, store, speech, dispatcher, NullLogger<TactileCanvasCoordinator>.Instance);
+            var coord = new TactileCanvasCoordinator(driver, store, speech, dispatcher, settings, eventBus, NullLogger<TactileCanvasCoordinator>.Instance);
             return (coord, driver, speech, dispatcher, stream);
         }
 

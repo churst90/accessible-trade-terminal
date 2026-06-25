@@ -20,6 +20,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>Raised when the user activates a panning key on the device (pan-all / pan-left / pan-right).</summary>
         event EventHandler<TactileKeyEvent>? KeyPressed;
 
+        /// <summary>
+        /// Raised when the device's connection state changes — either an established
+        /// connection (e.g. a hot-plug detected while running) or a device-initiated
+        /// disconnect (the display was unplugged). Carries the device's friendly name
+        /// so the coordinator can announce it. NOT raised for an app-initiated
+        /// <see cref="DisconnectAsync"/> (e.g. the user turning braille off), so that
+        /// path can announce its own "braille disabled" feedback without a duplicate.
+        /// </summary>
+        event EventHandler<TactileConnectionEvent>? ConnectionChanged;
+
         Task ConnectAsync();
         Task DisconnectAsync();
 
@@ -51,6 +61,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             Key = key;
             RawCode = rawCode;
+        }
+    }
+
+    /// <summary>Device connect/disconnect transition surfaced by ITactileDriver implementations.</summary>
+    public sealed class TactileConnectionEvent : EventArgs
+    {
+        /// <summary>True if the device just connected; false if it just disconnected.</summary>
+        public bool Connected { get; }
+        /// <summary>The device's friendly name (e.g. "Dot Pad"), for announcement.</summary>
+        public string DeviceName { get; }
+        public TactileConnectionEvent(bool connected, string deviceName)
+        {
+            Connected = connected;
+            DeviceName = deviceName;
         }
     }
 }

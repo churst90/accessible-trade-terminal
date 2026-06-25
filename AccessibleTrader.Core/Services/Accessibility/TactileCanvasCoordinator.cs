@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO.Ports;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading;
@@ -10,6 +11,7 @@ using AccessibleTrader.Core.Services.Accessibility.Dotpad;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {
@@ -42,11 +44,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IWorkspaceStore _store;
         private readonly ISpeechFeedbackRouter _speech;
         private readonly ICommandDispatcher _dispatcher;
+        private readonly ISettingsManager _settings;
+        private readonly IEventBus _eventBus;
         private readonly ILogger<TactileCanvasCoordinator> _logger;
 
         private readonly List<IDisposable> _subs = new();
         private string? _lastStripText;
         private bool _disposed;
+
+        /// <summary>Settings key gating all tactile/braille output and device detection.</summary>
+        internal const string BrailleEnabledKey = "accessibility.braille.enabled";
+
+        // Whether braille/tactile output is enabled. When false we never probe for a
+        // device at startup (the device scan opens COM ports, which can disturb other
+        // serial peripherals), so tactile output is strictly opt-in.
+        private volatile bool _brailleEnabled;
+
+        // Hot-plug watch: a lightweight background loop that retries the connect when
+        // the set of serial ports changes while braille is enabled and no device is
+        // connected — so a Dot Pad plugged in after startup is picked up without a
+        // restart. Only runs while enabled; cancelled on disable/dispose.
+        private static readonly TimeSpan HotPlugPollInterval = TimeSpan.FromSeconds(3);
+        private CancellationTokenSource? _watchCts;
+        private string _lastPortSnapshot = string.Empty;
 
         /// <summary>Duration the strip stays in X-value (timestamp) mode after the user navigates with ←/→ before reverting to value mode.</summary>
         internal static readonly TimeSpan XValueDisplayWindow = TimeSpan.FromMilliseconds(1500);
@@ -66,15 +86,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IWorkspaceStore store,
             ISpeechFeedbackRouter speech,
             ICommandDispatcher dispatcher,
+            ISettingsManager settings,
+            IEventBus eventBus,
             ILogger<TactileCanvasCoordinator> logger)
         {
             _driver = driver;
             _store = store;
             _speech = speech;
             _dispatcher = dispatcher;
+            _settings = settings;
+            _eventBus = eventBus;
             _logger = logger;
 
             _driver.KeyPressed += OnDriverKeyPressed;
+            _driver.ConnectionChanged += OnDriverConnectionChanged;
+
+            // Tactile output is opt-in. Default off so the device scan (which opens COM
+            // ports) never runs unless the user has a display and asks for it.
+            _brailleEnabled = _settings.GetSetting(BrailleEnabledKey)?.ToObject<bool>() ?? false;
+
+            // React to the Settings toggle at runtime — connect/disconnect live without
+            // a restart. Subscribe even when starting disabled so a later enable works.
+            var toggleSub = _eventBus.Subscribe<BrailleModeToggledEvent>(e => OnBrailleModeToggled(e.Enabled));
+            if (toggleSub != null) _subs.Add(toggleSub);
 
             // Auto-clear the pause flag whenever the user loads a new chart so a
             // paused state from a previous chart can't silently swallow the new
@@ -86,7 +120,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Skip(1)
                 .Subscribe(_ => _isPaused = false));
 
-            _ = TryConnectAsync();
+            // Only begin device detection if braille is enabled. The hot-plug watch
+            // performs the initial connect on its first tick, so there's a single
+            // connect path whether the device is present now or plugged in later.
+            if (_brailleEnabled) StartHotPlugWatch();
 
             // Graphic redraws are USER-NAVIGATION ONLY: focus changes, component changes,
             // viewport pan/zoom. Live ticks (which change s.Data and s.CurrentDataIndex)
@@ -276,6 +313,101 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 catch (Exception ex) { _logger.LogWarning(ex, "Initial strip render after connect failed."); }
             }
+        }
+
+        // ── Enable toggle + hot-plug ────────────────────────────────────────────
+
+        /// <summary>Handles the Settings braille toggle at runtime.</summary>
+        private void OnBrailleModeToggled(bool enabled)
+        {
+            if (_disposed) return;
+            if (enabled == _brailleEnabled) return;
+            _brailleEnabled = enabled;
+
+            if (enabled)
+            {
+                // Begin detection immediately; the watch's first tick connects.
+                StartHotPlugWatch();
+            }
+            else
+            {
+                // Stop probing and drop the device. This app-initiated disconnect
+                // intentionally does NOT raise ConnectionChanged, so the Settings
+                // dialog's own "Braille disabled" feedback isn't doubled by the driver.
+                StopHotPlugWatch();
+                _ = _driver.DisconnectAsync();
+            }
+        }
+
+        /// <summary>Announces device connect/disconnect (hot-plug) through speech.</summary>
+        private void OnDriverConnectionChanged(object? sender, TactileConnectionEvent e)
+        {
+            if (_disposed) return;
+            try
+            {
+                _speech.Speak(e.Connected ? $"{e.DeviceName} connected." : $"{e.DeviceName} disconnected.",
+                    interrupt: false);
+                // Paint the current chart onto a freshly-connected display right away.
+                if (e.Connected) SafelyRenderGraphic();
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Tactile connection announcement failed."); }
+        }
+
+        private void StartHotPlugWatch()
+        {
+            if (_watchCts != null) return; // already running
+            var cts = new CancellationTokenSource();
+            _watchCts = cts;
+            _ = Task.Run(() => HotPlugWatchLoopAsync(cts.Token));
+        }
+
+        private void StopHotPlugWatch()
+        {
+            var cts = Interlocked.Exchange(ref _watchCts, null);
+            if (cts == null) return;
+            try { cts.Cancel(); cts.Dispose(); } catch { /* best-effort */ }
+        }
+
+        /// <summary>
+        /// Retries the connect when the serial-port set changes while enabled and not
+        /// connected. The first tick performs the initial connect; subsequent ticks only
+        /// re-probe when ports actually change (a plug/unplug), so we don't repeatedly
+        /// open COM ports — which could disturb other serial peripherals — while idle.
+        /// </summary>
+        private async Task HotPlugWatchLoopAsync(CancellationToken ct)
+        {
+            bool first = true;
+            while (!ct.IsCancellationRequested && !_disposed)
+            {
+                try
+                {
+                    string snapshot = SafePortSnapshot();
+                    bool portsChanged = snapshot != _lastPortSnapshot;
+                    _lastPortSnapshot = snapshot;
+
+                    if (_brailleEnabled && !_driver.IsConnected && (first || portsChanged))
+                    {
+                        await TryConnectAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) { _logger.LogDebug(ex, "Hot-plug watch iteration failed."); }
+
+                first = false;
+                try { await Task.Delay(HotPlugPollInterval, ct).ConfigureAwait(false); }
+                catch (TaskCanceledException) { break; }
+            }
+        }
+
+        /// <summary>A stable, comparable snapshot of the current serial-port set.</summary>
+        private static string SafePortSnapshot()
+        {
+            try
+            {
+                return string.Join(",", SerialPort.GetPortNames()
+                    .Where(p => !string.IsNullOrEmpty(p))
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+            }
+            catch { return string.Empty; }
         }
 
         // ── Graphic area ───────────────────────────────────────────────────────
@@ -869,7 +1001,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void Dispose()
         {
             _disposed = true;
+            StopHotPlugWatch();
             try { _driver.KeyPressed -= OnDriverKeyPressed; } catch { /* best-effort detach */ }
+            try { _driver.ConnectionChanged -= OnDriverConnectionChanged; } catch { /* best-effort detach */ }
             Interlocked.Exchange(ref _xValueRevertSub, null)?.Dispose();
             foreach (var sub in _subs) { try { sub.Dispose(); } catch { } }
             _subs.Clear();
