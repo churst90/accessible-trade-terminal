@@ -477,6 +477,62 @@ rather than something you have to look up. Press Alt+H again to turn it off.
 
 ---
 
+## AI, Narration, and the Journal
+
+Three features sit between reading the chart yourself and acting on it: an AI analyst
+you can ask for a second opinion, an auto-narrator that watches a series and speaks
+up when something happens, and the Journal that quietly records everything the
+terminal has said so nothing scrolls past for good. All three chords use three
+modifiers and so are **not** remapped on the web host — they are the same everywhere.
+
+### The AI technical analyst
+
+Press Ctrl+Alt+Shift+A to open the AI Analyst. It gathers a snapshot of what you are
+looking at — recent candles, a summary of your active indicators, and, where the
+provider supports vision, an image of the chart — sends it to a large language model,
+and reads back a concise, plain-language technical analysis written for text-to-
+speech: trend direction, key support and resistance, momentum, and a short-term
+outlook. It is a second pair of eyes on demand, useful when you want a narrative
+framing of the structure you have been navigating bar by bar.
+
+It needs a key. Add one for at least one AI provider in the API key manager (Alt+K);
+the terminal tries the providers it knows in order — Claude, then OpenAI, then Ollama
+— and uses the first you have configured. If none is set up, the Analyst tells you so
+rather than failing silently. And because the request goes to an outside service,
+only use it with a provider you are comfortable sharing your chart data with.
+
+### Auto-narration
+
+Auto-narration is the hands-off companion to navigating yourself. Press
+Ctrl+Alt+Shift+N to toggle it on for the series you have focused, and from then on
+the terminal watches that one indicator and **speaks new events as they occur on live
+bar closes** — a fresh signal firing, or the oscillator entering or leaving an
+overbought or oversold zone. It announces only what happens *after* you switch it on;
+it does not replay the history you already navigated. Because it is per-series, you
+can leave it running on the one indicator you care about and not be interrupted by the
+rest of the chart — set it on your RSI, say, and get on with reading price while the
+terminal keeps half an ear on momentum for you.
+
+### The Journal
+
+The Journal, opened with Ctrl+Alt+Shift+J, is the terminal's memory of the session.
+Everything it has spoken or alerted — ordinary speech, alerts, strategy setups,
+errors, and backtest results — is written here, newest at the bottom, up to a couple
+of thousand entries. It is the primary way to recover something that went by in
+speech while you were concentrating elsewhere: a fill you half-heard, an alert that
+fired mid-thought, the exact wording of an error.
+
+The view is a plain monospace text area you can Tab into to read or copy any line,
+with filter buttons — All, Speech, Alerts, Setups, Errors, Backtests — to narrow it
+to just the kind of entry you are after, and a "Copy visible" button to lift the
+current selection out to paste elsewhere. Automated-strategy setups land here in
+full, with their rationale spelled out — side, score, stop price, first target,
+reward-to-risk, and the notes on where the stop was placed — so the Journal doubles
+as the record of what your strategies proposed and why. When in doubt about what the
+terminal just told you, this is where you go to read it back at your own pace.
+
+---
+
 ## Trading
 
 Everything to do with money — placing orders, attaching protective exits, watching
