@@ -125,7 +125,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string side = o.Side == Sdk.Plugins.OrderSide.Buy ? "bought" : "sold";
             string at = o.FilledPrice > 0 ? $" at {SpeechPriceFormatter.FormatPrice(o.FilledPrice)}" : "";
-            return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.";
+            // On a closing fill the provider supplies realized P&L — announce it so
+            // the trader hears the result without opening the dashboard.
+            string pnl = o.RealizedPnL.HasValue
+                ? $" {(o.RealizedPnL.Value >= 0 ? "Profit" : "Loss")} {SpeechPriceFormatter.FormatPrice(Math.Abs(o.RealizedPnL.Value))}."
+                : "";
+            return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.{pnl}";
         }
 
         internal static string FormatPartialFill(Sdk.Trading.OrderUpdate o)

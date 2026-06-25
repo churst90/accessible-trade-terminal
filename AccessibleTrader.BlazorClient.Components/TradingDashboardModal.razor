@@ -8,6 +8,7 @@
 @inject IEventBus EventBus
 @inject IOrderExecutionService OrderService
 @inject IApiKeyService ApiKeyService
+@inject ISettingsManager Settings
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -52,7 +53,11 @@
             }
             else
             {
-                @if (_isLiveEnvironment)
+                @if (_paperMode)
+                {
+                    <div class="alert-box" style="background:#332a00; color:#ffb300; border:1px solid #665500; font-weight:bold; padding:10px; border-radius:4px; margin-bottom:15px;">📄 PAPER TRADING — simulated orders, no real funds.</div>
+                }
+                else if (_isLiveEnvironment)
                 {
                     <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk.</div>
                 }
@@ -64,7 +69,7 @@
                             <h3>Market: @(Store.State.Identity.Symbol ?? "—")</h3>
                             <div class="market-stats">
                                 <div class="stat"><span>Price</span><strong>@GetLastPrice()</strong></div>
-                                <div class="stat"><span>Env</span><strong>@(_availableKeys.Any() ? (_isLiveEnvironment ? "Live" : "Paper") : "None")</strong></div>
+                                <div class="stat"><span>Env</span><strong>@(_paperMode ? "Paper (simulated)" : (_availableKeys.Any() ? (_isLiveEnvironment ? "Live" : "Paper") : "None"))</strong></div>
                             </div>
                         </section>
 
@@ -397,6 +402,7 @@
     private string _accountTab = "Balances";
     private bool _isLiveEnvironment;
     private bool _tradingNotSupported;
+    private bool _paperMode;
 
     private bool CanSubmit =>
         _orderQty > 0
@@ -415,6 +421,7 @@
     private async Task ShowAsync()
     {
         _orderStatus = null;
+        _paperMode = Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
         var provider = Store.State.Identity.Provider;
         if (string.IsNullOrEmpty(provider)) return;
 
@@ -455,7 +462,7 @@
         _openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
 
         var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
-        _isLiveEnvironment = activeKey?.Environment == "Live";
+        _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
 
         StateHasChanged();
     }

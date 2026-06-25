@@ -15,5 +15,10 @@ public record OrderUpdate(
     OrderStatus Status,
     bool StopTriggered,
     bool TakeProfitTriggered,
-    DateTime Timestamp
+    DateTime Timestamp,
+    // Realized profit/loss for the closed portion of this fill, in the quote
+    // currency. Null when the fill opens/adds to a position (nothing realized)
+    // or when the provider doesn't report it. Consumed by the speech layer to
+    // announce "Profit/Loss X" on a closing fill.
+    double? RealizedPnL = null
 );

@@ -145,8 +145,8 @@ namespace AccessibleTrader.Core.Services
                     }
 
                     string id = NewId();
-                    ApplyFill(symbol, signal.Side, signal.Quantity, px);
-                    Emit(id, symbol, signal.Side, signal.Quantity, px, 0, OrderStatus.Filled, false, false);
+                    var pnl = ApplyFill(symbol, signal.Side, signal.Quantity, px);
+                    Emit(id, symbol, signal.Side, signal.Quantity, px, 0, OrderStatus.Filled, false, false, pnl);
 
                     // Attach protective resting orders (reduce-only by nature here).
                     var exit = signal.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
@@ -229,8 +229,8 @@ namespace AccessibleTrader.Core.Services
                 {
                     double px = o.Trigger ?? o.Price ?? bar.Close;
                     _open.Remove(o);
-                    ApplyFill(o.Symbol, o.Side, o.Quantity, px);
-                    Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp);
+                    var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
+                    Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl);
                 }
                 Persist();
             }
@@ -249,7 +249,9 @@ namespace AccessibleTrader.Core.Services
 
         // ── Account mutation (caller holds _lock) ─────────────────────────────
 
-        private void ApplyFill(string symbol, OrderSide side, double qty, double price)
+        // Returns realized P&L (quote currency) for the portion of this fill that
+        // reduces an existing position; null when it only opens/adds.
+        private double? ApplyFill(string symbol, OrderSide side, double qty, double price)
         {
             var pos = _positions.TryGetValue(symbol, out var p) ? p : (Qty: 0.0, Avg: 0.0);
             double signed = side == OrderSide.Buy ? qty : -qty;
@@ -258,10 +260,17 @@ namespace AccessibleTrader.Core.Services
             // Spot-style cash flow: buying spends quote, selling returns it.
             _cash += (side == OrderSide.Buy ? -1 : 1) * qty * price;
 
+            double? realized = null;
+            if (pos.Qty != 0 && Math.Sign(signed) != Math.Sign(pos.Qty))
+            {
+                double closedQty = Math.Min(Math.Abs(signed), Math.Abs(pos.Qty));
+                realized = pos.Qty > 0 ? (price - pos.Avg) * closedQty : (pos.Avg - price) * closedQty;
+            }
+
             if (Math.Abs(newQty) < 1e-12)
             {
                 _positions.Remove(symbol);
-                return;
+                return realized;
             }
             double avg;
             if (pos.Qty == 0 || Math.Sign(newQty) != Math.Sign(pos.Qty))
@@ -271,6 +280,7 @@ namespace AccessibleTrader.Core.Services
             else
                 avg = pos.Avg;                                 // reducing — keep basis
             _positions[symbol] = (newQty, avg);
+            return realized;
         }
 
         private double PriceFor(string symbol, double fallback)
@@ -282,8 +292,8 @@ namespace AccessibleTrader.Core.Services
             return fallback;
         }
 
-        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp)
-            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow));
+        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null)
+            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl));
 
         private static string NewId() => "paper-" + Guid.NewGuid().ToString("N").Substring(0, 12);
 
