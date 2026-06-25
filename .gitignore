@@ -94,3 +94,10 @@ AccessibleTrader.StrategyLab/walk_forward_results.json
 # DataCache/ holds OHLCV per-symbol caches, secrets/ holds DataProtection-
 # encrypted API keys. Both are user-specific and regenerated at runtime.
 AccessibleTrader.WebHost/AccessibleTrader/
+
+# Same runtime data, but at the repo root — created when the WebHost is run
+# from the solution directory (cwd) rather than the project directory.
+/AccessibleTrader/
+
+# ML experiment datasets (regenerable via StrategyLab ml-export)
+strategy-lab-data/ml/*.csv
