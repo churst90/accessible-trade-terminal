@@ -16,6 +16,7 @@
 @inject IShortcutManager ShortcutService
 @inject ISettingsManager Settings
 @inject IEnumerable<IAlertChannel> AlertChannels
+@inject IPaperTradingProvider Paper
 @implements IDisposable
 
 @if (_isVisible)
@@ -86,6 +87,16 @@
                         <input id="s-announce-bars" type="checkbox"
                                checked="@Store.State.AnnounceNewBars"
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-paper-trading">Paper trading mode (simulated orders)</label>
+                        <input id="s-paper-trading" type="checkbox"
+                               checked="@_paperTradingMode"
+                               @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-paper-reset">Paper account</label>
+                        <button id="s-paper-reset" type="button" @onclick="ResetPaperAccount">Reset paper account</button>
                     </div>
                 </fieldset>
 
@@ -521,11 +532,23 @@
         }
     }
 
+    private bool _paperTradingMode;
+    private bool _paperTradingModeInitial;
+
+    private void ResetPaperAccount()
+    {
+        Paper.ResetAccount();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Paper account reset to {Paper.StartingBalance:N0}.", true));
+    }
+
     private void ResetLocal()
     {
         _speakTimestamps = Store.State.SpeakTimestamps;
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
+        _paperTradingMode = Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
+        _paperTradingModeInitial = _paperTradingMode;
         _wasapiLatency = Store.State.WasapiLatency;
         _backgroundColor = SkColorToHex(ThemeService.Current.Background);
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
@@ -572,6 +595,13 @@
         }));
 
         PersistAlertSettings();
+
+        Settings.SetSetting("trading.paperTradingMode", JToken.FromObject(_paperTradingMode));
+        Settings.SaveSettings();
+        EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
+        if (_paperTradingMode != _paperTradingModeInitial)
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                _paperTradingMode ? "Paper trading enabled." : "Paper trading disabled.", true));
 
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));

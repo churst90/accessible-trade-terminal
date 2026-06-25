@@ -319,6 +319,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IDataExportService, DataExportService>();
 
             // Order execution, trading strategies, and scripting.
+            services.AddSingleton<IPaperTradingProvider, PaperTradingProvider>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();

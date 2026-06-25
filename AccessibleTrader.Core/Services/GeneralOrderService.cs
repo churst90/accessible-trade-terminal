@@ -11,6 +11,7 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Core.Services.Accessibility;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -20,10 +21,18 @@ namespace AccessibleTrader.Core.Services
         private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<GeneralOrderService> _logger;
         private readonly IEventBus _eventBus;
+        private readonly IPaperTradingProvider _paper;
+        private readonly ISettingsManager _settings;
 
         // Tracks the current provider's order-stream subscription so it can be swapped when provider changes.
         private IDisposable? _orderStreamSub;
         private string? _subscribedProvider;
+
+        // The paper broker's order stream is subscribed for the whole lifetime: it
+        // only emits when orders are actually routed to it (paper mode on), so this
+        // guarantees paper fills/stops always announce without depending on the
+        // active-provider re-subscription dance when paper mode is toggled.
+        private readonly IDisposable _paperStreamSub;
 
         // ── Sanity clamps + idempotency dedup ────────────────────────────────
         // Hard upper bound for any single-order quantity. Real users will never
@@ -45,12 +54,17 @@ namespace AccessibleTrader.Core.Services
             IDataService dataService,
             IGlobalErrorCoordinator errorCoordinator,
             ILogger<GeneralOrderService> logger,
-            IEventBus eventBus)
+            IEventBus eventBus,
+            IPaperTradingProvider paper,
+            ISettingsManager settings)
         {
             _dataService = dataService;
             _errorCoordinator = errorCoordinator;
             _logger = logger;
             _eventBus = eventBus;
+            _paper = paper;
+            _settings = settings;
+            _paperStreamSub = paper.OrderUpdateStream.Subscribe(PublishOrderEvent);
         }
 
         /// <summary>
@@ -60,7 +74,11 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public async Task SubscribeOrderUpdatesAsync(string providerName)
         {
-            if (_subscribedProvider == providerName) return;
+            // In paper mode we subscribe to the paper broker regardless of the data
+            // provider; key the dedup on that so toggling paper mode re-subscribes
+            // to the correct order stream.
+            string effective = IsPaperMode ? "__paper__" : providerName;
+            if (_subscribedProvider == effective) return;
 
             _orderStreamSub?.Dispose();
             _subscribedProvider = null;
@@ -68,7 +86,7 @@ namespace AccessibleTrader.Core.Services
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null) return;
 
-            _subscribedProvider = providerName;
+            _subscribedProvider = effective;
             _orderStreamSub = tp.OrderUpdateStream.Subscribe(update =>
             {
                 PublishOrderEvent(update);
@@ -108,12 +126,20 @@ namespace AccessibleTrader.Core.Services
         public void Dispose()
         {
             _orderStreamSub?.Dispose();
+            _paperStreamSub?.Dispose();
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
 
+        private bool IsPaperMode =>
+            _settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
+
         private async Task<ITradingProvider?> GetTradingProviderAsync(string providerName)
         {
+            // Paper mode routes ALL trading to the simulated broker regardless of
+            // which data provider is loaded — so you can practice on any chart,
+            // even a data-only one.
+            if (IsPaperMode) return _paper;
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             return provider as ITradingProvider;
         }

@@ -150,6 +150,9 @@ namespace AccessibleTrader.Core.Models
     public record OrderRejectedEvent(OrderUpdate Order, string Reason);
     public record MarginWarningEvent(string Symbol, double MarginLevel, string Message);
 
+    /// <summary>Raised when the user toggles paper trading mode in settings.</summary>
+    public record PaperModeToggledEvent(bool Enabled);
+
     // ── Strategy Events ───────────────────────────────────────────────────────
     public record StrategySignalEvent(string StrategyName, StrategySignal Signal, string InstanceId);
 

@@ -283,6 +283,7 @@ namespace AccessibleTrader.WebHost
         {
             services.AddSingleton<IDataExportService, DataExportService>();
 
+            services.AddSingleton<IPaperTradingProvider, PaperTradingProvider>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();
