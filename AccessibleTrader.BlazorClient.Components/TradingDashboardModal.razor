@@ -70,19 +70,19 @@
 
                         <section class="panel order-entry">
                             <h3>Place Order</h3>
-                            <div class="entry-row">
-                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' @onclick='() => _orderSide = "Buy"'>BUY</button>
-                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' @onclick='() => _orderSide = "Sell"'>SELL</button>
+                            <div class="entry-row" role="group" aria-label="Order side">
+                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' aria-pressed="@(_orderSide == "Buy" ? "true" : "false")" @onclick='() => _orderSide = "Buy"'>BUY</button>
+                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' aria-pressed="@(_orderSide == "Sell" ? "true" : "false")" @onclick='() => _orderSide = "Sell"'>SELL</button>
                             </div>
                             
                             <div class="entry-row">
-                                <label>Quantity</label>
-                                <input type="number" step="0.01" @bind="_orderQty" />
+                                <label for="order-qty">Quantity</label>
+                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity" @bind="_orderQty" />
                             </div>
 
                             <div class="entry-row">
-                                <label>Type</label>
-                                <select @bind="_orderType">
+                                <label for="order-type">Type</label>
+                                <select id="order-type" aria-label="Order type" @bind="_orderType">
                                     <option value="Market">Market</option>
                                     <option value="Limit">Limit</option>
                                 </select>
@@ -91,19 +91,19 @@
                             @if (_orderType == "Limit")
                             {
                                 <div class="entry-row">
-                                    <label>Limit Price</label>
-                                    <input type="number" step="any" @bind="_limitPrice" />
+                                    <label for="limit-price">Limit Price</label>
+                                    <input id="limit-price" type="number" step="any" aria-label="Limit price" @bind="_limitPrice" />
                                 </div>
                             }
 
                             <div class="entry-row">
-                                <label>Stop Loss</label>
-                                <input type="number" step="any" @bind="_stopLoss" placeholder="Optional" />
+                                <label for="stop-loss">Stop Loss</label>
+                                <input id="stop-loss" type="number" step="any" aria-label="Stop loss price, optional" @bind="_stopLoss" placeholder="Optional" />
                             </div>
 
                             <div class="entry-row">
-                                <label>Take Profit</label>
-                                <input type="number" step="any" @bind="_takeProfit" placeholder="Optional" />
+                                <label for="take-profit">Take Profit</label>
+                                <input id="take-profit" type="number" step="any" aria-label="Take profit price, optional" @bind="_takeProfit" placeholder="Optional" />
                             </div>
 
                             @if (_supportsMargin)
@@ -145,11 +145,14 @@
 
                             @if (_bookLoading)
                             {
-                                <p aria-live="polite" style="font-size:0.85rem; color:#888;">Loading order book…</p>
+                                <p style="font-size:0.85rem; color:#888;">Loading order book…</p>
                             }
                             else
                             {
-                                <p style="font-size:0.8rem; color:#888; margin:0 0 6px;" aria-live="polite">
+                                @* No aria-live here: the book refreshes every 2s and a live region
+                                   would re-announce the spread endlessly. The order book reads on
+                                   demand (Tab through it) and via the dedicated Alt+B panel. *@
+                                <p style="font-size:0.8rem; color:#888; margin:0 0 6px;">
                                     Spread: <strong>@GetSpread()</strong>
                                 </p>
 
@@ -200,38 +203,77 @@
                         </section>
 
                         <section class="panel account-data">
-                            <div class="tabs-mini">
-                                <button class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => _accountTab = "Balances"'>Balances</button>
-                                <button class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => _accountTab = "Positions"'>Positions</button>
-                                <button class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => _accountTab = "Orders"'>Orders</button>
+                            <div class="tabs-mini" role="tablist" aria-label="Account data">
+                                <button role="tab" id="acct-tab-balances" aria-selected="@(_accountTab == "Balances" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => SelectAccountTab("Balances")'>Balances</button>
+                                <button role="tab" id="acct-tab-positions" aria-selected="@(_accountTab == "Positions" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => SelectAccountTab("Positions")'>Positions</button>
+                                <button role="tab" id="acct-tab-orders" aria-selected="@(_accountTab == "Orders" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => SelectAccountTab("Orders")'>Orders</button>
                             </div>
                             
-                            <div class="account-content">
+                            <div id="acct-panel" class="account-content" role="tabpanel" aria-labelledby="@($"acct-tab-{_accountTab.ToLowerInvariant()}")">
                                 @if (_accountTab == "Balances")
                                 {
                                     <table class="mini-table">
-                                        @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
-                                        {
-                                            <tr @key="b.Asset"><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td></tr>
-                                        }
+                                        <caption class="sr-only">Account balances</caption>
+                                        <thead><tr><th scope="col">Asset</th><th scope="col">Free</th><th scope="col">Locked</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
+                                            {
+                                                <tr @key="b.Asset"><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td><td>@PriceFormatter.FormatQuantity(b.Locked)</td></tr>
+                                            }
+                                            @if (!_balances.Any(b => b.Free > 0 || b.Locked > 0))
+                                            {
+                                                <tr><td colspan="3">No balances.</td></tr>
+                                            }
+                                        </tbody>
                                     </table>
                                 }
                                 else if (_accountTab == "Positions")
                                 {
                                     <table class="mini-table">
-                                        @foreach (var p in _positions)
-                                        {
-                                            <tr @key="p.Symbol"><td>@p.Symbol</td><td>@PriceFormatter.FormatQuantity(p.Quantity)</td><td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td></tr>
-                                        }
+                                        <caption class="sr-only">Open positions</caption>
+                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Leverage</th><th scope="col">Liq. price</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var p in _positions)
+                                            {
+                                                <tr @key="p.Symbol">
+                                                    <td>@p.Symbol</td>
+                                                    <td>@PriceFormatter.FormatQuantity(p.Quantity)</td>
+                                                    <td>@PriceFormatter.FormatPrice(p.AveragePrice)</td>
+                                                    <td>@PriceFormatter.FormatPrice(p.MarketValue)</td>
+                                                    <td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td>
+                                                    <td>@p.Leverage.ToString("0.##")×</td>
+                                                    <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
+                                                </tr>
+                                            }
+                                            @if (!_positions.Any())
+                                            {
+                                                <tr><td colspan="7">No open positions.</td></tr>
+                                            }
+                                        </tbody>
                                     </table>
                                 }
                                 else if (_accountTab == "Orders")
                                 {
                                     <table class="mini-table">
-                                        @foreach (var o in _openOrders)
-                                        {
-                                            <tr @key="o.Id"><td>@o.Side</td><td>@PriceFormatter.FormatPrice(o.Price)</td><td><button @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td></tr>
-                                        }
+                                        <caption class="sr-only">Open orders</caption>
+                                        <thead><tr><th scope="col">Side</th><th scope="col">Type</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var o in _openOrders)
+                                            {
+                                                <tr @key="o.Id">
+                                                    <td>@o.Side</td>
+                                                    <td>@o.Type</td>
+                                                    <td>@PriceFormatter.FormatQuantity(o.Quantity)</td>
+                                                    <td>@PriceFormatter.FormatPrice(o.Price)</td>
+                                                    <td>@o.Status</td>
+                                                    <td><button aria-label="@($"Cancel {o.Side} {o.Type} order for {o.Symbol}")" @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td>
+                                                </tr>
+                                            }
+                                            @if (!_openOrders.Any())
+                                            {
+                                                <tr><td colspan="6">No open orders.</td></tr>
+                                            }
+                                        </tbody>
                                     </table>
                                 }
                             </div>
@@ -286,6 +328,7 @@
     .mini-table td { padding: 4px 0; border-bottom: 1px solid #222; }
     .plus { color: #4f4; }
     .minus { color: #f44; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
     .alert-box { padding: 10px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
     .alert-box.warning { background: #443300; color: #ffcc00; border: 1px solid #665500; }
@@ -318,6 +361,7 @@
     private bool   _supportsMargin;
     private double _maxLeverage = 1.0;
     private bool   _bookLoading;
+    private bool   _bookEverLoaded;
 
     // Account data
     private List<Balance>   _balances   = new();
@@ -402,13 +446,17 @@
         var symbol = Store.State.Identity.Symbol;
         if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
 
-        _bookLoading = true;
-        StateHasChanged();
+        if (!_bookEverLoaded)
+        {
+            _bookLoading = true;
+            StateHasChanged();
+        }
 
         var (bids, asks) = await OrderService.GetOrderBookAsync(provider, symbol);
         _bids = bids;
         _asks = asks;
         _bookLoading = false;
+        _bookEverLoaded = true;
         StateHasChanged();
     }
 
@@ -425,6 +473,20 @@
     }
 
     private async Task RefreshAccount() => await LoadAccountDataAsync();
+
+    private void SelectAccountTab(string tab)
+    {
+        _accountTab = tab;
+        int count = tab switch
+        {
+            "Positions" => _positions.Count,
+            "Orders"    => _openOrders.Count,
+            "Balances"  => _balances.Count(b => b.Free > 0 || b.Locked > 0),
+            _           => 0
+        };
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{tab}, {count}", true));
+        StateHasChanged();
+    }
 
     private void Close()
     {
@@ -472,7 +534,10 @@
             string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 
             _orderError  = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
-            _orderStatus = _orderError ? $"Order rejected: {result}" : $"{_orderSide} order submitted.";
+            string placed = type == OrderType.Limit
+                ? $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, limit {PriceFormatter.FormatPrice(_limitPrice)}."
+                : $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, market.";
+            _orderStatus = _orderError ? $"Order rejected for {Store.State.Identity.Symbol}." : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
             EventBus.Publish(new FeedbackRequestEvent(_orderError ? FeedbackType.Error : FeedbackType.Info, _orderStatus, true));
@@ -493,7 +558,7 @@
         if (string.IsNullOrEmpty(provider)) return;
 
         bool ok = await OrderService.CancelOrderAsync(provider, orderId, symbol);
-        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order cancelled" : $"Cancel failed", true));
+        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order canceled. {symbol}." : $"Cancel failed for {symbol}.", true));
 
         if (ok) await LoadAccountDataAsync();
     }
