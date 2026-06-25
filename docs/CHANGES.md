@@ -20,6 +20,11 @@ All notable changes to this project will be documented in this file.
 - **Capability gating** — `IOrderExecutionService.GetCapabilitiesAsync` exposes a
   provider's `ProviderCapabilities`; the panel shows the trailing controls only
   when the provider advertises `TrailingStop`.
+- **History tab + fees + live review** — a History tab (time / symbol / side /
+  quantity / price / realized P&L / fee) backed by a persisted paper fill log with
+  a simulated 0.04% taker fee (`TradeFill.RealizedPnL`, default
+  `ITradingProvider.GetFillsAsync`), and a spoken pre-submit review with
+  Confirm/Cancel for live (non-paper) orders.
 
 ### Changed
 - **Binance** honours the new fields: futures TIF (incl. `GTX` post-only),

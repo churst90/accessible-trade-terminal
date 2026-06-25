@@ -5,12 +5,13 @@ account tabs with full columns, large BUY/SELL buttons, all order types
 (Market/Limit/Stop-Market/Stop-Limit/TP-Market/TP-Limit) + Trigger Price,
 close/flatten button, risk-based sizing, **trailing stop** and **trailing
 take-profit** (activation), time-in-force, post-only, reduce-only, position-side,
-realized-P&L + trailing-hit announcements (paper), and capability-gated trailing
-controls (`GetCapabilitiesAsync` → `ProviderCapabilities`). **Remaining:**
-History/closed-trades tab + real fees + pre-submit spoken review for live orders;
-real-provider realized P&L; alerts→speech verification; Alt+B order-book smart
-announcements; spot-side reduce-only/position-side (futures-only today). The full
-target design follows; treat unshipped items as the roadmap. Written 2026-06-24.
+realized-P&L + trailing-hit announcements (paper), capability-gated trailing
+controls (`GetCapabilitiesAsync` → `ProviderCapabilities`), a **History tab** (paper
+fill log with realized P&L + a simulated 0.04% taker fee), and a **pre-submit
+spoken review + Confirm/Cancel** for live orders. **Remaining:** real-provider fills/
+fees/realized-P&L (paper-backed today); alerts→speech verification; Alt+B order-book
+smart announcements; spot-side reduce-only/position-side (futures-only today). The
+full target design follows; treat unshipped items as the roadmap. Written 2026-06-24.
 
 Related: [[trading-order-panel-gaps]] memory, `docs/codebase-audit-2026-06` items
 (order-fill announcements, bracket atomicity, TP-ladder).
