@@ -274,154 +274,288 @@ which is where the next chapter, on moving through time bar by bar, begins.
 
 ---
 
+## Reading the Chart
+
+A loaded chart is a structure you move through, not a picture you glance at. This
+chapter covers how you navigate that structure by keyboard, how you scan it for the
+moments that matter, how you play it back as sound, and how you control what you hear
+while you do. None of it requires sight; all of it is faster once the handful of
+movement keys are in your fingers.
+
+### The shape of a chart
+
+The chart is a stack of **panes**, one above the next. The top pane is always the
+price itself — candlesticks by default. Below it sit indicator panes, one for each
+indicator that needs its own area; some indicators, like moving averages, instead
+draw directly on the price pane as overlays and never get a pane of their own.
+
+Inside a pane the hierarchy continues. A pane holds one or more **series**, and a
+series holds one or more **components**. A MACD, for instance, is one series with
+three components — the MACD line, the signal line, and the histogram. Holding this
+three-level shape in mind — panes, series, components — is the key to moving around
+with confidence: you change panes one way, and components another, and the terminal
+always tells you where you have landed.
+
+### Moving through time
+
+Left and Right arrow move the cursor one bar at a time — Left into the past, Right
+toward the present. As you land on each bar your screen reader announces its values:
+on the price pane, the open, high, low and close of that candle; on an indicator
+component, that component's reading for the bar. At the same time the sonification
+engine plays the bar's tone, so a run of Right-arrows is also a little rising or
+falling melody of where price went.
+
+When you want to cover ground faster, Home jumps to the leftmost bar in view and End
+to the rightmost, while Backslash (\\) leaps all the way to the latest, live bar.
+You can also move the window itself without moving the cursor: the bracket keys pan
+the viewport, with `[` bringing older bars into view and `]` newer ones, and
+Shift with either changes the pan step. The minus key zooms out to see more bars at
+once, and the equals key zooms in for finer detail on fewer.
+
+### Moving between panes and components
+
+Page Down moves your focus to the next pane below, Page Up to the pane above; as you
+arrive, speech announces the newly focused series by name — "RSI", "Volume". Within
+a series, the Up and Down arrows step through its components: Down from the MACD line
+to the signal line to the histogram, Up back through them, each announced with its
+name and current value. When more panes are open than fit on screen, Alt+Up and
+Alt+Down scroll the pane list.
+
+Two keys re-orient you whenever you lose the thread. F4 announces the current symbol,
+provider, and timeframe; Ctrl+Alt+Shift+C focuses the chart and reads a fuller
+context summary. Reach for them freely — there is no penalty for asking the terminal
+where you are.
+
+### Scanning for events
+
+Stepping bar by bar is precise but slow when what you actually want is the next thing
+that *happened*. Ctrl+Left and Ctrl+Right are context-aware jumps that depend on what
+you have focused. On a price candle they jump to the previous or next bar where price
+crosses a trendline you have drawn. On an oscillator that crosses zero, like MACD,
+they jump to the next zero-crossing; on a banded oscillator like RSI, to the next
+entry into or exit from overbought or oversold; on a moving-average overlay, to the
+next price-versus-average cross; on a sparse signal marker, to the next bar where
+that signal fires. Press repeatedly to walk through every such event in turn; when
+there are no more in that direction the terminal says "No more {component} signals in
+this direction." It turns a long history into a short list of the moments worth
+hearing.
+
+### Playback: listening to the market
+
+Playback is the core listening mode: the cursor animates through the visible window
+while the engine plays each bar's sound and your screen reader speaks its values, so
+you *hear* the shape of a stretch of market in seconds. Three keys set how much you
+hear. Space plays or stops the whole chart — every pane and series together. Shift
+with Space plays just the series you have focused, for studying one indicator without
+the rest. Ctrl+Shift+Space narrows further to a single component — the RSI line
+alone, say. Ctrl+Space pauses and resumes whatever is playing, and Shift+Escape is
+the panic key that stops all playback at once. Shift with the equals or minus keys
+speeds playback up or slows it down — slower to dwell on each bar, faster to scan a
+long history.
+
+### Choosing what you hear
+
+You are always in command of the two output layers. F2 toggles speech on and off and
+F3 toggles the sonification engine, so you can run with numbers only, sound only, or
+both, to suit the task. Volume is adjustable at three depths: F5 and Shift+F5 raise
+and lower the focused component, F6 and Shift+F6 the whole focused series, and F7 and
+Shift+F7 the master chart volume — so you can bring one quiet line forward without
+touching the rest. The M key mutes or unmutes the focused series or component without
+removing it, and H hides or shows it; both are toggles, and both leave the data in
+place so you can bring it back with the same key.
+
+### Inspecting a single bar
+
+When one bar deserves a thorough look before you act on it, press Ctrl+Shift+D
+(Alt+Shift+D on the Linux web host) for a full point analysis. It reads the candle's
+open, high, low, close and volume, names any candlestick pattern recognised at that
+bar — "Engulfing bullish" — reports every active indicator's reading there, and lists
+any signal events on the bar across all indicators. It is the one-key way to gather
+everything the terminal knows about a single moment, which is exactly what you want
+in front of a decision — and a natural lead-in to the analysis tools in the next
+chapter.
+
+---
+
 ## Trading
 
 Everything to do with money — placing orders, attaching protective exits, watching
 positions and fills, and reading the live order book — runs through the trading
 dashboard, which you open with Alt+T. Your screen reader announces it as "Trading
 Dashboard". It gathers four things in one place: the market you are trading and its
-environment, an order ticket, a five-level order book snapshot, and a set of tabs
-for your balances, positions, and working orders. This chapter assumes you already
-know what a market versus a limit order is, and what a stop-loss and a take-profit
-are for; it concentrates on how you express and hear those decisions here, and —
-just as importantly — on what this terminal does and does not do on your behalf.
+environment, an order ticket, a five-level order book snapshot, and a row of account
+tabs — Balances, Positions, Orders, and History. This chapter assumes you already
+know what market, limit, stop, and trailing orders are, and concentrates on how you
+express and hear those decisions here, and on what the terminal does and does not do
+on your behalf.
+
+### Practise first: paper trading
+
+Before risking a cent, turn on **paper trading mode** and learn the whole workflow
+against simulated money. Open Settings with F12, and on the General tab tick "Paper
+trading mode"; the terminal confirms "Paper trading enabled" and a small paper
+indicator appears in the status bar (announced as "Paper trading enabled"). From
+then on, every order you place — on any chart, with any provider — is routed to a
+built-in simulator instead of a real exchange. Fills are driven by the **real
+live price** of the chart you are watching: a market order fills at the current
+price, and a stop, target, or trailing order fills the moment live price action
+actually crosses it. You start with a virtual balance, the account persists between
+sessions, and a "Reset paper account" button on the same settings tab wipes it back
+to the starting balance whenever you want a clean slate. While paper mode is on the
+dashboard shows the environment as "Paper (simulated)" with a paper banner, and the
+red live-funds banner is suppressed. Everything described in the rest of this
+chapter behaves identically in paper and live — so practise here until the spoken
+feedback is second nature, then switch a real key in.
 
 ### Paper or live — check this first
 
-Before you place anything, know which account you are about to hit. The terminal
-does not have a separate "paper trading mode"; instead, your environment follows
-whichever API key profile is active. A profile marked Paper routes to the
-provider's simulated account; a profile marked Live trades real, funded money. The
-dashboard shows the current environment in its market panel as "Paper" or "Live",
-and when you are in a live profile it puts an unmissable red banner across the top
-of the trading controls reading "⚠ LIVE TRADING — Real funds at risk." that stays
-on screen the whole time.
+When you are not in paper mode, your environment follows whichever API key profile
+is active. A profile marked Paper points at the provider's own sandbox; a profile
+marked Live trades real, funded money. The dashboard shows the current environment
+in its market panel, and when you are on a live profile it puts an unmissable red
+banner across the top of the controls — "⚠ LIVE TRADING — Real funds at risk." —
+that stays on screen the whole time.
 
-You can change accounts without leaving the dashboard: the "Switch API Key"
-dropdown lists your profiles as "{name} ({environment})", and selecting one
-announces "Switched to API key {name} ({environment})" and reloads that account's
-balances and positions. Build the habit of confirming this out loud with the
-dropdown before a session — it is the single most consequential setting on the
-screen, and there is no second "are you sure?" prompt later to catch a mistake.
+You can change accounts without leaving the dashboard: the "Switch API Key" dropdown
+lists your profiles as "{name} ({environment})", and selecting one announces
+"Switched to API key {name} ({environment})" and reloads that account's balances and
+positions. Build the habit of confirming this out loud before a session — it is the
+single most consequential setting on the screen.
 
 ### Placing an order
 
-The order ticket lives in the dashboard's "Place Order" panel and reads top to
-bottom. You choose a side with the "BUY" and "SELL" buttons — they are a toggle, so
-exactly one is active — then enter a "Quantity", and pick a "Type" of either Market
-or Limit. Choosing Limit reveals a "Limit Price" field; a market order omits it and
-fills at the prevailing price. If your provider and market support margin, two more
-controls appear: a "Margin" choice of Cross or Isolated, and a "Leverage"
-multiplier. You move through all of these with Tab, and your screen reader reads
-each label and value as you land on it.
+The order ticket lives in the dashboard's "Place Order" panel and reshapes itself to
+the order you are building, so you only ever Tab past fields that apply. You choose a
+side with the big round green "BUY" and red "SELL" buttons — they are a toggle, so
+exactly one is active and your screen reader reports which is pressed — then enter a
+"Quantity" and pick a "Type".
 
-When the ticket is complete you activate the submit button, which is labelled for
-the side you chose — "Submit Buy Order" or "Submit Sell Order". The button stays
-disabled until the quantity is above zero and a symbol is loaded, so if you cannot
-activate it, check those first. There is no confirmation dialog: pressing the button
-sends the order. The terminal acknowledges that it is working ("Submitting…") and
-then goes quiet on the ticket itself — because the meaningful news, the fill, comes
-back through the announcement channel described below rather than as a form message.
-Behind the scenes the terminal also guards against a double-tap: an identical order
-re-submitted within thirty seconds is ignored, so a stray second press will not
-accidentally double your size.
+The Type list holds the full set: **Market**, **Limit**, **Stop-Market**,
+**Stop-Limit**, **Take-Profit-Market**, and **Take-Profit-Limit**. The fields that
+appear depend on it. The stop and take-profit types reveal a "Trigger Price" — the
+level at which the order activates. The limit-style types (Limit, Stop-Limit,
+Take-Profit-Limit) reveal a "Limit Price" and, with it, a "Time in force" choice of
+GTC, IOC, or FOK and a "Post-only (maker)" checkbox. A plain market order fills at
+the prevailing price and needs neither.
 
-### Attaching a stop-loss and a take-profit
+On a market or limit *entry* you also get the protective and sizing controls
+described in the next two sections — Stop Loss, Take Profit, trailing exits, and a
+risk sizer. And if your provider supports margin or futures, the ticket adds a
+"Margin" choice (Cross or Isolated), a "Leverage" multiplier, a "Position side"
+(One-way, Long, or Short, for hedge accounts), and a "Reduce-only" checkbox. Controls
+the active provider does not support are simply not shown — so the same ticket is
+lean on a spot exchange and full on a futures one.
 
-You protect a trade at the moment you enter it. The ticket has an optional "Stop
-Loss" field and an optional "Take Profit" field — both shown with a placeholder of
-"Optional" — and both are entered as **absolute price levels**, not distances,
-ticks, or percentages. If you are buying BTC at 42,500 and want to be out if it
-breaks 42,180 or to bank profit at 43,400, you type those two prices directly into
-the fields before submitting. Leave either blank to skip it.
+Two helpers worth knowing before you submit. The **Size** button next to "Risk % of
+balance" does position-sizing for you: enter a risk percentage and a stop, and it
+sets the quantity so that being stopped out costs you that share of your balance,
+announcing "Sized {quantity} from {n} percent risk." And a double-tap guard ignores
+an identical order resubmitted within thirty seconds, so a stray second press will
+not double your size.
 
-Two things about this are important to understand, because they shape how you work.
-First, the entry and its protective orders are **not placed as a single guaranteed
-bracket**. The terminal submits the entry, then submits the stop and target, and
-then — about two seconds later — scans the exchange to confirm protection actually
-landed. If it cannot find a protective order, it warns you, interrupting: "Warning:
-no stop loss or take profit found on the exchange for {symbol}. The position may be
-unprotected — verify your open orders." Treat that sentence as a call to action: open
-the Orders tab and check, because you may be holding an unguarded position. Second,
-there is no inline editor for the protective levels of a resting order. To move a
-stop you cancel the working order from the Orders tab and place a new one at the new
-price. So set your stop and target deliberately at entry rather than planning to
-nudge them afterward.
+### Protecting a trade: stops, targets, and trailing exits
 
-A note on trailing exits, since the concept is common: the stop and take-profit you
-attach to a manual order today are static price levels. Trailing stops and trailing
-take-profits are planned for the live ticket but are not yet available there. For
-now, trailing logic lives inside automated strategies (covered in the Automation
-chapter), where a strategy can trail a stop by an ATR multiple; for a manual trade,
-treat "stop" and "take-profit" as fixed levels you set and manage yourself until the
-trailing variants arrive.
+You protect a trade at the moment you enter it. On a market or limit entry the ticket
+offers an optional "Stop Loss" and "Take Profit", both entered as **absolute price
+levels** — buy at 42,500 and you might type 42,180 to stop out and 43,400 to bank
+profit. Leave either blank to skip it.
+
+When you would rather your exit follow the trade, use a **trailing stop** or a
+**trailing take-profit** (shown when the provider supports trailing). The "Trailing
+stop" selector lets you trail by Percent or by Amount; enter a distance and the
+terminal keeps a stop that ratchet toward the trade as price moves your way and
+never loosens, firing only on a reversal of that distance. The "Trailing
+take-profit" works the same way but adds an optional "TP activation price": it stays
+dormant until price reaches that level, then arms and trails from there, so it locks
+in profit only after a target is reached. In paper mode you can watch both work tick
+by tick.
+
+Two cautions carry over from real exchanges. First, an entry and its protective
+orders are **not placed as one guaranteed bracket**: the terminal submits the entry,
+then the protection, then about two seconds later checks that protection actually
+landed — and if it cannot find it, warns you, interrupting, "Warning: no stop loss
+or take profit found on the exchange for {symbol}. The position may be unprotected —
+verify your open orders." Treat that as a call to action. Second, there is no inline
+editor for a resting order's protective levels; to move a stop you cancel it on the
+Orders tab and place a new one. Set your exits deliberately at entry.
+
+### The live order review
+
+Paper orders submit the instant you activate the submit button. **Live** orders do
+not — they get a spoken safety review first. When you submit on a live profile, the
+terminal speaks a one-line summary — "Confirm: {side} {qty} {symbol}, {type}. Stop
+{price}. Target {price}. Estimated cost {amount}, fee {amount}. Confirm or cancel." —
+and replaces the submit button with **Confirm** and **Cancel**. Nothing reaches the
+exchange until you activate Confirm; Cancel backs out with "Order canceled before
+submit." It is the deliberate pause that a real-money order deserves, and it is on
+automatically whenever you are live.
 
 ### Hearing your fills
 
 Order outcomes are the one kind of feedback the terminal will never let you miss.
-Whatever else is happening — sonification muted, a playback running, speech in the
-middle of another sentence — an order event plays a short earcon immediately and
-then speaks over whatever was being said. The announcements are plain and
-quantity-and-price first:
+Whatever else is happening — sonification muted, a playback running, speech mid-
+sentence — an order event plays a short earcon immediately and then speaks over
+whatever was being said. The announcements are plain, quantity-and-price first, and
+on a closing fill they add the realized result:
 
-- A complete fill: "Order filled. Bought {qty} {symbol} at {price}." (or "Sold …").
-- A partial fill: "Partial fill. Bought {qty} {symbol} at {price}. {remaining}
-  remaining."
-- Your protective stop triggering: "Stop loss hit. Sold {qty} {symbol} at {price}."
-- Your target triggering: "Take profit hit. Sold {qty} {symbol} at {price}."
-- A refusal: "Order rejected for {symbol}."
+- Placed: "Order placed. {Buy|Sell} {qty} {symbol}, {type}."
+- A complete fill: "Order filled. Bought {qty} {symbol} at {price}." — and on a
+  close, "… Profit {amount}." or "… Loss {amount}."
+- A partial fill: "Partial fill. … {remaining} remaining."
+- A fixed stop or target: "Stop loss hit. Sold {qty} {symbol} at {price}. Loss
+  {amount}." / "Take profit hit. … Profit {amount}."
+- A trailing exit: "Trailing stop hit. …" / "Trailing take profit hit. …", with the
+  same price and profit/loss.
+- A cancel: "Order canceled. {symbol}."  A refusal: "Order rejected for {symbol}."
 
-Order IDs are deliberately never spoken — they are long, meaningless to the ear, and
-would only clutter the message. Every one of these events is also written to the
-Journal (Ctrl+Alt+Shift+J), so if a fill announcement goes by while you are
-concentrating elsewhere, you can read it back afterward with its full detail.
+Order IDs are never spoken — they are meaningless to the ear. Every one of these
+events is also written to the Journal (Ctrl+Alt+Shift+J), so a fill that goes by
+while you are concentrating elsewhere can be read back afterward. (Realized profit
+and loss are spoken on every paper close; on a live exchange they appear when the
+exchange reports them.)
 
-### Positions, balances, and working orders
+### Positions, orders, balances, and history
 
-The lower part of the dashboard carries three tabs — "Balances", "Positions", and
-"Orders" — that you move between to read account state. The Positions tab lists each
-open position by symbol, its quantity, and its unrealized profit or loss, the last
-read back so you can hear at once whether you are green or red. The Orders tab lists
-your working (not-yet-filled) orders with their side and price and a Cancel button
-on each, which is how you pull a resting limit or a protective stop you no longer
-want.
+The lower part of the dashboard carries four tabs — Balances, Positions, Orders, and
+History — and switching to one speaks its name and count, like "Positions, 2".
 
-There is no one-button "close position" or "flatten" here. To exit, you place an
-opposing order: a Sell to close a long, a Buy to close a short, sized to how much
-you want to reduce. So closing a 0.5 BTC long means submitting a 0.5 BTC market sell
-on the same symbol. Keep that in mind when you are managing risk under pressure —
-exiting is a deliberate order, not a single keystroke.
+- **Positions** lists each open position with its quantity, average price, value,
+  unrealized profit or loss, leverage, and liquidation price, and gives each a
+  **Close** button that flattens it with an opposing market order — so exiting is now
+  a single action, announced as "Closing {symbol}. …".
+- **Orders** lists your working, not-yet-filled orders — side, type, quantity, price,
+  status — each with a Cancel button to pull a resting limit or protective stop.
+- **History** is your fill log, newest first: time, symbol, side, quantity, price,
+  realized profit or loss, and fee — the place to review how a session actually went.
+- **Balances** shows your free and locked funds per asset.
 
 ### Reading the order book
 
 Press Alt+B to open the order book for the current symbol; your screen reader
 announces it as "Order Book — {symbol}". It presents the resting buy and sell
-interest as two columns — "Bids (Buy Orders)" on one side and "Asks (Sell Orders)"
-on the other — each listing up to twenty price levels with their size and a running
-cumulative total. A summary line across the top gives you the best bid, the best
-ask, and the spread as both an absolute number and a percentage, for example a
-spread of "1.50 (0.004%)".
+interest as two columns — "Bids (Buy Orders)" and "Asks (Sell Orders)" — each listing
+up to twenty price levels with their size and a running cumulative total, under a
+summary line giving the best bid, best ask, and the spread as both a number and a
+percent (for example "1.50 (0.004%)").
 
-You read the book by Tab: every price level is focusable, and landing on one has your
-screen reader announce it as "Bid {price}, size {quantity}" or "Ask {price}, size
-{quantity}", so you can walk down the bids to feel where the resting demand thins
-out, or up the asks to find a wall of supply. If your provider streams the book, it
-updates live as you read; if it only offers snapshots, a "Refresh" button appears so
-you can pull a fresh picture on demand. The book updates quietly — it does not
-announce every change — so it is a place you go to read depth deliberately, not a
-running commentary.
+You read the book by Tab: every price level is focusable, and landing on one is
+announced as "Bid {price}, size {quantity}" or "Ask {price}, size {quantity}", so you
+can walk down the bids to feel where demand thins out or up the asks to find a wall of
+supply. If your provider streams the book it updates live as you read; otherwise a
+"Refresh" button pulls a fresh snapshot. It updates quietly rather than narrating
+every change, so it is a place you go to read depth deliberately.
 
 ### A trade from start to finish
 
-Putting it together: you are watching BTC/USDT on Binance and decide to buy a
-pullback. You press Alt+T, hear the environment is Paper, and Tab through the ticket
-— BUY, quantity 0.5, type Market, stop loss 42,180, take profit 43,400 — then
-activate "Submit Buy Order". You hear "Submitting…", and a moment later the earcon
-and "Order filled. Bought 0.5 BTC/USDT at 42,500." Two seconds on, no warning means
-your protection registered; you confirm it anyway on the Orders tab, where the
-resting stop and target appear with Cancel buttons. From here you let it run: if
-price falls to your stop you will hear "Stop loss hit. Sold 0.5 BTC/USDT at
-42,180.", and if it rallies you will hear "Take profit hit." instead — and either
-way the Journal holds the record for your review. When you want out early, you do
-not look for a close button; you place a 0.5 market sell and let the fill
-announcement confirm you are flat.
+Putting it together, in paper mode: you are watching BTC/USDT on Binance and decide
+to buy a pullback. You press Alt+T, hear "Paper (simulated)", and Tab through the
+ticket — BUY, quantity 0.5, type Market, stop loss 42,180, and a Trailing
+take-profit of 1.5 percent with an activation at 43,000. You activate "Submit Buy
+Order"; because you are in paper it places at once, and you hear the earcon and
+"Order filled. Bought 0.5 BTC/USDT at 42,500." Price climbs through 43,000, arming
+the trailing take-profit, and then pulls back: "Trailing take profit hit. Sold 0.5
+BTC/USDT at 43,260. Profit 380.00." You open the History tab and the trade is there
+with its price, profit, and fee. Had price instead fallen to 42,180 first, you would
+have heard "Stop loss hit. Sold 0.5 BTC/USDT at 42,180. Loss 160.00." — and either
+way, when you want out early, the **Close** button on the Positions tab flattens you
+with one press.
