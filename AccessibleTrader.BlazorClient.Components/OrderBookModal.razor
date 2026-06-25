@@ -51,6 +51,17 @@
             }
             else
             {
+                @if (_isLive)
+                {
+                    <div style="margin-bottom:8px; font-size:0.8rem; color:#aaa; display:flex; align-items:center; gap:12px;">
+                        <label for="ob-announce"><input id="ob-announce" type="checkbox" checked="@_announceLarge" @onchange="e => _announceLarge = e.Value is bool b && b" /> Announce large orders</label>
+                        @if (_announceLarge)
+                        {
+                            <label for="ob-minsize">Min size <input id="ob-minsize" type="number" step="any" min="0" aria-label="Minimum order size to announce" @bind="_minSize" style="width:90px;" /></label>
+                        }
+                    </div>
+                }
+
                 @* Spread / top-of-book summary. Updates silently with the rest of the book —
                    no aria-live so the user reads it on focus rather than being interrupted
                    by every depth change. The visual labels stay obvious to sighted users. *@
@@ -171,6 +182,11 @@
     private bool _isLive;
     private List<OrderBookEntry> _bids = new();
     private List<OrderBookEntry> _asks = new();
+    private bool _announceLarge;
+    private double _minSize;
+    private Dictionary<double, double> _prevBids = new();
+    private Dictionary<double, double> _prevAsks = new();
+    private DateTime _lastAnnounceUtc = DateTime.MinValue;
     private IDisposable? _eventSub;
     private IDisposable? _depthSub;
     private IDisposable? _closeSub;
@@ -277,6 +293,7 @@
             {
                 if (update.Bids != null && update.Bids.Count > 0) _bids = TrimToDepth(update.Bids);
                 if (update.Asks != null && update.Asks.Count > 0) _asks = TrimToDepth(update.Asks);
+                AnnounceBookChanges();
                 StateHasChanged();
             });
         });
@@ -290,6 +307,50 @@
         // never blows past the user's chosen depth.
         var list = entries as List<OrderBookEntry> ?? entries.ToList();
         return list.Count <= OrderBookDepth ? list : list.GetRange(0, OrderBookDepth);
+    }
+
+    // Opt-in "large order" radar: on each live snapshot, diff against the previous
+    // and speak the single most significant change at or above the user's minimum
+    // size — a new/grown level ("Large sell order: 50 at 43,250.") or a vanished one
+    // ("Sell order removed at 43,250."). Throttled to one announcement every 2s so a
+    // fast book doesn't chatter; non-interrupting so it never cuts off navigation.
+    private void AnnounceBookChanges()
+    {
+        if (!_announceLarge || _minSize <= 0) return;
+
+        var newBids = _bids.ToDictionary(b => b.Price, b => b.Quantity);
+        var newAsks = _asks.ToDictionary(a => a.Price, a => a.Quantity);
+        bool throttled = (DateTime.UtcNow - _lastAnnounceUtc).TotalSeconds < 2;
+
+        string? msg = throttled ? null : (FindBookChange(newAsks, _prevAsks, "sell") ?? FindBookChange(newBids, _prevBids, "buy"));
+        _prevBids = newBids;
+        _prevAsks = newAsks;
+
+        if (msg != null)
+        {
+            _lastAnnounceUtc = DateTime.UtcNow;
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, msg, false));
+        }
+    }
+
+    private string? FindBookChange(Dictionary<double, double> cur, Dictionary<double, double> prev, string side)
+    {
+        double bestDelta = 0, bestPrice = 0;
+        bool placed = true;
+        foreach (var kv in cur)
+        {
+            double old = prev.TryGetValue(kv.Key, out var o) ? o : 0;
+            double delta = kv.Value - old;
+            if (delta >= _minSize && delta > bestDelta) { bestDelta = delta; bestPrice = kv.Key; placed = true; }
+        }
+        foreach (var kv in prev)
+        {
+            if (!cur.ContainsKey(kv.Key) && kv.Value >= _minSize && kv.Value > bestDelta) { bestDelta = kv.Value; bestPrice = kv.Key; placed = false; }
+        }
+        if (bestDelta < _minSize) return null;
+        return placed
+            ? $"Large {side} order: {bestDelta.ToString("G4")} at {bestPrice.ToString("G6")}."
+            : $"{(side == "sell" ? "Sell" : "Buy")} order removed at {bestPrice.ToString("G6")}.";
     }
 
     private string ComputeSpread()

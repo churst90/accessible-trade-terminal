@@ -508,6 +508,47 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            // Binance spot /myTrades requires a symbol; without one, return empty.
+            if (!IsConnected || string.IsNullOrEmpty(symbol)) return new();
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var p = new Dictionary<string, string>
+                    {
+                        ["symbol"] = CleanSymbol(symbol),
+                        ["limit"] = Math.Clamp(limit, 1, 1000).ToString()
+                    };
+                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/myTrades", p);
+                    using var doc = JsonDocument.Parse(body);
+                    var list = new List<TradeFill>();
+                    foreach (var t in doc.RootElement.EnumerateArray())
+                    {
+                        bool isBuyer = t.TryGetProperty("isBuyer", out var ib) && ib.GetBoolean();
+                        long time = t.TryGetProperty("time", out var tm) ? tm.GetInt64() : 0;
+                        list.Add(new TradeFill(
+                            t.TryGetProperty("id", out var id) ? id.GetRawText() : "",
+                            t.GetProperty("symbol").GetString() ?? symbol!,
+                            isBuyer ? OrderSide.Buy : OrderSide.Sell,
+                            Dbl(t, "qty"),
+                            Dbl(t, "price"),
+                            DateTimeOffset.FromUnixTimeMilliseconds(time).UtcDateTime,
+                            Dbl(t, "commission"),
+                            t.TryGetProperty("orderId", out var oid) ? oid.GetRawText() : null));
+                    }
+                    list.Reverse();   // Binance returns oldest-first; we want newest first
+                    return list;
+                });
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance GetFillsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
