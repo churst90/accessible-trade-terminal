@@ -124,6 +124,8 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(StrategyBacktester);
         Ctx.Services.AddSingleton(BacktestWarmupAnalyzer);
         Ctx.Services.AddSingleton(OrderService);
+        // SettingsModal injects IPaperTradingProvider (paper-trading reset button).
+        Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);
 
         // Most modals call accessibleTrader.focusElement on first render via
