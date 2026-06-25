@@ -7,11 +7,15 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Binance.Net" Version="9.8.1" />
-    <PackageReference Include="CryptoExchange.Net" Version="7.2.0" />
-  </ItemGroup>
-
+  <!--
+    Direct Binance REST + WebSocket integration — no Binance.Net /
+    CryptoExchange.Net. Those packages pinned CryptoExchange.Net 7.2.0, which
+    collided with the MEXC plugin's JK.Mexc.Net (CryptoExchange.Net 11.x) in the
+    shared plugin output directory and broke Binance loading (TypeLoadException
+    on the removed IRestClient). Talking to the API directly keeps Binance
+    consistent with the other hand-rolled providers (Coinbase / Kraken /
+    Bitstamp) and removes the version coupling entirely.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>

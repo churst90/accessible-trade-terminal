@@ -1,8 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
+using System.Net.WebSockets;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
@@ -11,38 +17,54 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Services;
-using Binance.Net.Clients;
 
 namespace AccessibleTrader.Plugins.Binance
 {
+    /// <summary>
+    /// Binance provider talking directly to the public/private REST and WebSocket
+    /// endpoints — no Binance.Net / CryptoExchange.Net dependency (see the csproj
+    /// header for why). Covers spot + USD-M futures: historical klines, symbols,
+    /// the order book (REST + live), the user-data order stream, and full trading
+    /// (balances, positions, open orders, place/cancel, leverage, protective TP/SL).
+    /// </summary>
     public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
     {
-        private readonly BinanceRestClient _client;
-        private BinanceRestClient? _tradingClient;
-        private BinanceSocketClient? _socketClient;
-        private IDisposable? _currentSubscription;
-        private string? _currentSymbol;
-        private string? _currentTimeframe;
+        // ── Endpoints (mainnet / testnet) ─────────────────────────────────────
+        private string SpotRest => _isTestnet ? "https://testnet.binance.vision"     : "https://api.binance.com";
+        private string FutRest  => _isTestnet ? "https://testnet.binancefuture.com"  : "https://fapi.binance.com";
+        private string SpotWs   => _isTestnet ? "wss://testnet.binance.vision/ws/"   : "wss://stream.binance.com:9443/ws/";
+        private string FutWs    => _isTestnet ? "wss://stream.binancefuture.com/ws/" : "wss://fstream.binance.com/ws/";
+
+        private HttpClient? _httpField;
+        private HttpClient Http => _httpField ??= PluginHostServices.CreateHttpClient(
+            "Binance",
+            new[] { "api.binance.com", "fapi.binance.com", "testnet.binance.vision", "testnet.binancefuture.com" },
+            userAgent: "AccessibleTrader/1.0");
 
         private string? _apiKey;
         private string? _apiSecret;
         private bool _isTestnet = false;
 
-        // Rate limiter: Binance allows 1200 requests/minute for REST
+        // Binance allows 1200 request-weight/minute for REST.
         private readonly RateLimiter _rateLimiter = new(1200, TimeSpan.FromMinutes(1));
 
-        // Order update stream
+        // Live kline subscription.
+        private CancellationTokenSource? _klineCts;
+        private string? _currentSymbol;
+        private string? _currentTimeframe;
+
+        // Order update stream (user-data).
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
-        // Order book streaming
+        // Live order book.
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
-        private IDisposable? _orderBookSubscription;
+        private CancellationTokenSource? _orderBookCts;
         private string? _orderBookSymbol;
 
-        // User data stream lifecycle
+        // User-data stream lifecycle.
+        private CancellationTokenSource? _userDataCts;
         private string? _listenKey;
-        private System.Timers.Timer? _keepAliveTimer;
 
         public override string Name => "Binance";
         public override string Description => "Live Binance Exchange Data (Spot & Futures)";
@@ -61,7 +83,9 @@ namespace AccessibleTrader.Plugins.Binance
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 125.0;
 
-        public bool IsConnected => !string.IsNullOrEmpty(_apiKey);
+        // Trading is available when we have either Configure-supplied creds or the
+        // host credential-checkout bridge to pull an active key at sign time.
+        public bool IsConnected => !string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null;
 
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
@@ -71,11 +95,6 @@ namespace AccessibleTrader.Plugins.Binance
             StandardTimeframes.EightHours, StandardTimeframes.TwelveHours, StandardTimeframes.OneDay,
             StandardTimeframes.ThreeDays, StandardTimeframes.OneWeek, StandardTimeframes.OneMonth
         };
-
-        public BinanceProvider()
-        {
-            _client = new BinanceRestClient();
-        }
 
         public override T? GetCapability<T>() where T : class
         {
@@ -90,17 +109,11 @@ namespace AccessibleTrader.Plugins.Binance
             if (config.TryGetValue("ApiKey",    out var key))    _apiKey    = key;
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
             if (config.TryGetValue("Testnet",   out var tn))     _isTestnet = tn == "true";
-
-            // Phase 4 Track B: the authenticated REST client is now built
-            // lazily at first connect via EnsureTradingClientAsync, using a
-            // fresh credential checkout. Configure still populates the
-            // _apiKey / _apiSecret fallback fields so non-bridge callers
-            // (unit tests, CLI) keep working.
         }
 
-        // Sign-time credential checkout (phase 4 Track B). Prefers the
-        // PluginHostServices.ApiKeys bridge; falls back to Configure-populated
-        // fields for unit tests / CLI runs.
+        // Sign-time credential checkout. Prefers the PluginHostServices.ApiKeys
+        // bridge (use-and-discard); falls back to Configure-populated fields for
+        // unit tests / CLI runs.
         private async Task<(string Key, string Secret)> CheckoutBinanceCredentialsAsync()
         {
             var host = PluginHostServices.ApiKeys;
@@ -117,58 +130,30 @@ namespace AccessibleTrader.Plugins.Binance
             return (_apiKey!, _apiSecret!);
         }
 
-        // Lazy per-connection-lifecycle trading client. Binance.Net's REST
-        // client holds credentials internally for its lifetime, so we build
-        // it once per connect cycle and dispose it at DisconnectAsync time.
-        private async Task EnsureTradingClientAsync()
-        {
-            if (_tradingClient != null) return;
-            var (apiKey, apiSecret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
-            _tradingClient = new BinanceRestClient(opts =>
-            {
-                opts.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(apiKey, apiSecret);
-            });
-        }
-
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
         {
             if (string.IsNullOrEmpty(_apiKey) && PluginHostServices.ApiKeys == null)
                 return (true, "No API key provided (public data only)");
             try
             {
-                await EnsureTradingClientAsync();
-                var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
-                return result.Success
-                    ? (true, "API key validated successfully")
-                    : (false, $"Key validation failed: {result.Error?.Message}");
+                await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/account", new Dictionary<string, string>());
+                return (true, "API key validated successfully");
             }
             catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
         }
 
-        private BinanceRestClient TradingClient => _tradingClient ?? _client;
-
-        // --- Connection & Subscription Management ---
+        // ── Connection & subscription management ──────────────────────────────
 
         public override async Task EnsureConnectedAsync()
         {
-            if (_socketClient != null) return;
-            _socketClient = new BinanceSocketClient();
             _connectionStateStream.OnNext(ConnectionState.Connected);
 
-            // Start the authenticated trading client + user-data stream only
-            // when we have some source of credentials. Trade ops will build
-            // the client lazily via EnsureTradingClientAsync if called later.
-            if (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null)
+            // Start the authenticated user-data stream only when a credential
+            // source exists. Trade ops sign per-request regardless.
+            if (IsConnected && _userDataCts == null)
             {
-                try
-                {
-                    await EnsureTradingClientAsync();
-                    await StartUserDataStreamAsync();
-                }
-                catch
-                {
-                    // No creds available — fall through to public-data-only mode.
-                }
+                try { await StartUserDataStreamAsync(); }
+                catch { /* public-data-only mode */ }
             }
         }
 
@@ -176,60 +161,69 @@ namespace AccessibleTrader.Plugins.Binance
         {
             try
             {
-                var keyResult = await TradingClient.SpotApi.Account.StartUserStreamAsync();
-                if (!keyResult.Success || string.IsNullOrEmpty(keyResult.Data)) return;
-                _listenKey = keyResult.Data;
+                _listenKey = await CreateListenKeyAsync();
+                if (string.IsNullOrEmpty(_listenKey)) return;
 
-                await _socketClient!.SpotApi.Account.SubscribeToUserDataUpdatesAsync(
-                    _listenKey,
-                    onOrderUpdateMessage: data =>
-                    {
-                        var o = data.Data;
-                        var status = o.Status switch
-                        {
-                            global::Binance.Net.Enums.OrderStatus.PartiallyFilled => OrderStatus.PartialFill,
-                            global::Binance.Net.Enums.OrderStatus.Filled          => OrderStatus.Filled,
-                            global::Binance.Net.Enums.OrderStatus.Canceled        => OrderStatus.Cancelled,
-                            global::Binance.Net.Enums.OrderStatus.Rejected        => OrderStatus.Rejected,
-                            _                                                      => OrderStatus.Filled
-                        };
-                        _orderUpdateSubject.OnNext(new OrderUpdate(
-                            o.Id.ToString(),
-                            o.Symbol,
-                            o.Side == global::Binance.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                            (double)o.QuantityFilled,
-                            (double)o.Price,
-                            (double)(o.Quantity - o.QuantityFilled),
-                            status,
-                            StopTriggered: o.Type == global::Binance.Net.Enums.SpotOrderType.StopLoss || o.Type == global::Binance.Net.Enums.SpotOrderType.StopLossLimit,
-                            TakeProfitTriggered: o.Type == global::Binance.Net.Enums.SpotOrderType.TakeProfit || o.Type == global::Binance.Net.Enums.SpotOrderType.TakeProfitLimit,
-                            DateTime.UtcNow));
-                    },
-                    onOcoOrderUpdateMessage: null,
-                    onAccountPositionMessage: null,
-                    onAccountBalanceUpdate: null);
+                _userDataCts = new CancellationTokenSource();
+                var ct = _userDataCts.Token;
+                var uri = new Uri($"{SpotWs}{_listenKey}");
 
-                _keepAliveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(25).TotalMilliseconds);
-                _keepAliveTimer.Elapsed += async (_, _) =>
+                _ = Task.Run(() => RunSocketAsync(uri, OnUserDataMessage, ct));
+
+                // Keep-alive every 25 min so the listen key doesn't expire (60 min TTL).
+                _ = Task.Run(async () =>
                 {
-                    try { await TradingClient.SpotApi.Account.KeepAliveUserStreamAsync(_listenKey); }
-                    catch (Exception ex)
+                    while (!ct.IsCancellationRequested)
                     {
-                        // If keep-alive fails repeatedly the listen key expires and order-update
-                        // delivery silently stops. Surface it so the UI can show a warning.
-                        _errorStream.OnNext($"Binance user-data keep-alive failed: {ex.GetType().Name}");
+                        try { await Task.Delay(TimeSpan.FromMinutes(25), ct); }
+                        catch { break; }
+                        try { await KeepAliveListenKeyAsync(_listenKey!); }
+                        catch (Exception ex)
+                        {
+                            _errorStream.OnNext($"Binance user-data keep-alive failed: {ex.GetType().Name}");
+                        }
                     }
-                };
-                _keepAliveTimer.AutoReset = true;
-                _keepAliveTimer.Start();
+                });
             }
             catch (Exception ex)
             {
-                // User-data stream is an enhancement over market data; failure here does not
-                // block trading. But staying silent meant a trader never knew why order fills
-                // weren't announcing. Publish a one-time error so the JournalModal records it.
                 _errorStream.OnNext($"Binance user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
             }
+        }
+
+        private void OnUserDataMessage(JsonElement root)
+        {
+            if (!root.TryGetProperty("e", out var ev) || ev.GetString() != "executionReport") return;
+
+            string statusStr = root.GetProperty("X").GetString() ?? "";
+            OrderStatus? status = statusStr switch
+            {
+                "PARTIALLY_FILLED" => OrderStatus.PartialFill,
+                "FILLED"           => OrderStatus.Filled,
+                "CANCELED"         => OrderStatus.Cancelled,
+                "REJECTED"         => OrderStatus.Rejected,
+                "EXPIRED"          => OrderStatus.Rejected,
+                _                  => (OrderStatus?)null  // NEW / others: nothing to announce
+            };
+            if (status == null) return;
+
+            string symbol   = root.GetProperty("s").GetString() ?? "";
+            var side        = (root.GetProperty("S").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy;
+            double origQty  = Dbl(root, "q");
+            double filled   = Dbl(root, "z");                 // cumulative filled qty
+            double lastPx   = Dbl(root, "L");                 // last filled price
+            double orderPx  = Dbl(root, "p");
+            double fillPx   = lastPx > 0 ? lastPx : orderPx;
+            string orderId  = root.TryGetProperty("i", out var idEl) ? idEl.GetRawText() : "";
+            string oType    = root.GetProperty("o").GetString() ?? "";
+
+            bool stopTrig = oType is "STOP_LOSS" or "STOP_LOSS_LIMIT";
+            bool tpTrig   = oType is "TAKE_PROFIT" or "TAKE_PROFIT_LIMIT";
+
+            _orderUpdateSubject.OnNext(new OrderUpdate(
+                orderId, symbol, side,
+                filled, fillPx, Math.Max(0, origQty - filled),
+                status.Value, stopTrig, tpTrig, DateTime.UtcNow));
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -237,123 +231,66 @@ namespace AccessibleTrader.Plugins.Binance
             await EnsureConnectedAsync();
 
             var cleanSymbol = CleanSymbol(symbol);
-            if (_currentSymbol == cleanSymbol && _currentTimeframe == timeframe && _currentSubscription != null) return;
+            if (_currentSymbol == cleanSymbol && _currentTimeframe == timeframe && _klineCts != null) return;
 
-            if (_currentSubscription != null)
-            {
-                await _socketClient!.UnsubscribeAllAsync();
-                _currentSubscription = null;
-            }
+            _klineCts?.Cancel();
+            _klineCts?.Dispose();
+            _klineCts = new CancellationTokenSource();
+            var ct = _klineCts.Token;
 
             _currentSymbol = cleanSymbol;
             _currentTimeframe = timeframe;
+
             bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
+            string wsBase = isFutures ? FutWs : SpotWs;
+            string interval = MapInterval(timeframe);
+            var uri = new Uri($"{wsBase}{cleanSymbol.ToLowerInvariant()}@kline_{interval}");
 
-            if (isFutures)
-            {
-                var subResult = await _socketClient!.UsdFuturesApi.SubscribeToKlineUpdatesAsync(cleanSymbol, MapInterval(timeframe), data =>
-                {
-                    var kline = data.Data.Data;
-                    var bar = new Ohlcv(kline.OpenTime, (double)kline.OpenPrice, (double)kline.HighPrice, (double)kline.LowPrice, (double)kline.ClosePrice, (double)kline.Volume);
-                    if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
-                        && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
-                        return;
-                    _liveStream.OnNext(bar);
-                });
+            _ = Task.Run(() => RunSocketAsync(uri, OnKlineMessage, ct));
+        }
 
-                if (subResult.Success)
-                    _currentSubscription = (IDisposable)subResult.Data;
-                else
-                {
-                    _errorStream.OnNext($"Binance Futures subscription failed: {subResult.Error?.Message}");
-                    _connectionStateStream.OnNext(ConnectionState.Error);
-                }
-            }
-            else
-            {
-                var subResult = await _socketClient!.SpotApi.ExchangeData.SubscribeToKlineUpdatesAsync(cleanSymbol, MapInterval(timeframe), data =>
-                {
-                    var kline = data.Data.Data;
-                    var bar = new Ohlcv(kline.OpenTime, (double)kline.OpenPrice, (double)kline.HighPrice, (double)kline.LowPrice, (double)kline.ClosePrice, (double)kline.Volume);
-                    if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
-                        && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime))
-                        return;
-                    _liveStream.OnNext(bar);
-                });
+        private void OnKlineMessage(JsonElement root)
+        {
+            if (!root.TryGetProperty("k", out var k)) return;
+            long openTime = k.GetProperty("t").GetInt64();
+            var bar = new Ohlcv(
+                DateTimeOffset.FromUnixTimeMilliseconds(openTime).UtcDateTime,
+                Dbl(k, "o"), Dbl(k, "h"), Dbl(k, "l"), Dbl(k, "c"), Dbl(k, "v"));
 
-                if (subResult.Success)
-                    _currentSubscription = (IDisposable)subResult.Data;
-                else
-                {
-                    _errorStream.OnNext($"Binance Spot subscription failed: {subResult.Error?.Message}");
-                    _connectionStateStream.OnNext(ConnectionState.Error);
-                }
-            }
+            if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0) return;
+            _liveStream.OnNext(bar);
         }
 
         public override async Task DisconnectAsync()
         {
-            _keepAliveTimer?.Stop();
-            _keepAliveTimer?.Dispose();
-            _keepAliveTimer = null;
-
-            _orderBookSubscription?.Dispose();
-            _orderBookSubscription = null;
+            _klineCts?.Cancel();      _klineCts?.Dispose();      _klineCts = null;
+            _orderBookCts?.Cancel();  _orderBookCts?.Dispose();  _orderBookCts = null;
             _orderBookSymbol = null;
 
-            if (_socketClient != null)
-            {
-                await _socketClient.UnsubscribeAllAsync();
-                _socketClient.Dispose();
-                _socketClient = null;
-            }
+            _userDataCts?.Cancel();   _userDataCts?.Dispose();   _userDataCts = null;
 
-            if (!string.IsNullOrEmpty(_listenKey) && _tradingClient != null)
+            if (!string.IsNullOrEmpty(_listenKey))
             {
-                // Only null the listen key if Binance acknowledged the stop. If the
-                // stop request failed (network blip mid-disconnect), the key remains
-                // valid on Binance's side and would pile up as a zombie across
-                // reconnect cycles — each disconnect/reconnect pair without success
-                // was previously creating a fresh key while leaking the old one.
-                bool stopped = false;
-                try
-                {
-                    var result = await _tradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey);
-                    stopped = result != null && result.Success;
-                }
-                catch (Exception ex)
-                {
-                    _errorStream.OnNext($"Binance StopUserStream failed: {ex.GetType().Name}");
-                }
-                if (stopped) _listenKey = null;
-            }
-            else
-            {
+                try { await CloseListenKeyAsync(_listenKey); }
+                catch (Exception ex) { _errorStream.OnNext($"Binance StopUserStream failed: {ex.GetType().Name}"); }
                 _listenKey = null;
             }
 
-            // Dispose the authenticated client so its internally-held
-            // credentials are released. The public _client stays — it holds
-            // no secrets and is reused across connect cycles.
-            _tradingClient?.Dispose();
-            _tradingClient = null;
-
-            _currentSubscription = null;
             _currentSymbol = null;
             _currentTimeframe = null;
 
-            // Drop credential references so a crash dump taken after disconnect
-            // doesn't still root the API key/secret strings.
             ScrubCredentials(
                 () => _apiKey = null,
                 () => _apiSecret = null);
 
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
+            await Task.CompletedTask;
         }
 
-        // --- Data Discovery & Fetching ---
+        // ── Data discovery & fetching ─────────────────────────────────────────
 
-        public override async Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => new List<string> { "Spot", "Futures" };
+        public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market)
+            => Task.FromResult(new List<string> { "Spot", "Futures" });
 
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")
         {
@@ -361,16 +298,16 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    if (subType.Equals("Futures", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var result = await _client.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
-                        return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
-                    }
-                    else
-                    {
-                        var result = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
-                        return result.Success ? result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList() : new List<string>();
-                    }
+                    bool isFutures = subType.Equals("Futures", StringComparison.OrdinalIgnoreCase);
+                    string body = await GetPublicAsync(isFutures ? FutRest : SpotRest,
+                        isFutures ? "/fapi/v1/exchangeInfo" : "/api/v3/exchangeInfo", null);
+                    using var doc = JsonDocument.Parse(body);
+                    return doc.RootElement.GetProperty("symbols")
+                        .EnumerateArray()
+                        .Select(s => s.GetProperty("symbol").GetString() ?? "")
+                        .Where(s => s.Length > 0)
+                        .OrderBy(s => s, StringComparer.Ordinal)
+                        .ToList();
                 });
             }
             catch (Exception ex)
@@ -380,34 +317,40 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
-        public override async Task<List<string>> GetSupportedTimeframesAsync() => new List<string> { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M" };
+        public override Task<List<string>> GetSupportedTimeframesAsync()
+            => Task.FromResult(new List<string> { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M" });
 
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             var cleanSymbol = CleanSymbol(request.Symbol);
             bool isFutures = request.Market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
-            var interval = MapInterval(request.Timeframe);
+            string interval = MapInterval(request.Timeframe);
             int limit = Math.Min(request.Limit, 1000);
 
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    DateTime? startTime = request.Since != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime : null;
-                    DateTime? endTime   = request.Until != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime : null;
+                    var q = new StringBuilder();
+                    q.Append("symbol=").Append(cleanSymbol).Append("&interval=").Append(interval).Append("&limit=").Append(limit);
+                    if (request.Since != null) q.Append("&startTime=").Append(request.Since.Value);
+                    if (request.Until != null) q.Append("&endTime=").Append(request.Until.Value);
 
-                    // Binance /klines honors single-bound queries (startTime alone walks
-                    // forward up to `limit` bars; endTime alone walks backward). If either
-                    // of those guarantees ever changes, pagination will silently degrade
-                    // to "latest N" -- see MexcProvider.FetchOhlcvAsync for the defensive
-                    // bound-computation pattern to copy.
-                    var result = isFutures
-                        ? await _client.UsdFuturesApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit)
-                        : await _client.SpotApi.ExchangeData.GetKlinesAsync(cleanSymbol, interval, startTime: startTime, endTime: endTime, limit: limit);
+                    string body = await GetPublicAsync(isFutures ? FutRest : SpotRest,
+                        isFutures ? "/fapi/v1/klines" : "/api/v3/klines", q.ToString());
 
-                    if (!result.Success || result.Data == null) return (new List<Ohlcv>(), new List<(long, double)>());
-                    var ohlcv = result.Data.Select(k => new Ohlcv(k.OpenTime.ToUniversalTime(), (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice, (double)k.Volume)).ToList();
-                    return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+                    using var doc = JsonDocument.Parse(body);
+                    var ohlcv = new List<Ohlcv>();
+                    foreach (var row in doc.RootElement.EnumerateArray())
+                    {
+                        // [ openTime, open, high, low, close, volume, ... ]
+                        long openTime = row[0].GetInt64();
+                        ohlcv.Add(new Ohlcv(
+                            DateTimeOffset.FromUnixTimeMilliseconds(openTime).UtcDateTime,
+                            DblAt(row, 1), DblAt(row, 2), DblAt(row, 3), DblAt(row, 4), DblAt(row, 5)));
+                    }
+                    var vol = ohlcv.Select(x => (new DateTimeOffset(x.Date, TimeSpan.Zero).ToUnixTimeMilliseconds(), x.Volume)).ToList();
+                    return (ohlcv, vol);
                 });
             }
             catch (Exception ex)
@@ -424,12 +367,11 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(cleanSymbol, limit);
-                    if (!result.Success || result.Data == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
-                    return (
-                        result.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList(),
-                        result.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList()
-                    );
+                    string body = await GetPublicAsync(SpotRest, "/api/v3/depth",
+                        $"symbol={cleanSymbol}&limit={SnapDepth(limit)}");
+                    using var doc = JsonDocument.Parse(body);
+                    return (ParseLevels(doc.RootElement.GetProperty("bids")),
+                            ParseLevels(doc.RootElement.GetProperty("asks")));
                 });
             }
             catch (Exception ex)
@@ -439,7 +381,7 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
-        // ── IOrderBookProvider ─────────────────────────────────────────────────
+        // ── IOrderBookProvider ────────────────────────────────────────────────
 
         async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)
         {
@@ -450,37 +392,27 @@ namespace AccessibleTrader.Plugins.Binance
         public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol)
         {
             var cleanSymbol = CleanSymbol(symbol);
-            if (_orderBookSymbol == cleanSymbol && _orderBookSubscription != null)
+            if (_orderBookSymbol == cleanSymbol && _orderBookCts != null)
                 return _orderBookSubject.AsObservable();
 
-            _orderBookSubscription?.Dispose();
+            _orderBookCts?.Cancel();
+            _orderBookCts?.Dispose();
+            _orderBookCts = new CancellationTokenSource();
+            var ct = _orderBookCts.Token;
             _orderBookSymbol = cleanSymbol;
 
-            _ = Task.Run(async () =>
+            var uri = new Uri($"{SpotWs}{cleanSymbol.ToLowerInvariant()}@depth20@1000ms");
+            _ = Task.Run(() => RunSocketAsync(uri, root =>
             {
-                try
-                {
-                    if (_socketClient == null) await EnsureConnectedAsync();
-                    var subResult = await _socketClient!.SpotApi.ExchangeData.SubscribeToPartialOrderBookUpdatesAsync(
-                        cleanSymbol, 20, 1000, data =>
-                        {
-                            var bids = data.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList();
-                            var asks = data.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList();
-                            _orderBookSubject.OnNext(new OrderBookUpdate(cleanSymbol, bids, asks, 0, DateTime.UtcNow));
-                        });
-
-                    if (subResult.Success)
-                        _orderBookSubscription = (IDisposable)subResult.Data;
-                    else
-                        _errorStream.OnNext($"Binance order book subscription failed: {subResult.Error?.Message}");
-                }
-                catch (Exception ex) { _errorStream.OnNext($"Binance order book error: {ex.Message}"); }
-            });
+                if (!root.TryGetProperty("bids", out var bids) || !root.TryGetProperty("asks", out var asks)) return;
+                _orderBookSubject.OnNext(new OrderBookUpdate(
+                    cleanSymbol, ParseLevels(bids), ParseLevels(asks), 0, DateTime.UtcNow));
+            }, ct));
 
             return _orderBookSubject.AsObservable();
         }
 
-        // ── ITradingProvider implementation ─────────────────────────────────
+        // ── ITradingProvider ──────────────────────────────────────────────────
 
         public async Task<List<Balance>> GetBalancesAsync()
         {
@@ -489,13 +421,17 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
-                    if (!result.Success || result.Data == null) return new List<Balance>();
-                    return result.Data.Balances
-                        .Where(b => b.Available > 0 || b.Locked > 0)
-                        .Select(b => new Balance(b.Asset, (double)b.Available, (double)b.Locked))
-                        .ToList();
+                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/account", new Dictionary<string, string>());
+                    using var doc = JsonDocument.Parse(body);
+                    var list = new List<Balance>();
+                    foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
+                    {
+                        double free = Dbl(b, "free");
+                        double locked = Dbl(b, "locked");
+                        if (free > 0 || locked > 0)
+                            list.Add(new Balance(b.GetProperty("asset").GetString() ?? "", free, locked));
+                    }
+                    return list;
                 });
             }
             catch (Exception ex)
@@ -512,20 +448,24 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    var result = await TradingClient.UsdFuturesApi.Account.GetPositionInformationAsync();
-                    if (!result.Success || result.Data == null) return new List<Position>();
-                    return result.Data
-                        .Where(p => p.Quantity != 0)
-                        .Select(p => new Position(
-                            p.Symbol,
-                            (double)Math.Abs(p.Quantity),
-                            (double)p.EntryPrice,
-                            (double)(Math.Abs(p.Quantity) * p.MarkPrice),
-                            (double)p.UnrealizedPnl,
-                            (double)p.Leverage,
-                            (double)p.LiquidationPrice))
-                        .ToList();
+                    string body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v2/positionRisk", new Dictionary<string, string>());
+                    using var doc = JsonDocument.Parse(body);
+                    var list = new List<Position>();
+                    foreach (var p in doc.RootElement.EnumerateArray())
+                    {
+                        double qty = Dbl(p, "positionAmt");
+                        if (qty == 0) continue;
+                        double mark = Dbl(p, "markPrice");
+                        list.Add(new Position(
+                            p.GetProperty("symbol").GetString() ?? "",
+                            Math.Abs(qty),
+                            Dbl(p, "entryPrice"),
+                            Math.Abs(qty) * mark,
+                            Dbl(p, "unRealizedProfit"),
+                            Dbl(p, "leverage"),
+                            Dbl(p, "liquidationPrice")));
+                    }
+                    return list;
                 });
             }
             catch (Exception ex)
@@ -542,20 +482,23 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    var result = symbol != null
-                        ? await TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol))
-                        : await TradingClient.SpotApi.Trading.GetOpenOrdersAsync();
-                    if (!result.Success || result.Data == null) return new List<OpenOrder>();
-                    return result.Data.Select(o => new OpenOrder(
-                        o.Id.ToString(),
-                        o.Symbol,
-                        o.Side == global::Binance.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                        MapOrderType(o.Type),
-                        (double)o.Quantity,
-                        (double)o.Price,
-                        o.Status.ToString()
-                    )).ToList();
+                    var p = new Dictionary<string, string>();
+                    if (symbol != null) p["symbol"] = CleanSymbol(symbol);
+                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/openOrders", p);
+                    using var doc = JsonDocument.Parse(body);
+                    var list = new List<OpenOrder>();
+                    foreach (var o in doc.RootElement.EnumerateArray())
+                    {
+                        list.Add(new OpenOrder(
+                            o.GetProperty("orderId").GetRawText(),
+                            o.GetProperty("symbol").GetString() ?? "",
+                            (o.GetProperty("side").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy,
+                            MapOrderType(o.GetProperty("type").GetString() ?? ""),
+                            Dbl(o, "origQty"),
+                            Dbl(o, "price"),
+                            o.GetProperty("status").GetString() ?? ""));
+                    }
+                    return list;
                 });
             }
             catch (Exception ex)
@@ -573,175 +516,119 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
                     var symbol = CleanSymbol(signal.Symbol);
-                    var side   = signal.Side == OrderSide.Buy
-                        ? global::Binance.Net.Enums.OrderSide.Buy
-                        : global::Binance.Net.Enums.OrderSide.Sell;
+                    string side = signal.Side == OrderSide.Buy ? "BUY" : "SELL";
 
                     if (isFutures)
                     {
-                        var futType = signal.Type switch
-                        {
-                            OrderType.Limit            => global::Binance.Net.Enums.FuturesOrderType.Limit,
-                            OrderType.StopMarket       => global::Binance.Net.Enums.FuturesOrderType.StopMarket,
-                            OrderType.StopLimit        => global::Binance.Net.Enums.FuturesOrderType.Stop,
-                            OrderType.TakeProfitMarket => global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
-                            OrderType.TakeProfitLimit  => global::Binance.Net.Enums.FuturesOrderType.TakeProfit,
-                            _                          => global::Binance.Net.Enums.FuturesOrderType.Market
-                        };
-
                         if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
                             await SetLeverageAsync(symbol, signal.Leverage.Value);
 
-                        var r = await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                            symbol, side, futType,
-                            quantity: (decimal)signal.Quantity,
-                            price: signal.Price.HasValue && futType != global::Binance.Net.Enums.FuturesOrderType.Market ? (decimal?)signal.Price.Value : null,
-                            stopPrice: signal.StopLoss.HasValue ? (decimal?)signal.StopLoss.Value : null,
-                            timeInForce: futType == global::Binance.Net.Enums.FuturesOrderType.Market ? null : global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                            newClientOrderId: signal.ClientOid);
+                        var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
+                        string futType = signal.Type switch
+                        {
+                            OrderType.Limit            => "LIMIT",
+                            OrderType.StopMarket       => "STOP_MARKET",
+                            OrderType.StopLimit        => "STOP",
+                            OrderType.TakeProfitMarket => "TAKE_PROFIT_MARKET",
+                            OrderType.TakeProfitLimit  => "TAKE_PROFIT",
+                            _                          => "MARKET"
+                        };
+                        p["type"] = futType;
+                        p["quantity"] = Fmt(signal.Quantity);
+                        if (futType != "MARKET")
+                        {
+                            if (signal.Price.HasValue) p["price"] = Fmt(signal.Price.Value);
+                            if (signal.StopLoss.HasValue) p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                            p["timeInForce"] = "GTC";
+                        }
+                        if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
 
-                        if (!r.Success) return $"ORDER_FAILED:{r.Error?.Message}";
+                        string body = await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
+                        string id = ParseOrderId(body);
 
-                        // ── Protective-order attach ──────────────────────────────
-                        // TP/SL are separate orders on Binance futures, so the entry
-                        // can succeed while protection fails (network blip, price
-                        // already through the trigger, exchange rejection). The
-                        // results were previously discarded entirely — a naked
-                        // position with no stop and no notification. Now: one retry,
-                        // then a LOUD error on the stream so the user hears about it.
-                        // reduceOnly guarantees a protective order can only ever
-                        // close the position, never open a fresh one.
-                        var exitSide = side == global::Binance.Net.Enums.OrderSide.Buy
-                            ? global::Binance.Net.Enums.OrderSide.Sell
-                            : global::Binance.Net.Enums.OrderSide.Buy;
-
+                        // Protective TP/SL attach (separate reduce-only orders).
+                        string exitSide = side == "BUY" ? "SELL" : "BUY";
                         if (signal.TakeProfit.HasValue)
-                        {
-                            await AttachProtectiveOrderAsync(
-                                symbol, exitSide, global::Binance.Net.Enums.FuturesOrderType.TakeProfitMarket,
-                                (decimal)signal.Quantity, (decimal)signal.TakeProfit.Value,
-                                DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit");
-                        }
+                            await AttachProtectiveOrderAsync(symbol, exitSide, "TAKE_PROFIT_MARKET",
+                                signal.Quantity, signal.TakeProfit.Value, DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit");
+                        if (signal.StopLoss.HasValue && futType == "MARKET")
+                            await AttachProtectiveOrderAsync(symbol, exitSide, "STOP_MARKET",
+                                signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
 
-                        // Attach stop-loss as a separate order if not included in the primary order
-                        if (signal.StopLoss.HasValue && futType == global::Binance.Net.Enums.FuturesOrderType.Market)
-                        {
-                            await AttachProtectiveOrderAsync(
-                                symbol, exitSide, global::Binance.Net.Enums.FuturesOrderType.StopMarket,
-                                (decimal)signal.Quantity, (decimal)signal.StopLoss.Value,
-                                DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
-                        }
-
-                        return r.Data.Id.ToString();
+                        return id;
                     }
                     else
                     {
-                        // ── Spot order ───────────────────────────────────────────────
-                        if (signal.Type == OrderType.Market)
+                        var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
+                        switch (signal.Type)
                         {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.Market,
-                                quantity: (decimal)signal.Quantity,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+                            case OrderType.Market:
+                                p["type"] = "MARKET"; p["quantity"] = Fmt(signal.Quantity);
+                                break;
+                            case OrderType.Limit when signal.Price.HasValue:
+                                p["type"] = "LIMIT"; p["quantity"] = Fmt(signal.Quantity);
+                                p["price"] = Fmt(signal.Price.Value); p["timeInForce"] = "GTC";
+                                break;
+                            case OrderType.StopMarket when signal.StopLoss.HasValue:
+                                p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
+                                p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                                break;
+                            case OrderType.StopLimit when signal.StopLoss.HasValue && signal.Price.HasValue:
+                                p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
+                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                                p["timeInForce"] = "GTC";
+                                break;
+                            case OrderType.TakeProfitMarket when signal.TakeProfit.HasValue:
+                                p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
+                                p["stopPrice"] = Fmt(signal.TakeProfit.Value);
+                                break;
+                            case OrderType.TakeProfitLimit when signal.TakeProfit.HasValue && signal.Price.HasValue:
+                                p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
+                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(signal.TakeProfit.Value);
+                                p["timeInForce"] = "GTC";
+                                break;
+                            default:
+                                return "ORDER_FAILED:Unsupported order type";
                         }
-                        else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.Limit,
-                                quantity: (decimal)signal.Quantity,
-                                price: (decimal)signal.Price.Value,
-                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
-                        }
-                        else if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
-                        {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.StopLoss,
-                                quantity: (decimal)signal.Quantity,
-                                stopPrice: (decimal)signal.StopLoss.Value,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
-                        }
-                        else if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
-                        {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.StopLossLimit,
-                                quantity: (decimal)signal.Quantity,
-                                price: (decimal)signal.Price.Value,
-                                stopPrice: (decimal)signal.StopLoss.Value,
-                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
-                        }
-                        else if (signal.Type == OrderType.TakeProfitMarket && signal.TakeProfit.HasValue)
-                        {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.TakeProfit,
-                                quantity: (decimal)signal.Quantity,
-                                stopPrice: (decimal)signal.TakeProfit.Value,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
-                        }
-                        else if (signal.Type == OrderType.TakeProfitLimit && signal.TakeProfit.HasValue && signal.Price.HasValue)
-                        {
-                            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                                symbol, side, global::Binance.Net.Enums.SpotOrderType.TakeProfitLimit,
-                                quantity: (decimal)signal.Quantity,
-                                price: (decimal)signal.Price.Value,
-                                stopPrice: (decimal)signal.TakeProfit.Value,
-                                timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                                newClientOrderId: signal.ClientOid);
-                            return r.Success ? r.Data.Id.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
-                        }
-                        return "ORDER_FAILED:Unsupported order type";
+                        if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
+
+                        string body = await SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order", p);
+                        return ParseOrderId(body);
                     }
                 });
             }
-            catch (Exception ex) { _errorStream.OnNext($"Binance order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
+            catch (Exception ex) { _errorStream.OnNext($"Binance order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.Message}"; }
         }
 
         /// <summary>
         /// Places a futures protective order (TP/SL) with one retry, surfacing a loud
-        /// error if both attempts fail. A failed protective attach means the position
-        /// is live WITHOUT its stop or target — the user must hear about that
-        /// immediately, not discover it in the order book later.
+        /// error if both attempts fail — a naked position must be heard about now.
         /// </summary>
         private async Task AttachProtectiveOrderAsync(
-            string symbol,
-            global::Binance.Net.Enums.OrderSide exitSide,
-            global::Binance.Net.Enums.FuturesOrderType type,
-            decimal quantity,
-            decimal triggerPrice,
-            string? clientOrderId,
-            string label)
+            string symbol, string exitSide, string type, double quantity, double triggerPrice, string? clientOrderId, string label)
         {
             string? lastError = null;
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 try
                 {
-                    var r = await TradingClient.UsdFuturesApi.Trading.PlaceOrderAsync(
-                        symbol, exitSide, type,
-                        quantity: quantity,
-                        stopPrice: triggerPrice,
-                        timeInForce: global::Binance.Net.Enums.TimeInForce.GoodTillCanceled,
-                        reduceOnly: true,
-                        newClientOrderId: clientOrderId);
-                    if (r.Success) return;
-                    lastError = r.Error?.Message;
-                    // A duplicate-clientOrderId rejection on the retry means the first
-                    // attempt actually landed (response was lost) — protection exists.
-                    if (attempt == 1 && lastError != null &&
-                        lastError.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
-                        return;
+                    var p = new Dictionary<string, string>
+                    {
+                        ["symbol"] = symbol, ["side"] = exitSide, ["type"] = type,
+                        ["quantity"] = Fmt(quantity), ["stopPrice"] = Fmt(triggerPrice),
+                        ["timeInForce"] = "GTC", ["reduceOnly"] = "true"
+                    };
+                    if (!string.IsNullOrEmpty(clientOrderId)) p["newClientOrderId"] = clientOrderId!;
+                    await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
+                    return;
                 }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;
+                    // Duplicate clientOrderId on the retry means the first attempt landed.
+                    if (attempt == 1 && lastError.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                        return;
                 }
             }
             _errorStream.OnNext(
@@ -750,11 +637,6 @@ namespace AccessibleTrader.Plugins.Binance
                 $"Place the {label} manually or close the position.");
         }
 
-        /// <summary>
-        /// Derives an idempotent client order id for a protective order from the entry's
-        /// ClientOid, so a retry after a lost response cannot double-place protection.
-        /// Binance caps clientOrderId at 36 chars.
-        /// </summary>
         private static string? DeriveProtectiveOid(string? entryOid, string suffix)
         {
             if (string.IsNullOrEmpty(entryOid)) return null;
@@ -767,12 +649,12 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return false;
             try
             {
-                var r = await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    return await TradingClient.SpotApi.Trading.CancelOrderAsync(CleanSymbol(symbol), long.Parse(orderId));
+                    var p = new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["orderId"] = orderId };
+                    await SignedRequestAsync(HttpMethod.Delete, SpotRest, "/api/v3/order", p);
+                    return true;
                 });
-                return r.Success;
             }
             catch (Exception ex)
             {
@@ -786,11 +668,11 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return 1.0;
             try
             {
-                await EnsureTradingClientAsync();
                 int lev = (int)Math.Clamp(leverage, 1, MaxLeverage);
-                var r = await TradingClient.UsdFuturesApi.Account.ChangeInitialLeverageAsync(
-                    CleanSymbol(symbol), lev);
-                return r.Success ? (double)r.Data.Leverage : 1.0;
+                var p = new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["leverage"] = lev.ToString(CultureInfo.InvariantCulture) };
+                string body = await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/leverage", p);
+                using var doc = JsonDocument.Parse(body);
+                return doc.RootElement.TryGetProperty("leverage", out var l) ? l.GetDouble() : lev;
             }
             catch (Exception ex)
             {
@@ -799,40 +681,184 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
-        // ── Private helpers ─────────────────────────────────────────────────
+        // ── User-data stream (listen key) REST ────────────────────────────────
 
-        private static OrderType MapOrderType(global::Binance.Net.Enums.SpotOrderType type) => type switch
+        private async Task<string?> CreateListenKeyAsync()
         {
-            global::Binance.Net.Enums.SpotOrderType.Limit           => OrderType.Limit,
-            global::Binance.Net.Enums.SpotOrderType.Market          => OrderType.Market,
-            global::Binance.Net.Enums.SpotOrderType.StopLoss        => OrderType.StopMarket,
-            global::Binance.Net.Enums.SpotOrderType.StopLossLimit   => OrderType.StopLimit,
-            global::Binance.Net.Enums.SpotOrderType.TakeProfit      => OrderType.TakeProfitMarket,
-            global::Binance.Net.Enums.SpotOrderType.TakeProfitLimit => OrderType.TakeProfitLimit,
-            _ => OrderType.Market
-        };
+            string body = await KeyOnlyRequestAsync(HttpMethod.Post, "/api/v3/userDataStream", null);
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("listenKey", out var lk) ? lk.GetString() : null;
+        }
 
-        private global::Binance.Net.Enums.KlineInterval MapInterval(string tf)
+        private Task KeepAliveListenKeyAsync(string listenKey)
+            => KeyOnlyRequestAsync(HttpMethod.Put, "/api/v3/userDataStream", listenKey);
+
+        private Task CloseListenKeyAsync(string listenKey)
+            => KeyOnlyRequestAsync(HttpMethod.Delete, "/api/v3/userDataStream", listenKey);
+
+        // ── HTTP plumbing ─────────────────────────────────────────────────────
+
+        private async Task<string> GetPublicAsync(string baseUrl, string path, string? query)
         {
-            return tf switch
+            string url = $"{baseUrl}{path}" + (string.IsNullOrEmpty(query) ? "" : $"?{query}");
+            using var resp = await Http.GetAsync(url).ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
+            return body;
+        }
+
+        // SIGNED request: appends timestamp + recvWindow, HMAC-SHA256 signs the
+        // query, sends params in the query string with the API-key header.
+        private async Task<string> SignedRequestAsync(HttpMethod method, string baseUrl, string path, Dictionary<string, string> p)
+        {
+            var (key, secret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
+
+            var sb = new StringBuilder();
+            foreach (var kv in p)
             {
-                "1m"  => global::Binance.Net.Enums.KlineInterval.OneMinute,
-                "3m"  => global::Binance.Net.Enums.KlineInterval.ThreeMinutes,
-                "5m"  => global::Binance.Net.Enums.KlineInterval.FiveMinutes,
-                "15m" => global::Binance.Net.Enums.KlineInterval.FifteenMinutes,
-                "30m" => global::Binance.Net.Enums.KlineInterval.ThirtyMinutes,
-                "1h"  => global::Binance.Net.Enums.KlineInterval.OneHour,
-                "2h"  => global::Binance.Net.Enums.KlineInterval.TwoHour,
-                "4h"  => global::Binance.Net.Enums.KlineInterval.FourHour,
-                "6h"  => global::Binance.Net.Enums.KlineInterval.SixHour,
-                "8h"  => global::Binance.Net.Enums.KlineInterval.EightHour,
-                "12h" => global::Binance.Net.Enums.KlineInterval.TwelveHour,
-                "1d"  => global::Binance.Net.Enums.KlineInterval.OneDay,
-                "3d"  => global::Binance.Net.Enums.KlineInterval.ThreeDay,
-                "1w"  => global::Binance.Net.Enums.KlineInterval.OneWeek,
-                "1M"  => global::Binance.Net.Enums.KlineInterval.OneMonth,
-                _     => global::Binance.Net.Enums.KlineInterval.OneHour
+                if (sb.Length > 0) sb.Append('&');
+                sb.Append(kv.Key).Append('=').Append(Uri.EscapeDataString(kv.Value));
+            }
+            if (sb.Length > 0) sb.Append('&');
+            sb.Append("recvWindow=5000&timestamp=").Append(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            string query = sb.ToString();
+            string signature = Sign(query, secret);
+
+            using var req = new HttpRequestMessage(method, $"{baseUrl}{path}?{query}&signature={signature}");
+            req.Headers.Add("X-MBX-APIKEY", key);
+            using var resp = await Http.SendAsync(req).ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
+            return body;
+        }
+
+        // Key-only request (user-data stream lifecycle): API-key header, no signature.
+        private async Task<string> KeyOnlyRequestAsync(HttpMethod method, string path, string? listenKey)
+        {
+            var (key, _) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
+            string url = $"{SpotRest}{path}" + (listenKey != null ? $"?listenKey={listenKey}" : "");
+            using var req = new HttpRequestMessage(method, url);
+            req.Headers.Add("X-MBX-APIKEY", key);
+            using var resp = await Http.SendAsync(req).ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
+            return body;
+        }
+
+        private static string Sign(string query, string secret)
+        {
+            using var h = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+            byte[] hash = h.ComputeHash(Encoding.UTF8.GetBytes(query));
+            return Convert.ToHexStringLower(hash);
+        }
+
+        // ── WebSocket runner with reconnect ───────────────────────────────────
+
+        private async Task RunSocketAsync(Uri uri, Action<JsonElement> onMessage, CancellationToken ct)
+        {
+            var buffer = new byte[64 * 1024];
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    using var ws = new ClientWebSocket();
+                    await ws.ConnectAsync(uri, ct).ConfigureAwait(false);
+                    var sb = new StringBuilder();
+                    while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
+                    {
+                        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
+                        if (result.MessageType == WebSocketMessageType.Close) break;
+                        sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                        if (!result.EndOfMessage) continue;
+                        string msg = sb.ToString();
+                        sb.Clear();
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(msg);
+                            onMessage(doc.RootElement);
+                        }
+                        catch { /* ignore malformed frame */ }
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"Binance socket {uri.AbsolutePath} error ({ex.GetType().Name}); reconnecting.");
+                }
+                if (!ct.IsCancellationRequested)
+                {
+                    try { await Task.Delay(2000, ct).ConfigureAwait(false); } catch { break; }
+                }
+            }
+        }
+
+        // ── Small parse/format helpers ────────────────────────────────────────
+
+        private static double Dbl(JsonElement obj, string prop)
+        {
+            if (!obj.TryGetProperty(prop, out var el)) return 0;
+            return el.ValueKind switch
+            {
+                JsonValueKind.Number => el.GetDouble(),
+                JsonValueKind.String => double.TryParse(el.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0,
+                _ => 0
             };
         }
+
+        private static double DblAt(JsonElement arr, int i)
+        {
+            var el = arr[i];
+            return el.ValueKind switch
+            {
+                JsonValueKind.Number => el.GetDouble(),
+                JsonValueKind.String => double.TryParse(el.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0,
+                _ => 0
+            };
+        }
+
+        private static List<OrderBookEntry> ParseLevels(JsonElement levels)
+        {
+            var list = new List<OrderBookEntry>();
+            foreach (var lvl in levels.EnumerateArray())
+                list.Add(new OrderBookEntry(DblAt(lvl, 0), DblAt(lvl, 1)));
+            return list;
+        }
+
+        private static string ParseOrderId(string body)
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("orderId", out var id) ? id.GetRawText() : "ORDER_FAILED:no orderId";
+        }
+
+        private static string Fmt(double v) => v.ToString("0.##########", CultureInfo.InvariantCulture);
+
+        // Binance /depth only accepts a fixed set of limits.
+        private static int SnapDepth(int limit)
+        {
+            int[] allowed = { 5, 10, 20, 50, 100, 500, 1000, 5000 };
+            foreach (var a in allowed) if (limit <= a) return a;
+            return 5000;
+        }
+
+        private static OrderType MapOrderType(string type) => type switch
+        {
+            "LIMIT"             => OrderType.Limit,
+            "MARKET"            => OrderType.Market,
+            "STOP_LOSS"         => OrderType.StopMarket,
+            "STOP_LOSS_LIMIT"   => OrderType.StopLimit,
+            "TAKE_PROFIT"       => OrderType.TakeProfitMarket,
+            "TAKE_PROFIT_LIMIT" => OrderType.TakeProfitLimit,
+            _                   => OrderType.Market
+        };
+
+        // Binance kline interval strings == the app's timeframe codes; validate
+        // and fall back to 1h on anything unexpected.
+        private static string MapInterval(string tf) => tf switch
+        {
+            "1m" or "3m" or "5m" or "15m" or "30m"
+            or "1h" or "2h" or "4h" or "6h" or "8h" or "12h"
+            or "1d" or "3d" or "1w" or "1M" => tf,
+            _ => "1h"
+        };
     }
 }
