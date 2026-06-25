@@ -49,7 +49,10 @@ namespace AccessibleTrader.Tests
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var bus = new EventBus();
-            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus);
+            var paper = Substitute.For<IPaperTradingProvider>();
+            paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
+            var settings = Substitute.For<ISettingsManager>();
+            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings);
             return (svc, trading, data, err);
         }
 

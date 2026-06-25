@@ -22,6 +22,7 @@ using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Sdk.Trading;
 using Bunit;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,6 +57,7 @@ public sealed class BlazorTestHarness : IDisposable
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
+    public IPaperTradingProvider PaperTradingProvider { get; }
 
     private readonly List<IAlertChannel> _alertChannels = new();
 
@@ -98,6 +100,8 @@ public sealed class BlazorTestHarness : IDisposable
         StrategyBacktester          = Substitute.For<IStrategyBacktester>();
         BacktestWarmupAnalyzer      = Substitute.For<IBacktestWarmupAnalyzer>();
         OrderService                = Substitute.For<IOrderExecutionService>();
+        PaperTradingProvider        = Substitute.For<IPaperTradingProvider>();
+        PaperTradingProvider.OrderUpdateStream.Returns(_ => System.Reactive.Linq.Observable.Empty<OrderUpdate>());
         OrderService.GetOrderBookAsync(default!, default!, default).ReturnsForAnyArgs(
             _ => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>())));
         OrderService.SubscribeOrderBookAsync(default!, default!).ReturnsForAnyArgs(
@@ -124,6 +128,7 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(StrategyBacktester);
         Ctx.Services.AddSingleton(BacktestWarmupAnalyzer);
         Ctx.Services.AddSingleton(OrderService);
+        Ctx.Services.AddSingleton(PaperTradingProvider);
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);
 
         // Most modals call accessibleTrader.focusElement on first render via
