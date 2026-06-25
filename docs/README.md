@@ -254,6 +254,33 @@ Any component can declare `SubPaneName` / `SubPaneHeightRatio` in `IndicatorComp
 
 See `TODO.md` for the full Phase 10 + Linux WebHost L5–L7 roadmap and `PLATFORMS.md` for platform-specific details including the dual-host architecture.
 
+### Which version should I use? (MAUI vs WebHost)
+
+The terminal ships as **two heads that cover different platforms — they are not
+redundant, and both are needed.** The full rationale is in
+[`PLATFORM_STRATEGY_AND_ROADMAP.md`](PLATFORM_STRATEGY_AND_ROADMAP.md); the short
+version:
+
+- **Use the MAUI app** on **Windows, macOS, iOS, and Android.** It is the *only* way
+  to run on a phone or tablet, and on the desktop it gives you the deepest native
+  integration: lowest-latency native audio (WASAPI / AVAudioEngine / AudioTrack),
+  full-frame-rate native chart rendering, and the real OS keychain for credentials.
+  **It is also the only head that drives a refreshable braille / tactile display:**
+  the Dot Pad tactile-graphics support is Windows-native, so a Dot Pad user wants the
+  Windows MAUI build (enable it under Settings → General → "Enable braille / tactile
+  display output").
+- **Use the WebHost** on **Linux** — MAUI has no Linux head, so the browser-based
+  WebHost is Linux's primary (and excellent) client, with Orca speech over D-Bus and
+  audio via PipeWire/PulseAudio. It is also what powers the public-website chart demo.
+
+Feature parity between the two is high — charts, indicators, trading, alerts,
+custom scripts, sonification, and keyboard navigation all work on both. The
+differences are native-integration and hardware: the WebHost renders the chart as a
+server-side PNG (~10 fps) rather than a native canvas, and **tactile/braille output
+is Windows-only** (the vendor's Linux Dot Pad SDK exposes no graphic API, so the
+WebHost cannot drive a tactile display yet). Mobile (iOS/Android) requires the MAUI
+app and is gated on touch-gesture support still in development.
+
 ## Development
 
 Built with **.NET 10**. Two hosts share the same component library and core.

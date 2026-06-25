@@ -90,6 +90,12 @@ syntax walker via a reflection trick would have free rein over `$HOME` and the n
 Linux, where the other platforms' kernels would still stop it. The realistic attack is
 importing a stranger's `.atpkg`.
 
+**Status: SHIPPED 2026-06-25.** Implemented as described below; see `TODO.md` L5 and
+`LinuxBwrapLauncherTests`. Install the `bubblewrap` package on the Linux host to get
+the sandbox (it falls back to process-only if absent). The remaining items in the plan
+(`$HOME` tmpfs, `--clearenv`, seccomp BPF) are deferred hardening, not required by the
+threat model.
+
 **Plan — L5: `LinuxBwrapLauncher`** (parallels the three OS launchers).
 
 - New `LinuxBwrapLauncher : IScriptWorkerLauncher` in
@@ -141,6 +147,13 @@ detected (the SDK's `Disconnected` callback sets `IsConnected=false`) but is **n
 to speech**, and a device **plugged in after startup is never detected** — there is no
 polling and no hot-plug listener. On non-Windows, `NullDotPadNative` makes the whole path a
 clean no-op.
+
+**Status: SHIPPED 2026-06-25.** The enable toggle, opt-in startup detection, the
+serial-port hot-plug watch, and spoken connect/disconnect announcements are all
+implemented (Settings → General → "Enable braille / tactile display output";
+`accessibility.braille.enabled`; `TactileCanvasCoordinator` + the new
+`ITactileDriver.ConnectionChanged` event). The plan below is what was built — note
+the default is **off** (opt-in), since the device scan opens COM ports.
 
 **Plan.**
 
@@ -312,7 +325,7 @@ Loose ends across the codebase, grouped. Most live in `docs/TODO.md` already; co
 here so the strategic picture is in one place. Not prioritised beyond the grouping.
 
 **Security / sandbox**
-- L5 Linux `bwrap` sandbox (§2) — the headline gap.
+- ~~L5 Linux `bwrap` sandbox (§2)~~ — **done 2026-06-25** (`LinuxBwrapLauncher`).
 - Sign `ScriptWorker.exe` + plugin DLLs; verify before launch (supply-chain).
 - Coinbase + remaining providers credential-checkout migration (`CoinbaseProvider` still
   holds long-lived `_apiKey`/`_apiSecret`).
@@ -325,7 +338,8 @@ here so the strategic picture is in one place. Not prioritised beyond the groupi
 - MAUI native release builds (CI was failing repeatedly).
 
 **Tactile (Dot Pad)**
-- Enable toggle + hot-plug detect + connect/disconnect announcements (§3).
+- ~~Enable toggle + hot-plug detect + connect/disconnect announcements (§3)~~ —
+  **done 2026-06-25**.
 - On-device empirical checks still pending (PgDn/PgUp pairing, F4-resume, pan-key ownership,
   strip timeout feel, body+wick legibility); Dot Pad X untested; 3-pane mode deferred.
 
