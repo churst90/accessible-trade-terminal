@@ -715,3 +715,86 @@ with its price, profit, and fee. Had price instead fallen to 42,180 first, you w
 have heard "Stop loss hit. Sold 0.5 BTC/USDT at 42,180. Loss 160.00." — and either
 way, when you want out early, the **Close** button on the Positions tab flattens you
 with one press.
+
+---
+
+## Automation
+
+Three features let the terminal watch and act so you do not have to stare at every
+bar: alerts that speak up when a condition you set is met, strategies that evaluate a
+rule set and propose (or place) trades, and custom scripts that let you bring your own
+indicator logic. The strategy tools are research instruments — treat them as
+exploratory, as the in-app banner says — but the alerts are an everyday convenience.
+
+### Alerts
+
+Press Alt+J for the alerts manager. The top of the dialog is a short form for adding
+one: a **Name** (the placeholder suggests "e.g. Price crosses 50000"), a **Target**
+of Price, Candle, Indicator, or POC, a **Condition** — crosses above, crosses below,
+enters a zone, exits a zone, or changes direction — a **Price Level** to test
+against, and a **Delivery** choice of Speech, Earcon, or Both. Fill it in and activate
+"Add Alert"; the alert joins the "Active Alerts" list above, where each shows its
+name, target, condition, and level with a Delete button. There is no separate edit
+step — to change an alert, delete it and add a new one.
+
+When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
+interrupting whatever is being said — "{name}: crossed above {level}. Current value
+{value}." — and/or plays an alert earcon, and the event is written to the Journal so
+you can read it back. Alerts are never gated by your speech or sonification toggles —
+a condition you asked to be told about will always tell you. If you have set up email
+or Telegram in Settings (under the alerts options), fired alerts are sent there too,
+so you can be notified away from the keyboard.
+
+### Strategies
+
+Press Alt+S for the Strategy Manager — labelled **EXPERIMENTAL**, with the standing
+caveat that backtested results do not guarantee live performance. It opens on a row of
+tabs: **Library** (your saved strategies, each with Start/Stop), **Build Setup** (the
+composer), **Active** (running strategies, with Pause/Resume), **Backtest**, and
+**Custom Script**.
+
+To build one, the Build Setup tab gives the strategy a Name and a Side (Long or
+Short), then a condition tree you assemble from "+ Group" (AND/OR/NOT) and "+ Leaf"
+buttons — each leaf picks an indicator, an operator, and the component to test, with
+an optional timeframe for multi-timeframe rules. Beneath it a risk plan sets the stop
+source (a percent of price, an ATR multiple, below a swing low, or a fixed price), a
+take-profit ladder of one or more rungs, and a stop buffer. Adding the finished setup
+to the engine marks it to re-load on the next launch, so your strategies survive a
+restart.
+
+A running strategy talks to you as its state changes. When its conditions line up it
+rings a setup bell and speaks the rationale — "Long setup, score 0.85. Stop 49,500,
+first target 51,000 (R:R 2.50). {why}." — and if the entry is conditional you will
+hear it arm ("waiting for {trigger}") and then report when the trigger is reached.
+While the setup holds it heartbeats a quieter reconfirmation, and if a condition drops
+away it names what fell off. It also tells you when it is not yet ready: "indicators
+warming up — {n} of {m} bars loaded. Signals begin once warm." Every one of these
+lands in the Journal's Setups filter for review.
+
+The Backtest tab runs a strategy over history with realistic settings — starting
+capital, commission, slippage, and a warm-up period you can auto-detect — over an
+optional date range, including one-press "first half / last half" buttons for
+walk-forward testing. Run it and the results read back as trade count, win rate, total
+P&L, max drawdown, Sharpe ratio, and an expandable trade log of each entry, exit, and
+reason. Because the whole feature is experimental, read those numbers as a study of
+the rules, not a promise.
+
+### Custom scripts
+
+Press Alt+Comma for the custom scripts panel, where you bring your own indicator
+logic. You can write or paste C# directly into the code editor, **import** a packaged
+`.atpkg` script from a file or pasted JSON, or **transpile** a PineScript v5 indicator
+to C# with the Transpile button (it reports "Transpiled to C# — review and compile."
+and lists any conversion warnings). Imported scripts are treated as untrusted: the
+terminal prompts "Import untrusted script '{name}'? … It will be sandboxed, but
+review the code before pressing Compile." so you always get a chance to read foreign
+code first.
+
+Activating **Compile** builds the script in a sandbox — an isolated worker process
+with no file, network, or reflection access, limited to the charting and indicator
+libraries — and reports "Compiled successfully. Indicator: {name}" on success or a
+read-aloud list of errors on failure. From there "+ Add to Chart" drops your indicator
+onto the chart like any built-in, and "Export .atpkg" packages it to share. One
+platform note: custom-script compilation is **disabled on iOS**, which provides no
+process sandbox for running untrusted code — use the Windows or macOS build for
+scripting. The full sandbox design is documented in `docs/SANDBOX_DESIGN.md`.
