@@ -157,6 +157,9 @@ namespace AccessibleTrader.Core.Services
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, signal.StopLoss, true, false));
                     if (signal.TakeProfit is > 0)
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, signal.TakeProfit, false, true));
+                    if (signal.TrailTpValue is > 0 && signal.TrailTpMode != null)
+                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, null, false, true,
+                            signal.TrailTpMode, signal.TrailTpValue, null, signal.TrailTpActivation, armed: signal.TrailTpActivation == null));  // trailing take-profit
 
                     Persist();
                     return Task.FromResult(id);
@@ -243,28 +246,50 @@ namespace AccessibleTrader.Core.Services
                     double px = o.Trigger ?? o.Price ?? bar.Close;
                     _open.Remove(o);
                     var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
-                    Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl);
+                    Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
                 }
                 Persist();
             }
         }
 
-        private static bool Crossed(PaperOrder o, Ohlcv bar) => o.Type switch
+        private static bool Crossed(PaperOrder o, Ohlcv bar)
         {
-            OrderType.Limit
-                => o.Side == OrderSide.Buy ? bar.Low <= o.Price : bar.High >= o.Price,
-            OrderType.StopMarket or OrderType.StopLimit
-                => o.Side == OrderSide.Buy ? bar.High >= o.Trigger : bar.Low <= o.Trigger,
-            OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
-                => o.Side == OrderSide.Buy ? bar.Low <= o.Trigger : bar.High >= o.Trigger,
-            _ => false
-        };
+            // Trailing exits (stop or take-profit) fire on a reversal to the
+            // trailing trigger, regardless of stop/TP labelling — and only once
+            // armed with a computed trigger.
+            if (o.Trail != null)
+                return o.Armed && o.Trigger != null &&
+                       (o.Side == OrderSide.Buy ? bar.High >= o.Trigger : bar.Low <= o.Trigger);
+
+            return o.Type switch
+            {
+                OrderType.Limit
+                    => o.Side == OrderSide.Buy ? bar.Low <= o.Price : bar.High >= o.Price,
+                OrderType.StopMarket or OrderType.StopLimit
+                    => o.Side == OrderSide.Buy ? bar.High >= o.Trigger : bar.Low <= o.Trigger,
+                OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
+                    => o.Side == OrderSide.Buy ? bar.Low <= o.Trigger : bar.High >= o.Trigger,
+                _ => false
+            };
+        }
 
         // Advance a trailing stop's anchor toward the favourable extreme and
         // recompute its trigger. Returns true if the anchor moved this tick.
         private static bool UpdateTrail(PaperOrder o, Ohlcv bar)
         {
             if (o.Trail == null || o.TrailValue == null) return false;
+
+            // A trailing take-profit stays dormant until price reaches its
+            // activation level, then arms and begins trailing from there.
+            if (!o.Armed)
+            {
+                bool reached = o.Activation == null ||
+                    (o.Side == OrderSide.Sell ? bar.High >= o.Activation.Value : bar.Low <= o.Activation.Value);
+                if (!reached) return false;
+                o.Armed = true;
+                o.TrailAnchor = o.Side == OrderSide.Sell ? bar.High : bar.Low;
+            }
+
             double Dist(double anchor) => o.Trail == TrailMode.Amount ? o.TrailValue.Value : anchor * o.TrailValue.Value / 100.0;
             if (o.Side == OrderSide.Sell)   // protecting a long: trail up
             {
@@ -329,8 +354,8 @@ namespace AccessibleTrader.Core.Services
             return fallback;
         }
 
-        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null)
-            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl));
+        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false)
+            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing));
 
         private static string NewId() => "paper-" + Guid.NewGuid().ToString("N").Substring(0, 12);
 
@@ -349,7 +374,8 @@ namespace AccessibleTrader.Core.Services
                     {
                         Id = o.Id, Symbol = o.Symbol, Side = o.Side.ToString(), Type = o.Type.ToString(),
                         Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp,
-                        Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor
+                        Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
+                        Activation = o.Activation, Armed = o.Armed
                     }).ToList()
                 };
                 AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
@@ -373,7 +399,8 @@ namespace AccessibleTrader.Core.Services
                         Enum.TryParse<OrderSide>(o.Side, out var s) ? s : OrderSide.Buy,
                         Enum.TryParse<OrderType>(o.Type, out var t) ? t : OrderType.Market,
                         o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
-                        Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor));
+                        Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
+                        o.Activation, o.Armed));
             }
             catch (Exception ex)
             {
@@ -406,14 +433,18 @@ namespace AccessibleTrader.Core.Services
             public TrailMode? Trail { get; }
             public double? TrailValue { get; }
             public double? TrailAnchor { get; set; }     // mutable high/low-water mark
+            public double? Activation { get; }           // trailing TP arms when price reaches this
+            public bool Armed { get; set; }              // mutable: whether trailing is active yet
 
             public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
                 double? price, double? trigger, bool isStop, bool isTp,
-                TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null)
+                TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null,
+                double? activation = null, bool armed = true)
             {
                 Id = id; Symbol = symbol; Side = side; Type = type; Quantity = quantity;
                 Price = price; Trigger = trigger; IsStop = isStop; IsTp = isTp;
                 Trail = trail; TrailValue = trailValue; TrailAnchor = trailAnchor;
+                Activation = activation; Armed = armed;
             }
         }
 
@@ -440,6 +471,8 @@ namespace AccessibleTrader.Core.Services
             public string? Trail { get; set; }
             public double? TrailValue { get; set; }
             public double? TrailAnchor { get; set; }
+            public double? Activation { get; set; }
+            public bool Armed { get; set; } = true;
         }
     }
 }

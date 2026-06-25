@@ -563,6 +563,8 @@ namespace AccessibleTrader.Plugins.Binance
                                 signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
                         if (signal.TrailStopValue is > 0 && futType == "MARKET")
                             await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailStopValue.Value, DeriveProtectiveOid(signal.ClientOid, "ts"));
+                        if (signal.TrailTpValue is > 0 && futType == "MARKET")
+                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailTpValue.Value, DeriveProtectiveOid(signal.ClientOid, "ttp"), signal.TrailTpActivation);
 
                         return id;
                     }
@@ -579,8 +581,9 @@ namespace AccessibleTrader.Plugins.Binance
                                 p["type"] = "MARKET"; p["quantity"] = Fmt(signal.Quantity);
                                 break;
                             case OrderType.Limit when signal.Price.HasValue:
-                                p["type"] = "LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["price"] = Fmt(signal.Price.Value); p["timeInForce"] = "GTC";
+                                p["quantity"] = Fmt(signal.Quantity); p["price"] = Fmt(signal.Price.Value);
+                                if (signal.PostOnly) { p["type"] = "LIMIT_MAKER"; }                 // spot maker-only
+                                else { p["type"] = "LIMIT"; p["timeInForce"] = SpotTif(signal); }
                                 break;
                             case OrderType.StopMarket when trig.HasValue:
                                 p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
@@ -589,7 +592,7 @@ namespace AccessibleTrader.Plugins.Binance
                             case OrderType.StopLimit when trig.HasValue && signal.Price.HasValue:
                                 p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
                                 p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
-                                p["timeInForce"] = "GTC";
+                                p["timeInForce"] = SpotTif(signal);
                                 break;
                             case OrderType.TakeProfitMarket when trig.HasValue:
                                 p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
@@ -598,7 +601,7 @@ namespace AccessibleTrader.Plugins.Binance
                             case OrderType.TakeProfitLimit when trig.HasValue && signal.Price.HasValue:
                                 p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
                                 p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
-                                p["timeInForce"] = "GTC";
+                                p["timeInForce"] = SpotTif(signal);
                                 break;
                             default:
                                 return "ORDER_FAILED:Unsupported order type";
@@ -661,9 +664,13 @@ namespace AccessibleTrader.Plugins.Binance
             s.PostOnly ? "GTX"
             : (s.TimeInForce?.ToUpperInvariant() switch { "IOC" => "IOC", "FOK" => "FOK", "GTX" => "GTX", _ => "GTC" });
 
+        // Spot time-in-force (no GTX; spot maker-only is the LIMIT_MAKER order type).
+        private static string SpotTif(TradeSignal s) =>
+            s.TimeInForce?.ToUpperInvariant() switch { "IOC" => "IOC", "FOK" => "FOK", _ => "GTC" };
+
         // Futures trailing stop (reduce-only). Binance expresses the trail as a
         // callbackRate percent (0.1–5); TrailStopValue is taken as that percent.
-        private async Task AttachTrailingStopAsync(string symbol, string exitSide, double quantity, double callbackRate, string? clientOrderId)
+        private async Task AttachTrailingStopAsync(string symbol, string exitSide, double quantity, double callbackRate, string? clientOrderId, double? activationPrice = null)
         {
             try
             {
@@ -673,6 +680,7 @@ namespace AccessibleTrader.Plugins.Binance
                     ["quantity"] = Fmt(quantity), ["callbackRate"] = Fmt(Math.Clamp(callbackRate, 0.1, 5.0)),
                     ["reduceOnly"] = "true"
                 };
+                if (activationPrice.HasValue) p["activationPrice"] = Fmt(activationPrice.Value);
                 if (!string.IsNullOrEmpty(clientOrderId)) p["newClientOrderId"] = clientOrderId!;
                 await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
             }

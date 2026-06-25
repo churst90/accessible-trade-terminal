@@ -455,5 +455,13 @@ namespace AccessibleTrader.Core.Services
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             return tp?.SupportsMarginTrading ?? false;
         }
+
+        public async Task<ProviderCapabilities> GetCapabilitiesAsync(string providerName)
+        {
+            // GetTradingProviderAsync already routes to the paper broker when paper
+            // mode is on, so the panel gates on the broker actually executing.
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            return tp?.Capabilities ?? ProviderCapabilities.None;
+        }
     }
 }

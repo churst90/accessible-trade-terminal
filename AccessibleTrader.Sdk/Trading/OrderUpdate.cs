@@ -20,5 +20,9 @@ public record OrderUpdate(
     // currency. Null when the fill opens/adds to a position (nothing realized)
     // or when the provider doesn't report it. Consumed by the speech layer to
     // announce "Profit/Loss X" on a closing fill.
-    double? RealizedPnL = null
+    double? RealizedPnL = null,
+    // True when this fill came from a trailing stop / trailing take-profit, so
+    // the speech layer can announce "Trailing stop hit" / "Trailing take profit
+    // hit" instead of the fixed-level wording.
+    bool Trailing = false
 );

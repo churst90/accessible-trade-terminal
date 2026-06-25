@@ -45,6 +45,9 @@ namespace AccessibleTrader.Sdk.Plugins
         double?    TriggerPrice   = null,     // Trigger price for Stop / Stop-Limit / Take-Profit order types
         TrailMode? TrailStopMode  = null,     // Trailing stop: how TrailStopValue is read
         double?    TrailStopValue = null,     // Trailing stop distance (amount / percent / callback rate)
+        TrailMode? TrailTpMode    = null,     // Trailing take-profit: how TrailTpValue is read
+        double?    TrailTpValue   = null,     // Trailing take-profit distance
+        double?    TrailTpActivation = null,  // Price at which the trailing take-profit arms and starts trailing
         string?    TimeInForce    = null,     // GTC / IOC / FOK / Day / GTD
         bool       ReduceOnly     = false,    // Futures: order may only reduce a position
         bool       PostOnly       = false,    // Limit orders: maker-only

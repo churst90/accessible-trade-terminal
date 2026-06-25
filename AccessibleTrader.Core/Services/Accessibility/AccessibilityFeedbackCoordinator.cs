@@ -104,12 +104,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _subscriptions.Add(_eventBus.Subscribe<StopHitEvent>(e =>
             {
                 _earconService.PlayStopHit();
-                _speechRouter.Speak(FormatFill("Stop loss hit", e.Order), interrupt: true);
+                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing stop hit" : "Stop loss hit", e.Order), interrupt: true);
             }));
             _subscriptions.Add(_eventBus.Subscribe<TakeProfitHitEvent>(e =>
             {
                 _earconService.PlayTakeProfitHit();
-                _speechRouter.Speak(FormatFill("Take profit hit", e.Order), interrupt: true);
+                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order), interrupt: true);
             }));
             _subscriptions.Add(_eventBus.Subscribe<OrderRejectedEvent>(e =>
             {

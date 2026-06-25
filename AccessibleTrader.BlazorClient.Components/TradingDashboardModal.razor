@@ -147,6 +147,8 @@
                                     <button type="button" @onclick="SizeFromRisk" aria-label="Size quantity from risk and stop">Size</button>
                                 </div>
 
+                                @if (_caps.HasFlag(ProviderCapabilities.TrailingStop))
+                                {
                                 <div class="entry-row">
                                     <label for="trail-mode">Trailing stop</label>
                                     <select id="trail-mode" aria-label="Trailing stop mode" @bind="_trailMode">
@@ -159,6 +161,27 @@
                                         <input type="number" step="any" min="0" aria-label="Trailing stop distance" @bind="_trailValue" placeholder="@(_trailMode == "Percent" ? "%" : "amount")" />
                                     }
                                 </div>
+
+                                <div class="entry-row">
+                                    <label for="trailtp-mode">Trailing take-profit</label>
+                                    <select id="trailtp-mode" aria-label="Trailing take-profit mode" @bind="_trailTpMode">
+                                        <option value="None">None</option>
+                                        <option value="Percent">Percent</option>
+                                        <option value="Amount">Amount</option>
+                                    </select>
+                                    @if (_trailTpMode != "None")
+                                    {
+                                        <input type="number" step="any" min="0" aria-label="Trailing take-profit distance" @bind="_trailTpValue" placeholder="@(_trailTpMode == "Percent" ? "%" : "amount")" />
+                                    }
+                                </div>
+                                @if (_trailTpMode != "None")
+                                {
+                                    <div class="entry-row">
+                                        <label for="trailtp-activation">TP activation price</label>
+                                        <input id="trailtp-activation" type="number" step="any" aria-label="Trailing take-profit activation price, optional" @bind="_trailTpActivation" placeholder="Optional" />
+                                    </div>
+                                }
+                                }
                             }
 
                             @if (_supportsMargin)
@@ -443,6 +466,9 @@
     private double _riskPct       = 0;
     private string _trailMode     = "None";
     private double _trailValue    = 0;
+    private string _trailTpMode   = "None";
+    private double _trailTpValue  = 0;
+    private double _trailTpActivation = 0;
     private string _tif           = "GTC";
     private bool   _reduceOnly;
     private bool   _postOnly;
@@ -454,6 +480,7 @@
 
     // Margin / leverage state
     private bool   _supportsMargin;
+    private ProviderCapabilities _caps;
     private double _maxLeverage = 1.0;
     private bool   _bookLoading;
     private bool   _bookEverLoaded;
@@ -509,6 +536,7 @@
         _activeKeyNickname = active?.Nickname ?? "";
 
         _supportsMargin = supported && await OrderService.SupportsMarginTradingAsync(provider);
+        _caps           = supported ? await OrderService.GetCapabilitiesAsync(provider) : ProviderCapabilities.None;
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
         _leverage       = _supportsMargin ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
@@ -629,6 +657,9 @@
             double? trailVal = IsEntryType && trailMode != null && _trailValue > 0 ? _trailValue : (double?)null;
             string? tif = NeedsLimit ? _tif : null;
             string? posSide = _supportsMargin && _positionSide != "BOTH" ? _positionSide : null;
+            TrailMode? trailTpMode = _trailTpMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
+            double? trailTpVal = IsEntryType && trailTpMode != null && _trailTpValue > 0 ? _trailTpValue : (double?)null;
+            double? trailTpAct = trailTpVal != null && _trailTpActivation > 0 ? _trailTpActivation : (double?)null;
 
             // Parse sub-type from the market identity (e.g. "Crypto|Futures" → "Futures")
             string? subType = null;
@@ -650,6 +681,9 @@
                 TriggerPrice:   trigger,
                 TrailStopMode:  trailVal != null ? trailMode : null,
                 TrailStopValue: trailVal,
+                TrailTpMode:    trailTpVal != null ? trailTpMode : null,
+                TrailTpValue:   trailTpVal,
+                TrailTpActivation: trailTpAct,
                 TimeInForce:    tif,
                 ReduceOnly:     _supportsMargin && _reduceOnly,
                 PostOnly:       NeedsLimit && _postOnly,

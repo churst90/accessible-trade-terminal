@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -54,5 +55,14 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>Returns true when the provider supports margin / leverage trading (Isolated or Cross).</summary>
         Task<bool> SupportsMarginTradingAsync(string provider);
+
+        /// <summary>
+        /// Returns the trading capability flags of the (effective) provider — the
+        /// paper broker when paper mode is on, otherwise the named provider. The
+        /// order panel uses these to show only the controls the provider supports
+        /// (e.g. trailing stops, leverage, brackets). <see cref="ProviderCapabilities.None"/>
+        /// for data-only providers.
+        /// </summary>
+        Task<ProviderCapabilities> GetCapabilitiesAsync(string provider);
     }
 }
