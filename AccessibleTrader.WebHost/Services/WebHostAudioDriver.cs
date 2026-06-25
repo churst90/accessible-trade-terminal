@@ -216,12 +216,30 @@ namespace AccessibleTrader.WebHost.Services
 
                     if (_browserMode)
                     {
-                        // Allocate a per-chunk copy — Subject<byte[]> delivers
-                        // the reference downstream; reusing `bytes` would race
-                        // with the JS-interop serializer.
-                        var chunk = new byte[byteLen];
-                        Buffer.BlockCopy(bytes, 0, chunk, 0, byteLen);
-                        _browserSink.Publish(chunk);
+                        // Skip publishing pure-silence buffers. Streaming a
+                        // continuous 44.1 kHz stream even between sounds means a
+                        // navigation tone only plays once the browser drains the
+                        // backlog of buffered silence ahead of it — the dominant
+                        // source of perceived nav-audio lag on the web host/demo.
+                        // Dropping silent buffers lets the browser schedule run
+                        // dry, so the next real buffer starts at (now + ~20 ms)
+                        // via the audio.js underrun resync instead of behind the
+                        // backlog.
+                        bool silent = true;
+                        for (int i = 0; i < produced; i++)
+                        {
+                            if (MathF.Abs(floats[i]) > 1e-4f) { silent = false; break; }
+                        }
+
+                        if (!silent)
+                        {
+                            // Allocate a per-chunk copy — Subject<byte[]> delivers
+                            // the reference downstream; reusing `bytes` would race
+                            // with the JS-interop serializer.
+                            var chunk = new byte[byteLen];
+                            Buffer.BlockCopy(bytes, 0, chunk, 0, byteLen);
+                            _browserSink.Publish(chunk);
+                        }
 
                         framesSent += produced / ChannelCount;
                         long dueMs = framesSent * 1000L / RateHz;
@@ -256,7 +274,10 @@ namespace AccessibleTrader.WebHost.Services
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return (null, Array.Empty<string>());
 
-            // pw-cat (PipeWire native) — preferred.
+            // pw-cat (PipeWire native) — preferred. Request a small node latency
+            // so PipeWire doesn't pick a large default buffer; otherwise the
+            // local-sink path lags navigation tones. ~30 ms is a safe balance
+            // against xruns given the pump's 23 ms (1024-frame) buffers.
             string? p = FindOnPath("pw-cat", fileExists);
             if (p is not null)
                 return (p, new[]
@@ -265,11 +286,13 @@ namespace AccessibleTrader.WebHost.Services
                     "--rate", RateHz.ToString(),
                     "--channels", ChannelCount.ToString(),
                     "--format", "f32",
+                    "--latency", "30ms",
                     "--raw",
                     "-",
                 });
 
-            // pacat (PulseAudio).
+            // pacat (PulseAudio). --latency-msec keeps the server-side buffer
+            // small for the same low-latency reason as pw-cat above.
             p = FindOnPath("pacat", fileExists);
             if (p is not null)
                 return (p, new[]
@@ -278,6 +301,7 @@ namespace AccessibleTrader.WebHost.Services
                     $"--rate={RateHz}",
                     $"--channels={ChannelCount}",
                     "--format=float32le",
+                    "--latency-msec=30",
                     "--raw",
                 });
 

@@ -79,11 +79,19 @@
         src.buffer = buf;
         src.connect(c.destination);
 
-        // Schedule contiguously. If the queue ran dry (chunk arrived late),
-        // resync to the present + a small startup pad so we don't try to
-        // start in the past.
+        // Schedule contiguously. Two resyncs keep latency low:
+        //  - Underrun: the queue ran dry (chunk arrived late) — restart at
+        //    present + a small startup pad so we don't start in the past.
+        //  - Overrun: a burst of chunks (SignalR delivers in batches) pushed
+        //    the schedule far ahead of the clock. That lead is permanent added
+        //    latency, so cap it and snap back near the present. A momentary
+        //    overlap is inaudible for navigation blips and worth the
+        //    responsiveness.
         const now = c.currentTime;
-        if (nextStartTime < now + 0.005) nextStartTime = now + 0.020;
+        const MAX_LEAD = 0.080; // seconds of scheduling lead we tolerate
+        if (nextStartTime < now + 0.005 || nextStartTime > now + MAX_LEAD) {
+            nextStartTime = now + 0.020;
+        }
         src.start(nextStartTime);
         nextStartTime += frameCount / SAMPLE_RATE;
     };
