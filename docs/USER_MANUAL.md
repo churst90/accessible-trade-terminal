@@ -377,6 +377,106 @@ chapter.
 
 ---
 
+## Analysis Tools
+
+The chart is only the canvas. This chapter covers what you put on it to make sense of
+the market: indicators that compute and sonify their own readings, drawing tools you
+place by keyboard and then hear the cursor cross, the volume profile that maps where
+trading actually concentrated, and the heatmap that colours activity into the
+playback itself.
+
+### Adding and tuning indicators
+
+Press Alt+A to open the Add Indicator dialog. Indicators are grouped into categories
+— Multi-Signal, Trend, Momentum, Volatility, Volume, and Profiles — and you move
+through the category and indicator lists with the arrow keys and add one with Enter.
+A new indicator arrives with audio properties already chosen for its type, so it is
+immediately playable; you can refine them later.
+
+Once it is on the chart you reach it the same way you reach any pane — Page Down from
+the price pane until speech announces it — and explore its components with Up and
+Down, as the previous chapter described. Two small touches help here. Pressing 0
+(zero) on a focused indicator adds a zero-level reference line, which both sounds
+during playback and gives Ctrl+Left and Ctrl+Right something to jump between. And
+when an indicator has outlived its use, Delete removes the focused pane after a
+spoken confirmation — the price pane itself cannot be removed.
+
+To change how an indicator calculates or sounds, focus it and press P (or
+Shift+F12) for its properties dialog. There you adjust calculation parameters —
+periods, smoothing, thresholds — and, per component, the things that shape how it is
+heard: the waveform that colours its continuous tone, the bell patch that rings on
+its signal events, and its relative volume. A "Save as Defaults" option stores your
+preferences so the next indicator of that type starts already configured the way you
+like. Tab and the arrow keys move through the dialog and your screen reader reads
+every label and value.
+
+Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
+Heikin-Ashi candles, a smoothed formula that strips noise and can make a trend easier
+to hear; Alt+L switches to a logarithmic price scale, useful over long histories
+where price has moved by large percentages.
+
+### Drawing tools
+
+Drawing tools place reference lines and shapes that then become audible as you
+navigate — the cursor will announce when it crosses a trendline you have set. Every
+tool uses **sequential anchoring**, which is what makes them fully keyboard-
+accessible: you do not hold and drag, and you do not press Enter. Instead you
+navigate the cursor to a point and press the tool's own shortcut to drop an anchor
+there; navigate to the next point and press the **same** shortcut again to set the
+next; and so on until the shape is complete. Escape cancels a drawing in progress.
+
+Take a trendline (Ctrl+Shift+T) as the model. Arrow to the first point and press
+Ctrl+Shift+T — speech confirms "Trend line: anchor 1 set at {price}, {time}.
+Navigate to next point and press the shortcut again." Arrow to the second point,
+press it once more, and the line completes: "Trend line placed from {price} to
+{price}." Three-anchor tools — Fibonacci extension, Andrews' pitchfork,
+Risk/Reward — simply take a third press. Single-anchor tools — a horizontal price
+line, a vertical time marker, a text label, an anchored VWAP — finish on the first
+press, placing immediately at the cursor.
+
+> **Linux web host:** every `Ctrl+Shift+<letter>` drawing chord becomes
+> `Alt+Shift+<letter>` in the browser, because the browser reserves the Ctrl+Shift
+> versions. Same letter, same tool. The desktop and mobile apps use Ctrl+Shift as
+> written, and the F1 help always shows the bindings live on your host.
+
+The set spans Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
+Fibonacci retracement and extension (F, E), Text label (L), Rectangle (R), Measure
+(M), Andrews' pitchfork (A), Gann fan and box (G, B), Angle (J), Risk/Reward (P), and
+anchored VWAP (W); Alt+D opens a panel to review and delete what you have placed. A
+few behave specially. A Fibonacci retracement, anchored from a swing low to a swing
+high, lays down the standard 23.6, 38.2, 50, 61.8 and 78.6 percent levels, each
+audible as the cursor crosses it. An anchored VWAP behaves like a moving-average
+overlay you can focus and whose crossings you can jump between. And the Risk/Reward
+tool, after you set its entry and stop anchors, speaks the resulting risk and then
+asks for the target, announcing the full reward-to-risk ratio once you set it — the
+same measuring workflow described in the Trading chapter.
+
+### The volume profile
+
+A volume profile is a different kind of view: instead of volume across time, it shows
+volume across **price** — a horizontal histogram revealing which price levels saw the
+most trading. When your focus is on a volume-profile series the Up and Down arrows
+change meaning: rather than stepping through components they move between price bins,
+Up to the next higher level and Down to the next lower, each announced with its price
+and the volume there. Left and Right still move the cursor through time as usual.
+
+Two landmarks are worth listening for. The **Point of Control** — the single
+highest-volume price level — rings with a distinct square-wave tone and is announced
+"Point of Control" when you land on it. The **Value Area**, the band of prices that
+accounts for roughly seventy percent of all volume, announces "Entering Value Area"
+as you move into it and "Exiting Value Area" as you leave — so you can feel the edges
+of where the market agreed on price.
+
+### The heatmap
+
+Alt+H toggles a volume heatmap over the price chart, shading each candle and time
+zone by how much trading happened there. Its real payoff is in sound: with the
+heatmap on, playback folds that intensity into the audio, so higher-volume bars play
+louder than quiet ones and a busy stretch of market is something you hear swell
+rather than something you have to look up. Press Alt+H again to turn it off.
+
+---
+
 ## Trading
 
 Everything to do with money — placing orders, attaching protective exits, watching
