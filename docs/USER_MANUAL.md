@@ -503,30 +503,78 @@ modifiers and so are **not** remapped on the web host — they are the same ever
 ### The AI technical analyst
 
 Press Ctrl+Alt+Shift+A to open the AI Analyst. It gathers a snapshot of what you are
-looking at — recent candles, a summary of your active indicators, and, where the
-provider supports vision, an image of the chart — sends it to a large language model,
-and reads back a concise, plain-language technical analysis written for text-to-
-speech: trend direction, key support and resistance, momentum, and a short-term
-outlook. It is a second pair of eyes on demand, useful when you want a narrative
-framing of the structure you have been navigating bar by bar.
+looking at — the current symbol and timeframe, the most recent candles, a summary of
+every indicator you have on the chart, and, where the provider supports vision, an
+actual image of the chart — sends it to a large language model, and reads back a
+concise, plain-language technical analysis written for text-to-speech: trend
+direction, the key support and resistance levels, what momentum is doing, and a
+short-term outlook. Think of it as a second pair of eyes on demand — a narrative
+framing of the same structure you have been navigating bar by bar, in one paragraph
+you can take in at listening speed.
 
-It needs a key. Add one for at least one AI provider in the API key manager (Alt+K);
-the terminal tries the providers it knows in order — Claude, then OpenAI, then Ollama
-— and uses the first you have configured. If none is set up, the Analyst tells you so
-rather than failing silently. And because the request goes to an outside service,
-only use it with a provider you are comfortable sharing your chart data with.
+It is worth being clear about what it is and is not. It *describes* the chart; it does
+not advise you and it cannot place a trade — there is no button in it that touches your
+account. And because the answer is generated, it can be wrong: treat it as informed
+commentary to weigh against what you heard yourself navigating, not as a signal to act
+on. Used that way — as a sanity check on the read you already formed — it earns its
+place.
 
-### Auto-narration
+The natural way to use it is to set the scene first. Load the symbol and timeframe you
+care about, add the indicators you want it to consider, navigate enough to have your
+own opinion, and *then* press Ctrl+Alt+Shift+A — because it analyses the chart as it
+stands at that moment, the more you have set up, the more grounded its answer. A useful
+habit is to ask twice: get its read on the daily, switch the timeframe to the hourly
+(or add an indicator you suspect matters), and run it again to hear how the framing
+changes. A typical reply sounds like this:
 
-Auto-narration is the hands-off companion to navigating yourself. Press
-Ctrl+Alt+Shift+N to toggle it on for the series you have focused, and from then on
-the terminal watches that one indicator and **speaks new events as they occur on live
-bar closes** — a fresh signal firing, or the oscillator entering or leaving an
-overbought or oversold zone. It announces only what happens *after* you switch it on;
-it does not replay the history you already navigated. Because it is per-series, you
-can leave it running on the one indicator you care about and not be interrupted by the
-rest of the chart — set it on your RSI, say, and get on with reading price while the
-terminal keeps half an ear on momentum for you.
+> "Bitcoin, four-hour. The trend is up but stretching — price is roughly eight percent
+> above the fifty-period moving average and RSI is at seventy-three, in overbought. The
+> nearest support is the prior breakout around sixty-one thousand five hundred;
+> resistance is the recent high near sixty-four thousand two hundred. Momentum is still
+> positive but the MACD histogram is shrinking, which often precedes a pause. Short-term
+> outlook: constructive but extended — a pullback toward the moving average would be
+> normal and would not break the uptrend."
+
+It needs a key. Add one for at least one provider in the API key manager (Alt+K); the
+terminal tries the providers it knows in order — Claude, then OpenAI, then Ollama — and
+uses the first you have configured. If none is set up, the Analyst tells you so rather
+than failing silently. The choice of provider is partly a privacy choice. Claude and
+OpenAI are cloud services and are vision-capable, so they get the richest input — but
+your chart snapshot, image included, leaves your machine to reach them. **Ollama runs a
+model locally on your own computer**, so nothing leaves the device at all; it is the
+right pick when you would rather your data stay home, at the cost of running a smaller
+model and installing it yourself. Either way, remember that a cloud request both shares
+your chart data and usually costs a small amount per call, so it is a deliberate
+action, not something to lean on every bar.
+
+### Auto-narration and live announcements
+
+Where the AI Analyst is something you ask, auto-narration is something you switch on and
+forget. Press Ctrl+Alt+Shift+N to toggle it on for the series you have focused, and from
+then on the terminal watches that one indicator and **speaks new events as they occur on
+live bar closes** — a fresh signal firing, or the oscillator entering or leaving an
+overbought or oversold zone. You will hear short, plain announcements as they happen:
+"RSI overbought", "MACD bullish crossover", "Stochastic leaving oversold". It announces
+only what happens *after* you switch it on; it does not replay the history you already
+navigated. And because it is per-series, you can leave it running on the one indicator
+you care about and not be interrupted by the rest of the chart — set it on your RSI, say,
+and get on with reading price while the terminal keeps half an ear on momentum for you.
+Toggling it announces the new state, "Narration on" or "Narration off", so you always
+know whether it is listening. On the Linux web host the chord is unchanged — it has three
+modifiers, which browsers do not reserve.
+
+Auto-narration is one of a small family of "let the terminal keep you posted" features
+worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
+you met when you first loaded a market — is the always-on heartbeat of the live candle,
+and you can turn it on or off under Settings (F12) with "Announce new bars". The
+**detailed point analysis**, Ctrl+Shift+D (Alt+Shift+D on the web host), is the
+on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
+indicator, every signal, in one keystroke, covered back in the chart chapter. And the
+**context summary**, F4 for a quick "symbol, provider, timeframe" and Ctrl+Alt+Shift+C
+for the fuller picture, tells you where you are at any moment. Between them you can run
+as hands-off or as hands-on as you like: narration and new-bar announcements stream the
+live market to you, while Ctrl+Shift+D and the AI Analyst are there the moment you want
+to stop and look hard at something.
 
 ### The Journal
 
