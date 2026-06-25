@@ -21,7 +21,15 @@
              aria-labelledby="strategy-title"
              @onclick:stopPropagation="true">
 
-            <h2 id="strategy-title" tabindex="-1">Strategy Manager</h2>
+            <h2 id="strategy-title" tabindex="-1">
+                Strategy Manager
+                <span style="font-size: 0.7rem; font-weight: 700; color: #ffb300; border: 1px solid #665500; background: #332a00; border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle;">EXPERIMENTAL</span>
+            </h2>
+            <p role="note" style="margin: 6px 0 0; font-size: 0.85rem; color: #c9a227;">
+                Experimental feature. Strategies and backtests are research tools — backtested
+                results do not guarantee live performance, and known biases have been found and
+                fixed over time. Treat signals as exploratory, not advice.
+            </p>
 
             @* ── Tab navigation ────────────────────────────────────────────────── *@
             <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;">

@@ -12,11 +12,34 @@
          preventing the WebView2 white flash during Blazor bootstrap. -->
     <style>
         html, body, #app { background: transparent !important; }
+        /* Boot screen shown immediately while the .NET runtime + services start
+           and Blazor bootstraps (can take a while on first launch). Blazor
+           replaces #app's content once MainLayout mounts, removing this. */
+        .boot-screen {
+            position: fixed; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 16px; background: #1a1a1a; color: #dcdcdc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .boot-title { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.5px; color: #4ec9b0; }
+        .boot-sub { font-size: 0.95rem; color: #9aa; }
+        .boot-spinner {
+            width: 46px; height: 46px; border: 4px solid #333;
+            border-top-color: #4ec9b0; border-radius: 50%;
+            animation: boot-spin 0.9s linear infinite;
+        }
+        @keyframes boot-spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 
 <body>
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div class="boot-screen" role="status" aria-live="polite" aria-label="Loading Accessible Trader, please wait">
+            <div class="boot-spinner" aria-hidden="true"></div>
+            <div class="boot-title">Accessible Trader</div>
+            <div class="boot-sub">Loading… please wait</div>
+        </div>
+    </div>
 
     <div id="blazor-error-ui" role="alert" aria-live="assertive" data-nosnippet>
         An unhandled error has occurred.
