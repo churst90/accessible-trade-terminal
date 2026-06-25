@@ -88,7 +88,8 @@ namespace AccessibleTrader.Sdk.Plugins
         double    Price,
         DateTime  FilledAt,
         double    Fee = 0.0,
-        string?   OrderId = null
+        string?   OrderId = null,
+        double    RealizedPnL = 0.0   // realized P&L for the closed portion of this fill (quote currency)
     );
 
     // ── Interface ─────────────────────────────────────────────────────────────
@@ -162,5 +163,13 @@ namespace AccessibleTrader.Sdk.Plugins
         /// Returns the actual leverage applied by the exchange.
         /// </summary>
         Task<double> SetLeverageAsync(string symbol, double leverage);
+
+        /// <summary>
+        /// Recent filled trades for the account (newest first), optionally filtered
+        /// by <paramref name="symbol"/>. Default returns empty so existing providers
+        /// need no change; the paper broker and history-capable providers override it.
+        /// </summary>
+        Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+            => Task.FromResult(new List<TradeFill>());
     }
 }

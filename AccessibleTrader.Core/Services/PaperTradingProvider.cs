@@ -52,10 +52,12 @@ namespace AccessibleTrader.Core.Services
         private readonly Subject<OrderUpdate> _orderUpdates = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates.AsObservable();
 
+        private const double FeeRate = 0.0004;   // simulated 0.04% taker fee per fill
         private double _cash;
         private readonly Dictionary<string, (double Qty, double Avg)> _positions = new();
         private readonly Dictionary<string, double> _leverage = new();
         private readonly List<PaperOrder> _open = new();
+        private readonly List<TradeFill> _history = new();   // newest first, capped
 
         public PaperTradingProvider(IWorkspaceStore store, IPlatformPathService paths, ILogger<PaperTradingProvider> logger)
         {
@@ -123,6 +125,18 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        public Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            lock (_lock)
+            {
+                var list = _history
+                    .Where(f => symbol == null || string.Equals(f.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                    .Take(limit)
+                    .ToList();
+                return Task.FromResult(list);
+            }
+        }
+
         // ── Order management ──────────────────────────────────────────────────
 
         public Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -147,6 +161,7 @@ namespace AccessibleTrader.Core.Services
                     string id = NewId();
                     var pnl = ApplyFill(symbol, signal.Side, signal.Quantity, px);
                     Emit(id, symbol, signal.Side, signal.Quantity, px, 0, OrderStatus.Filled, false, false, pnl);
+                    RecordFill(symbol, signal.Side, signal.Quantity, px, pnl, id);
 
                     // Attach protective resting orders (reduce-only by nature here).
                     var exit = signal.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
@@ -214,6 +229,7 @@ namespace AccessibleTrader.Core.Services
                 _positions.Clear();
                 _open.Clear();
                 _leverage.Clear();
+                _history.Clear();
                 Persist();
             }
         }
@@ -247,6 +263,7 @@ namespace AccessibleTrader.Core.Services
                     _open.Remove(o);
                     var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
                     Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
+                    RecordFill(o.Symbol, o.Side, o.Quantity, px, pnl, o.Id);
                 }
                 Persist();
             }
@@ -345,6 +362,15 @@ namespace AccessibleTrader.Core.Services
             return realized;
         }
 
+        // Apply a simulated taker fee to a fill and log it to the (capped) history.
+        private void RecordFill(string symbol, OrderSide side, double qty, double price, double? realized, string orderId)
+        {
+            double fee = qty * price * FeeRate;
+            _cash -= fee;
+            _history.Insert(0, new TradeFill(NewId(), symbol, side, qty, price, DateTime.UtcNow, fee, orderId, realized ?? 0));
+            if (_history.Count > 200) _history.RemoveRange(200, _history.Count - 200);
+        }
+
         private double PriceFor(string symbol, double fallback)
         {
             var st = _store.State;
@@ -376,7 +402,8 @@ namespace AccessibleTrader.Core.Services
                         Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp,
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
                         Activation = o.Activation, Armed = o.Armed
-                    }).ToList()
+                    }).ToList(),
+                    History = _history.ToList()
                 };
                 AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
             }
@@ -401,6 +428,7 @@ namespace AccessibleTrader.Core.Services
                         o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
                         Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
                         o.Activation, o.Armed));
+                if (dto.History != null) _history.AddRange(dto.History);
             }
             catch (Exception ex)
             {
@@ -454,6 +482,7 @@ namespace AccessibleTrader.Core.Services
             public List<PosDto> Positions { get; set; } = new();
             public List<LevDto> Leverage { get; set; } = new();
             public List<OrderDto> Open { get; set; } = new();
+            public List<TradeFill> History { get; set; } = new();
         }
         private sealed class PosDto { public string Symbol { get; set; } = ""; public double Qty { get; set; } public double Avg { get; set; } }
         private sealed class LevDto { public string Symbol { get; set; } = ""; public double Value { get; set; } }

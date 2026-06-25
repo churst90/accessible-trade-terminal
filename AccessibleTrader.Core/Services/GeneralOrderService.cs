@@ -445,9 +445,14 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<List<TradeFill>> GetFillsAsync(string providerName, string? symbol = null, int limit = 50)
         {
-            // Stub: no provider currently exposes GetFillsAsync. Returns empty list.
-            await Task.CompletedTask.ConfigureAwait(false);
-            return new List<TradeFill>();
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            if (tp == null) return new List<TradeFill>();
+            try { return await tp.GetFillsAsync(symbol, limit).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "GetFillsAsync failed for {Provider}", providerName);
+                return new List<TradeFill>();
+            }
         }
 
         public async Task<bool> SupportsMarginTradingAsync(string providerName)

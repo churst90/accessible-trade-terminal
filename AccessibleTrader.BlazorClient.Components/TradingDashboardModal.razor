@@ -219,9 +219,19 @@
                                 </div>
                             }
 
-                            <button class="submit-btn @(_orderSide.ToLower())" disabled="@(!CanSubmit)" @onclick="SubmitOrder">
-                                Submit @_orderSide Order
-                            </button>
+                            @if (_reviewArmed)
+                            {
+                                <div class="entry-row" role="group" aria-label="Confirm live order">
+                                    <button class="submit-btn @(_orderSide.ToLower())" @onclick="SubmitOrder">Confirm @_orderSide</button>
+                                    <button type="button" @onclick="CancelReview">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="submit-btn @(_orderSide.ToLower())" disabled="@(!CanSubmit)" @onclick="SubmitOrder">
+                                    Submit @_orderSide Order
+                                </button>
+                            }
 
                             @if (!string.IsNullOrEmpty(_orderStatus))
                             {
@@ -299,6 +309,7 @@
                                 <button role="tab" id="acct-tab-balances" aria-selected="@(_accountTab == "Balances" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => SelectAccountTab("Balances")'>Balances</button>
                                 <button role="tab" id="acct-tab-positions" aria-selected="@(_accountTab == "Positions" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => SelectAccountTab("Positions")'>Positions</button>
                                 <button role="tab" id="acct-tab-orders" aria-selected="@(_accountTab == "Orders" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => SelectAccountTab("Orders")'>Orders</button>
+                                <button role="tab" id="acct-tab-history" aria-selected="@(_accountTab == "History" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "History" ? "active" : "")" @onclick='() => SelectAccountTab("History")'>History</button>
                             </div>
                             
                             <div id="acct-panel" class="account-content" role="tabpanel" aria-labelledby="@($"acct-tab-{_accountTab.ToLowerInvariant()}")">
@@ -365,6 +376,31 @@
                                             @if (!_openOrders.Any())
                                             {
                                                 <tr><td colspan="6">No open orders.</td></tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                                else if (_accountTab == "History")
+                                {
+                                    <table class="mini-table">
+                                        <caption class="sr-only">Trade history</caption>
+                                        <thead><tr><th scope="col">Time</th><th scope="col">Symbol</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th><th scope="col">Fee</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var f in _fills)
+                                            {
+                                                <tr @key="f.Id">
+                                                    <td>@f.FilledAt.ToLocalTime().ToString("HH:mm:ss")</td>
+                                                    <td>@f.Symbol</td>
+                                                    <td>@f.Side</td>
+                                                    <td>@PriceFormatter.FormatQuantity(f.Quantity)</td>
+                                                    <td>@PriceFormatter.FormatPrice(f.Price)</td>
+                                                    <td class='@(f.RealizedPnL >= 0 ? "plus" : "minus")'>@(f.RealizedPnL != 0 ? PriceFormatter.FormatPnL(f.RealizedPnL) : "—")</td>
+                                                    <td>@PriceFormatter.FormatPrice(f.Fee)</td>
+                                                </tr>
+                                            }
+                                            @if (!_fills.Any())
+                                            {
+                                                <tr><td colspan="7">No trade history.</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -489,6 +525,8 @@
     private List<Balance>   _balances   = new();
     private List<Position>  _positions  = new();
     private List<OpenOrder> _openOrders = new();
+    private List<TradeFill> _fills      = new();
+    private bool            _reviewArmed;
     private List<OrderBookEntry> _bids = new();
     private List<OrderBookEntry> _asks = new();
     
@@ -564,6 +602,7 @@
         _balances   = await OrderService.GetBalancesAsync(provider);
         _positions  = await OrderService.GetPositionsAsync(provider);
         _openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
+        _fills      = await OrderService.GetFillsAsync(provider);
 
         var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
         _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
@@ -613,6 +652,7 @@
         {
             "Positions" => _positions.Count,
             "Orders"    => _openOrders.Count,
+            "History"   => _fills.Count,
             "Balances"  => _balances.Count(b => b.Free > 0 || b.Locked > 0),
             _           => 0
         };
@@ -632,6 +672,13 @@
     private async Task SubmitOrder()
     {
         if (!CanSubmit) return;
+        // Live orders get a spoken review + explicit confirm; paper submits directly.
+        if (_isLiveEnvironment && !_paperMode && !_reviewArmed)
+        {
+            ArmLiveReview();
+            return;
+        }
+        _reviewArmed = false;
         _orderStatus = "Submitting…";
         _orderError  = false;
         StateHasChanged();
@@ -760,6 +807,28 @@
                 : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
             true));
         if (!err) await LoadAccountDataAsync();
+    }
+
+    // Live-order safety: speak a one-line review and require an explicit confirm.
+    private void ArmLiveReview()
+    {
+        double price = NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
+        double cost = _orderQty * price;
+        double fee = cost * 0.0004;
+        string sl = IsEntryType && _stopLoss > 0 ? $" Stop {PriceFormatter.FormatPrice(_stopLoss)}." : "";
+        string tp = IsEntryType && _takeProfit > 0 ? $" Target {PriceFormatter.FormatPrice(_takeProfit)}." : "";
+        _reviewArmed = true;
+        _orderError = false;
+        _orderStatus = $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}. Confirm or cancel.";
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
+        StateHasChanged();
+    }
+
+    private void CancelReview()
+    {
+        _reviewArmed = false;
+        _orderStatus = "Order canceled before submit.";
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
     }
 
     private string GetLastPrice()
