@@ -150,7 +150,10 @@ namespace AccessibleTrader.Core.Services
 
                     // Attach protective resting orders (reduce-only by nature here).
                     var exit = signal.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-                    if (signal.StopLoss is > 0)
+                    if (signal.TrailStopValue is > 0 && signal.TrailStopMode != null)
+                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, px, true, false,
+                            signal.TrailStopMode, signal.TrailStopValue, px));    // trailing stop anchored at entry
+                    else if (signal.StopLoss is > 0)
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, signal.StopLoss, true, false));
                     if (signal.TakeProfit is > 0)
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, signal.TakeProfit, false, true));
@@ -223,8 +226,18 @@ namespace AccessibleTrader.Core.Services
 
             lock (_lock)
             {
+                // Advance trailing stops first so this tick uses the moved trigger.
+                bool trailMoved = false;
+                foreach (var o in _open)
+                    if (o.Trail != null && string.Equals(o.Symbol, sym, StringComparison.OrdinalIgnoreCase))
+                        trailMoved |= UpdateTrail(o, bar);
+
                 var fills = _open.Where(o => string.Equals(o.Symbol, sym, StringComparison.OrdinalIgnoreCase) && Crossed(o, bar)).ToList();
-                if (fills.Count == 0) return;
+                if (fills.Count == 0)
+                {
+                    if (trailMoved) Persist();
+                    return;
+                }
                 foreach (var o in fills)
                 {
                     double px = o.Trigger ?? o.Price ?? bar.Close;
@@ -246,6 +259,30 @@ namespace AccessibleTrader.Core.Services
                 => o.Side == OrderSide.Buy ? bar.Low <= o.Trigger : bar.High >= o.Trigger,
             _ => false
         };
+
+        // Advance a trailing stop's anchor toward the favourable extreme and
+        // recompute its trigger. Returns true if the anchor moved this tick.
+        private static bool UpdateTrail(PaperOrder o, Ohlcv bar)
+        {
+            if (o.Trail == null || o.TrailValue == null) return false;
+            double Dist(double anchor) => o.Trail == TrailMode.Amount ? o.TrailValue.Value : anchor * o.TrailValue.Value / 100.0;
+            if (o.Side == OrderSide.Sell)   // protecting a long: trail up
+            {
+                double anchor = Math.Max(o.TrailAnchor ?? bar.High, bar.High);
+                bool moved = o.TrailAnchor is null || anchor > o.TrailAnchor.Value;
+                o.TrailAnchor = anchor;
+                o.Trigger = anchor - Dist(anchor);
+                return moved;
+            }
+            else                            // protecting a short: trail down
+            {
+                double anchor = Math.Min(o.TrailAnchor ?? bar.Low, bar.Low);
+                bool moved = o.TrailAnchor is null || anchor < o.TrailAnchor.Value;
+                o.TrailAnchor = anchor;
+                o.Trigger = anchor + Dist(anchor);
+                return moved;
+            }
+        }
 
         // ── Account mutation (caller holds _lock) ─────────────────────────────
 
@@ -311,7 +348,8 @@ namespace AccessibleTrader.Core.Services
                     Open = _open.Select(o => new OrderDto
                     {
                         Id = o.Id, Symbol = o.Symbol, Side = o.Side.ToString(), Type = o.Type.ToString(),
-                        Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp
+                        Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp,
+                        Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor
                     }).ToList()
                 };
                 AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
@@ -334,7 +372,8 @@ namespace AccessibleTrader.Core.Services
                     _open.Add(new PaperOrder(o.Id, o.Symbol,
                         Enum.TryParse<OrderSide>(o.Side, out var s) ? s : OrderSide.Buy,
                         Enum.TryParse<OrderType>(o.Type, out var t) ? t : OrderType.Market,
-                        o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp));
+                        o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
+                        Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor));
             }
             catch (Exception ex)
             {
@@ -353,8 +392,30 @@ namespace AccessibleTrader.Core.Services
 
         // ── Internal records ──────────────────────────────────────────────────
 
-        private sealed record PaperOrder(string Id, string Symbol, OrderSide Side, OrderType Type,
-            double Quantity, double? Price, double? Trigger, bool IsStop, bool IsTp);
+        private sealed class PaperOrder
+        {
+            public string Id { get; }
+            public string Symbol { get; }
+            public OrderSide Side { get; }
+            public OrderType Type { get; }
+            public double Quantity { get; }
+            public double? Price { get; }
+            public double? Trigger { get; set; }        // mutable: a trailing stop moves it
+            public bool IsStop { get; }
+            public bool IsTp { get; }
+            public TrailMode? Trail { get; }
+            public double? TrailValue { get; }
+            public double? TrailAnchor { get; set; }     // mutable high/low-water mark
+
+            public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
+                double? price, double? trigger, bool isStop, bool isTp,
+                TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null)
+            {
+                Id = id; Symbol = symbol; Side = side; Type = type; Quantity = quantity;
+                Price = price; Trigger = trigger; IsStop = isStop; IsTp = isTp;
+                Trail = trail; TrailValue = trailValue; TrailAnchor = trailAnchor;
+            }
+        }
 
         private sealed class PaperDto
         {
@@ -376,6 +437,9 @@ namespace AccessibleTrader.Core.Services
             public double? Trigger { get; set; }
             public bool Stop { get; set; }
             public bool Tp { get; set; }
+            public string? Trail { get; set; }
+            public double? TrailValue { get; set; }
+            public double? TrailAnchor { get; set; }
         }
     }
 }

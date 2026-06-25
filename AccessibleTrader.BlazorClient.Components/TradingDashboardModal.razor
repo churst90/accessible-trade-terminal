@@ -115,6 +115,18 @@
                                     <label for="limit-price">Limit Price</label>
                                     <input id="limit-price" type="number" step="any" aria-label="Limit price" @bind="_limitPrice" />
                                 </div>
+                                <div class="entry-row">
+                                    <label for="order-tif">Time in force</label>
+                                    <select id="order-tif" aria-label="Time in force" @bind="_tif">
+                                        <option value="GTC">GTC — good till canceled</option>
+                                        <option value="IOC">IOC — immediate or cancel</option>
+                                        <option value="FOK">FOK — fill or kill</option>
+                                    </select>
+                                </div>
+                                <div class="entry-row">
+                                    <label for="post-only">Post-only (maker)</label>
+                                    <input id="post-only" type="checkbox" checked="@_postOnly" @onchange="e => _postOnly = e.Value is bool b && b" />
+                                </div>
                             }
 
                             @if (IsEntryType)
@@ -133,6 +145,19 @@
                                     <label for="risk-pct">Risk % of balance</label>
                                     <input id="risk-pct" type="number" step="0.1" min="0" aria-label="Risk percent of balance for position sizing" @bind="_riskPct" placeholder="Optional" />
                                     <button type="button" @onclick="SizeFromRisk" aria-label="Size quantity from risk and stop">Size</button>
+                                </div>
+
+                                <div class="entry-row">
+                                    <label for="trail-mode">Trailing stop</label>
+                                    <select id="trail-mode" aria-label="Trailing stop mode" @bind="_trailMode">
+                                        <option value="None">None</option>
+                                        <option value="Percent">Percent</option>
+                                        <option value="Amount">Amount</option>
+                                    </select>
+                                    @if (_trailMode != "None")
+                                    {
+                                        <input type="number" step="any" min="0" aria-label="Trailing stop distance" @bind="_trailValue" placeholder="@(_trailMode == "Percent" ? "%" : "amount")" />
+                                    }
                                 </div>
                             }
 
@@ -154,6 +179,20 @@
                                            aria-label="Leverage multiplier"
                                            @bind="_leverage" />
                                     <span style="font-size:0.8rem; color:#888;">×&nbsp;(max @_maxLeverage)</span>
+                                </div>
+
+                                <div class="entry-row">
+                                    <label for="pos-side">Position side</label>
+                                    <select id="pos-side" aria-label="Position side" @bind="_positionSide">
+                                        <option value="BOTH">One-way</option>
+                                        <option value="LONG">Long</option>
+                                        <option value="SHORT">Short</option>
+                                    </select>
+                                </div>
+
+                                <div class="entry-row">
+                                    <label for="reduce-only">Reduce-only</label>
+                                    <input id="reduce-only" type="checkbox" checked="@_reduceOnly" @onchange="e => _reduceOnly = e.Value is bool b && b" />
                                 </div>
                             }
 
@@ -402,6 +441,12 @@
     private double _stopLoss      = 0;
     private double _takeProfit    = 0;
     private double _riskPct       = 0;
+    private string _trailMode     = "None";
+    private double _trailValue    = 0;
+    private string _tif           = "GTC";
+    private bool   _reduceOnly;
+    private bool   _postOnly;
+    private string _positionSide  = "BOTH";
     private string _marginType  = "Cross";
     private double _leverage    = 1.0;
     private string? _orderStatus;
@@ -580,6 +625,10 @@
             double? sl  = IsEntryType && _stopLoss   > 0 ? _stopLoss   : (double?)null;
             double? tp  = IsEntryType && _takeProfit > 0 ? _takeProfit : (double?)null;
             double? lev = _supportsMargin && _leverage > 1 ? _leverage : null;
+            TrailMode? trailMode = _trailMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
+            double? trailVal = IsEntryType && trailMode != null && _trailValue > 0 ? _trailValue : (double?)null;
+            string? tif = NeedsLimit ? _tif : null;
+            string? posSide = _supportsMargin && _positionSide != "BOTH" ? _positionSide : null;
 
             // Parse sub-type from the market identity (e.g. "Crypto|Futures" → "Futures")
             string? subType = null;
@@ -597,8 +646,14 @@
                 TakeProfit: tp,
                 Leverage:     lev,
                 SubType:      subType,
-                MarginType:   _supportsMargin ? _marginType : null,
-                TriggerPrice: trigger);
+                MarginType:     _supportsMargin ? _marginType : null,
+                TriggerPrice:   trigger,
+                TrailStopMode:  trailVal != null ? trailMode : null,
+                TrailStopValue: trailVal,
+                TimeInForce:    tif,
+                ReduceOnly:     _supportsMargin && _reduceOnly,
+                PostOnly:       NeedsLimit && _postOnly,
+                PositionSide:   posSide);
 
             string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 

@@ -536,13 +536,17 @@ namespace AccessibleTrader.Plugins.Binance
                         };
                         p["type"] = futType;
                         p["quantity"] = Fmt(signal.Quantity);
+                        // reduceOnly and positionSide are mutually exclusive on Binance
+                        // (hedge mode rejects reduceOnly); only send reduceOnly in one-way mode.
+                        if (signal.ReduceOnly && string.IsNullOrEmpty(signal.PositionSide)) p["reduceOnly"] = "true";
+                        if (!string.IsNullOrEmpty(signal.PositionSide)) p["positionSide"] = signal.PositionSide!;
                         if (futType != "MARKET")
                         {
                             if (signal.Price.HasValue) p["price"] = Fmt(signal.Price.Value);
                             bool isStopOrTp = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
                             double? futTrig = signal.TriggerPrice ?? signal.StopLoss ?? signal.TakeProfit;
                             if (isStopOrTp && futTrig.HasValue) p["stopPrice"] = Fmt(futTrig.Value);
-                            p["timeInForce"] = "GTC";
+                            p["timeInForce"] = ResolveTif(signal);
                         }
                         if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
 
@@ -557,6 +561,8 @@ namespace AccessibleTrader.Plugins.Binance
                         if (signal.StopLoss.HasValue && futType == "MARKET")
                             await AttachProtectiveOrderAsync(symbol, exitSide, "STOP_MARKET",
                                 signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
+                        if (signal.TrailStopValue is > 0 && futType == "MARKET")
+                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailStopValue.Value, DeriveProtectiveOid(signal.ClientOid, "ts"));
 
                         return id;
                     }
@@ -648,6 +654,32 @@ namespace AccessibleTrader.Plugins.Binance
             if (string.IsNullOrEmpty(entryOid)) return null;
             string baseOid = entryOid.Length > 32 ? entryOid.Substring(0, 32) : entryOid;
             return $"{baseOid}-{suffix}";
+        }
+
+        // Binance futures time-in-force. Post-only maps to GTX; otherwise GTC/IOC/FOK.
+        private static string ResolveTif(TradeSignal s) =>
+            s.PostOnly ? "GTX"
+            : (s.TimeInForce?.ToUpperInvariant() switch { "IOC" => "IOC", "FOK" => "FOK", "GTX" => "GTX", _ => "GTC" });
+
+        // Futures trailing stop (reduce-only). Binance expresses the trail as a
+        // callbackRate percent (0.1–5); TrailStopValue is taken as that percent.
+        private async Task AttachTrailingStopAsync(string symbol, string exitSide, double quantity, double callbackRate, string? clientOrderId)
+        {
+            try
+            {
+                var p = new Dictionary<string, string>
+                {
+                    ["symbol"] = symbol, ["side"] = exitSide, ["type"] = "TRAILING_STOP_MARKET",
+                    ["quantity"] = Fmt(quantity), ["callbackRate"] = Fmt(Math.Clamp(callbackRate, 0.1, 5.0)),
+                    ["reduceOnly"] = "true"
+                };
+                if (!string.IsNullOrEmpty(clientOrderId)) p["newClientOrderId"] = clientOrderId!;
+                await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance trailing-stop attach failed for {symbol}: {ex.Message}");
+            }
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

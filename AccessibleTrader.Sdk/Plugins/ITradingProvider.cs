@@ -21,6 +21,9 @@ namespace AccessibleTrader.Sdk.Plugins
         TakeProfitLimit,
     }
 
+    /// <summary>How a trailing-stop distance is interpreted.</summary>
+    public enum TrailMode { Amount, Percent, CallbackRate }
+
     // ── Signal / data records ─────────────────────────────────────────────────
 
     /// <summary>
@@ -38,8 +41,14 @@ namespace AccessibleTrader.Sdk.Plugins
         double?   Leverage    = null,        // Desired leverage multiplier (futures/margin)
         string?   ClientOid   = null,        // Optional client-supplied order ID for tracking
         string?   SubType     = null,        // "Futures" routes to the futures API; null / "Spot" = spot
-        string?   MarginType  = null,        // "Isolated" or "Cross" (futures/margin only)
-        double?   TriggerPrice = null        // Trigger price for Stop / Stop-Limit / Take-Profit order types
+        string?    MarginType     = null,     // "Isolated" or "Cross" (futures/margin only)
+        double?    TriggerPrice   = null,     // Trigger price for Stop / Stop-Limit / Take-Profit order types
+        TrailMode? TrailStopMode  = null,     // Trailing stop: how TrailStopValue is read
+        double?    TrailStopValue = null,     // Trailing stop distance (amount / percent / callback rate)
+        string?    TimeInForce    = null,     // GTC / IOC / FOK / Day / GTD
+        bool       ReduceOnly     = false,    // Futures: order may only reduce a position
+        bool       PostOnly       = false,    // Limit orders: maker-only
+        string?    PositionSide   = null      // Hedge mode: "LONG" / "SHORT" / "BOTH"
     );
 
     public record Balance(string Asset, double Free, double Locked);
