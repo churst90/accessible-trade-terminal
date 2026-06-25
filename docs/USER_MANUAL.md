@@ -798,3 +798,127 @@ onto the chart like any built-in, and "Export .atpkg" packages it to share. One
 platform note: custom-script compilation is **disabled on iOS**, which provides no
 process sandbox for running untrusted code — use the Windows or macOS build for
 scripting. The full sandbox design is documented in `docs/SANDBOX_DESIGN.md`.
+
+---
+
+## Customizing
+
+The terminal is meant to be shaped to how you work and what you can hear. This chapter
+covers the three places you do that shaping: the settings dialog for global
+preferences, the sound designer for the audio palette, and tabs and workspaces for
+arranging and saving your charts.
+
+### Settings
+
+Press F12 for the settings dialog, organised into sections you Tab through. The
+general preferences mirror the toggles you also reach by hotkey — speech on or off,
+sonification on or off — and add the smaller choices that tune how much the terminal
+says: whether it speaks timestamps, whether it reads column headers, and whether it
+announces each new bar as it closes (the rolling "Close … New bar …" you met when you
+first loaded a market). It is also where you switch **paper trading mode** on, and
+where, on the desktop heads, you set the audio engine's latency. An appearance section
+sets the theme and chart colours — most relevant to a sighted collaborator looking
+over your shoulder — and an alerts section holds the email and Telegram delivery
+details that let fired alerts reach you away from the keyboard. Changes apply when you
+close the dialog.
+
+### The sound designer
+
+Two layers of audio control sit underneath settings. The first you have already met:
+each indicator's properties dialog (P) lets you set, per component, its waveform, its
+bell patch, and its volume, and "Save as Defaults" makes those choices stick for the
+next indicator of that type. The second is the **sound designer**, opened with Alt+W,
+which gives you the whole audio picture at once rather than one indicator at a time.
+There you can audition each bell patch on its own, balance component volumes across
+the entire chart, and re-map which signal types ring which bell timbres — so if you
+want every divergence on the page to share one bell and every crossover another, this
+is where you arrange it. Think of the properties dialog as tuning one instrument and
+the sound designer as mixing the whole ensemble.
+
+### Tabs and workspaces
+
+You can keep several charts open at once in tabs. Ctrl+T opens a new chart tab, Ctrl+W
+closes the current one, and Ctrl+Tab and Ctrl+Shift+Tab move to the next and previous
+tab — so you might hold BTC on the hourly in one tab and a stock index on the daily in
+another, and flip between them without reloading. (On the Linux web host the browser
+claims Ctrl+T, Ctrl+W, and Ctrl+Tab for its own tabs; there you use the toolbar's tab
+controls instead — see the Platform Support chapter.)
+
+A whole arrangement — every tab, its symbol and timeframe, its indicators and drawings
+— is a workspace you can save and restore. Ctrl+Alt+Shift+W saves the current
+workspace and Ctrl+Alt+W loads one back; because those are three-modifier chords the
+browser does not reserve them, so they work the same on every platform. Set up the
+charts and indicators you return to every session once, save them, and you are one
+shortcut from that whole layout the next time you sit down.
+
+---
+
+## Platform Support
+
+Accessible Trader runs two ways: as a native desktop and mobile app on Windows,
+macOS, iOS, and Android, and as a self-hosted browser application — the Linux web
+host — that you reach in a browser such as Firefox. The keyboard navigation, the
+Hybrid Voice model, and everything in the preceding chapters are the same everywhere;
+what differs is the plumbing underneath and a single block of keyboard shortcuts on
+the web host.
+
+- **Windows** — works with NVDA, JAWS, and Narrator; uses the WASAPI audio engine for
+  the lowest latency; needs a full hardware keyboard for the shortcuts. The Windows
+  build is also the one that drives a Dot Pad tactile display when one is connected.
+- **macOS** — works with VoiceOver, uses the AVAudioEngine audio path, full keyboard
+  support.
+- **Android** — works with TalkBack and the AudioTrack engine; the keyboard shortcuts
+  are available when a physical keyboard is connected.
+- **iOS** — works with VoiceOver and AVAudioEngine; shortcuts require a connected
+  hardware keyboard, and, as the Automation chapter noted, custom-script compilation
+  is disabled because iOS provides no process sandbox.
+- **Linux (web host, in a browser)** — works with Orca and other browser-compatible
+  screen readers, with audio routed to your system through PipeWire or PulseAudio (or,
+  on a remote/demo deployment, streamed to the browser).
+
+### The web host modifier remap
+
+The one place the keyboard genuinely differs is the browser. Firefox and most
+browsers reserve several `Ctrl+Shift+<letter>` chords for themselves — `Ctrl+Shift+T`
+reopens a closed tab, `Ctrl+Shift+P` opens a private window, and so on — and a web
+page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is
+remapped to `Alt+Shift+<letter>`**: the same letter and the same command, just a
+different modifier. This affects all the drawing tools and the detailed point summary
+(`Ctrl+Shift+D` becomes `Alt+Shift+D`). Chords with three modifiers — the AI Analyst,
+auto-narration, the Journal, save and load workspace — are **not** remapped, because
+browsers do not reserve them. And a few single-`Ctrl` browser chords have no clean
+in-page override: use the toolbar's tab controls instead of `Ctrl+T`, `Ctrl+W`, and
+`Ctrl+Tab`. You never have to memorise which is which — the Help dialog (F1) always
+lists the bindings actually in effect on the host you are using, so it self-documents
+per platform.
+
+| Tool / command | Desktop & mobile | Linux web host |
+|---|---|---|
+| Trendline | Ctrl+Shift+T | Alt+Shift+T |
+| Horizontal line | Ctrl+Shift+H | Alt+Shift+H |
+| Vertical line | Ctrl+Shift+V | Alt+Shift+V |
+| Channel | Ctrl+Shift+C | Alt+Shift+C |
+| Fibonacci retracement | Ctrl+Shift+F | Alt+Shift+F |
+| Fibonacci extension | Ctrl+Shift+E | Alt+Shift+E |
+| Text label | Ctrl+Shift+L | Alt+Shift+L |
+| Rectangle | Ctrl+Shift+R | Alt+Shift+R |
+| Measure | Ctrl+Shift+M | Alt+Shift+M |
+| Andrews' pitchfork | Ctrl+Shift+A | Alt+Shift+A |
+| Gann fan | Ctrl+Shift+G | Alt+Shift+G |
+| Gann box | Ctrl+Shift+B | Alt+Shift+B |
+| Angle | Ctrl+Shift+J | Alt+Shift+J |
+| Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
+| Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
+| Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
+
+---
+
+## Glossary
+
+A full glossary of trading terms — stop-loss, take-profit, trailing stop, support and
+resistance, overbought and oversold, Point of Control, value area, and the rest — is
+planned for a future revision of this manual. Until it lands, each term is explained
+briefly at the point it first matters in the chapters above, and this manual assumes
+the core trading vocabulary throughout. If you are newer to the markets themselves
+(as opposed to this software), the trading-fundamentals material noted in the project
+roadmap will be the place to start once it is written.
