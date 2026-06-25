@@ -163,8 +163,8 @@ namespace AccessibleTrader.Core.Services
                 double? price = signal.Type is OrderType.Limit or OrderType.StopLimit or OrderType.TakeProfitLimit ? signal.Price : null;
                 double? trigger = signal.Type switch
                 {
-                    OrderType.StopMarket or OrderType.StopLimit => signal.StopLoss ?? signal.Price,
-                    OrderType.TakeProfitMarket or OrderType.TakeProfitLimit => signal.TakeProfit ?? signal.Price,
+                    OrderType.StopMarket or OrderType.StopLimit => signal.TriggerPrice ?? signal.StopLoss ?? signal.Price,
+                    OrderType.TakeProfitMarket or OrderType.TakeProfitLimit => signal.TriggerPrice ?? signal.TakeProfit ?? signal.Price,
                     OrderType.Limit => signal.Price,
                     _ => null
                 };

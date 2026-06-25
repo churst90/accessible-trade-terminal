@@ -539,7 +539,9 @@ namespace AccessibleTrader.Plugins.Binance
                         if (futType != "MARKET")
                         {
                             if (signal.Price.HasValue) p["price"] = Fmt(signal.Price.Value);
-                            if (signal.StopLoss.HasValue) p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                            bool isStopOrTp = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
+                            double? futTrig = signal.TriggerPrice ?? signal.StopLoss ?? signal.TakeProfit;
+                            if (isStopOrTp && futTrig.HasValue) p["stopPrice"] = Fmt(futTrig.Value);
                             p["timeInForce"] = "GTC";
                         }
                         if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
@@ -561,6 +563,10 @@ namespace AccessibleTrader.Plugins.Binance
                     else
                     {
                         var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
+                        // Standalone stop/TP order types trigger at TriggerPrice;
+                        // fall back to StopLoss/TakeProfit for older callers.
+                        double? trig = signal.TriggerPrice
+                            ?? (signal.Type is OrderType.StopMarket or OrderType.StopLimit ? signal.StopLoss : signal.TakeProfit);
                         switch (signal.Type)
                         {
                             case OrderType.Market:
@@ -570,22 +576,22 @@ namespace AccessibleTrader.Plugins.Binance
                                 p["type"] = "LIMIT"; p["quantity"] = Fmt(signal.Quantity);
                                 p["price"] = Fmt(signal.Price.Value); p["timeInForce"] = "GTC";
                                 break;
-                            case OrderType.StopMarket when signal.StopLoss.HasValue:
+                            case OrderType.StopMarket when trig.HasValue:
                                 p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
-                                p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                                p["stopPrice"] = Fmt(trig.Value);
                                 break;
-                            case OrderType.StopLimit when signal.StopLoss.HasValue && signal.Price.HasValue:
+                            case OrderType.StopLimit when trig.HasValue && signal.Price.HasValue:
                                 p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(signal.StopLoss.Value);
+                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
                                 p["timeInForce"] = "GTC";
                                 break;
-                            case OrderType.TakeProfitMarket when signal.TakeProfit.HasValue:
+                            case OrderType.TakeProfitMarket when trig.HasValue:
                                 p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["stopPrice"] = Fmt(signal.TakeProfit.Value);
+                                p["stopPrice"] = Fmt(trig.Value);
                                 break;
-                            case OrderType.TakeProfitLimit when signal.TakeProfit.HasValue && signal.Price.HasValue:
+                            case OrderType.TakeProfitLimit when trig.HasValue && signal.Price.HasValue:
                                 p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(signal.TakeProfit.Value);
+                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
                                 p["timeInForce"] = "GTC";
                                 break;
                             default:

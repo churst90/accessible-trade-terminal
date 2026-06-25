@@ -38,7 +38,8 @@ namespace AccessibleTrader.Sdk.Plugins
         double?   Leverage    = null,        // Desired leverage multiplier (futures/margin)
         string?   ClientOid   = null,        // Optional client-supplied order ID for tracking
         string?   SubType     = null,        // "Futures" routes to the futures API; null / "Spot" = spot
-        string?   MarginType  = null         // "Isolated" or "Cross" (futures/margin only)
+        string?   MarginType  = null,        // "Isolated" or "Cross" (futures/margin only)
+        double?   TriggerPrice = null        // Trigger price for Stop / Stop-Limit / Take-Profit order types
     );
 
     public record Balance(string Asset, double Free, double Locked);

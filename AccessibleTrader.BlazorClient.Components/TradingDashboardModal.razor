@@ -94,10 +94,22 @@
                                 <select id="order-type" aria-label="Order type" @bind="_orderType">
                                     <option value="Market">Market</option>
                                     <option value="Limit">Limit</option>
+                                    <option value="Stop-Market">Stop-Market</option>
+                                    <option value="Stop-Limit">Stop-Limit</option>
+                                    <option value="Take-Profit-Market">Take-Profit-Market</option>
+                                    <option value="Take-Profit-Limit">Take-Profit-Limit</option>
                                 </select>
                             </div>
 
-                            @if (_orderType == "Limit")
+                            @if (NeedsTrigger)
+                            {
+                                <div class="entry-row">
+                                    <label for="trigger-price">Trigger Price</label>
+                                    <input id="trigger-price" type="number" step="any" aria-label="Trigger price" @bind="_triggerPrice" />
+                                </div>
+                            }
+
+                            @if (NeedsLimit)
                             {
                                 <div class="entry-row">
                                     <label for="limit-price">Limit Price</label>
@@ -105,15 +117,24 @@
                                 </div>
                             }
 
-                            <div class="entry-row">
-                                <label for="stop-loss">Stop Loss</label>
-                                <input id="stop-loss" type="number" step="any" aria-label="Stop loss price, optional" @bind="_stopLoss" placeholder="Optional" />
-                            </div>
+                            @if (IsEntryType)
+                            {
+                                <div class="entry-row">
+                                    <label for="stop-loss">Stop Loss</label>
+                                    <input id="stop-loss" type="number" step="any" aria-label="Stop loss price, optional" @bind="_stopLoss" placeholder="Optional" />
+                                </div>
 
-                            <div class="entry-row">
-                                <label for="take-profit">Take Profit</label>
-                                <input id="take-profit" type="number" step="any" aria-label="Take profit price, optional" @bind="_takeProfit" placeholder="Optional" />
-                            </div>
+                                <div class="entry-row">
+                                    <label for="take-profit">Take Profit</label>
+                                    <input id="take-profit" type="number" step="any" aria-label="Take profit price, optional" @bind="_takeProfit" placeholder="Optional" />
+                                </div>
+
+                                <div class="entry-row">
+                                    <label for="risk-pct">Risk % of balance</label>
+                                    <input id="risk-pct" type="number" step="0.1" min="0" aria-label="Risk percent of balance for position sizing" @bind="_riskPct" placeholder="Optional" />
+                                    <button type="button" @onclick="SizeFromRisk" aria-label="Size quantity from risk and stop">Size</button>
+                                </div>
+                            }
 
                             @if (_supportsMargin)
                             {
@@ -240,7 +261,7 @@
                                 {
                                     <table class="mini-table">
                                         <caption class="sr-only">Open positions</caption>
-                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Leverage</th><th scope="col">Liq. price</th></tr></thead>
+                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Leverage</th><th scope="col">Liq. price</th><th scope="col">Action</th></tr></thead>
                                         <tbody>
                                             @foreach (var p in _positions)
                                             {
@@ -252,11 +273,12 @@
                                                     <td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td>
                                                     <td>@p.Leverage.ToString("0.##")×</td>
                                                     <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
+                                                    <td><button aria-label="@($"Close {p.Symbol} position")" @onclick="() => ClosePosition(p)">Close</button></td>
                                                 </tr>
                                             }
                                             @if (!_positions.Any())
                                             {
-                                                <tr><td colspan="7">No open positions.</td></tr>
+                                                <tr><td colspan="8">No open positions.</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -375,9 +397,11 @@
     private string _orderSide   = "Buy";
     private double _orderQty    = 1.0;
     private string _orderType   = "Market";
-    private double _limitPrice  = 0;
-    private double _stopLoss    = 0;
-    private double _takeProfit  = 0;
+    private double _limitPrice   = 0;
+    private double _triggerPrice = 0;
+    private double _stopLoss      = 0;
+    private double _takeProfit    = 0;
+    private double _riskPct       = 0;
     private string _marginType  = "Cross";
     private double _leverage    = 1.0;
     private string? _orderStatus;
@@ -408,6 +432,13 @@
         _orderQty > 0
         && !string.IsNullOrEmpty(Store.State.Identity.Symbol)
         && !string.IsNullOrEmpty(Store.State.Identity.Provider);
+
+    // Which optional fields the chosen order type needs. Stop/TP types use a
+    // Trigger Price and are the order itself; Market/Limit are "entry" types that
+    // can carry attached bracket Stop Loss / Take Profit.
+    private bool NeedsLimit   => _orderType is "Limit" or "Stop-Limit" or "Take-Profit-Limit";
+    private bool NeedsTrigger => _orderType is "Stop-Market" or "Stop-Limit" or "Take-Profit-Market" or "Take-Profit-Limit";
+    private bool IsEntryType  => _orderType is "Market" or "Limit";
 
     protected override void OnInitialized()
     {
@@ -535,10 +566,19 @@
         try
         {
             var side  = _orderSide == "Sell" ? OrderSide.Sell : OrderSide.Buy;
-            var type  = _orderType == "Limit" ? OrderType.Limit : OrderType.Market;
-            double? price = _orderType == "Limit" ? _limitPrice : null;
-            double? sl  = _stopLoss > 0 ? _stopLoss : null;
-            double? tp  = _takeProfit > 0 ? _takeProfit : null;
+            var type  = _orderType switch
+            {
+                "Limit"              => OrderType.Limit,
+                "Stop-Market"        => OrderType.StopMarket,
+                "Stop-Limit"         => OrderType.StopLimit,
+                "Take-Profit-Market" => OrderType.TakeProfitMarket,
+                "Take-Profit-Limit"  => OrderType.TakeProfitLimit,
+                _                    => OrderType.Market
+            };
+            double? price   = NeedsLimit   ? _limitPrice   : (double?)null;
+            double? trigger = NeedsTrigger ? _triggerPrice : (double?)null;
+            double? sl  = IsEntryType && _stopLoss   > 0 ? _stopLoss   : (double?)null;
+            double? tp  = IsEntryType && _takeProfit > 0 ? _takeProfit : (double?)null;
             double? lev = _supportsMargin && _leverage > 1 ? _leverage : null;
 
             // Parse sub-type from the market identity (e.g. "Crypto|Futures" → "Futures")
@@ -555,16 +595,15 @@
                 Price:      price,
                 StopLoss:   sl,
                 TakeProfit: tp,
-                Leverage:   lev,
-                SubType:    subType,
-                MarginType: _supportsMargin ? _marginType : null);
+                Leverage:     lev,
+                SubType:      subType,
+                MarginType:   _supportsMargin ? _marginType : null,
+                TriggerPrice: trigger);
 
             string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 
             _orderError  = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
-            string placed = type == OrderType.Limit
-                ? $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, limit {PriceFormatter.FormatPrice(_limitPrice)}."
-                : $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, market.";
+            string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.";
             _orderStatus = _orderError ? $"Order rejected for {Store.State.Identity.Symbol}." : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
@@ -589,6 +628,49 @@
         EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order canceled. {symbol}." : $"Cancel failed for {symbol}.", true));
 
         if (ok) await LoadAccountDataAsync();
+    }
+
+    // Derive order quantity from a risk budget: risk a percentage of the quote
+    // balance over the distance from entry to the stop. Needs a stop loss and a
+    // price (limit price for limit-style orders, otherwise the live price).
+    private void SizeFromRisk()
+    {
+        double price  = NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
+        double equity = _balances.Select(b => b.Free).DefaultIfEmpty(0).Max();
+        double perUnit = Math.Abs(price - _stopLoss);
+        if (_stopLoss <= 0 || price <= 0 || equity <= 0 || _riskPct <= 0 || perUnit <= 0)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                "Set a stop loss, a price, and a risk percent first.", true));
+            return;
+        }
+        _orderQty = Math.Round(equity * _riskPct / 100.0 / perUnit, 6);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Sized {PriceFormatter.FormatQuantity(_orderQty)} from {_riskPct} percent risk.", true));
+    }
+
+    // Close (or reduce-to-flat) a position by submitting an opposing market order.
+    private async Task ClosePosition(Position p)
+    {
+        var provider = Store.State.Identity.Provider;
+        if (string.IsNullOrEmpty(provider) || Math.Abs(p.Quantity) < 1e-12) return;
+
+        var side = p.Quantity > 0 ? OrderSide.Sell : OrderSide.Buy;
+        string? subType = null;
+        var marketKey = Store.State.Identity.Market ?? "";
+        if (marketKey.Contains("|")) subType = marketKey.Split('|')[1];
+
+        var signal = new TradeSignal(
+            Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
+            Type: OrderType.Market, SubType: subType);
+
+        string result = await OrderService.PlaceOrderAsync(provider, signal);
+        bool err = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
+        EventBus.Publish(new FeedbackRequestEvent(err ? FeedbackType.Error : FeedbackType.Info,
+            err ? $"Close failed for {p.Symbol}."
+                : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
+            true));
+        if (!err) await LoadAccountDataAsync();
     }
 
     private string GetLastPrice()
