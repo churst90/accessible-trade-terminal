@@ -26,6 +26,21 @@ feature and understand what it is doing.
 
 ---
 
+## Contents
+
+1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
+2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
+3. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, listening controls, point analysis
+4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap
+5. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
+6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
+7. [Automation](#automation) — alerts, strategies, custom scripts
+8. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
+9. [Platform Support](#platform-support) — per-OS notes and the web-host modifier remap
+10. [Glossary](#glossary)
+
+---
+
 ## Getting Oriented
 
 Accessible Trader is a full trading terminal — real-time and historical data across
