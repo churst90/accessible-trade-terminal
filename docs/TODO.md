@@ -185,13 +185,20 @@ boundary hits) work on Linux. Two candidate backends, both viable:
 
 ### Pending — L5 / L6 / L7
 
-- [ ] **L5 — Linux script sandbox.** New `LinuxBwrapLauncher`
-  implementing `IScriptWorkerLauncher`. Use `bwrap --unshare-all
-  --ro-bind / / --proc /proc --dev /dev --new-session` baseline.
-  Parallels `WindowsAppContainerLauncher` /
-  `AndroidIsolatedProcessLauncher` / `MacSandboxExecLauncher`.
-  Today on Linux scripts run with process-isolation only (logged by
-  `MainLayout` as "Security notice: OS-level sandbox not available").
+- [x] **L5 — Linux script sandbox.** *(Shipped 2026-06-25.)*
+  `LinuxBwrapLauncher : IScriptWorkerLauncher`
+  (`AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs`) wraps the
+  worker in `bwrap --unshare-all --die-with-parent --new-session --ro-bind / /
+  --proc /proc --dev /dev --tmpfs /tmp --chdir <workerDir> -- <worker>`.
+  `--unshare-all` removes the network namespace (no exfiltration); `--ro-bind / /`
+  makes the filesystem read-only (no write/persist/tamper). Wired into
+  `RoslynScriptingService.CreateDefaultLauncher()` for `OperatingSystem.IsLinux()`;
+  resolves `bwrap` from `/usr/bin` etc. then PATH and **falls back to
+  `DefaultProcessLauncher`** (reporting `SandboxApplied=false`) if the
+  `bubblewrap` package isn't installed. Arg-shape pinned by
+  `LinuxBwrapLauncherTests`. Hardening follow-ups (deferred, not required by the
+  threat model): `--tmpfs` over `$HOME`, `--clearenv`, and a `--seccomp` BPF
+  whitelist. **Note: install `bubblewrap` on the Linux host to get the sandbox.**
 - [ ] **L6 — Docs.** Update `docs/PLATFORMS.md` with Linux compat row
   and the tactile-deferred decision. File an upstream issue at
   `dotincorp/dotpad-sdk-guide` requesting Linux 3.0.0 parity.

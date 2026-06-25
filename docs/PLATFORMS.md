@@ -72,7 +72,7 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 | **Keyboard Navigation** | ✅ | ✅ | ✅ | ✅ | ✅ Same JS bridge; `Ctrl+Shift+letter` drawing chords remapped to `Alt+Shift+letter` (Firefox reserves the originals) |
 | **Mouse / Drawing-tool placement** | ✅ Native pointer events | n/a | ✅ Native pointer events | n/a | ✅ JS `registerMouseHandler` on `chart-interact-zone` → `(x, y, w, h)` → anchor placement (L4-B pinned by tests) |
 | **Audio Output** | ✅ (WASAPI) | ✅ (`AudioTrack`) | ✅ (`AVAudioEngine`) | ✅ (`AVAudioEngine`) | ✅ pw-cat (PipeWire) → pacat (PulseAudio) → aplay (ALSA), picked by file-existence probe at startup |
-| **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) | 🏗️ Process-isolation only (L5 — `bwrap` planned) |
+| **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) | ✅ (`bwrap` — L5; falls back to process-only if `bubblewrap` not installed) |
 | **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) | ✅ (ASP.NET Core DataProtection, encrypted-at-rest in `{XDG_DATA_HOME}/AccessibleTrader/secrets/`) |
 | **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ | ❌ (vendor Linux SDK is text-only / 20-cell — see §7) |
 

@@ -121,6 +121,11 @@ namespace AccessibleTrader.Core.Services
                 return new MacSandboxExecLauncher();
             if (OperatingSystem.IsWindows())
                 return new WindowsAppContainerLauncher();
+            // Linux (incl. the WebHost): bubblewrap sandbox when bwrap is present;
+            // LinuxBwrapLauncher falls back to DefaultProcessLauncher internally if
+            // it isn't, so this is safe on a host without bubblewrap installed.
+            if (OperatingSystem.IsLinux())
+                return new LinuxBwrapLauncher();
             return new DefaultProcessLauncher();
         }
 

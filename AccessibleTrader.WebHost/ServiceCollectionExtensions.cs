@@ -328,9 +328,10 @@ namespace AccessibleTrader.WebHost
 
             services.AddSingleton<ScriptingService>();
 
-            // L1: use Core's default launcher selector. On Linux this falls back to
-            // DefaultProcessLauncher (no OS-enforced sandbox). The real bwrap
-            // launcher arrives in phase L5.
+            // Use Core's default launcher selector. On Linux this is the
+            // LinuxBwrapLauncher (L5), which sandboxes the worker under bubblewrap
+            // when bwrap is installed and falls back to an unsandboxed
+            // DefaultProcessLauncher only if it isn't.
             services.AddSingleton<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(_ =>
                 RoslynScriptingService.CreateDefaultLauncher());
             services.AddSingleton<IRoslynScriptingService>(sp =>
