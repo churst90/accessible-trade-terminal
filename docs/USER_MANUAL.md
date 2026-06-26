@@ -31,7 +31,7 @@ feature and understand what it is doing.
 1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, listening controls, point analysis
-4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap
+4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap, the object tree
 5. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
 7. [Automation](#automation) — alerts, strategies, custom scripts
@@ -490,6 +490,27 @@ zone by how much trading happened there. Its real payoff is in sound: with the
 heatmap on, playback folds that intensity into the audio, so higher-volume bars play
 louder than quiet ones and a busy stretch of market is something you hear swell
 rather than something you have to look up. Press Alt+H again to turn it off.
+
+### The object tree
+
+Once a chart has a few indicators and drawings on it, navigating to a particular one
+just to hide or remove it becomes a chore. The object tree, opened with Alt+O and
+announced as "Object Tree", is the manager's-eye view that solves that: a single tree
+of everything on the chart, laid out as the same panes → series → components hierarchy
+you move through on the chart itself, but as one list you can Tab and arrow through
+without disturbing the chart.
+
+Each series in the tree reads itself the way you'd want — its name, how many components
+it has, and its current state — so you hear, for example, "RSI, one component, visible,
+audible, focused" as you move onto it. From there you act on any object in place,
+without first navigating to it on the chart: each series and each component has a toggle
+to hide or show it (the same effect as H) and a toggle to mute or unmute it (the same as
+M), and a series carries a Remove control to take it off the chart entirely. Selecting a
+series in the tree also focuses it back on the chart, so the panel doubles as a
+jump-to-anything: find the indicator in the list, activate it, and your chart cursor is
+now on it. When the soundscape is getting crowded, this is the quickest place to find
+the one series cluttering it and silence or remove it. A button at the top also jumps
+straight to the Strategy manager.
 
 ---
 
