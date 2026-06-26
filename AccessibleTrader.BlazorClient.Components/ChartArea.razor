@@ -6,8 +6,10 @@
 @using AccessibleTrader.Sdk.Theming
 @using AccessibleTrader.BlazorClient.Services
 @using Microsoft.JSInterop
+@using Microsoft.Extensions.Logging
 @using System.Reactive.Linq
 @using SkiaSharp
+@inject ILogger<ChartArea> Logger
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IAccessibilityFeedbackCoordinator Coordinator
@@ -395,39 +397,62 @@
 
         // Render + encode off the renderer's caller thread so the SignalR
         // hub thread isn't pinned for the full ~5-20 ms cost.
-        string dataUrl = await Task.Run(() =>
+        //
+        // The whole render is wrapped: a single series' render throwing (e.g. a
+        // profile/VPVR edge case) must NEVER escape onto the Blazor dispatcher —
+        // an unhandled exception there tears down the entire circuit, which kills
+        // all keyboard input and freezes the session. Instead we log it and keep
+        // the last good frame; the rest of the app stays alive and navigable.
+        try
         {
-            var info = new SKImageInfo(BrowserRenderWidth, BrowserRenderHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
-            using var surface = SKSurface.Create(info);
-            var canvas = surface.Canvas;
-            canvas.Clear(SKColors.Black);
+            string dataUrl = await Task.Run(() =>
+            {
+                var info = new SKImageInfo(BrowserRenderWidth, BrowserRenderHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+                using var surface = SKSurface.Create(info);
+                var canvas = surface.Canvas;
+                canvas.Clear(SKColors.Black);
 
-            Renderer.Render(
-                canvas,
-                BrowserRenderWidth,
-                BrowserRenderHeight,
-                state.Data,
-                state.ActiveSeries,
-                state.CurrentDataIndex,
-                state.ViewportStartIndex,
-                state.ViewportLength,
-                state.ViewportRange,
-                state.PaneRanges,
-                state.IsHeikinAshi,
-                state.IsLogScale,
-                density: 1.0f,
-                state.PaneHeightRatios,
-                state.IndicatorPaneScrollIndex,
-                state.RightMarginBars);
+                Renderer.Render(
+                    canvas,
+                    BrowserRenderWidth,
+                    BrowserRenderHeight,
+                    state.Data,
+                    state.ActiveSeries,
+                    state.CurrentDataIndex,
+                    state.ViewportStartIndex,
+                    state.ViewportLength,
+                    state.ViewportRange,
+                    state.PaneRanges,
+                    state.IsHeikinAshi,
+                    state.IsLogScale,
+                    density: 1.0f,
+                    state.PaneHeightRatios,
+                    state.IndicatorPaneScrollIndex,
+                    state.RightMarginBars);
 
-            canvas.Flush();
-            using var image = surface.Snapshot();
-            using var pngData = image.Encode(SKEncodedImageFormat.Png, 90);
-            return "data:image/png;base64," + Convert.ToBase64String(pngData.ToArray());
-        }).ConfigureAwait(false);
+                canvas.Flush();
+                using var image = surface.Snapshot();
+                using var pngData = image.Encode(SKEncodedImageFormat.Png, 90);
+                return "data:image/png;base64," + Convert.ToBase64String(pngData.ToArray());
+            }).ConfigureAwait(false);
 
-        _chartImageDataUrl = dataUrl;
-        StateHasChanged();
+            // The Task.Run above (ConfigureAwait(false)) left us on a thread-pool
+            // thread. Touching component state or calling StateHasChanged off the
+            // Blazor dispatcher throws "current thread is not associated with the
+            // Dispatcher" — which previously failed every render (the new <img> was
+            // assigned but the UI never re-rendered, so the chart showed stale
+            // frames). Marshal the state update back onto the dispatcher.
+            await InvokeAsync(() =>
+            {
+                _chartImageDataUrl = dataUrl;
+                StateHasChanged();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Chart render failed (keeping last frame). ActiveSeries: {Series}",
+                string.Join(", ", state.ActiveSeries.Select(s => s.IndicatorCode ?? s.Id)));
+        }
     }
 
     public void Dispose()

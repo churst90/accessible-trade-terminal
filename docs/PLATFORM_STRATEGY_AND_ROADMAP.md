@@ -335,7 +335,9 @@ here so the strategic picture is in one place. Not prioritised beyond the groupi
 
 **Mobile / touch (gates an iOS/Android release)**
 - Touch-gesture input + screen-reader reachability (§4).
-- MAUI native release builds (CI was failing repeatedly).
+- ~~MAUI native release builds (CI was failing repeatedly)~~ — **green in the v1.1.0
+  run 2026-06-26** (Windows + macOS-universal artifacts built); still **unsigned** and
+  not runtime-verified.
 
 **Tactile (Dot Pad)**
 - ~~Enable toggle + hot-plug detect + connect/disconnect announcements (§3)~~ —
@@ -346,7 +348,9 @@ here so the strategic picture is in one place. Not prioritised beyond the groupi
 **WebHost**
 - HiDPI chart density (server renders 1280×720, fuzzy on HiDPI — read `devicePixelRatio`).
 - Verify drawing-tool mouse placement end-to-end in the browser.
-- L7 demo-deploy gate (`--demo` hides modals/locks toolbar + rate-limiter); L6 docs.
+- ~~L7 demo-deploy gate~~ — **done 2026-06-25/26** (`DemoPolicy` whitelist + `/app/`
+  reverse-proxy); a Blazor Server **circuit rate-limiter** for the public site is still
+  worth adding.
 - Pending medium-value WebHost tests (path/XDG, logger dedup, startup smoke, diag endpoint).
 
 **Trading**

@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+Post-1.1.0 stabilisation, focused on the WebHost / public-demo path. The chart-render
+fix is the notable one — it was **not** in the v1.1.0 binaries and warrants a 1.1.1.
+
+### Fixed
+- **WebHost chart now updates as you navigate.** The browser render path produced the
+  new chart `<img>` on a thread-pool thread (after `Task.Run(...).ConfigureAwait(false)`)
+  and then touched component state / called `StateHasChanged()` off the Blazor dispatcher,
+  which threw on every render — so the image was generated but the UI never re-rendered
+  and the chart showed stale frames. The state update is now marshalled back onto the
+  dispatcher via `InvokeAsync`, and the whole render is wrapped so a single series
+  throwing (e.g. a profile/VPVR edge case) logs and keeps the last good frame instead of
+  tearing down the SignalR circuit (which would freeze keyboard input). *(Pending 1.1.1.)*
+- **No reconnect storms on quiet feeds.** `LiveStreamManager` tracks the socket's
+  `ConnectionState`; the silence watchdog no longer reconnects a connection that is up but
+  quiet (a sparse feed, or a tier with no live data), which previously looped forever and
+  could wedge the session — only a dropped/errored connection reconnects, and the watchdog
+  stops rather than spinning once attempts are exhausted.
+- **Demo serves feedless providers from history.** `DataOrchestrator` skips the live
+  subscription in demo for providers without a feed (Twelve Data's free tier), via
+  `DemoPolicy.AllowsLiveStream`.
+- **API-required providers usable without a restart.** New
+  `DataService.ConfigureStoredKeyProvidersAsync()` configures providers straight from
+  active stored keys at startup and after a key is saved, so a key-required provider
+  clears the "API key required" sentinel immediately instead of staying stuck until the
+  app restarts. General fix, not demo-only.
+
+### Demo & release engineering (shipped in the v1.1.0 build)
+- Public-site demo hardening: correct provider name ("Twelve Data"), per-market provider
+  pinning, curated symbol fallback for empty free-tier listings, `/app/` reverse-proxy
+  support (`UsePathBase` + base href), and `MapStaticAssets` for manifest-based assets.
+- Release publish fixes: `-p:ServerPublish=true` keeps `OutputType=Exe` so
+  `blazor.web.js` stays in the published static-asset manifest, and a publish-time target
+  writes `plugins_trusted.manifest` against the published plugin DLLs.
+
+---
+
 ## [1.1.0] — 2026-06-25
 
 First feature release since 1.0. Headline themes: a complete, fully-spoken trading

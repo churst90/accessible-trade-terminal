@@ -202,12 +202,20 @@ boundary hits) work on Linux. Two candidate backends, both viable:
 - [ ] **L6 — Docs.** Update `docs/PLATFORMS.md` with Linux compat row
   and the tactile-deferred decision. File an upstream issue at
   `dotincorp/dotpad-sdk-guide` requesting Linux 3.0.0 parity.
-- [ ] **L7 — Demo deploy.** Implement the `--demo` gate so it actually
-  hides modals + disables order entry + locks the toolbar. New
-  `/demo/chart?provider=X&symbol=Y&tf=Z` route that renders only the
-  chart area. Iframe-embeddable for the marketing site. Add a
-  rate-limiter on demo circuits so a public site can't be DOSed via
-  Blazor Server connections.
+- [x] **L7 — Demo deploy.** *(Shipped 2026-06-25/26.)* Implemented as a
+  central `DemoPolicy` (`AccessibleTrader.Core/Services/DemoPolicy.cs`)
+  running the REAL shell (MainLayout) under a curated whitelist, rather than
+  a bespoke `/demo/chart` route: it pins providers/symbols/timeframes/
+  indicators, hides trading / order-book / scripts / strategies / alerts /
+  AI / api-keys / workspace / settings / sound-designer (drawing tools kept
+  on), auto-loads Bitstamp · BTC/USD · 1d, and is **enforced at the
+  `MarketOrchestrator` data boundary** (not just hidden buttons). Served
+  under `/app/` via `UsePathBase` + base href for the nginx reverse-proxy;
+  Twelve Data key seeded from `DEMO_TWELVEDATA_APIKEY` (never committed);
+  feedless providers run historical-only. A no-op when `--demo` is absent,
+  so the full app is unaffected.
+  - [ ] Still worth adding: a Blazor Server **circuit rate-limiter** on the
+    public site so it can't be DOSed via connection floods.
 - [ ] **L8 — Desktop shell.** SKIPPED per user choice (2026-05-16).
   Browser auto-launch via `xdg-open` is sufficient. Photino / Avalonia
   shells remain available as future options if the UX warrants it.

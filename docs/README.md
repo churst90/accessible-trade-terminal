@@ -9,6 +9,10 @@ The same Razor component library is hosted two ways:
 
 Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and the 26 provider/analytics plugins. Behaviour under MAUI is unchanged by the WebHost — the two host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`.
 
+## Download
+
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest: **v1.1.0**). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+
 ## Core Philosophy
 
 Traditional trading software relies on visual density. The Accessible Trading Terminal flips this paradigm, treating **Market Data as a Soundscape**. It uses spatial audio, frequency-mapped trends, and "audio textures" to allow a user to feel the market structure, volatility, and momentum without sight.
