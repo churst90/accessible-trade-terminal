@@ -95,7 +95,9 @@ namespace AccessibleTrader.Core.Services
         public string SelectedProvider
         {
             get => _selectedProvider;
-            set { _selectedProvider = value; }
+            // Demo guard: reject a non-whitelisted provider so a crafted request
+            // can't escape the curated set even if the UI is bypassed.
+            set { if (_demo.IsDemo && !_demo.IsProviderAllowed(value)) return; _selectedProvider = value; }
         }
 
         public string SelectedSubType
@@ -107,13 +109,15 @@ namespace AccessibleTrader.Core.Services
         public string SelectedSymbol
         {
             get => _selectedSymbol;
-            set { _selectedSymbol = value; _pipelineUpdated.OnNext(Unit.Default); }
+            // Demo guard: reject a symbol outside the active provider's whitelist.
+            set { if (_demo.IsDemo && !_demo.IsSymbolAllowed(_selectedProvider, value)) return; _selectedSymbol = value; _pipelineUpdated.OnNext(Unit.Default); }
         }
 
         public string SelectedTimeframe
         {
             get => _selectedTimeframe;
-            set { _selectedTimeframe = value; _pipelineUpdated.OnNext(Unit.Default); }
+            // Demo guard: reject a timeframe outside the curated set.
+            set { if (_demo.IsDemo && !_demo.IsTimeframeAllowed(value)) return; _selectedTimeframe = value; _pipelineUpdated.OnNext(Unit.Default); }
         }
 
         public IReadOnlyList<string> AvailableMarkets => _availableMarkets;
@@ -127,18 +131,23 @@ namespace AccessibleTrader.Core.Services
         private readonly IDisposable _modeSub;
         private CancellationTokenSource _tabSwitchCts = new();
 
+        // Public-demo whitelist. A no-op (everything allowed) outside demo mode.
+        private readonly DemoPolicy _demo;
+
         public MarketOrchestrator(
             IDataService dataService,
             IDataManager dataManager,
             IWorkspaceStore store,
             IWorkspaceInitializer workspaceInitializer,
-            IEventBus eventBus)
+            IEventBus eventBus,
+            DemoPolicy demo)
         {
             _dataService           = dataService;
             _dataManager           = dataManager;
             _store                 = store;
             _workspaceInitializer  = workspaceInitializer;
             _eventBus              = eventBus;
+            _demo                  = demo;
             _stateMachine          = new MarketStateMachine();
 
             // When the user switches to a tab that already has a chart loaded, refresh its data
@@ -286,6 +295,11 @@ namespace AccessibleTrader.Core.Services
                     break;
             }
 
+            // Demo whitelist: keep only the curated providers so every Available*-driven
+            // UI is restricted automatically and the fixup below lands on an allowed one.
+            if (_demo.IsDemo)
+                _availableProviders = _demo.FilterProviders(_availableProviders).ToList();
+
             if (string.IsNullOrEmpty(_selectedProvider) || !_availableProviders.Contains(_selectedProvider))
                 _selectedProvider = _availableProviders.FirstOrDefault() ?? "";
 
@@ -352,6 +366,17 @@ namespace AccessibleTrader.Core.Services
 
             if (_availableTimeframes.Count == 0)
                 _availableTimeframes = new List<string> { "1m", "5m", "15m", "1h", "4h", "1d" };
+
+            // Demo whitelist: restrict symbols to the curated set and force the two
+            // demo timeframes, so the fixups below land on allowed values and no
+            // other symbol/timeframe is reachable from the UI.
+            if (_demo.IsDemo)
+            {
+                _availableSymbols = _demo.FilterSymbols(_selectedProvider, _availableSymbols).ToList();
+                _availableTimeframes = _demo.AllowedTimeframes.ToList();
+                if (!_demo.IsTimeframeAllowed(_selectedTimeframe))
+                    _selectedTimeframe = _demo.DefaultTimeframe;
+            }
 
             if (string.IsNullOrEmpty(_selectedSymbol)
                 || _selectedSymbol == ApiKeyRequiredSentinel

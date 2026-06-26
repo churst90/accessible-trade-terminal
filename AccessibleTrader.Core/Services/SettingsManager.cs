@@ -23,10 +23,13 @@ namespace AccessibleTrader.Core.Services
         private readonly string _filepath;
         private readonly ILogger<SettingsManager> _logger;
         private JObject _settings;
+        // Optional so the direct-construction tests still compile; null = full app.
+        private readonly DemoPolicy? _demo;
 
-        public SettingsManager(IPlatformPathService pathService, ILogger<SettingsManager> logger)
+        public SettingsManager(IPlatformPathService pathService, ILogger<SettingsManager> logger, DemoPolicy? demo = null)
         {
             _logger = logger;
+            _demo = demo;
             _filepath = Path.Combine(pathService.AppDataDirectory, "settings.json");
             _settings = LoadSettings();
         }
@@ -165,6 +168,9 @@ namespace AccessibleTrader.Core.Services
 
         public void SaveSettings()
         {
+            // In the public demo, never write settings.json — visitors share one
+            // server process and must not clobber each other's (or the host's) state.
+            if (_demo is { AllowSettingsPersist: false }) return;
             try
             {
                 AtomicFile.WriteAllText(_filepath, JsonConvert.SerializeObject(_settings, Formatting.Indented));

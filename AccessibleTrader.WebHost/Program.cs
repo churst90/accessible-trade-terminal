@@ -31,6 +31,9 @@ builder.Services.AddDataProtection()
 builder.Services.AddAccessibleTraderWebHostServices();
 
 builder.Services.AddSingleton(new WebHostDemoMode(demoMode));
+// Central public-demo policy (provider/symbol/timeframe/indicator whitelist + feature
+// gates). A no-op when demoMode is false, so the WebHost is unaffected outside --demo.
+builder.Services.AddSingleton(new DemoPolicy(demoMode));
 
 var app = builder.Build();
 
@@ -109,6 +112,34 @@ if (autoLaunch)
         var url = addresses?.FirstOrDefault() ?? "http://localhost:5000";
         OpenBrowser(url);
     });
+}
+
+// Demo stocks: seed the Twelve Data key from an environment variable so the demo can
+// chart AAPL/TSLA/NVDA/SPY/EUR-USD without the key ever landing in source control.
+// Crypto (Bitstamp) needs no key. The whitelist + caching keep us inside the free tier.
+if (demoMode)
+{
+    var tdKey = Environment.GetEnvironmentVariable("DEMO_TWELVEDATA_APIKEY");
+    if (!string.IsNullOrWhiteSpace(tdKey))
+    {
+        try
+        {
+            var apiKeys = app.Services.GetRequiredService<IApiKeyService>();
+            await apiKeys.SaveKeyAsync(new ApiKeyConfig(
+                Provider:    "TwelveData",
+                Nickname:    "demo",
+                ApiKey:      tdKey,
+                ApiSecret:   "",
+                Passphrase:  "",
+                MarketType:  "Stock",
+                Environment: "Live",
+                IsActive:    true));
+        }
+        catch (Exception ex)
+        {
+            app.Services.GetService<ILogger<Program>>()?.LogWarning(ex, "Demo Twelve Data key seed failed.");
+        }
+    }
 }
 
 app.Run();

@@ -194,6 +194,10 @@ namespace AccessibleTrader.BlazorClient
             // Plugin loader discovers provider assemblies from the Plugins/ directory.
             services.AddSingleton<IPluginLoaderService, PluginLoaderService>();
 
+            // Public-demo policy — always a no-op in the MAUI/desktop heads, but
+            // registered so components and MarketOrchestrator can always @inject it.
+            services.AddSingleton(new DemoPolicy(isDemo: false));
+
             // Market / symbol / timeframe selection cascade.
             services.AddSingleton<IMarketOrchestrator, MarketOrchestrator>();
             services.AddSingleton<IProfileService, ProfileService>();
