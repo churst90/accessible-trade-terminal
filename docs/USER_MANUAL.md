@@ -36,8 +36,9 @@ feature and understand what it is doing.
 6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
 7. [Automation](#automation) — alerts, strategies, custom scripts
 8. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
-9. [Platform Support](#platform-support) — per-OS notes and the web-host modifier remap
-10. [Glossary](#glossary)
+9. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
+10. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
+11. [Glossary](#glossary)
 
 ---
 
@@ -998,6 +999,67 @@ shortcut from that whole layout the next time you sit down.
 
 ---
 
+## The Tactile Display
+
+Alongside speech and sound, Accessible Trader can drive a **refreshable tactile
+graphics display** — a pad of pins that rise and fall so you can read the shape of the
+chart with your fingers. The supported device is the **Dot Pad (second generation)**: a
+grid of thirty by ten graphic cells — sixty by forty individual pins — with a separate
+twenty-cell braille text strip beneath it. Tactile output does not replace the speech
+and the soundscape; it is a third layer you read at the same time, and it is the one
+that gives you the chart's *form* directly under your hand rather than as pitch over
+time.
+
+Tactile support is a Windows feature today, because the device's graphics need the
+vendor's Windows driver; the Linux web host can't drive the pins yet (the vendor's
+Linux library has no graphics support — see the project docs for the current state).
+
+### Turning it on
+
+Tactile output is off until you ask for it. Open Settings with F12 and, on the General
+tab, tick **"Enable braille / tactile display output."** With it on, the terminal looks
+for a connected Dot Pad as it starts, and keeps watching while it runs — so you can plug
+the display in at any time and hear it announce itself, "Dot Pad connected," and unplug
+it to hear "Dot Pad disconnected." Turning the setting back off stops all of this and
+skips device detection entirely. The toggle is deliberately opt-in: looking for the
+display means probing serial ports, which is the sort of thing you only want happening
+when you actually have one.
+
+### Reading the chart by touch
+
+When a chart is loaded the pad shows it as two stacked panes — the focused series and
+the one above it in the cycle — with candles drawn as a body, a wick, and a gap so the
+bars are distinct under your fingers, and indicators drawn as the line, oscillator, or
+markers their type calls for. Beneath the graphic, the twenty-cell strip carries the
+live value of wherever your cursor is, switching for about a second and a half to the
+bar's timestamp each time you move with the left or right arrow before falling back to
+the value.
+
+The graphic redraws when you *navigate* — change focus, switch panes, zoom, pan — but
+deliberately **not** on every live tick. Each tactile frame takes a second or two of
+physical pin movement, faster than ticks arrive, so redrawing on every tick would leave
+the pad permanently in motion and unreadable. The stable graphic stays put under your
+hand while the fast-moving live value rides on the strip, which is the right surface for
+it. Before any chart is loaded the pad reads "accessible trade terminal ready" and the
+strip "no chart loaded…".
+
+### The device keys
+
+The Dot Pad's own four function keys and its panning keys are wired into the terminal so
+you can keep both hands on the pad. **F1** speaks the focused series — "candles" for the
+price pane, or the indicator's name. **F2** speaks the focused component within it.
+**F3** speaks the chart's identity — symbol, timeframe, and provider. **F4** freezes the
+graphic so you can study a frame without it redrawing under you, and frees it again on a
+second press; the strip keeps updating either way. The display's **pan** keys scroll the
+chart left and right exactly as the `[` and `]` keys do. Each of the function-key
+answers is also written to the braille strip, so you can read what F1 to F3 reported as
+well as hear it.
+
+Setting up the hardware itself — installing the Dot Pad SDK, the supported connection,
+and calibration — is covered in the project's platform documentation rather than here.
+
+---
+
 ## Platform Support
 
 Accessible Trader runs two ways: as a native desktop and mobile app on Windows,
@@ -1020,6 +1082,26 @@ the web host.
 - **Linux (web host, in a browser)** — works with Orca and other browser-compatible
   screen readers, with audio routed to your system through PipeWire or PulseAudio (or,
   on a remote/demo deployment, streamed to the browser).
+
+### Which version to use
+
+The native app and the web host are not rivals so much as two doors into the same
+terminal, and which one you want is mostly decided by your operating system. **On
+Windows and macOS, use the native app** — it gives you the deepest integration: the
+lowest-latency native audio, a chart that redraws at full speed, and your credentials
+held in the operating system's own keychain. **On Linux, use the web host** — there is
+no native Linux build, and the web host is an excellent first-class client, speaking
+through Orca and playing through PipeWire or PulseAudio; it is also what powers the
+public chart demo on the website. And **on a phone or tablet, the native app is the only
+option** — there is no way to put the web host in your pocket.
+
+Two capabilities tip the balance toward the native Windows app in particular. The
+**tactile display** described in the previous chapter is Windows-only, so a Dot Pad user
+wants that build. And the safety sandbox for custom scripts is fullest on the native
+desktop platforms. Everything else — every chart, indicator, drawing tool, alert,
+strategy, trade, and the whole Hybrid Voice model — works the same on both, so if you
+move between a Windows desktop and a Linux laptop you are using the same terminal in both
+places, with only the plumbing underneath and the one block of shortcuts below changing.
 
 ### The web host modifier remap
 
@@ -1060,10 +1142,143 @@ per platform.
 
 ## Glossary
 
-A full glossary of trading terms — stop-loss, take-profit, trailing stop, support and
-resistance, overbought and oversold, Point of Control, value area, and the rest — is
-planned for a future revision of this manual. Until it lands, each term is explained
-briefly at the point it first matters in the chapters above, and this manual assumes
-the core trading vocabulary throughout. If you are newer to the markets themselves
-(as opposed to this software), the trading-fundamentals material noted in the project
-roadmap will be the place to start once it is written.
+Brief definitions of the terms used throughout this manual, in alphabetical order. They
+are deliberately short — enough to keep you moving if a word in a chapter was unfamiliar,
+not a substitute for a course in the markets themselves.
+
+**Anchored VWAP.** A VWAP (see *VWAP*) calculated forward from one bar you choose, rather
+than from the start of the session.
+
+**Ask.** The lowest price a seller is currently willing to accept. The counterpart to the
+*bid*; the gap between them is the *spread*.
+
+**Bar / Candle.** One unit of the chart, summarising price over one *timeframe* by its
+open, high, low, and close (see *OHLC*). "Candle" refers to the common visual form of a
+bar.
+
+**Bid.** The highest price a buyer is currently willing to pay. The counterpart to the
+*ask*.
+
+**Bracket / OCO.** A pair of protective orders attached to a position — a *stop-loss* and
+a *take-profit* — where filling one cancels the other ("one cancels the other").
+
+**Crossover.** The moment one line passes through another — for example a fast moving
+average crossing a slow one, or an oscillator crossing its zero or signal line. Often
+read as a momentum signal.
+
+**Cross / Isolated margin.** Two ways an exchange backs a leveraged position. Cross
+margin shares your whole balance as collateral across positions; isolated margin ring-
+fences a set amount to one position, capping what a single trade can lose.
+
+**Divergence.** When price and an indicator disagree — price making a higher high while
+the indicator makes a lower high, or vice versa — often read as weakening momentum.
+
+**Earcon.** A short, distinct sound used as an event signal — a modal opening, an alert
+firing, a boundary reached — as opposed to the continuous sonification of values.
+
+**Fibonacci retracement / extension.** Horizontal levels placed at standard ratios
+(23.6%, 38.2%, 50%, 61.8%, 78.6%) of a price move, used to anticipate where a pullback
+might pause (retracement) or where a continuation might reach (extension).
+
+**Fill.** An execution of an order, in whole or in part. A "partial fill" completes only
+some of the requested quantity.
+
+**Heatmap.** An overlay that shades each bar by relative volume so you can see — and, in
+playback, hear — where trading was most active.
+
+**Heikin-Ashi.** A smoothed candlestick formula that averages price to reduce noise and
+make trends easier to follow.
+
+**Hybrid Voice.** This terminal's core model: your screen reader speaks exact values
+while the built-in engine sonifies the shape of the market, the two heard together.
+
+**Leverage.** Trading a position larger than your cash by borrowing from the exchange,
+expressed as a multiple (e.g. 10×). It magnifies both gains and losses and introduces a
+*liquidation* price.
+
+**Limit order.** An order to buy or sell at a specified price or better, rather than at
+whatever the market currently offers (compare *market order*).
+
+**Liquidation.** The exchange's forced closure of a leveraged position when losses
+threaten the borrowed funds — the price at which this happens is the liquidation price.
+
+**Log scale.** A price axis where equal vertical distance means equal *percentage* move,
+useful over long histories where price has changed by large multiples.
+
+**Long / Short.** A long position profits when price rises; a short position profits when
+price falls. In hedge mode an account can hold both sides at once — the *position side*.
+
+**Market order.** An order to buy or sell immediately at the best available price
+(compare *limit order*).
+
+**Moving average.** The average price over a number of recent bars, redrawn each bar — a
+smoothed line used to read trend direction and as a dynamic support/resistance level.
+
+**OHLC.** The four prices that define a bar: Open (first trade), High, Low, and Close
+(last trade) of the period.
+
+**Oscillator.** An indicator that moves around a centre line (such as RSI or MACD),
+measuring momentum or the speed of price change rather than price itself.
+
+**Overbought / Oversold.** Zones at the extremes of an oscillator suggesting price may
+have risen (overbought) or fallen (oversold) faster than is sustainable. Not by
+themselves a signal to act.
+
+**Paper trading.** A simulated mode that fills orders against the live price with
+imaginary money, so you can rehearse the whole workflow without risk.
+
+**Point of Control (POC).** In a volume profile, the price level that saw the most
+trading volume.
+
+**Position.** An open holding in a market — long or short — with a size, an entry price,
+and a running *unrealized* profit or loss until it is closed.
+
+**Post-only / Maker.** An order that will only rest in the book (adding liquidity, paying
+the lower "maker" fee) and is cancelled rather than executed if it would fill
+immediately.
+
+**Realized / Unrealized P&L.** Profit or loss that has been locked in by closing
+(realized) versus the running figure on a position still open (unrealized).
+
+**Reduce-only.** An order flag that can only shrink or close an existing position, never
+open or enlarge one — a guard against accidentally flipping direction.
+
+**Sonification.** Turning data into non-speech sound — here, mapping price and indicator
+values to pitch, timbre, and stereo position so you can hear the chart's shape.
+
+**Spread.** The gap between the best *bid* and the best *ask*.
+
+**Stop-loss.** A protective order that closes a position once price reaches a level
+working against you, capping the loss.
+
+**Stop / Stop-limit order.** An order that activates only once price reaches a *trigger
+price* — then submitting as a market order (stop) or a limit order at a set price
+(stop-limit).
+
+**Support / Resistance.** Price levels where falling tends to stall (support) or rising
+tends to stall (resistance), often where prior turning points or heavy volume sit.
+
+**Take-profit.** An order that closes a position once price reaches a favourable target,
+locking in the gain. A "ladder" splits this across several targets.
+
+**Time-in-force (TIF).** How long an order stays live: GTC (good-till-cancelled), IOC
+(immediate-or-cancel — fill what you can now, cancel the rest), or FOK (fill-or-kill —
+all at once or nothing).
+
+**Timeframe.** The period each bar covers — one minute, one hour, one day, and so on.
+
+**Trailing stop.** A *stop-loss* that follows price as it moves in your favour, locking in
+gains, and holds its level when price reverses — set by an amount, a percentage, or a
+callback rate.
+
+**Trigger price.** The price at which a stop, stop-limit, or trailing order becomes
+active.
+
+**Value Area.** In a volume profile, the band of price levels that together account for
+roughly 70% of traded volume.
+
+**VWAP.** Volume-Weighted Average Price — the average price over a span weighted by volume
+at each level, used as a fair-value reference (see also *Anchored VWAP*).
+
+**Volume profile.** A view of how much volume traded at each price level (rather than over
+time), highlighting the *Point of Control* and *Value Area*.
