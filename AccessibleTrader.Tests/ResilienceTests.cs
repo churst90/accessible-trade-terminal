@@ -32,7 +32,7 @@ namespace AccessibleTrader.Tests
         {
             eventBus = new SpyEventBus();
             var logger = NullLogger<DataOrchestrator>.Instance;
-            return new DataOrchestrator(fetcher, new MockLiveStreamManager(), eventBus, logger);
+            return new DataOrchestrator(fetcher, new MockLiveStreamManager(), eventBus, logger, new DemoPolicy(isDemo: false));
         }
 
         // ── 1. General network failure ────────────────────────────────────────

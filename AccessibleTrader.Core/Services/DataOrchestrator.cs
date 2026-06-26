@@ -45,6 +45,7 @@ namespace AccessibleTrader.Core.Services
         private readonly LiveStreamManager _liveStreamManager;
         private readonly IEventBus _eventBus;
         private readonly ILogger<DataOrchestrator> _logger;
+        private readonly DemoPolicy _demo;
 
         // Resilience policies scoped per provider so one flaky source doesn't
         // suspend traffic for the other 25. Built lazily on first use; stored
@@ -62,12 +63,13 @@ namespace AccessibleTrader.Core.Services
 
         public event Action<Ohlcv>? OnTickReceived;
 
-        public DataOrchestrator(HistoricalDataFetcher historicalFetcher, LiveStreamManager liveStreamManager, IEventBus eventBus, ILogger<DataOrchestrator> logger)
+        public DataOrchestrator(HistoricalDataFetcher historicalFetcher, LiveStreamManager liveStreamManager, IEventBus eventBus, ILogger<DataOrchestrator> logger, DemoPolicy demo)
         {
             _historicalFetcher = historicalFetcher;
             _liveStreamManager = liveStreamManager;
             _eventBus = eventBus;
             _logger = logger;
+            _demo = demo;
             _stateMachine = new DataStateMachine(logger, eventBus);
 
             SafeFireAndForget.Run(ProcessLiveStreamAsync, logger, "ProcessLiveStream");
@@ -202,7 +204,17 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(DataTrigger.GapFillStarted);
             // Gap fill is deferred to the DataManager pipeline.
 
-            await _liveStreamManager.StartLiveStreamAsync(market, providerName, symbol, timeframe).ConfigureAwait(false);
+            // Demo: some providers have no live feed (Twelve Data's free tier has no
+            // WebSocket), where a live subscription only loops on reconnects. Skip the
+            // live stream for those and serve the chart from history alone.
+            if (_demo.AllowsLiveStream(providerName))
+            {
+                await _liveStreamManager.StartLiveStreamAsync(market, providerName, symbol, timeframe).ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogInformation("Live stream skipped for {Provider} (demo: historical-only).", providerName);
+            }
             _stateMachine.Fire(DataTrigger.LiveStreamStarted);
         }
 

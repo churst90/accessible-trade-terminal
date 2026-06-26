@@ -52,6 +52,13 @@ namespace AccessibleTrader.Core.Services
             _        => ""
         };
 
+        /// <summary>In the demo, only Bitstamp (crypto) has a working live WebSocket feed.
+        /// Twelve Data's free tier has none, so attempting a live stream for it just loops
+        /// on reconnects and can wedge the session — treat stock/forex as historical-only.
+        /// Always true outside demo mode.</summary>
+        public bool AllowsLiveStream(string provider) =>
+            !IsDemo || string.Equals(provider, "Bitstamp", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>Symbol whitelist per provider. Compared normalised
         /// (letters+digits only, upper-case) so "BTC/USD" == "btcusd" == "BTC-USD".</summary>
         public IReadOnlyDictionary<string, string[]> AllowedSymbols { get; } =

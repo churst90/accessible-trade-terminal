@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
             var fetcher = new MockHistoricalFetcher();
             var liveManager = new MockLiveStreamManager();
             
-            using var orchestrator = new DataOrchestrator(fetcher, liveManager, eventBus, logger);
+            using var orchestrator = new DataOrchestrator(fetcher, liveManager, eventBus, logger, new DemoPolicy(isDemo: false));
 
             // Assert: Initial State
             Assert.Equal(DataState.Initializing, orchestrator.CurrentState);
@@ -66,7 +66,7 @@ namespace AccessibleTrader.Tests
             var fetcher = new MockHistoricalFetcher();
             var liveManager = new MockLiveStreamManager();
             
-            using var orchestrator = new DataOrchestrator(fetcher, liveManager, eventBus, logger);
+            using var orchestrator = new DataOrchestrator(fetcher, liveManager, eventBus, logger, new DemoPolicy(isDemo: false));
 
             // Act: Fire TickReceived while Initializing (Illegal)
             

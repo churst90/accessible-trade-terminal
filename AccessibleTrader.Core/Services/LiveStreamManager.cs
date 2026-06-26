@@ -22,6 +22,8 @@ namespace AccessibleTrader.Core.Services
 
         private IDisposable? _currentProviderSubscription;
         private IDisposable? _currentErrorSubscription;
+        private IDisposable? _currentConnStateSubscription;
+        private ConnectionState _lastConnectionState = ConnectionState.Disconnected;
         private IMarketDataProvider? _currentLiveProvider;
         private Ohlcv? _currentBucketCandle;
         private string? _currentLiveTimeframe;
@@ -110,6 +112,12 @@ namespace AccessibleTrader.Core.Services
         {
             _currentErrorSubscription?.Dispose();
             _currentProviderSubscription?.Dispose();
+            _currentConnStateSubscription?.Dispose();
+
+            // Track the socket's connection state so the watchdog can tell a *dropped*
+            // connection (worth reconnecting) from one that is up but quiet (a sparse
+            // feed, or a tier with no live stream — reconnecting that loops forever).
+            _currentConnStateSubscription = provider.ConnectionStateStream.Subscribe(s => _lastConnectionState = s);
 
             _currentErrorSubscription = provider.ErrorStream.Subscribe(err =>
             {
@@ -157,6 +165,24 @@ namespace AccessibleTrader.Core.Services
                     if (DateTime.Now - _lastTickReceived <= SilenceThreshold)
                         continue;
 
+                    // A socket that is *up but quiet* must NOT be storm-reconnected:
+                    // reconnecting a healthy-but-silent connection (a sparse feed, or a
+                    // tier with no live data such as Twelve Data's free plan) loops
+                    // forever and can wedge the session. Only a dropped/errored
+                    // connection benefits from a reconnect. If it is connected and quiet,
+                    // leave it — a real tick will reset the clock if one ever arrives.
+                    if (_lastConnectionState == ConnectionState.Connected)
+                    {
+                        if (!_fallbackAnnounced)
+                        {
+                            _logger.LogInformation(
+                                "Live stream for {Provider} is connected but quiet ({Seconds}s); leaving it as historical/sparse rather than reconnecting.",
+                                provider, SilenceThreshold.TotalSeconds);
+                            _fallbackAnnounced = true;
+                        }
+                        continue;
+                    }
+
                     if (_reconnectAttempts >= MaxReconnectAttempts)
                     {
                         if (!_fallbackAnnounced)
@@ -167,7 +193,7 @@ namespace AccessibleTrader.Core.Services
                                 ErrorSeverity.High, ErrorCategory.Provider);
                             _fallbackAnnounced = true;
                         }
-                        continue;
+                        return; // stop the watchdog — spinning on a dead feed wastes a thread
                     }
 
                     _reconnectAttempts++;
@@ -235,8 +261,10 @@ namespace AccessibleTrader.Core.Services
             _fallbackCts?.Cancel();
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
+            _currentConnStateSubscription?.Dispose();
             _currentProviderSubscription = null;
             _currentErrorSubscription = null;
+            _currentConnStateSubscription = null;
             _currentBucketCandle = null;
             await Task.CompletedTask.ConfigureAwait(false);
         }
@@ -246,6 +274,7 @@ namespace AccessibleTrader.Core.Services
             _fallbackCts?.Cancel();
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
+            _currentConnStateSubscription?.Dispose();
             if (_currentLiveProvider != null)
             {
                 try { await _currentLiveProvider.DisconnectAsync().ConfigureAwait(false); }
@@ -262,6 +291,7 @@ namespace AccessibleTrader.Core.Services
             _fallbackCts?.Cancel();
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
+            _currentConnStateSubscription?.Dispose();
             if (_currentLiveProvider != null)
             {
                 try { Task.Run(() => _currentLiveProvider.DisconnectAsync()).GetAwaiter().GetResult(); }
