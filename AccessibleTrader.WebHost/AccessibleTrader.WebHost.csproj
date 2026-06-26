@@ -169,4 +169,21 @@
       ManifestPath="$(OutDir)plugins_trusted.manifest" />
   </Target>
 
+  <!--
+    Publish-time manifest. The Build-time target above writes to OutDir, which a
+    `dotnet publish` does NOT carry into the publish output — and a self-contained
+    RID publish copies the plugin DLLs into PublishDir, so the manifest must be
+    (re)generated there against the published DLLs. Without this, the released zip
+    ships with no plugins_trusted.manifest and PluginTrustPolicy.RequireTrusted
+    refuses every plugin → "no data". Hashes the published DLLs, so the digests
+    always match what actually ships.
+  -->
+  <Target Name="GeneratePluginTrustManifestOnPublish"
+          AfterTargets="Publish"
+          Condition=" '$(PublishDir)' != '' ">
+    <HashPluginDlls
+      PluginsDir="$(PublishDir)"
+      ManifestPath="$(PublishDir)plugins_trusted.manifest" />
+  </Target>
+
 </Project>

@@ -81,11 +81,16 @@ jobs:
       - name: Publish WebHost (${{ matrix.rid }})
         shell: bash
         run: |
+          # ServerPublish=true keeps OutputType=Exe (not WinExe) on win-x64. WinExe
+          # drops _framework/blazor.web.js + the scoped-CSS bundle from the published
+          # static-asset manifest, so the Blazor circuit never boots ("no data
+          # loaded"). The server/headless artifact doesn't need the windowed binary.
           dotnet publish AccessibleTrader.WebHost/AccessibleTrader.WebHost.csproj \
             --configuration Release \
             --runtime ${{ matrix.rid }} \
             --self-contained true \
             -p:Version=${{ needs.meta.outputs.version }} \
+            -p:ServerPublish=true \
             -p:PublishSingleFile=false \
             -p:PublishTrimmed=false \
             --output "publish/${{ matrix.rid }}"
