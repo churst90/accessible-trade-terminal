@@ -73,13 +73,10 @@ namespace AccessibleTrader.Core.Services
         public bool AllowSettingsPersist  => !IsDemo;   // demo never writes settings.json
         public bool AllowOrderBook        => !IsDemo;
 
-        // Per Cody's demo decisions (2026-06-25):
-        //  - Settings modal hidden in demo (so its toggles can't confuse the taste).
-        //  - Sound Designer held back as a download incentive.
-        //  - Drawing tools kept ON for a richer taste.
-        public bool AllowSettingsModal    => !IsDemo;   // hide the Settings modal in demo
-        public bool AllowSoundDesigner    => !IsDemo;   // hold the Sound Designer for the download
+        // Kept ON in demo (the differentiators): chart, sonification, keyboard nav,
+        // zoom, narration, the curated indicator subset, drawing tools, help.
         public bool AllowDrawingTools     => true;      // a taste of drawing
+        public bool AllowSoundDesigner    => true;      // let them shape the sonification
 
         // ── Helpers (all permissive when !IsDemo) ────────────────────────────
 

@@ -37,25 +37,12 @@ builder.Services.AddSingleton(new DemoPolicy(demoMode));
 
 var app = builder.Build();
 
-// In --demo mode the app is reverse-proxied behind nginx under the /app/ subpath
-// on the public marketing site (trade.codyhurst.com/app/). UsePathBase aligns every
-// route, static asset, and the /_blazor SignalR endpoint with the base href set in
-// App.razor. Must run first in the pipeline. (Deploy-only; kept local to this host.)
-if (demoMode)
-{
-    app.UsePathBase("/app");
-}
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
-// MapStaticAssets (not UseStaticFiles) serves the manifest-based asset endpoints —
-// including _framework/blazor.web.js and the RCL's content-fingerprinted scoped-CSS
-// bundle. UseStaticFiles only serves physical filenames, so those 404 in a published
-// build and the Blazor circuit never boots ("no data loaded"). (Deploy-only fix.)
-app.MapStaticAssets();
+app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
@@ -106,28 +93,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
             // is fully populated.
             var shortcuts = app.Services.GetRequiredService<IShortcutManager>();
             WebHostShortcutRemap.ApplyBrowserHostOverrides(shortcuts, log);
-
-            // Demo: the curated stock/forex provider (Twelve Data) requires an API
-            // key. Provider configuration is lazy (first data fetch), but
-            // RefreshSymbolsAsync gates on IsConfigured *before* that fetch — so
-            // without a warm-up the provider shows the "API key required" sentinel
-            // and no symbols. Warm it here, AFTER init (providers are loaded and the
-            // seeded key is in the store), so it is configured and its symbol lists
-            // are cached before any visitor selects Stocks/Forex.
-            if (demoMode)
-            {
-                try
-                {
-                    var data = app.Services.GetRequiredService<IDataService>();
-                    await data.LoadSymbolsAsync("Stock", "TwelveData").ConfigureAwait(false);
-                    await data.LoadSymbolsAsync("Forex", "TwelveData").ConfigureAwait(false);
-                    log.LogInformation("Demo: Twelve Data provider warmed (Stock + Forex).");
-                }
-                catch (Exception ex)
-                {
-                    log.LogWarning(ex, "Demo: Twelve Data warm-up failed.");
-                }
-            }
         }
         catch (Exception ex)
         {
@@ -166,10 +131,7 @@ if (demoMode)
                 ApiKey:      tdKey,
                 ApiSecret:   "",
                 Passphrase:  "",
-                // "Spot" — the sub-type the symbol/data path looks the key up by
-                // (GetKeyForProviderAsync matches on MarketType==subType, default
-                // "Spot"). Seeding "Stock" here would never match → unconfigured.
-                MarketType:  "Spot",
+                MarketType:  "Stock",
                 Environment: "Live",
                 IsActive:    true));
         }

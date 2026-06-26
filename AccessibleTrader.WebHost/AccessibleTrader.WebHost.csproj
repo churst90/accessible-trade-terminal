@@ -24,12 +24,8 @@
          shipped binary doesn't pop a black console window when the user double-
          clicks it; the app opens the browser itself. Debug stays a console app
          so logs are visible during development. WinExe is a no-op on Linux/macOS
-         (no Windows console subsystem).
-         EXCEPTION: a Linux server/demo publish (-p:ServerPublish=true) must stay a
-         plain Exe — WinExe drops _framework/blazor.web.js and the RCL scoped-CSS
-         bundle from the published static-asset manifest, so the Blazor circuit
-         never boots ("no data loaded"). Deploy-only; not used by the desktop heads. -->
-    <OutputType Condition="'$(Configuration)' == 'Release' And '$(ServerPublish)' != 'true'">WinExe</OutputType>
+         (no Windows console subsystem). -->
+    <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>

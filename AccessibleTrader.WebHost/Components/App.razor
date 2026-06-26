@@ -8,16 +8,12 @@
     when the RCL is referenced as a ProjectReference. Without that link,
     component-scoped styles (anything in a *.razor.css) won't apply.
 *@
-@inject AccessibleTrader.Core.Services.DemoPolicy Demo
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    @* In --demo mode the app is reverse-proxied under /app/ on the public site,
-       so the base href (and therefore every relative asset + the /_blazor
-       SignalR endpoint) must live under that prefix. At root otherwise. *@
-    <base href="@(Demo.IsDemo ? "/app/" : "/")" />
+    <base href="/" />
     <title>Accessible Trade Terminal</title>
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css" />
