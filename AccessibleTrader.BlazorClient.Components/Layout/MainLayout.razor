@@ -32,6 +32,7 @@
    caller, leaving early alerts undelivered to SMTP / Telegram channels. *@
 @inject AccessibleTrader.Core.Services.Alerts.AlertDeliveryService _alertDelivery
 @inject ILogger<MainLayout> _layoutLogger
+@inject DemoPolicy Demo
 
 <div class="app-container">
 
@@ -59,24 +60,26 @@
 
     @* ── Modals ── All modals subscribe to their own OpenXxxEvent on the EventBus.
        They are rendered here (outside <main>) so they overlay the entire viewport. *@
+    @* Always available (even in the public demo): chart tooling + read-only views. *@
     <AddIndicatorModal />
-    <SettingsModal />
     <ObjectTreeModal />
     <PropertiesModal />
-    <TradingDashboardModal />
-    <OrderBookModal />
-    <ApiKeysModal />
     <HelpModal />
-    <StrategyModal />
-    <DrawingToolsModal />
     <DrawingContextMenu />
-    <AlertsModal />
-    <CustomScriptsModal />
-    <SoundDesignerModal />
-    <AIAnalystModal />
-    <SaveWorkspaceModal />
-    <LoadWorkspaceModal />
     <JournalModal />
+    @if (Demo.AllowDrawingTools)     { <DrawingToolsModal /> }
+
+    @* Gated in the public demo (download incentives / shared-server safety). *@
+    @if (Demo.AllowSettingsModal)    { <SettingsModal /> }
+    @if (Demo.AllowSoundDesigner)    { <SoundDesignerModal /> }
+    @if (Demo.AllowTrading)          { <TradingDashboardModal /> }
+    @if (Demo.AllowOrderBook)        { <OrderBookModal /> }
+    @if (Demo.AllowApiKeysModal)     { <ApiKeysModal /> }
+    @if (Demo.AllowStrategies)       { <StrategyModal /> }
+    @if (Demo.AllowAlerts)           { <AlertsModal /> }
+    @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }
+    @if (Demo.AllowAiAnalyst)        { <AIAnalystModal /> }
+    @if (Demo.AllowWorkspaceSaveLoad) { <SaveWorkspaceModal /> <LoadWorkspaceModal /> }
 
     @* ARIA LIVE DOUBLE BUFFER:
        Two assertive regions swap on each speech call so that identical strings are

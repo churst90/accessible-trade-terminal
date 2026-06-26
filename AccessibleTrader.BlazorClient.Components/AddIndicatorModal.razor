@@ -3,6 +3,7 @@
 @using AccessibleTrader.Sdk.Models
 @implements IDisposable
 @inject IIndicatorService IndicatorService
+@inject DemoPolicy Demo
 @inject ISeriesManagementService SeriesManager
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
@@ -106,7 +107,10 @@
         // IndicatorService.GetAvailableIndicators() includes VPVR, VPFR, and TPO from
         // ProfileIndicatorProvider (registered under "Volume Profile" category).
         // Do NOT add synthetic duplicates here — use the registry as the sole source of truth.
-        _allIndicators = IndicatorService.GetAvailableIndicators().ToList();
+        // In the public demo the list is narrowed to the curated indicator codes.
+        _allIndicators = IndicatorService.GetAvailableIndicators()
+            .Where(i => Demo.IsIndicatorAllowed(i.Code))
+            .ToList();
 
         _categories = _allIndicators.Select(i => i.Category).Distinct().OrderBy(c => c).ToList();
         _filteredIndicators = _allIndicators;
