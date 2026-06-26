@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.1.1] — 2026-06-26
 
-Post-1.1.0 stabilisation, focused on the WebHost / public-demo path. The chart-render
-fix is the notable one — it was **not** in the v1.1.0 binaries and warrants a 1.1.1.
+Patch release: WebHost / public-demo stabilisation. The headline is the chart-render
+fix — the WebHost chart did not update on navigation in v1.1.0; this corrects it.
 
 ### Fixed
 - **WebHost chart now updates as you navigate.** The browser render path produced the
@@ -17,7 +17,7 @@ fix is the notable one — it was **not** in the v1.1.0 binaries and warrants a 
   and the chart showed stale frames. The state update is now marshalled back onto the
   dispatcher via `InvokeAsync`, and the whole render is wrapped so a single series
   throwing (e.g. a profile/VPVR edge case) logs and keeps the last good frame instead of
-  tearing down the SignalR circuit (which would freeze keyboard input). *(Pending 1.1.1.)*
+  tearing down the SignalR circuit (which would freeze keyboard input). *(Was broken in v1.1.0.)*
 - **No reconnect storms on quiet feeds.** `LiveStreamManager` tracks the socket's
   `ConnectionState`; the silence watchdog no longer reconnects a connection that is up but
   quiet (a sparse feed, or a tier with no live data), which previously looped forever and
