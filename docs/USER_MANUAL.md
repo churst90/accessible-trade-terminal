@@ -844,23 +844,105 @@ the rules, not a promise.
 
 ### Custom scripts
 
-Press Alt+Comma for the custom scripts panel, where you bring your own indicator
-logic. You can write or paste C# directly into the code editor, **import** a packaged
-`.atpkg` script from a file or pasted JSON, or **transpile** a PineScript v5 indicator
-to C# with the Transpile button (it reports "Transpiled to C# — review and compile."
-and lists any conversion warnings). Imported scripts are treated as untrusted: the
-terminal prompts "Import untrusted script '{name}'? … It will be sandboxed, but
-review the code before pressing Compile." so you always get a chance to read foreign
-code first.
+When the built-in indicator set doesn't have the one you want, you can write your own.
+Press Alt+Comma for the **Custom Scripts** panel. If you can write a little C# — or you
+have a PineScript indicator from elsewhere — you can add an indicator that behaves, and
+*sounds*, like any of the built-ins. This section walks through writing one from
+scratch; deeper authoring (multi-output indicators, full control over how each output
+is voiced, or packaging a compiled plugin) is covered in the SDK guide and
+`docs/PLUGIN_AUTHORING.md`.
 
-Activating **Compile** builds the script in a sandbox — an isolated worker process
-with no file, network, or reflection access, limited to the charting and indicator
-libraries — and reports "Compiled successfully. Indicator: {name}" on success or a
-read-aloud list of errors on failure. From there "+ Add to Chart" drops your indicator
-onto the chart like any built-in, and "Export .atpkg" packages it to share. One
-platform note: custom-script compilation is **disabled on iOS**, which provides no
-process sandbox for running untrusted code — use the Windows or macOS build for
-scripting. The full sandbox design is documented in `docs/SANDBOX_DESIGN.md`.
+**What a custom indicator is.** Under the hood every indicator is a small class that
+takes the price history and returns one or more arrays of numbers — one number per bar,
+per line it draws. Your script implements a contract called `ICustomIndicator`, which
+is just six things: an `Id` (a short stable code), a `DisplayName` (what you'll hear it
+called in the indicator list), the `ComponentNames` (one name per output line), the
+`DisplayTypes` (how each line is drawn — and, importantly, how it is *heard*), a set of
+`DefaultParameters`, and a `Calculate` method that does the maths. The panel pre-fills a
+commented skeleton of exactly these members when you start a new script, so you are
+never staring at a blank page.
+
+Two of those deserve a word, because they are where accessibility lives. The
+`DisplayTypes` you choose are not only about drawing — they decide the *sound*. Declare
+a line as an `Oscillator` and the terminal voices it around its zero line, so you hear
+it cross from negative to positive without reading a number; declare it as a `Dot` or
+`Arrow` and it becomes a sparse marker you can jump between with Ctrl+Left and
+Ctrl+Right. And the `DefaultParameters` you expose show up in the indicator's Properties
+dialog (P), so you — or anyone you share the script with — can retune the period or a
+threshold later without editing code.
+
+**A worked example.** Here is a complete, working custom indicator: a Rate-of-Change
+oscillator that measures how far price has moved, as a percentage, over the last *n*
+bars.
+
+```csharp
+public class RateOfChange : ICustomIndicator
+{
+    public string Id => "ROC_CUSTOM";
+    public string DisplayName => "Rate of Change";
+
+    // One output line, drawn — and voiced — as an oscillator around zero.
+    public string[] ComponentNames => new[] { "ROC" };
+    public ComponentDisplayType[] DisplayTypes => new[] { ComponentDisplayType.Oscillator };
+
+    // Appears in the Properties dialog (P), so the period is tunable without code.
+    public Dictionary<string, double> DefaultParameters => new() { ["Period"] = 14 };
+
+    public double[][] Calculate(ReadOnlySpan<Ohlcv> data, Dictionary<string, double> p)
+    {
+        int period = (int)p["Period"];
+        var roc = new double[data.Length];
+        for (int i = 0; i < data.Length; i++)
+        {
+            // No value until there are `period` earlier bars to compare against —
+            // NaN tells the chart "nothing here yet" so warm-up bars stay silent.
+            if (i < period) { roc[i] = double.NaN; continue; }
+            double prior = data[i - period].Close;
+            roc[i] = prior == 0 ? double.NaN : (data[i].Close - prior) / prior * 100.0;
+        }
+        return new[] { roc };   // one array per component name, each the length of `data`
+    }
+}
+```
+
+A few rules the example shows: `Calculate` receives the **full history, oldest bar
+first**; it must return one array per name in `ComponentNames`, and **each array must be
+the same length as the input**; and any bar you can't compute yet — the warm-up at the
+start — should be `double.NaN`, which the terminal treats as "no value" and skips in
+both the drawing and the sound. An indicator with two lines (say a value and a signal)
+just returns two arrays and lists two `ComponentNames` and two `DisplayTypes`.
+
+**The workflow.** Press "+ New", give the script a name, and write or paste your class
+into the editor. "Save" keeps it in your library. Activating **Compile** builds it in
+the sandbox and tells you the result — "Compiled successfully. Indicator: Rate of
+Change" when it builds, or a read-aloud list of the compiler errors when it doesn't, so
+you can fix them and try again. Once it compiles, "+ Add to Chart" drops it onto the
+chart as its own pane, and from that moment it is an indicator like any other: Page Down
+to it, Up and Down through its components, set its waveform and bell in Properties (P),
+hear it in playback, and jump its signals with Ctrl+Left and Ctrl+Right. "Export .atpkg"
+packages the script to a single file you can share or back up.
+
+**Bringing in someone else's script.** The Import controls take an `.atpkg` file from
+disk or pasted JSON. Because that is code from outside, the terminal treats it as
+untrusted and asks first — "Import untrusted script '{name}'? … It will be sandboxed,
+but review the code before pressing Compile." — so you always get a chance to read what
+you're about to run. It is imported but not compiled until you choose to; read the
+source first.
+
+**From PineScript.** If you have a PineScript v5 indicator, paste it into the "Transpile
+from Pine Script v5" box and press Transpile. The terminal converts it to C# you can
+then review and Compile, reporting "Transpiled to C# — review and compile." and listing
+any conversion warnings. It handles a practical subset of Pine rather than the whole
+language, so always read the generated C# and check the warnings before relying on it.
+
+**The sandbox, and one platform limit.** Compiling and running a custom script never
+endangers the rest of the terminal: the code runs in an isolated worker process with no
+file, network, or reflection access, limited to the charting and indicator libraries,
+and on Windows, macOS, Android, and Linux that worker is additionally locked down by the
+operating system itself. The one exception is **iOS**, which provides no such sandbox, so
+custom-script compilation is disabled there — the editor still works as a text editor,
+it just can't run; use the Windows, macOS, or Linux build for scripting. The full design
+is in `docs/SANDBOX_DESIGN.md`.
 
 ---
 
