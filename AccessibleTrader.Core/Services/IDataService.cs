@@ -10,6 +10,12 @@ namespace AccessibleTrader.Core.Services
     public interface IDataService
     {
         Task InitializeAsync(IPluginLoaderService pluginLoader);
+
+        /// <summary>Configure every provider that has an active stored key, directly
+        /// from the key store, so key-required providers are usable immediately. Call
+        /// after InitializeAsync and after a key is saved. Idempotent.</summary>
+        Task ConfigureStoredKeyProvidersAsync();
+
         Task<List<string>> LoadAvailableMarketsAsync();
         Task<List<string>> LoadProvidersAsync();
         Task<List<string>> LoadProvidersByMarketTypeAsync(string marketType);

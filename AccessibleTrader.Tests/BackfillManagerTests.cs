@@ -203,6 +203,7 @@ namespace AccessibleTrader.Tests
             public Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r)
                 => Task.FromResult((_bars, new List<(long, double)>()));
             public Task InitializeAsync(IPluginLoaderService _) => Task.CompletedTask;
+            public Task ConfigureStoredKeyProvidersAsync() => Task.CompletedTask;
             public Task<List<string>> LoadAvailableMarketsAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersByMarketTypeAsync(string _) => Task.FromResult(new List<string>());
@@ -226,6 +227,7 @@ namespace AccessibleTrader.Tests
             public Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r)
                 => Task.FromResult((_factory(), new List<(long, double)>()));
             public Task InitializeAsync(IPluginLoaderService _) => Task.CompletedTask;
+            public Task ConfigureStoredKeyProvidersAsync() => Task.CompletedTask;
             public Task<List<string>> LoadAvailableMarketsAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersByMarketTypeAsync(string _) => Task.FromResult(new List<string>());

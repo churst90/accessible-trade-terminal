@@ -100,6 +100,46 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Configure every provider that has an active stored key, directly from the
+        /// key store. Provider configuration is otherwise lazy (first data fetch), but
+        /// <see cref="MarketOrchestrator"/>.RefreshSymbolsAsync gates on
+        /// <c>IsConfigured</c> *before* that fetch — so without this a key-required
+        /// provider shows the "API key required" sentinel and never self-configures.
+        /// Call once after <see cref="InitializeAsync"/>, and again after a key is saved.
+        /// Idempotent: skips providers that are already configured. Configures from the
+        /// key directly, so it is unaffected by the MarketType/sub-type lookup mismatch.
+        /// </summary>
+        public async Task ConfigureStoredKeyProvidersAsync()
+        {
+            if (!_isInitialized) return;
+
+            List<ApiKeyConfig> keys;
+            try { keys = await _apiKeyService.GetAllKeysAsync().ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Could not load stored keys for provider configuration."); return; }
+
+            foreach (var k in keys)
+            {
+                if (!k.IsActive || string.IsNullOrEmpty(k.ApiKey)) continue;
+                var provider = _providers.FirstOrDefault(p => p.Name.Equals(k.Provider, StringComparison.OrdinalIgnoreCase));
+                if (provider == null || provider.IsConfigured) continue;
+                try
+                {
+                    provider.Configure(new Dictionary<string, string>
+                    {
+                        { "ApiKey", k.ApiKey },
+                        { "ApiSecret", k.ApiSecret ?? "" },
+                        { "Passphrase", k.Passphrase ?? "" }
+                    });
+                    _logger.LogInformation("Configured provider {Provider} from stored key '{Nickname}'.", k.Provider, k.Nickname);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to configure provider {Provider} from stored key.", k.Provider);
+                }
+            }
+        }
+
         public Task<List<string>> LoadAvailableMarketsAsync()
         {
             if (!_isInitialized) return Task.FromResult(new List<string>());

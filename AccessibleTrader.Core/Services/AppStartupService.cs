@@ -45,6 +45,12 @@ namespace AccessibleTrader.Core.Services
             var pluginLoader = _services.GetRequiredService<IPluginLoaderService>();
             await dataService.InitializeAsync(pluginLoader).ConfigureAwait(false);
 
+            // Configure providers that already have an active stored key, so a
+            // key-required provider is usable the moment it is selected. (Provider
+            // configuration is otherwise lazy and gated behind the IsConfigured
+            // sentinel in RefreshSymbolsAsync, which would never clear on its own.)
+            await dataService.ConfigureStoredKeyProvidersAsync().ConfigureAwait(false);
+
             // 1b. Indicator Plugins — scan Plugins/Indicators/ for drop-in indicator DLLs.
             var indicatorService = _services.GetRequiredService<IIndicatorService>();
             indicatorService.LoadIndicatorPlugins(pluginLoader);

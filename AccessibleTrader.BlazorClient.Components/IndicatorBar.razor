@@ -2,6 +2,7 @@
 @using AccessibleTrader.Core.Services
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
+@inject DemoPolicy Demo
 
 <div class="indicator-bar" role="toolbar" aria-label="Indicator Controls">
 
@@ -43,10 +44,13 @@
                       AriaLabel="Add indicator to chart"
                       OnClick="() => EventBus.Publish(new OpenAddIndicatorEvent())" />
 
-    <ToolbarIconButton Icon="scripts" Label="Scripts" Variant="thought"
-                      Tooltip="Custom Scripts (Alt+,)"
-                      AriaLabel="Custom Scripts (Alt+Comma)"
-                      OnClick="() => EventBus.Publish(new OpenCustomScriptsEvent())" />
+    @if (Demo.AllowCustomScripts)
+    {
+        <ToolbarIconButton Icon="scripts" Label="Scripts" Variant="thought"
+                          Tooltip="Custom Scripts (Alt+,)"
+                          AriaLabel="Custom Scripts (Alt+Comma)"
+                          OnClick="() => EventBus.Publish(new OpenCustomScriptsEvent())" />
+    }
 
 </div>
 

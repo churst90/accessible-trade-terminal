@@ -102,6 +102,17 @@ namespace AccessibleTrader.Core.Services
                 k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.MarketType.Equals(marketType, StringComparison.OrdinalIgnoreCase));
 
+            // Fallback: if no profile matches this market sub-type, accept any profile
+            // for the provider (preferring an active one). MarketType is informational
+            // — the data path looks keys up by sub-type ("Spot"/"Futures"), yet the
+            // API Keys modal also offers market names ("Crypto"/"Stocks") that never
+            // equal a sub-type, so an exact-match-only lookup would strand a good key.
+            if (meta == null)
+                meta = _cache.FirstOrDefault(k =>
+                            k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) && k.IsActive)
+                    ?? _cache.FirstOrDefault(k =>
+                            k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
+
             if (meta == null) return null;
 
             string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";

@@ -266,6 +266,11 @@
                 IsActive:    false);
 
             await ApiKeyService.SaveKeyAsync(config);
+            // Configure the provider now so it is usable immediately — otherwise the
+            // symbol dropdown gates on IsConfigured before the first (lazy) data fetch
+            // that would configure it, and the provider appears stuck on the
+            // "API key required" sentinel until the app is restarted.
+            await DataService.ConfigureStoredKeyProvidersAsync();
             _keys = await ApiKeyService.GetAllKeysAsync();
 
             // Reset form
