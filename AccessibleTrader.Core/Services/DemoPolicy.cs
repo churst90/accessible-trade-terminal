@@ -31,6 +31,14 @@ namespace AccessibleTrader.Core.Services
         public IReadOnlyList<string> AllowedProviders { get; } =
             new[] { "Bitstamp", "TwelveData" };
 
+        /// <summary>Markets the demo exposes — each has a whitelisted provider with
+        /// content: Crypto (Bitstamp), Stock + Forex (TwelveData). Markets without a
+        /// whitelisted provider (OnChain, Economic, Derivatives, …) are hidden so the
+        /// market dropdown can never land on one that filters to an empty provider
+        /// list. Add "Index" here (and an index symbol below) to expose indices.</summary>
+        public IReadOnlyList<string> AllowedMarkets { get; } =
+            new[] { "Crypto", "Stock", "Forex" };
+
         /// <summary>Symbol whitelist per provider. Compared normalised
         /// (letters+digits only, upper-case) so "BTC/USD" == "btcusd" == "BTC-USD".</summary>
         public IReadOnlyDictionary<string, string[]> AllowedSymbols { get; } =
@@ -39,6 +47,23 @@ namespace AccessibleTrader.Core.Services
                 ["Bitstamp"]   = new[] { "BTC/USD", "ETH/USD" },
                 ["TwelveData"] = new[] { "AAPL", "TSLA", "NVDA", "SPY", "EUR/USD" },
             };
+
+        /// <summary>Curated symbols per market, used as the demo's symbol list directly
+        /// when a provider's symbol-LIST endpoint is empty/unavailable even though its
+        /// DATA endpoint works (Twelve Data's /stocks returns nothing on the free tier,
+        /// yet time_series charts AAPL/SPY fine). Each demo market has one provider.</summary>
+        public IReadOnlyDictionary<string, string[]> DemoSymbolsByMarket { get; } =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Crypto"] = new[] { "BTC/USD", "ETH/USD" },
+                ["Stock"]  = new[] { "AAPL", "TSLA", "NVDA", "SPY" },
+                ["Forex"]  = new[] { "EUR/USD" },
+            };
+
+        /// <summary>Curated symbols for a market (empty if not a demo market). Used as a
+        /// fallback when the provider's own symbol list is empty. Call from RefreshSymbolsAsync.</summary>
+        public IReadOnlyList<string> DemoSymbolsForMarket(string market) =>
+            DemoSymbolsByMarket.TryGetValue(market ?? "", out var s) ? s : Array.Empty<string>();
 
         /// <summary>The only two timeframes the demo exposes (rendered as buttons).</summary>
         public IReadOnlyList<string> AllowedTimeframes { get; } = new[] { "4h", "1d" };
@@ -118,6 +143,14 @@ namespace AccessibleTrader.Core.Services
         {
             if (!IsDemo) return providers;
             return providers.Where(IsProviderAllowed).ToList();
+        }
+
+        /// <summary>Intersect the discovered market list with the whitelist.
+        /// Call from MarketOrchestrator.RefreshPipelineAsync.</summary>
+        public IReadOnlyList<string> FilterMarkets(IReadOnlyList<string> markets)
+        {
+            if (!IsDemo) return markets;
+            return markets.Where(m => AllowedMarkets.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
         }
     }
 }

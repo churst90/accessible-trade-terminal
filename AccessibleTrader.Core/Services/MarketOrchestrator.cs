@@ -236,6 +236,11 @@ namespace AccessibleTrader.Core.Services
                         ? new[] { "Economic", "OnChain", "Derivatives", "Sentiment" }
                         : new[] { "Crypto", "Forex", "Stock" });
 
+                // Demo whitelist: hide markets that have no whitelisted provider, so the
+                // dropdown can never land on one that filters to an empty provider list.
+                if (_demo.IsDemo)
+                    _availableMarkets = _demo.FilterMarkets(_availableMarkets).ToList();
+
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
                     _selectedMarket = _availableMarkets[0];
 
@@ -284,10 +289,10 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "AlternativeMe");
                     break;
                 case "Stock":
-                    EnsureContains(_availableProviders, "Alpaca", "Polygon", "FMP");
+                    EnsureContains(_availableProviders, "TwelveData", "Alpaca", "Polygon", "FMP");
                     break;
                 case "Forex":
-                    EnsureContains(_availableProviders, "Alpaca", "Polygon", "FMP");
+                    EnsureContains(_availableProviders, "TwelveData", "Alpaca", "Polygon", "FMP");
                     break;
                 case "Commodity":
                 case "Index":
@@ -319,7 +324,10 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(_selectedProvider))
             {
                 _availableSymbols = new List<string>();
-                _availableTimeframes = new List<string> { "1m", "5m", "15m", "1h", "4h", "1d" };
+                // In demo, never expose the full timeframe set on a fallback path.
+                _availableTimeframes = _demo.IsDemo
+                    ? _demo.AllowedTimeframes.ToList()
+                    : new List<string> { "1m", "5m", "15m", "1h", "4h", "1d" };
                 _pipelineUpdated.OnNext(Unit.Default);
                 return;
             }
@@ -335,7 +343,9 @@ namespace AccessibleTrader.Core.Services
                 _availableSubTypes   = new List<string> { "Spot" };
                 _availableSymbols    = new List<string> { ApiKeyRequiredSentinel };
                 _selectedSymbol      = ApiKeyRequiredSentinel;
-                _availableTimeframes = new List<string> { "1h" };
+                _availableTimeframes = _demo.IsDemo
+                    ? _demo.AllowedTimeframes.ToList()
+                    : new List<string> { "1h" };
                 _pipelineUpdated.OnNext(Unit.Default);
                 return;
             }
@@ -372,7 +382,13 @@ namespace AccessibleTrader.Core.Services
             // other symbol/timeframe is reachable from the UI.
             if (_demo.IsDemo)
             {
-                _availableSymbols = _demo.FilterSymbols(_selectedProvider, _availableSymbols).ToList();
+                var curated = _demo.FilterSymbols(_selectedProvider, _availableSymbols).ToList();
+                // Fall back to the curated symbol list when the provider's symbol-list
+                // endpoint is empty (e.g. Twelve Data /stocks on the free tier). These
+                // chart fine via the data endpoint even though the listing is empty.
+                if (curated.Count == 0)
+                    curated = _demo.DemoSymbolsForMarket(_selectedMarket).ToList();
+                _availableSymbols = curated;
                 _availableTimeframes = _demo.AllowedTimeframes.ToList();
                 if (!_demo.IsTimeframeAllowed(_selectedTimeframe))
                     _selectedTimeframe = _demo.DefaultTimeframe;
