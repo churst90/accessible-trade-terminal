@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.1.0] — 2026-06-25
+
+First feature release since 1.0. Headline themes: a complete, fully-spoken trading
+ticket; a simulated paper-trading mode; the Linux WebHost as a first-class cross-platform
+head; tactile/braille controls; a hardened script sandbox; and a large documentation pass.
+The dated entries below this one record the individual changes in detail.
+
+### Trading
+- **Complete order ticket** — all order types (Market, Limit, Stop-Market, Stop-Limit,
+  Take-Profit-Market, Take-Profit-Limit) with a Trigger Price; **trailing stop and trailing
+  take-profit** (amount/percent + activation); **time-in-force** (GTC/IOC/FOK), **post-only**,
+  **reduce-only**, and **position-side** (hedge) controls; **close/flatten**; **risk-based
+  sizing**; **provider-capability gating** so only supported controls appear.
+- **Account tabs** — Balances, Positions, Orders, and a **History** tab with realized P&L
+  and fees; a **spoken pre-submit review** with Confirm/Cancel for live orders; big circular
+  green/red **BUY/SELL** buttons; labelled, screen-reader-friendly fields throughout.
+- **Spoken order events** — order placed/filled/canceled/closed, stop/take-profit hit, and
+  trailing-exit hit are announced, **including the realized profit or loss**.
+- **Paper trading mode** — an F12 Settings toggle routes every order to a simulated broker
+  that fills against the live price (trailing fully simulated, persisted), with a status-bar
+  indicator; rehearse the whole workflow with no risk.
+- **Binance** rewritten to talk to the REST/WebSocket API directly (no `CryptoExchange.Net`),
+  fixing a plugin-load clash and honouring the new ticket fields.
+- **Order-book panel** announces only significant additions/removals (opt-in, size-thresholded)
+  instead of narrating every update.
+
+### Accessibility
+- **Braille / tactile display** — an opt-in Settings toggle, startup **and** hot-plug
+  detection, and spoken "Dot Pad connected/disconnected" announcements.
+- Confirmed alert → speech delivery; richer order/fill speech.
+
+### Platform & WebHost (Linux + browser)
+- The **ASP.NET Core WebHost** brings the terminal to Linux and any browser: server-side
+  chart rendering, Orca speech over D-Bus, audio via PipeWire/PulseAudio/ALSA (with a WebAudio
+  fallback), and the drawing-tool modifier remap. **WebHost audio latency fixed.**
+- The Windows WebHost binary runs windowed (no black console window).
+- **Public website demo** — a central `DemoPolicy` runs the real interface under a
+  provider/symbol/timeframe/indicator whitelist with feature gates; a no-op outside `--demo`,
+  so the full desktop/Linux builds are unaffected.
+- MAUI in-app branded loading screen.
+
+### Security
+- **Linux script sandbox (L5)** — user-compiled indicators/strategies run under `bubblewrap`
+  (no network, read-only filesystem) on Linux, matching the Windows AppContainer / macOS
+  sandbox-exec / Android isolated-process launchers.
+
+### Documentation & licensing
+- Long-form **USER_MANUAL**, a comprehensive **SDK_GUIDE**, **PLATFORM_STRATEGY_AND_ROADMAP**,
+  the Quick Start guide, and updated README/TODO. Strategy builder labelled **Experimental**.
+- Released under **GPLv3**.
+
+### Known limitations
+- Mobile (iOS/Android) touch-gesture navigation is not yet implemented — the mobile heads
+  currently require a connected hardware keyboard.
+- Native MAUI desktop release binaries are still being stabilised; the cross-platform WebHost
+  is the recommended distribution for this release.
+
+---
+
 ## [2026-06-25] — Order ticket completion (types, trigger, close, risk sizing, trailing, TIF, flags, capability gating)
 
 ### Added

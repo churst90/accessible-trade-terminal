@@ -19,6 +19,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>AccessibleTrader.WebHost</RootNamespace>
+    <Version>1.1.0</Version>
     <!-- Release builds run as a windowed (GUI-subsystem) app on Windows so the
          shipped binary doesn't pop a black console window when the user double-
          clicks it; the app opens the browser itself. Debug stays a console app
