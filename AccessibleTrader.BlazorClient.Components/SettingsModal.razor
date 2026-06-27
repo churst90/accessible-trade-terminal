@@ -16,6 +16,7 @@
 @inject IShortcutManager ShortcutService
 @inject ISettingsManager Settings
 @inject IEnumerable<IAlertChannel> AlertChannels
+@inject DemoPolicy Demo
 @inject IPaperTradingProvider Paper
 @implements IDisposable
 
@@ -88,12 +89,18 @@
                                checked="@Store.State.AnnounceNewBars"
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
                     </div>
-                    <div class="modal-row">
-                        <label for="s-paper-trading">Paper trading mode (simulated orders)</label>
-                        <input id="s-paper-trading" type="checkbox"
-                               checked="@_paperTradingMode"
-                               @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
-                    </div>
+                    @* The paper/live toggle only makes sense where real-money trading exists
+                       (desktop / local). In the hosted + demo builds trading is paper-only, so
+                       there is nothing to toggle — hide it (paper mode is forced on elsewhere). *@
+                    @if (Demo.AllowLiveTrading)
+                    {
+                        <div class="modal-row">
+                            <label for="s-paper-trading">Paper trading mode (simulated orders)</label>
+                            <input id="s-paper-trading" type="checkbox"
+                                   checked="@_paperTradingMode"
+                                   @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
+                        </div>
+                    }
                     <div class="modal-row">
                         <label for="s-paper-reset">Paper account</label>
                         <button id="s-paper-reset" type="button" @onclick="ResetPaperAccount">Reset paper account</button>

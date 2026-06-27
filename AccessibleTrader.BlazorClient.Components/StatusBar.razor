@@ -2,6 +2,7 @@
 @using AccessibleTrader.Core.Models
 @inject IEventBus EventBus
 @inject ISettingsManager Settings
+@inject DemoPolicy Demo
 @implements IDisposable
 
 <div class="status-bar" role="status" aria-live="polite">
@@ -63,7 +64,10 @@
 
     protected override void OnInitialized()
     {
-        _paperMode = Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
+        // Hosted/demo builds are paper-only, so the indicator is always on there; elsewhere it
+        // follows the saved setting.
+        _paperMode = !Demo.AllowLiveTrading
+            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
 
         _eventSub = EventBus.Subscribe<FeedbackRequestEvent>(ev => {
             if (!string.IsNullOrEmpty(ev.Message))
