@@ -230,10 +230,21 @@ boundary hits) work on Linux. Two candidate backends, both viable:
   Firefox shortcut remap per circuit; `AppStartupService` init is idempotent.
   MAUI head untouched (stays single-user/Singleton). Full design + phase log in
   `docs/WEBHOST_MULTI_USER_SCOPING.md`.
-  - [ ] **Follow-ups:** a Blazor Server **circuit rate-limiter** for the public
-    site (DoS guard), and a possible **shared connection pool** keyed by symbol
-    (per-visitor upstream connections are intentional for now; nginx caps the
-    demo at 12 concurrent).
+  - [x] Blazor Server **circuit/IP rate-limiter** for the public site — shipped in the
+    hosted terminal (200 req/10 s per IP + nginx `limit_conn`).
+  - [ ] **Shared connection pool** keyed by symbol (per-visitor upstream connections are
+    intentional for now; nginx caps the demo at 12 concurrent).
+- [x] **L10 — Hosted accounts terminal.** *(Shipped v1.3.0, 2026-06-27.)* Self-hosted
+  ASP.NET Core Identity (`--accounts`) + per-user persistence (`UserScopedPathService`),
+  three-tier `DemoPolicy.HostMode` (Full/Demo/Hosted — hosted = full app minus desktop-only
+  scripts/real-trading/keys/AI), production hardening (DataProtection key persistence,
+  per-IP rate limiter, forwarded headers, `/terminal` path base, secure cookie, owner-seed).
+  Accessible Razor-Pages login/register/logout. Full design in
+  `docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md` + `HOSTED_ACCOUNTS_STRATEGY.md`; deploy in
+  `docs/SERVER_SETUP.md`.
+  - [ ] **Follow-ups:** transactional **email** (confirmation + password reset); tier
+    gating of premium indicators by `AppUser.Tier`; move the shared market-data key under
+    the data root; the shared symbol-keyed cache pool (above).
 
 ### Cosmetic + known issues
 

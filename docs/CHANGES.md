@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.0] — 2026-06-27
+
+**Hosted accounts.** The multi-user WebHost can now run as a logged-in, paper-trading
+education terminal — the foundation laid in 1.2.0 turned into a real product. New, fully
+**opt-in** (off by default behind `--accounts` / `Accounts:Enabled`), so the local,
+`--demo`, and desktop/MAUI modes are unchanged.
+
+### Added
+- **Accounts + per-user persistence** (`--accounts`). Self-hosted ASP.NET Core Identity
+  (email + password, accessible Razor-Pages login/register/logout); each visitor gets an
+  isolated session, and their settings, workspaces, **sound design**, paper-trading record,
+  and journal persist per-user under the data root — while the OHLCV cache stays shared.
+  The "route, don't rewrite" design (`UserScopedPathService` swaps `AppDataDirectory`
+  per-user) makes the existing file-based services per-user with no rewrites.
+- **Three-tier feature policy** (`DemoPolicy.HostMode`: Full / Demo / Hosted). The hosted
+  terminal is the **full app minus the desktop-only differentiators** — custom scripts,
+  real-money trading, broker API keys, and the AI analyst are desktop-only; paper trading,
+  all indicators/markets, the sound designer, settings, workspaces, alerts, strategies, and
+  the order book are on. Real money stays on the desktop with the user's own keys.
+- **Production hardening** (hosted mode): DataProtection key ring persisted to disk (cookies
+  survive restarts), a per-IP fixed-window rate limiter (200 req/10 s), `UseForwardedHeaders`
+  (correct HTTPS scheme + client IP behind nginx), `UsePathBase /terminal` with a matching
+  base href, `Secure`/`HttpOnly`/`SameSite=Lax` 14-day sliding auth cookie, and an optional
+  owner-seed account from `ACCOUNTS_SEED_EMAIL`/`PASSWORD`.
+- **Browser tab title** now reflects the loaded chart — `"{symbol} {timeframe} {exchange}:
+  Accessible Trade Terminal"` — updating reactively. (Web host; the MAUI window title is
+  unchanged.)
+- **`docs/SERVER_SETUP.md`** — build/publish, the three run modes, env vars, systemd, nginx,
+  data layout, and the security checklist.
+- **Tests:** the multi-user scoping guards (`WebHostServiceLifetimeTests`,
+  `PluginLoaderServiceTests`), per-user path routing (`UserScopedPathServiceTests`), and the
+  public-demo whitelist (`DemoPolicyTests`).
+
+### Known limitations
+- No transactional email yet → no email confirmation / self-service password reset.
+- Per-user OHLCV cache (a shared symbol-keyed pool is the documented optimisation).
+
+---
+
 ## [1.2.0] — 2026-06-26
 
 **Multi-user WebHost.** The browser/Linux head is now a genuine multi-user web app:
