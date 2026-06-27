@@ -20,18 +20,41 @@ namespace AccessibleTrader.Core.Services
 
     public class SettingsManager : ISettingsManager
     {
-        private readonly string _filepath;
+        private readonly IPlatformPathService _pathService;
         private readonly ILogger<SettingsManager> _logger;
-        private JObject _settings;
         // Optional so the direct-construction tests still compile; null = full app.
         private readonly DemoPolicy? _demo;
 
+        // Loaded lazily on first access (not in the ctor) so that, on the multi-user
+        // WebHost, AppDataDirectory resolves to the authenticated user's directory — set
+        // per circuit *after* this service is constructed — rather than whatever the path
+        // service pointed at during construction. Harmless on the single-user heads, where
+        // AppDataDirectory is fixed.
+        private readonly object _initLock = new();
+        private JObject? _settings;
+        private string? _filepath;
+
         public SettingsManager(IPlatformPathService pathService, ILogger<SettingsManager> logger, DemoPolicy? demo = null)
         {
+            _pathService = pathService;
             _logger = logger;
             _demo = demo;
-            _filepath = Path.Combine(pathService.AppDataDirectory, "settings.json");
-            _settings = LoadSettings();
+        }
+
+        /// <summary>The settings document, loaded (and its file path resolved) on first access.</summary>
+        private JObject Settings
+        {
+            get
+            {
+                if (_settings != null) return _settings;
+                lock (_initLock)
+                {
+                    if (_settings != null) return _settings;
+                    _filepath = Path.Combine(_pathService.AppDataDirectory, "settings.json");
+                    _settings = LoadSettings();
+                    return _settings;
+                }
+            }
         }
 
         private JObject LoadSettings()
@@ -64,7 +87,7 @@ namespace AccessibleTrader.Core.Services
         public JToken? GetSetting(string keyPath, JToken? defaultValue = null)
         {
             var keys = keyPath.Split('.');
-            JToken current = _settings;
+            JToken current = Settings;
             try
             {
                 foreach (var key in keys)
@@ -84,8 +107,8 @@ namespace AccessibleTrader.Core.Services
         public void SetSetting(string keyPath, JToken value)
         {
             var keys = keyPath.Split('.');
-            JObject current = _settings;
-            
+            JObject current = Settings;
+
             for (int i = 0; i < keys.Length - 1; i++)
             {
                 var key = keys[i];
@@ -173,7 +196,10 @@ namespace AccessibleTrader.Core.Services
             if (_demo is { AllowSettingsPersist: false }) return;
             try
             {
-                AtomicFile.WriteAllText(_filepath, JsonConvert.SerializeObject(_settings, Formatting.Indented));
+                // Touch Settings first so the document is loaded and _filepath is resolved
+                // (against the current user's directory) before we write.
+                var doc = Settings;
+                AtomicFile.WriteAllText(_filepath!, JsonConvert.SerializeObject(doc, Formatting.Indented));
             }
             catch (Exception ex)
             {

@@ -42,6 +42,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <!-- Accounts (hosted multi-user only; gated behind Accounts:Enabled). ASP.NET Core
+         Identity + EF Core stores for the AuthDbContext (auth.db). No effect on the
+         local/demo modes or the MAUI head. -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
     <!-- SkiaSharp native runtime. Core's Rendering/* uses SKPaint/SKCanvas; the
