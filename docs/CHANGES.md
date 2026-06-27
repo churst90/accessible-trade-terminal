@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.0] — 2026-06-26
+
+**Multi-user WebHost.** The browser/Linux head is now a genuine multi-user web app:
+every visitor gets their own isolated session instead of sharing one. This is the
+foundation for a hosted, no-install Accessible Trader (works on Chromebooks and
+locked-down machines — no download barrier). The desktop/MAUI head is unchanged.
+
+### Added / Changed
+- **Per-circuit state isolation.** Under Blazor Server each browser connection is its
+  own circuit/DI scope. The WebHost previously registered every per-user state service
+  (workspace, event bus, market/data orchestration, indicators, input, speech, audio,
+  settings, …) as `Singleton` — so two visitors shared one workspace, and one changing
+  the symbol or adding an indicator changed it for everyone. Those services are now
+  `Scoped` (per visitor), with a curated `Singleton` allow-list for genuinely shared,
+  stateless infrastructure (plugin loader + trust policy, caches, secure storage / key
+  store / security log, paths/runtime, DbContext factory). Correctness is enforced by
+  the runtime: `ValidateScopes`/`ValidateOnBuild` fail fast on any captive dependency.
+- **Per-visitor provider instances + isolated streams.** `PluginLoaderService` caches
+  discovered plugin *types* once; each circuit's `DataService` instantiates its own
+  provider objects, so two visitors on different symbols don't fight over one socket,
+  and a visitor's live streams die with their circuit.
+- **Per-circuit startup.** Pipeline init moved out of app-start into `MainLayout`
+  (runs once per visitor); only the app-once demo API-key seed stays at startup.
+
+### Fixed
+- **Prerender double-init / `ObjectDisposedException`.** The app tree now renders with
+  `prerender: false` — prerendering ran the stateful per-circuit init in a throwaway SSR
+  scope that was disposed immediately, so the in-flight chart load dispatched to an
+  already-disposed store. It now runs once, on the long-lived interactive circuit.
+- **`AppStartupService` init is idempotent.** A per-instance once-guard memoises the
+  init task: on MAUI (Singleton) the `MainPage` + `MainLayout` calls share one init; on
+  the WebHost (Scoped) each circuit inits exactly once.
+- **Firefox shortcut remap restored per circuit.** Now applied via a `CircuitHandler`
+  (the remap was app-once and had to follow `IShortcutManager` becoming per-circuit).
+
+### Notes
+- Per-visitor upstream connections are intentional ("simplest"); the public demo is
+  capped at 12 concurrent at nginx. A shared connection pool is a possible later
+  optimisation. A Blazor Server circuit rate-limiter for the public site is still worth
+  adding.
+
+---
+
 ## [1.1.1] — 2026-06-26
 
 Patch release: WebHost / public-demo stabilisation. The headline is the chart-render
