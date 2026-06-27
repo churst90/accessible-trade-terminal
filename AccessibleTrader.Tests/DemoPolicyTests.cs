@@ -13,6 +13,7 @@ public class DemoPolicyTests
 {
     private static readonly DemoPolicy Demo = new(isDemo: true);
     private static readonly DemoPolicy Full = new(isDemo: false);
+    private static readonly DemoPolicy Hosted = new(HostMode.Hosted);
 
     [Fact]
     public void OutsideDemo_EverythingIsAllowed()
@@ -93,5 +94,46 @@ public class DemoPolicyTests
     {
         var filtered = Demo.FilterMarkets(new[] { "Crypto", "Stock", "Forex", "OnChain", "Economic" });
         Assert.Equal(new[] { "Crypto", "Stock", "Forex" }, filtered.ToArray());
+    }
+
+    // ── Hosted (--accounts): server-keyed builds curate DATA (providers/markets/
+    //    live-stream) but keep the FULL app breadth (timeframes/indicators/symbols).
+
+    [Theory]
+    [InlineData(HostMode.Full, false)]
+    [InlineData(HostMode.Demo, true)]
+    [InlineData(HostMode.Hosted, true)]
+    public void RestrictsData_TrueForServerKeyedBuilds(HostMode mode, bool restricts)
+    {
+        Assert.Equal(restricts, new DemoPolicy(mode).RestrictsData);
+    }
+
+    [Fact]
+    public void Hosted_CuratesProvidersAndMarkets_LikeDemo()
+    {
+        // No user broker keys server-side, so only the seeded providers are offered.
+        Assert.True(Hosted.IsProviderAllowed("Bitstamp"));
+        Assert.True(Hosted.IsProviderAllowed("Twelve Data"));
+        Assert.False(Hosted.IsProviderAllowed("Binance"));
+
+        Assert.Equal(new[] { "Bitstamp", "Twelve Data" },
+            Hosted.FilterProviders(new[] { "Bitstamp", "Binance", "Twelve Data", "Coinbase" }).ToArray());
+        Assert.Equal(new[] { "Crypto", "Stock", "Forex" },
+            Hosted.FilterMarkets(new[] { "Crypto", "Stock", "Forex", "OnChain", "Economic" }).ToArray());
+
+        // Twelve Data has no free WebSocket, so it stays historical-only in hosted too.
+        Assert.True(Hosted.AllowsLiveStream("Bitstamp"));
+        Assert.False(Hosted.AllowsLiveStream("Twelve Data"));
+    }
+
+    [Fact]
+    public void Hosted_KeepsFullBreadth_ForTimeframesIndicatorsAndSymbols()
+    {
+        // Unlike the locked demo, hosted is NOT a tight whitelist for what you can chart —
+        // the educational draw is the full indicator/timeframe suite + symbol search.
+        Assert.True(Hosted.IsTimeframeAllowed("1m"));
+        Assert.True(Hosted.IsTimeframeAllowed("1w"));
+        Assert.True(Hosted.IsIndicatorAllowed("Ichimoku"));
+        Assert.True(Hosted.IsSymbolAllowed("Twelve Data", "MSFT"));   // search any ticker
     }
 }

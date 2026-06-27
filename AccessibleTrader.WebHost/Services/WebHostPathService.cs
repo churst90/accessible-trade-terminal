@@ -37,6 +37,24 @@ namespace AccessibleTrader.WebHost.Services
                 AppFolderName));
         }
 
+        /// <summary>
+        /// App-data rooted at an explicit directory instead of the OS default. Used by the
+        /// hosted (<c>--accounts</c>) build to pin the shared secret store under the instance's
+        /// own data root, so a hosted instance is self-contained and can never collide with a
+        /// co-located demo that would otherwise resolve to the same default
+        /// <c>~/.local/share/AccessibleTrader</c>. Cache stays at the shared OS cache location.
+        /// </summary>
+        public WebHostPathService(string appDataDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(appDataDirectory))
+                throw new ArgumentException("App-data directory must be provided.", nameof(appDataDirectory));
+
+            AppDataDirectory = EnsureDir(appDataDirectory);
+            CacheDirectory = EnsureDir(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.InternetCache),
+                AppFolderName));
+        }
+
         private static string EnsureDir(string path)
         {
             Directory.CreateDirectory(path);

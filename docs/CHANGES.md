@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+**Hosted terminal: working providers + curated symbols (stocks fix).** Logged into the
+hosted terminal, selecting **Stocks** showed no symbols, and the market/provider lists
+exposed all 27 providers even though only the server-keyed ones work without user broker
+keys (it even opened on a broken Binance). New `DemoPolicy.RestrictsData` (true for Demo
+**and** Hosted — the server-keyed builds) now drives provider/market/live-stream curation
+(`IsProviderAllowed`, `FilterProviders`, `FilterMarkets`, `AllowsLiveStream`), while
+symbol/timeframe/indicator *breadth* stays demo-only — so Hosted keeps the full timeframe
++ indicator suite and free symbol search, and only the data *sources* are curated.
+`MarketOrchestrator` pins each market to its server-keyed provider and substitutes a
+curated `TwelveDataStarterSymbols` list (26 stocks, 12 FX majors) because Twelve Data's
+free-tier symbol-list endpoints are unusable; symbol search still charts any other ticker.
+Result: hosted opens on a working chart (Crypto→Bitstamp live, Stock/Forex→Twelve Data),
+AAPL etc. load real data; the locked demo is unchanged.
+
+**Hosted secret store is self-contained.** `AddHostedAccounts` now pins the process-wide
+secure store under `Accounts:DataRoot` (`secrets/`) instead of the OS default, so two
+co-located services (`--demo` + `--accounts`) can't clobber each other's encrypted
+market-data secret. New `WebHostPathService(appDataDirectory)` overload; documented in
+SERVER_SETUP. New `DemoPolicy` tests pin the Hosted-vs-Demo curation split.
+
 **Strategies are now a local/desktop power feature.** `DemoPolicy.AllowStrategies` is
 gated to `HostMode.Full`, so the strategy manager is hidden in both the public `--demo`
 and hosted `--accounts` (online) builds and available only when the terminal is run

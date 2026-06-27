@@ -68,6 +68,23 @@ curl -sf http://127.0.0.1:5150/terminal/_framework/blazor.web.js   # must be 200
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
 paper-only; the API-keys modal is gated off).
 
+### Market data available (hosted + demo)
+
+Because no user broker keys are held server-side, the server-keyed builds (`--accounts`
+**and** `--demo`) curate the provider/market lists down to the sources that actually work
+without a user key, instead of showing dead-end "API key required" entries:
+
+- **Crypto → Bitstamp** (live WebSocket, no key, hundreds of pairs)
+- **Stock / Forex → Twelve Data** (seeded key). Its free-tier symbol-*list* endpoints are
+  unusable (`/stocks` is empty, `/forex_pairs` returns 1000+ obscure pairs), so a curated
+  starter list of majors is shown; **symbol search still charts any other valid ticker.**
+
+Demo additionally clamps symbols/timeframes/indicators to a tight whitelist; **Hosted keeps
+the full timeframe + indicator suite and free symbol search** — only the data *sources* are
+curated. To offer more (extra crypto venues, indices, commodities), seed additional
+server-side market-data keys and extend `ProviderForMarket` + the curated lists in
+`DemoPolicy` / `MarketOrchestrator`.
+
 ## Data layout (hosted)
 
 Under `Accounts__DataRoot`:
@@ -77,9 +94,19 @@ users/{userId}/  per-user data — settings, workspaces, sound design, paper-tra
 cache/           SHARED OHLCV / HTTP cache (public market data, one for everyone)
 dp-keys/         DataProtection key ring (auth cookies + antiforgery; persisted so restarts
                  don't log everyone out)
+secrets/         encrypted process-wide market-data secrets (e.g. the Twelve Data key),
+                 pinned under the data root so the instance is self-contained
 ```
 `users/anon/` may appear empty in unauthenticated contexts — harmless (the app gates with
 `RequireAuthorization`, so anonymous requests can't persist anything).
+
+> **Co-located demo + terminal:** when `Accounts__DataRoot` is set, the shared secret store
+> lives under it (`secrets/`). This matters if you run the `--demo` and `--accounts`
+> services on the same box: without it, both resolve their secret store to the default
+> `~/.local/share/AccessibleTrader` and clobber each other's encrypted market-data secret
+> (last writer wins, because each persists DataProtection keys to a different ring). Pinning
+> the secret store under each instance's own data root makes them independent. Setting
+> `XDG_DATA_HOME`/`XDG_CACHE_HOME` per service achieves the same isolation for everything else.
 
 ## systemd unit (hosted example)
 

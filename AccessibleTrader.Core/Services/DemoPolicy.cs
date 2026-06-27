@@ -41,6 +41,16 @@ namespace AccessibleTrader.Core.Services
         /// <summary>True for the hosted, logged-in <c>--accounts</c> build (paper-only full app).</summary>
         public bool IsHosted => Mode == HostMode.Hosted;
 
+        /// <summary>
+        /// True for the server-hosted builds (Demo + Hosted) that hold NO user broker keys, so they
+        /// can only offer server-provided market data. These builds curate the provider/market/symbol
+        /// lists to the sources that actually work server-side — Bitstamp (crypto, no key) and Twelve
+        /// Data (stocks/forex, seeded key) — instead of showing dead-end "API key required" providers.
+        /// False for Full (desktop/local), where the user supplies their own keys and everything is open.
+        /// (Feature gates and timeframe/indicator breadth stay separate: Hosted keeps the full set.)
+        /// </summary>
+        public bool RestrictsData => Mode != HostMode.Full;
+
         public DemoPolicy(HostMode mode)
         {
             Mode   = mode;
@@ -83,7 +93,7 @@ namespace AccessibleTrader.Core.Services
         /// on reconnects and can wedge the session — treat stock/forex as historical-only.
         /// Always true outside demo mode.</summary>
         public bool AllowsLiveStream(string provider) =>
-            !IsDemo || string.Equals(provider, "Bitstamp", StringComparison.OrdinalIgnoreCase);
+            !RestrictsData || string.Equals(provider, "Bitstamp", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Symbol whitelist per provider. Compared normalised
         /// (letters+digits only, upper-case) so "BTC/USD" == "btcusd" == "BTC-USD".</summary>
@@ -160,7 +170,7 @@ namespace AccessibleTrader.Core.Services
             new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
         public bool IsProviderAllowed(string provider) =>
-            !IsDemo || AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase);
+            !RestrictsData || AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase);
 
         public bool IsTimeframeAllowed(string timeframe) =>
             !IsDemo || AllowedTimeframes.Contains(timeframe, StringComparer.OrdinalIgnoreCase);
@@ -189,7 +199,7 @@ namespace AccessibleTrader.Core.Services
         /// Call from MarketOrchestrator.RefreshProvidersAsync.</summary>
         public IReadOnlyList<string> FilterProviders(IReadOnlyList<string> providers)
         {
-            if (!IsDemo) return providers;
+            if (!RestrictsData) return providers;
             return providers.Where(IsProviderAllowed).ToList();
         }
 
@@ -197,7 +207,7 @@ namespace AccessibleTrader.Core.Services
         /// Call from MarketOrchestrator.RefreshPipelineAsync.</summary>
         public IReadOnlyList<string> FilterMarkets(IReadOnlyList<string> markets)
         {
-            if (!IsDemo) return markets;
+            if (!RestrictsData) return markets;
             return markets.Where(m => AllowedMarkets.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
         }
     }

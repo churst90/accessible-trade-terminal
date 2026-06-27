@@ -40,11 +40,18 @@ namespace AccessibleTrader.WebHost
             services.RemoveAll<ICacheService>();
             services.AddScoped<ICacheService, FileCacheService>();
 
-            // Secrets stay process-wide (shared DataProtection store). Give the Singleton a
-            // shared path so it doesn't capture the per-user path service.
+            // Secrets stay process-wide (shared DataProtection store, not per-user). Give the
+            // Singleton a NON-scoped path so it doesn't capture the per-user path service. Pin it
+            // under this instance's own data root when one is configured, so a hosted instance is
+            // self-contained and can't collide with a co-located demo — both otherwise resolve to
+            // the default ~/.local/share/AccessibleTrader and clobber each other's encrypted
+            // market-data secret (last writer wins). Falls back to the OS default when no root set.
+            var sharedSecretPaths = string.IsNullOrWhiteSpace(dataRoot)
+                ? new WebHostPathService()
+                : new WebHostPathService(dataRoot!);
             services.RemoveAll<WebHostSecureStorageService>();
             services.AddSingleton<WebHostSecureStorageService>(sp =>
-                new WebHostSecureStorageService(sp.GetRequiredService<IDataProtectionProvider>(), new WebHostPathService()));
+                new WebHostSecureStorageService(sp.GetRequiredService<IDataProtectionProvider>(), sharedSecretPaths));
 
             // ── Identity: self-hosted email + password, no email confirmation yet ───
             string authDbDir = string.IsNullOrWhiteSpace(dataRoot) ? new WebHostPathService().AppDataDirectory : dataRoot!;

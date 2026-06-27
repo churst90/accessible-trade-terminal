@@ -95,9 +95,9 @@ namespace AccessibleTrader.Core.Services
         public string SelectedProvider
         {
             get => _selectedProvider;
-            // Demo guard: reject a non-whitelisted provider so a crafted request
-            // can't escape the curated set even if the UI is bypassed.
-            set { if (_demo.IsDemo && !_demo.IsProviderAllowed(value)) return; _selectedProvider = value; }
+            // Curated-data guard (demo + hosted): reject a non-whitelisted provider so a
+            // crafted request can't escape the server-keyed set even if the UI is bypassed.
+            set { if (_demo.RestrictsData && !_demo.IsProviderAllowed(value)) return; _selectedProvider = value; }
         }
 
         public string SelectedSubType
@@ -238,7 +238,7 @@ namespace AccessibleTrader.Core.Services
 
                 // Demo whitelist: hide markets that have no whitelisted provider, so the
                 // dropdown can never land on one that filters to an empty provider list.
-                if (_demo.IsDemo)
+                if (_demo.RestrictsData)
                     _availableMarkets = _demo.FilterMarkets(_availableMarkets).ToList();
 
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
@@ -300,10 +300,11 @@ namespace AccessibleTrader.Core.Services
                     break;
             }
 
-            // Demo whitelist: pin each market to its single curated provider. (A flat
-            // provider whitelist isn't enough — Twelve Data also advertises Crypto, so
-            // it would otherwise be selectable for BTC/USD where its free stream fails.)
-            if (_demo.IsDemo)
+            // Curated data (demo + hosted): pin each market to its single server-keyed provider.
+            // (A flat provider whitelist isn't enough — Twelve Data also advertises Crypto, so it
+            // would otherwise be selectable for BTC/USD where its free stream fails. And in hosted
+            // there are no user keys, so the dozen key-required providers must not be offered.)
+            if (_demo.RestrictsData)
             {
                 var only = _demo.ProviderForMarket(_selectedMarket);
                 _availableProviders = string.IsNullOrEmpty(only)
@@ -324,6 +325,27 @@ namespace AccessibleTrader.Core.Services
         // Sentinel value placed in the symbol list when a provider requires an API key
         // that has not been configured. The Toolbar disables the Load button for this value.
         public const string ApiKeyRequiredSentinel = "⚠ API key required — open API Keys (Alt+K)";
+
+        /// <summary>
+        /// Curated starter symbols for Twelve Data, whose free-tier symbol-list endpoints return
+        /// empty even though its time_series charts these fine. Keyed by market. Used only when the
+        /// provider returns no list; symbol search still lets the user chart any other ticker.
+        /// </summary>
+        private static List<string> TwelveDataStarterSymbols(string market) => (market ?? "").ToLowerInvariant() switch
+        {
+            "stock" => new List<string>
+            {
+                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "NFLX", "AMD", "INTC",
+                "JPM", "BAC", "V", "MA", "DIS", "KO", "PEP", "WMT", "XOM", "CVX", "BA", "PFE",
+                "SPY", "QQQ", "DIA", "IWM"
+            },
+            "forex" => new List<string>
+            {
+                "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD", "NZD/USD",
+                "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/CHF"
+            },
+            _ => new List<string>()
+        };
 
         public async Task RefreshSymbolsAsync()
         {
@@ -382,6 +404,17 @@ namespace AccessibleTrader.Core.Services
 
             if (_availableTimeframes.Count == 0)
                 _availableTimeframes = new List<string> { "1m", "5m", "15m", "1h", "4h", "1d" };
+
+            // Curated-data modes (demo + hosted, no user keys): Twelve Data's free-tier symbol
+            // lists are unusable — /stocks comes back empty and /forex_pairs returns 1000+ obscure
+            // pairs — so substitute a curated major-symbol list per market. These chart fine via
+            // time_series, and symbol search still lets the user pull up any other valid ticker.
+            if (_demo.RestrictsData
+                && string.Equals(_selectedProvider, "Twelve Data", StringComparison.OrdinalIgnoreCase))
+            {
+                var curatedTd = TwelveDataStarterSymbols(_selectedMarket);
+                if (curatedTd.Count > 0) _availableSymbols = curatedTd;
+            }
 
             // Demo whitelist: restrict symbols to the curated set and force the two
             // demo timeframes, so the fixups below land on allowed values and no
