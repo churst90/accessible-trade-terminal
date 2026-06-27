@@ -1008,8 +1008,12 @@ You can keep several charts open at once in tabs. Ctrl+T opens a new chart tab, 
 closes the current one, and Ctrl+Tab and Ctrl+Shift+Tab move to the next and previous
 tab — so you might hold BTC on the hourly in one tab and a stock index on the daily in
 another, and flip between them without reloading. (On the Linux web host the browser
-claims Ctrl+T, Ctrl+W, and Ctrl+Tab for its own tabs; there you use the toolbar's tab
-controls instead — see the Platform Support chapter.)
+claims Ctrl+T, Ctrl+W, and Ctrl+Tab for its own tabs; there you press Ctrl+Alt+Shift+T
+to move keyboard focus onto the tab switcher bar — a row of tabs just above the chart —
+and then switch with the left/right arrow keys, Home and End, or the number row (1–9
+jump straight to that tab), and press Delete to close the focused tab. The bar is an
+ARIA tablist, so your screen reader announces each tab as you move. See the Platform
+Support chapter.)
 
 A whole arrangement — every tab, its symbol and timeframe, its indicators and drawings
 — is a workspace you can save and restore. Ctrl+Alt+Shift+W saves the current
@@ -1135,8 +1139,10 @@ different modifier. This affects all the drawing tools and the detailed point su
 (`Ctrl+Shift+D` becomes `Alt+Shift+D`). Chords with three modifiers — the AI Analyst,
 auto-narration, the Journal, save and load workspace — are **not** remapped, because
 browsers do not reserve them. And a few single-`Ctrl` browser chords have no clean
-in-page override: use the toolbar's tab controls instead of `Ctrl+T`, `Ctrl+W`, and
-`Ctrl+Tab`. You never have to memorise which is which — the Help dialog (F1) always
+in-page override: use the toolbar's tab **+** and **×** buttons instead of `Ctrl+T` and
+`Ctrl+W`, and press `Ctrl+Alt+Shift+T` (a three-modifier chord browsers leave alone) to
+focus the tab switcher bar and switch tabs with the arrow keys, Home/End, the number row,
+or Delete instead of `Ctrl+Tab`. You never have to memorise which is which — the Help dialog (F1) always
 lists the bindings actually in effect on the host you are using, so it self-documents
 per platform.
 
@@ -1158,6 +1164,7 @@ per platform.
 | Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
 | Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
 | Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
+| Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 / Delete |
 
 ---
 

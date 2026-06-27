@@ -1,52 +1,52 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Core.Services
+@using Microsoft.AspNetCore.Components.Web
 @inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
-@* Tab bar — rendered between Toolbar and chart area.
-   Visible only when more than one tab is open; keyboard shortcuts (Ctrl+Tab,
-   Ctrl+Shift+Tab, Ctrl+T, Ctrl+W) handle all tab navigation without requiring
-   the user to focus these buttons. Buttons use tabindex="-1" so they don't
-   enter the Tab-key focus order and interfere with chart keyboard routing. *@
+@* Workspace tab switcher — rendered between the Toolbar (timeframe row) and the
+   chart area. Visible only when more than one tab is open.
+
+   Two ways to drive it:
+   • Desktop: Ctrl+Tab / Ctrl+Shift+Tab cycle tabs directly (CommandDispatcher).
+   • Web: Ctrl+Tab and Ctrl+Number are reserved by the browser, so the user presses
+     Ctrl+Alt+Shift+T (FocusTabBar) to move focus onto this bar, then drives it with
+     ArrowLeft/Right (or Up/Down), Home/End, the number row (1-9 → tab N) and Delete
+     (close the active tab). Implemented as an ARIA tablist with the activedescendant
+     pattern: the container holds focus (tabindex 0) and aria-activedescendant points
+     at the selected tab; selection follows focus, so each arrow press switches tabs. *@
 
 @if (Store.State.TabCount > 1)
 {
-    <div class="tab-bar" role="tablist" aria-label="Chart tabs" aria-orientation="horizontal">
+    <div class="tab-bar"
+         id="workspace-tabbar"
+         role="tablist"
+         tabindex="0"
+         aria-label="Workspace tabs. Use arrow keys, Home, End, the number row, or Delete to close."
+         aria-orientation="horizontal"
+         aria-activedescendant="@($"ws-tab-{Store.State.ActiveTabIndex}")"
+         @onkeydown="OnKeyDown"
+         @onkeydown:stopPropagation="true">
 
-        @* Active tab *@
-        <button role="tab"
-                aria-selected="true"
-                tabindex="-1"
-                class="tab-button tab-active"
-                title="Active tab (Ctrl+Tab to switch)">
-            Tab @(Store.State.ActiveTabIndex + 1): @GetActiveLabel()
-            @if (Store.State.TabCount > 1)
-            {
-                <button class="tab-close"
-                        tabindex="-1"
-                        aria-label="Close tab (Ctrl+W)"
-                        @onclick:stopPropagation="true"
-                        @onclick="() => Store.Dispatch(new CloseTabAction(Store.State.ActiveTabIndex))">
-                    ×
-                </button>
-            }
-        </button>
-
-        @* Inactive tab snapshots — sorted by TabIndex *@
-        @foreach (var snap in GetSortedSnapshots())
+        @foreach (var tab in GetAllTabs())
         {
-            var capturedSnap = snap;
-            <button @key="capturedSnap.TabIndex" role="tab"
-                    aria-selected="false"
+            var captured = tab;
+            <button @key="captured.Index"
+                    id="@($"ws-tab-{captured.Index}")"
+                    role="tab"
+                    aria-selected="@(captured.IsActive ? "true" : "false")"
                     tabindex="-1"
-                    class="tab-button"
-                    title="Switch to tab @(capturedSnap.TabIndex + 1)"
-                    @onclick="() => Store.Dispatch(new SwitchTabAction(capturedSnap.TabIndex))">
-                Tab @(capturedSnap.TabIndex + 1): @GetSnapshotLabel(capturedSnap)
+                    class="tab-button@(captured.IsActive ? " tab-active" : "")"
+                    title="Switch to tab @(captured.Index + 1)"
+                    @onclick="() => Store.Dispatch(new SwitchTabAction(captured.Index))">
+                Tab @(captured.Index + 1): @captured.Label
                 <button class="tab-close"
                         tabindex="-1"
-                        aria-label="Close tab"
+                        aria-label="Close tab @(captured.Index + 1)"
                         @onclick:stopPropagation="true"
-                        @onclick="() => Store.Dispatch(new CloseTabAction(capturedSnap.TabIndex))">
+                        @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
                     ×
                 </button>
             </button>
@@ -65,20 +65,97 @@
 }
 
 @code {
-    private string GetActiveLabel()
+    private readonly List<IDisposable> _subs = new();
+
+    private readonly record struct TabItem(int Index, string Label, bool IsActive);
+
+    protected override void OnInitialized()
+    {
+        // Ctrl+Alt+Shift+T → CommandDispatcher publishes FocusTabBarEvent → move keyboard
+        // focus onto this bar so it can be operated without the browser-reserved Ctrl+Tab.
+        var focusSub = EventBus.AsObservable<FocusTabBarEvent>()
+            .Subscribe(_ => InvokeAsync(async () =>
+            {
+                try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "workspace-tabbar"); }
+                catch { /* JS bridge may not be ready during early renders or unit tests */ }
+            }));
+        _subs.Add(focusSub);
+    }
+
+    private IEnumerable<TabItem> GetAllTabs()
+    {
+        int count = Store.State.TabCount;
+        int active = Store.State.ActiveTabIndex;
+        var snaps = (Store.State.TabSnapshots ?? System.Collections.Immutable.ImmutableList<AccessibleTrader.Sdk.Models.TabSnapshot>.Empty)
+            .ToDictionary(t => t.TabIndex);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (i == active)
+            {
+                yield return new TabItem(i, ActiveLabel(), true);
+            }
+            else if (snaps.TryGetValue(i, out var snap))
+            {
+                yield return new TabItem(i, SnapshotLabel(snap), false);
+            }
+            // If a slot has no snapshot (shouldn't happen), skip it rather than render a blank tab.
+        }
+    }
+
+    private string ActiveLabel()
     {
         var id = Store.State.Identity;
         return string.IsNullOrEmpty(id.Symbol) ? "New Tab" : $"{id.Symbol} {id.Timeframe}";
     }
 
-    private string GetSnapshotLabel(AccessibleTrader.Sdk.Models.TabSnapshot snap)
+    private string SnapshotLabel(AccessibleTrader.Sdk.Models.TabSnapshot snap)
     {
         return string.IsNullOrEmpty(snap.Identity.Symbol) ? "New Tab" : $"{snap.Identity.Symbol} {snap.Identity.Timeframe}";
     }
 
-    private IEnumerable<AccessibleTrader.Sdk.Models.TabSnapshot> GetSortedSnapshots()
+    private void OnKeyDown(KeyboardEventArgs e)
     {
-        return (Store.State.TabSnapshots ?? System.Collections.Immutable.ImmutableList<AccessibleTrader.Sdk.Models.TabSnapshot>.Empty)
-            .OrderBy(t => t.TabIndex);
+        // stopPropagation on the element keeps these keys from also reaching the global
+        // keyboard handler (which would treat the arrows as chart nav), so we only need
+        // to act on the ones we own here. Selection follows focus: each move switches tab.
+        int count = Store.State.TabCount;
+        if (count <= 1) return;
+        int active = Store.State.ActiveTabIndex;
+
+        // Number row: 1-9 jump straight to that tab.
+        if (e.Key.Length == 1 && e.Key[0] >= '1' && e.Key[0] <= '9')
+        {
+            int idx = e.Key[0] - '1';
+            if (idx < count && idx != active)
+                Store.Dispatch(new SwitchTabAction(idx));
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case "ArrowRight":
+            case "ArrowDown":
+                Store.Dispatch(new SwitchTabAction((active + 1) % count));
+                break;
+            case "ArrowLeft":
+            case "ArrowUp":
+                Store.Dispatch(new SwitchTabAction((active - 1 + count) % count));
+                break;
+            case "Home":
+                if (active != 0) Store.Dispatch(new SwitchTabAction(0));
+                break;
+            case "End":
+                if (active != count - 1) Store.Dispatch(new SwitchTabAction(count - 1));
+                break;
+            case "Delete":
+                Store.Dispatch(new CloseTabAction(active));
+                break;
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var s in _subs) s.Dispose();
     }
 }

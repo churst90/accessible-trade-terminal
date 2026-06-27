@@ -31,7 +31,7 @@ Other Firefox-reserved chords that are NOT remapped because they have no clean a
 
 - `Ctrl+T` (would be AddTab) — Firefox opens a new browser tab. Use the toolbar's tab `+` button instead.
 - `Ctrl+W` (would be CloseTab) — Firefox closes the browser tab. Use the tab's `×` button.
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` (would be SwitchTabNext/Prev) — Firefox switches browser tabs. Use the toolbar.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` (would be SwitchTabNext/Prev) — Firefox switches browser tabs. On the web, press **`Ctrl+Alt+Shift+T`** (`FocusTabBar`) to move keyboard focus onto the workspace tab switcher bar, then use the arrow keys / `Home` / `End` / the number row (`1`–`9` jump to that tab) / `Delete` (close the active tab). The three-modifier chord is not browser-reserved, so it always reaches the page.
 
 ---
 
@@ -173,12 +173,15 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 | Key | Action |
 |-----|--------|
-| Ctrl+T | Add a new chart tab |
-| Ctrl+W | Close the current chart tab |
-| Ctrl+Tab | Switch to the next tab |
-| Ctrl+Shift+Tab | Switch to the previous tab |
+| Ctrl+T | Add a new chart tab (desktop; on the web use the tab bar's `+` button) |
+| Ctrl+W | Close the current chart tab (desktop; on the web use a tab's `×` button) |
+| Ctrl+Tab | Switch to the next tab (desktop only — browser-reserved on the web) |
+| Ctrl+Shift+Tab | Switch to the previous tab (desktop only — browser-reserved on the web) |
+| Ctrl+Alt+Shift+T | Focus the workspace tab switcher bar (web-safe path to tab switching) |
 | Ctrl+Alt+Shift+W | Save the current workspace (all tabs + layout) |
 | Ctrl+Alt+W | Load a saved workspace |
+
+When the tab switcher bar has focus (via `Ctrl+Alt+Shift+T`, or by clicking it): `←`/`→` (or `↑`/`↓`) switch tabs, `Home`/`End` jump to the first/last tab, the number row `1`–`9` jumps to that tab, and `Delete` closes the active tab. It is an ARIA tablist — your screen reader announces the newly selected tab as you move.
 
 ---
 

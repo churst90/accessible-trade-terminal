@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+**Strategies are now a local/desktop power feature.** `DemoPolicy.AllowStrategies` is
+gated to `HostMode.Full`, so the strategy manager is hidden in both the public `--demo`
+and hosted `--accounts` (online) builds and available only when the terminal is run
+locally via WebHost or on the desktop MAUI head. The Object Tree's "Manage Strategies"
+button (and its Alt+S help line) is now gated on the same policy, matching the toolbar
+button and the `StrategyModal` that were already gated.
+
+**Web-safe workspace tab switching.** `Ctrl+Tab` / `Ctrl+Number` are reserved by the
+browser, so the tab switcher bar is now a keyboard-operable ARIA tablist. Press the new
+`Ctrl+Alt+Shift+T` (`FocusTabBar`) to move focus onto the bar, then switch with the
+arrow keys, `Home`/`End`, the number row (`1`–`9` jump to that tab), or `Delete` to
+close the active tab; the screen reader announces each tab as selection follows focus.
+`Ctrl+Tab` still works on the desktop heads. SHORTCUTS, QUICKSTART, and the USER_MANUAL
+document the web path.
+
+---
+
 ## [1.3.0] — 2026-06-27
 
 **Hosted accounts.** The multi-user WebHost can now run as a logged-in, paper-trading

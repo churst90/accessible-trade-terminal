@@ -138,10 +138,10 @@ namespace AccessibleTrader.Core.Services
         public bool AllowApiKeysModal     => Mode == HostMode.Full;   // no real broker keys held server-side
         public bool AllowLiveTrading      => Mode == HostMode.Full;   // real money is desktop-only; hosted = paper
         public bool AllowAiAnalyst        => Mode == HostMode.Full;   // external-LLM cost; desktop / tiered
+        public bool AllowStrategies       => Mode == HostMode.Full;   // experimental auto-trading — local/desktop power feature
 
         // Full-app features — ON in Hosted, OFF only in the locked Demo:
         public bool AllowTrading          => !IsDemo;   // paper-trading dashboard — the hosted educational core
-        public bool AllowStrategies       => !IsDemo;
         public bool AllowAlerts           => !IsDemo;
         public bool AllowWorkspaceSaveLoad=> !IsDemo;
         public bool AllowSymbolSearch     => !IsDemo;   // demo is whitelist-only, no free search

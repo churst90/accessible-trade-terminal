@@ -288,6 +288,10 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.CloseTab,     "W",   Ctrl: true));                    // Ctrl+W
             s.Add(new(SystemCommand.SwitchTabNext, "TAB", Ctrl: true));                   // Ctrl+Tab
             s.Add(new(SystemCommand.SwitchTabPrev, "TAB", Ctrl: true, Shift: true));      // Ctrl+Shift+Tab
+            // Ctrl+Tab is reserved by browsers (switches browser tabs), so on the web give
+            // the user a way to reach the tab switcher bar by keyboard and drive it with the
+            // arrow keys / Home / End / number row / Delete. Three-modifier chord = web-safe.
+            s.Add(new(SystemCommand.FocusTabBar,  "T",   Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+T
 
             // AI Analyst
             s.Add(new(SystemCommand.OpenAIAnalyst, "A", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+A

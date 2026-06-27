@@ -131,6 +131,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.CloseTab)]
         [InlineData(SystemCommand.SwitchTabNext)]
         [InlineData(SystemCommand.SwitchTabPrev)]
+        [InlineData(SystemCommand.FocusTabBar)]   // Ctrl+Alt+Shift+T: focus the tab switcher bar
         // Workspace management
         [InlineData(SystemCommand.SaveWorkspace)]
         [InlineData(SystemCommand.LoadWorkspace)]
@@ -206,6 +207,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ContextSummary, SystemCommand.ChartFocus,
                 SystemCommand.AddTab, SystemCommand.CloseTab,
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
+                SystemCommand.FocusTabBar,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,

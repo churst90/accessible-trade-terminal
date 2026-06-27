@@ -4,6 +4,7 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
+@inject DemoPolicy Demo
 @implements IDisposable
 
 @if (_isVisible)
@@ -18,9 +19,14 @@
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 id="objtree-title" tabindex="-1" style="margin: 0;">Object Tree</h2>
-                <button class="primary" @onclick="OpenStrategies" aria-label="Manage Strategies (Alt+S)">
-                    Manage Strategies
-                </button>
+                @* Strategies are a local/desktop power feature — gated off in the demo and
+                   hosted (online) builds, so don't offer the button there either. *@
+                @if (Demo.AllowStrategies)
+                {
+                    <button class="primary" @onclick="OpenStrategies" aria-label="Manage Strategies (Alt+S)">
+                        Manage Strategies
+                    </button>
+                }
             </div>
 
             @if (!Store.State.ActiveSeries.Any())
@@ -123,7 +129,7 @@
 
             <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
                 <div style="font-size: 0.8rem; color: #888; flex: 1;">
-                    Use Tab to navigate · Space/Enter to toggle groups or focus · Alt+S for Strategies
+                    Use Tab to navigate · Space/Enter to toggle groups or focus@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
                 </div>
                 <button @onclick="Close" id="objtree-close">Close</button>
             </div>

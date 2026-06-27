@@ -49,6 +49,17 @@ namespace AccessibleTrader.Core.Models
     /// side effect, which is what flips the chart-active gate in CommandDispatcher.
     /// </summary>
     public record RequestChartFocusEvent();
+
+    /// <summary>
+    /// Published when the user presses Ctrl+Alt+Shift+T (FocusTabBar). Asks the
+    /// workspace <c>TabBar</c> to move keyboard focus onto the tab switcher bar so
+    /// it can be operated with the arrow keys / Home / End / number row / Delete.
+    /// Web-safe because Ctrl+Tab and Ctrl+Number are reserved by the browser; this
+    /// three-modifier chord is not. The TabBar responds by JS-focusing its
+    /// <c>workspace-tabbar</c> container (a no-op when only one tab is open).
+    /// </summary>
+    public record FocusTabBarEvent();
+
     public record RedrawEvent();
     public record ConnectionStatusEvent(string Provider, ConnectionState State, string Message);
 

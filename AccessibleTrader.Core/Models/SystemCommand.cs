@@ -114,6 +114,7 @@ namespace AccessibleTrader.Core.Models
         CloseTab,        // Ctrl+W: close active tab
         SwitchTabNext,   // Ctrl+Tab: cycle to next tab
         SwitchTabPrev,   // Ctrl+Shift+Tab: cycle to previous tab
+        FocusTabBar,     // Ctrl+Alt+Shift+T: move keyboard focus onto the workspace tab switcher bar
 
         // AI Analyst
         OpenAIAnalyst,   // Ctrl+Alt+Shift+A: open AI Technical Analyst
