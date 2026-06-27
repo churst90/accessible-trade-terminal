@@ -41,6 +41,12 @@
    head (IAppStartupService is a no-op-if-already-initialized singleton there). *@
 @inject IAppStartupService _startup
 
+@* Browser tab title — reflects the loaded chart (asset, timeframe, exchange) so a screen
+   reader announcing the tab, and a sighted user scanning tabs, both see what's loaded.
+   Updates reactively (MainLayout re-renders on every store state change). Renders via the
+   HeadOutlet on the web host; harmless on MAUI (the native window title is set separately). *@
+<PageTitle>@GetBrowserTitle()</PageTitle>
+
 <div class="app-container">
 
     @* Icon sprite injected once — <use href="#icon-*"> in every button references these symbols. *@
@@ -259,6 +265,16 @@
         if (string.IsNullOrEmpty(identity.Symbol))
             return "Accessible Trade Terminal";
         return $"Accessible Trade Terminal: {identity.Symbol} {identity.Timeframe} on {identity.Provider}";
+    }
+
+    // Browser-tab title: chart identity first, then the app name —
+    // "{symbol} {timeframe} {exchange}: Accessible Trade Terminal".
+    private string GetBrowserTitle()
+    {
+        var identity = Store.State.Identity;
+        if (string.IsNullOrEmpty(identity.Symbol))
+            return "Accessible Trade Terminal";
+        return $"{identity.Symbol} {identity.Timeframe} {identity.Provider}: Accessible Trade Terminal";
     }
 
     public void Dispose()
