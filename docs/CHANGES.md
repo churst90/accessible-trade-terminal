@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.3.1] — 2026-06-27
 
 **Hosted terminal: working providers + curated symbols (stocks fix).** Logged into the
 hosted terminal, selecting **Stocks** showed no symbols, and the market/provider lists
