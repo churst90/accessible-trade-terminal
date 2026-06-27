@@ -183,7 +183,7 @@ boundary hits) work on Linux. Two candidate backends, both viable:
 - [x] **L3-B browser WebAudio** (above) — closes the Linux/Windows
   audio gap.
 
-### Pending — L5 / L6 / L7
+### WebHost phases — L5 / L6 / L7 / L8 / L9 (L6 docs is the only one still open)
 
 - [x] **L5 — Linux script sandbox.** *(Shipped 2026-06-25.)*
   `LinuxBwrapLauncher : IScriptWorkerLauncher`
@@ -213,12 +213,27 @@ boundary hits) work on Linux. Two candidate backends, both viable:
   under `/app/` via `UsePathBase` + base href for the nginx reverse-proxy;
   Twelve Data key seeded from `DEMO_TWELVEDATA_APIKEY` (never committed);
   feedless providers run historical-only. A no-op when `--demo` is absent,
-  so the full app is unaffected.
-  - [ ] Still worth adding: a Blazor Server **circuit rate-limiter** on the
-    public site so it can't be DOSed via connection floods.
+  so the full app is unaffected. (Circuit rate-limiter follow-up tracked under
+  L9 below.)
 - [ ] **L8 — Desktop shell.** SKIPPED per user choice (2026-05-16).
   Browser auto-launch via `xdg-open` is sufficient. Photino / Avalonia
   shells remain available as future options if the UX warrants it.
+- [x] **L9 — Multi-user WebHost (per-circuit scoping).** *(Shipped v1.2.0,
+  2026-06-26; verified on the live demo.)* Per-user state services
+  (`IWorkspaceStore`, `IEventBus`, orchestrators, data pipeline, input/speech/
+  audio, stateful indicator/drawing/strategy services, settings) flipped from
+  `Singleton` to `AddScoped` in the WebHost, with a curated Singleton allow-list
+  for shared/stateless infra; `ValidateScopes`/`ValidateOnBuild` enforce no
+  captive dependencies. `PluginLoaderService` caches discovered types once and
+  instantiates per-circuit; pipeline init runs per circuit in `MainLayout`;
+  `App.razor` renders with `prerender:false`; a `CircuitHandler` re-applies the
+  Firefox shortcut remap per circuit; `AppStartupService` init is idempotent.
+  MAUI head untouched (stays single-user/Singleton). Full design + phase log in
+  `docs/WEBHOST_MULTI_USER_SCOPING.md`.
+  - [ ] **Follow-ups:** a Blazor Server **circuit rate-limiter** for the public
+    site (DoS guard), and a possible **shared connection pool** keyed by symbol
+    (per-visitor upstream connections are intentional for now; nginx caps the
+    demo at 12 concurrent).
 
 ### Cosmetic + known issues
 
