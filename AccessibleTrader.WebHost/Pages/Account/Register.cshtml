@@ -1,0 +1,57 @@
+@page "/account/register"
+@model AccessibleTrader.WebHost.Pages.Account.RegisterModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Create an account";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create an account — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/app.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+    <main role="main" style="max-width:28rem;margin:3rem auto;padding:0 1rem;">
+        <h1>Create your free account</h1>
+        <p>Paper-trade and learn by ear, with your settings and progress saved.</p>
+
+        @if (Model.Errors.Count > 0)
+        {
+            <div role="alert" aria-live="assertive" style="color:#b00020;margin:0 0 1rem;">
+                <ul style="margin:0;padding-left:1.2rem;">
+                    @foreach (var e in Model.Errors) { <li>@e</li> }
+                </ul>
+            </div>
+        }
+
+        <form method="post">
+            <div style="margin-bottom:1rem;">
+                <label asp-for="Input.Email">Email</label><br />
+                <input asp-for="Input.Email" type="email" autocomplete="username" autofocus
+                       aria-describedby="email-err" style="width:100%;" />
+                <span id="email-err" asp-validation-for="Input.Email" role="alert" style="color:#b00020;"></span>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label asp-for="Input.Password">Password (at least 10 characters)</label><br />
+                <input asp-for="Input.Password" type="password" autocomplete="new-password"
+                       aria-describedby="pw-err" style="width:100%;" />
+                <span id="pw-err" asp-validation-for="Input.Password" role="alert" style="color:#b00020;"></span>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label asp-for="Input.ConfirmPassword">Confirm password</label><br />
+                <input asp-for="Input.ConfirmPassword" type="password" autocomplete="new-password"
+                       aria-describedby="cpw-err" style="width:100%;" />
+                <span id="cpw-err" asp-validation-for="Input.ConfirmPassword" role="alert" style="color:#b00020;"></span>
+            </div>
+            <button type="submit">Create account</button>
+        </form>
+
+        <p style="margin-top:1.5rem;">
+            Already have an account? <a href="/account/login">Sign in</a>.
+        </p>
+    </main>
+</body>
+</html>

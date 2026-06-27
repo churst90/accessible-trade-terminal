@@ -1,0 +1,25 @@
+@page "/account/logout"
+@model AccessibleTrader.WebHost.Pages.Account.LogoutModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign out — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/app.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+    <main role="main" style="max-width:28rem;margin:3rem auto;padding:0 1rem;">
+        <h1>Sign out</h1>
+        <p>Sign out of Accessible Trade Terminal?</p>
+        <form method="post">
+            <button type="submit">Sign out</button>
+        </form>
+        <p style="margin-top:1.5rem;"><a href="/">Stay signed in and go back</a>.</p>
+    </main>
+</body>
+</html>

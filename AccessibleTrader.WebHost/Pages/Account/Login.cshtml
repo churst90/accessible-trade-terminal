@@ -1,0 +1,49 @@
+@page "/account/login"
+@model AccessibleTrader.WebHost.Pages.Account.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Sign in";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/app.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+    <main role="main" style="max-width:28rem;margin:3rem auto;padding:0 1rem;">
+        <h1>Sign in</h1>
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div role="alert" aria-live="assertive" style="color:#b00020;margin:0 0 1rem;">@Model.Error</div>
+        }
+
+        <form method="post">
+            <div style="margin-bottom:1rem;">
+                <label asp-for="Input.Email">Email</label><br />
+                <input asp-for="Input.Email" type="email" autocomplete="username" autofocus
+                       aria-describedby="email-err" style="width:100%;" />
+                <span id="email-err" asp-validation-for="Input.Email" role="alert" style="color:#b00020;"></span>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label asp-for="Input.Password">Password</label><br />
+                <input asp-for="Input.Password" type="password" autocomplete="current-password"
+                       aria-describedby="pw-err" style="width:100%;" />
+                <span id="pw-err" asp-validation-for="Input.Password" role="alert" style="color:#b00020;"></span>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label><input asp-for="Input.RememberMe" type="checkbox" /> Keep me signed in</label>
+            </div>
+            <button type="submit">Sign in</button>
+        </form>
+
+        <p style="margin-top:1.5rem;">
+            New here? <a href="/account/register">Create an account</a>.
+        </p>
+    </main>
+</body>
+</html>

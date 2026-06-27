@@ -33,6 +33,13 @@ builder.WebHost.UseStaticWebAssets();
 bool demoMode = args.Contains("--demo");
 bool autoLaunch = !args.Contains("--no-launch");
 
+// --accounts (or Accounts:Enabled=true) → hosted multi-user mode: ASP.NET Core Identity
+// login + per-user persistence. OFF by default, so the local single-user and --demo modes
+// (and the MAUI head) are completely unaffected. See docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md.
+bool accountsEnabled = args.Contains("--accounts")
+    || builder.Configuration.GetValue<bool>("Accounts:Enabled");
+string? accountsDataRoot = builder.Configuration["Accounts:DataRoot"];
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -52,7 +59,20 @@ builder.Services.AddSingleton(new DemoPolicy(demoMode));
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler,
     AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler>();
 
+// Hosted multi-user accounts (Identity + per-user persistence). Overrides the single-user
+// path/cache defaults with per-circuit ones; only runs when explicitly enabled.
+if (accountsEnabled)
+    builder.Services.AddHostedAccounts(accountsDataRoot);
+
 var app = builder.Build();
+
+// Create the accounts (Identity) schema on first run.
+if (accountsEnabled)
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<AccessibleTrader.WebHost.Account.AuthDbContext>()
+        .Database.EnsureCreated();
+}
 
 // In --demo mode the app is reverse-proxied behind nginx under the /app/ subpath
 // on the public marketing site (trade.codyhurst.com/app/). UsePathBase aligns every
@@ -73,14 +93,31 @@ if (!app.Environment.IsDevelopment())
 // bundle. UseStaticFiles only serves physical filenames, so those 404 in a published
 // build and the Blazor circuit never boots ("no data loaded"). (Deploy-only fix.)
 app.MapStaticAssets();
+
+// Auth middleware runs only when accounts are enabled (before antiforgery/endpoints).
+if (accountsEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
 app.UseAntiforgery();
 
-app.MapRazorComponents<App>()
+var blazorApp = app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     // The RCL holds every @page directive (Pages/Home.razor today). Without
     // AddAdditionalAssemblies the WebHost Router scans only this assembly and
     // would 404 on every route.
     .AddAdditionalAssemblies(typeof(AccessibleTrader.BlazorClient.Components.Routes).Assembly);
+
+if (accountsEnabled)
+{
+    // The whole app requires a signed-in user; anonymous visitors are redirected to the
+    // accessible /account/login page (the cookie LoginPath). The login/register/logout
+    // Razor Pages are served separately and stay anonymous.
+    blazorApp.RequireAuthorization();
+    app.MapRazorPages();
+}
 
 // Diagnostic endpoint — returns the last N journal entries so we can see
 // what speech the server believes it produced. Useful for debugging the

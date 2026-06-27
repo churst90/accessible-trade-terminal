@@ -76,11 +76,14 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IVolumeStateService, VolumeStateService>();
             services.AddScoped<IWorkspaceStore, WorkspaceStore>();
 
-            services.AddDbContextFactory<AppDbContext>((sp, options) =>
-            {
-                var pathService = sp.GetRequiredService<IPlatformPathService>();
-                options.UseSqlite($"Data Source={Path.Combine(pathService.AppDataDirectory, "trader_local.db")}");
-            });
+            // Shared OHLCV cache DB — public market data, one DB for everyone. Resolve the
+            // path from a fixed shared location (not the per-user IPlatformPathService) so
+            // this factory stays a Singleton even when hosted accounts route
+            // IPlatformPathService per-circuit. Behaviour is unchanged when accounts are off
+            // (same path the WebHostPathService used).
+            var cacheDbDir = new WebHostPathService().AppDataDirectory;
+            services.AddDbContextFactory<AppDbContext>(options =>
+                options.UseSqlite($"Data Source={Path.Combine(cacheDbDir, "trader_local.db")}"));
 
             services.AddScoped<IInputService, BlazorInputService>();
 
