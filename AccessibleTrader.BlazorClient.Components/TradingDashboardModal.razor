@@ -10,6 +10,7 @@
 @inject IApiKeyService ApiKeyService
 @inject ISettingsManager Settings
 @inject IJSRuntime JSRuntime
+@inject DemoPolicy Demo
 @implements IDisposable
 
 @if (_isVisible)
@@ -562,7 +563,11 @@
     private async Task ShowAsync()
     {
         _orderStatus = null;
-        _paperMode = Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
+        // Hosted/demo: real-money trading is desktop-only, so force paper mode regardless of
+        // the saved setting. (There are also no live broker keys in these modes — the API-keys
+        // modal is gated off — so this is belt-and-suspenders over the no-keys backstop.)
+        _paperMode = !Demo.AllowLiveTrading
+            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
         var provider = Store.State.Identity.Provider;
         if (string.IsNullOrEmpty(provider)) return;
 

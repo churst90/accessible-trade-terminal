@@ -16,7 +16,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
         public async Task<IActionResult> OnPostAsync()
         {
             await _signIn.SignOutAsync();
-            return Redirect("/account/login");
+            return Redirect(Url.Content("~/account/login"));
         }
     }
 }

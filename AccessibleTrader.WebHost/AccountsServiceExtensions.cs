@@ -73,6 +73,14 @@ namespace AccessibleTrader.WebHost
                 o.LoginPath = "/account/login";
                 o.LogoutPath = "/account/logout";
                 o.AccessDeniedPath = "/account/login";
+                // Public site is HTTPS-only behind nginx (UseForwardedHeaders makes the
+                // request scheme HTTPS): mark the auth cookie Secure + HttpOnly + SameSite=Lax
+                // (Lax still flows on the top-level GET back from the login form POST).
+                o.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+                o.Cookie.HttpOnly = true;
+                o.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
+                o.SlidingExpiration = true;
+                o.ExpireTimeSpan = TimeSpan.FromDays(14);
             });
 
             services.AddAuthorization();

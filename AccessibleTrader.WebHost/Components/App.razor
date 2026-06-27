@@ -14,10 +14,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    @* In --demo mode the app is reverse-proxied under /app/ on the public site,
-       so the base href (and therefore every relative asset + the /_blazor
-       SignalR endpoint) must live under that prefix. At root otherwise. *@
-    <base href="@(Demo.IsDemo ? "/app/" : "/")" />
+    @* The public builds are reverse-proxied under a subpath on the marketing site, so the
+       base href (and therefore every relative asset + the /_blazor SignalR endpoint) must
+       live under that prefix: --demo under /app/, hosted accounts under /terminal/. Root
+       otherwise (desktop / local web). Mirrors UsePathBase in Program.cs. *@
+    <base href="@(Demo.IsDemo ? "/app/" : Demo.IsHosted ? "/terminal/" : "/")" />
     <title>Accessible Trade Terminal</title>
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css" />

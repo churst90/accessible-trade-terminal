@@ -18,11 +18,37 @@ namespace AccessibleTrader.Core.Services
     /// completely unaffected. Register a singleton with isDemo:false in the MAUI /
     /// desktop heads, and isDemo:(the --demo flag) in the WebHost.
     /// </summary>
+    /// <summary>
+    /// Which deployment a <see cref="DemoPolicy"/> governs.
+    /// <list type="bullet">
+    /// <item><b>Full</b> — desktop (MAUI) and local web: every feature on.</item>
+    /// <item><b>Demo</b> — the public, anonymous <c>--demo</c> build: whitelisted, locked-down taste.</item>
+    /// <item><b>Hosted</b> — the public, logged-in <c>--accounts</c> build: the FULL app MINUS the
+    /// desktop-only differentiators (custom scripts, real-money trading, broker API keys, AI analyst).
+    /// Paper trading and all indicators/markets/sound/settings/workspaces are ON.</item>
+    /// </list>
+    /// </summary>
+    public enum HostMode { Full, Demo, Hosted }
+
     public sealed class DemoPolicy
     {
+        /// <summary>Which deployment this policy governs (see <see cref="HostMode"/>).</summary>
+        public HostMode Mode { get; }
+
+        /// <summary>True only for the locked-down, anonymous public <c>--demo</c> build.</summary>
         public bool IsDemo { get; }
 
-        public DemoPolicy(bool isDemo) => IsDemo = isDemo;
+        /// <summary>True for the hosted, logged-in <c>--accounts</c> build (paper-only full app).</summary>
+        public bool IsHosted => Mode == HostMode.Hosted;
+
+        public DemoPolicy(HostMode mode)
+        {
+            Mode   = mode;
+            IsDemo = mode == HostMode.Demo;
+        }
+
+        /// <summary>Back-compat ctor: <c>true</c> → Demo, <c>false</c> → Full (desktop/local).</summary>
+        public DemoPolicy(bool isDemo) : this(isDemo ? HostMode.Demo : HostMode.Full) { }
 
         // ── Whitelists ───────────────────────────────────────────────────────
 
@@ -106,25 +132,27 @@ namespace AccessibleTrader.Core.Services
         public string DefaultSymbol    => "BTC/USD";
         public string DefaultTimeframe => "1d";
 
-        // ── Feature flags (everything not explicitly allowed is OFF in demo) ──
-        public bool AllowTrading          => !IsDemo;
+        // ── Feature flags — three tiers (Full / Demo / Hosted) ───────────────
+        // Desktop-only differentiators — OFF in BOTH Demo and Hosted (only Full has them):
+        public bool AllowCustomScripts    => Mode == HostMode.Full;   // server-side Roslyn = RCE; desktop only
+        public bool AllowApiKeysModal     => Mode == HostMode.Full;   // no real broker keys held server-side
+        public bool AllowLiveTrading      => Mode == HostMode.Full;   // real money is desktop-only; hosted = paper
+        public bool AllowAiAnalyst        => Mode == HostMode.Full;   // external-LLM cost; desktop / tiered
+
+        // Full-app features — ON in Hosted, OFF only in the locked Demo:
+        public bool AllowTrading          => !IsDemo;   // paper-trading dashboard — the hosted educational core
         public bool AllowStrategies       => !IsDemo;
         public bool AllowAlerts           => !IsDemo;
-        public bool AllowCustomScripts    => !IsDemo;
-        public bool AllowAiAnalyst        => !IsDemo;
-        public bool AllowApiKeysModal     => !IsDemo;
         public bool AllowWorkspaceSaveLoad=> !IsDemo;
         public bool AllowSymbolSearch     => !IsDemo;   // demo is whitelist-only, no free search
         public bool AllowSettingsPersist  => !IsDemo;   // demo never writes settings.json
         public bool AllowOrderBook        => !IsDemo;
 
-        // Per Cody's demo decisions (2026-06-25):
-        //  - Settings modal hidden in demo (so its toggles can't confuse the taste).
-        //  - Sound Designer held back as a download incentive.
-        //  - Drawing tools kept ON for a richer taste.
-        public bool AllowSettingsModal    => !IsDemo;   // hide the Settings modal in demo
-        public bool AllowSoundDesigner    => !IsDemo;   // hold the Sound Designer for the download
-        public bool AllowDrawingTools     => true;      // a taste of drawing
+        // Per Cody's demo decisions (2026-06-25): in the locked DEMO these are off, but in
+        // Hosted they are ON — saving audio/visual/speech settings is the whole hosted draw.
+        public bool AllowSettingsModal    => !IsDemo;   // hidden only in demo
+        public bool AllowSoundDesigner    => !IsDemo;   // held back only in demo (download incentive)
+        public bool AllowDrawingTools     => true;      // always available
 
         // ── Helpers (all permissive when !IsDemo) ────────────────────────────
 

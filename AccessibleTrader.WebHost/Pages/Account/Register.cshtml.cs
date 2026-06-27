@@ -55,7 +55,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
             if (result.Succeeded)
             {
                 await _signIn.SignInAsync(user, isPersistent: false);
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
             }
 
             Errors.AddRange(result.Errors.Select(e => e.Description));

@@ -38,7 +38,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                 Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
             if (result.Succeeded)
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
 
             Error = result.IsLockedOut
                 ? "This account is temporarily locked after too many failed attempts. Please try again later."

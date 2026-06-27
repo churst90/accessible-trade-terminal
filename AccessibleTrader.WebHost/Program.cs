@@ -1,8 +1,15 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Identity;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost;
+using AccessibleTrader.WebHost.Account;
 using AccessibleTrader.WebHost.Components;
 using AccessibleTrader.WebHost.Services;
 
@@ -43,15 +50,57 @@ string? accountsDataRoot = builder.Configuration["Accounts:DataRoot"];
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddDataProtection()
+var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("AccessibleTrader.WebHost");
+
+// Hosted accounts: persist the DataProtection keyring to disk so auth cookies and
+// antiforgery tokens survive process restarts — otherwise every restart silently logs
+// every user out and breaks in-flight form posts. Keys live under the accounts data root.
+if (accountsEnabled)
+{
+    var keyRing = Path.Combine(
+        string.IsNullOrWhiteSpace(accountsDataRoot)
+            ? new WebHostPathService().AppDataDirectory
+            : accountsDataRoot!,
+        "dp-keys");
+    Directory.CreateDirectory(keyRing);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRing));
+}
 
 builder.Services.AddAccessibleTraderWebHostServices();
 
 builder.Services.AddSingleton(new WebHostDemoMode(demoMode));
-// Central public-demo policy (provider/symbol/timeframe/indicator whitelist + feature
-// gates). A no-op when demoMode is false, so the WebHost is unaffected outside --demo.
-builder.Services.AddSingleton(new DemoPolicy(demoMode));
+// Central feature policy — three tiers (see DemoPolicy / HostMode):
+//   Full   (no flags) — desktop + local web, everything on
+//   Demo   (--demo)   — locked-down, whitelisted public taste
+//   Hosted (--accounts) — full app MINUS desktop-only scripts / real-money trading /
+//                         broker keys / AI analyst (paper trading + everything else ON)
+var hostMode = accountsEnabled ? HostMode.Hosted
+             : demoMode        ? HostMode.Demo
+             :                    HostMode.Full;
+builder.Services.AddSingleton(new DemoPolicy(hostMode));
+
+// Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a
+// prerequisite before public exposure. Generous per-client-IP fixed window over HTTP
+// requests (page loads, SignalR negotiates, auth form posts). The established per-circuit
+// WebSocket is a single upgraded request, so normal use is unaffected; rapid circuit
+// creation or registration floods from one IP get 429'd.
+if (accountsEnabled)
+{
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 200,
+                    Window = TimeSpan.FromSeconds(10),
+                    QueueLimit = 0,
+                }));
+    });
+}
 
 // Per-circuit setup hook. Re-applies the Firefox Ctrl+Shift→Alt+Shift shortcut remap
 // for each visitor — it used to run app-once, but IShortcutManager is now per-circuit
@@ -74,13 +123,55 @@ if (accountsEnabled)
         .Database.EnsureCreated();
 }
 
-// In --demo mode the app is reverse-proxied behind nginx under the /app/ subpath
-// on the public marketing site (trade.codyhurst.com/app/). UsePathBase aligns every
+// One-time owner/admin seed: provision a pre-set account from env vars, BYPASSING the public
+// password policy (a server-provisioned account, e.g. the site owner). Idempotent — only acts
+// when the email doesn't already exist. The hash is set directly so the password validators
+// never run; sign-in only verifies the hash, so any chosen password works for this account.
+if (accountsEnabled)
+{
+    var seedEmail = Environment.GetEnvironmentVariable("ACCOUNTS_SEED_EMAIL");
+    var seedPass  = Environment.GetEnvironmentVariable("ACCOUNTS_SEED_PASSWORD");
+    if (!string.IsNullOrWhiteSpace(seedEmail) && !string.IsNullOrWhiteSpace(seedPass))
+    {
+        using var seedScope = app.Services.CreateScope();
+        var users = seedScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        if (await users.FindByEmailAsync(seedEmail) is null)
+        {
+            var seedUser = new AppUser { UserName = seedEmail, Email = seedEmail, EmailConfirmed = true };
+            seedUser.PasswordHash = seedScope.ServiceProvider
+                .GetRequiredService<IPasswordHasher<AppUser>>()
+                .HashPassword(seedUser, seedPass);
+            await users.CreateAsync(seedUser);   // no password arg → skips the policy validators
+        }
+    }
+}
+
+// Hosted accounts run behind nginx (TLS terminated upstream). Honour X-Forwarded-Proto/For
+// so the app knows requests are HTTPS (Secure-cookie policy + correct redirect URLs after
+// login) and sees the real client IP for the rate limiter. nginx is the only upstream and
+// is on loopback, so the proxy/network allow-lists are cleared to trust the forwarded values.
+if (accountsEnabled)
+{
+    var fwd = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+    fwd.KnownNetworks.Clear();
+    fwd.KnownProxies.Clear();
+    app.UseForwardedHeaders(fwd);
+}
+
+// The public builds are reverse-proxied behind nginx under a subpath on the marketing
+// site: --demo under /app/, hosted accounts under /terminal/. UsePathBase aligns every
 // route, static asset, and the /_blazor SignalR endpoint with the base href set in
 // App.razor. Must run first in the pipeline. (Deploy-only; kept local to this host.)
 if (demoMode)
 {
     app.UsePathBase("/app");
+}
+else if (accountsEnabled)
+{
+    app.UsePathBase("/terminal");
 }
 
 if (!app.Environment.IsDevelopment())
@@ -94,9 +185,11 @@ if (!app.Environment.IsDevelopment())
 // build and the Blazor circuit never boots ("no data loaded"). (Deploy-only fix.)
 app.MapStaticAssets();
 
-// Auth middleware runs only when accounts are enabled (before antiforgery/endpoints).
+// Rate limiter + auth middleware run only when accounts are enabled. The limiter goes
+// first so floods are shed before auth/Identity work (cheap brute-force/DoS guard).
 if (accountsEnabled)
 {
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
 }
@@ -163,12 +256,15 @@ if (autoLaunch)
     });
 }
 
-// Demo stocks: seed the Twelve Data key from an environment variable so the demo can
-// chart AAPL/TSLA/NVDA/SPY/EUR-USD without the key ever landing in source control.
-// Crypto (Bitstamp) needs no key. The whitelist + caching keep us inside the free tier.
-if (demoMode)
+// Stocks/forex market data (Twelve Data) needs a server-side key; crypto (Bitstamp) needs
+// none. Seed it from an env var in BOTH the public demo AND hosted-accounts modes — hosted
+// users can't add their own keys (the API-keys modal is gated off), so the server provides
+// the shared market-data key. The key never lands in source control. (It is read-only
+// market data, not a trading credential — hosted trading is paper-only.)
+if (demoMode || accountsEnabled)
 {
-    var tdKey = Environment.GetEnvironmentVariable("DEMO_TWELVEDATA_APIKEY");
+    var tdKey = Environment.GetEnvironmentVariable("TWELVEDATA_APIKEY")
+                ?? Environment.GetEnvironmentVariable("DEMO_TWELVEDATA_APIKEY");
     if (!string.IsNullOrWhiteSpace(tdKey))
     {
         try
