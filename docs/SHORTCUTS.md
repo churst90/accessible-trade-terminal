@@ -27,11 +27,14 @@ Firefox (and most browsers) reserve several `Ctrl+Shift+letter` chords at the br
 
 The remap is purely in-memory and never persisted to `shortcuts.json`, so the disk profile remains portable between hosts. The Help dialog (`F1`) reads the live in-memory profile, so each host self-documents its current bindings — you always see the right modifier on the host you're using.
 
-Other Firefox-reserved chords that are NOT remapped because they have no clean alternative or because in-app behaviour can be reached another way:
+Some reserved chords are not just remapped letter-for-letter — they're **single-`Ctrl` chrome chords** the browser handles before any page listener runs, so even capture-phase `preventDefault` can't stop them. On the WebHost these reserved bindings are **removed** (so the Help dialog never advertises a chord the browser eats) and the in-app action is rebound to a web-safe equivalent:
 
-- `Ctrl+T` (would be AddTab) — Firefox opens a new browser tab. Use the toolbar's tab `+` button instead.
-- `Ctrl+W` (would be CloseTab) — Firefox closes the browser tab. Use the tab's `×` button.
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` (would be SwitchTabNext/Prev) — Firefox switches browser tabs. On the web, press **`Ctrl+Alt+Shift+T`** (`FocusTabBar`) to move keyboard focus onto the workspace tab switcher bar, then use the arrow keys / `Home` / `End` / the number row (`1`–`9` jump to that tab) / `Delete` (close the active tab). The three-modifier chord is not browser-reserved, so it always reaches the page.
+- `Ctrl+T` (AddTab) — opens a browser tab. On the web use **`Alt+Shift+N`** (a chord browsers leave alone) or the tab bar's always-visible `+` button. (`Ctrl+T` still works on the desktop heads.)
+- `Ctrl+W` (CloseTab) — closes the browser tab. Use a tab's `×` button, or focus the tab bar (`Ctrl+Alt+Shift+T`) and press `Delete`.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` (SwitchTabNext/Prev) — switch browser tabs. On the web, press **`Ctrl+Alt+Shift+T`** (`FocusTabBar`) to move keyboard focus onto the workspace tab switcher bar, then use the arrow keys / `Home` / `End` / the number row (`1`–`9` jump to that tab); `Delete` closes the active tab and `Insert` / `+` opens a new one.
+- `Ctrl+PageUp` / `Ctrl+PageDown` (NavSubPanePrev/Next — jump between indicator sub-panes) — also cycle browser tabs, so on the web they move to **`Alt+PageUp`** / **`Alt+PageDown`**.
+
+The workspace tab switcher bar (a row of tabs just above the chart) is always visible — even with a single tab open — so the `+` new-tab button is always reachable by mouse, and the bar is always focusable via `Ctrl+Alt+Shift+T`.
 
 ---
 
@@ -65,8 +68,8 @@ Other Firefox-reserved chords that are NOT remapped because they have no clean a
 | Ctrl+Up | Cycle to previous component within the same pane (wraps) | "{Component Name}, {value}" |
 | Alt+Down | Scroll indicator pane list down | "Scroll panes down" |
 | Alt+Up | Scroll indicator pane list up | "Scroll panes up" |
-| Ctrl+Page Down | Jump to first component of next sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
-| Ctrl+Page Up | Jump to first component of previous sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
+| Ctrl+Page Down (web: Alt+Page Down) | Jump to first component of next sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
+| Ctrl+Page Up (web: Alt+Page Up) | Jump to first component of previous sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
 
 ---
 
@@ -173,15 +176,16 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 | Key | Action |
 |-----|--------|
-| Ctrl+T | Add a new chart tab (desktop; on the web use the tab bar's `+` button) |
-| Ctrl+W | Close the current chart tab (desktop; on the web use a tab's `×` button) |
+| Alt+Shift+N | Add a new chart tab (works on every head; the web-safe new-tab chord) |
+| Ctrl+T | Add a new chart tab (desktop only — browser-reserved on the web) |
+| Ctrl+W | Close the current chart tab (desktop; on the web use a tab's `×` button, or focus the bar and press Delete) |
 | Ctrl+Tab | Switch to the next tab (desktop only — browser-reserved on the web) |
 | Ctrl+Shift+Tab | Switch to the previous tab (desktop only — browser-reserved on the web) |
 | Ctrl+Alt+Shift+T | Focus the workspace tab switcher bar (web-safe path to tab switching) |
 | Ctrl+Alt+Shift+W | Save the current workspace (all tabs + layout) |
 | Ctrl+Alt+W | Load a saved workspace |
 
-When the tab switcher bar has focus (via `Ctrl+Alt+Shift+T`, or by clicking it): `←`/`→` (or `↑`/`↓`) switch tabs, `Home`/`End` jump to the first/last tab, the number row `1`–`9` jumps to that tab, and `Delete` closes the active tab. It is an ARIA tablist — your screen reader announces the newly selected tab as you move.
+The tab switcher bar (a row of tabs just above the chart) is always visible, even with a single tab open, so the `+` new-tab button is always there. When the bar has focus (via `Ctrl+Alt+Shift+T`, or by clicking it): `←`/`→` (or `↑`/`↓`) switch tabs, `Home`/`End` jump to the first/last tab, the number row `1`–`9` jumps to that tab, `Insert` / `+` opens a new tab, and `Delete` closes the active tab. It is an ARIA tablist — your screen reader announces the newly selected tab as you move.
 
 ---
 

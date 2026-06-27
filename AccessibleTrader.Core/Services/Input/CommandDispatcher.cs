@@ -344,15 +344,10 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.FocusTabBar:
                     // Ctrl+Tab/Ctrl+Number are browser-reserved on the web; this asks the
                     // TabBar to move keyboard focus onto the switcher bar so the user can
-                    // drive it with arrows/Home/End/number row/Delete. No-op visual when a
-                    // single tab is open (the bar isn't rendered), so guide the user.
-                    if (_store.State.TabCount > 1)
-                        _eventBus.Publish(new FocusTabBarEvent());
-                    else
-                        _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.Info,
-                            "Only one tab open. Press Ctrl+T to open another.",
-                            Interrupt: true));
+                    // drive it with arrows/Home/End/number row, Delete (close), and Insert
+                    // (new tab). The bar always renders (even with one tab), so this is
+                    // always actionable — e.g. press Insert to open a second tab.
+                    _eventBus.Publish(new FocusTabBarEvent());
                     return;
                 case SystemCommand.ContextSummary: _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY", true)); return;
                 case SystemCommand.ChartFocus:

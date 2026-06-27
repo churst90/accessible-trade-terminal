@@ -1007,13 +1007,15 @@ the sound designer as mixing the whole ensemble.
 You can keep several charts open at once in tabs. Ctrl+T opens a new chart tab, Ctrl+W
 closes the current one, and Ctrl+Tab and Ctrl+Shift+Tab move to the next and previous
 tab — so you might hold BTC on the hourly in one tab and a stock index on the daily in
-another, and flip between them without reloading. (On the Linux web host the browser
-claims Ctrl+T, Ctrl+W, and Ctrl+Tab for its own tabs; there you press Ctrl+Alt+Shift+T
-to move keyboard focus onto the tab switcher bar — a row of tabs just above the chart —
-and then switch with the left/right arrow keys, Home and End, or the number row (1–9
-jump straight to that tab), and press Delete to close the focused tab. The bar is an
-ARIA tablist, so your screen reader announces each tab as you move. See the Platform
-Support chapter.)
+another, and flip between them without reloading. A row of tabs sits just above the
+chart and is always visible, even when only one tab is open, so the "+" new-tab button
+is always there for the mouse. (On the Linux web host the browser claims Ctrl+T, Ctrl+W,
+and Ctrl+Tab for its own tabs, so there they are replaced: press Alt+Shift+N to open a
+new chart tab, and press Ctrl+Alt+Shift+T to move keyboard focus onto the tab switcher
+bar. Once the bar has focus, switch with the left/right arrow keys, Home and End, or the
+number row (1–9 jump straight to that tab); press Insert to open another tab and Delete
+to close the focused one. The bar is an ARIA tablist, so your screen reader announces
+each tab as you move. See the Platform Support chapter.)
 
 A whole arrangement — every tab, its symbol and timeframe, its indicators and drawings
 — is a workspace you can save and restore. Ctrl+Alt+Shift+W saves the current
@@ -1138,13 +1140,19 @@ remapped to `Alt+Shift+<letter>`**: the same letter and the same command, just a
 different modifier. This affects all the drawing tools and the detailed point summary
 (`Ctrl+Shift+D` becomes `Alt+Shift+D`). Chords with three modifiers — the AI Analyst,
 auto-narration, the Journal, save and load workspace — are **not** remapped, because
-browsers do not reserve them. And a few single-`Ctrl` browser chords have no clean
-in-page override: use the toolbar's tab **+** and **×** buttons instead of `Ctrl+T` and
-`Ctrl+W`, and press `Ctrl+Alt+Shift+T` (a three-modifier chord browsers leave alone) to
-focus the tab switcher bar and switch tabs with the arrow keys, Home/End, the number row,
-or Delete instead of `Ctrl+Tab`. You never have to memorise which is which — the Help dialog (F1) always
-lists the bindings actually in effect on the host you are using, so it self-documents
-per platform.
+browsers do not reserve them. A few single-`Ctrl` chords are reserved by the browser at
+an even deeper level — it acts on them before the page ever sees the keystroke, so they
+cannot be cancelled in-page at all. On the web host these are dropped from the bindings
+(so the Help dialog never lists a chord the browser eats) and the action moves elsewhere:
+open a new tab with `Alt+Shift+N` or the tab bar's **+** button instead of `Ctrl+T`;
+close a tab with its **×** button or by focusing the bar and pressing Delete instead of
+`Ctrl+W`; switch tabs by pressing `Ctrl+Alt+Shift+T` (a three-modifier chord browsers
+leave alone) to focus the tab switcher bar, then the arrow keys, Home/End, the number
+row, Insert (new) or Delete (close) instead of `Ctrl+Tab`; and jump between indicator
+sub-panes with `Alt+PageUp` / `Alt+PageDown` instead of `Ctrl+PageUp` / `Ctrl+PageDown`,
+which the browser uses to cycle its own tabs. You never have to memorise which is which —
+the Help dialog (F1) always lists the bindings actually in effect on the host you are
+using, so it self-documents per platform.
 
 | Tool / command | Desktop & mobile | Linux web host |
 |---|---|---|
@@ -1164,7 +1172,10 @@ per platform.
 | Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
 | Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
 | Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
-| Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 / Delete |
+| New chart tab | Ctrl+T (or Alt+Shift+N) | Alt+Shift+N (or the tab bar's + button) |
+| Close chart tab | Ctrl+W | Tab's × button, or focus the bar + Delete |
+| Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 |
+| Jump between sub-panes | Ctrl+PageUp / Ctrl+PageDown | Alt+PageUp / Alt+PageDown |
 
 ---
 

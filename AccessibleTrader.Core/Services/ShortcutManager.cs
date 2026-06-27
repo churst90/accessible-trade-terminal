@@ -284,7 +284,12 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.ToggleNarration, "N", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+N
 
             // Multi-tab shortcuts
-            s.Add(new(SystemCommand.AddTab,       "T",   Ctrl: true));                    // Ctrl+T
+            s.Add(new(SystemCommand.AddTab,       "T",   Ctrl: true));                    // Ctrl+T (desktop)
+            // Web-safe new-tab chord: Ctrl+T is reserved by browsers (opens a browser
+            // tab), so Alt+Shift+N (a chord browsers leave alone) also adds a chart tab.
+            // Bound on every head so the muscle memory is identical; on the WebHost the
+            // remap drops Ctrl+T and this is the one that works.
+            s.Add(new(SystemCommand.AddTab,       "N",   Alt: true, Shift: true));        // Alt+Shift+N
             s.Add(new(SystemCommand.CloseTab,     "W",   Ctrl: true));                    // Ctrl+W
             s.Add(new(SystemCommand.SwitchTabNext, "TAB", Ctrl: true));                   // Ctrl+Tab
             s.Add(new(SystemCommand.SwitchTabPrev, "TAB", Ctrl: true, Shift: true));      // Ctrl+Shift+Tab

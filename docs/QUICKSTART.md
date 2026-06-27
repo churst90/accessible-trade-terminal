@@ -571,7 +571,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 - Works with Orca and other browser-compatible screen readers
 - **Modifier remap:** browsers (especially Firefox) reserve several `Ctrl+Shift+<letter>` chords at the browser-chrome level — `Ctrl+Shift+T` (reopen tab), `Ctrl+Shift+H` (history), `Ctrl+Shift+P` (private window), `Ctrl+Shift+J` (console), `Ctrl+Shift+R` (reload), `Ctrl+Shift+W` (close window) — and the page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is remapped to `Alt+Shift+<letter>`**. This affects all drawing tools *and* the detailed point summary (`Ctrl+Shift+D` → `Alt+Shift+D`). The letter and the command are unchanged — only the modifier differs.
 - Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are **not** remapped — browsers don't reserve them.
-- A few single-`Ctrl` browser chords have no clean in-page override and are not remapped: use the toolbar's tab **+** button instead of `Ctrl+T`, the tab's **×** button instead of `Ctrl+W`, and — instead of `Ctrl+Tab` / `Ctrl+Shift+Tab` — press **`Ctrl+Alt+Shift+T`** to move keyboard focus onto the tab switcher bar, then switch with the arrow keys, `Home`/`End`, the number row (`1`–`9`), or `Delete` to close the active tab.
+- A few single-`Ctrl` browser chords are reserved at the chrome level and can't be overridden in-page, so on the web the in-app action moves to a web-safe chord (the reserved one is dropped from the Help dialog): new tab is **`Alt+Shift+N`** or the always-visible tab bar **+** button (not `Ctrl+T`); close a tab with its **×** button or by focusing the bar and pressing `Delete` (not `Ctrl+W`); switch tabs by pressing **`Ctrl+Alt+Shift+T`** to focus the tab switcher bar, then the arrow keys / `Home`/`End` / the number row (`1`–`9`) / `Insert` to add / `Delete` to close (not `Ctrl+Tab`); and jump between indicator sub-panes with **`Alt+PageUp`** / **`Alt+PageDown`** (not `Ctrl+PageUp`/`Ctrl+PageDown`, which the browser uses to cycle its own tabs).
 - The Help dialog (F1) and its live shortcut table always read the bindings actually in effect on your host, so you will always see the correct modifier for the platform you are using.
 
 #### MAUI head vs. Linux web host — drawing tool modifiers
@@ -680,11 +680,12 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+T | New chart tab |
-| Ctrl+W | Close current tab |
+| Alt+Shift+N | New chart tab (web-safe; works everywhere) |
+| Ctrl+T | New chart tab (desktop only — browser-reserved on the web) |
+| Ctrl+W | Close current tab (desktop; on the web use the tab's × or focus the bar + Delete) |
 | Ctrl+Tab | Switch to next tab (desktop only) |
 | Ctrl+Shift+Tab | Switch to previous tab (desktop only) |
-| Ctrl+Alt+Shift+T | Focus the tab switcher bar (web-safe), then use arrows / Home / End / 1–9 / Delete |
+| Ctrl+Alt+Shift+T | Focus the tab switcher bar (web-safe), then use arrows / Home / End / 1–9 / Insert (new) / Delete (close) |
 | Ctrl+Alt+Shift+W | Save workspace |
 | Ctrl+Alt+W | Load workspace |
 
@@ -692,8 +693,8 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+Page Down | Jump to first component of next sub-pane |
-| Ctrl+Page Up | Jump to first component of previous sub-pane |
+| Ctrl+Page Down (web: Alt+Page Down) | Jump to first component of next sub-pane |
+| Ctrl+Page Up (web: Alt+Page Up) | Jump to first component of previous sub-pane |
 | Ctrl+Down | Cycle to next component within current pane (wraps) |
 | Ctrl+Up | Cycle to previous component within current pane (wraps) |
 

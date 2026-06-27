@@ -7,41 +7,45 @@
 @implements IDisposable
 
 @* Workspace tab switcher — rendered between the Toolbar (timeframe row) and the
-   chart area. Visible only when more than one tab is open.
+   chart area. Always visible (even with a single tab) so the "+ new tab" button is
+   always available — important on the web, where Ctrl+T is reserved by the browser.
 
    Two ways to drive it:
    • Desktop: Ctrl+Tab / Ctrl+Shift+Tab cycle tabs directly (CommandDispatcher).
    • Web: Ctrl+Tab and Ctrl+Number are reserved by the browser, so the user presses
      Ctrl+Alt+Shift+T (FocusTabBar) to move focus onto this bar, then drives it with
-     ArrowLeft/Right (or Up/Down), Home/End, the number row (1-9 → tab N) and Delete
-     (close the active tab). Implemented as an ARIA tablist with the activedescendant
-     pattern: the container holds focus (tabindex 0) and aria-activedescendant points
-     at the selected tab; selection follows focus, so each arrow press switches tabs. *@
+     ArrowLeft/Right (or Up/Down), Home/End, the number row (1-9 → tab N), Delete
+     (close the active tab) and Insert / + (new tab). Implemented as an ARIA tablist
+     with the activedescendant pattern: the container holds focus (tabindex 0) and
+     aria-activedescendant points at the selected tab; selection follows focus, so
+     each arrow press switches tabs. A web-safe global new-tab chord is Alt+Shift+N. *@
 
-@if (Store.State.TabCount > 1)
-{
-    <div class="tab-bar"
-         id="workspace-tabbar"
-         role="tablist"
-         tabindex="0"
-         aria-label="Workspace tabs. Use arrow keys, Home, End, the number row, or Delete to close."
-         aria-orientation="horizontal"
-         aria-activedescendant="@($"ws-tab-{Store.State.ActiveTabIndex}")"
-         @onkeydown="OnKeyDown"
-         @onkeydown:stopPropagation="true">
+<div class="tab-bar"
+     id="workspace-tabbar"
+     role="tablist"
+     tabindex="0"
+     aria-label="Workspace tabs. Use arrow keys, Home, End, or the number row to switch; Insert to open a tab; Delete to close one."
+     aria-orientation="horizontal"
+     aria-activedescendant="@($"ws-tab-{Store.State.ActiveTabIndex}")"
+     @onkeydown="OnKeyDown"
+     @onkeydown:stopPropagation="true">
 
-        @foreach (var tab in GetAllTabs())
-        {
-            var captured = tab;
-            <button @key="captured.Index"
-                    id="@($"ws-tab-{captured.Index}")"
-                    role="tab"
-                    aria-selected="@(captured.IsActive ? "true" : "false")"
-                    tabindex="-1"
-                    class="tab-button@(captured.IsActive ? " tab-active" : "")"
-                    title="Switch to tab @(captured.Index + 1)"
-                    @onclick="() => Store.Dispatch(new SwitchTabAction(captured.Index))">
-                Tab @(captured.Index + 1): @captured.Label
+    @{ bool canClose = Store.State.TabCount > 1; }
+
+    @foreach (var tab in GetAllTabs())
+    {
+        var captured = tab;
+        <button @key="captured.Index"
+                id="@($"ws-tab-{captured.Index}")"
+                role="tab"
+                aria-selected="@(captured.IsActive ? "true" : "false")"
+                tabindex="-1"
+                class="tab-button@(captured.IsActive ? " tab-active" : "")"
+                title="Switch to tab @(captured.Index + 1)"
+                @onclick="() => Store.Dispatch(new SwitchTabAction(captured.Index))">
+            Tab @(captured.Index + 1): @captured.Label
+            @if (canClose)
+            {
                 <button class="tab-close"
                         tabindex="-1"
                         aria-label="Close tab @(captured.Index + 1)"
@@ -49,20 +53,20 @@
                         @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
                     ×
                 </button>
-            </button>
-        }
-
-        @* New tab button *@
-        <button class="tab-new"
-                tabindex="-1"
-                title="New tab (Ctrl+T)"
-                aria-label="Open new chart tab"
-                @onclick="() => Store.Dispatch(new AddTabAction())">
-            +
+            }
         </button>
+    }
 
-    </div>
-}
+    @* New tab button — always present. Desktop also has Ctrl+T; everywhere Alt+Shift+N. *@
+    <button class="tab-new"
+            tabindex="-1"
+            title="New tab (Alt+Shift+N)"
+            aria-label="Open new chart tab"
+            @onclick="() => Store.Dispatch(new AddTabAction())">
+        +
+    </button>
+
+</div>
 
 @code {
     private readonly List<IDisposable> _subs = new();
@@ -120,8 +124,17 @@
         // keyboard handler (which would treat the arrows as chart nav), so we only need
         // to act on the ones we own here. Selection follows focus: each move switches tab.
         int count = Store.State.TabCount;
-        if (count <= 1) return;
         int active = Store.State.ActiveTabIndex;
+
+        // Insert / + : open a new tab (works even with a single tab open).
+        if (e.Key is "Insert" or "+" or "=")
+        {
+            Store.Dispatch(new AddTabAction());
+            return;
+        }
+
+        // The remaining keys only make sense with more than one tab.
+        if (count <= 1) return;
 
         // Number row: 1-9 jump straight to that tab.
         if (e.Key.Length == 1 && e.Key[0] >= '1' && e.Key[0] <= '9')

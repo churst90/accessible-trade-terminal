@@ -13,13 +13,24 @@ locally via WebHost or on the desktop MAUI head. The Object Tree's "Manage Strat
 button (and its Alt+S help line) is now gated on the same policy, matching the toolbar
 button and the `StrategyModal` that were already gated.
 
-**Web-safe workspace tab switching.** `Ctrl+Tab` / `Ctrl+Number` are reserved by the
-browser, so the tab switcher bar is now a keyboard-operable ARIA tablist. Press the new
-`Ctrl+Alt+Shift+T` (`FocusTabBar`) to move focus onto the bar, then switch with the
-arrow keys, `Home`/`End`, the number row (`1`–`9` jump to that tab), or `Delete` to
-close the active tab; the screen reader announces each tab as selection follows focus.
-`Ctrl+Tab` still works on the desktop heads. SHORTCUTS, QUICKSTART, and the USER_MANUAL
-document the web path.
+**Web-safe workspace tab management.** `Ctrl+Tab` / `Ctrl+Number` are reserved by the
+browser, so the tab switcher bar is now a keyboard-operable ARIA tablist and is **always
+visible** (even with a single tab open) so its `+` new-tab button is always reachable.
+Press the new `Ctrl+Alt+Shift+T` (`FocusTabBar`) to move focus onto the bar, then switch
+with the arrow keys, `Home`/`End`, the number row (`1`–`9` jump to that tab), `Insert` /
+`+` to open a tab, or `Delete` to close the active one; the screen reader announces each
+tab as selection follows focus. `Ctrl+Tab` still works on the desktop heads.
+
+**Browser-reserved shortcut conflicts resolved.** Several single-`Ctrl` chords the
+browser handles at the chrome level (uncancellable in-page) are now rebound on the
+WebHost and removed from the Help dialog so it never advertises a chord the browser
+eats: new tab → `Alt+Shift+N` (was `Ctrl+T`); switch tabs → `Ctrl+Alt+Shift+T` + the bar
+(was `Ctrl+Tab` / `Ctrl+Shift+Tab`); close tab → `×` button or bar + `Delete` (was
+`Ctrl+W`); and **jump between indicator sub-panes → `Alt+PageUp` / `Alt+PageDown`** (was
+`Ctrl+PageUp` / `Ctrl+PageDown`, which cycle browser tabs). `Alt+Shift+N` is a global
+default so the new-tab muscle memory is identical on desktop and web. New
+`WebHostShortcutRemapTests` pin the rebinds. SHORTCUTS, QUICKSTART, and the USER_MANUAL
+document the web paths.
 
 ---
 

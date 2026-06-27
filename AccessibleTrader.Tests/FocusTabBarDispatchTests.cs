@@ -16,9 +16,9 @@ namespace AccessibleTrader.Tests
     /// Pins the web-safe tab-switching entry point. Ctrl+Tab / Ctrl+Number are
     /// reserved by the browser, so <see cref="SystemCommand.FocusTabBar"/>
     /// (Ctrl+Alt+Shift+T) is the keyboard path onto the workspace tab switcher bar.
-    /// The dispatcher publishes <see cref="FocusTabBarEvent"/> only when more than
-    /// one tab exists (otherwise the bar isn't rendered), and announces a hint when
-    /// there's only one tab so the keystroke is never silently inert.
+    /// The dispatcher publishes <see cref="FocusTabBarEvent"/> whenever pressed; the
+    /// tab bar always renders (even with a single tab) so the user can reach the
+    /// new-tab button (Insert) from the keyboard.
     /// </summary>
     public class FocusTabBarDispatchTests
     {
@@ -62,20 +62,18 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void FocusTabBar_AnnouncesHint_WhenSingleTab()
+        public void FocusTabBar_PublishesEvent_EvenWithSingleTab()
         {
             var (dispatcher, bus, store) = Build();
             Assert.Equal(1, store.State.TabCount);
 
             var focus = new List<FocusTabBarEvent>();
-            var feedback = new List<FeedbackRequestEvent>();
             bus.Subscribe<FocusTabBarEvent>(focus.Add);
-            bus.Subscribe<FeedbackRequestEvent>(feedback.Add);
 
             dispatcher.Dispatch(SystemCommand.FocusTabBar);
 
-            Assert.Empty(focus);
-            Assert.Contains(feedback, f => (f.Message ?? "").Contains("one tab"));
+            // The bar always renders, so focusing it is always actionable (Insert = new tab).
+            Assert.Single(focus);
         }
     }
 }
