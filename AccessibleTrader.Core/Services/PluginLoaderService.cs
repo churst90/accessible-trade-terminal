@@ -166,16 +166,56 @@ namespace AccessibleTrader.Core.Services
             _trust  = trust ?? new PluginTrustPolicy();
         }
 
+        // Discovered plugin TYPES, cached per (directory, pattern, T). Assemblies are
+        // loaded (and trust-checked) exactly ONCE; LoadPlugins then instantiates FRESH
+        // objects from the cached types on every call. This is what lets a per-circuit
+        // (Scoped) DataService create its own isolated provider instances for each web
+        // visitor without re-loading the plugin DLLs into a new AssemblyLoadContext per
+        // connection (which would leak ALCs and re-hash every DLL each time).
+        private readonly Dictionary<string, List<Type>> _typeCache = new();
+        private readonly object _typeCacheLock = new();
+
         public IEnumerable<T> LoadPlugins<T>(string directory, string searchPattern = "AccessibleTrader.Plugins.*.dll") where T : class
         {
+            var types = GetOrDiscoverTypes<T>(directory, searchPattern);
+            var plugins = new List<T>(types.Count);
+            foreach (var type in types)
+            {
+                try
+                {
+                    if (Activator.CreateInstance(type) is T instance)
+                        plugins.Add(instance);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to instantiate {Type}.", type.Name);
+                }
+            }
+            return plugins;
+        }
+
+        private List<Type> GetOrDiscoverTypes<T>(string directory, string searchPattern) where T : class
+        {
+            string key = directory + "|" + searchPattern + "|" + typeof(T).FullName;
+            lock (_typeCacheLock)
+            {
+                if (_typeCache.TryGetValue(key, out var cached)) return cached;
+                var discovered = DiscoverTypes<T>(directory, searchPattern);
+                _typeCache[key] = discovered;
+                return discovered;
+            }
+        }
+
+        private List<Type> DiscoverTypes<T>(string directory, string searchPattern) where T : class
+        {
             _logger.LogDebug("Searching for plugins in {Directory} (pattern {Pattern}).", directory, searchPattern);
+            var found = new List<Type>();
             if (!Directory.Exists(directory))
             {
                 _logger.LogDebug("Plugin directory does not exist: {Directory}.", directory);
-                return Enumerable.Empty<T>();
+                return found;
             }
 
-            var plugins = new List<T>();
             var dlls = Directory.GetFiles(directory, searchPattern, SearchOption.AllDirectories);
             _logger.LogDebug("Found {Count} matching plugin DLLs.", dlls.Length);
 
@@ -225,23 +265,8 @@ namespace AccessibleTrader.Core.Services
                         types = ex.Types.Where(t => t != null && typeof(T).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract).Cast<Type>();
                     }
 
+                    found.AddRange(types);
                     _logger.LogDebug("Found {Count} types implementing {Interface} in {Dll}.", types.Count(), typeof(T).Name, Path.GetFileName(dll));
-
-                    foreach (var type in types)
-                    {
-                        try
-                        {
-                            if (Activator.CreateInstance(type) is T instance)
-                            {
-                                plugins.Add(instance);
-                                _logger.LogDebug("Created plugin instance: {Type}.", type.FullName);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to instantiate {Type} from {Dll}.", type.Name, Path.GetFileName(dll));
-                        }
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -249,7 +274,7 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            return plugins;
+            return found;
         }
 
         public void UnloadAll()

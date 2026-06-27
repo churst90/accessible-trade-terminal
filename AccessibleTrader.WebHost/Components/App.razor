@@ -28,7 +28,13 @@
 <body>
     <BrowserSpeechBridge @rendermode="RenderMode.InteractiveServer" />
     <BrowserAudioBridge @rendermode="RenderMode.InteractiveServer" />
-    <AppRoutes @rendermode="RenderMode.InteractiveServer" />
+    @* prerender: false — the app tree (MainLayout/Toolbar/ChartArea) does heavy, stateful,
+       per-circuit init in OnInitialized (loads the chart, dispatches to the scoped
+       WorkspaceStore). Prerendering ran that in a throwaway SSR scope that is disposed
+       right after prerender, so the in-flight chart load dispatched to an already-disposed
+       store (ObjectDisposedException) — harmless but noisy. Rendering only on the real
+       interactive circuit runs that init exactly once, in the long-lived per-visitor scope. *@
+    <AppRoutes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 
     <div id="blazor-error-ui" role="alert" aria-live="assertive" data-nosnippet>
         An unhandled error has occurred.

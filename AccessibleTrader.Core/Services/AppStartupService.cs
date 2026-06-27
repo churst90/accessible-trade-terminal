@@ -29,13 +29,26 @@ namespace AccessibleTrader.Core.Services
         private readonly IServiceProvider _services;
         private readonly ILogger<AppStartupService> _logger;
 
+        // Run the init body exactly once per instance, even under concurrent callers.
+        // On the WebHost this service is Scoped, so "once per instance" == "once per
+        // browser circuit". On the MAUI head it is a Singleton, so this makes the call
+        // idempotent: MainPage.xaml.cs fires it at startup AND the shared MainLayout
+        // awaits it on first render — both share this one Task and the body runs once.
+        private readonly object _initLock = new();
+        private Task? _initTask;
+
         public AppStartupService(IServiceProvider services, ILogger<AppStartupService> logger)
         {
             _services = services;
             _logger = logger;
         }
 
-        public async Task InitializeAsync()
+        public Task InitializeAsync()
+        {
+            lock (_initLock) { return _initTask ??= InitializeCoreAsync(); }
+        }
+
+        private async Task InitializeCoreAsync()
         {
             // Resolve in dependency order: data pipeline first, then input routing,
             // then accessibility coordinators that depend on both.

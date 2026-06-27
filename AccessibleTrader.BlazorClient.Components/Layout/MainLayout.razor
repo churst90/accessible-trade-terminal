@@ -33,6 +33,13 @@
 @inject AccessibleTrader.Core.Services.Alerts.AlertDeliveryService _alertDelivery
 @inject ILogger<MainLayout> _layoutLogger
 @inject DemoPolicy Demo
+@* Per-circuit pipeline init: on the multi-user web host every browser connection is its
+   own DI scope, so the data/indicator/input/accessibility pipeline is initialized HERE,
+   once per visitor (it used to run once at app start). MainLayout is the parent of the
+   Toolbar, so awaiting this in OnInitializedAsync guarantees the pipeline is ready before
+   the Toolbar's market cascade loads the first chart. Harmless/idempotent on the desktop
+   head (IAppStartupService is a no-op-if-already-initialized singleton there). *@
+@inject IAppStartupService _startup
 
 <div class="app-container">
 
@@ -121,6 +128,18 @@
                 _activeBuffer = _activeBuffer == 1 ? 2 : 1;
                 StateHasChanged();
             });
+
+        // Per-circuit pipeline init (see the @inject note above). Awaited before the
+        // child Toolbar renders, so this visitor's providers/orchestrator/indicators are
+        // ready before its first chart load. Wrapped so a failure is logged, not fatal.
+        try
+        {
+            await _startup.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            _layoutLogger.LogError(ex, "Per-circuit pipeline init failed.");
+        }
 
         // Re-render on every store state change so the header title stays current.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));

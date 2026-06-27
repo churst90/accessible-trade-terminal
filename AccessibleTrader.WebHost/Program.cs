@@ -8,6 +8,17 @@ using AccessibleTrader.WebHost.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Multi-user web host: each Blazor circuit (browser connection) is its own DI scope,
+// so per-visitor state services are registered Scoped (see ServiceCollectionExtensions
+// + docs/WEBHOST_MULTI_USER_SCOPING.md). Validate that nothing captures a Scoped service
+// in a Singleton (captive dependency) or resolves Scoped from the root provider —
+// ValidateOnBuild fails fast at startup with the exact offenders so they can be fixed.
+builder.Host.UseDefaultServiceProvider(o =>
+{
+    o.ValidateScopes = true;
+    o.ValidateOnBuild = true;
+});
+
 // Load the static-web-assets manifest in every environment, not just
 // Development. CreateBuilder only auto-calls this when ASPNETCORE_ENVIRONMENT
 // is "Development" — without it, blazor.web.js, the RCL's scoped-CSS bundle,
@@ -34,6 +45,12 @@ builder.Services.AddSingleton(new WebHostDemoMode(demoMode));
 // Central public-demo policy (provider/symbol/timeframe/indicator whitelist + feature
 // gates). A no-op when demoMode is false, so the WebHost is unaffected outside --demo.
 builder.Services.AddSingleton(new DemoPolicy(demoMode));
+
+// Per-circuit setup hook. Re-applies the Firefox Ctrl+Shift→Alt+Shift shortcut remap
+// for each visitor — it used to run app-once, but IShortcutManager is now per-circuit
+// (multi-user scoping), so the remap must run per circuit too.
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler,
+    AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler>();
 
 var app = builder.Build();
 
@@ -88,53 +105,13 @@ if (args.Contains("--enable-diag") || app.Environment.IsDevelopment())
 // stays false and every LoadSymbolsAsync silently returns an empty list,
 // which presents as empty Symbol dropdowns and no chart data despite the
 // provider dropdown looking populated.
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-    _ = Task.Run(async () =>
-    {
-        var startup = app.Services.GetRequiredService<IAppStartupService>();
-        var log = app.Services.GetRequiredService<ILogger<Program>>();
-        try
-        {
-            await startup.InitializeAsync().ConfigureAwait(false);
-            log.LogInformation("AppStartupService.InitializeAsync completed.");
-
-            // Remap Firefox-reserved Ctrl+Shift+letter chords (drawing tools,
-            // detailed-point-summary) to Alt+Shift+letter so they actually
-            // reach our keydown handler instead of being eaten by browser
-            // chrome. Runs after AppStartupService so the ShortcutManager
-            // is fully populated.
-            var shortcuts = app.Services.GetRequiredService<IShortcutManager>();
-            WebHostShortcutRemap.ApplyBrowserHostOverrides(shortcuts, log);
-
-            // Demo: the curated stock/forex provider (Twelve Data) requires an API
-            // key. Provider configuration is lazy (first data fetch), but
-            // RefreshSymbolsAsync gates on IsConfigured *before* that fetch — so
-            // without a warm-up the provider shows the "API key required" sentinel
-            // and no symbols. Warm it here, AFTER init (providers are loaded and the
-            // seeded key is in the store), so it is configured and its symbol lists
-            // are cached before any visitor selects Stocks/Forex.
-            if (demoMode)
-            {
-                try
-                {
-                    var data = app.Services.GetRequiredService<IDataService>();
-                    await data.LoadSymbolsAsync("Stock", "Twelve Data").ConfigureAwait(false);
-                    await data.LoadSymbolsAsync("Forex", "Twelve Data").ConfigureAwait(false);
-                    log.LogInformation("Demo: Twelve Data provider warmed (Stock + Forex).");
-                }
-                catch (Exception ex)
-                {
-                    log.LogWarning(ex, "Demo: Twelve Data warm-up failed.");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            log.LogError(ex, "AppStartupService.InitializeAsync failed — providers will be unavailable.");
-        }
-    });
-});
+// NOTE: pipeline init (AppStartupService.InitializeAsync), the shortcut remap, and the
+// Twelve Data warm-up used to run ONCE here at app start. With per-circuit (Scoped)
+// services they must run PER CIRCUIT instead — they are now invoked from
+// MainLayout.OnInitializedAsync (which runs inside each visitor's DI scope). Resolving
+// those Scoped services from the root provider here would throw under ValidateScopes.
+// Only genuinely app-once work (e.g. seeding the shared Twelve Data key below) remains
+// at app start.
 
 if (autoLaunch)
 {

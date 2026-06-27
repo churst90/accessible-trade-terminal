@@ -63,18 +63,18 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddCoreInfrastructure(this IServiceCollection services)
         {
-            services.AddSingleton<IAppLogger, WebHostAppLogger>();
+            services.AddScoped<IAppLogger, WebHostAppLogger>();
             services.AddSingleton<IPlatformPathService, WebHostPathService>();
             services.AddSingleton<IRuntimePlatform, WebHostRuntimePlatform>();
             services.AddSingleton<IMainThreadService, WebHostMainThreadService>();
-            services.AddSingleton<IEventBus, EventBus>();
+            services.AddScoped<IEventBus, EventBus>();
 
-            services.AddSingleton<ICanvasRegionProvider, CanvasRegionProvider>();
+            services.AddScoped<ICanvasRegionProvider, CanvasRegionProvider>();
 
-            services.AddSingleton<IViewportRangeCalculator, ViewportRangeCalculator>();
-            services.AddSingleton<IViewportNavigationService, ViewportNavigationService>();
-            services.AddSingleton<IVolumeStateService, VolumeStateService>();
-            services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
+            services.AddScoped<IViewportRangeCalculator, ViewportRangeCalculator>();
+            services.AddScoped<IViewportNavigationService, ViewportNavigationService>();
+            services.AddScoped<IVolumeStateService, VolumeStateService>();
+            services.AddScoped<IWorkspaceStore, WorkspaceStore>();
 
             services.AddDbContextFactory<AppDbContext>((sp, options) =>
             {
@@ -82,15 +82,15 @@ namespace AccessibleTrader.WebHost
                 options.UseSqlite($"Data Source={Path.Combine(pathService.AppDataDirectory, "trader_local.db")}");
             });
 
-            services.AddSingleton<IInputService, BlazorInputService>();
+            services.AddScoped<IInputService, BlazorInputService>();
 
             // Speech: BlazorSpeechManager handles journaling + the ARIA live
             // region path; WebHostSpeechManager wraps it to ALSO publish a
             // BrowserSpeakRequest event so BrowserSpeechBridge can call
             // window.speechSynthesis. Without the JS-side speech, Orca on
             // Linux+Firefox does not reliably announce live-region updates.
-            services.AddSingleton<BlazorSpeechManager>();
-            services.AddSingleton<ISpeechManager>(sp =>
+            services.AddScoped<BlazorSpeechManager>();
+            services.AddScoped<ISpeechManager>(sp =>
                 new WebHostSpeechManager(
                     sp.GetRequiredService<BlazorSpeechManager>(),
                     sp.GetRequiredService<IEventBus>(),
@@ -99,22 +99,22 @@ namespace AccessibleTrader.WebHost
             // Browser WebAudio fallback sink (L3-B). Constructed even when a
             // local PCM sink is present so DI is uniform; HasSubscribers will
             // simply stay false and the publish path is never exercised.
-            services.AddSingleton<WebHostBrowserAudioSink>();
-            services.AddSingleton<IAudioDriver, WebHostAudioDriver>();
+            services.AddScoped<WebHostBrowserAudioSink>();
+            services.AddScoped<IAudioDriver, WebHostAudioDriver>();
 
             // Single instance backing both interfaces, mirroring the MAUI head's pattern.
             services.AddSingleton<WebHostSecureStorageService>();
             services.AddSingleton<ISecureStorageService>(sp => sp.GetRequiredService<WebHostSecureStorageService>());
-            services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginSecureStorage>(sp => sp.GetRequiredService<WebHostSecureStorageService>());
+            services.AddScoped<AccessibleTrader.Sdk.Services.IPluginSecureStorage>(sp => sp.GetRequiredService<WebHostSecureStorageService>());
 
-            services.AddSingleton<AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker>();
-            services.AddSingleton<AccessibleTrader.Sdk.Services.IApiKeyCheckout, WebHostApiKeyCheckoutAdapter>();
-            services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
+            services.AddScoped<AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker>();
+            services.AddScoped<AccessibleTrader.Sdk.Services.IApiKeyCheckout, WebHostApiKeyCheckoutAdapter>();
+            services.AddScoped<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
 
             // Security audit log + optional file sink. Identical environment-variable
             // contract as the MAUI head so operators can ignore the host they're on.
-            services.AddSingleton<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
-            services.AddSingleton<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
+            services.AddScoped<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
+            services.AddScoped<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
             {
                 var ringBuffer = sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
                 var persistEnv = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST");
@@ -131,21 +131,21 @@ namespace AccessibleTrader.WebHost
                 var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
             });
-            services.AddSingleton<GlobalInputService>();
+            services.AddScoped<GlobalInputService>();
 
-            services.AddSingleton<ISettingsManager, SettingsManager>();
-            services.AddSingleton<ThemeService>();
-            services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
-            services.AddSingleton<IComponentRoleMapper, ComponentRoleMapper>();
-            services.AddSingleton<ISonificationProfileProvider, SonificationProfileProvider>();
-            services.AddSingleton<IPaneAssignmentService, PaneAssignmentService>();
-            services.AddSingleton<IStylingService, StylingService>();
+            services.AddScoped<ISettingsManager, SettingsManager>();
+            services.AddScoped<ThemeService>();
+            services.AddScoped<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
+            services.AddScoped<IComponentRoleMapper, ComponentRoleMapper>();
+            services.AddScoped<ISonificationProfileProvider, SonificationProfileProvider>();
+            services.AddScoped<IPaneAssignmentService, PaneAssignmentService>();
+            services.AddScoped<IStylingService, StylingService>();
 
-            services.AddSingleton<ISoundPatchLibrary, SoundPatchLibrary>();
-            services.AddSingleton<IWorkspaceLibraryService, WorkspaceLibraryService>();
-            services.AddSingleton<IIndicatorPreferencesService, IndicatorPreferencesService>();
-            services.AddSingleton<IWorkspaceInitializer, WorkspaceInitializer>();
-            services.AddSingleton<IAppStartupService, AppStartupService>();
+            services.AddScoped<ISoundPatchLibrary, SoundPatchLibrary>();
+            services.AddScoped<IWorkspaceLibraryService, WorkspaceLibraryService>();
+            services.AddScoped<IIndicatorPreferencesService, IndicatorPreferencesService>();
+            services.AddScoped<IWorkspaceInitializer, WorkspaceInitializer>();
+            services.AddScoped<IAppStartupService, AppStartupService>();
 
             return services;
         }
@@ -177,25 +177,25 @@ namespace AccessibleTrader.WebHost
 
             services.AddSingleton<IPluginLoaderService, PluginLoaderService>();
 
-            services.AddSingleton<IMarketOrchestrator, MarketOrchestrator>();
-            services.AddSingleton<IProfileService, ProfileService>();
+            services.AddScoped<IMarketOrchestrator, MarketOrchestrator>();
+            services.AddScoped<IProfileService, ProfileService>();
 
-            services.AddSingleton<IDataService, DataService>();
-            services.AddSingleton<IDataManager, DataManager>();
-            services.AddSingleton<IOrderBookHistoryService, OrderBookHistoryService>();
+            services.AddScoped<IDataService, DataService>();
+            services.AddScoped<IDataManager, DataManager>();
+            services.AddScoped<IOrderBookHistoryService, OrderBookHistoryService>();
             services.AddSingleton<IDataCacheService, DataCacheService>();
             services.AddSingleton<ICacheService, FileCacheService>();
             services.AddSingleton<IResamplerService, ResamplerService>();
-            services.AddSingleton<IConnectionManager, ConnectionManager>();
+            services.AddScoped<IConnectionManager, ConnectionManager>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
-            services.AddSingleton<IAnalyticsDataResolver, AnalyticsDataResolver>();
+            services.AddScoped<IAnalyticsDataResolver, AnalyticsDataResolver>();
 
-            services.AddSingleton<HistoricalDataFetcher>();
-            services.AddSingleton<LiveStreamManager>();
-            services.AddSingleton<BackfillManager>();
+            services.AddScoped<HistoricalDataFetcher>();
+            services.AddScoped<LiveStreamManager>();
+            services.AddScoped<BackfillManager>();
 
-            services.AddSingleton<IDataOrchestrator, DataOrchestrator>();
-            services.AddSingleton<IDataOrchestrationService, DataOrchestrationService>();
+            services.AddScoped<IDataOrchestrator, DataOrchestrator>();
+            services.AddScoped<IDataOrchestrationService, DataOrchestrationService>();
 
             return services;
         }
@@ -204,48 +204,48 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddIndicatorPipeline(this IServiceCollection services)
         {
-            services.AddSingleton<IIndicatorProvider, CoreIndicatorProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderZeroCrossProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderBandProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderTrendProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderVolatilityProvider>();
-            services.AddSingleton<IIndicatorProvider, SkenderVolumeProvider>();
-            services.AddSingleton<IIndicatorProvider, ProfileIndicatorProvider>();
-            services.AddSingleton<IIndicatorProvider, CipherBProvider>();
-            services.AddSingleton<IIndicatorProvider, CipherAProvider>();
-            services.AddSingleton<IIndicatorProvider, CipherSrProvider>();
-            services.AddSingleton<IIndicatorProvider, MACloudProvider>();
-            services.AddSingleton<IIndicatorProvider, SpiderLinesProvider>();
-            services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
-            services.AddSingleton<IIndicatorProvider, CipherCProvider>();
-            services.AddSingleton<IIndicatorProvider, CipherSProvider>();
-            services.AddSingleton<IIndicatorProvider, LoukasCyclesProvider>();
-            services.AddSingleton<ICrossSeriesCache, CrossSeriesCache>();
-            services.AddSingleton<IIndicatorProvider, FundingRateProvider>();
-            services.AddSingleton<IIndicatorProvider, OpenInterestProvider>();
-            services.AddSingleton<IIndicatorProvider, FearGreedProvider>();
-            services.AddSingleton<IIndicatorProvider, CrowdingIndexProvider>();
-            services.AddSingleton<IIndicatorProvider, PulseProvider>();
-            services.AddSingleton<IIndicatorProvider, RegimeProvider>();
-            services.AddSingleton<IIndicatorProvider, VolRegimeProvider>();
-            services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
-            services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
-            services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
-            services.AddSingleton<IIndicatorProvider, HurstExponentProvider>();
-            services.AddSingleton<IIndicatorProvider, PivotLevelsProvider>();
-            services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
+            services.AddScoped<IIndicatorProvider, CoreIndicatorProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderZeroCrossProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderBandProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderTrendProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderVolatilityProvider>();
+            services.AddScoped<IIndicatorProvider, SkenderVolumeProvider>();
+            services.AddScoped<IIndicatorProvider, ProfileIndicatorProvider>();
+            services.AddScoped<IIndicatorProvider, CipherBProvider>();
+            services.AddScoped<IIndicatorProvider, CipherAProvider>();
+            services.AddScoped<IIndicatorProvider, CipherSrProvider>();
+            services.AddScoped<IIndicatorProvider, MACloudProvider>();
+            services.AddScoped<IIndicatorProvider, SpiderLinesProvider>();
+            services.AddScoped<IIndicatorProvider, IchimokuProvider>();
+            services.AddScoped<IIndicatorProvider, CipherCProvider>();
+            services.AddScoped<IIndicatorProvider, CipherSProvider>();
+            services.AddScoped<IIndicatorProvider, LoukasCyclesProvider>();
+            services.AddScoped<ICrossSeriesCache, CrossSeriesCache>();
+            services.AddScoped<IIndicatorProvider, FundingRateProvider>();
+            services.AddScoped<IIndicatorProvider, OpenInterestProvider>();
+            services.AddScoped<IIndicatorProvider, FearGreedProvider>();
+            services.AddScoped<IIndicatorProvider, CrowdingIndexProvider>();
+            services.AddScoped<IIndicatorProvider, PulseProvider>();
+            services.AddScoped<IIndicatorProvider, RegimeProvider>();
+            services.AddScoped<IIndicatorProvider, VolRegimeProvider>();
+            services.AddScoped<IIndicatorProvider, CoinMetricsProvider>();
+            services.AddScoped<IIndicatorProvider, TopBottomDetectorProvider>();
+            services.AddScoped<IIndicatorProvider, AnchoredVwapProvider>();
+            services.AddScoped<IIndicatorProvider, HurstExponentProvider>();
+            services.AddScoped<IIndicatorProvider, PivotLevelsProvider>();
+            services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 
-            services.AddSingleton<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
+            services.AddScoped<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
 
-            services.AddSingleton<IIndicatorService, IndicatorService>();
-            services.AddSingleton<IIndicatorEngine, IndicatorEngine>();
-            services.AddSingleton<IIndicatorStateMapper, IndicatorStateMapper>();
-            services.AddSingleton<IIndicatorRegistry, IndicatorRegistry>();
-            services.AddSingleton<IIndicatorModelFactory, IndicatorModelFactory>();
-            services.AddSingleton<IHeatmapService, HeatmapService>();
-            services.AddSingleton<IIndicatorOrchestrator, IndicatorOrchestrator>();
-            services.AddSingleton<ISeriesManagementService, SeriesManagementService>();
+            services.AddScoped<IIndicatorService, IndicatorService>();
+            services.AddScoped<IIndicatorEngine, IndicatorEngine>();
+            services.AddScoped<IIndicatorStateMapper, IndicatorStateMapper>();
+            services.AddScoped<IIndicatorRegistry, IndicatorRegistry>();
+            services.AddScoped<IIndicatorModelFactory, IndicatorModelFactory>();
+            services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddScoped<IIndicatorOrchestrator, IndicatorOrchestrator>();
+            services.AddScoped<ISeriesManagementService, SeriesManagementService>();
 
             return services;
         }
@@ -254,25 +254,25 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddRenderingServices(this IServiceCollection services)
         {
-            services.AddSingleton<ChartRenderer>();
-            services.AddSingleton<IPaneLayoutService, PaneLayoutService>();
+            services.AddScoped<ChartRenderer>();
+            services.AddScoped<IPaneLayoutService, PaneLayoutService>();
 
-            services.AddSingleton<IDrawingCalculator, HorizontalLineCalculator>();
-            services.AddSingleton<IDrawingCalculator, VerticalLineCalculator>();
-            services.AddSingleton<IDrawingCalculator, TrendLineCalculator>();
-            services.AddSingleton<IDrawingCalculator, ChannelCalculator>();
-            services.AddSingleton<IDrawingCalculator, FibRetracementCalculator>();
-            services.AddSingleton<IDrawingCalculator, TextLabelCalculator>();
-            services.AddSingleton<IDrawingCalculator, FibExtensionCalculator>();
-            services.AddSingleton<IDrawingCalculator, GannFanCalculator>();
-            services.AddSingleton<IDrawingCalculator, RectangleCalculator>();
-            services.AddSingleton<IDrawingCalculator, RiskRewardCalculator>();
-            services.AddSingleton<IDrawingCalculator, AnchoredVwapCalculator>();
-            services.AddSingleton<IDrawingCalculator, MeasureToolCalculator>();
-            services.AddSingleton<IDrawingCalculator, GannBoxCalculator>();
-            services.AddSingleton<IDrawingCalculator, AndrewsPitchforkCalculator>();
-            services.AddSingleton<IDrawingCalculator, AngleFibCalculator>();
-            services.AddSingleton<IDrawingService, DrawingService>();
+            services.AddScoped<IDrawingCalculator, HorizontalLineCalculator>();
+            services.AddScoped<IDrawingCalculator, VerticalLineCalculator>();
+            services.AddScoped<IDrawingCalculator, TrendLineCalculator>();
+            services.AddScoped<IDrawingCalculator, ChannelCalculator>();
+            services.AddScoped<IDrawingCalculator, FibRetracementCalculator>();
+            services.AddScoped<IDrawingCalculator, TextLabelCalculator>();
+            services.AddScoped<IDrawingCalculator, FibExtensionCalculator>();
+            services.AddScoped<IDrawingCalculator, GannFanCalculator>();
+            services.AddScoped<IDrawingCalculator, RectangleCalculator>();
+            services.AddScoped<IDrawingCalculator, RiskRewardCalculator>();
+            services.AddScoped<IDrawingCalculator, AnchoredVwapCalculator>();
+            services.AddScoped<IDrawingCalculator, MeasureToolCalculator>();
+            services.AddScoped<IDrawingCalculator, GannBoxCalculator>();
+            services.AddScoped<IDrawingCalculator, AndrewsPitchforkCalculator>();
+            services.AddScoped<IDrawingCalculator, AngleFibCalculator>();
+            services.AddScoped<IDrawingService, DrawingService>();
 
             return services;
         }
@@ -281,76 +281,76 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddBusinessServices(this IServiceCollection services)
         {
-            services.AddSingleton<IDataExportService, DataExportService>();
+            services.AddScoped<IDataExportService, DataExportService>();
 
-            services.AddSingleton<IPaperTradingProvider, PaperTradingProvider>();
-            services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
-            services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
-            services.AddSingleton<IStrategyEngine, StrategyEngine>();
-            services.AddSingleton<IStrategyBacktester, StrategyBacktester>();
+            services.AddScoped<IPaperTradingProvider, PaperTradingProvider>();
+            services.AddScoped<IOrderExecutionService, GeneralOrderService>();
+            services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
+            services.AddScoped<IStrategyEngine, StrategyEngine>();
+            services.AddScoped<IStrategyBacktester, StrategyBacktester>();
 
-            services.AddSingleton<ISignalCatalog, SignalCatalog>();
-            services.AddSingleton<IConditionEvaluator, ConditionEvaluator>();
-            services.AddSingleton<IRiskPlanResolver, RiskPlanResolver>();
-            services.AddSingleton<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
-            services.AddSingleton<IStrategyLibrary, JsonStrategyLibrary>();
-            services.AddSingleton<IStrategyLibraryFacade, StrategyLibraryFacade>();
-            services.AddSingleton<IStrategyModalCoordinator, StrategyModalCoordinator>();
-            services.AddSingleton<SetupSonifier>();
+            services.AddScoped<ISignalCatalog, SignalCatalog>();
+            services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
+            services.AddScoped<IRiskPlanResolver, RiskPlanResolver>();
+            services.AddScoped<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
+            services.AddScoped<IStrategyLibrary, JsonStrategyLibrary>();
+            services.AddScoped<IStrategyLibraryFacade, StrategyLibraryFacade>();
+            services.AddScoped<IStrategyModalCoordinator, StrategyModalCoordinator>();
+            services.AddScoped<SetupSonifier>();
 
-            services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+            services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(
                     () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>())));
-            services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+            services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
                     BuildAlertChannelHttpClient(),
                     () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
-            services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
+            services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
 
-            services.AddSingleton<IMultiTimeframeDataService, MultiTimeframeDataService>();
-            services.AddSingleton<IBacktestWarmupAnalyzer, BacktestWarmupAnalyzer>();
+            services.AddScoped<IMultiTimeframeDataService, MultiTimeframeDataService>();
+            services.AddScoped<IBacktestWarmupAnalyzer, BacktestWarmupAnalyzer>();
 
-            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.DrawnHorizontalLevelProvider>();
-            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.SwingPivotLevelProvider>();
-            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.IchimokuLevelProvider>();
-            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.CipherSrLevelProvider>();
-            services.AddSingleton<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.VolumeProfileLevelProvider>();
-            services.AddSingleton<ILevelService, LevelService>();
-            services.AddSingleton<IBacktestProfileCache, BacktestProfileCache>();
-            services.AddSingleton<StrategyAutoLoader>();
+            services.AddScoped<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.DrawnHorizontalLevelProvider>();
+            services.AddScoped<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.SwingPivotLevelProvider>();
+            services.AddScoped<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.IchimokuLevelProvider>();
+            services.AddScoped<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.CipherSrLevelProvider>();
+            services.AddScoped<ILevelProvider, AccessibleTrader.Core.Services.Strategies.Levels.VolumeProfileLevelProvider>();
+            services.AddScoped<ILevelService, LevelService>();
+            services.AddScoped<IBacktestProfileCache, BacktestProfileCache>();
+            services.AddScoped<StrategyAutoLoader>();
 
-            services.AddSingleton<IStrategyPluginRegistry>(sp =>
+            services.AddScoped<IStrategyPluginRegistry>(sp =>
                 new StrategyPluginRegistry(
                     sp.GetRequiredService<ILogger<StrategyPluginRegistry>>(),
                     sp.GetRequiredService<AccessibleTrader.Core.Services.PluginTrustPolicy>(),
                     AccessibleTrader.Core.Services.Strategies.StrategyPluginDirectories.Default()));
-            services.AddSingleton<IStrategyRegistry, StrategyRegistry>();
+            services.AddScoped<IStrategyRegistry, StrategyRegistry>();
 
-            services.AddSingleton<ScriptingService>();
+            services.AddScoped<ScriptingService>();
 
             // Use Core's default launcher selector. On Linux this is the
             // LinuxBwrapLauncher (L5), which sandboxes the worker under bubblewrap
             // when bwrap is installed and falls back to an unsandboxed
             // DefaultProcessLauncher only if it isn't.
-            services.AddSingleton<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(_ =>
+            services.AddScoped<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(_ =>
                 RoslynScriptingService.CreateDefaultLauncher());
-            services.AddSingleton<IRoslynScriptingService>(sp =>
+            services.AddScoped<IRoslynScriptingService>(sp =>
                 new RoslynScriptingService(
                     sp.GetRequiredService<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(),
                     RoslynScriptingService.DefaultWorkerPathResolver));
 
-            services.AddSingleton<CandlePatternThresholds>();
-            services.AddSingleton<ISdkCandlePatternAnalyzer, SdkCandlePatternAnalyzer>();
-            services.AddSingleton<IIndicatorContextAnalyzer, IndicatorContextAnalyzer>();
+            services.AddScoped<CandlePatternThresholds>();
+            services.AddScoped<ISdkCandlePatternAnalyzer, SdkCandlePatternAnalyzer>();
+            services.AddScoped<IIndicatorContextAnalyzer, IndicatorContextAnalyzer>();
 
-            services.AddSingleton<IBarDetailService, BarDetailService>();
-            services.AddSingleton<IAlertEvaluator, AlertEvaluator>();
-            services.AddSingleton<IAlertOrchestrator, AlertOrchestrator>();
+            services.AddScoped<IBarDetailService, BarDetailService>();
+            services.AddScoped<IAlertEvaluator, AlertEvaluator>();
+            services.AddScoped<IAlertOrchestrator, AlertOrchestrator>();
 
-            services.AddSingleton<ILLMProvider, ClaudeProvider>();
-            services.AddSingleton<ILLMProvider, OpenAIProvider>();
-            services.AddSingleton<ILLMProvider, OllamaProvider>();
-            services.AddSingleton<IAIAnalystService, AIAnalystService>();
+            services.AddScoped<ILLMProvider, ClaudeProvider>();
+            services.AddScoped<ILLMProvider, OpenAIProvider>();
+            services.AddScoped<ILLMProvider, OllamaProvider>();
+            services.AddScoped<IAIAnalystService, AIAnalystService>();
 
             return services;
         }
@@ -359,13 +359,13 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddInputRouting(this IServiceCollection services)
         {
-            services.AddSingleton<IKeyNormalizationService, KeyNormalizationService>();
-            services.AddSingleton<IShortcutManager, ShortcutManager>();
-            services.AddSingleton<IndicatorCrossingEngine>();
-            services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
-            services.AddSingleton<IInputRouter, InputRouter>();
-            services.AddSingleton<IDrawingInteractionManager, DrawingInteractionManager>();
-            services.AddSingleton<IChartCommandManager, ChartCommandManager>();
+            services.AddScoped<IKeyNormalizationService, KeyNormalizationService>();
+            services.AddScoped<IShortcutManager, ShortcutManager>();
+            services.AddScoped<IndicatorCrossingEngine>();
+            services.AddScoped<ICommandDispatcher, CommandDispatcher>();
+            services.AddScoped<IInputRouter, InputRouter>();
+            services.AddScoped<IDrawingInteractionManager, DrawingInteractionManager>();
+            services.AddScoped<IChartCommandManager, ChartCommandManager>();
 
             return services;
         }
@@ -374,13 +374,13 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddAudioServices(this IServiceCollection services)
         {
-            services.AddSingleton<ISoundPatchRegistry, SoundPatchRegistry>();
-            services.AddSingleton<IAudioSequencer, AudioSequencer>();
-            services.AddSingleton<ISonificationStrategy, DefaultSonificationStrategy>();
-            services.AddSingleton<IPlaybackOrchestrator, PlaybackOrchestrator>();
-            services.AddSingleton<INavigationSonifier, NavigationSonifier>();
-            services.AddSingleton<ILevelCrossingMonitor, LevelCrossingMonitor>();
-            services.AddSingleton<ISonificationManager, SonificationManager>();
+            services.AddScoped<ISoundPatchRegistry, SoundPatchRegistry>();
+            services.AddScoped<IAudioSequencer, AudioSequencer>();
+            services.AddScoped<ISonificationStrategy, DefaultSonificationStrategy>();
+            services.AddScoped<IPlaybackOrchestrator, PlaybackOrchestrator>();
+            services.AddScoped<INavigationSonifier, NavigationSonifier>();
+            services.AddScoped<ILevelCrossingMonitor, LevelCrossingMonitor>();
+            services.AddScoped<ISonificationManager, SonificationManager>();
 
             return services;
         }
@@ -389,23 +389,23 @@ namespace AccessibleTrader.WebHost
 
         private static IServiceCollection AddAccessibilityServices(this IServiceCollection services)
         {
-            services.AddSingleton<PointNavigationStrategy>();
-            services.AddSingleton<BinnedNavigationStrategy>();
-            services.AddSingleton<ISeriesNavigationRegistry, SeriesNavigationRegistry>();
-            services.AddSingleton<IViewportManager, ViewportManager>();
-            services.AddSingleton<INavigationEngine, NavigationEngine>();
+            services.AddScoped<PointNavigationStrategy>();
+            services.AddScoped<BinnedNavigationStrategy>();
+            services.AddScoped<ISeriesNavigationRegistry, SeriesNavigationRegistry>();
+            services.AddScoped<IViewportManager, ViewportManager>();
+            services.AddScoped<INavigationEngine, NavigationEngine>();
 
-            services.AddSingleton<ISpeechFormatter, SpeechFormatter>();
-            services.AddSingleton<IAccessibilityFeedbackCoordinator, AccessibilityFeedbackCoordinator>();
-            services.AddSingleton<IEarconService, EarconService>();
-            services.AddSingleton<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
-            services.AddSingleton<IAudioFeedbackRouter, AudioFeedbackRouter>();
-            services.AddSingleton<INavigationFeedbackManager, NavigationFeedbackManager>();
-            services.AddSingleton<IStateFeedbackManager, StateFeedbackManager>();
-            services.AddSingleton<IAutoNarrationService, AutoNarrationService>();
-            services.AddSingleton<INotificationHub, NotificationHub>();
-            services.AddSingleton<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
-            services.AddSingleton<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
+            services.AddScoped<ISpeechFormatter, SpeechFormatter>();
+            services.AddScoped<IAccessibilityFeedbackCoordinator, AccessibilityFeedbackCoordinator>();
+            services.AddScoped<IEarconService, EarconService>();
+            services.AddScoped<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
+            services.AddScoped<IAudioFeedbackRouter, AudioFeedbackRouter>();
+            services.AddScoped<INavigationFeedbackManager, NavigationFeedbackManager>();
+            services.AddScoped<IStateFeedbackManager, StateFeedbackManager>();
+            services.AddScoped<IAutoNarrationService, AutoNarrationService>();
+            services.AddScoped<INotificationHub, NotificationHub>();
+            services.AddScoped<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
+            services.AddScoped<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
 
             // Tactile output. Linux + non-Windows hosts use NullDotPadNative
             // (see the docs in IDotPadNative.cs and the SDK research findings
@@ -413,18 +413,18 @@ namespace AccessibleTrader.WebHost
             // 1.0.0 SDK — text-only / 20-cell-only, no graphic API).
             if (OperatingSystem.IsWindows())
             {
-                services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
+                services.AddScoped<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
                                        AccessibleTrader.Core.Services.Accessibility.Dotpad.WindowsDotPadNative>();
             }
             else
             {
-                services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
+                services.AddScoped<AccessibleTrader.Core.Services.Accessibility.Dotpad.IDotPadNative,
                                        AccessibleTrader.Core.Services.Accessibility.Dotpad.NullDotPadNative>();
             }
-            services.AddSingleton<ITactileDriver, AccessibleTrader.Core.Services.Accessibility.Dotpad.DotpadTactileDriver>();
-            services.AddSingleton<ITactileCanvasCoordinator, TactileCanvasCoordinator>();
+            services.AddScoped<ITactileDriver, AccessibleTrader.Core.Services.Accessibility.Dotpad.DotpadTactileDriver>();
+            services.AddScoped<ITactileCanvasCoordinator, TactileCanvasCoordinator>();
 
-            services.AddSingleton<IJournalService, JournalService>();
+            services.AddScoped<IJournalService, JournalService>();
 
             return services;
         }
