@@ -134,6 +134,11 @@ namespace AccessibleTrader.Core.Services
             if (IsEnabled) _navigation.PlayNote(freq, dur, wave, vol, pan, delay);
         }
 
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f)
+        {
+            if (IsEnabled) _navigation.PlayPatch(patch, volumeScale, pan);
+        }
+
         public void Stop() => _playback.Stop();
         public void Silence()
         {

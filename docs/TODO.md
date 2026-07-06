@@ -4,6 +4,84 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-05] — Sound system overhaul
+
+Sound Designer, per-component patches, engine polyphony, and playback fixes.
+All shipped items build clean with the full test suite green (1124 tests).
+Pending real-app (ear) verification by Cody.
+
+### Shipped
+
+- [x] **Sound Designer preview fixed.** Preview called `PlayNote(…, 0f)` where
+  `0f` was the *pan* arg, so noise blend and envelope never reached the engine —
+  only waveform/length were audible. Added `ISonificationManager.PlayPatch(patch)`
+  (one voice per oscillator layer, carries envelope + noise); modal preview and
+  earcon overrides route through it.
+- [x] **Multi-oscillator patches.** `SoundPatch` now holds `List<OscillatorLayer>`
+  (waveform / Level / Freq Ratio / Noise Blend / Noise Colour) + `EffectiveLayers()`
+  back-compat. Sound Designer modal rebuilt with Add Oscillator / per-layer rows /
+  Mix section. Multi-osc patches render all layers on components (nav + playback).
+- [x] **Sound Designer is general-purpose** — patches assignable to earcons OR
+  indicator components, not earcons-only.
+- [x] **Per-component patch selection (Properties → Sonification).** Sound Patch
+  dropdown (built-ins + user patches) + ▶ preview per component; live-linked via
+  `CreateAudioPoint`. `ComponentConfig.SoundPatchId` now surfaced in the UI.
+- [x] **Green/red directional patches.** `BullishSoundPatchId`/`BearishSoundPatchId`
+  on directional components (candles, bars, histograms, polarity-coloured — via
+  `IsDirectional`); bull/bear by `close ≥ open` or `value ≥ ColorBaseline`.
+- [x] **128-voice engine (was 64).** Replaced the 64-bit dirty-slot mask with a
+  flag array. Slot map: nav 0–15, earcons 16–31, playback 32–95, cloud fills 96–127.
+- [x] **Cloud/ribbon fill voices fixed.** `FireCloudVoices` wrote slots 64–79 which
+  the old 64-voice engine silently dropped (EMA Fill etc. never sonified) — fixed by
+  the 128-voice bump (cloud slots moved to 96–127).
+- [x] **"Play all" series/components.** Space plays every visible+unmuted series at
+  once, Shift+Space all components of the focused series. Replaced the fixed 4×8 slot
+  grid with `BuildVoicePlan` packing into the 64-voice budget; muted series excluded.
+  Unified single/multi-series playback onto one plan + `RenderComponentVoices`.
+- [x] **Pause no longer drones.** Sequencer silences playback/cloud voices (32–127)
+  on pause; nav stays live.
+- [x] **Web audio crackle reduced.** `audio.js` MAX_LEAD 80→200 ms + 4 ms declick
+  fade only at resync seams (no per-buffer AM buzz).
+- [x] **OB/OS zone texture.** Zone noise now `Math.Max`(base, zone) instead of
+  replace; bounded-oscillator zone amount 0.12 → 0.3.
+- [x] **Directional cross earcons (0-line + OB/OS).** A cross now fires a distinct
+  two-note chirp — rising (C5→G5) for an up-cross, falling (G5→C5) for a down-cross —
+  on dedicated earcon slots 30/31, during BOTH navigation (arrow onto a cross bar,
+  either direction) and playback (Space / Shift+Space / Ctrl+Shift+Space).
+  `CreateAudioPoint` now surfaces `AudioPoint.CrossDirection` (= `Sign(val - prevVal)`
+  under the existing `triggerClick` PlayEarcon/subscription gating, so it covers
+  Zero/Midpoint levels too); `NavigationSonifier` and `AudioSequencer` fire the new
+  `CrossEarcon` helper. Previously the cross was only a masked phase-reset click.
+- [x] **Removed "for demonstration purposes only" footer.**
+- [x] **Escape closes form-heavy modals.** `keyboard.js` swallowed Escape while focus was on a
+  `<select>`/`<input>`/`<textarea>` (part of the "let form controls type freely" guard), so the
+  Sound Designer couldn't be Escaped out of with a field focused. Escape is now exempt from that
+  guard in both WebHost + MAUI `keyboard.js` and reaches the dispatcher's close-modal path.
+- [x] **Built-in patch preview in Properties.** The ▶ next to a component's Sound Patch dropdown
+  now synthesizes a proper Ping-decay bell (base + harmonic + detune) and plays it via
+  `PlayPatch`, instead of a single bare tone that was easy to miss.
+
+### Open
+
+- [ ] **Multi-layer patch preview vs component parity** — verify by ear that the
+  same multi-oscillator patch sounds consistent across Sound Designer preview,
+  earcons, navigation, and playback.
+- [x] **Sound test coverage.** Added `SoundPatchModelTests` (EffectiveLayers/Clone
+  back-compat), `SonificationStrategyPatchTests` (registry-vs-user resolution,
+  per-colour, PatchLayers, CrossDirection, zone-max, ResolveComponentVoiceCount),
+  `SoundPatchLibraryTests` (CRUD, JSON export/import preserving Oscillators, on-disk
+  persistence across instances, legacy-patch load, earcon-override round-trip),
+  `EarconServiceTests` (patch→PlayPatch vs default→PlayNote routing), a
+  `SoundPatchRegistry.GetPatchIds` test, an `AudioEngine` 128-voice high-slot render
+  test, and bUnit for SoundDesignerModal (opens, Add Oscillator) + PropertiesModal
+  (Sound Patch dropdown present; green/red only for directional components).
+- [ ] **`AudioSequencer.BuildVoicePlan`** slot packing / budget-overflow /
+  muted-exclusion is still only covered indirectly — it's private and lives in the
+  async playback loop, so it needs an integration-style test via a spy driver.
+  Lower priority; the slot-planning logic is simple and adjacent paths are tested.
+
+---
+
 ## [2026-05-16] — Linux WebHost port
 
 New ASP.NET Core Blazor Server host (`AccessibleTrader.WebHost`) that

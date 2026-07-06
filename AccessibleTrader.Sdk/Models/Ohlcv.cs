@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace AccessibleTrader.Sdk.Models
 {
@@ -41,5 +42,11 @@ namespace AccessibleTrader.Sdk.Models
     /// <summary>
     /// Defines a specific point in a sonification sequence, mapping audio characteristics to data.
     /// </summary>
-    public readonly record struct AudioPoint(double Frequency, float Volume, string Waveform, double Pan, string EnvelopeType = "Sustain", bool TriggerClick = false, double ReferenceLevel = 0, float NoiseAmount = 0f, string? PatchId = null, string NoiseType = "pink");
+    /// <param name="PatchLayers">When a multi-oscillator user Sound Designer patch is assigned to the
+    /// component, the full ordered list of oscillator layers to render (each as its own voice). Null for
+    /// single-oscillator patches / no patch — those are carried by <c>Waveform</c>/<c>NoiseAmount</c>.</param>
+    /// <param name="CrossDirection">Set when the value crossed a reference / OB / OS level on this bar,
+    /// for firing a directional cross earcon: +1 = crossed upward, -1 = crossed downward, 0 = no cross.
+    /// Inherits the same PlayEarcon / subscription gating as <c>TriggerClick</c>.</param>
+    public readonly record struct AudioPoint(double Frequency, float Volume, string Waveform, double Pan, string EnvelopeType = "Sustain", bool TriggerClick = false, double ReferenceLevel = 0, float NoiseAmount = 0f, string? PatchId = null, string NoiseType = "pink", IReadOnlyList<OscillatorLayer>? PatchLayers = null, int CrossDirection = 0);
 }

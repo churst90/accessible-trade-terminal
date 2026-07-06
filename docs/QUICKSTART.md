@@ -79,7 +79,7 @@ The type of sound — its tonal color — changes based on where a value sits re
 
 - When an oscillator is above zero, it uses one waveform (such as a triangle wave, which sounds smooth and full).
 - When it is below zero, it switches to a different waveform (such as a sine wave, which sounds pure and clean).
-- When a value is in an overbought or oversold zone, a subtle noise texture is layered in so you can hear the extremity without needing to check a number.
+- When a value pushes into an overbought or oversold zone on a bounded oscillator (RSI, Stochastics, MFI, CCI, Williams %R, or the Ultimate Oscillator), a noticeable noise texture roughens the tone so you can hear the extremity without checking a number. You can set how strong this roughness is per level with the Zone Texture slider in the indicator's properties dialog, under Reference Levels.
 
 This means you can often tell at a glance — or rather, at a listen — not just what the value is but where it sits relative to the structure of the indicator.
 
@@ -236,12 +236,16 @@ There are three playback scopes, controlling how much of the chart you hear:
 
 Use whole-chart playback for a broad overview. Use focused series playback when you want to study one indicator without the noise of others. Use focused component playback when you want to isolate a single line — for example, just the RSI line by itself.
 
+Whole-chart playback layers every visible, unmuted series at once, and each series sounds all of its own visible, unmuted components together — including soft cloud- and ribbon-fill sounds (such as an EMA Fill between two averages) that used to drop out when too many voices were playing. Muting a series or component (M) or hiding it (H) simply removes it from the mix, so you can thin a crowded soundscape down to what matters.
+
 ### Pause, Resume, and Stop
 
 | Key | Action |
 |-----|--------|
 | Ctrl+Space | Pause or resume active playback |
 | Shift+Escape | Force-stop all playback immediately |
+
+When you pause with Ctrl+Space, playback now falls fully silent instead of holding the last chord. The arrow keys still audition individual bars while paused, so you can inspect the frozen moment before resuming.
 
 ### Playback Speed
 
@@ -330,7 +334,7 @@ In the properties dialog you can adjust:
 
 - Calculation parameters (periods, smoothing factors, thresholds)
 - Per-component colors (for sighted collaborators)
-- Per-component audio settings: waveform shape, volume, and bell patch assignment
+- Per-component audio settings (on the Sonification tab): a Sound Patch dropdown listing built-in bell patches plus any patch you have built in the Sound Designer, each with a ▶ preview button, and fallback waveform, noise, and volume controls used when no patch is chosen. Directional, green/red components (candles, bars, histograms and volume bars) also get separate Green (bullish) and Red (bearish) patch dropdowns, so up-bars and down-bars can sound different; plain lines and areas show only the single patch
 - "Save as Defaults" — saves your preferred settings so new instances of this indicator start with the same configuration
 
 Navigate the properties dialog with Tab and the arrow keys. Your screen reader reads all labels and current values.
@@ -531,15 +535,26 @@ In any indicator's properties dialog (P or Shift+F12 while focused on the indica
 
 ### Custom Audio Per Component
 
-In the indicator properties dialog, each component has its own audio section where you can set:
+In the indicator properties dialog, the Sonification tab has an Acoustics section for the component you select. There you can set:
 
-- Waveform: the tonal color of that component's continuous sound (sine, triangle, square, sawtooth)
-- Bell patch: which bell timbre plays when a signal event occurs on this component
-- Volume: the relative volume of this component within the series
+- Sound Patch: the voice this component plays — any built-in patch or any patch you built in the Sound Designer — with a ▶ button to preview it
+- Green (bullish) / Red (bearish) patch: for directional components (candles, bars, histograms and volume bars), separate patches for up-bars and down-bars; plain lines and areas do not show these
+- Waveform, noise, and volume: fallback controls that take over when no Sound Patch is chosen
+
+Patches are live-linked: edit a patch in the Sound Designer and every component using it updates immediately.
 
 ### Sound Designer (Alt+W)
 
-The Sound Designer panel gives you a comprehensive view of all audio assignments across every active indicator. You can audition each bell patch, adjust component volumes across the whole chart, and rearrange the mapping of signal types to bell timbres.
+The Sound Designer is a general-purpose patch workbench. A patch it produces can be assigned to event earcons here in the panel, or to indicator components through the properties dialog above.
+
+A single patch can stack several oscillators via the "Add Oscillator" button. Each oscillator layer has:
+
+- Waveform: sine, square, sawtooth, triangle, or noise
+- Level: how much this layer contributes to the mix
+- Freq Ratio: a harmonic multiple of the patch's base frequency (2.0 = one octave up)
+- Noise Blend and Noise Colour: pink, white, or brown noise mixed into the layer
+
+A Mix section sets the base frequency, a frequency multiplier, and overall volume; an Envelope section chooses a sustained tone or a plucked Ping and its duration. The Preview button auditions the whole patch, including its noise and envelope — not just the raw waveform. Patches saved by older versions still load unchanged.
 
 ---
 

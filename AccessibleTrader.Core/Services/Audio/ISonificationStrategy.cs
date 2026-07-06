@@ -16,15 +16,24 @@ namespace AccessibleTrader.Core.Services.Audio
         /// including wicks — is sonified independently during playback.
         /// </summary>
         AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume);
+
+        /// <summary>
+        /// How many playback voice slots a component needs: the layer count of the largest multi-oscillator
+        /// user patch assigned to it (base/bullish/bearish), or 1 plus an aux slot when it uses a gradient
+        /// blend or a detuned built-in patch. Used to size the playback voice plan.
+        /// </summary>
+        int ResolveComponentVoiceCount(ComponentConfig comp);
     }
     
     public class DefaultSonificationStrategy : ISonificationStrategy
     {
         private readonly ISoundPatchRegistry _patchRegistry;
+        private readonly ISoundPatchLibrary? _patchLibrary;
 
-        public DefaultSonificationStrategy(ISoundPatchRegistry patchRegistry)
+        public DefaultSonificationStrategy(ISoundPatchRegistry patchRegistry, ISoundPatchLibrary? patchLibrary = null)
         {
             _patchRegistry = patchRegistry;
+            _patchLibrary = patchLibrary;
         }
 
         public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null)
@@ -186,6 +195,11 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
             }
 
+            // A cross fires a directional earcon: the value's movement between prevVal and val (which
+            // sit on opposite sides of the crossed level) IS the cross direction — up if it rose, down
+            // if it fell. Inherits triggerClick's PlayEarcon / subscription gating.
+            int crossDir = (triggerClick && prevVal.HasValue) ? Math.Sign(val - prevVal.Value) : 0;
+
             // ── Dynamic OB/OS zone noise texturing ────────────────────────────────────────
             // Add noise when the value enters an overbought or oversold zone.
             // Zone thresholds and noise parameters come from series.Config.Levels (injected by
@@ -197,26 +211,71 @@ namespace AccessibleTrader.Core.Services.Audio
                 or ComponentDisplayType.Histogram or ComponentDisplayType.Line)
             {
                 var (zoneNoise, zoneType) = AudioZoneHelper.ComputeZoneNoise(series, comp, val);
-                if (zoneNoise > 0f)
+                // Take the stronger of the component's base texture and the zone texture. Replacing
+                // (the old behaviour) could REDUCE roughness on entering a zone when the component's
+                // base noise was higher than the zone's — the opposite of the intent, which is that
+                // overbought/oversold zones sound rougher than the clean mid-range.
+                if (zoneNoise > noiseAmt)
                 {
                     noiseAmt  = zoneNoise;
                     noiseType = zoneType;
                 }
             }
 
-            // ── SoundPatch ID resolution ─────────────────────────────────────────
-            // When comp.SoundPatchId is set and the registry has the patch, propagate the
-            // PatchId into the AudioPoint so AudioSequencer can apply decay and detuning.
+            // ── SoundPatch resolution (per-colour, live-linked) ──────────────────
+            // The bar's colour selects the bullish (green: close >= open) or bearish (red) patch
+            // when one is assigned; otherwise the component's single SoundPatchId applies. A
+            // registry (built-in bell) patch propagates its ID so AudioSequencer applies decay /
+            // detune / gradient. A user Sound Designer patch is resolved live from the library and
+            // overrides the timbre here (waveform + noise + envelope) — so editing that patch in the
+            // Sound Designer changes every component referencing it, with no snapshot to re-sync.
+            // Sign-coloured components (histograms, zero-line dots/areas, or any polarity-coloured
+            // component) are green/red by their own value vs ColorBaseline; candles/bars are green/red
+            // by the price bar's direction (close vs open).
+            bool barBullish = (comp.UsePolarityColoring
+                    || comp.DisplayType is ComponentDisplayType.Histogram
+                        or ComponentDisplayType.ZeroDot or ComponentDisplayType.ZeroArea)
+                ? val >= comp.ColorBaseline
+                : point.Close >= point.Open;
+            string? effPatchId = barBullish ? comp.BullishSoundPatchId : comp.BearishSoundPatchId;
+            if (string.IsNullOrEmpty(effPatchId)) effPatchId = comp.SoundPatchId;
+
             string? resolvedPatchId = null;
-            if (!string.IsNullOrEmpty(comp.SoundPatchId) &&
-                _patchRegistry.TryGetPatch(comp.SoundPatchId, out _))
+            string effEnvelope = comp.EnvelopeType;
+            IReadOnlyList<OscillatorLayer>? patchLayers = null;
+            if (!string.IsNullOrEmpty(effPatchId))
             {
-                resolvedPatchId = comp.SoundPatchId;
+                if (_patchRegistry.TryGetPatch(effPatchId, out _))
+                {
+                    resolvedPatchId = effPatchId;
+                }
+                else
+                {
+                    var libPatch = _patchLibrary?.GetPatch(effPatchId);
+                    if (libPatch != null)
+                    {
+                        // Primary layer drives the single-voice fields (waveform + noise + envelope).
+                        var layers = libPatch.EffectiveLayers();
+                        var layer0 = layers[0];
+                        wave = layer0.Waveform;
+                        if (!string.IsNullOrEmpty(libPatch.EnvelopeType)) effEnvelope = libPatch.EnvelopeType;
+                        if (layer0.NoiseAmount > 0f)
+                        {
+                            noiseAmt  = layer0.NoiseAmount;
+                            noiseType = string.IsNullOrEmpty(layer0.NoiseType) ? noiseType : layer0.NoiseType;
+                        }
+                        // Multi-oscillator patch: carry the full layer list so the playback/nav paths
+                        // render one voice per layer. Single-layer patches leave this null (the fields
+                        // above already carry them), avoiding a per-bar allocation on the hot path.
+                        if (layers.Count > 1) patchLayers = layers;
+                    }
+                }
             }
 
             return new AudioPoint(Frequency: freq, Volume: vol, Waveform: wave, Pan: pan,
-                                  EnvelopeType: comp.EnvelopeType, TriggerClick: triggerClick, NoiseAmount: noiseAmt,
-                                  PatchId: resolvedPatchId, NoiseType: noiseType);
+                                  EnvelopeType: effEnvelope, TriggerClick: triggerClick, NoiseAmount: noiseAmt,
+                                  PatchId: resolvedPatchId, NoiseType: noiseType, PatchLayers: patchLayers,
+                                  CrossDirection: crossDir);
         }
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume)
@@ -277,6 +336,28 @@ namespace AccessibleTrader.Core.Services.Audio
 
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
             return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal);
+        }
+
+        public int ResolveComponentVoiceCount(ComponentConfig comp)
+        {
+            int layers = Math.Max(UserPatchLayerCount(comp.SoundPatchId),
+                Math.Max(UserPatchLayerCount(comp.BullishSoundPatchId), UserPatchLayerCount(comp.BearishSoundPatchId)));
+            if (layers > 1) return layers;   // multi-oscillator user patch: one voice per layer
+            return 1 + (comp.UsesGradientSpeech || IsDetunedBuiltin(comp) ? 1 : 0);
+        }
+
+        // A user-library patch's layer count; 1 for a built-in (registry) patch, empty id, or unknown.
+        private int UserPatchLayerCount(string? id)
+        {
+            if (string.IsNullOrEmpty(id) || _patchRegistry.TryGetPatch(id, out _)) return 1;
+            var p = _patchLibrary?.GetPatch(id);
+            return p != null ? Math.Max(1, p.EffectiveLayers().Count) : 1;
+        }
+
+        private bool IsDetunedBuiltin(ComponentConfig comp)
+        {
+            return Detuned(comp.SoundPatchId) || Detuned(comp.BullishSoundPatchId) || Detuned(comp.BearishSoundPatchId);
+            bool Detuned(string? id) => !string.IsNullOrEmpty(id) && _patchRegistry.TryGetPatch(id, out var p) && p.IsDetuned;
         }
     }
 }

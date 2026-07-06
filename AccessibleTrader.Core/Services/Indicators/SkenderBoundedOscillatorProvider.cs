@@ -37,38 +37,38 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             "RSI" => new List<LevelDescriptor>
             {
-                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             "STOCH" or "STOCHRSI" => new List<LevelDescriptor>
             {
-                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             "ULTOSC" => new List<LevelDescriptor>
             {
-                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
-                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             "WILLIAMSR" => new List<LevelDescriptor>
             {
-                new("Overbought", -20.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought", -20.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
                 new("Midpoint",   -50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -80.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Oversold",   -80.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             "MFI" => new List<LevelDescriptor>
             {
-                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             "CCI" => new List<LevelDescriptor>
             {
-                new("Overbought",  100.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Overbought",  100.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
                 new("Zero",          0.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -100.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Oversold",   -100.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
             },
             _ => new List<LevelDescriptor>(),
         };

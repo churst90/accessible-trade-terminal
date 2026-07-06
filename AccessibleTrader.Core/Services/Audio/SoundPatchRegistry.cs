@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace AccessibleTrader.Core.Services.Audio
 {
@@ -40,6 +41,8 @@ namespace AccessibleTrader.Core.Services.Audio
         bool TryGetPatch(string patchId, out SoundPatch patch);
         /// <summary>Registers or replaces a patch by ID.</summary>
         void Register(string patchId, SoundPatch patch);
+        /// <summary>All registered patch IDs (built-ins + any registered at runtime), for selection UIs.</summary>
+        System.Collections.Generic.IReadOnlyCollection<string> GetPatchIds();
     }
 
     /// <inheritdoc />
@@ -169,5 +172,9 @@ namespace AccessibleTrader.Core.Services.Audio
         /// <inheritdoc />
         public void Register(string patchId, SoundPatch patch) =>
             _patches[patchId] = patch;
+
+        /// <inheritdoc />
+        public System.Collections.Generic.IReadOnlyCollection<string> GetPatchIds() =>
+            _patches.Keys.ToArray();
     }
 }

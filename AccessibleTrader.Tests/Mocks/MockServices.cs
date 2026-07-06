@@ -78,6 +78,7 @@ namespace AccessibleTrader.Tests.Mocks
         public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
         public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
         public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0) { }
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null) => new AudioPoint(440, 1, "sine", 0, "Sustain");
         public void Stop() { }
         public void Silence() { }
@@ -255,6 +256,7 @@ namespace AccessibleTrader.Tests.Mocks
         public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
         public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0) { }
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null) => new AudioPoint(440, 1, "sine", 0, "Sustain");
         public void StopNavigationVoice() { }
         public void SetMasterGain(float gain) { }

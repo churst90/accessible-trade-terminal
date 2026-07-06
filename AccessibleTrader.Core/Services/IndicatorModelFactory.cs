@@ -340,6 +340,7 @@ namespace AccessibleTrader.Core.Services
                 SpeechTemplate = c.SpeechTemplate, ReferenceLevel = c.ReferenceLevel,
                 IsAreaFill = c.IsAreaFill, UsePolarityColoring = c.UsePolarityColoring,
                 ColorBaseline = c.ColorBaseline, DataMapping = c.DataMapping, SoundPatchId = c.SoundPatchId,
+                BullishSoundPatchId = c.BullishSoundPatchId, BearishSoundPatchId = c.BearishSoundPatchId,
                 UsesGradientSpeech = c.UsesGradientSpeech,
                 // Cloud component bounds — must survive the clone or RenderCloud will silently skip.
                 UpperComponentName = c.UpperComponentName, LowerComponentName = c.LowerComponentName,

@@ -77,21 +77,46 @@
 
         const src = c.createBufferSource();
         src.buffer = buf;
-        src.connect(c.destination);
 
-        // Schedule contiguously. Two resyncs keep latency low:
+        // Schedule contiguously. A resync is needed in two cases:
         //  - Underrun: the queue ran dry (chunk arrived late) — restart at
         //    present + a small startup pad so we don't start in the past.
         //  - Overrun: a burst of chunks (SignalR delivers in batches) pushed
-        //    the schedule far ahead of the clock. That lead is permanent added
-        //    latency, so cap it and snap back near the present. A momentary
-        //    overlap is inaudible for navigation blips and worth the
-        //    responsiveness.
+        //    the schedule too far ahead of the clock. That lead is permanent
+        //    added latency, so snap back near the present.
+        //
+        // MAX_LEAD is deliberately generous: SignalR delivers in bursts, and a
+        // wide tolerance lets those bursts sit in the schedule as a jitter
+        // buffer instead of forcing a resync on every batch. Each resync is a
+        // discontinuity in the PCM stream (the engine's oscillators are
+        // phase-continuous across reads, so a snap-back skips or overlaps phase)
+        // and that discontinuity is exactly what crackles — so we resync as
+        // rarely as possible and declick the ones we can't avoid.
         const now = c.currentTime;
-        const MAX_LEAD = 0.080; // seconds of scheduling lead we tolerate
+        const START_PAD = 0.020;
+        const MAX_LEAD = 0.200;
+        let resync = false;
         if (nextStartTime < now + 0.005 || nextStartTime > now + MAX_LEAD) {
-            nextStartTime = now + 0.020;
+            nextStartTime = now + START_PAD;
+            resync = true;
         }
+
+        if (resync) {
+            // Declick the discontinuity with a short fade-in via a per-source
+            // gain ramp. Contiguous (non-resync) buffers are butted with no
+            // ramp — they're phase-continuous, so a fade there would only
+            // amplitude-modulate a held tone at the ~23 ms buffer rate (audible
+            // buzz). We only ramp where there's an actual seam.
+            const g = c.createGain();
+            const RAMP = 0.004; // 4 ms
+            g.gain.setValueAtTime(0, nextStartTime);
+            g.gain.linearRampToValueAtTime(1, nextStartTime + RAMP);
+            src.connect(g);
+            g.connect(c.destination);
+        } else {
+            src.connect(c.destination);
+        }
+
         src.start(nextStartTime);
         nextStartTime += frameCount / SAMPLE_RATE;
     };

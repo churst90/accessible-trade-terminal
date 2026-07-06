@@ -37,7 +37,7 @@ This document is the authoritative technical reference for the AccessibleTrader 
 ### `AccessibleTrader.Core`
 - **Role:** The "Brain" of the application. No UI dependencies.
 - **Orchestrators:** Central hubs — `MarketOrchestrator`, `DataOrchestrator`, `IndicatorOrchestrator`, `DataOrchestrationService`, `SonificationManager`.
-- **Audio:** `AudioEngine.cs` — Raw DSP logic (64-voice polyphonic oscillators, ADSR, panning).
+- **Audio:** `AudioEngine.cs` — Raw DSP logic (128-voice polyphonic oscillators, ADSR, panning).
 - **Accessibility:** `AccessibilityFeedbackCoordinator`, `NavigationEngine`, `SpeechFormatter`, `ProfileBinClassifier`.
 - **Input:** `CommandDispatcher`, `InputRouter`, `ShortcutManager`.
 - **Rendering:** `ChartRenderer` coordinates `BackgroundLayer`, `DataLayer`, `OverlayLayer`, `ProfileRenderLayer`, `HeatmapRenderer`.
@@ -186,8 +186,8 @@ There are two places that manipulate audio voice slot 0 (the navigation voice):
 ## 8. Audio Engine & Sonification Logic
 
 - **Architecture:** `AudioEngine` generates raw `float[]` buffers. Platform drivers (`BlazorAudioDriver`) push these to WASAPI (Windows) / AudioTrack (Android, TODO) / AVFoundation (iOS, TODO).
-- **Oscillators:** Sine, Square, Sawtooth, Triangle with real-time frequency modulation and interpolation.
-- **Voice Slots:** 64 total. Slots 0–7 = navigation/data sonification. Slots 16–31 = UI earcons (played via `PlayNote`).
+- **Oscillators:** Sine, Square, Sawtooth, Triangle, Noise (pink/white/brown) with real-time frequency modulation and interpolation. User `SoundPatch`es layer several oscillators (`OscillatorLayer` list) and are assignable to earcons or per-indicator-component (`ComponentConfig.SoundPatchId` / `BullishSoundPatchId` / `BearishSoundPatchId`), resolved live in `DefaultSonificationStrategy.CreateAudioPoint`.
+- **Voice Slots:** 128 total. Slots 0–15 = navigation/data sonification. Slots 16–31 = UI earcons (via `PlayNote`; directional cross earcons on 30/31). Slots 32–95 = playback sequencer. Slots 96–127 = cloud/ribbon fills.
 - **Mapping:**
   - Price → Pitch: Higher price = higher frequency (log scale).
   - Time → Pan: Viewport position maps to left/right stereo (-1.0 to +1.0).

@@ -11,7 +11,7 @@ Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, t
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest: **v1.3.0**). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest: **v1.3.1**). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -50,8 +50,8 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 ### Hybrid Sonification Engine (Custom DSP)
 
 - **Pure C# Audio Engine:** Custom DSP engine in `AudioEngine.cs`. No NAudio for synthesis — ultra-low latency, no OS-level MIDI overhead.
-- **64-Voice Polyphonic Oscillator:** Sine, Square, Saw, Triangle waveforms with ADSR envelopes and real-time parameter modulation.
-- **Voice Slot Layout:** Slots 0–7 = navigation/data. Slots 16–31 = UI earcons (independent of navigation voice).
+- **128-Voice Polyphonic Oscillator:** Sine, Square, Saw, Triangle, Noise waveforms with ADSR envelopes and real-time parameter modulation. Raised from 64 (the old 64-bit dirty-slot mask structurally capped polyphony at slot 63); the extra headroom lets many series/components and cloud/ribbon fills (e.g. EMA Fill) play at once instead of being dropped.
+- **Voice Slot Layout:** Slots 0–15 = navigation/data. Slots 16–31 = UI earcons (independent of navigation voice). Slots 32–95 = playback. Slots 96–127 = cloud/ribbon fills.
 - **Dynamic Panning:** Spatial stereo panning based on viewport position (left edge → hard left, right edge → hard right).
 - **Profile/Heatmap Sonification:** Structural role-based pitch (POC = 880 Hz sine, LVN = 220 Hz, etc.). Heatmap uses sawtooth for perceptual distinction.
 - **Single Navigation Path:** ALL navigation audio flows through `SonificationManager` → `NavigationSonifier.SyncNavigationSlots()`. No other path writes to voice slot 0.
@@ -223,7 +223,7 @@ See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BAS
 - **Phase E** — Cipher SR sonification: crystal_bell for pivot dots, zone hum in NavigationFeedbackManager, IsZoneLine flag.
 - **Phase F** — Cluster/shapes-as-ticks: N marker signals on a bar produce N audio ticks 100 ms apart in significance order.
 - **Phase G** — Contextual speech: `SignalSpeechTemplate` on `ComponentConfig`, provider-declared signal descriptions via `GetComponentSpeech`, multi-signal sequencing in NavigationFeedbackManager. 2026-04-24: per-indicator speech templates are now user-editable via the **Speech tab in the Indicator Properties modal** (`PropertiesModal.razor`) — continuous (`SpeechTemplate`) and signal (`SignalSpeechTemplate`) fields per component with a Reset-to-default button that restores provider metadata defaults.
-- **Phase H** — Cloud sonification: `CloudSonificationConfig` on `CloudFillConfig`, AudioSequencer cloud pass (slots 64–79), EMA Fill + WT Fill + Ichimoku cloud audio wired.
+- **Phase H** — Cloud sonification: `CloudSonificationConfig` on `CloudFillConfig`, AudioSequencer cloud pass (slots 96–127 since the 128-voice bump; were 64–79 and silently dropped by the old 64-voice engine), EMA Fill + WT Fill + Ichimoku cloud audio wired.
 - **Phase I** — Drawing keyboard placement: keyboard-first **sequential anchoring** — re-press the tool's own shortcut (e.g. `Ctrl+Shift+T`) at each anchor, `Escape` to cancel — with TTS price+timestamp feedback and change-from-anchor speech. (Note: there is no Enter-to-confirm; the `ConfirmCoordinateEntry` command is reserved/unused.)
 - **Phase J** — Ctrl+Left/Right redesign: context-aware crossing (ZeroLine/Threshold/MACross/Band/Trendline/SparseMarker) dispatched from `HandleTrendlineCrossJump`.
 - **Phase K** — Ichimoku Kinko Hyo indicator: 5 classical lines (Tenkan, Kijun, Senkou A/B, Chikou) + 3 post-phase additions (hidden Kumo Polarity strategy leaf, TK Bull / TK Bear confirmed-cross dots), Kumo cloud fill with 520/180 Hz sonification, displacement-shifted arrays, `GetDetailFact` context speech.
@@ -241,7 +241,7 @@ See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BAS
 Any component can declare `SubPaneName` / `SubPaneHeightRatio` in `IndicatorComponentMetadata`. `ChartRenderer.RenderPane` performs multi-pass rendering: main area (top) + sub-pane strips (bottom, clamped 5–40% each). `ViewportRangeCalculator` accumulates ranges under composite keys (`"PaneName/SubPaneName"`).
 
 #### Bell Synthesis and Sound Patches
-`ISoundPatchRegistry` (not `ISoundPatchLibrary`) provides code-defined bell presets used by indicator providers. 6 built-in patches with distinct harmonic, decay, and detuning characteristics. Components declare `DefaultSoundPatchId` in metadata; `AudioSequencer` and `NavigationSonifier` resolve patch for decay and detuning parameters.
+`ISoundPatchRegistry` (not `ISoundPatchLibrary`) provides code-defined bell presets used by indicator providers. 6 built-in patches with distinct harmonic, decay, and detuning characteristics. Components declare `DefaultSoundPatchId` in metadata; `AudioSequencer` and `NavigationSonifier` resolve patch for decay and detuning parameters. The **Sound Designer** (`SoundDesignerModal.razor`, Alt+W) is now a general-purpose patch workbench over `ISoundPatchLibrary`: a `SoundPatch` carries a list of `OscillatorLayer`s (waveform, gain, freq ratio, noise amount/colour) plus base frequency, multiplier, volume, envelope, and duration — `EffectiveLayers()` upgrades legacy single-waveform patches for backward compatibility. User patches are assignable to earcons or, via `PropertiesModal.razor`'s Sonification/Acoustics section, to indicator components through `ComponentConfig.SoundPatchId` (plus `BullishSoundPatchId` / `BearishSoundPatchId` for directional green/red components); assignments live-link, and `SonificationManager.PlayPatch` drives previews.
 
 #### Context-Aware Ctrl+Left/Right Navigation
 `CommandDispatcher.HandleTrendlineCrossJump` dispatches to one of six crossing strategies based on focused component type: trendline crossing (price series), sparse signal jump (Dot/Diamond/Cross etc.), zero-line crossing (MACD etc.), threshold crossing (RSI/Stoch etc.), MA crossover (EMA/SMA overlays), band boundary crossing (Bollinger %B).

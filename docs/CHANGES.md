@@ -4,6 +4,93 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+**Sound Designer is now a general-purpose, multi-oscillator patch workbench.** A patch
+(`Sdk.Models.SoundPatch`) can stack several oscillators via an **Add Oscillator** button;
+each `OscillatorLayer` carries a waveform (sine/square/sawtooth/triangle/noise), Level (mix
+gain), Freq Ratio (harmonic multiple of the base — 2.0 = octave), Noise Blend, and Noise
+Colour (pink/white/brown). `EffectiveLayers()` falls back to the legacy single-waveform
+fields so old `patches.json` and imported JSON still load. Patches are no longer earcon-only —
+they can be assigned to indicator components too. **Preview was fixed:** it called
+`PlayNote(…, 0f)` where `0f` was the *pan* argument, so noise and envelope never reached the
+engine and only waveform/length were audible. Replaced with
+`ISonificationManager.PlayPatch(patch)`, which fires one voice per layer and carries envelope
++ noise — used by the modal preview and by earcon overrides (`EarconService`), so
+multi-oscillator earcons now sound all their partials.
+
+**Per-component sound patches, live-linked (Properties → Sonification tab).** Each indicator
+component gained a **Sound Patch** dropdown listing built-in bells plus user Sound Designer
+patches, with a ▶ preview. Directional components (candles, bars, histograms/volume bars, and
+polarity-coloured components — via `IsDirectional`) also expose **Green (bullish)** and **Red
+(bearish)** patch dropdowns so up-bars and down-bars can sound different; plain lines/areas do
+not. Patches are resolved live in `DefaultSonificationStrategy.CreateAudioPoint` (registry
+patch → decay/detune path; user patch → timbre override), so editing a patch in the Sound
+Designer updates every component using it — no snapshot. New `ComponentConfig` fields
+`BullishSoundPatchId`/`BearishSoundPatchId`; bull/bear is decided by `close ≥ open` (candles/bars)
+or `value ≥ ColorBaseline` (sign-coloured). Multi-oscillator user patches now render **all**
+their layers on components (nav + single/multi-series playback), not just the primary layer.
+
+**Audio engine grown from 64 to 128 voices.** The 64 cap was structural — pending voice
+commands used a single 64-bit mask (`1UL << slot` wraps past slot 63); replaced with a
+per-slot flag array. New slot map: navigation 0–15, earcons 16–31, playback 32–95 (64 voices),
+cloud fills 96–127. This **fixes a latent bug** where cloud/ribbon fill voices (`FireCloudVoices`,
+slots 64–79) were silently dropped by the 64-voice engine, so fills like EMA Fill never
+sonified — they play now.
+
+**"Play everything" actually plays everything.** Space (Chart scope) now sounds every visible,
+unmuted series simultaneously, each with all its visible, unmuted components; Shift+Space
+(Series) sounds all components of the focused series. The multi-series sequencer previously used
+a fixed 4-series × 8-component slot grid that silently dropped the 5th series / 9th component;
+it now packs every component into the 64-voice budget via a stable per-session voice plan
+(`BuildVoicePlan`), logging (not hiding) any overflow. Muted series are now excluded from the
+Chart playlist. Single-series and multi-series playback were unified onto one plan +
+`RenderComponentVoices` path (removed the duplicated loops and the dead `SlotsPerSeries`).
+
+**Pause (Ctrl+Space) no longer drones.** Pausing left the continuous Sustain playback voices
+ringing (nothing called the driver's device-pause on the pause command) — worst on the WebHost
+browser path, which kept streaming the sustained samples. The sequencer now silences its
+playback/cloud voices (slots 32–127) on entering pause; navigation (0–15) stays live, so arrow
+keys still audition data points at the pause point.
+
+**Web audio crackle reduced (WebHost / public demo).** `wwwroot/js/audio.js` overrun handling
+used to snap the schedule back and overlap phase-continuous PCM buffers (the click source).
+Widened the scheduling lead tolerance (MAX_LEAD 80 ms → 200 ms) so SignalR bursts sit as a
+jitter buffer, and added a 4 ms gain fade-in only at genuine resync seams (fading every buffer
+would amplitude-modulate a held tone into a buzz).
+
+**Overbought/oversold zone texture is stronger and combines correctly.** Zone noise now takes
+the max of the component's base texture and the zone texture (it previously *replaced* the base,
+which could reduce roughness on entering a zone). Bounded-oscillator zone noise (RSI, Stoch,
+UltOsc, Williams %R, MFI, CCI) bumped 0.12 → 0.3; still user-tunable per level via the Zone
+Texture slider in Properties → Reference Levels.
+
+**Directional cross earcons.** Crossing a reference / overbought / oversold level now fires a
+distinct two-note chirp — rising (C5→G5) for an up-cross, falling (G5→C5) for a down-cross — on
+dedicated earcon slots (30/31), during **both** navigation (arrowing onto a cross bar in either
+direction) and playback (Space / Shift+Space / Ctrl+Shift+Space). Previously a cross produced only
+a phase-reset click on the existing voice, which was masked during navigation and faint during
+playback; zero-line / midpoint crosses got nothing distinct. `CreateAudioPoint` now surfaces
+`AudioPoint.CrossDirection` (`Sign(val − prevVal)`, under the same PlayEarcon / subscription gating
+as the old click, so it covers Zero/Midpoint levels too), and both `NavigationSonifier` and
+`AudioSequencer` fire the shared `CrossEarcon` helper. (`LevelCrossingMonitor`'s existing OB/OS
+approach and sustained chimes are unchanged.)
+
+**Escape now closes form-heavy modals.** `keyboard.js` suppressed every unmodified key while focus
+sat on a `<select>`/`<input>`/`<textarea>` (to preserve typing), which also swallowed **Escape** —
+so the Sound Designer (all dropdowns and inputs) couldn't be closed with Escape while a field was
+focused, even though the dispatcher's close-modal path was ready. Escape is now exempt from that
+guard (it's never a text character) and always reaches the dispatcher, closing the top modal. Fixed
+in both the WebHost and MAUI `keyboard.js`.
+
+**Built-in patch preview in Properties plays the actual bell.** The ▶ preview next to a component's
+Sound Patch dropdown played a single bare tone for built-in (registry) presets, which was easy to
+miss. It now synthesizes an equivalent multi-layer Ping-decay bell (base + harmonic + detuned
+partials from the registry patch) and auditions it through the same `SonificationManager.PlayPatch`
+path the Sound Designer preview uses, so a selected preset sounds like the bell it is.
+
+**Removed the "for demonstration purposes only" footer** from the main layout.
+
 ## [1.3.1] — 2026-06-27
 
 **Hosted terminal: working providers + curated symbols (stocks fix).** Logged into the

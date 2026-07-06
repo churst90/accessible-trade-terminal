@@ -107,12 +107,27 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void SetVoice_HighSlot_RendersOutput_128VoiceCapacity()
+        {
+            // Slots 96-127 host cloud/ribbon fills; the old 64-voice engine silently dropped any
+            // slot >= 64, so those fills never sonified. A voice up there must now produce audio.
+            var engine = new AudioEngine();
+            engine.SetMasterGain(1.0f);
+            engine.SetVoice(96, freq: 440, vol: 0.6f, pan: 0f, wave: "sine", continuous: true, durationSec: 1.0);
+
+            var _ = ReadOneBuffer(engine);   // apply the queued command
+            var buf = ReadOneBuffer(engine); // render a buffer
+
+            Assert.Contains(buf, s => s != 0f);
+        }
+
+        [Fact]
         public void SetVoice_OutOfRangeSlot_IsIgnored()
         {
             var engine = new AudioEngine();
             // Should NOT throw and should not increment meaningful state.
             engine.SetVoice(-1, 440, 0.5f, 0, "sine", true, 1.0);
-            engine.SetVoice(64, 440, 0.5f, 0, "sine", true, 1.0);
+            engine.SetVoice(AudioEngine.MaxVoices, 440, 0.5f, 0, "sine", true, 1.0); // first slot past the top
             // TotalCommandCount tracks EnqueueCommand calls; out-of-range returns before Enqueue.
             Assert.Equal(0, engine.TotalCommandCount);
         }

@@ -53,10 +53,11 @@ namespace AccessibleTrader.Core.Services.Audio
 
             if (state.PlaybackScope == PlaybackScope.Chart)
             {
-                // Chart scope: every visible non-drawing, non-profile series plays simultaneously.
-                // All series' components are heard layered on top of each other, bar by bar.
+                // Chart scope: every visible, unmuted, non-drawing, non-profile series plays
+                // simultaneously. All series' components are heard layered on top of each other,
+                // bar by bar. Muted series are excluded so the user's mute actually silences them.
                 var playList = state.ActiveSeries
-                    .Where(s => s.IsVisible && !s.IsDrawing && !s.IsProfile)
+                    .Where(s => s.IsVisible && !s.IsMuted && !s.IsDrawing && !s.IsProfile)
                     .ToList();
 
                 if (playList.Count == 0) return;
@@ -93,7 +94,7 @@ namespace AccessibleTrader.Core.Services.Audio
             _playbackCts?.Cancel();
             _playbackCts = null;
             _sequencer.Stop();
-            for (int i = 0; i < 64; i++) _audioDriver.StopVoice(i);
+            for (int i = 0; i < AudioEngine.MaxVoices; i++) _audioDriver.StopVoice(i);
         }
 
         public void Dispose() => _subs.Dispose();

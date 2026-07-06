@@ -136,5 +136,18 @@ namespace AccessibleTrader.Tests
             Assert.True(patch!.IsDetuned, "dual_tone_bell must have IsDetuned=true.");
             Assert.Equal(0, patch.DetunedOffsetMs);
         }
+
+        // ── 8. GetPatchIds enumerates built-ins (for the component patch dropdowns) ──
+
+        [Fact]
+        public void GetPatchIds_IncludesBuiltins_AndRegisteredCustoms()
+        {
+            var registry = new SoundPatchRegistry();
+            Assert.Contains("crystal_bell", registry.GetPatchIds());
+            Assert.Contains("detuned_pair_bell", registry.GetPatchIds());
+
+            registry.Register("my_custom", new SoundPatch("sine", 0f, 2f, 100, false, 0f, 0, null, null));
+            Assert.Contains("my_custom", registry.GetPatchIds());
+        }
     }
 }

@@ -22,9 +22,9 @@ namespace AccessibleTrader.Core.Services.Audio
         /// </param>
         Task StartPlaybackAsync(ChartSeries series, List<Ohlcv> data, int startIndex, CancellationToken ct, int componentFilter = -1);
         /// <summary>
-        /// Plays all provided series simultaneously, bar by bar, using stacked voice slots.
-        /// All series' components play layered on top of each other — same bar, same moment.
-        /// Up to <see cref="AudioSequencer.SlotsPerSeries"/> components per series are sonified.
+        /// Plays all provided series simultaneously, bar by bar. Every visible, unmuted component
+        /// across every visible, unmuted series is layered on top of each other — same bar, same
+        /// moment — packed into the 64-voice playback budget (slots 32-95) by the voice plan.
         /// </summary>
         Task StartMultiSeriesPlaybackAsync(IReadOnlyList<ChartSeries> seriesList, List<Ohlcv> data, int startIndex, CancellationToken ct);
         void Stop();
@@ -32,11 +32,6 @@ namespace AccessibleTrader.Core.Services.Audio
 
     public class AudioSequencer : IAudioSequencer
     {
-        /// <summary>
-        /// Maximum voice slots reserved per series during multi-series (Chart scope) playback.
-        /// Slots 32-63 (32 total) are split as: 4 series × 8 components = 32 slots.
-        /// </summary>
-        public const int SlotsPerSeries = 8;
 
 
         private readonly IAudioDriver _audioDriver;
@@ -48,12 +43,14 @@ namespace AccessibleTrader.Core.Services.Audio
         private readonly Subject<int> _pointReached = new();
         private CancellationTokenSource? _cts;
 
-        // Slots 32-63 are reserved for playback, keeping them clear of navigation (0-15) and earcons (16-31).
+        // Slot map over the engine's 128 voices: 0-15 navigation, 16-31 earcons,
+        // 32-95 playback (64 voices), 96-127 cloud fills (32 voices).
         private const int PlaybackSlotOffset = 32;
+        private const int PlaybackSlotEnd = 95;   // last slot usable by component playback voices
 
-        // Slots 64-79 are reserved for cloud fill voices during multi-series (Chart scope) playback.
-        private const int CloudSlotOffset = 64;
-        private const int MaxCloudSlots = 16;
+        // Cloud fill voices during multi-series (Chart scope) playback.
+        private const int CloudSlotOffset = 96;
+        private const int MaxCloudSlots = 32;
 
         public bool IsPlaying => _cts != null && !_cts.Token.IsCancellationRequested;
         public IObservable<Unit> PlaybackFinished => _playbackFinished;
@@ -109,6 +106,9 @@ namespace AccessibleTrader.Core.Services.Audio
             try
             {
                 int count = data.Count;
+                var seriesList = new[] { series };
+                // Series scope: all components; Component scope: just the pinned component.
+                var plan = BuildVoicePlan(seriesList, componentFilter);
 
                 for (int i = startIndex; i < count; i++)
                 {
@@ -117,103 +117,15 @@ namespace AccessibleTrader.Core.Services.Audio
                     _pointReached.OnNext(i);
 
                     var state = _store.State;
-
                     // Sync store with playback position so visuals and speech remain consistent
                     _store.Dispatch(new NavigateAction(i));
 
                     // Scale 100ms base by inverse of PlaybackSpeed (e.g. 2.0x = 50ms delay)
                     double msPerBar = 100.0 / Math.Max(0.1, state.PlaybackSpeed);
+                    int effPanWidth = AudioConstants.ComputePanWidth(state);
 
-                    for (int cIdx = 0; cIdx < series.Components.Count; cIdx++)
-                    {
-                        // Component scope: only sonify the pinned component.
-                        if (componentFilter >= 0 && cIdx != componentFilter) continue;
-
-                        var comp = series.Components[cIdx];
-                        if (!comp.IsVisible || comp.IsMuted) continue;
-
-                        // Cloud components: width-mapped volume + bullish/bearish pitch,
-                        // matching the navigation sonification but on playback slots.
-                        if (comp.DisplayType == ComponentDisplayType.Cloud)
-                        {
-                            PlayCloudComponent(series, comp, i, cIdx, state, msPerBar);
-                            continue;
-                        }
-
-                        // Sub-pane-aware range: components in a sub-pane (e.g. MF Wave) use the
-                        // sub-pane's narrower Y-range rather than the parent pane's wide range,
-                        // which would clamp their values and produce only two tones during playback.
-                        string compRangeKey = !string.IsNullOrEmpty(comp.SubPaneName)
-                            ? $"{series.Pane}/{comp.SubPaneName}"
-                            : (series.Pane ?? "");
-                        var range = state.PaneRanges.TryGetValue(compRangeKey, out var cr) ? cr
-                            : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
-
-                        // Map THIS component specifically so wicks, body, and signal lines each
-                        // produce their own pitch rather than all echoing the first component.
-                        // Pan width tracks the renderer: effective window at live edge, full
-                        // viewport when panned back.
-                        int effPanWidth = AudioConstants.ComputePanWidth(state);
-                        var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
-
-                        // NaN guard for Ping-envelope marker components during playback:
-                        // Pivot dots (Cipher SR) and signal dots only fire their voice on actual signal bars.
-                        // When audioPt.Volume == 0 for a Ping marker, skip rather than emitting a silent click.
-                        if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
-                            && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
-                            && audioPt.Volume <= 0)
-                            continue;
-
-                        int slot = PlaybackSlotOffset + cIdx;
-
-                        // Apply PlaybackLayer volume scaling (Background 60%, Midground 80%, Foreground 100%).
-                        float layerScale = LayerVolume(comp.PlaybackLayer);
-                        float scaledVol = audioPt.Volume * layerScale;
-
-                        // Ping envelopes (wicks) must restart on each bar so every wick fires a
-                        // fresh transient. Sustain envelopes glide with continuous=true to eliminate
-                        // the 5ms attack-restart click when the voice is already playing.
-                        bool continuous = audioPt.EnvelopeType != "Ping";
-                        // Resolve Ping duration: comp.DecayMs > patch.DefaultDecayMs > bar-proportional default.
-                        double durationSec = ResolvePingDuration(comp, audioPt, msPerBar);
-
-                        // Gradient blend: fire sine carrier on the main slot and a blend waveform on an
-                        // auxiliary slot (PlaybackSlotOffset + SlotsPerSeries + cIdx = 40-47).
-                        // Mirrors NavigationSonifier.SyncNavigationSlots gradient path.
-                        if (comp.UsesGradientSpeech)
-                        {
-                            _audioDriver.SetVoice(slot, audioPt.Frequency, scaledVol, (float)audioPt.Pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
-                            int blendSlot = PlaybackSlotOffset + SlotsPerSeries + cIdx;
-                            float blendVol = ComputeGradientBlend(series, comp, i, scaledVol, out string blendWave);
-                            if (blendVol > 0.01f)
-                                _audioDriver.SetVoice(blendSlot, audioPt.Frequency, blendVol, (float)audioPt.Pan, blendWave, continuous, durationSec, i, audioPt.EnvelopeType, false, 0f);
-                        }
-                        else
-                        {
-                            _audioDriver.SetVoice(slot, audioPt.Frequency, scaledVol, (float)audioPt.Pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
-                        }
-
-                        // Detuned pair bell: fire a second voice at DetunedOffsetMs delay on the next available slot.
-                        if (!string.IsNullOrEmpty(audioPt.PatchId) &&
-                            _patchRegistry.TryGetPatch(audioPt.PatchId, out var patchDef) &&
-                            patchDef.IsDetuned)
-                        {
-                            int detunedSlot = PlaybackSlotOffset + SlotsPerSeries - 1 - (cIdx % (SlotsPerSeries / 2));
-                            double detunedFreq = audioPt.Frequency + patchDef.DetuneIntervalHz;
-                            if (patchDef.DetunedOffsetMs <= 0)
-                            {
-                                _audioDriver.SetVoice(detunedSlot, detunedFreq, scaledVol, (float)audioPt.Pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
-                            }
-                            else
-                            {
-                                _ = Task.Delay(patchDef.DetunedOffsetMs, token).ContinueWith(t =>
-                                {
-                                    if (!t.IsCanceled)
-                                        _audioDriver.SetVoice(detunedSlot, detunedFreq, scaledVol, (float)audioPt.Pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
-                                }, TaskScheduler.Default);
-                            }
-                        }
-                    }
+                    foreach (var vp in plan)
+                        RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
 
                     // Cloud pass: fire cloud fill voices for the focused series.
                     // Enables series-scope playback (Shift+Space) to sonify cloud fills
@@ -221,14 +133,17 @@ namespace AccessibleTrader.Core.Services.Audio
                     var state2 = _store.State;
                     int cloudSlot2 = 0;
                     int cloudEnd2 = state2.ViewportStartIndex + AudioConstants.ComputePanWidth(state2) - 1;
-                    FireCloudVoices(new[] { series }, i, state2.ViewportStartIndex, cloudEnd2, msPerBar, ref cloudSlot2);
+                    FireCloudVoices(seriesList, i, state2.ViewportStartIndex, cloudEnd2, msPerBar, ref cloudSlot2);
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
-                    // While paused, wait without incrementing
-                    while (_store.State.IsPaused && !token.IsCancellationRequested)
+                    // While paused, wait without incrementing. Silence the continuous playback
+                    // voices first so the current bar's chord doesn't drone on while parked.
+                    if (_store.State.IsPaused)
                     {
-                        await Task.Delay(50, token).ConfigureAwait(false);
+                        SilencePlaybackVoices();
+                        while (_store.State.IsPaused && !token.IsCancellationRequested)
+                            await Task.Delay(50, token).ConfigureAwait(false);
                     }
                 }
             }
@@ -244,6 +159,165 @@ namespace AccessibleTrader.Core.Services.Audio
             }
         }
 
+        /// <summary>A component's contiguous playback voice slots. Slots[0] is the main voice; extra
+        /// slots carry a multi-oscillator patch's additional layers, or a gradient/detune aux voice.</summary>
+        private readonly record struct VoicePlan(int SeriesIdx, int CompIdx, int[] Slots);
+
+        /// <summary>
+        /// Assigns stable voice slots (32-95) to every visible, unmuted component across the given series
+        /// (optionally filtered to one component for Component scope), packing them sequentially so nothing
+        /// is silently dropped up to the 64-voice budget. Each component reserves
+        /// <see cref="ISonificationStrategy.ResolveComponentVoiceCount"/> slots — enough for a
+        /// multi-oscillator patch's layers or a gradient/detune aux. Excess is logged, not hidden. Slots
+        /// are assigned once from config so continuous voices keep a stable slot and glide bar-to-bar.
+        /// </summary>
+        private List<VoicePlan> BuildVoicePlan(IReadOnlyList<ChartSeries> seriesList, int componentFilter = -1)
+        {
+            var plan = new List<VoicePlan>();
+            int cursor = PlaybackSlotOffset;
+            bool overflow = false;
+
+            for (int s = 0; s < seriesList.Count && !overflow; s++)
+            {
+                var series = seriesList[s];
+                if (series == null || !series.IsVisible || series.IsMuted || series.IsDrawing) continue;
+
+                for (int c = 0; c < series.Components.Count; c++)
+                {
+                    if (componentFilter >= 0 && c != componentFilter) continue;
+                    var comp = series.Components[c];
+                    if (!comp.IsVisible || comp.IsMuted) continue;
+                    if (cursor > PlaybackSlotEnd) { overflow = true; break; }
+
+                    int need = Math.Max(1, _strategy.ResolveComponentVoiceCount(comp));
+                    int room = PlaybackSlotEnd - cursor + 1;
+                    if (need > room) { need = room; overflow = true; } // truncate this component's layers
+
+                    var slots = new int[need];
+                    for (int k = 0; k < need; k++) slots[k] = cursor++;
+                    plan.Add(new VoicePlan(s, c, slots));
+
+                    if (overflow) break;
+                }
+            }
+
+            if (overflow)
+                _logger.LogWarning(
+                    "Chart playback needs more than {Budget} simultaneous voices; some components/layers were not sonified. Mute or hide series to stay within budget.",
+                    PlaybackSlotEnd - PlaybackSlotOffset + 1);
+
+            return plan;
+        }
+
+        /// <summary>
+        /// Fires one bar of a single component's voices onto its reserved plan slots: a cloud fill, a
+        /// multi-oscillator patch's layers, or the standard main-voice (+ gradient blend / detuned aux).
+        /// </summary>
+        private void RenderComponentVoices(VoicePlan vp, IReadOnlyList<ChartSeries> seriesList, List<Ohlcv> data,
+            int i, WorkspaceState state, double msPerBar, int effPanWidth, CancellationToken token)
+        {
+            var series = seriesList[vp.SeriesIdx];
+            var comp = series.Components[vp.CompIdx];
+            var slots = vp.Slots;
+            int mainSlot = slots[0];
+            int auxSlot = slots.Length > 1 ? slots[1] : -1;
+
+            if (comp.DisplayType == ComponentDisplayType.Cloud)
+            {
+                PlayCloudComponent(series, comp, i, state, msPerBar, mainSlot, auxSlot);
+                return;
+            }
+
+            // Sub-pane-aware range so components in a sub-pane use their own Y-range.
+            string compRangeKey = !string.IsNullOrEmpty(comp.SubPaneName)
+                ? $"{series.Pane}/{comp.SubPaneName}"
+                : (series.Pane ?? "");
+            var range = state.PaneRanges.TryGetValue(compRangeKey, out var cr) ? cr
+                : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
+
+            var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
+
+            // NaN guard for Ping-envelope markers: only fire on actual signal bars.
+            if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
+                && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
+                && audioPt.Volume <= 0)
+            {
+                for (int k = 0; k < slots.Length; k++) _audioDriver.StopVoice(slots[k]);
+                return;
+            }
+
+            float layerScale = LayerVolume(comp.PlaybackLayer);
+            float scaledVol = audioPt.Volume * layerScale;
+            bool continuous = audioPt.EnvelopeType != "Ping";
+            double durationSec = ResolvePingDuration(comp, audioPt, msPerBar);
+            float pan = (float)audioPt.Pan;
+
+            // Directional cross earcon — fires whenever this component crossed a level on this bar,
+            // independent of how its voices render below. On the shared 30/31 slots, so simultaneous
+            // crosses across components collapse to one chirp per bar rather than a cluster.
+            if (audioPt.CrossDirection != 0)
+                CrossEarcon.Fire(_audioDriver, audioPt.CrossDirection, 1f, pan);
+
+            // Multi-oscillator user patch: one voice per layer across the reserved slots.
+            if (audioPt.PatchLayers != null)
+            {
+                RenderPatchLayers(slots, audioPt.PatchLayers, audioPt.Frequency, scaledVol, pan, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick);
+                return;
+            }
+
+            // Gradient blend: sine carrier on the main slot; blend waveform on the aux slot.
+            if (comp.UsesGradientSpeech)
+            {
+                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+                float blendVol = ComputeGradientBlend(series, comp, i, scaledVol, out string blendWave);
+                if (auxSlot >= 0 && blendVol > 0.01f)
+                    _audioDriver.SetVoice(auxSlot, audioPt.Frequency, blendVol, pan, blendWave, continuous, durationSec, i, audioPt.EnvelopeType, false, 0f);
+            }
+            else
+            {
+                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+            }
+
+            // Detuned pair bell (built-in patch): second voice on the aux slot.
+            if (auxSlot >= 0 && !string.IsNullOrEmpty(audioPt.PatchId) &&
+                _patchRegistry.TryGetPatch(audioPt.PatchId, out var patchDef) && patchDef.IsDetuned)
+            {
+                double detunedFreq = audioPt.Frequency + patchDef.DetuneIntervalHz;
+                if (patchDef.DetunedOffsetMs <= 0)
+                {
+                    _audioDriver.SetVoice(auxSlot, detunedFreq, scaledVol, pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
+                }
+                else
+                {
+                    int slotCopy = auxSlot;
+                    _ = Task.Delay(patchDef.DetunedOffsetMs, token).ContinueWith(t =>
+                    {
+                        if (!t.IsCanceled)
+                            _audioDriver.SetVoice(slotCopy, detunedFreq, scaledVol, pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
+                    }, TaskScheduler.Default);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fires one voice per oscillator layer of a multi-oscillator patch across the reserved slots,
+        /// scaling frequency by <c>FreqRatio</c> and volume by <c>Gain</c>. Any reserved-but-unused slots
+        /// (e.g. a per-colour patch with fewer layers this bar) are silenced so they don't drone.
+        /// </summary>
+        private void RenderPatchLayers(int[] slots, IReadOnlyList<AccessibleTrader.Sdk.Models.OscillatorLayer> layers,
+            double baseFreq, float baseVol, float pan, bool continuous, double durationSec, int dataIndex, string envelope, bool click)
+        {
+            int n = Math.Min(layers.Count, slots.Length);
+            for (int k = 0; k < n; k++)
+            {
+                var L = layers[k];
+                _audioDriver.SetVoice(slots[k], baseFreq * L.FreqRatio, Math.Clamp(baseVol * L.Gain, 0f, 1f), pan,
+                    L.Waveform, continuous, durationSec, k == 0 ? dataIndex : -1, envelope, k == 0 && click,
+                    Math.Max(0f, L.NoiseAmount), string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
+            }
+            for (int k = n; k < slots.Length; k++) _audioDriver.StopVoice(slots[k]);
+        }
+
         public async Task StartMultiSeriesPlaybackAsync(IReadOnlyList<ChartSeries> seriesList, List<Ohlcv> data, int startIndex, CancellationToken ct)
         {
             Stop();
@@ -254,6 +328,16 @@ namespace AccessibleTrader.Core.Services.Audio
             {
                 int count = data.Count;
 
+                // ── Stable voice-slot plan ──────────────────────────────────────────
+                // Playback voices live in slots 32-63 (32 total). Rather than a fixed
+                // 8-per-series / 4-series grid (which silently dropped the 5th series and
+                // the 9th component of any series), pack every visible + unmuted component
+                // across every visible + unmuted series into the budget sequentially, so
+                // "play chart" really does sound them all at once. Slots are assigned ONCE
+                // from component configuration (not per-bar data), so a continuous Sustain
+                // voice keeps a stable slot and glides smoothly bar-to-bar.
+                var plan = BuildVoicePlan(seriesList);
+
                 for (int i = startIndex; i < count; i++)
                 {
                     if (token.IsCancellationRequested) break;
@@ -263,86 +347,10 @@ namespace AccessibleTrader.Core.Services.Audio
 
                     var state = _store.State;
                     double msPerBar = 100.0 / Math.Max(0.1, state.PlaybackSpeed);
+                    int effPanWidth = AudioConstants.ComputePanWidth(state);
 
-                    for (int sIdx = 0; sIdx < seriesList.Count; sIdx++)
-                    {
-                        var series = seriesList[sIdx];
-
-                        for (int cIdx = 0; cIdx < series.Components.Count && cIdx < SlotsPerSeries; cIdx++)
-                        {
-                            var comp = series.Components[cIdx];
-                            if (!comp.IsVisible || comp.IsMuted) continue;
-
-                            if (comp.DisplayType == ComponentDisplayType.Cloud)
-                            {
-                                PlayCloudComponent(series, comp, i, cIdx, state, msPerBar, sIdx * SlotsPerSeries);
-                                continue;
-                            }
-
-                            // Sub-pane-aware range per component (matches StartPlaybackAsync and NavigationSonifier).
-                            string compRangeKey = !string.IsNullOrEmpty(comp.SubPaneName)
-                                ? $"{series.Pane}/{comp.SubPaneName}"
-                                : (series.Pane ?? "");
-                            var range = state.PaneRanges.TryGetValue(compRangeKey, out var cr) ? cr
-                                : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
-
-                            // Pan width tracks the renderer: effective window at live edge,
-                            // full viewport when panned back.
-                            int effPanWidth = AudioConstants.ComputePanWidth(state);
-                            var audioPt = _strategy.MapComponentToAudio(series, cIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
-
-                            // NaN guard for Ping-envelope marker components during multi-series playback.
-                            if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
-                                && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
-                                && audioPt.Volume <= 0)
-                                continue;
-
-                            int slot = PlaybackSlotOffset + (sIdx * SlotsPerSeries) + cIdx;
-
-                            // Apply PlaybackLayer volume scaling.
-                            float layerScale = LayerVolume(comp.PlaybackLayer);
-                            float scaledVol = audioPt.Volume * layerScale;
-
-                            bool continuous = audioPt.EnvelopeType != "Ping";
-                            double durationSec = ResolvePingDuration(comp, audioPt, msPerBar);
-
-                            // Gradient blend: sine carrier on main slot; blend waveform on last slot
-                            // of this series block (PlaybackSlotOffset + sIdx*SlotsPerSeries + SlotsPerSeries-1).
-                            if (comp.UsesGradientSpeech)
-                            {
-                                _audioDriver.SetVoice(slot, audioPt.Frequency, scaledVol, (float)audioPt.Pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
-                                int blendSlot = PlaybackSlotOffset + (sIdx * SlotsPerSeries) + SlotsPerSeries - 1;
-                                float blendVol = ComputeGradientBlend(series, comp, i, scaledVol, out string blendWave);
-                                if (blendVol > 0.01f)
-                                    _audioDriver.SetVoice(blendSlot, audioPt.Frequency, blendVol, (float)audioPt.Pan, blendWave, continuous, durationSec, i, audioPt.EnvelopeType, false, 0f);
-                            }
-                            else
-                            {
-                                _audioDriver.SetVoice(slot, audioPt.Frequency, scaledVol, (float)audioPt.Pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
-                            }
-
-                            // Detuned pair bell: fire second voice on an offset slot.
-                            if (!string.IsNullOrEmpty(audioPt.PatchId) &&
-                                _patchRegistry.TryGetPatch(audioPt.PatchId, out var patchDef) &&
-                                patchDef.IsDetuned)
-                            {
-                                int detunedSlot = PlaybackSlotOffset + (sIdx * SlotsPerSeries) + Math.Min(cIdx + 1, SlotsPerSeries - 1);
-                                double detunedFreq = audioPt.Frequency + patchDef.DetuneIntervalHz;
-                                if (patchDef.DetunedOffsetMs <= 0)
-                                {
-                                    _audioDriver.SetVoice(detunedSlot, detunedFreq, scaledVol, (float)audioPt.Pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
-                                }
-                                else
-                                {
-                                    _ = Task.Delay(patchDef.DetunedOffsetMs, token).ContinueWith(t =>
-                                    {
-                                        if (!t.IsCanceled)
-                                            _audioDriver.SetVoice(detunedSlot, detunedFreq, scaledVol, (float)audioPt.Pan, audioPt.Waveform, false, durationSec, i, "Ping", false, audioPt.NoiseAmount, audioPt.NoiseType);
-                                    }, TaskScheduler.Default);
-                                }
-                            }
-                        }
-                    }
+                    foreach (var vp in plan)
+                        RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
 
                     // Cloud pass — fires after component voices for each bar (Chart scope only).
                     int cloudSlot = 0;
@@ -351,8 +359,13 @@ namespace AccessibleTrader.Core.Services.Audio
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
-                    while (_store.State.IsPaused && !token.IsCancellationRequested)
-                        await Task.Delay(50, token).ConfigureAwait(false);
+                    // Silence the continuous playback voices on pause so the last bar doesn't drone.
+                    if (_store.State.IsPaused)
+                    {
+                        SilencePlaybackVoices();
+                        while (_store.State.IsPaused && !token.IsCancellationRequested)
+                            await Task.Delay(50, token).ConfigureAwait(false);
+                    }
                 }
             }
             catch (OperationCanceledException) { }
@@ -390,7 +403,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// width-mapped volume + bullish/bearish frequency approach as navigation, but
         /// with continuous sustain so the tone glides smoothly bar-to-bar.
         /// </summary>
-        private void PlayCloudComponent(ChartSeries series, ComponentConfig comp, int barIndex, int cIdx, WorkspaceState state, double msPerBar, int seriesSlotOffset = 0)
+        private void PlayCloudComponent(ChartSeries series, ComponentConfig comp, int barIndex, WorkspaceState state, double msPerBar, int slot, int blendSlot)
         {
             var widthData = series.GetComponentData(comp.Name);
             if (widthData.Length == 0 || barIndex < 0 || barIndex >= widthData.Length) return;
@@ -421,17 +434,15 @@ namespace AccessibleTrader.Core.Services.Audio
             int cloudPanWidth = AudioConstants.ComputePanWidth(state);
             float pan = (float)AudioConstants.CalculatePan(barIndex - state.ViewportStartIndex, cloudPanWidth);
 
-            int slot = PlaybackSlotOffset + seriesSlotOffset + cIdx;
             double durationSec = msPerBar / 1000.0;
 
             // Sine carrier — warm fundamental, continuous sustain for smooth glide.
             _audioDriver.SetVoice(slot, freq, volume, pan,
                 "sine", true, durationSec, barIndex, "Sustain", false, 0f);
 
-            // Triangle blend at 35% volume — adds warmth. Uses the last slot in this series block.
-            int blendSlot = PlaybackSlotOffset + seriesSlotOffset + SlotsPerSeries - 1;
+            // Triangle blend at 35% volume — adds warmth on the assigned aux slot (if one was reserved).
             float blendVol = volume * 0.35f;
-            if (blendVol > 0.02f)
+            if (blendSlot >= 0 && blendVol > 0.02f)
             {
                 _audioDriver.SetVoice(blendSlot, freq, blendVol, pan,
                     "triangle", true, durationSec, barIndex, "Sustain", false, 0f);
@@ -479,7 +490,7 @@ namespace AccessibleTrader.Core.Services.Audio
                     bool isBullish = upperVal >= lowerVal;
                     double freq = isBullish ? fill.Sonification.BullishFrequency : fill.Sonification.BearishFrequency;
 
-                    // Assign a cloud slot (64-79), cycling if more than MaxCloudSlots fills are active.
+                    // Assign a cloud slot (96-127), cycling if more than MaxCloudSlots fills are active.
                     int slot = CloudSlotOffset + (cloudSlotCounter % MaxCloudSlots);
                     cloudSlotCounter++;
 
@@ -514,8 +525,21 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             _cts?.Cancel();
             _cts = null;
-            // Clear playback range slots (component slots 32-63 and cloud slots 64-79).
-            for (int i = 32; i < 80; i++) _audioDriver.StopVoice(i);
+            SilencePlaybackVoices();
+        }
+
+        /// <summary>
+        /// Stops every voice this sequencer can drive — component slots 32-63 and cloud slots 64-79.
+        /// Playback voices are continuous Sustain oscillators (see <c>continuous = EnvelopeType != "Ping"</c>),
+        /// so they ring until explicitly stopped. Called both on <see cref="Stop"/> and on entering pause,
+        /// where the loop parks without advancing: without this the last bar's chord drones indefinitely
+        /// (very audible on the WebHost browser path, which keeps streaming the sustained samples).
+        /// Navigation slots (0-15) are left untouched so arrow-key auditioning still works while paused.
+        /// </summary>
+        private void SilencePlaybackVoices()
+        {
+            // Playback (32-95) + cloud fills (96-127); navigation (0-15) and earcons (16-31) stay live.
+            for (int i = PlaybackSlotOffset; i < AudioEngine.MaxVoices; i++) _audioDriver.StopVoice(i);
         }
     }
 }

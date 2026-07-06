@@ -449,6 +449,8 @@ namespace AccessibleTrader.Tests
             public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data,
                 int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume)
                 => new AudioPoint(440, 1, "sine", 0, "Sustain");
+
+            public int ResolveComponentVoiceCount(ComponentConfig comp) => 1;
         }
     }
 }

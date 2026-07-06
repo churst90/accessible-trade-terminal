@@ -106,6 +106,18 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private string? _soundPatchId = null;
 
         /// <summary>
+        /// Optional patch used when the bar is bullish (green: close &gt;= open). When set it takes
+        /// precedence over <see cref="SoundPatchId"/> on up-bars, letting a component sound different
+        /// on green vs red bars. Null = fall back to <see cref="SoundPatchId"/> / manual fields.
+        /// </summary>
+        [ObservableProperty] private string? _bullishSoundPatchId = null;
+
+        /// <summary>
+        /// Optional patch used when the bar is bearish (red: close &lt; open). See <see cref="BullishSoundPatchId"/>.
+        /// </summary>
+        [ObservableProperty] private string? _bearishSoundPatchId = null;
+
+        /// <summary>
         /// Optional configurable bell decay in milliseconds.
         /// Null = use the patch's DefaultDecayMs or existing envelope defaults.
         /// When set, overrides patch DefaultDecayMs for Ping-envelope voices.
@@ -183,6 +195,8 @@ namespace AccessibleTrader.Sdk.Models
                 ColorBaseline = ColorBaseline,
                 ColorRules = new List<ColorRule>(ColorRules),
                 SoundPatchId = SoundPatchId,
+                BullishSoundPatchId = BullishSoundPatchId,
+                BearishSoundPatchId = BearishSoundPatchId,
                 UsesGradientSpeech = UsesGradientSpeech,
                 SubPaneName = SubPaneName,
                 SubPaneHeightRatio = SubPaneHeightRatio,

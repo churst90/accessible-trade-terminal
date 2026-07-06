@@ -71,9 +71,15 @@ namespace AccessibleTrader.Core.Services.Audio
 
     public class AudioEngine
     {
-        private readonly OscillatorVoice[] _voices = new OscillatorVoice[64];
-        private readonly VoiceCommand[] _pendingCommands = new VoiceCommand[64];
-        private ulong _pendingCommandMask = 0;
+        /// <summary>Total polyphony. Slot layout (see AudioSequencer/NavigationSonifier):
+        /// 0-15 navigation, 16-31 UI earcons, 32-95 playback, 96-127 cloud fills.</summary>
+        public const int MaxVoices = 128;
+
+        private readonly OscillatorVoice[] _voices = new OscillatorVoice[MaxVoices];
+        private readonly VoiceCommand[] _pendingCommands = new VoiceCommand[MaxVoices];
+        // Which slots received a command this buffer. Replaces the old 64-bit mask, which
+        // structurally capped polyphony at 64 voices (1UL << slot wraps past slot 63).
+        private readonly bool[] _pendingSet = new bool[MaxVoices];
 
         // --- HARD REAL-TIME: LOCK-FREE RING BUFFER IMPLEMENTATION ---
         private struct RingBuffer<T> where T : struct
@@ -259,18 +265,21 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             // 1. SQUELCH COMMANDS: Use the fixed-size pending buffer instead of a Dictionary.
             bool stopAllRequested = false;
-            _pendingCommandMask = 0;
+            bool anyPending = false;
+            Array.Clear(_pendingSet, 0, MaxVoices);
 
             while (_commandQueue.TryDequeue(out var cmd))
             {
                 if (cmd.IsStopAll)
                 {
                     stopAllRequested = true;
-                    _pendingCommandMask = 0;
+                    Array.Clear(_pendingSet, 0, MaxVoices);
+                    anyPending = false;
                     continue;
                 }
                 _pendingCommands[cmd.Slot] = cmd;
-                _pendingCommandMask |= (1UL << cmd.Slot);
+                _pendingSet[cmd.Slot] = true;
+                anyPending = true;
             }
 
             // When stop-all is requested, fade master gain to zero.  The per-frame master-gain
@@ -278,12 +287,12 @@ namespace AccessibleTrader.Core.Services.Audio
             // write path to _voices[].IsActive, because it executes on this (audio callback) thread.
             if (stopAllRequested) _targetMasterGain = 0.0f;
 
-            // 2. APPLY EFFECTIVE COMMANDS using bitmask iteration
-            if (_pendingCommandMask != 0)
+            // 2. APPLY EFFECTIVE COMMANDS
+            if (anyPending)
             {
-                for (int i = 0; i < 64; i++)
+                for (int i = 0; i < MaxVoices; i++)
                 {
-                    if ((_pendingCommandMask & (1UL << i)) == 0) continue;
+                    if (!_pendingSet[i]) continue;
 
                     var cmd = _pendingCommands[i];
                     if (cmd.IsActive && _targetMasterGain == 0.0f) _targetMasterGain = 1.0f;

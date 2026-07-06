@@ -192,4 +192,46 @@ public class PropertiesModalTests
 
         Assert.False(DialogRendered(cut));
     }
+
+    /// <summary>A series with a directional (Candle) component and a non-directional (Line) one,
+    /// for exercising the Sonification tab's per-component patch controls.</summary>
+    private static ChartSeries SeriesWithComponents()
+    {
+        var config = new SeriesConfig { Id = "cs", Name = "Candles", FriendlyName = "Candles" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Body", DisplayName = "Body", DisplayType = ComponentDisplayType.Candle, IsVisible = true,
+        });
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Line", DisplayName = "Line", DisplayType = ComponentDisplayType.Line, IsVisible = true,
+        });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = "cs" });
+    }
+
+    [Fact]
+    public void PropertiesModal_SonificationTab_ShowsSoundPatchDropdown()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, SeriesWithComponents());
+
+        var cut = OpenProperties(h);
+        cut.Find("button#props-tab-sonification").Click();
+
+        Assert.Contains(cut.FindAll("label"), l => l.TextContent.Contains("Sound Patch"));
+    }
+
+    [Fact]
+    public void PropertiesModal_GreenRedPatches_ShownForDirectionalComponentOnly()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, SeriesWithComponents()); // one Candle (directional) + one Line (not)
+
+        var cut = OpenProperties(h);
+        cut.Find("button#props-tab-sonification").Click();
+
+        // Exactly one green/red pair — the candle body's; the line omits them.
+        Assert.Single(cut.FindAll("label").Where(l => l.TextContent.Contains("Green (bullish) patch")));
+        Assert.Single(cut.FindAll("label").Where(l => l.TextContent.Contains("Red (bearish) patch")));
+    }
 }

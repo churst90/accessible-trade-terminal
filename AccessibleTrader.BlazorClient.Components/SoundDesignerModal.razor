@@ -72,25 +72,62 @@
                         </fieldset>
 
                         <fieldset>
-                            <legend>Oscillator</legend>
-                            <div class="modal-row">
-                                <label for="sd-wave">Waveform</label>
-                                <select id="sd-wave" value="@_editWaveform"
-                                        @onchange="e => _editWaveform = e.Value?.ToString() ?? _editWaveform">
-                                    <option value="sine">Sine</option>
-                                    <option value="square">Square</option>
-                                    <option value="sawtooth">Sawtooth</option>
-                                    <option value="triangle">Triangle</option>
-                                    <option value="noise">Noise</option>
-                                </select>
-                            </div>
-                            <div class="modal-row">
-                                <label for="sd-noise">Noise Blend (@_editNoiseAmount.ToString("P0"))</label>
-                                <input id="sd-noise" type="range" min="0" max="1" step="0.05"
-                                       value="@_editNoiseAmount"
-                                       @onchange="e => float.TryParse(e.Value?.ToString(), out _editNoiseAmount)"
-                                       aria-valuenow="@_editNoiseAmount" aria-valuemin="0" aria-valuemax="1" />
-                            </div>
+                            <legend>Oscillators</legend>
+                            @for (int li = 0; li < _editOscillators.Count; li++)
+                            {
+                                var idx = li;
+                                var layer = _editOscillators[idx];
+                                <div class="osc-layer" style="border: 1px solid #444; border-radius: 4px; padding: 6px; margin-bottom: 6px;">
+                                    <div class="modal-row">
+                                        <label for="sd-wave-@idx">Oscillator @(idx + 1)</label>
+                                        <select id="sd-wave-@idx" value="@layer.Waveform"
+                                                @onchange="e => layer.Waveform = e.Value?.ToString() ?? layer.Waveform">
+                                            <option value="sine">Sine</option>
+                                            <option value="square">Square</option>
+                                            <option value="sawtooth">Sawtooth</option>
+                                            <option value="triangle">Triangle</option>
+                                            <option value="noise">Noise</option>
+                                        </select>
+                                        <button @onclick="() => RemoveOscillator(idx)"
+                                                disabled="@(_editOscillators.Count <= 1)"
+                                                aria-label="Remove oscillator @(idx + 1)" style="color: #f88;">Remove</button>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="sd-gain-@idx">Level (@layer.Gain.ToString("P0"))</label>
+                                        <input id="sd-gain-@idx" type="range" min="0" max="1" step="0.05"
+                                               value="@layer.Gain"
+                                               @onchange="e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var g)) layer.Gain = g; }"
+                                               aria-valuenow="@layer.Gain" aria-valuemin="0" aria-valuemax="1" />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="sd-ratio-@idx">Freq Ratio</label>
+                                        <input id="sd-ratio-@idx" type="number" min="0.1" max="8" step="0.05"
+                                               value="@layer.FreqRatio"
+                                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var r)) layer.FreqRatio = r; }" />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="sd-noise-@idx">Noise Blend (@layer.NoiseAmount.ToString("P0"))</label>
+                                        <input id="sd-noise-@idx" type="range" min="0" max="1" step="0.05"
+                                               value="@layer.NoiseAmount"
+                                               @onchange="e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var n)) layer.NoiseAmount = n; }"
+                                               aria-valuenow="@layer.NoiseAmount" aria-valuemin="0" aria-valuemax="1" />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="sd-noisetype-@idx">Noise Colour</label>
+                                        <select id="sd-noisetype-@idx" value="@layer.NoiseType"
+                                                @onchange="e => layer.NoiseType = e.Value?.ToString() ?? layer.NoiseType">
+                                            <option value="pink">Pink</option>
+                                            <option value="white">White</option>
+                                            <option value="brown">Brown</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            }
+                            <button @onclick="AddOscillator" aria-label="Add oscillator">+ Add Oscillator</button>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>Mix</legend>
                             <div class="modal-row">
                                 <label for="sd-freq">Base Freq (Hz)</label>
                                 <input id="sd-freq" type="number" min="20" max="8000" step="1"
@@ -234,8 +271,7 @@
     // Editor working copies
     private string _editName = "";
     private string _editDescription = "";
-    private string _editWaveform = "sine";
-    private float _editNoiseAmount;
+    private List<OscillatorLayer> _editOscillators = new();
     private double _editBaseFrequency = 440;
     private double _editFreqMultiplier = 1.0;
     private float _editVolume = 1.0f;
@@ -282,8 +318,7 @@
         if (_selectedPatch == null) return;
         _editName           = _selectedPatch.Name;
         _editDescription    = _selectedPatch.Description;
-        _editWaveform       = _selectedPatch.Waveform;
-        _editNoiseAmount    = _selectedPatch.NoiseAmount;
+        _editOscillators    = _selectedPatch.EffectiveLayers().Select(o => o.Clone()).ToList();
         _editBaseFrequency  = _selectedPatch.BaseFrequency;
         _editFreqMultiplier = _selectedPatch.FreqMultiplier;
         _editVolume         = _selectedPatch.Volume;
@@ -318,22 +353,42 @@
         if (_patches.Any()) SelectPatch(_patches[0].Id);
     }
 
-    private void ApplyEdits()
+    /// <summary>Builds a SoundPatch from the current editor working copy (does not persist).</summary>
+    private SoundPatch BuildPatchFromEdits(string id)
     {
-        if (_selectedPatch == null) return;
-        var updated = new SoundPatch
+        var layers = _editOscillators.Select(o => o.Clone()).ToList();
+        if (layers.Count == 0) layers.Add(new OscillatorLayer());
+        return new SoundPatch
         {
-            Id              = _selectedPatch.Id,
+            Id              = id,
             Name            = _editName,
             Description     = _editDescription,
-            Waveform        = _editWaveform,
-            NoiseAmount     = _editNoiseAmount,
+            Oscillators     = layers,
+            // Mirror the first layer into the legacy scalar fields so any consumer that still
+            // reads Waveform/NoiseAmount directly stays consistent with the layered timbre.
+            Waveform        = layers[0].Waveform,
+            NoiseAmount     = layers[0].NoiseAmount,
             BaseFrequency   = _editBaseFrequency,
             FreqMultiplier  = _editFreqMultiplier,
             Volume          = _editVolume,
             EnvelopeType    = _editEnvelopeType,
             DurationSeconds = _editDuration,
         };
+    }
+
+    private void AddOscillator()
+        => _editOscillators.Add(new OscillatorLayer { Waveform = "sine", Gain = 0.5f, FreqRatio = 1.0 });
+
+    private void RemoveOscillator(int idx)
+    {
+        if (idx >= 0 && idx < _editOscillators.Count && _editOscillators.Count > 1)
+            _editOscillators.RemoveAt(idx);
+    }
+
+    private void ApplyEdits()
+    {
+        if (_selectedPatch == null) return;
+        var updated = BuildPatchFromEdits(_selectedPatch.Id);
         PatchLibrary.UpdatePatch(updated);
         _patches = PatchLibrary.GetPatches().ToList();
         _selectedPatch = updated;
@@ -341,24 +396,15 @@
 
     private void PreviewPatch()
     {
-        SonificationManager.PlayNote(
-            _editBaseFrequency * _editFreqMultiplier,
-            _editDuration,
-            _editWaveform,
-            _editVolume,
-            0f);
+        if (_selectedPatch == null) return;
+        SonificationManager.PlayPatch(BuildPatchFromEdits(_selectedPatch.Id));
     }
 
     private void PreviewPatchById(string id)
     {
         var patch = PatchLibrary.GetPatch(id);
         if (patch == null) return;
-        SonificationManager.PlayNote(
-            patch.BaseFrequency * patch.FreqMultiplier,
-            patch.DurationSeconds,
-            patch.Waveform,
-            patch.Volume,
-            0f);
+        SonificationManager.PlayPatch(patch);
     }
 
     private async Task ExportPatch()

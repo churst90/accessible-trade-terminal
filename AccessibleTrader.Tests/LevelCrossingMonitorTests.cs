@@ -18,6 +18,8 @@ namespace AccessibleTrader.Tests
             public void PlayNote(double freq, double dur, string wave, float vol, float pan, double delay = 0)
                 => Notes.Add((freq, dur, wave, vol, pan));
 
+            public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
+
             public void SyncNavigationSlots(WorkspaceState state) { }
             public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double durationSeconds = 0.2, double delayMilliseconds = 0) { }
             public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double durationSeconds = 0.2, double delayMilliseconds = 0) { }

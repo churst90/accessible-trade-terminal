@@ -126,10 +126,13 @@ window.accessibleTrader = {
             if (!isTrapped && !isModified) return;
 
             // Allow normal keyboard use inside form controls unless a modifier is held.
+            // Escape is the exception: it's never a text-input character, and it must always reach
+            // the dispatcher so it can close the open modal — otherwise a form-heavy modal (e.g. the
+            // Sound Designer) can't be Escaped out of while focus sits on a <select>/<input>/<textarea>.
             const tag = e.target.tagName;
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             const isEditable = e.target.isContentEditable === true;
-            if ((isFormControl || isEditable) && !isModified) return;
+            if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape') return;
 
             // Gate single-letter chart commands on chart focus. Function keys and
             // modifier chords still fire everywhere for accessibility. This stops

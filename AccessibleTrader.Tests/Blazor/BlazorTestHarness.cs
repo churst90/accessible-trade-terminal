@@ -56,6 +56,7 @@ public sealed class BlazorTestHarness : IDisposable
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
+    public AccessibleTrader.Core.Services.ISoundPatchLibrary SoundPatchLibrary { get; }
 
     private readonly List<IAlertChannel> _alertChannels = new();
 
@@ -98,6 +99,9 @@ public sealed class BlazorTestHarness : IDisposable
         StrategyBacktester          = Substitute.For<IStrategyBacktester>();
         BacktestWarmupAnalyzer      = Substitute.For<IBacktestWarmupAnalyzer>();
         OrderService                = Substitute.For<IOrderExecutionService>();
+        SoundPatchLibrary           = Substitute.For<AccessibleTrader.Core.Services.ISoundPatchLibrary>();
+        SoundPatchLibrary.GetPatches().Returns(_ => new List<AccessibleTrader.Sdk.Models.SoundPatch>());
+        SoundPatchLibrary.EarconOverrides.Returns(new AccessibleTrader.Core.Services.EarconSettings());
         OrderService.GetOrderBookAsync(default!, default!, default).ReturnsForAnyArgs(
             _ => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>())));
         OrderService.SubscribeOrderBookAsync(default!, default!).ReturnsForAnyArgs(
@@ -129,6 +133,11 @@ public sealed class BlazorTestHarness : IDisposable
         // MainLayout/Toolbar/AddIndicatorModal inject DemoPolicy; no-op in tests.
         Ctx.Services.AddSingleton(new DemoPolicy(isDemo: false));
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);
+        // PropertiesModal / SoundDesignerModal inject the sound-patch services. Real registry
+        // (parameterless, cheap) so patch dropdowns list built-ins; the rest are no-op substitutes.
+        Ctx.Services.AddSingleton<AccessibleTrader.Core.Services.ISonificationManager>(Substitute.For<AccessibleTrader.Core.Services.ISonificationManager>());
+        Ctx.Services.AddSingleton(SoundPatchLibrary);
+        Ctx.Services.AddSingleton<AccessibleTrader.Core.Services.Audio.ISoundPatchRegistry>(new AccessibleTrader.Core.Services.Audio.SoundPatchRegistry());
 
         // Most modals call accessibleTrader.focusElement on first render via
         // ModalBase.ShowModalAsync. Shim it once for every test.

@@ -89,12 +89,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var patch = _patchLibrary.GetPatch(patchId);
                 if (patch != null)
                 {
-                    _sonificationManager.PlayNote(
-                        patch.BaseFrequency * patch.FreqMultiplier,
-                        patch.DurationSeconds,
-                        patch.Waveform,
-                        patch.Volume,
-                        pan);
+                    _sonificationManager.PlayPatch(patch, 1f, pan);
                     return;
                 }
             }
@@ -163,7 +158,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var patch = _patchLibrary.GetPatch(patchId);
                 if (patch != null)
                 {
-                    _sonificationManager.PlayNote(patch.BaseFrequency * patch.FreqMultiplier, patch.DurationSeconds, patch.Waveform, patch.Volume, 0);
+                    _sonificationManager.PlayPatch(patch, 1f, 0f);
                     return;
                 }
             }

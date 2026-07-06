@@ -1,5 +1,6 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services.Audio
 @using AccessibleTrader.Sdk.Models
 @using System.Collections.Immutable
 @inject IWorkspaceStore Store
@@ -9,6 +10,9 @@
 @inject IIndicatorPreferencesService IndicatorPrefs
 @inject IIndicatorService IndicatorService
 @inject IIndicatorModelFactory Factory
+@inject ISoundPatchLibrary PatchLibrary
+@inject ISoundPatchRegistry PatchRegistry
+@inject ISonificationManager SonificationManager
 @implements IDisposable
 
 @if (_isVisible && _series != null)
@@ -447,6 +451,60 @@
                                 <fieldset>
                                     <legend>Acoustics: @comp.Name</legend>
                                     <div class="modal-row">
+                                        <label>Sound Patch</label>
+                                        <select value="@(comp.SoundPatchId ?? "")"
+                                                @onchange="e => comp.SoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
+                                                aria-label="Sound patch for @comp.Name">
+                                            <option value="">(manual — use controls below)</option>
+                                            @foreach (var opt in PatchOptions())
+                                            {
+                                                <option value="@opt.Value">@opt.Label</option>
+                                            }
+                                        </select>
+                                        <button type="button" @onclick="() => PreviewComponentPatch(comp.SoundPatchId)"
+                                                aria-label="Preview patch for @comp.Name">&#9654;</button>
+                                    </div>
+                                    @if (IsDirectional(comp))
+                                    {
+                                        <div class="modal-row">
+                                            <label>Green (bullish) patch</label>
+                                            <select value="@(comp.BullishSoundPatchId ?? "")"
+                                                    @onchange="e => comp.BullishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
+                                                    aria-label="Bullish-bar sound patch for @comp.Name">
+                                                <option value="">(use Sound Patch above)</option>
+                                                @foreach (var opt in PatchOptions())
+                                                {
+                                                    <option value="@opt.Value">@opt.Label</option>
+                                                }
+                                            </select>
+                                            <button type="button" @onclick="() => PreviewComponentPatch(comp.BullishSoundPatchId)"
+                                                    aria-label="Preview bullish patch for @comp.Name">&#9654;</button>
+                                        </div>
+                                        <div class="modal-row">
+                                            <label>Red (bearish) patch</label>
+                                            <select value="@(comp.BearishSoundPatchId ?? "")"
+                                                    @onchange="e => comp.BearishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
+                                                    aria-label="Bearish-bar sound patch for @comp.Name">
+                                                <option value="">(use Sound Patch above)</option>
+                                                @foreach (var opt in PatchOptions())
+                                                {
+                                                    <option value="@opt.Value">@opt.Label</option>
+                                                }
+                                            </select>
+                                            <button type="button" @onclick="() => PreviewComponentPatch(comp.BearishSoundPatchId)"
+                                                    aria-label="Preview bearish patch for @comp.Name">&#9654;</button>
+                                        </div>
+                                    }
+                                    <p style="font-size:0.75rem; color:#888; margin:2px 0 8px;">
+                                        Patches are built in the Sound Designer and live-link here — edit a patch there and
+                                        every component using it updates.
+                                        @if (IsDirectional(comp))
+                                        {
+                                            <text>Green/red patches let up-bars and down-bars sound different.</text>
+                                        }
+                                        Leave a field blank to fall back to the Sound Patch, then the manual controls below.
+                                    </p>
+                                    <div class="modal-row">
                                         <label>Waveform (Instrument)</label>
                                         <select value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
                                             <option value="sine">Sine (Soft)</option>
@@ -596,6 +654,75 @@
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Properties"));
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// True when a component has a bullish/bearish (green/red) colour, so per-direction patches make
+    /// sense: candles, bars, histograms/volume bars, and any polarity-coloured component. Plain lines,
+    /// areas, and single-colour markers don't get the green/red options.
+    /// </summary>
+    private static bool IsDirectional(ComponentConfig comp) =>
+        comp.UsePolarityColoring
+        || comp.DisplayType is ComponentDisplayType.Candle
+            or ComponentDisplayType.CandleColor
+            or ComponentDisplayType.Bar
+            or ComponentDisplayType.Histogram
+            or ComponentDisplayType.ZeroDot
+            or ComponentDisplayType.ZeroArea;
+
+    /// <summary>Selectable sound patches: built-in registry bells first, then user Sound Designer patches.</summary>
+    private IEnumerable<(string Value, string Label)> PatchOptions()
+    {
+        var ids = PatchRegistry.GetPatchIds();
+        if (ids != null)
+            foreach (var id in ids.OrderBy(x => x))
+                yield return (id, "Built-in: " + Prettify(id));
+        var user = PatchLibrary.GetPatches();
+        if (user != null)
+            foreach (var p in user)
+                yield return (p.Id, p.Name);
+    }
+
+    private static string Prettify(string id) =>
+        string.Join(' ', id.Split('_').Select(w => w.Length == 0 ? w : char.ToUpper(w[0]) + w.Substring(1)));
+
+    private void PreviewComponentPatch(string? patchId)
+    {
+        if (string.IsNullOrEmpty(patchId)) return;
+
+        // User Sound Designer patch: play it directly.
+        var lib = PatchLibrary.GetPatch(patchId);
+        if (lib != null) { SonificationManager.PlayPatch(lib); return; }
+
+        // Built-in (registry) bell: synthesize an equivalent multi-layer patch and audition it through
+        // the SAME PlayPatch path — a Ping-decay bell with the harmonic and detuned partials, so the
+        // preview actually sounds like the bell (not a bare tone).
+        if (PatchRegistry.TryGetPatch(patchId, out var reg))
+        {
+            const double baseFreq = 523.25; // C5
+            var preview = new AccessibleTrader.Sdk.Models.SoundPatch
+            {
+                BaseFrequency   = baseFreq,
+                Volume          = 0.5f,
+                EnvelopeType    = "Ping",
+                DurationSeconds = System.Math.Clamp(reg.DefaultDecayMs / 1000.0, 0.15, 1.0),
+                Oscillators     = new List<OscillatorLayer>
+                {
+                    new() { Waveform = reg.BaseWaveform, Gain = 1f, FreqRatio = 1.0 },
+                },
+            };
+            if (reg.HarmonicAmount > 0f)
+                preview.Oscillators.Add(new OscillatorLayer
+                {
+                    Waveform = reg.BaseWaveform, Gain = reg.HarmonicAmount, FreqRatio = reg.HarmonicFreqMultiplier,
+                });
+            if (reg.IsDetuned)
+                preview.Oscillators.Add(new OscillatorLayer
+                {
+                    Waveform = reg.BaseWaveform, Gain = 0.7f, FreqRatio = (baseFreq + reg.DetuneIntervalHz) / baseFreq,
+                });
+            SonificationManager.PlayPatch(preview);
+        }
     }
 
     private void UpdateParam(string key, string? raw)

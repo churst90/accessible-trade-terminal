@@ -14,6 +14,13 @@ namespace AccessibleTrader.Core.Services
         event Action<int> PlaybackPointReached;
 
         void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0);
+
+        /// <summary>
+        /// Plays an entire <see cref="SoundPatch"/> — all oscillator layers, with envelope and noise
+        /// blend/colour — as one-shot voices. Used by the Sound Designer preview and earcon overrides;
+        /// unlike <see cref="PlayNote"/> it carries envelope/noise and sounds multi-oscillator patches.
+        /// </summary>
+        void PlayPatch(SoundPatch patch, float volumeScale = 1f, float pan = 0f);
         void Stop();
         void Silence();
 

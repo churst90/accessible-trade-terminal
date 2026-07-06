@@ -14,6 +14,13 @@ namespace AccessibleTrader.Core.Services.Audio
     {
         void SyncNavigationSlots(WorkspaceState state);
         void PlayNote(double freq, double dur, string wave, float vol, float pan, double delay = 0);
+        /// <summary>
+        /// Plays a whole <see cref="AccessibleTrader.Sdk.Models.SoundPatch"/> — every oscillator layer,
+        /// with its envelope and noise blend/colour — as one-shot voices. Used by the Sound Designer
+        /// preview and by earcon overrides. Unlike <see cref="PlayNote"/> the envelope and noise
+        /// actually reach the engine, and multi-oscillator patches sound all their layers.
+        /// </summary>
+        void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f);
         void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
         void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
         void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f);
@@ -211,6 +218,23 @@ namespace AccessibleTrader.Core.Services.Audio
                 if (blendVol > 0.01f)
                     _audioDriver.SetVoice(SLOT_NAV_START + 1, audioPt.Frequency, blendVol, pan, gradientBlendWave, false, navDuration, idx, audioPt.EnvelopeType, false, 0f);
             }
+            else if (audioPt.PatchLayers != null)
+            {
+                // Multi-oscillator user patch: layer 0 on the main nav slot, extra layers on the free
+                // navigation-layering slots (8-15). Each self-terminates (continuous=false), so leftover
+                // slots from a previous, deeper patch simply decay — no drone.
+                var layers = audioPt.PatchLayers;
+                for (int li = 0; li < layers.Count; li++)
+                {
+                    int navSlot = li == 0 ? SLOT_NAV_START : SLOT_NAV_START + 7 + li; // 8,9,10,...
+                    if (navSlot > SLOT_UI_START - 1) break;                            // stay within 0-15
+                    var L = layers[li];
+                    _audioDriver.SetVoice(navSlot, audioPt.Frequency * L.FreqRatio,
+                        Math.Clamp(audioPt.Volume * L.Gain, 0f, 1f), pan, L.Waveform, false, navDuration,
+                        li == 0 ? idx : -1, audioPt.EnvelopeType, li == 0 && audioPt.TriggerClick,
+                        Math.Max(0f, L.NoiseAmount), string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
+                }
+            }
             else
             {
                 _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
@@ -234,6 +258,12 @@ namespace AccessibleTrader.Core.Services.Audio
                     }
                 }
             }
+
+            // Directional cross earcon: fires when the focused component's value crossed a
+            // reference / OB / OS level between the previous bar and this one — so it sounds whether
+            // you arrowed forward or backward onto the cross bar.
+            if (audioPt.CrossDirection != 0)
+                CrossEarcon.Fire(_audioDriver, audioPt.CrossDirection, 1f, pan);
 
             for (int i = 2; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);
         }
@@ -334,6 +364,24 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             int slot = SLOT_UI_START + (Interlocked.Increment(ref _uiSlotCounter) & 15);
             _audioDriver.SetVoice(slot, freq, vol, pan, wave, false, dur);
+        }
+
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f)
+        {
+            if (patch == null) return;
+            double baseFreq = patch.BaseFrequency * patch.FreqMultiplier;
+            string env = string.IsNullOrEmpty(patch.EnvelopeType) ? "Sustain" : patch.EnvelopeType;
+            // One engine voice per oscillator layer, on round-robin UI slots (16-31) so they
+            // sound simultaneously. Envelope + per-layer noise flow through to the engine, which
+            // is why the Sound Designer's Envelope/Noise controls now audition correctly.
+            foreach (var layer in patch.EffectiveLayers())
+            {
+                int slot = SLOT_UI_START + (Interlocked.Increment(ref _uiSlotCounter) & 15);
+                float vol = Math.Clamp(patch.Volume * layer.Gain * volumeScale, 0f, 1f);
+                _audioDriver.SetVoice(slot, baseFreq * layer.FreqRatio, vol, pan, layer.Waveform, false,
+                    patch.DurationSeconds, -1, env, false, Math.Max(0f, layer.NoiseAmount),
+                    string.IsNullOrEmpty(layer.NoiseType) ? "pink" : layer.NoiseType);
+            }
         }
 
         public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0)

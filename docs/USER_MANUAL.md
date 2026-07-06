@@ -94,9 +94,12 @@ The *kind* of sound — its timbre, the tonal colour rather than the pitch — t
 where a value sits relative to the structure that matters. An oscillator above its
 zero line uses one waveform and below it uses another, so you can hear which side of
 zero you are on without checking a number; and when a reading pushes into an
-overbought or oversold extreme, a faint noise texture is layered in so the
-extremity itself is audible. You learn to hear "deep oversold" the way a sighted
-trader sees a line pinned to the bottom of its range.
+overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
+MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
+tone so the extremity itself is audible. It is a pronounced roughness, not a faint
+wash, and you can set how strong it is per level with the **Zone Texture** slider in
+an indicator's properties (P), under Reference Levels. You learn to hear "deep
+oversold" the way a sighted trader sees a line pinned to the bottom of its range.
 
 On top of the continuous tones, discrete events ring as short bells, and each event
 type has its own bell so you can tell them apart by ear: a smooth sine bell for
@@ -361,13 +364,20 @@ hearing.
 Playback is the core listening mode: the cursor animates through the visible window
 while the engine plays each bar's sound and your screen reader speaks its values, so
 you *hear* the shape of a stretch of market in seconds. Three keys set how much you
-hear. Space plays or stops the whole chart — every pane and series together. Shift
-with Space plays just the series you have focused, for studying one indicator without
-the rest. Ctrl+Shift+Space narrows further to a single component — the RSI line
-alone, say. Ctrl+Space pauses and resumes whatever is playing, and Shift+Escape is
-the panic key that stops all playback at once. Shift with the equals or minus keys
-speeds playback up or slows it down — slower to dwell on each bar, faster to scan a
-long history.
+hear. Space plays or stops the whole chart — every visible, unmuted series at once,
+each sounding all of its own visible, unmuted components together, so a busy chart
+really does play as a full ensemble, down to the soft cloud- and ribbon-fill washes
+(an EMA Fill between two averages, say) that used to drop out when too many voices
+were in play. Shift with Space plays just the series you have focused, all of its
+components, for studying one indicator without the rest. Ctrl+Shift+Space narrows
+further to a single component — the RSI line alone, say. Muting a series or component
+with M, or hiding it with H, drops it straight out of the mix, which is how you thin
+a crowded soundscape down to what matters. Ctrl+Space pauses and resumes whatever is
+playing — and while paused it now falls properly silent instead of holding the last
+chord, though the arrow keys still audition individual bars so you can inspect the
+frozen moment. Shift+Escape is the panic key that stops all playback at once, and
+Shift with the equals or minus keys speeds playback up or slows it down — slower to
+dwell on each bar, faster to scan a long history.
 
 ### Choosing what you hear
 
@@ -991,16 +1001,34 @@ close the dialog.
 
 ### The sound designer
 
-Two layers of audio control sit underneath settings. The first you have already met:
-each indicator's properties dialog (P) lets you set, per component, its waveform, its
-bell patch, and its volume, and "Save as Defaults" makes those choices stick for the
-next indicator of that type. The second is the **sound designer**, opened with Alt+W,
-which gives you the whole audio picture at once rather than one indicator at a time.
-There you can audition each bell patch on its own, balance component volumes across
-the entire chart, and re-map which signal types ring which bell timbres — so if you
-want every divergence on the page to share one bell and every crossover another, this
-is where you arrange it. Think of the properties dialog as tuning one instrument and
-the sound designer as mixing the whole ensemble.
+Two layers of audio control sit underneath settings. The first is each indicator's
+properties dialog (P). Its **Sonification** tab has an **Acoustics** section for the
+component you pick there, and at the top of it a **Sound Patch** dropdown chooses the
+voice that component plays — any built-in patch (the bells and more) or any patch you
+have made yourself — with a ▶ Preview button beside it to hear it. Components that
+are coloured green for up and red for down — candles, bars, volume and other
+histograms, and anything polarity-coloured — additionally get **Green (bullish)
+patch** and **Red (bearish) patch** dropdowns, so rising bars and falling bars can
+sound different; plain lines and areas show only the single patch. Leave a patch
+unset and the older manual controls — waveform, noise, volume — take over as a
+fallback, and "Save as Defaults" still makes your choices stick for the next
+indicator of that type.
+
+The second layer is the **sound designer**, opened with Alt+W, where the patches
+themselves are built. It is now a general-purpose patch workbench rather than an
+earcon-only panel. A single patch can stack several **oscillators**, each with its
+own waveform (sine, square, sawtooth, triangle, or noise), level in the mix,
+frequency ratio (a harmonic multiple of the patch's base pitch — 2.0 is an octave
+up), and noise blend and noise colour (pink, white, or brown); the "Add Oscillator"
+button layers on another. A Mix section sets the base frequency, a frequency
+multiplier, and overall volume; an Envelope section chooses a sustained tone or a
+plucked Ping and its duration. The Preview button auditions the whole patch — noise
+and envelope included, not just the bare waveform as before. A patch you build here
+can be assigned to event earcons in this same panel, or to indicator components
+through the properties dialog above, and the link is live: edit a patch in the sound
+designer and every component and earcon using it updates at once. Patches saved by
+older versions still load unchanged. Think of the properties dialog as choosing which
+instrument each part plays and the sound designer as building the instruments.
 
 ### Tabs and workspaces
 
@@ -1284,6 +1312,10 @@ open or enlarge one — a guard against accidentally flipping direction.
 
 **Sonification.** Turning data into non-speech sound — here, mapping price and indicator
 values to pitch, timbre, and stereo position so you can hear the chart's shape.
+
+**Sound patch.** A reusable, named voice built in the sound designer (Alt+W) — one or
+more layered oscillators plus noise and an envelope — that can be assigned to an event
+earcon or to an indicator component. Editing a patch updates everything using it.
 
 **Spread.** The gap between the best *bid* and the best *ask*.
 
