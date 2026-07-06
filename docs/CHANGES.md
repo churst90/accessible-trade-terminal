@@ -91,6 +91,18 @@ path the Sound Designer preview uses, so a selected preset sounds like the bell 
 
 **Removed the "for demonstration purposes only" footer** from the main layout.
 
+**Readable browser-tab title with a load-state triangle.** The tab title is now
+`▲ BTC/USDT 4h on Bitstamp - Accessible Trade Terminal` — a filled triangle (▲) once data
+is ready, hollow (△) while it's still loading, then the symbol/timeframe/exchange and app
+name. Replaces the terser `BTC/USDT 4h Bitstamp: Accessible Trade Terminal`. Updates live
+off `InitStatus`/`DataStatus`; applies to the WebHost and the public demo.
+
+**Cleared the two code compile warnings.** `ForwardedHeadersOptions.KnownNetworks` →
+`KnownIPNetworks` (WebHost `Program.cs`, the API was deprecated), and a possible-null-argument
+guard on `CorruptFileQuarantine.MoveAside` in `SettingsManager`. The remaining `NU1903`
+advisory (SQLitePCLRaw native lib, transitive via EF Core's SQLite provider) is a dependency
+bump, not a code fix — tracked in TODO.
+
 ## [1.3.1] — 2026-06-27
 
 **Hosted terminal: working providers + curated symbols (stocks fix).** Logged into the

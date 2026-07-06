@@ -267,14 +267,21 @@
         return $"Accessible Trade Terminal: {identity.Symbol} {identity.Timeframe} on {identity.Provider}";
     }
 
-    // Browser-tab title: chart identity first, then the app name —
-    // "{symbol} {timeframe} {exchange}: Accessible Trade Terminal".
+    // Browser-tab title: a load-state triangle (filled "▲" = data ready, hollow "△" = still
+    // loading), the chart identity, then the app name — e.g.
+    // "▲ BTC/USDT 4h on Bitstamp - Accessible Trade Terminal".
     private string GetBrowserTitle()
     {
-        var identity = Store.State.Identity;
+        var state = Store.State;
+        var identity = state.Identity;
         if (string.IsNullOrEmpty(identity.Symbol))
             return "Accessible Trade Terminal";
-        return $"{identity.Symbol} {identity.Timeframe} {identity.Provider}: Accessible Trade Terminal";
+
+        bool ready = state.InitStatus == AccessibleTrader.Sdk.Models.InitializationStatus.Ready
+                     && state.DataStatus == AccessibleTrader.Sdk.Models.DataStatus.Ready;
+        string glyph = ready ? "▲" : "△";
+        string tf = string.IsNullOrEmpty(identity.Timeframe) ? "" : $"{identity.Timeframe} ";
+        return $"{glyph} {identity.Symbol} {tf}on {identity.Provider} - Accessible Trade Terminal";
     }
 
     public void Dispose()

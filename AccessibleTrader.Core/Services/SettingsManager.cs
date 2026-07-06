@@ -79,7 +79,8 @@ namespace AccessibleTrader.Core.Services
                 _logger.LogError(ex, "Failed to load settings from {Path}.", _filepath);
                 // Preserve the corrupt original — the next SaveSettings would
                 // otherwise overwrite it with the empty default.
-                CorruptFileQuarantine.MoveAside(_filepath, ex);
+                if (!string.IsNullOrEmpty(_filepath))
+                    CorruptFileQuarantine.MoveAside(_filepath, ex);
             }
             return new JObject();
         }

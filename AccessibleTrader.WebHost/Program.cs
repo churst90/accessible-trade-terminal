@@ -156,7 +156,7 @@ if (accountsEnabled)
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
     };
-    fwd.KnownNetworks.Clear();
+    fwd.KnownIPNetworks.Clear();
     fwd.KnownProxies.Clear();
     app.UseForwardedHeaders(fwd);
 }

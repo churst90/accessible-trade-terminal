@@ -63,6 +63,13 @@ Pending real-app (ear) verification by Cody.
 
 ### Open
 
+- [ ] **NU1903 — SQLitePCLRaw native lib advisory (GHSA-2m69-gcr7-jv3q).** Transitive via
+  `Microsoft.EntityFrameworkCore.Sqlite`. Both the old `8.0.2` ref in `AccessibleTrader.Core`
+  (pulls `SQLitePCLRaw.lib.e_sqlite3` 2.1.6) and the current `10.0.5` refs in WebHost/BlazorClient
+  (pull 2.1.11) are flagged — even the latest EF Core still bundles a flagged version. Needs a
+  coordinated dependency update: align Core's EF Core to 10.0.5 (fixes the version mismatch + drops
+  the 2.1.6 variant) and pin `SQLitePCLRaw.lib.e_sqlite3` to a patched build once one is available.
+  Not a code compile warning; deferred to avoid churning the native SQLite lib blind.
 - [ ] **Multi-layer patch preview vs component parity** — verify by ear that the
   same multi-oscillator patch sounds consistent across Sound Designer preview,
   earcons, navigation, and playback.
