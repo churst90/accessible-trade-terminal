@@ -42,6 +42,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <!-- Patched SQLite native lib (SQLite 3.50.3) overriding the transitive 2.1.11 flagged by
+         NU1903 / GHSA-2m69-gcr7-jv3q. See AccessibleTrader.Core.csproj for the rationale. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
     <!-- Accounts (hosted multi-user only; gated behind Accounts:Enabled). ASP.NET Core
          Identity + EF Core stores for the AuthDbContext (auth.db). No effect on the
          local/demo modes or the MAUI head. -->

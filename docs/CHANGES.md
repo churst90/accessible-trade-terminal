@@ -99,9 +99,14 @@ off `InitStatus`/`DataStatus`; applies to the WebHost and the public demo.
 
 **Cleared the two code compile warnings.** `ForwardedHeadersOptions.KnownNetworks` →
 `KnownIPNetworks` (WebHost `Program.cs`, the API was deprecated), and a possible-null-argument
-guard on `CorruptFileQuarantine.MoveAside` in `SettingsManager`. The remaining `NU1903`
-advisory (SQLitePCLRaw native lib, transitive via EF Core's SQLite provider) is a dependency
-bump, not a code fix — tracked in TODO.
+guard on `CorruptFileQuarantine.MoveAside` in `SettingsManager`.
+
+**Fixed the `NU1903` SQLite advisory (GHSA-2m69-gcr7-jv3q).** The whole `SQLitePCLRaw.lib.e_sqlite3`
+2.1.x line is flagged (2.1.6 via Core's EF 8.0.2, 2.1.11 via the 10.0.5 refs; even the latest EF Core
+pulls 2.1.11 transitively). Pinned the native lib to the patched `3.50.3` build (SQLitePCLRaw
+realigned its lib version to the bundled SQLite version) directly in Core / WebHost / BlazorClient —
+overriding the transitive 2.1.x. Native SQLite ABI is stable, so no code change; the real on-disk
+SQLite test suite passes on the new lib.
 
 ## [1.3.1] — 2026-06-27
 

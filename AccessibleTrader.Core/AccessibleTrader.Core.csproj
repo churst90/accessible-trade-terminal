@@ -18,6 +18,11 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.2" />
+    <!-- Pin the SQLite native lib to the patched build (bundles SQLite 3.50.3), overriding the
+         transitive 2.1.x flagged by NU1903 / GHSA-2m69-gcr7-jv3q. The managed SQLitePCLRaw layer
+         (core/provider) keeps its own 2.1.x version; only the native binary is bumped. Remove this
+         pin once EF Core's SQLite provider ships with a non-flagged native lib. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="Skender.Stock.Indicators" Version="2.5.0" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />

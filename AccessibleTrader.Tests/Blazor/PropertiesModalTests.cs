@@ -231,7 +231,7 @@ public class PropertiesModalTests
         cut.Find("button#props-tab-sonification").Click();
 
         // Exactly one green/red pair — the candle body's; the line omits them.
-        Assert.Single(cut.FindAll("label").Where(l => l.TextContent.Contains("Green (bullish) patch")));
-        Assert.Single(cut.FindAll("label").Where(l => l.TextContent.Contains("Red (bearish) patch")));
+        Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Green (bullish) patch"));
+        Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Red (bearish) patch"));
     }
 }

@@ -63,13 +63,16 @@ Pending real-app (ear) verification by Cody.
 
 ### Open
 
-- [ ] **NU1903 — SQLitePCLRaw native lib advisory (GHSA-2m69-gcr7-jv3q).** Transitive via
-  `Microsoft.EntityFrameworkCore.Sqlite`. Both the old `8.0.2` ref in `AccessibleTrader.Core`
-  (pulls `SQLitePCLRaw.lib.e_sqlite3` 2.1.6) and the current `10.0.5` refs in WebHost/BlazorClient
-  (pull 2.1.11) are flagged — even the latest EF Core still bundles a flagged version. Needs a
-  coordinated dependency update: align Core's EF Core to 10.0.5 (fixes the version mismatch + drops
-  the 2.1.6 variant) and pin `SQLitePCLRaw.lib.e_sqlite3` to a patched build once one is available.
-  Not a code compile warning; deferred to avoid churning the native SQLite lib blind.
+- [x] **NU1903 — SQLitePCLRaw native lib advisory (GHSA-2m69-gcr7-jv3q) fixed.** The advisory
+  covers the whole `SQLitePCLRaw.lib.e_sqlite3` 2.1.x line (2.1.6 via Core's EF 8.0.2, 2.1.11 via
+  the 10.0.5 refs); even the latest EF Core still pulls 2.1.11 transitively. The patched native
+  build is `3.50.3` (SQLitePCLRaw realigned its lib version to the bundled SQLite version). Pinned
+  `SQLitePCLRaw.lib.e_sqlite3` to `3.50.3` directly in Core / WebHost / BlazorClient — overrides the
+  transitive 2.1.x, clears NU1903, and the managed SQLitePCLRaw layer keeps its own 2.1.x version.
+  Native SQLite ABI is stable, so no code change needed; `BackfillManagerTests` (real on-disk SQLite:
+  `UseSqlite` + `EnsureCreated` + inserts/queries) passes on the new lib. Remove the pin once EF
+  Core's SQLite provider ships a non-flagged native lib. (Core's EF Core 8.0.2-vs-10.0.5 version
+  mismatch is unrelated hygiene, left as-is — the app already resolves to 10.0.5 at runtime.)
 - [ ] **Multi-layer patch preview vs component parity** — verify by ear that the
   same multi-oscillator patch sounds consistent across Sound Designer preview,
   earcons, navigation, and playback.
