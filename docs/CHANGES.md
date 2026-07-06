@@ -6,6 +6,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+**Trading and Analytics are one unified interface.** The separate Trading/Analytics
+mode toggle is gone. The Market dropdown now lists every tradeable market plus a single
+**"Analytics"** umbrella entry; selecting it reveals an **Analytics type** dropdown
+(Economic / OnChain / Derivatives / Sentiment) between Market and Provider, so the cascade
+reads Market → Analytics type → Provider → Symbol. Internally the concrete category is
+resolved by a new `EffectiveMarket` helper used for all provider/symbol/identity keys,
+replacing the old string-name mode filter. `TerminalMode` is kept for workspace
+persistence but is now *derived* from the market choice rather than toggled by the user;
+the toolbar's mode-refresh subscription was removed. Demo/hosted whitelisting applies to
+both tradeable and analytics categories, and the umbrella only appears when an analytics
+provider survives the filter. This also de-crowds the toolbar's top row.
+
+**Chart pan/zoom by mouse — buttons and click-drag.** Added a "Chart view" toolbar group
+with **Pan left / Pan right / Zoom in / Zoom out** icon buttons (new SVG glyphs), routed
+through `IViewportManager` exactly like the keyboard commands so they also do left-edge
+history backfill and speak the new viewport range. They work on analytics line charts too
+and disable until data loads. Also added **click-drag-to-pan**: with no drawing tool armed
+and no anchor handle under the cursor, a mouse-down grabs the chart and dragging scrolls it
+through time (drag right reveals older bars). A window-level `mouseup` fallback ends a drag
+(pan or drawing) even when the button is released off the chart.
+
+**Paper trading is forced on — and cannot be turned off — for hosted web accounts.**
+`GeneralOrderService` decided paper-vs-live purely from the `trading.paperTradingMode`
+setting, which hosted web accounts never set, so a data-only provider (Twelve Data,
+Bitstamp) failed the `ITradingProvider` cast and the dashboard reported "does not support
+trading." `IsPaperMode` now also returns true whenever `DemoPolicy.AllowLiveTrading` is
+false (`--accounts` / `--demo`), so hosted/demo always routes to the paper broker. Alt+T
+opens a working paper dashboard; real-money trading stays desktop-only.
+
+**New workspace tabs appear in the tab bar immediately.** `TabBar` read `Store.State`
+directly but never subscribed to `Store.StateStream`, so a tab created from outside the bar
+(the Ctrl+T / Alt+Shift+N command, or "Open in New Tab") didn't show until an unrelated
+click forced a re-render. It now subscribes like every sibling component and re-renders on
+dispatch.
+
 **Sound Designer is now a general-purpose, multi-oscillator patch workbench.** A patch
 (`Sdk.Models.SoundPatch`) can stack several oscillators via an **Add Oscillator** button;
 each `OscillatorLayer` carries a waveform (sine/square/sawtooth/triangle/noise), Level (mix

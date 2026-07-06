@@ -55,7 +55,10 @@ namespace AccessibleTrader.Tests
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             var settings = Substitute.For<ISettingsManager>();
-            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings);
+            // Full host mode → AllowLiveTrading true, so routing follows the (unset)
+            // paperTradingMode setting and reaches the live provider substitute above.
+            var demo = new DemoPolicy(isDemo: false);
+            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings, demo);
             return (svc, trading, data, err);
         }
 

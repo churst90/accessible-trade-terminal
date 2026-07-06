@@ -75,6 +75,14 @@
 
     protected override void OnInitialized()
     {
+        // Re-render whenever workspace state changes. Without this, tabs added from
+        // outside this component's own DOM events — the Ctrl+T / Alt+Shift+N keyboard
+        // command or "Open in New Tab" from the Toolbar — update Store.State but never
+        // repaint the bar, so a new tab wouldn't appear until an unrelated click on the
+        // bar forced Blazor to re-render. Selection changes need the same refresh.
+        var stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+        _subs.Add(stateSub);
+
         // Ctrl+Alt+Shift+T → CommandDispatcher publishes FocusTabBarEvent → move keyboard
         // focus onto this bar so it can be operated without the browser-reserved Ctrl+Tab.
         var focusSub = EventBus.AsObservable<FocusTabBarEvent>()

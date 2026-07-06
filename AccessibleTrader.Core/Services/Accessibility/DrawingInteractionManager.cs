@@ -48,6 +48,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // accidental hand tremor on mouse-down.
         private const double DragDeadZonePixels = 5.0;
 
+        // ── Viewport pan-drag state ──────────────────────────────────────────
+        // Click-drag on empty chart space — no drawing tool selected AND no anchor
+        // handle under the cursor — scrolls the viewport through time, like grabbing
+        // the chart and sliding it. Resolved in pixel space so it keeps working when
+        // the cursor moves outside the data range mid-drag. Independent of the
+        // placement and edit-drag flows above; the three are mutually exclusive.
+        private bool _isPanning;
+        private double _panLastX;
+        private double _panAccumBars;   // carried fractional bars between moves
+        // When a leftward pan brings the viewport start within this many bars of the
+        // data edge, request a history backfill — mirrors ViewportManager.HandlePan.
+        private const int PanHistoryBackfillThreshold = 50;
+
         // ── Edit-drag state (reposition existing drawing endpoints) ──────────
         // On MouseDown over an existing drawing's anchor handle, we enter edit-drag
         // mode: subsequent MouseMove events update that specific anchor on the hit
@@ -81,11 +94,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Fast-reject events that have no drawing context. MouseMove with an active
             // preview OR an active edit-drag is allowed even when _pendingDrawingType is
             // None, because a two-point drawing's preview (or a handle-drag edit) outlives
-            // the pending flag until MouseUp commits.
+            // the pending flag until MouseUp commits. An in-progress pan-drag likewise
+            // keeps MouseMove/MouseUp flowing so it can complete.
             if (_pendingDrawingType == DrawingType.None
                 && _previewSeriesId == null
                 && _editSeriesId == null
+                && !_isPanning
                 && type != "MouseDown") return;
+
+            // Active pan drag is resolved in pure pixel space, ahead of the anchor
+            // coordinate mapping below (which rejects cursor positions outside the data
+            // range and would otherwise stall a pan near the chart edges).
+            if (_isPanning)
+            {
+                if (type == "MouseMove") { UpdatePan(x, width); return; }
+                if (type == "MouseUp")   { EndPan(); return; }
+            }
 
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0) return;
@@ -190,6 +214,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _isMouseDragging = true;
                     return;
                 }
+                // No drawing tool armed and no handle grabbed → grab the chart itself
+                // and pan the viewport for the duration of this drag.
+                BeginPan(x);
                 return;
             }
 
@@ -274,6 +301,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Record anchor 2 via the legacy path; preview keeps tracking for anchor 3.
                 HandleDrawingStep(date, price);
             }
+        }
+
+        // ── Viewport pan-drag ────────────────────────────────────────────────
+
+        /// <summary>Begin a click-drag pan from the given cursor X (pixels).</summary>
+        private void BeginPan(double x)
+        {
+            _isPanning = true;
+            _panLastX = x;
+            _panAccumBars = 0;
+        }
+
+        /// <summary>
+        /// Advance an in-progress pan. Converts the pixel travel since the last move into
+        /// whole-bar viewport steps (carrying the fractional remainder so slow drags still
+        /// accumulate). Dragging right pulls the chart right, revealing older bars — a
+        /// decrease in ViewportStartIndex, hence the negated delta.
+        /// </summary>
+        private void UpdatePan(double x, double width)
+        {
+            if (width <= 0) { _panLastX = x; return; }
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0) { _panLastX = x; return; }
+
+            double dxPixels = x - _panLastX;
+            _panLastX = x;
+
+            double barsPerPixel = state.ViewportLength / width;
+            _panAccumBars += dxPixels * barsPerPixel;
+            int whole = (int)_panAccumBars;
+            if (whole == 0) return;
+            _panAccumBars -= whole;
+
+            // Panning left (whole > 0 → viewport start decreases) toward the data edge:
+            // proactively backfill history so the drag can keep going, like the keys do.
+            if (whole > 0 && state.ViewportStartIndex < PanHistoryBackfillThreshold)
+                _eventBus.Publish(new RequestHistoryEvent());
+
+            _store.Dispatch(new PanAction(-whole));
+        }
+
+        /// <summary>End a pan-drag and let the feedback coordinator speak the new range.</summary>
+        private void EndPan()
+        {
+            _isPanning = false;
+            _panAccumBars = 0;
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.ViewportChange, ""));
         }
 
         /// <summary>

@@ -188,7 +188,13 @@ window.accessibleTrader = {
         const el = document.getElementById(elementId);
         if (!el) return;
 
+        // Tracks whether a drag started on the chart. Used so a mouse-up that lands
+        // OUTSIDE the chart (window listener below) still forwards a MouseUp to .NET —
+        // otherwise a pan/draw drag released off-canvas would never terminate.
+        let buttonDown = false;
+
         el.addEventListener('mousedown', function (e) {
+            buttonDown = true;
             const rect = el.getBoundingClientRect();
             dotnetHelper.invokeMethodAsync('OnMouseEvent',
                 e.clientX - rect.left, e.clientY - rect.top, 'MouseDown', rect.width, rect.height);
@@ -214,6 +220,18 @@ window.accessibleTrader = {
         });
 
         el.addEventListener('mouseup', function (e) {
+            buttonDown = false;
+            const rect = el.getBoundingClientRect();
+            dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                e.clientX - rect.left, e.clientY - rect.top, 'MouseUp', rect.width, rect.height);
+        });
+
+        // Release outside the chart still ends the drag. The element's own mouseup
+        // (target phase) fires first and clears buttonDown, so a release over the chart
+        // is not double-reported here; only off-canvas releases reach this branch.
+        window.addEventListener('mouseup', function (e) {
+            if (!buttonDown) return;
+            buttonDown = false;
             const rect = el.getBoundingClientRect();
             dotnetHelper.invokeMethodAsync('OnMouseEvent',
                 e.clientX - rect.left, e.clientY - rect.top, 'MouseUp', rect.width, rect.height);

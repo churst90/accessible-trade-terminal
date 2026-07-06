@@ -87,7 +87,7 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 - `Up/Down Arrow` — Navigate components within a series (Y axis).
 - `Page Up/Down` — Switch between chart series.
 - `Home/End` — Jump to viewport start/end. `\` — Jump to live edge.
-- `[ / ]` — Pan viewport. `- / =` — Zoom in/out.
+- `[ / ]` — Pan viewport. `- / =` — Zoom in/out. (Also available as toolbar buttons, and you can click-drag the chart to pan.)
 - `Space` — Play chart. `Shift+Space` — Play series. `Ctrl+Shift+Space` — Play component. `Ctrl+Space` — Pause/resume.
 - `F1` — Help. `F2` — Toggle speech. `F3` — Toggle sonification. `F4` — Context summary. `F12` — Settings.
 - `F5/Shift+F5` — Component volume up/down. `F6/Shift+F6` — Series volume. `F7/Shift+F7` — Master volume.
@@ -170,7 +170,10 @@ See `CHANGES.md` 2026-04-16 → 2026-04-17 for the full set, `tools/generate-plu
 > **Paper trading mode** (Settings → General) routes all orders to a simulated
 > broker that fills against the real-time live price feed, with a persistent
 > virtual account (Reset available) and spoken fills/P&L — practise the full order
-> workflow on any chart with no real funds.
+> workflow on any chart with no real funds. On the **hosted web build (`--accounts`)
+> and the public demo (`--demo`)** paper mode is **forced on and cannot be disabled**
+> (`DemoPolicy.AllowLiveTrading` is false), so logged-in web users always trade paper;
+> real-money trading is desktop-only.
 
 A user-buildable signal composer that combines indicator signals from any registered indicator into a reward/risk-gated buy/sell strategy with TP ladders, dropout detection, and full audio + speech narration. Shipped across 7 focused sessions (A → C → Hardening → Correctness Pass → D → Complete pass). End-to-end functional in both live and backtest modes.
 

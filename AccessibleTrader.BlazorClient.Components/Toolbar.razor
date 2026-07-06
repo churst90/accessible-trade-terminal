@@ -1,5 +1,6 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
@@ -9,6 +10,7 @@
 @inject IMarketOrchestrator MarketOrchestrator
 @inject ILogger<Toolbar> Logger
 @inject DemoPolicy Demo
+@inject IViewportManager Viewport
 @implements IDisposable
 
 @* ── Per-tab "mode" helper: true when the current tab is showing an OHLCV
@@ -22,22 +24,11 @@
    reach every control with Tab/Shift+Tab without switching interaction modes. *@
 <nav class="toolbar" style="flex-direction: column; gap: 4px;" role="toolbar" aria-label="Main Toolbar">
 
-    @* ── Row 1: Mode | Chart setup | Analysis | Workspace | Meta ─────────── *@
+    @* ── Row 1: Chart setup | Analysis | Workspace | Meta ────────────────
+       Trading and Analytics are no longer a mode toggle here — the two are unified.
+       Pick "Analytics" in the Market dropdown (Row 2) to chart economic/on-chain/
+       derivatives/sentiment data; everything else is a tradeable market. *@
     <div style="display:flex; flex-wrap:wrap; align-items:center;">
-
-        @* ── Mode Selection ──────────────────────────────────────────────────
-           Plain buttons with aria-pressed replace radio inputs. These work identically
-           in NVDA/JAWS browse mode (no forms-mode switch required). *@
-        <div class="toolbar-group">
-            <ToolbarIconButton Icon="trading" Label="Trading" Variant="action"
-                              IsToggleOn="@(Store.State.Mode == TerminalMode.Trading)"
-                              Tooltip="Switch to Trading mode"
-                              OnClick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Trading))" />
-            <ToolbarIconButton Icon="analytics" Label="Analytics" Variant="action"
-                              IsToggleOn="@(Store.State.Mode == TerminalMode.Analytics)"
-                              Tooltip="Switch to Analytics mode"
-                              OnClick="() => Store.Dispatch(new ChangeModeAction(TerminalMode.Analytics))" />
-        </div>
 
         @* ── Chart setup: what you PUT on the chart ─────────────────────── *@
         <div class="toolbar-group">
@@ -147,6 +138,23 @@
             }
         </select>
 
+        @* Analytics type (Economic / OnChain / Derivatives / Sentiment) — shown only
+           when the "Analytics" umbrella is the selected market. Sits between Market and
+           Provider so the cascade reads Market → Analytics type → Provider → Symbol. *@
+        @if (IsAnalyticsMarketSelected)
+        {
+            <label for="analytics-type-select">Analytics type:</label>
+            <select id="analytics-type-select"
+                    aria-label="Select analytics data type"
+                    @onchange="OnAnalyticsTypeChanged"
+                    value="@MarketOrchestrator.SelectedAnalyticsType">
+                @foreach (var a in MarketOrchestrator.AvailableAnalyticsTypes)
+                {
+                    <option value="@a" selected="@(a == MarketOrchestrator.SelectedAnalyticsType)">@a</option>
+                }
+            </select>
+        }
+
         <label for="provider-select">Provider:</label>
         <select id="provider-select"
                 aria-label="Select data provider"
@@ -237,6 +245,36 @@
             <span role="alert" style="color: #f44; font-size: 0.85rem; margin-left: 8px;">@_loadError</span>
         }
 
+        @* ── Chart view controls (pan / zoom) ──────────────────────────────
+           Mouse-accessible equivalents of the keyboard viewport commands. Routed
+           through IViewportManager so they behave exactly like the keys: pan-left
+           triggers proactive history backfill and each action emits descriptive
+           spoken feedback. Not gated by IsTradingTab — panning/zooming applies to
+           analytics line charts too. Disabled until data is loaded. *@
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <div class="toolbar-group" role="group" aria-label="Chart view">
+            <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
+                              Disabled="@(!HasChartData)"
+                              Tooltip="Pan left / back in time (Left arrow)"
+                              AriaLabel="Pan chart left"
+                              OnClick="PanLeft" />
+            <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
+                              Disabled="@(!HasChartData)"
+                              Tooltip="Pan right / forward in time (Right arrow)"
+                              AriaLabel="Pan chart right"
+                              OnClick="PanRight" />
+            <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
+                              Disabled="@(!HasChartData)"
+                              Tooltip="Zoom in (Plus)"
+                              AriaLabel="Zoom chart in"
+                              OnClick="ZoomIn" />
+            <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
+                              Disabled="@(!HasChartData)"
+                              Tooltip="Zoom out (Minus)"
+                              AriaLabel="Zoom chart out"
+                              OnClick="ZoomOut" />
+        </div>
+
         @* ── Visual Toggles (trading-only) ───────────────────────────────── *@
         @if (IsTradingTab)
         {
@@ -314,6 +352,25 @@
 
     private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
 
+    // True when the "Analytics" umbrella is the selected market, so the Analytics-type
+    // dropdown (Economic/OnChain/…) is surfaced between Market and Provider.
+    private bool IsAnalyticsMarketSelected =>
+        string.Equals(MarketOrchestrator.SelectedMarket,
+                      AccessibleTrader.Core.Services.MarketOrchestrator.AnalyticsMarket,
+                      StringComparison.OrdinalIgnoreCase);
+
+    // ── Chart view controls (pan / zoom) ─────────────────────────────────
+    // Pan/zoom are no-ops with no data, so the buttons disable until a chart loads.
+    private bool HasChartData => Store.State.Data.Count > 0;
+
+    // Route through IViewportManager exactly like NavigationEngine's keyboard commands
+    // (VIEW_PAN_LEFT/RIGHT, VIEW_ZOOM_IN/OUT) so mouse and keyboard behave identically,
+    // including pan-left history backfill and descriptive spoken feedback.
+    private void PanLeft()  => Viewport.HandlePan(-1, Store.State.Data.ToList());
+    private void PanRight() => Viewport.HandlePan(1,  Store.State.Data.ToList());
+    private void ZoomIn()   => Viewport.HandleZoom("IN",  Store.State.Data.ToList());
+    private void ZoomOut()  => Viewport.HandleZoom("OUT", Store.State.Data.ToList());
+
     protected override void OnInitialized()
     {
         // Re-render whenever market/provider/symbol/timeframe lists change.
@@ -375,6 +432,22 @@
         {
             _loadError = "Failed to load providers for selected market.";
             Logger.LogError(ex, "Market change failed.");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnAnalyticsTypeChanged(ChangeEventArgs e)
+    {
+        _loadError = null;
+        MarketOrchestrator.SelectedAnalyticsType = e.Value?.ToString() ?? "";
+        try
+        {
+            await MarketOrchestrator.RefreshProvidersAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = "Failed to load providers for selected analytics type.";
+            Logger.LogError(ex, "Analytics type change failed.");
             await InvokeAsync(StateHasChanged);
         }
     }

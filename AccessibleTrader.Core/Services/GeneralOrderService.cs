@@ -23,6 +23,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IEventBus _eventBus;
         private readonly IPaperTradingProvider _paper;
         private readonly ISettingsManager _settings;
+        private readonly DemoPolicy _demo;
 
         // Tracks the current provider's order-stream subscription so it can be swapped when provider changes.
         private IDisposable? _orderStreamSub;
@@ -56,7 +57,8 @@ namespace AccessibleTrader.Core.Services
             ILogger<GeneralOrderService> logger,
             IEventBus eventBus,
             IPaperTradingProvider paper,
-            ISettingsManager settings)
+            ISettingsManager settings,
+            DemoPolicy demo)
         {
             _dataService = dataService;
             _errorCoordinator = errorCoordinator;
@@ -64,6 +66,7 @@ namespace AccessibleTrader.Core.Services
             _eventBus = eventBus;
             _paper = paper;
             _settings = settings;
+            _demo = demo;
             _paperStreamSub = paper.OrderUpdateStream.Subscribe(PublishOrderEvent);
         }
 
@@ -131,8 +134,15 @@ namespace AccessibleTrader.Core.Services
 
         // ── Helpers ────────────────────────────────────────────────────────────
 
+        // Hosted/demo web builds may never route real money: DemoPolicy.AllowLiveTrading
+        // is false for HostMode.Hosted (--accounts) and HostMode.Demo, forcing every
+        // order to the paper broker regardless of the user setting — the user cannot turn
+        // this off. On the desktop (HostMode.Full) it falls through to the opt-in setting.
+        // Mirrors the gating already done in TradingDashboardModal/StatusBar so the engine
+        // agrees with the UI about what "paper mode" means.
         private bool IsPaperMode =>
-            _settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
+            !_demo.AllowLiveTrading
+            || (_settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
 
         private async Task<ITradingProvider?> GetTradingProviderAsync(string providerName)
         {

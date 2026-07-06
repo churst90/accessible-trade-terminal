@@ -127,6 +127,15 @@ Each pane can contain one or more series. Each series can contain one or more co
 
 Understanding this three-level hierarchy — panes, series, components — is the key to navigating the chart confidently.
 
+### Choosing what to chart
+
+Above the chart is the toolbar. Its second row is the selection cascade: **Market →
+Provider → Symbol → timeframe → Load.** To chart data feeds instead of a tradeable
+instrument, choose **Analytics** in the Market dropdown; an extra **Analytics type**
+dropdown then appears (Economic, OnChain, Derivatives, Sentiment) before Provider. There is
+no separate "Trading vs Analytics" switch — the Market dropdown is the single place you
+choose between the two.
+
 ---
 
 ## 5. Moving Through Time: Bar-by-Bar Navigation
@@ -166,6 +175,14 @@ You can also scroll the viewport independently of the cursor:
 | = (equals) | Zoom in (fewer bars visible, each appears wider) |
 
 Zooming in shows you finer detail on fewer bars. Zooming out shows you broader context across more bars.
+
+### With the mouse
+
+The chart toolbar also has **Pan left**, **Pan right**, **Zoom in**, and **Zoom out**
+buttons that do exactly what the keys above do (and announce the new visible range, so
+they're screen-reader friendly). And when no drawing tool is selected, you can **click and
+drag the chart** to pan it — drag right to bring older bars into view. Release the button
+anywhere to stop.
 
 ---
 

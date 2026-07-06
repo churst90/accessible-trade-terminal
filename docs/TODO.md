@@ -4,6 +4,48 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-06] — Mouse pan/zoom, unified Trading/Analytics, hosted paper, tab-bar fix
+
+Targeted for the **1.4.0** release. All shipped items build clean with the full test
+suite green (1176 tests, 14 new). Pending real-app verification by Cody.
+
+### Shipped
+
+- [x] **Mouse pan/zoom buttons.** New "Chart view" toolbar group — Pan left / Pan
+  right / Zoom in / Zoom out (new SVG glyphs) — routed through `IViewportManager`
+  like the keyboard commands (left-edge history backfill + spoken viewport range).
+  Works on analytics line charts; disabled until data loads.
+- [x] **Click-drag-to-pan.** Added to `DrawingInteractionManager`: with no drawing
+  tool armed and no anchor handle grabbed, mouse-down grabs the chart and drag scrolls
+  it through time (pixel→bar with fractional carry). Window-level `mouseup` fallback in
+  both `keyboard.js` copies ends a drag released off-canvas.
+- [x] **Trading + Analytics unified.** Removed the Trading/Analytics mode toggle. Market
+  dropdown gains an "Analytics" umbrella → Analytics-type dropdown (Economic/OnChain/
+  Derivatives/Sentiment) → Provider. `EffectiveMarket` resolves the concrete category;
+  `TerminalMode` is derived (kept for persistence), mode-refresh subscription removed.
+- [x] **Paper trading forced on for hosted/demo web.** `GeneralOrderService.IsPaperMode`
+  now also true when `!DemoPolicy.AllowLiveTrading`, so `--accounts`/`--demo` always route
+  to the paper broker (fixes "provider does not support trading" on Alt+T). Cannot be
+  turned off by web users; real-money stays desktop-only.
+- [x] **New workspace tab appears immediately.** `TabBar` now subscribes to
+  `Store.StateStream`, so a tab added from outside its own DOM events (Ctrl+T /
+  Alt+Shift+N / "Open in New Tab") re-renders the bar at once.
+- [x] **Toolbar tooltip guard.** Confirmed the Trade button (and every toolbar button)
+  renders a hover tooltip + accessible label; added `ToolbarIconButtonTests` so a button
+  can't ship without help text.
+
+### Tests added
+
+- [x] `DrawingInteractionManagerMouseDispatchTests` — 3 drag-pan cases (pans on empty
+  drag, stops after mouse-up, no pan while a drawing tool is armed).
+- [x] `HostedPaperModeTests` — hosted/demo force paper; Full honours the opt-in setting.
+- [x] `MarketOrchestratorConsolidationTests` — Analytics umbrella grouping, derived mode,
+  provider loading keyed on the concrete category.
+- [x] `Blazor/TabBarTests` — new tab renders in the bar without a click.
+- [x] `Blazor/ToolbarIconButtonTests` — tooltip/aria contract.
+
+---
+
 ## [2026-07-05] — Sound system overhaul
 
 Sound Designer, per-component patches, engine polyphony, and playback fixes.

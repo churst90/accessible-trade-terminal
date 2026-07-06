@@ -189,11 +189,19 @@ into the toolbar and Tab through them left to right, and your screen reader read
 each control's label and current value as you land on it.
 
 These four selectors form a cascade — each choice decides what the next one can
-offer. Choosing the **Market** (for example Crypto, Stock, or Forex in trading
-mode) refills the **Provider** list with the sources that cover that market and
-automatically selects the first of them. Choosing a **Provider** refills the
-**Symbol** list and the available timeframes and, again, selects the first symbol
-for you. One consequence worth understanding: moving through this cascade does not
+offer. Choosing the **Market** (for example Crypto, Stock, or Forex) refills the
+**Provider** list with the sources that cover that market and automatically selects
+the first of them. Choosing a **Provider** refills the **Symbol** list and the
+available timeframes and, again, selects the first symbol for you.
+
+The Market list also holds one special entry, **Analytics**, which is where you chart
+data feeds rather than tradeable instruments. There is no longer a separate
+Trading/Analytics switch — picking **Analytics** in the Market dropdown is how you
+cross over. When you do, an extra **Analytics type** selector appears right after
+Market offering Economic, OnChain, Derivatives, and Sentiment; choose one and the
+Provider and Symbol lists refill with that category's sources (FRED economic series,
+on-chain metrics, funding/open-interest, Fear & Greed, and so on). For everything else
+— actual markets you can trade — you simply never touch the Analytics entry. One consequence worth understanding: moving through this cascade does not
 speak on its own — the terminal repopulates the dropdowns silently, and it is your
 screen reader, reading each list as you open it with the arrow keys, that tells you
 what is now available. So after picking a market, expect to arrow through the
@@ -279,8 +287,9 @@ for study, it just is not advancing on its own.
 
 You are not locked into your first choice. Return to the toolbar at any time,
 change any selector, and press Load again to replace the chart. One case is worth a
-heads-up: if you load an analytics provider — one that returns single scalar
-metrics like an economic series rather than OHLCV candles — onto a tab that already
+heads-up: if you load an analytics provider — chosen through the **Analytics** entry
+in the Market dropdown, one that returns single scalar metrics like an economic
+series rather than OHLCV candles — onto a tab that already
 holds indicators or drawings, those tools cannot apply to a non-candle series, so
 the terminal stops to confirm with a "Switching to analytics" dialog. It offers
 three choices: "Continue (strip & load)" replaces the chart and removes the tools
@@ -330,6 +339,12 @@ You can also move the window itself without moving the cursor: the bracket keys 
 the viewport, with `[` bringing older bars into view and `]` newer ones, and
 Shift with either changes the pan step. The minus key zooms out to see more bars at
 once, and the equals key zooms in for finer detail on fewer.
+
+If you prefer the mouse, the chart toolbar carries **Pan left**, **Pan right**, **Zoom
+in**, and **Zoom out** buttons that do exactly the same things and speak the new visible
+range just as the keys do, so they are safe to use with a screen reader. You can also
+**click and drag the chart itself** to pan — provided no drawing tool is selected —
+dragging right to reveal older bars; letting go of the button anywhere stops the pan.
 
 ### Moving between panes and components
 
@@ -657,6 +672,14 @@ dashboard shows the environment as "Paper (simulated)" with a paper banner, and 
 red live-funds banner is suppressed. Everything described in the rest of this
 chapter behaves identically in paper and live — so practise here until the spoken
 feedback is second nature, then switch a real key in.
+
+On the **hosted web terminal** (the logged-in, multi-user build) this choice is made
+for you: paper trading is **always on and cannot be switched off**, so pressing Alt+T
+always opens a paper dashboard and you can never place a real-money order from the
+browser. Real trading with your own broker keys is a desktop-app feature. (If you tried
+this on an earlier build and got "provider does not support trading," that was the bug
+this behaviour fixes — the web providers are data-only, and orders now correctly route
+to the paper simulator.)
 
 ### Paper or live — check this first
 

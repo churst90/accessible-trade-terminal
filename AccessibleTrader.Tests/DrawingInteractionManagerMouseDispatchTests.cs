@@ -142,8 +142,9 @@ public sealed class DrawingInteractionManagerMouseDispatchTests
     public void MouseDown_with_no_pending_drawing_and_no_drawings_in_workspace_is_a_noop()
     {
         // The first branch of HandleMouseDown — no pending placement, nothing to
-        // edit-drag — must short-circuit cleanly. Otherwise an idle click on the
-        // chart would publish a RedrawEvent or stir up the store every time.
+        // edit-drag — must not add series or publish events on the down alone. It
+        // arms a viewport pan-drag (silent until the first MouseMove), so an idle
+        // click that never moves leaves the workspace untouched.
         var h = new TestHarness();
         int seriesBefore = h.Store.State.ActiveSeries.Count;
         int eventsBefore = h.Bus.Log.Count;
@@ -152,5 +153,56 @@ public sealed class DrawingInteractionManagerMouseDispatchTests
 
         Assert.Equal(seriesBefore, h.Store.State.ActiveSeries.Count);
         Assert.Equal(eventsBefore, h.Bus.Log.Count);
+    }
+
+    // ── Viewport pan-drag (grab-and-slide on empty chart space) ──────────────
+
+    [Fact]
+    public void Drag_on_empty_chart_with_no_tool_pans_the_viewport_back_in_time()
+    {
+        // No drawing tool armed and no anchor handle under the cursor → a mouse-down
+        // grabs the chart. Dragging right pulls the chart right, revealing older bars,
+        // which is a decrease in ViewportStartIndex. Pins the pan-drag branch added to
+        // HandleMouseDown/UpdatePan.
+        var h = new TestHarness();
+        int startBefore = h.Store.State.ViewportStartIndex;
+        Assert.True(startBefore > 0, "Test needs headroom to pan left; viewport should start at the live edge.");
+
+        h.Input.ProcessMouse(x: 200, y: 360, type: "MouseDown", width: 1280, height: 720);
+        h.Input.ProcessMouse(x: 700, y: 360, type: "MouseMove", width: 1280, height: 720); // dx = +500px → drag right
+
+        Assert.True(h.Store.State.ViewportStartIndex < startBefore,
+            "Dragging right should pan the viewport back in time (start index decreases).");
+    }
+
+    [Fact]
+    public void Pan_drag_stops_dispatching_after_mouse_up()
+    {
+        // Once the drag ends, a subsequent (hover) MouseMove — which keyboard.js fires
+        // unconditionally — must not keep panning. Pins that MouseUp clears _isPanning.
+        var h = new TestHarness();
+        h.Input.ProcessMouse(x: 200, y: 360, type: "MouseDown", width: 1280, height: 720);
+        h.Input.ProcessMouse(x: 700, y: 360, type: "MouseMove", width: 1280, height: 720);
+        h.Input.ProcessMouse(x: 700, y: 360, type: "MouseUp",   width: 1280, height: 720);
+
+        int startAfterRelease = h.Store.State.ViewportStartIndex;
+        h.Input.ProcessMouse(x: 1000, y: 360, type: "MouseMove", width: 1280, height: 720); // stray hover move
+
+        Assert.Equal(startAfterRelease, h.Store.State.ViewportStartIndex);
+    }
+
+    [Fact]
+    public void Drag_while_a_drawing_tool_is_armed_does_not_pan()
+    {
+        // With a placement flow active, a drag belongs to the drawing, not the viewport.
+        // The pan branch is only reached when nothing is pending and no handle is grabbed.
+        var h = new TestHarness();
+        h.Manager.HandleAddDrawing("TrendLine", h.Bars);
+        int startBefore = h.Store.State.ViewportStartIndex;
+
+        h.Input.ProcessMouse(x: 200, y: 360, type: "MouseDown", width: 1280, height: 720);
+        h.Input.ProcessMouse(x: 700, y: 360, type: "MouseMove", width: 1280, height: 720);
+
+        Assert.Equal(startBefore, h.Store.State.ViewportStartIndex);
     }
 }

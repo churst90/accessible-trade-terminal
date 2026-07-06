@@ -13,12 +13,14 @@ namespace AccessibleTrader.Core.Services
     public interface IMarketOrchestrator
     {
         string SelectedMarket { get; set; }
+        string SelectedAnalyticsType { get; set; }
         string SelectedProvider { get; set; }
         string SelectedSubType { get; set; }
         string SelectedSymbol { get; set; }
         string SelectedTimeframe { get; set; }
 
         IReadOnlyList<string> AvailableMarkets { get; }
+        IReadOnlyList<string> AvailableAnalyticsTypes { get; }
         IReadOnlyList<string> AvailableProviders { get; }
         IReadOnlyList<string> AvailableSubTypes { get; }
         IReadOnlyList<string> AvailableSymbols { get; }
@@ -80,6 +82,32 @@ namespace AccessibleTrader.Core.Services
         private List<string> _availableSubTypes = new() { "Spot" };
         private List<string> _availableSymbols = new();
         private List<string> _availableTimeframes = new();
+        private string _selectedAnalyticsType = "";
+        private List<string> _availableAnalyticsTypes = new();
+
+        /// <summary>
+        /// Umbrella entry shown in the Market dropdown that groups every non-tradeable
+        /// data category. Selecting it reveals the Analytics-type dropdown (Economic,
+        /// OnChain, …). Replaces the old Trading/Analytics mode toggle: the market
+        /// choice is now the single source of truth for trading-vs-analytics.
+        /// </summary>
+        public const string AnalyticsMarket = "Analytics";
+
+        // The non-tradeable data categories. Each hosts analytics providers whose data is
+        // SingleValueLine rather than OHLCV. New categories join here so they surface under
+        // the Analytics umbrella instead of leaking into the tradeable market list.
+        private static readonly string[] AnalyticsCategories =
+            { "Economic", "OnChain", "Derivatives", "Sentiment" };
+
+        private static bool IsAnalyticsCategory(string market) =>
+            AnalyticsCategories.Contains(market, StringComparer.OrdinalIgnoreCase);
+
+        // The real category key that drives provider/symbol loading and the chart identity:
+        // the chosen analytics type when the umbrella is selected, otherwise the market itself.
+        private string EffectiveMarket =>
+            string.Equals(_selectedMarket, AnalyticsMarket, StringComparison.OrdinalIgnoreCase)
+                ? _selectedAnalyticsType
+                : _selectedMarket;
 
         public MarketState CurrentState => _stateMachine.CurrentState;
         public IObservable<MarketState> StateChanged => _stateMachine.StateChanged;
@@ -90,6 +118,12 @@ namespace AccessibleTrader.Core.Services
         {
             get => _selectedMarket;
             set { _selectedMarket = value; }
+        }
+
+        public string SelectedAnalyticsType
+        {
+            get => _selectedAnalyticsType;
+            set { _selectedAnalyticsType = value; }
         }
 
         public string SelectedProvider
@@ -121,6 +155,7 @@ namespace AccessibleTrader.Core.Services
         }
 
         public IReadOnlyList<string> AvailableMarkets => _availableMarkets;
+        public IReadOnlyList<string> AvailableAnalyticsTypes => _availableAnalyticsTypes;
         public IReadOnlyList<string> AvailableProviders => _availableProviders;
         public IReadOnlyList<string> AvailableSubTypes => _availableSubTypes;
         public IReadOnlyList<string> AvailableSymbols => _availableSymbols;
@@ -128,7 +163,6 @@ namespace AccessibleTrader.Core.Services
 
         public IObservable<Unit> PipelineUpdated => _pipelineUpdated.AsObservable();
 
-        private readonly IDisposable _modeSub;
         private CancellationTokenSource _tabSwitchCts = new();
 
         // Public-demo whitelist. A no-op (everything allowed) outside demo mode.
@@ -194,17 +228,6 @@ namespace AccessibleTrader.Core.Services
                     });
                 }
             });
-
-            // When the terminal mode changes (Trading ↔ Analytics), refresh the market list
-            // because each mode exposes a different subset of markets.
-            _modeSub = _store.StateStream
-                .Select(s => s.Mode)
-                .DistinctUntilChanged()
-                .Subscribe(_ => Task.Run(async () =>
-                {
-                    try { await RefreshPipelineAsync().ConfigureAwait(false); }
-                    catch { /* Swallow — mode switch failures are non-fatal */ }
-                }));
         }
 
         /// <summary>
@@ -217,32 +240,46 @@ namespace AccessibleTrader.Core.Services
             try 
             {
                 var allMarkets = await _dataService.LoadAvailableMarketsAsync().ConfigureAwait(false);
-                var mode = _store.State.Mode;
 
-                // Analytics mode hosts every non-tradeable data category. New
-                // categories (Derivatives = funding/OI, Sentiment = fear-greed, etc.)
-                // join Economic + OnChain here so the Analytics radio button surfaces
-                // the full data-source taxonomy in the market dropdown.
-                bool IsAnalyticsCategory(string m) =>
-                    m == "Economic" || m == "OnChain" || m == "Derivatives" || m == "Sentiment";
+                // Split the raw category list into tradeable markets and non-tradeable
+                // analytics categories. Both used to be gated behind the Trading/Analytics
+                // mode toggle; now they coexist in one unified dropdown.
+                var tradeable      = allMarkets.Where(m => !IsAnalyticsCategory(m)).ToList();
+                var analyticsTypes = allMarkets.Where(IsAnalyticsCategory).ToList();
 
-                _availableMarkets = mode == TerminalMode.Analytics
-                    ? allMarkets.Where(IsAnalyticsCategory).ToList()
-                    : allMarkets.Where(m => !IsAnalyticsCategory(m)).ToList();
+                // Fallbacks: ensure a minimal set if the data service returned nothing.
+                if (tradeable.Count == 0)
+                    tradeable.AddRange(new[] { "Crypto", "Forex", "Stock" });
+                if (analyticsTypes.Count == 0)
+                    analyticsTypes.AddRange(AnalyticsCategories);
 
-                // Fallback: ensure at least a minimal market list is present.
-                if (_availableMarkets.Count == 0)
-                    _availableMarkets.AddRange(mode == TerminalMode.Analytics
-                        ? new[] { "Economic", "OnChain", "Derivatives", "Sentiment" }
-                        : new[] { "Crypto", "Forex", "Stock" });
-
-                // Demo whitelist: hide markets that have no whitelisted provider, so the
-                // dropdown can never land on one that filters to an empty provider list.
+                // Demo/hosted whitelist: drop any category that has no whitelisted provider,
+                // so a selection can never land on an empty provider list.
                 if (_demo.RestrictsData)
-                    _availableMarkets = _demo.FilterMarkets(_availableMarkets).ToList();
+                {
+                    tradeable      = _demo.FilterMarkets(tradeable).ToList();
+                    analyticsTypes = _demo.FilterMarkets(analyticsTypes).ToList();
+                }
+
+                _availableAnalyticsTypes = analyticsTypes;
+
+                // Unified market list: every tradeable market, plus a single "Analytics"
+                // umbrella entry when at least one analytics category survives. Picking it
+                // exposes the Analytics-type dropdown that the mode toggle used to gate.
+                _availableMarkets = new List<string>(tradeable);
+                if (analyticsTypes.Count > 0)
+                    _availableMarkets.Add(AnalyticsMarket);
+                if (_availableMarkets.Count == 0)
+                    _availableMarkets.Add("Crypto");   // absolute fallback
 
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
                     _selectedMarket = _availableMarkets[0];
+
+                // Keep the analytics-type selection valid so EffectiveMarket resolves the
+                // moment the umbrella is (or becomes) the active market.
+                if (_availableAnalyticsTypes.Count > 0
+                    && (string.IsNullOrEmpty(_selectedAnalyticsType) || !_availableAnalyticsTypes.Contains(_selectedAnalyticsType)))
+                    _selectedAnalyticsType = _availableAnalyticsTypes[0];
 
                 await RefreshProvidersAsync().ConfigureAwait(false);
                 _stateMachine.Fire(MarketTrigger.RefreshCompleted);
@@ -267,11 +304,20 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
-            _availableProviders = await _dataService.LoadProvidersByMarketTypeAsync(_selectedMarket).ConfigureAwait(false);
+            // Resolve the umbrella "Analytics" selection to its concrete category before
+            // loading providers, and keep the persisted TerminalMode in step so saved
+            // workspaces round-trip. The market choice is now the single source of truth
+            // for trading-vs-analytics (the manual mode toggle is gone).
+            string market = EffectiveMarket;
+            var desiredMode = IsAnalyticsCategory(market) ? TerminalMode.Analytics : TerminalMode.Trading;
+            if (_store.State.Mode != desiredMode)
+                _store.Dispatch(new ChangeModeAction(desiredMode));
+
+            _availableProviders = await _dataService.LoadProvidersByMarketTypeAsync(market).ConfigureAwait(false);
 
             // Ensure well-known providers appear in their canonical market even if the
             // data service returned an empty list (e.g., providers not yet configured).
-            switch (_selectedMarket)
+            switch (market)
             {
                 case "Crypto":
                     EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase", "FMP");
@@ -306,7 +352,7 @@ namespace AccessibleTrader.Core.Services
             // there are no user keys, so the dozen key-required providers must not be offered.)
             if (_demo.RestrictsData)
             {
-                var only = _demo.ProviderForMarket(_selectedMarket);
+                var only = _demo.ProviderForMarket(market);
                 _availableProviders = string.IsNullOrEmpty(only)
                     ? new List<string>()
                     : new List<string> { only };
@@ -378,15 +424,19 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
+            // Resolve the umbrella "Analytics" selection to its concrete category for all
+            // data-service keys below (sub-types, symbols, curated fallbacks).
+            string market = EffectiveMarket;
+
             // Load sub-types (Spot/Futures/etc.) — only shown in the toolbar when count > 1.
-            _availableSubTypes = await _dataService.GetSupportedSubTypesAsync(_selectedProvider, _selectedMarket).ConfigureAwait(false);
+            _availableSubTypes = await _dataService.GetSupportedSubTypesAsync(_selectedProvider, market).ConfigureAwait(false);
             if (_availableSubTypes.Count == 0) _availableSubTypes = new List<string> { "Spot" };
             if (!_availableSubTypes.Contains(_selectedSubType)) _selectedSubType = _availableSubTypes[0];
 
             // Pass the sub-type as "Market|SubType" so DataService routes symbol fetch correctly.
             string marketKey = _availableSubTypes.Count > 1
-                ? $"{_selectedMarket}|{_selectedSubType}"
-                : _selectedMarket;
+                ? $"{market}|{_selectedSubType}"
+                : market;
 
             _availableSymbols = await _dataService.LoadSymbolsAsync(marketKey, _selectedProvider).ConfigureAwait(false);
             _availableTimeframes = await _dataService.GetSupportedTimeframesAsync(_selectedProvider).ConfigureAwait(false);
@@ -412,7 +462,7 @@ namespace AccessibleTrader.Core.Services
             if (_demo.RestrictsData
                 && string.Equals(_selectedProvider, "Twelve Data", StringComparison.OrdinalIgnoreCase))
             {
-                var curatedTd = TwelveDataStarterSymbols(_selectedMarket);
+                var curatedTd = TwelveDataStarterSymbols(market);
                 if (curatedTd.Count > 0) _availableSymbols = curatedTd;
             }
 
@@ -426,7 +476,7 @@ namespace AccessibleTrader.Core.Services
                 // endpoint is empty (e.g. Twelve Data /stocks on the free tier). These
                 // chart fine via the data endpoint even though the listing is empty.
                 if (curated.Count == 0)
-                    curated = _demo.DemoSymbolsForMarket(_selectedMarket).ToList();
+                    curated = _demo.DemoSymbolsForMarket(market).ToList();
                 _availableSymbols = curated;
                 _availableTimeframes = _demo.AllowedTimeframes.ToList();
                 if (!_demo.IsTimeframeAllowed(_selectedTimeframe))
@@ -475,8 +525,8 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(MarketTrigger.ConnectionStarted);
 
             string marketForIdentity = _availableSubTypes.Count > 1
-                ? $"{_selectedMarket}|{_selectedSubType}"
-                : _selectedMarket;
+                ? $"{EffectiveMarket}|{_selectedSubType}"
+                : EffectiveMarket;
 
             var identity = new ChartIdentity
             {
@@ -522,11 +572,12 @@ namespace AccessibleTrader.Core.Services
             // add the new tab. AddTabAction is synchronous but the snapshot/restore dance
             // happens inside the reducer and may race with MarketOrchestrator's own state
             // if we're not careful. Capturing first keeps all selections stable.
-            var targetMarket    = _selectedMarket;
-            var targetSubType   = _selectedSubType;
-            var targetProvider  = _selectedProvider;
-            var targetSymbol    = _selectedSymbol;
-            var targetTimeframe = _selectedTimeframe;
+            var targetMarket        = _selectedMarket;
+            var targetAnalyticsType = _selectedAnalyticsType;
+            var targetSubType       = _selectedSubType;
+            var targetProvider      = _selectedProvider;
+            var targetSymbol        = _selectedSymbol;
+            var targetTimeframe     = _selectedTimeframe;
 
             // AddTabAction creates a blank tab and makes it active. The previous tab's
             // state is saved into a TabSnapshot and will be restored if the user switches
@@ -535,11 +586,12 @@ namespace AccessibleTrader.Core.Services
 
             // The new tab starts empty; re-apply the toolbar selections (the orchestrator's
             // fields are global, not per-tab, so they already match what the user picked).
-            _selectedMarket    = targetMarket;
-            _selectedSubType   = targetSubType;
-            _selectedProvider  = targetProvider;
-            _selectedSymbol    = targetSymbol;
-            _selectedTimeframe = targetTimeframe;
+            _selectedMarket        = targetMarket;
+            _selectedAnalyticsType = targetAnalyticsType;
+            _selectedSubType       = targetSubType;
+            _selectedProvider      = targetProvider;
+            _selectedSymbol        = targetSymbol;
+            _selectedTimeframe     = targetTimeframe;
 
             // Normal load — InitializeDefaultSeries will seed the correct core stack for
             // the new tab based on the target provider's shape.
@@ -548,7 +600,6 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
-            _modeSub?.Dispose();
             _tabSwitchedSub?.Dispose();
             _tabSwitchCts.Cancel();
             _tabSwitchCts.Dispose();
