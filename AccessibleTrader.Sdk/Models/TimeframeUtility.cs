@@ -50,6 +50,22 @@ namespace AccessibleTrader.Sdk.Models
 
         public static int ToSeconds(string tf) => (int)(ToMilliseconds(tf) / 1000);
 
+        /// <summary>
+        /// True when <paramref name="tf"/> is a well-formed timeframe token
+        /// (digits + one of m/h/d/w/M) with a sane magnitude. Companion to
+        /// <see cref="Sdk.Services.SymbolValidator"/> at the data-path choke
+        /// point: timeframe strings are interpolated into provider URLs and
+        /// drive period math, so malformed or absurd values are rejected
+        /// before any request is built. 8 chars covers every real token
+        /// ("10000m" is already far past anything a provider serves).
+        /// </summary>
+        public static bool IsValid(string? tf)
+        {
+            if (string.IsNullOrWhiteSpace(tf)) return false;
+            if (tf.Length > 8) return false;
+            return ToMilliseconds(tf) > 0;
+        }
+
         public static List<string> AllTimeframes => new List<string>
         {
             StandardTimeframes.OneMinute, StandardTimeframes.ThreeMinutes, StandardTimeframes.FiveMinutes,

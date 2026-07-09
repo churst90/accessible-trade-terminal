@@ -33,10 +33,14 @@ namespace AccessibleTrader.Core.Services.Scripting;
 ///
 /// <para>
 /// If <c>bwrap</c> isn't installed (it ships in most distros' <c>bubblewrap</c>
-/// package but isn't guaranteed) the launcher falls back to
-/// <see cref="DefaultProcessLauncher"/> and reports <see cref="SandboxApplied"/>
-/// = <c>false</c> — the worker still runs out-of-process, just without the
-/// kernel sandbox, matching the pre-L5 behaviour.
+/// package but isn't guaranteed) the launcher REFUSES to run the worker and
+/// throws <see cref="ScriptSandboxUnavailableException"/> with an install
+/// hint — an unsandboxed worker could read the user's files (including
+/// API-key storage) and reach the network, and before 2026-07 that downgrade
+/// happened silently. Setting <c>ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1</c>
+/// restores the old fallback behaviour (<see cref="SandboxApplied"/> =
+/// <c>false</c>), and every launch under the override is recorded to the
+/// security event log.
 /// </para>
 ///
 /// <para>
@@ -59,10 +63,22 @@ public sealed class LinuxBwrapLauncher : IScriptWorkerLauncher
     public bool SandboxApplied { get; private set; }
 
     public LinuxBwrapLauncher(IScriptWorkerLauncher? fallback = null)
+        : this(fallback, FindBwrap(), allowUnsandboxed: null)
+    {
+    }
+
+    /// <summary>
+    /// Test seam: inject the resolved bwrap path and the unsandboxed-override
+    /// decision so refusal behaviour is verifiable on any machine.
+    /// </summary>
+    internal LinuxBwrapLauncher(IScriptWorkerLauncher? fallback, string? bwrapPath, bool? allowUnsandboxed)
     {
         _fallback = fallback ?? new DefaultProcessLauncher();
-        _bwrapPath = FindBwrap();
+        _bwrapPath = bwrapPath;
+        _allowUnsandboxed = allowUnsandboxed;
     }
+
+    private readonly bool? _allowUnsandboxed;
 
     public IScriptWorkerProcess Launch(string workerExecutablePath)
     {
@@ -71,9 +87,25 @@ public sealed class LinuxBwrapLauncher : IScriptWorkerLauncher
         if (!File.Exists(workerExecutablePath))
             throw new FileNotFoundException("Worker executable not found.", workerExecutablePath);
 
-        // bwrap only exists / makes sense on Linux. Anywhere else, defer.
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || _bwrapPath is null)
+        // bwrap only exists / makes sense on Linux. Anywhere else, defer —
+        // CreateDefaultLauncher never selects this launcher off-Linux, so this
+        // branch is only reachable in tests or manual composition.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
+            SandboxApplied = false;
+            return _fallback.Launch(workerExecutablePath);
+        }
+
+        if (_bwrapPath is null)
+        {
+            // No kernel sandbox available. Refuse unless the user explicitly
+            // accepted unsandboxed execution; never downgrade silently.
+            SandboxPolicy.EnforceOrThrow(
+                _allowUnsandboxed ?? SandboxPolicy.AllowUnsandboxedFallback,
+                details: "the 'bwrap' binary was not found on this system.",
+                remedy: "Install your distribution's 'bubblewrap' package (e.g. apt/dnf/pacman/emerge install bubblewrap) and restart.");
+
+            SandboxPolicy.RecordUnsandboxedFallback(nameof(LinuxBwrapLauncher), "bwrap not found");
             SandboxApplied = false;
             return _fallback.Launch(workerExecutablePath);
         }

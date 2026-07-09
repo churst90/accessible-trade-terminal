@@ -81,24 +81,18 @@ var hostMode = accountsEnabled ? HostMode.Hosted
 builder.Services.AddSingleton(new DemoPolicy(hostMode));
 
 // Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a
-// prerequisite before public exposure. Generous per-client-IP fixed window over HTTP
-// requests (page loads, SignalR negotiates, auth form posts). The established per-circuit
-// WebSocket is a single upgraded request, so normal use is unaffected; rapid circuit
-// creation or registration floods from one IP get 429'd.
+// prerequisite before public exposure. Two per-client-IP tiers (see AuthRateLimitPolicy):
+// a generous general window over HTTP requests (page loads, SignalR negotiates), and a
+// much stricter window on POSTs to the login/register pages so one IP can't brute-force
+// credentials at page-load rates. The established per-circuit WebSocket is a single
+// upgraded request, so normal use is unaffected.
 if (accountsEnabled)
 {
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 200,
-                    Window = TimeSpan.FromSeconds(10),
-                    QueueLimit = 0,
-                }));
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+            AuthRateLimitPolicy.GetPartition);
     });
 }
 
@@ -178,6 +172,17 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
+
+// Response security headers on every mode and every response (static assets
+// included): CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy,
+// Permissions-Policy, and HSTS on HTTPS requests. Runs after UseForwardedHeaders
+// so IsHttps reflects the nginx-terminated TLS on the public deployments.
+// Values + rationale live in SecurityHeadersPolicy.
+app.Use(async (ctx, next) =>
+{
+    SecurityHeadersPolicy.Apply(ctx);
+    await next();
+});
 
 // MapStaticAssets (not UseStaticFiles) serves the manifest-based asset endpoints —
 // including _framework/blazor.web.js and the RCL's content-fingerprinted scoped-CSS

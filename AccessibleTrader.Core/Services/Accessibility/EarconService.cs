@@ -66,8 +66,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         private readonly ISonificationManager _sonificationManager;
         private readonly ISoundPatchLibrary _patchLibrary;
-        private readonly ConcurrentDictionary<string, DateTime> _lastPlayed = new();
-        private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(200);
+        // Monotonic (Environment.TickCount64) rather than wall-clock: the throttle
+        // compares intervals, and a clock step (NTP, VM resume) under DateTime.Now
+        // could mute earcons for the step duration or let a burst through.
+        private readonly ConcurrentDictionary<string, long> _lastPlayedAtMs = new();
+        private const long MinIntervalMs = 200;
 
         public EarconService(ISonificationManager sonificationManager, ISoundPatchLibrary patchLibrary)
         {
@@ -105,8 +108,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private bool CanPlay(string key)
         {
             if (!_sonificationManager.IsEnabled) return false;
-            if (_lastPlayed.TryGetValue(key, out var last) && DateTime.Now - last < _minInterval) return false;
-            _lastPlayed[key] = DateTime.Now;
+            long now = Environment.TickCount64;
+            if (_lastPlayedAtMs.TryGetValue(key, out var last) && now - last < MinIntervalMs) return false;
+            _lastPlayedAtMs[key] = now;
             return true;
         }
 

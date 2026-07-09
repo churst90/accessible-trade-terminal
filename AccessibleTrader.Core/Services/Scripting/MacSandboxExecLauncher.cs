@@ -23,12 +23,15 @@ namespace AccessibleTrader.Core.Services.Scripting;
 /// phone home, persist files, or reach the host's Keychain.
 ///
 /// <para>
-/// If <c>sandbox-exec</c> itself isn't on <c>PATH</c> (it's a macOS
-/// standard binary at <c>/usr/bin/sandbox-exec</c>, but some hardened
-/// corporate images mask it) the launcher falls back to
-/// <see cref="DefaultProcessLauncher"/> and logs a diagnostic — the
-/// worker still runs out-of-process, just without OS-level sandboxing.
-/// Callers can detect this via <see cref="SandboxApplied"/>.
+/// If <c>sandbox-exec</c> itself isn't available (it's a macOS standard
+/// binary at <c>/usr/bin/sandbox-exec</c>, but some hardened corporate
+/// images mask it) or the profile file is missing, the launcher REFUSES
+/// to run the worker and throws
+/// <see cref="ScriptSandboxUnavailableException"/> — unsandboxed
+/// execution must never happen silently. Setting
+/// <c>ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1</c> restores the old
+/// fallback (<see cref="SandboxApplied"/> = <c>false</c>) and records a
+/// security event on every launch.
 /// </para>
 /// </summary>
 public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
@@ -70,6 +73,15 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
 
         if (!File.Exists(SandboxExecPath) || !File.Exists(profilePath))
         {
+            var missing = !File.Exists(SandboxExecPath)
+                ? $"'{SandboxExecPath}' is not available on this system."
+                : $"the sandbox profile '{ProfileRelativePath}' is missing next to the worker binary.";
+            SandboxPolicy.EnforceOrThrow(
+                SandboxPolicy.AllowUnsandboxedFallback,
+                details: missing,
+                remedy: "Reinstall the application (the profile ships with it), or ask your administrator to unmask sandbox-exec.");
+
+            SandboxPolicy.RecordUnsandboxedFallback(nameof(MacSandboxExecLauncher), missing);
             SandboxApplied = false;
             return _fallback.Launch(workerExecutablePath);
         }

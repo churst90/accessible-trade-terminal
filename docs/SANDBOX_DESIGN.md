@@ -120,6 +120,22 @@ suspect, and silent retries just defer the problem.
 
 ## Sandboxing per platform
 
+### Missing-primitive policy (all platforms, 2026-07)
+
+When the OS sandbox primitive a launcher needs is unavailable at launch time — `bwrap`
+not installed on Linux, `sandbox-exec` masked on macOS, AppContainer creation failing on
+Windows — the launcher **refuses to run the worker** and throws
+`ScriptSandboxUnavailableException` with a user-readable message naming the missing
+piece, the fix, and the override. It does NOT silently fall back to the unsandboxed
+`DefaultProcessLauncher` (pre-2026-07 behaviour): an unsandboxed worker could read the
+user's files (including API-key storage) and reach the network, and that downgrade must
+never be invisible.
+
+Explicit opt-out: `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1` restores the fallback
+for users who accept the risk on a machine they trust. Every launch under the override
+records a `SecurityEventKind.UnsandboxedScriptOverride` event. Central logic:
+`SandboxPolicy` (Core/Services/Scripting), enforced by the Linux/macOS/Windows launchers.
+
 ### Windows — AppContainer
 
 Launch the worker with `CreateProcess` + an `AppContainer` profile. Capabilities to grant:

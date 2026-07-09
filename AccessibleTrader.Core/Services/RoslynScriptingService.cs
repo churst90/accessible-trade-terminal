@@ -97,11 +97,15 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Picks the OS-appropriate launcher for the current platform. Each
-        /// platform-specific launcher falls back to an unsandboxed
-        /// <see cref="DefaultProcessLauncher"/> if the OS-level primitives it
-        /// needs aren't available at runtime, so this selection is safe even
-        /// on hardened/locked-down hosts.
+        /// Picks the OS-appropriate launcher for the current platform. If the
+        /// OS-level sandbox primitive a launcher needs isn't available at
+        /// runtime (bwrap missing on Linux, sandbox-exec masked on macOS,
+        /// AppContainer creation failing on Windows), the launcher throws
+        /// <see cref="ScriptSandboxUnavailableException"/> at launch time
+        /// rather than silently running the worker unsandboxed. The
+        /// <c>ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1</c> env var is the
+        /// explicit, security-event-logged opt-out (see
+        /// <see cref="SandboxPolicy"/>).
         /// </summary>
         public static IScriptWorkerLauncher CreateDefaultLauncher()
         {
@@ -122,8 +126,9 @@ namespace AccessibleTrader.Core.Services
             if (OperatingSystem.IsWindows())
                 return new WindowsAppContainerLauncher();
             // Linux (incl. the WebHost): bubblewrap sandbox when bwrap is present;
-            // LinuxBwrapLauncher falls back to DefaultProcessLauncher internally if
-            // it isn't, so this is safe on a host without bubblewrap installed.
+            // if it isn't, LinuxBwrapLauncher refuses to launch (with an install
+            // hint in the exception message) instead of silently running the
+            // worker unsandboxed.
             if (OperatingSystem.IsLinux())
                 return new LinuxBwrapLauncher();
             return new DefaultProcessLauncher();

@@ -158,6 +158,13 @@ or Stocks) and then enter the **API Key**, the **API Secret**, and, only if your
 provider issues one, a **Passphrase** (it is labelled Optional and you can leave it
 blank for providers that do not use one). All three secret fields are masked.
 
+Everything the profile stores — the secrets *and* the profile list itself (which
+providers you use, the nicknames, the environments) — is held in your operating
+system's encrypted credential storage, never in a plain-text file on disk. Older
+versions kept the profile list (though never the secrets) in a plain file; the first
+run of a current build migrates it into encrypted storage automatically and removes
+the old file.
+
 Activate the **Save Profile** button and the terminal confirms with "Profile
 {name} saved". A profile must be the active one for its provider before its data
 or trading access is used in the current session; if you keep more than one profile
@@ -998,6 +1005,16 @@ operating system itself. The one exception is **iOS**, which provides no such sa
 custom-script compilation is disabled there — the editor still works as a text editor,
 it just can't run; use the Windows, macOS, or Linux build for scripting. The full design
 is in `docs/SANDBOX_DESIGN.md`.
+
+**The sandbox is required, not optional.** If the operating-system sandbox is missing —
+on Linux that means the `bubblewrap` package (the `bwrap` command) is not installed —
+the terminal refuses to run scripts rather than quietly running them unprotected, and
+the compile attempt reports exactly what is missing and how to fix it. On Linux, install
+your distribution's `bubblewrap` package and restart. If you genuinely want to run
+scripts without the OS sandbox (for example on a locked-down machine you fully trust),
+set the environment variable `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1`; the
+terminal will honour it, and it records a security event every time a script runs that
+way so the decision is never invisible.
 
 ---
 

@@ -4,6 +4,49 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-09] — Security hardening (Finalization plan, Phase A)
+
+Phase A of `docs/FINALIZATION_PLAN.md` (the five-area finalization audit: mouse, touch,
+UX/disabilities, tests, security). Full rationale per item in `CHANGES.md` [Unreleased].
+Pending real-app verification by Cody.
+
+### Shipped
+
+- [x] **Sandbox-or-refuse for custom scripts.** Missing OS sandbox primitive (bwrap /
+  sandbox-exec / AppContainer) now throws `ScriptSandboxUnavailableException` with an
+  install hint instead of silently running the worker unsandboxed. Explicit opt-out
+  `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1`, security-event-logged
+  (`SecurityEventKind.UnsandboxedScriptOverride`). New `SandboxPolicy` + refusal tests.
+- [x] **WebHost response security headers** (`SecurityHeadersPolicy`): CSP,
+  X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS on
+  HTTPS. Runtime-verified with curl (headers present; page + static assets 200).
+- [x] **API-key metadata encrypted at rest** — moved from plaintext `apikeys_meta.json`
+  into `ISecureStorageService` with one-time migration (plaintext deleted only after the
+  encrypted write succeeds); mutations serialized under the service lock. 9 new tests.
+- [x] **Two-tier auth rate limiting** (`AuthRateLimitPolicy`): general 200/10 s per IP
+  unchanged; POST `/account/login` + `/account/register` limited to 10 / 5 min per IP.
+- [x] **Monotonic clocks** in `LiveStreamManager` watchdog + `EarconService` throttle
+  (`Environment.TickCount64` instead of `DateTime.Now` interval math).
+- [x] **Bounded live-stream channels** in `LiveStreamManager` + `DataOrchestrator`
+  (1024, drop-oldest).
+- [x] **Timeframe validation at the data choke point** (`TimeframeUtility.IsValid`,
+  mirroring the existing `SymbolValidator` check, all modes). New tests.
+- [x] **Tier-1 money-path unit tests** for `GeneralOrderService`, `PaperTradingProvider`,
+  `RiskPercentPositionSizer`, `ApiKeyService`.
+- [x] **Verifications closed, no code change needed:** no ISession → audit's
+  session-fixation claim not applicable; antiforgery tokens auto-emitted (tag helpers);
+  circuit hijacking blocked by SameSite=Lax; dp-keys chmod/backup guidance added to
+  SERVER_SETUP.md.
+
+### Deliberately deferred (tracked, not forgotten)
+
+- [ ] Plugin trust manifest cryptographic signing (hash-based TOFU fine until
+  third-party plugin distribution).
+- [ ] Per-user (post-auth) rate limiting.
+- [ ] CAPTCHA-alternative / accessible fallback flow on 429 for shared-IP users.
+
+---
+
 ## [2026-07-06] — Mouse pan/zoom, unified Trading/Analytics, hosted paper, tab-bar fix
 
 Targeted for the **1.4.0** release. All shipped items build clean with the full test

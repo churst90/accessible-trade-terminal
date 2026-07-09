@@ -9,56 +9,90 @@ using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
 {
-    // Local struct to save metadata only to disk (credentials stored separately in SecureStorage)
+    // Metadata for a key profile (credentials stored separately in SecureStorage).
+    // Since 2026-07 the metadata list itself is ALSO stored via ISecureStorageService
+    // (encrypted at rest) rather than as plaintext JSON on disk — the plaintext file
+    // leaked which exchanges a user trades on and the profile nicknames/environments.
     internal record ApiKeyMetadata(string Provider, string Nickname, string MarketType,
         string Environment = "Paper", bool IsActive = false);
 
     public class ApiKeyService : IApiKeyService
     {
-        private readonly string _filePath;
+        /// <summary>SecureStorage entry holding the serialized metadata list.</summary>
+        internal const string MetaStorageKey = "apikeys_meta";
+
+        private readonly string _legacyFilePath;
         private readonly ILogger<ApiKeyService> _logger;
         private readonly ISecureStorageService _secureStorage;
         private List<ApiKeyMetadata> _cache = new();
-        private readonly SemaphoreSlim _loadLock = new(1, 1);
+        private readonly SemaphoreSlim _lock = new(1, 1);
         private bool _isLoaded;
 
         public ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage)
+            : this(logger, secureStorage,
+                   Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                "AccessibleTrader", "apikeys_meta.json"))
+        {
+        }
+
+        /// <summary>Test seam: inject the legacy plaintext path so migration is verifiable.</summary>
+        internal ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage, string legacyFilePath)
         {
             _logger = logger;
             _secureStorage = secureStorage;
-            _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AccessibleTrader", "apikeys_meta.json");
+            _legacyFilePath = legacyFilePath;
         }
 
         private async Task EnsureLoadedAsync()
         {
             if (_isLoaded) return;
-            await _loadLock.WaitAsync().ConfigureAwait(false);
+            await _lock.WaitAsync().ConfigureAwait(false);
             try
             {
                 if (_isLoaded) return;
-                if (File.Exists(_filePath))
+
+                var json = await _secureStorage.GetAsync(MetaStorageKey).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(json))
                 {
-                    var json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
                     _cache = JsonSerializer.Deserialize<List<ApiKeyMetadata>>(json) ?? new List<ApiKeyMetadata>();
+                }
+                else if (File.Exists(_legacyFilePath))
+                {
+                    // One-time migration from the pre-2026-07 plaintext metadata file.
+                    // The plaintext copy is deleted only after the encrypted write
+                    // succeeded, so a failed migration loses nothing.
+                    var legacyJson = await File.ReadAllTextAsync(_legacyFilePath).ConfigureAwait(false);
+                    _cache = JsonSerializer.Deserialize<List<ApiKeyMetadata>>(legacyJson) ?? new List<ApiKeyMetadata>();
+                    await _secureStorage.SetAsync(MetaStorageKey, JsonSerializer.Serialize(_cache)).ConfigureAwait(false);
+                    try
+                    {
+                        File.Delete(_legacyFilePath);
+                        _logger.LogInformation("Migrated API key metadata from plaintext {Path} into secure storage.", _legacyFilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Migrated API key metadata into secure storage but could not delete the plaintext file {Path}. Delete it manually.", _legacyFilePath);
+                    }
                 }
                 _isLoaded = true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading API keys metadata from {Path}.", _filePath);
+                _logger.LogError(ex, "Error loading API keys metadata.");
             }
             finally
             {
-                _loadLock.Release();
+                _lock.Release();
             }
         }
 
-        private async Task SaveAsync()
+        /// <summary>Persist the cache. Caller must hold <see cref="_lock"/>.</summary>
+        private async Task SaveLockedAsync()
         {
             try
             {
-                var json = JsonSerializer.Serialize(_cache, new JsonSerializerOptions { WriteIndented = true });
-                await AtomicFile.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+                var json = JsonSerializer.Serialize(_cache);
+                await _secureStorage.SetAsync(MetaStorageKey, json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -66,17 +100,20 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        private async Task<ApiKeyConfig> ToConfigAsync(ApiKeyMetadata meta)
+        {
+            string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
+            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
+            string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
+            return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
+        }
+
         public async Task<List<ApiKeyConfig>> GetAllKeysAsync()
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
             var results = new List<ApiKeyConfig>();
-            foreach (var meta in _cache)
-            {
-                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
-                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
-                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
-                results.Add(new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive));
-            }
+            foreach (var meta in _cache.ToList())
+                results.Add(await ToConfigAsync(meta).ConfigureAwait(false));
             return results;
         }
 
@@ -86,12 +123,7 @@ namespace AccessibleTrader.Core.Services
             var metas = _cache.Where(k => k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase)).ToList();
             var results = new List<ApiKeyConfig>();
             foreach (var meta in metas)
-            {
-                string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
-                string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
-                string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
-                results.Add(new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive));
-            }
+                results.Add(await ToConfigAsync(meta).ConfigureAwait(false));
             return results;
         }
 
@@ -114,12 +146,7 @@ namespace AccessibleTrader.Core.Services
                             k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
             if (meta == null) return null;
-
-            string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
-            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
-            string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
-
-            return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
+            return await ToConfigAsync(meta).ConfigureAwait(false);
         }
 
         public async Task<ApiKeyConfig?> GetActiveKeyForProviderAsync(string provider, string environment = "Paper")
@@ -131,40 +158,39 @@ namespace AccessibleTrader.Core.Services
                 k.IsActive);
 
             if (meta == null) return null;
-
-            string key    = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
-            string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
-            string pass   = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
-
-            return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
+            return await ToConfigAsync(meta).ConfigureAwait(false);
         }
 
         public async Task SetActiveKeyAsync(string nickname)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var target = _cache.FirstOrDefault(k => k.Nickname == nickname);
-            if (target == null) return;
-
-            // Deactivate other profiles for same provider+environment, activate this one.
-            for (int i = 0; i < _cache.Count; i++)
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
             {
-                var m = _cache[i];
-                if (m.Provider.Equals(target.Provider, StringComparison.OrdinalIgnoreCase) &&
-                    m.Environment.Equals(target.Environment, StringComparison.OrdinalIgnoreCase))
+                var target = _cache.FirstOrDefault(k => k.Nickname == nickname);
+                if (target == null) return;
+
+                // Deactivate other profiles for same provider+environment, activate this one.
+                for (int i = 0; i < _cache.Count; i++)
                 {
-                    _cache[i] = m with { IsActive = m.Nickname == nickname };
+                    var m = _cache[i];
+                    if (m.Provider.Equals(target.Provider, StringComparison.OrdinalIgnoreCase) &&
+                        m.Environment.Equals(target.Environment, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _cache[i] = m with { IsActive = m.Nickname == nickname };
+                    }
                 }
+                await SaveLockedAsync().ConfigureAwait(false);
             }
-            await SaveAsync().ConfigureAwait(false);
+            finally
+            {
+                _lock.Release();
+            }
         }
 
         public async Task SaveKeyAsync(ApiKeyConfig config)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var existing = _cache.FirstOrDefault(k => k.Nickname == config.Nickname);
-            if (existing != null) _cache.Remove(existing);
-
-            _cache.Add(new ApiKeyMetadata(config.Provider, config.Nickname, config.MarketType, config.Environment, config.IsActive));
 
             try
             {
@@ -178,20 +204,36 @@ namespace AccessibleTrader.Core.Services
                 throw;
             }
 
-            await SaveAsync().ConfigureAwait(false);
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                _cache.RemoveAll(k => k.Nickname == config.Nickname);
+                _cache.Add(new ApiKeyMetadata(config.Provider, config.Nickname, config.MarketType, config.Environment, config.IsActive));
+                await SaveLockedAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _lock.Release();
+            }
         }
 
         public async Task RemoveKeyAsync(string nickname)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var existing = _cache.FirstOrDefault(k => k.Nickname == nickname);
-            if (existing != null)
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
             {
-                _cache.Remove(existing);
+                int removed = _cache.RemoveAll(k => k.Nickname == nickname);
+                if (removed == 0) return;
+
                 _secureStorage.Remove($"apikey_{nickname}_key");
                 _secureStorage.Remove($"apikey_{nickname}_secret");
                 _secureStorage.Remove($"apikey_{nickname}_passphrase");
-                await SaveAsync().ConfigureAwait(false);
+                await SaveLockedAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
     }

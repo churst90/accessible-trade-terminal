@@ -55,7 +55,16 @@ namespace AccessibleTrader.Core.Services
 
         private readonly DataStateMachine _stateMachine;
         private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
-        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel = System.Threading.Channels.Channel.CreateUnbounded<Ohlcv>();
+        // Bounded with drop-oldest so a slow/stalled consumer can't grow memory
+        // without limit on a fast feed (mirrors LiveStreamManager's channel). Stale
+        // oldest bars are the right thing to shed — newer writes of the same bucket
+        // supersede them.
+        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel =
+            System.Threading.Channels.Channel.CreateBounded<Ohlcv>(
+                new System.Threading.Channels.BoundedChannelOptions(1024)
+                {
+                    FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
+                });
 
         public System.Threading.Channels.ChannelReader<Ohlcv> LiveStream => _liveStreamChannel.Reader;
         public DataState CurrentState => _stateMachine.CurrentState;
@@ -150,6 +159,17 @@ namespace AccessibleTrader.Core.Services
                 return new List<Ohlcv>();
             }
 
+            // Same choke-point defense for the timeframe token: it is interpolated
+            // into provider URLs and drives period math, so malformed values are
+            // rejected before any request is built (in every mode, not just demo).
+            if (!TimeframeUtility.IsValid(timeframe))
+            {
+                _logger.LogWarning("Rejected invalid timeframe '{Timeframe}' for provider {Provider}.", timeframe, provider);
+                if (!silent)
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid timeframe '{timeframe}' for {provider}."));
+                return new List<Ohlcv>();
+            }
+
             try
             {
                 if (!silent) _stateMachine.Fire(DataTrigger.FetchHistoricalStarted);
@@ -198,6 +218,13 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogWarning("Rejected invalid symbol '{Symbol}' for live stream on {Provider}.", symbol, providerName);
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid symbol '{symbol}' for {providerName}."));
+                return;
+            }
+
+            if (!TimeframeUtility.IsValid(timeframe))
+            {
+                _logger.LogWarning("Rejected invalid timeframe '{Timeframe}' for live stream on {Provider}.", timeframe, providerName);
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid timeframe '{timeframe}' for {providerName}."));
                 return;
             }
 

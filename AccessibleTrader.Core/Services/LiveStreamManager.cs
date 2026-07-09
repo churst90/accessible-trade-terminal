@@ -17,7 +17,17 @@ namespace AccessibleTrader.Core.Services
         private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<LiveStreamManager> _logger;
 
-        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel = System.Threading.Channels.Channel.CreateUnbounded<Ohlcv>();
+        // Bounded with drop-oldest so a slow/stalled consumer can't grow memory
+        // without limit on a fast feed. 1024 consolidated bars is far more than a
+        // healthy UI ever leaves unread; when the consumer lags that badly, the
+        // stale oldest bars are the right thing to shed (each newer write of the
+        // same bucket supersedes them anyway).
+        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel =
+            System.Threading.Channels.Channel.CreateBounded<Ohlcv>(
+                new System.Threading.Channels.BoundedChannelOptions(1024)
+                {
+                    FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
+                });
         public virtual System.Threading.Channels.ChannelReader<Ohlcv> LiveStream => _liveStreamChannel.Reader;
 
         private IDisposable? _currentProviderSubscription;
@@ -28,7 +38,11 @@ namespace AccessibleTrader.Core.Services
         private Ohlcv? _currentBucketCandle;
         private string? _currentLiveTimeframe;
         private CancellationTokenSource? _fallbackCts;
-        private DateTime _lastTickReceived = DateTime.MinValue;
+        // Monotonic (Environment.TickCount64) rather than DateTime.Now: the silence
+        // watchdog compares intervals, and wall-clock time is not monotonic — an NTP
+        // step or VM time jump could stall the watchdog forever (clock back) or fire
+        // it spuriously (clock forward). 0 == "long ago" before the first tick.
+        private long _lastTickAtMs;
         private bool _fallbackAnnounced = false;
 
         // Reconnect state — tracks the current subscription parameters so the
@@ -90,7 +104,7 @@ namespace AccessibleTrader.Core.Services
             _currentProviderName = providerName;
             _currentSymbol = symbol;
             _reconnectAttempts = 0;
-            _lastTickReceived = DateTime.Now;
+            _lastTickAtMs = Environment.TickCount64;
 
             SubscribeToProvider(provider, market, symbol, timeframe);
 
@@ -126,7 +140,7 @@ namespace AccessibleTrader.Core.Services
 
             _currentProviderSubscription = provider.LiveStream.Subscribe(tick =>
             {
-                _lastTickReceived = DateTime.Now;
+                _lastTickAtMs = Environment.TickCount64;
                 _fallbackAnnounced = false;
                 _reconnectAttempts = 0;
 
@@ -162,7 +176,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     await Task.Delay(WatchdogInterval, token).ConfigureAwait(false);
 
-                    if (DateTime.Now - _lastTickReceived <= SilenceThreshold)
+                    if (Environment.TickCount64 - _lastTickAtMs <= (long)SilenceThreshold.TotalMilliseconds)
                         continue;
 
                     // A socket that is *up but quiet* must NOT be storm-reconnected:
@@ -239,7 +253,7 @@ namespace AccessibleTrader.Core.Services
             await provider.EnsureConnectedAsync().ConfigureAwait(false);
 
             _currentLiveProvider = provider;
-            _lastTickReceived = DateTime.Now;
+            _lastTickAtMs = Environment.TickCount64;
 
             SubscribeToProvider(provider, market, symbol, timeframe);
             await provider.SetSubscriptionAsync(market, symbol, timeframe).ConfigureAwait(false);
@@ -252,7 +266,7 @@ namespace AccessibleTrader.Core.Services
 
         private void StopFallbackPolling()
         {
-            // The watchdog uses _lastTickReceived and _reconnectAttempts to self-throttle.
+            // The watchdog uses _lastTickAtMs and _reconnectAttempts to self-throttle.
             // No explicit stop needed — successful ticks reset the counters.
         }
 

@@ -19,9 +19,10 @@ Outside both flags it's the plain single-user local app — unchanged.
 ## Prerequisites
 
 - **.NET 10 runtime** (or publish self-contained, below — then no runtime needed).
-- **`bubblewrap`** (`bwrap`) if you allow custom user scripts — the Linux script sandbox
-  falls back to process-isolation-only without it. (Hosted mode disables custom scripts
-  anyway, so this only matters for a local/full server.)
+- **`bubblewrap`** (`bwrap`) if you allow custom user scripts — since 2026-07 script
+  execution is **refused** when bwrap is missing (it no longer silently falls back to
+  process-isolation-only). (Hosted mode disables custom scripts anyway, so this only
+  matters for a local/full server.)
 - **nginx** (TLS termination + reverse proxy) for any public deployment.
 - Audio is **browser-side** (WebAudio) for remote users, so a headless server needs no
   audio stack. (PipeWire/PulseAudio matters only for a *local* Linux user running the
@@ -64,6 +65,7 @@ curl -sf http://127.0.0.1:5150/terminal/_framework/blazor.web.js   # must be 200
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
 | `ACCOUNTS_SEED_EMAIL` / `ACCOUNTS_SEED_PASSWORD` | hosted (optional) | provision one owner/admin account at startup, bypassing the public password policy. Idempotent. |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` | optional | isolate a staging instance's state from a live one |
+| `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS` | desktop/local only | `1` opts into running custom scripts when the OS sandbox primitive is missing (bwrap / sandbox-exec / AppContainer). Default: script execution is **refused** without the sandbox. Every launch under the override is recorded to the security event log. Never set this on a server. |
 
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
 paper-only; the API-keys modal is gated off).
@@ -160,16 +162,31 @@ location /terminal/ {
 }
 ```
 (`/app/` for the demo is the same shape on the demo's port.) The app *also* runs an
-in-process per-IP fixed-window rate limiter (200 req / 10 s) in accounts mode, so nginx
-`limit_conn` and the app limiter are belt-and-braces.
+in-process per-IP fixed-window rate limiter in accounts mode, so nginx `limit_conn` and
+the app limiter are belt-and-braces. Since 2026-07 the app limiter has two tiers per
+client IP (`AuthRateLimitPolicy`): 200 req / 10 s for general traffic, and a strict
+10 attempts / 5 min for POSTs to `/account/login` and `/account/register`, so one IP
+cannot brute-force credentials at page-load rates. Identity's per-account lockout is
+the second layer behind it.
 
 ## Security checklist (hosted)
 
 - HTTPS only at nginx; `Secure` + `HttpOnly` + `SameSite=Lax` auth cookie (14-day sliding).
-- `dp-keys/` persisted and **backed up** (losing it invalidates all sessions/antiforgery).
+  `SameSite=Lax` also blocks cross-site WebSocket hijacking of the Blazor circuit —
+  browsers do not attach Lax cookies to cross-site WebSocket handshakes.
+- Response security headers are set by the app on every response (`SecurityHeadersPolicy`,
+  added 2026-07): CSP (`script-src 'self'`, `frame-ancestors 'none'`),
+  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`,
+  `Permissions-Policy`, and HSTS on HTTPS requests (accurate behind nginx because
+  `X-Forwarded-Proto` is honoured). Don't set conflicting duplicates in nginx.
+- `dp-keys/` persisted and **backed up** (losing it invalidates all sessions/antiforgery
+  and orphans the encrypted secret store). Restrict it to the service user:
+  `chmod -R 700` on the directory, owned by the service account, no other readers.
 - Back up `auth.db` + `users/` + `dp-keys/` (single instance = single disk).
 - Real-money trading and broker keys are **desktop-only** — never on the server.
-- Custom user scripts are **off** in hosted mode (server-side Roslyn = RCE risk).
+- Custom user scripts are **off** in hosted mode (server-side Roslyn = RCE risk). Anywhere
+  scripts ARE enabled (local WebHost / desktop Linux), `bubblewrap` must be installed —
+  without it, script execution is refused rather than silently unsandboxed.
 - Bind Kestrel to loopback (`127.0.0.1`); nginx is the only public entry.
 
 ## Known limitations (current)

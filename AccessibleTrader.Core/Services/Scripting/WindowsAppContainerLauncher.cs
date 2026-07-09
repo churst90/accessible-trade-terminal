@@ -41,11 +41,13 @@ namespace AccessibleTrader.Core.Services.Scripting;
 /// installers under <c>Program Files</c> grant this automatically via
 /// the built-in <c>ALL APPLICATION PACKAGES</c> ACE. Dev builds under
 /// <c>%USERPROFILE%</c> may not — if <c>CreateProcessW</c> fails with
-/// <c>ERROR_ACCESS_DENIED</c> the launcher logs the precise
-/// <c>GetLastError</c> code via <see cref="SandboxApplied"/> returning
-/// <c>false</c> and falls through to the default launcher, so the
-/// feature keeps working on a developer's desk at the cost of the OS
-/// sandbox boundary.
+/// <c>ERROR_ACCESS_DENIED</c> the launcher records the precise
+/// <c>GetLastError</c> code and REFUSES to run the worker
+/// (<see cref="ScriptSandboxUnavailableException"/>) rather than
+/// silently dropping the OS sandbox boundary. Developers can set
+/// <c>ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1</c> to restore the
+/// old fall-through behaviour; every launch under the override is
+/// recorded to the security event log.
 /// </para>
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -97,9 +99,16 @@ public sealed class WindowsAppContainerLauncher : IScriptWorkerLauncher
         var sid = _profileSid.Value;
         if (sid == IntPtr.Zero)
         {
-            SandboxApplied = false;
+            // No AppContainer available. Refuse unless the user explicitly
+            // accepted unsandboxed execution — never downgrade silently.
             RecordFallback("appcontainer profile SID unavailable (unsupported OS or userenv.dll call failed)",
                 win32Error: 0);
+            SandboxPolicy.EnforceOrThrow(
+                SandboxPolicy.AllowUnsandboxedFallback,
+                details: "the Windows AppContainer profile could not be created (unsupported OS or userenv.dll call failed).",
+                remedy: "Windows 8 or newer is required for AppContainer isolation.");
+            SandboxApplied = false;
+            SandboxPolicy.RecordUnsandboxedFallback(nameof(WindowsAppContainerLauncher), "profile SID unavailable");
             return _fallback.Launch(workerExecutablePath);
         }
 
@@ -109,15 +118,22 @@ public sealed class WindowsAppContainerLauncher : IScriptWorkerLauncher
         }
         catch (Win32Exception w32)
         {
-            // Record for diagnostic surfaces then fall through. Access
-            // denied (0x5) on the worker image ACL is the most common
-            // dev-box failure; user can grant read access to
-            // "ALL APPLICATION PACKAGES" on the worker directory to fix.
+            // Access denied (0x5) on the worker image ACL is the most common
+            // dev-box failure; the user can grant read access to
+            // "ALL APPLICATION PACKAGES" on the worker directory to fix it.
+            // Record for diagnostic surfaces, then refuse (or fall through
+            // when the unsandboxed override is set).
             LastCreateProcessError = w32.NativeErrorCode;
-            SandboxApplied = false;
             RecordFallback(
                 $"CreateProcessW failed (0x{w32.NativeErrorCode:X}): {w32.Message}",
                 w32.NativeErrorCode);
+            SandboxPolicy.EnforceOrThrow(
+                SandboxPolicy.AllowUnsandboxedFallback,
+                details: $"launching inside the Windows AppContainer failed (0x{w32.NativeErrorCode:X}: {w32.Message}).",
+                remedy: "If this is error 0x5 (access denied), grant 'ALL APPLICATION PACKAGES' read access to the application directory.");
+            SandboxApplied = false;
+            SandboxPolicy.RecordUnsandboxedFallback(nameof(WindowsAppContainerLauncher),
+                $"CreateProcessW failed 0x{w32.NativeErrorCode:X}");
             return _fallback.Launch(workerExecutablePath);
         }
     }

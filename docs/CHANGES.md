@@ -6,6 +6,73 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Security hardening — Phase A of the finalization plan (`docs/FINALIZATION_PLAN.md`).
+
+**Script sandbox is now mandatory (refuse, don't downgrade).** When the OS sandbox
+primitive is unavailable at script-launch time — `bwrap` not installed on Linux,
+`sandbox-exec` masked on macOS, AppContainer creation failing on Windows — the launcher
+previously fell back to the unsandboxed `DefaultProcessLauncher` silently. It now throws
+`ScriptSandboxUnavailableException` with a user-readable message (shown in the Custom
+Scripts modal) naming the missing piece, the fix, and the explicit override.
+`ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1` restores the old fallback for users who
+accept the risk; every launch under the override records a new
+`SecurityEventKind.UnsandboxedScriptOverride` security event. Central logic in the new
+`SandboxPolicy` (Core/Services/Scripting); enforced by the Linux, macOS, and Windows
+launchers. New refusal tests in `LinuxBwrapLauncherTests`.
+
+**Response security headers on every WebHost mode.** New `SecurityHeadersPolicy`
+middleware sets `Content-Security-Policy` (`script-src 'self'`, `style-src 'self'
+'unsafe-inline'` for Blazor's inline style attributes, `connect-src` incl. ws/wss for
+the SignalR circuit, `frame-ancestors 'none'`, `object-src 'none'`),
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`,
+`Permissions-Policy`, and HSTS on HTTPS requests (accurate behind nginx via
+X-Forwarded-Proto). Verified live against a local run (headers present, page + static
+assets serve normally). Pinned by `WebHostSecurityPolicyTests`.
+
+**API-key metadata is now encrypted at rest.** `ApiKeyService` stored profile metadata
+(provider names, nicknames, environments, active flags) in plaintext
+`apikeys_meta.json` — secrets were always in SecureStorage, but the metadata alone
+leaks which exchanges a user trades on. The metadata list now lives in
+`ISecureStorageService` under `apikeys_meta`; a one-time migration loads the legacy
+plaintext file, writes the encrypted copy, and deletes the plaintext only after the
+encrypted write succeeded. Mutations (`SaveKeyAsync`/`RemoveKeyAsync`/
+`SetActiveKeyAsync`) are now serialized under the service's lock (previously unguarded
+list mutation). New `ApiKeyServiceTests` (9 tests: round-trip, migration, no-plaintext,
+missing-secret null safety, active-flag exclusivity, replace-by-nickname, concurrency).
+
+**Stricter rate limiting on credential endpoints.** The hosted-mode limiter was one
+per-IP window (200 req / 10 s) for everything — ~72k password attempts per hour per IP.
+New `AuthRateLimitPolicy` partitions per IP into a general tier (unchanged 200/10 s)
+and an auth tier (10 POSTs / 5 min to `/account/login` + `/account/register`); GETs of
+the forms stay general so screen-reader users re-rendering the page are never
+throttled. Pinned by `WebHostSecurityPolicyTests`.
+
+**Monotonic clocks in interval logic.** `LiveStreamManager`'s silence watchdog and
+`EarconService`'s per-earcon throttle compared `DateTime.Now` differences — wall-clock
+time is not monotonic, so an NTP step or VM resume could stall the reconnect watchdog
+forever (clock back) or fire it spuriously (clock forward). Both now use
+`Environment.TickCount64`.
+
+**Live-stream channels bounded.** The unbounded tick channels in `LiveStreamManager`
+and `DataOrchestrator` could grow without limit if the consumer stalled on a fast feed.
+Both are now bounded (1024, drop-oldest — newer writes of the same bucket supersede the
+shed bars).
+
+**Timeframe tokens validated at the data choke point.** `SymbolValidator` already
+rejected malformed symbols in every mode at `DataOrchestrator`; timeframe strings — also
+interpolated into provider URLs — now get the same treatment via the new
+`TimeframeUtility.IsValid` (all 15 standard timeframes pass; malformed, zero-duration,
+absurd-magnitude, and injection-shaped tokens are rejected). New
+`TimeframeValidatorTests`.
+
+**Security-claim verifications recorded** (no code change needed): no `ISession` usage
+so the audit's session-fixation concern doesn't apply; antiforgery tokens are auto-
+emitted by the form tag helper in all account pages; cross-site WebSocket hijacking of
+the Blazor circuit is blocked by the `SameSite=Lax` cookie; dp-keys backup guidance
+extended with file-permission hardening. Details in `docs/FINALIZATION_PLAN.md` §5.
+
+## [1.4.0] — 2026-07-06
+
 **Trading and Analytics are one unified interface.** The separate Trading/Analytics
 mode toggle is gone. The Market dropdown now lists every tradeable market plus a single
 **"Analytics"** umbrella entry; selecting it reveals an **Analytics type** dropdown
