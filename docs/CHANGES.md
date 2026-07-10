@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.5.0] — 2026-07-10
+
+The **finalization release**: a full mouse-interaction suite, web touch support with
+mobile screen-reader navigation, an opt-in visual-accessibility set (the terminal
+stays audio-first by default), broad security hardening, and a large test-coverage
+expansion (1,176 → 1,505 xunit tests, plus a new JS gesture suite). No breaking
+changes — saved workspaces, shortcuts, and API keys from 1.4.0 all carry forward; the
+API-key metadata is migrated to encrypted storage transparently on first run.
 
 ### Finalization tie-ups — rendering tests, CI, shortcut UX (2026-07-10)
 
