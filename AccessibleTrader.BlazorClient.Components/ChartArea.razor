@@ -33,12 +33,36 @@
    div (z-index 0, pointer-events: none) and the same ChartRenderer paints into
    it via OnPaintSurface. The pane dividers, blackout overlay, and ARIA wiring
    stack on top exactly as before. *@
+@* Bar navigator for MOBILE SCREEN READERS (VoiceOver / TalkBack): the web analog
+   of the iOS "adjustable" trait. A real range input is the one custom-widget
+   pattern both mobile screen readers adjust natively — flick up/down (or volume
+   keys on TalkBack) moves through bars, and each step routes through the same
+   NavigateAction + feedback pipeline as the arrow keys, so the bar is spoken
+   and sonified identically. Visually hidden until keyboard-focused (so sighted
+   keyboard users who Tab onto it can see it). Known limit, documented: iOS
+   VoiceOver steps sliders by ~10% of range per flick; per-bar granularity on
+   iOS arrives with the native adjustable element in the MAUI head (Phase C
+   second pass). TalkBack honours step=1. *@
+@if ((Store.State.Data?.Count ?? 0) > 0)
+{
+    <input type="range"
+           id="chart-bar-slider"
+           class="chart-bar-slider"
+           min="0"
+           max="@(Store.State.Data!.Count - 1)"
+           step="1"
+           value="@Store.State.CurrentDataIndex"
+           aria-label="Bar navigator. Flick up or down to move through bars."
+           aria-valuetext="@GetBarSliderValueText()"
+           @oninput="OnBarSliderInput" />
+}
+
 <div role="application"
      aria-label="@GetChartLabel()"
      tabindex="0"
      @ref="_chartContainer"
      id="chart-interact-zone"
-     style="flex: 1; background: transparent; position: relative; outline: none; width: 100%; height: 100%; cursor: @(_isDragging ? "ns-resize" : "default");"
+     style="flex: 1; background: transparent; position: relative; outline: none; width: 100%; height: 100%; touch-action: none; cursor: @(_isDragging ? "ns-resize" : "default");"
      @onfocus="OnChartFocused"
      @onblur="OnChartBlurred"
      @onkeydown="OnKeyDown"
@@ -150,6 +174,27 @@
     .pane-divider:hover {
         background: rgba(255, 255, 255, 0.15);
     }
+    /* Screen-reader bar navigator: visually hidden (classic clip pattern keeps it
+       focusable + SR-reachable), expands into view when keyboard-focused so a
+       sighted Tab user is never focused on an invisible control (WCAG 2.4.7). */
+    .chart-bar-slider {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .chart-bar-slider:focus {
+        position: static;
+        width: 100%;
+        height: 28px;
+        margin: 0;
+        clip: auto;
+        overflow: visible;
+        outline: var(--focus-outline, 2px solid #ffff00);
+    }
 </style>
 
 @code {
@@ -231,6 +276,15 @@
                 InvokeAsync(StateHasChanged);
             });
         _subs.Add(storeSub);
+
+        // 2a. Keep the screen-reader bar slider's value/valuetext in sync with the
+        // keyboard cursor (arrow keys, clicks, playback). Distinct-until-changed on
+        // the index so ordinary state churn doesn't re-render the component.
+        var cursorSub = Store.StateStream
+            .Select(s => s.CurrentDataIndex)
+            .DistinctUntilChanged()
+            .Subscribe(_ => InvokeAsync(StateHasChanged));
+        _subs.Add(cursorSub);
 
         // 2b. Browser-only chart re-render. Under MAUI the native canvas is
         // repainted by MainPage subscribing to the same streams; here we
@@ -364,6 +418,38 @@
             DataState.Stalled => "Waiting for market data heartbeat...",
             _ => "Please select a symbol and press Load Chart."
         };
+    }
+
+    /// <summary>
+    /// Spoken value for the bar-navigator slider: position in the data, the bar's
+    /// date, and its close. VoiceOver/TalkBack read this on every flick step.
+    /// </summary>
+    private string GetBarSliderValueText()
+    {
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0) return "No data";
+        int i = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
+        var bar = state.Data[i];
+        return $"Bar {i + 1} of {state.Data.Count}. {ChartHoverTracker.FormatBarDate(bar.Date)}, close {PriceFormatter.FormatPrice(bar.Close)}";
+    }
+
+    /// <summary>
+    /// A screen-reader flick (or keyboard arrows while the slider is focused)
+    /// changed the bar navigator. Route through the SAME navigation pipeline the
+    /// arrow keys use — NavigateAction scrolls the viewport to keep the cursor
+    /// visible, and the standard feedback speaks + sonifies the bar.
+    /// </summary>
+    private void OnBarSliderInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int target)) return;
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0) return;
+        target = Math.Clamp(target, 0, state.Data.Count - 1);
+        if (target == state.CurrentDataIndex) return;
+
+        Store.Dispatch(new NavigateAction(target));
+        Store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
     }
 
     private string GetChartLabel()

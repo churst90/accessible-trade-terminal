@@ -190,7 +190,37 @@ Effort: ~1–2 focused days, all Windows-side, additive, no cross-platform risk.
 
 This is the single biggest gap and the gate on a mobile release.
 
-**Current state (verified).** Input is **keyboard-only** everywhere: iOS/macCatalyst via
+> **STATUS UPDATE 2026-07-09 — web touch layer SHIPPED (Finalization plan Phase C,
+> first pass).** The Blazor/web side of this section is implemented and tested:
+>
+> - **Direct-touch gestures** in `keyboard.js` (both hosts): tap = select + hear the
+>   bar, one-finger drag = pan, pinch = anchored zoom, double-tap = jump to live,
+>   long-press = context menu. The gesture state machine synthesizes the SAME .NET
+>   bridge calls the mouse produces, so all gestures reuse the tested mouse pipelines
+>   — no separate gesture command path exists on the web (the `IGestureService`
+>   below remains the design for the NATIVE capture path only).
+> - **Screen-reader bar navigator**: a real `<input type="range">` beside the chart —
+>   the web analog of the iOS adjustable trait. VoiceOver/TalkBack adjust it natively
+>   (flick up/down); every step routes through `NavigateAction` + standard feedback.
+>   Known limit: iOS VoiceOver steps web sliders by ~10% of range; per-bar granularity
+>   on iOS needs the native adjustable element below. TalkBack honours `step=1`.
+> - **Touch toolbar** (`TouchNavBar.razor`, coarse-pointer devices only): Prev/Next
+>   bar, Prev/Next component, Play/Stop, Chart menu as 48px plain buttons — the most
+>   robust mobile-SR pattern, and the guarantee that gestures are never the only path.
+> - **Viewport meta fixed** (removed `user-scalable=no`, WCAG 1.4.4);
+>   `touch-action: none` on the chart zone so gestures reach the handlers.
+>
+> Because the MAUI heads host these same Blazor components in a `BlazorWebView` (the
+> SKCanvasView is `InputTransparent`, so touches land on the WebView), the iOS and
+> Android APPS are expected to gain tap/drag/pinch and the slider through this same
+> layer — **pending on-device verification with real VoiceOver and TalkBack**, which
+> cannot be done from the Linux dev box. The native work below (adjustable
+> UIAccessibilityElement, rotor custom actions, ExploreByTouchHelper) remains the
+> second pass: it gives per-bar VoiceOver granularity, rotor actions, and
+> explore-by-touch, and it should reuse the render-time hit-test index planned in
+> Phase B's second pass.
+
+**Current state (pre-2026-07-09, for the native layer still true).** Native input is **keyboard-only** everywhere: iOS/macCatalyst via
 `KeyboardPageHandler.PressesBegan` (hardware *keys*), Android via
 `MainActivity.DispatchKeyEvent`, browser via the JS key bridge. There is **no** touch or
 gesture path — no `UIGestureRecognizer`, no `touchesBegan`, no `@ontouchstart`/`@onpointer*`
@@ -242,8 +272,10 @@ Android handlers, the gesture→command map, and on-device tuning with VoiceOver
 This is the work the project has been calling "touch gestures still to do," and it is what
 makes `iOS`/`Android` real rather than keyboard-tethered.
 
-Until it lands, the manual should keep stating plainly that **mobile currently requires a
-connected hardware keyboard.**
+Until the native layer lands and is verified on devices, the manual states that touch on
+the mobile apps is **expected but unverified**, and that a connected hardware keyboard
+remains the fully-supported mobile input. The hosted/demo WEBSITE touch support shipped
+2026-07-09 (see status box above).
 
 ---
 

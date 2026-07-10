@@ -537,3 +537,36 @@ label {
 .toolbar-group + .toolbar-group {
     border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* ── Touch navigation toolbar (Phase C) ──────────────────────────────────
+   Hidden on fine-pointer (mouse) devices; shown when the primary pointer is
+   coarse (touchscreens). 48px minimum targets per WCAG 2.5.8/mobile guidance. */
+.touch-nav {
+    display: none;
+    gap: 6px;
+    padding: 6px;
+    background: var(--bg-primary, #121212);
+    border-top: 1px solid #333;
+    justify-content: center;
+}
+@media (pointer: coarse) {
+    .touch-nav { display: flex; }
+}
+.touch-nav-btn {
+    min-width: 48px;
+    min-height: 48px;
+    flex: 1;
+    max-width: 96px;
+    font-size: 1.2rem;
+    background: #1c1c1e;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 6px;
+}
+.touch-nav-btn:focus-visible {
+    outline: var(--focus-outline, 2px solid #ffff00);
+    outline-offset: 2px;
+}
+.touch-nav-btn:active {
+    background: #0078d4;
+}

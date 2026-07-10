@@ -4,6 +4,39 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-09] — Touch input, web-first (Finalization plan, Phase C, first pass)
+
+Phase C of `docs/FINALIZATION_PLAN.md`. Web layer shipped; native (MAUI) layer specced
+in `PLATFORM_STRATEGY_AND_ROADMAP.md` §4 and gated on macOS/device access. Full detail
+in `CHANGES.md` [Unreleased]. Pending real-device verification by Cody.
+
+### Shipped (web: hosted terminal, public demo, and the MAUI apps' WebView)
+
+- [x] **Touch gestures** — tap = select + hear bar; drag = pan; pinch = anchored zoom;
+  double-tap = jump to live; long-press = context menu. JS state machine synthesizes
+  the mouse bridge calls, so all Phase B pipelines + tests cover the .NET side.
+- [x] **Screen-reader bar navigator** — real range input; VO/TalkBack flick up/down =
+  step through bars via NavigateAction + standard feedback; valuetext "Bar N of M,
+  date, close". iOS ~10% flick granularity documented (TalkBack steps 1).
+- [x] **Touch toolbar** (coarse-pointer only) — Prev/Next bar, Prev/Next component,
+  Play/Stop, Chart menu; ≥48 px targets; keyboard-command routing.
+- [x] **Viewport meta WCAG 1.4.4 fix** — pinch-zoom page magnification unblocked in
+  the BlazorWebView host page; `touch-action: none` on the chart zone.
+- [x] 13 new tests; full suite 1301/1301 green.
+
+### Phase C second pass (native, deferred — needs macOS + physical devices)
+
+- [ ] iOS: `UIAccessibilityElement` with adjustable trait over the canvas
+  (per-bar VoiceOver flicks), `accessibilityCustomActions` rotor entries (next
+  component/pane, play, trading ticket, tools), magic-tap = play/stop.
+- [ ] Android: `ExploreByTouchHelper` virtual nodes (adjustable first; per-pane
+  explore-by-touch later — wants Phase B's render-time hit-test index).
+- [ ] On-device VoiceOver + TalkBack verification of the shipped web layer inside the
+  MAUI WebView; then update USER_MANUAL's "expected but unverified" wording.
+- [ ] JS test infra (Vitest) so the gesture state machine gets direct tests (Tier-4).
+
+---
+
 ## [2026-07-09] — Mouse interaction completion (Finalization plan, Phase B, first pass)
 
 Phase B of `docs/FINALIZATION_PLAN.md`. Design rule: every mouse action lands in the

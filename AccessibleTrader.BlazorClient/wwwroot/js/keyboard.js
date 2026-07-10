@@ -284,6 +284,162 @@ window.accessibleTrader = {
             const rect = el.getBoundingClientRect();
             dotnetHelper.invokeMethodAsync('OnMouseEvent', -1, -1, 'MouseLeave', rect.width, rect.height);
         });
+
+        // ── Touch gestures (Phase C) ────────────────────────────────────────
+        // Synthesizes the SAME .NET bridge calls the mouse produces, so every
+        // touch gesture reuses the tested mouse pipelines:
+        //   tap        → MouseDown+MouseUp at rest → select bar (spoken + sonified)
+        //   drag       → MouseDown / MouseMove… / MouseUp → viewport pan
+        //   pinch      → OnWheel(direction, centroidFraction) → anchored zoom
+        //   double-tap → OnDoubleClick → jump to live edge
+        //   long-press → OnContextMenu → chart / drawing context menu
+        // preventDefault on touchstart suppresses the browser's synthetic mouse
+        // events so nothing double-fires (touch-action: none on the element is
+        // the belt to this brace). When VoiceOver/TalkBack run, the screen
+        // reader owns the touchscreen and these rarely fire — the accessible
+        // paths are the bar-navigator slider and the touch toolbar buttons.
+        const touchState = {
+            mode: 'idle',      // idle | pending | drag | pinch | consumed
+            startX: 0, startY: 0,
+            lastTapAt: 0, lastTapX: 0, lastTapY: 0,
+            pressTimer: 0,
+            pinchDist: 0,
+        };
+        const TAP_SLOP_PX = 10;        // finger jitter allowance before a tap becomes a drag
+        const LONG_PRESS_MS = 550;
+        const DOUBLE_TAP_MS = 300;
+        const DOUBLE_TAP_SLOP_PX = 40;
+        const PINCH_STEP = 1.08;       // one zoom notch per 8% spread change
+
+        function clearPressTimer() {
+            if (touchState.pressTimer) { clearTimeout(touchState.pressTimer); touchState.pressTimer = 0; }
+        }
+
+        el.addEventListener('touchstart', function (e) {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const rect = el.getBoundingClientRect();
+                touchState.mode = 'pending';
+                touchState.startX = e.touches[0].clientX - rect.left;
+                touchState.startY = e.touches[0].clientY - rect.top;
+                clearPressTimer();
+                touchState.pressTimer = setTimeout(function () {
+                    if (touchState.mode !== 'pending') return;
+                    touchState.mode = 'consumed';   // long-press: eat the touchend
+                    const r = el.getBoundingClientRect();
+                    dotnetHelper.invokeMethodAsync('OnContextMenu',
+                        touchState.startX, touchState.startY, r.width, r.height);
+                }, LONG_PRESS_MS);
+            } else if (e.touches.length === 2) {
+                clearPressTimer();
+                if (touchState.mode === 'drag') {
+                    // Second finger lands mid-drag: close the synthetic mouse sequence.
+                    const r = el.getBoundingClientRect();
+                    dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                        e.touches[0].clientX - r.left, e.touches[0].clientY - r.top,
+                        'MouseUp', r.width, r.height);
+                }
+                touchState.mode = 'pinch';
+                touchState.pinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY);
+            }
+        }, { passive: false });
+
+        // Drag moves are RAF-throttled like the mouse path so the interop
+        // bridge sees at most one dispatch per paint tick.
+        let touchMoveRaf = 0;
+        let pendingTouch = null;
+        el.addEventListener('touchmove', function (e) {
+            e.preventDefault();
+            const rect = el.getBoundingClientRect();
+
+            if (touchState.mode === 'pinch' && e.touches.length >= 2) {
+                const d = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY);
+                if (d <= 0 || touchState.pinchDist <= 0) return;
+                const centroidFraction =
+                    ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left)
+                    / Math.max(1, rect.width);
+                while (d / touchState.pinchDist >= PINCH_STEP) {           // spread → zoom in
+                    dotnetHelper.invokeMethodAsync('OnWheel', 1, centroidFraction);
+                    touchState.pinchDist *= PINCH_STEP;
+                }
+                while (touchState.pinchDist / d >= PINCH_STEP) {           // squeeze → zoom out
+                    dotnetHelper.invokeMethodAsync('OnWheel', -1, centroidFraction);
+                    touchState.pinchDist /= PINCH_STEP;
+                }
+                return;
+            }
+
+            if (e.touches.length !== 1) return;
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+
+            if (touchState.mode === 'pending') {
+                if (Math.hypot(x - touchState.startX, y - touchState.startY) < TAP_SLOP_PX) return;
+                clearPressTimer();
+                touchState.mode = 'drag';
+                dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                    touchState.startX, touchState.startY, 'MouseDown', rect.width, rect.height);
+            }
+            if (touchState.mode === 'drag') {
+                pendingTouch = { x: x, y: y, w: rect.width, h: rect.height };
+                if (touchMoveRaf) return;
+                touchMoveRaf = requestAnimationFrame(function () {
+                    touchMoveRaf = 0;
+                    if (!pendingTouch || touchState.mode !== 'drag') return;
+                    dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                        pendingTouch.x, pendingTouch.y, 'MouseMove', pendingTouch.w, pendingTouch.h);
+                });
+            }
+        }, { passive: false });
+
+        el.addEventListener('touchend', function (e) {
+            e.preventDefault();
+            clearPressTimer();
+            if (e.touches.length > 0) {
+                // Fingers remain (pinch → one finger left). Wait for a clean lift.
+                touchState.mode = 'consumed';
+                return;
+            }
+            const rect = el.getBoundingClientRect();
+            if (touchState.mode === 'drag') {
+                const t = e.changedTouches[0];
+                dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                    t.clientX - rect.left, t.clientY - rect.top, 'MouseUp', rect.width, rect.height);
+            } else if (touchState.mode === 'pending') {
+                const now = Date.now();
+                const isDoubleTap = (now - touchState.lastTapAt) < DOUBLE_TAP_MS
+                    && Math.hypot(touchState.startX - touchState.lastTapX,
+                                  touchState.startY - touchState.lastTapY) < DOUBLE_TAP_SLOP_PX;
+                if (isDoubleTap) {
+                    touchState.lastTapAt = 0;
+                    dotnetHelper.invokeMethodAsync('OnDoubleClick');
+                } else {
+                    touchState.lastTapAt = now;
+                    touchState.lastTapX = touchState.startX;
+                    touchState.lastTapY = touchState.startY;
+                    // Tap = click-select: full down+up at the rest position.
+                    dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                        touchState.startX, touchState.startY, 'MouseDown', rect.width, rect.height);
+                    dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                        touchState.startX, touchState.startY, 'MouseUp', rect.width, rect.height);
+                }
+            }
+            touchState.mode = 'idle';
+        }, { passive: false });
+
+        el.addEventListener('touchcancel', function () {
+            clearPressTimer();
+            if (touchState.mode === 'drag') {
+                const rect = el.getBoundingClientRect();
+                dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                    touchState.startX, touchState.startY, 'MouseUp', rect.width, rect.height);
+            }
+            touchState.mode = 'idle';
+        });
     },
 
     /**

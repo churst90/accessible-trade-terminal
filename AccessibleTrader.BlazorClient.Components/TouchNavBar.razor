@@ -1,0 +1,85 @@
+@using System.Reactive.Linq
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@inject INavigationEngine Nav
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@implements IDisposable
+
+@*
+    Touch navigation toolbar (Phase C). Plain, large buttons are the single most
+    robust pattern for VoiceOver/TalkBack on the web — every action reachable by
+    swipe + double-tap with zero custom gesture handling — and they serve
+    motor-impaired users and anyone on whom gesture recognition fails. Gestures
+    must never be the only path.
+
+    Hidden on fine-pointer (mouse) devices via CSS `@media (pointer: coarse)` in
+    app.css; keyboard/desktop users have the full shortcut set instead. Every
+    button routes through the exact command the equivalent key uses, so speech
+    and sonification are identical.
+*@
+
+<div class="touch-nav" role="toolbar" aria-label="Touch navigation">
+    <button class="touch-nav-btn" aria-label="Previous bar"
+            @onclick="@(() => Nav.ProcessNavigation("NAV_LEFT"))">
+        <span aria-hidden="true">◀</span>
+    </button>
+    <button class="touch-nav-btn" aria-label="Next bar"
+            @onclick="@(() => Nav.ProcessNavigation("NAV_RIGHT"))">
+        <span aria-hidden="true">▶</span>
+    </button>
+    <button class="touch-nav-btn" aria-label="Previous component"
+            @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_UP"))">
+        <span aria-hidden="true">▲</span>
+    </button>
+    <button class="touch-nav-btn" aria-label="Next component"
+            @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_DOWN"))">
+        <span aria-hidden="true">▼</span>
+    </button>
+    <button class="touch-nav-btn" aria-label="@(IsPlaying ? "Stop playback" : "Play chart")"
+            aria-pressed="@(IsPlaying ? "true" : "false")"
+            @onclick="TogglePlayback">
+        <span aria-hidden="true">@(IsPlaying ? "■" : "▶▶")</span>
+    </button>
+    <button class="touch-nav-btn" aria-label="Chart menu"
+            @onclick="OpenChartMenu">
+        <span aria-hidden="true">☰</span>
+    </button>
+</div>
+
+@code {
+    private IDisposable? _sub;
+
+    private bool IsPlaying => Store.State.IsPlaying || Store.State.IsPaused;
+
+    protected override void OnInitialized()
+    {
+        // Only the play/stop glyph depends on state — re-render on playback flips.
+        _sub = Store.StateStream
+            .Select(s => s.IsPlaying || s.IsPaused)
+            .DistinctUntilChanged()
+            .Subscribe(_ => InvokeAsync(StateHasChanged));
+    }
+
+    /// <summary>Mirrors CommandDispatcher.TogglePlayback(Chart) — the Space key's
+    /// semantics: second press always stops, no hanging pause state.</summary>
+    private void TogglePlayback()
+    {
+        if (Store.State.IsPlaying || Store.State.IsPaused)
+            Store.Dispatch(new SetPlaybackAction(false, PlaybackScope.Chart));
+        else
+            Store.Dispatch(new SetPlaybackAction(true, PlaybackScope.Chart));
+    }
+
+    /// <summary>Opens the chart context menu at its keyboard-origin position,
+    /// carrying the current cursor bar for "Play from here".</summary>
+    private void OpenChartMenu()
+    {
+        EventBus.Publish(new OpenChartContextMenuEvent(
+            double.NaN, double.NaN, Store.State.CurrentDataIndex));
+    }
+
+    public void Dispose() => _sub?.Dispose();
+}

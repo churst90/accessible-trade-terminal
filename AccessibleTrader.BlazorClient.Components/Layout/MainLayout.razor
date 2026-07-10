@@ -71,6 +71,10 @@
 
     <IndicatorBar />
 
+    @* Touch navigation toolbar — visible only on coarse-pointer (touch) devices
+       via CSS. Large-button parity for the core chart commands; see TouchNavBar. *@
+    <TouchNavBar />
+
     @* ── Modals ── All modals subscribe to their own OpenXxxEvent on the EventBus.
        They are rendered here (outside <main>) so they overlay the entire viewport. *@
     @* Always available (even in the public demo): chart tooling + read-only views. *@

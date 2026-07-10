@@ -1,0 +1,108 @@
+// TouchNavBar — bUnit coverage. The Phase C touch toolbar: large plain buttons
+// (the most robust mobile screen-reader pattern) that route through the exact
+// commands the equivalent keys use, so speech + sonification are identical.
+
+using System.Linq;
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Models;
+using Bunit;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+
+namespace AccessibleTrader.Tests.Blazor;
+
+public class TouchNavBarTests
+{
+    private static (BlazorTestHarness h, INavigationEngine nav) NewHarness(WorkspaceState? state = null)
+    {
+        var h = new BlazorTestHarness();
+        h.WorkspaceStore.State.Returns(_ => state ?? WorkspaceState.Initial);
+        var nav = Substitute.For<INavigationEngine>();
+        h.Ctx.Services.AddSingleton(nav);
+        return (h, nav);
+    }
+
+    private static IRenderedComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>
+        Render(BlazorTestHarness h) =>
+        h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
+
+    [Fact]
+    public void Renders_a_toolbar_with_labelled_buttons_for_every_core_action()
+    {
+        var (h, _) = NewHarness();
+        using var _1 = h;
+        var cut = Render(h);
+
+        Assert.NotEmpty(cut.FindAll("[role='toolbar']"));
+        var labels = cut.FindAll("button").Select(b => b.GetAttribute("aria-label")).ToList();
+        Assert.Contains("Previous bar", labels);
+        Assert.Contains("Next bar", labels);
+        Assert.Contains("Previous component", labels);
+        Assert.Contains("Next component", labels);
+        Assert.Contains("Play chart", labels);
+        Assert.Contains("Chart menu", labels);
+    }
+
+    [Theory]
+    [InlineData("Previous bar", "NAV_LEFT")]
+    [InlineData("Next bar", "NAV_RIGHT")]
+    [InlineData("Previous component", "NAV_COMP_UP")]
+    [InlineData("Next component", "NAV_COMP_DOWN")]
+    public void Navigation_buttons_route_through_the_keyboards_navigation_commands(
+        string label, string expectedCommand)
+    {
+        var (h, nav) = NewHarness();
+        using var _1 = h;
+        var cut = Render(h);
+
+        cut.FindAll("button").First(b => b.GetAttribute("aria-label") == label).Click();
+
+        nav.Received(1).ProcessNavigation(expectedCommand);
+    }
+
+    [Fact]
+    public void Play_button_starts_chart_playback_like_the_space_key()
+    {
+        var (h, _) = NewHarness();
+        using var _1 = h;
+        var cut = Render(h);
+
+        cut.FindAll("button").First(b => b.GetAttribute("aria-label") == "Play chart").Click();
+
+        h.WorkspaceStore.Received(1).Dispatch(
+            Arg.Is<SetPlaybackAction>(a => a.IsPlaying && a.Scope == PlaybackScope.Chart));
+    }
+
+    [Fact]
+    public void Play_button_becomes_stop_while_playing()
+    {
+        var playing = WorkspaceState.Initial with { IsPlaying = true };
+        var (h, _) = NewHarness(playing);
+        using var _1 = h;
+        var cut = Render(h);
+
+        var stop = cut.FindAll("button").First(b => b.GetAttribute("aria-label") == "Stop playback");
+        stop.Click();
+
+        h.WorkspaceStore.Received(1).Dispatch(
+            Arg.Is<SetPlaybackAction>(a => !a.IsPlaying));
+    }
+
+    [Fact]
+    public void Menu_button_opens_the_chart_context_menu_at_the_current_cursor_bar()
+    {
+        var state = WorkspaceState.Initial with { CurrentDataIndex = 42 };
+        var (h, _) = NewHarness(state);
+        using var _1 = h;
+        OpenChartContextMenuEvent? seen = null;
+        h.EventBus.Subscribe<OpenChartContextMenuEvent>(ev => seen = ev);
+        var cut = Render(h);
+
+        cut.FindAll("button").First(b => b.GetAttribute("aria-label") == "Chart menu").Click();
+
+        Assert.NotNull(seen);
+        Assert.Equal(42, seen!.BarIndex);
+        Assert.True(double.IsNaN(seen.ViewportX)); // keyboard-origin self-positioning
+    }
+}

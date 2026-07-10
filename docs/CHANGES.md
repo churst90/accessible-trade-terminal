@@ -6,6 +6,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Touch input, web-first — Phase C of the finalization plan (2026-07-09)
+
+The web client (hosted terminal + public demo at accessibletrader.com, and the same
+Blazor components inside the MAUI apps' WebView) now has a full touch layer. Same
+design rule as Phase B: every gesture lands in the same store state the keyboard
+navigates, so speech + sonification fire identically.
+
+**Direct-touch gestures** (state machine in `keyboard.js`, both hosts): tap = select +
+hear the bar; one-finger drag = pan (10 px slop before a tap becomes a drag); pinch =
+anchored zoom (one notch per 8% spread change, centroid-anchored via the existing
+`OnWheel` bridge); double-tap = jump to live edge; long-press (550 ms) = context menu
+(chart-level, or the drawing menu on an anchor hit). The machine synthesizes the SAME
+.NET bridge calls the mouse produces — `OnMouseEvent`/`OnWheel`/`OnContextMenu`/
+`OnDoubleClick` — so every gesture reuses the Phase B-tested pipelines; drag moves are
+RAF-throttled like mouse moves; `preventDefault` + `touch-action: none` suppress the
+browser's synthetic mouse events so nothing double-fires.
+
+**Screen-reader bar navigator** (`ChartArea`): a real `<input type="range">` before the
+chart — the web analog of the iOS "adjustable" trait, the one custom-widget pattern
+VoiceOver AND TalkBack adjust natively. Flick up/down steps through bars; each step
+dispatches `NavigateAction` (viewport-scrolling, like arrow keys) + the standard
+Navigation feedback; `aria-valuetext` = "Bar N of M, date, close". Visually hidden via
+the clip pattern, expands when keyboard-focused (WCAG 2.4.7). Kept in sync with the
+cursor via a `CurrentDataIndex` store subscription. Documented limit: iOS VoiceOver
+steps web sliders ~10% of range per flick (TalkBack honours `step=1`); per-bar iOS
+granularity arrives with the native adjustable element (Phase C second pass).
+
+**Touch navigation toolbar** (`TouchNavBar.razor`, shown only on coarse-pointer devices
+via CSS): Previous/Next bar, Previous/Next component, Play/Stop, Chart menu as ≥48 px
+plain buttons — the most robust mobile screen-reader pattern (swipe + double-tap), a
+motor win, and the guarantee that gestures are never the only path. Buttons route
+through `INavigationEngine.ProcessNavigation` / `SetPlaybackAction` (Space-key
+semantics) / `OpenChartContextMenuEvent`.
+
+**Viewport meta fixed** in the BlazorWebView host page: removed `maximum-scale=1.0,
+user-scalable=no` (WCAG 1.4.4 — it blocked pinch-zoom page magnification for
+low-vision users; the WebHost's App.razor meta was already compliant).
+
+**Native second pass (tracked, needs macOS/devices):** iOS `UIAccessibilityElement`
+with the adjustable trait + `accessibilityCustomActions` (rotor), Android
+`ExploreByTouchHelper`, per PLATFORM_STRATEGY_AND_ROADMAP §4 (status box added).
+On-device verification with real VoiceOver/TalkBack is the gate for declaring mobile
+supported; until then the manual says touch in the installed apps is expected but
+unverified.
+
+Tests: 13 new (TouchNavBarTests bUnit ×8, ChartAreaBarSliderTests bUnit ×5). Full
+suite 1301/1301. The JS gesture state machine itself has no JS test infra (known
+Tier-4 gap) — its .NET side is the already-tested mouse pipeline.
+
 ### Mouse interaction completion — Phase B of the finalization plan (2026-07-09)
 
 Design rule for everything below: every mouse action lands in the SAME store state the

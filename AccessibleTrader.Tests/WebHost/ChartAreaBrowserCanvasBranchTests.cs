@@ -66,13 +66,16 @@ public class ChartAreaBrowserCanvasBranchTests
     // CurrentState / StateChanged, IPaneLayoutService.Dividers,
     // IRuntimePlatform.IsBrowserHost) are configured below.
 
-    private static BlazorTestHarness BuildHarness(bool isBrowserHost)
+    // Shared with ChartAreaBarSliderTests (Phase C): pass a state to seed the
+    // store with chart data; null keeps the empty WorkspaceState.Initial.
+    internal static BlazorTestHarness BuildHarness(bool isBrowserHost, Sdk.Models.WorkspaceState? state = null)
     {
         var harness = new BlazorTestHarness();
 
-        // WorkspaceStore.State already returns WorkspaceState.Initial via
-        // the default harness wiring (line 69 of BlazorTestHarness.cs).
-        // No additional setup needed here.
+        // WorkspaceStore.State returns WorkspaceState.Initial via the default
+        // harness wiring unless a caller-provided state overrides it.
+        if (state != null)
+            harness.WorkspaceStore.State.Returns(_ => state);
 
         // IRuntimePlatform — the property under test.
         var platform = Substitute.For<IRuntimePlatform>();

@@ -397,6 +397,41 @@ matters as much for shaky hands and low vision as it does for screen reader user
 Right-clicking directly on a drawing's anchor handle still opens the drawing's own
 menu (Delete, Duplicate, Properties), as before.
 
+### Touch and mobile
+
+On a touchscreen — a phone or tablet browsing accessibletrader.com, or a touch-screen
+laptop — the chart understands the gestures you would expect, and each one lands in the
+same place the keyboard navigates, announced through the same speech pipeline:
+
+- **Tap a bar** to move the reading cursor there and hear it, exactly like clicking.
+- **Drag with one finger** to pan through time, like grabbing the chart.
+- **Pinch** to zoom in and out, anchored between your fingers.
+- **Double-tap** to jump to the newest, live bar.
+- **Press and hold** for about half a second to open the chart menu (or a drawing's
+  menu if your finger is on its anchor handle).
+
+On touch devices a **navigation toolbar** also appears below the chart with large,
+plainly-labelled buttons — Previous bar, Next bar, Previous component, Next component,
+Play, and Chart menu. If a gesture ever misbehaves, the buttons always work, and they
+are the most reliable way to drive the chart with VoiceOver or TalkBack running (swipe
+to the button, double-tap to press).
+
+**With a mobile screen reader**, the screen reader owns the touchscreen, so the chart
+also offers a **bar navigator** — announced as "Bar navigator" just before the chart.
+It behaves like a slider: focus it and flick up or down (VoiceOver) or swipe up/down or
+use the volume keys (TalkBack) to step through bars, each one spoken with its position,
+date, and closing price, with the full announcement and tone following from the app's
+own speech. One honest caveat: **iOS VoiceOver moves web sliders in steps of about 10%
+of the chart** rather than one bar at a time — flick to get close, then use the
+toolbar's Previous/Next bar buttons for single steps. TalkBack on Android steps one bar
+at a time. Finer VoiceOver control arrives with a future native iOS update.
+
+Touch in the **installed mobile apps** flows through the same layer and is expected to
+behave the same way, but it has not yet been verified on physical devices — until it
+is, a connected Bluetooth keyboard remains the fully-supported way to drive the mobile
+apps. Pinch-zooming the page itself is no longer blocked anywhere, so browser-level
+magnification works on the website.
+
 ### Moving between panes and components
 
 Page Down moves your focus to the next pane below, Page Up to the pane above; as you

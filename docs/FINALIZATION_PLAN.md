@@ -1,12 +1,14 @@
 # Finalization Plan — Accessible Trade Terminal
 
 **Created:** 2026-07-09 (v1.4.0 baseline, commit `1a07d62d`)
-**Status:** Phase A COMPLETE (2026-07-09). Phase B FIRST PASS COMPLETE (2026-07-09,
-full suite 1288/1288 green — pending Cody's real-app verification): click-bar-to-hear,
-shift+wheel pan, double-click jump-to-live, crosshair + DOM readout, chart-level
-context menu with per-series actions, idle right-click fix, shared ChartMath pointer
-mapping + tests. Phase B second pass (hit-test index, per-component menus, range
-selection, axis drag, magnet snap) deferred and tracked in TODO.md. Phase C is next.
+**Status:** Phases A, B (first pass), and C (first pass, web) COMPLETE 2026-07-09;
+full suite 1301/1301 green — pending Cody's real-app + real-device verification.
+Phase C first pass shipped the web touch layer (gestures, SR bar navigator, touch
+toolbar, viewport fix) which also serves the MAUI apps via their WebView; the native
+second pass (iOS adjustable element + rotor, Android ExploreByTouchHelper) is specced
+in PLATFORM_STRATEGY_AND_ROADMAP §4 and gated on macOS/device access. Phase B second
+pass (hit-test index, per-component menus, range selection, axis drag, magnet snap)
+tracked in TODO.md. Phase D (multi-disability UX) is next from this machine.
 
 This document captures the five-area finalization audit (mouse, touch, UX/disabilities,
 unit tests, security/robustness) and the agreed phased execution plan. It is the
@@ -21,7 +23,7 @@ work lands.
 |-------|-------|--------|
 | A | Security hardening + Tier-1 money-path tests | **Complete 2026-07-09** (see CHANGES.md [Unreleased] + TODO.md 2026-07-09 section) |
 | B | Mouse completion (click-bar, crosshair, context menus, hit-test index) | **First pass complete 2026-07-09** — click-bar/wheel-pan/dbl-click/crosshair/chart menu shipped; hit-test index + range select + axis drag + magnet deferred (TODO.md) |
-| C | Touch input (web Pointer Events + slider semantics, iOS adjustable, Android ExploreByTouchHelper) | Not started |
+| C | Touch input (web gestures + slider semantics, iOS adjustable, Android ExploreByTouchHelper) | **Web first pass complete 2026-07-09** — gestures/slider/toolbar/viewport shipped; native iOS/Android second pass specced in PLATFORM_STRATEGY_AND_ROADMAP §4, needs macOS + devices |
 | D | Multi-disability UX (deaf/HoH, colorblind, vestibular, cognitive, low-vision) | Not started |
 | E | Test debt (continuous; Tier 1 inside Phase A, Tiers 2–4 ongoing) | Started with Phase A |
 
