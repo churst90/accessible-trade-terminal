@@ -77,18 +77,30 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // anchor handle radius with a small overshoot for easier grabbing.
         private const double AnchorHitToleranceSquared = 10.0 * 10.0;
 
+        // Phase B second pass collaborators — optional so existing five-arg
+        // construction (tests, manual composition) keeps working; DI supplies them.
+        private readonly Rendering.IPaneLayoutService? _paneLayout;
+        private readonly ISettingsManager? _settings;
+
+        /// <summary>Setting key: snap drawing anchor prices to the nearest OHLC of the anchor bar. Default OFF.</summary>
+        public const string MagnetSnapKey = "drawing.magnetSnap";
+
         public DrawingInteractionManager(
             IEventBus eventBus,
             IDrawingService drawingService,
             IWorkspaceStore store,
             IIndicatorModelFactory modelFactory,
-            IInputService inputService)
+            IInputService inputService,
+            Rendering.IPaneLayoutService? paneLayout = null,
+            ISettingsManager? settings = null)
         {
             _eventBus = eventBus;
             _drawingService = drawingService;
             _store = store;
             _modelFactory = modelFactory;
             _inputService = inputService;
+            _paneLayout = paneLayout;
+            _settings = settings;
 
             _subs.Add(_eventBus.Subscribe<CancelDrawingEvent>(_ => CancelPendingDrawing()));
             _inputService.MouseEvent += HandleMouseEvent;
@@ -108,7 +120,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && _editSeriesId == null
                 && !_isPanning
                 && type != "MouseDown"
-                && type != "ContextMenu") return;
+                && type != "ContextMenu"
+                && type != "ShiftMouseUp") return;
 
             // Active pan drag is resolved in pure pixel space, ahead of the anchor
             // coordinate mapping below (which rejects cursor positions outside the data
@@ -116,7 +129,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_isPanning)
             {
                 if (type == "MouseMove") { UpdatePan(x, width); return; }
-                if (type == "MouseUp")   { EndPan(x, width); return; }
+                if (type == "MouseUp")   { EndPan(x, y, width, height); return; }
+                if (type == "ShiftMouseUp")
+                {
+                    // Shift held on release → the click measures instead of selecting.
+                    _isPanning = false;
+                    _panAccumBars = 0;
+                    _panTravelPixels = 0;
+                    SpeakRangeSummary(x, width);
+                    return;
+                }
+            }
+            if (type == "ShiftMouseUp")
+            {
+                // Shift+click that never armed a pan (e.g. shift held before mousedown
+                // reached us) still measures from the keyboard cursor to the clicked bar.
+                SpeakRangeSummary(x, width);
+                return;
             }
 
             var state = _store.State;
@@ -140,6 +169,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (dataIndex < state.Data.Count)
             {
                 anchorDate = state.Data[dataIndex].Date;
+
+                // Magnet snap (opt-in, drawing flows only): pull the anchor price to the
+                // nearest OHLC of the bar under the cursor when it lands close — improves
+                // precision for everyone and reduces the pointing accuracy a drawing
+                // demands (a motor-accessibility win). Applies to placement AND
+                // endpoint edit-drags; never to pan/click paths.
+                bool drawingFlow = _pendingDrawingType != DrawingType.None
+                                   || _previewSeriesId != null || _editSeriesId != null;
+                if (drawingFlow && (_settings?.GetSetting(MagnetSnapKey)?.ToObject<bool>() ?? false))
+                {
+                    price = SnapToOhlc(price, state.Data[dataIndex],
+                        state.ViewportRange.Max - state.ViewportRange.Min);
+                }
             }
             else
             {
@@ -209,10 +251,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // No drawing anchor under the cursor → chart-level context menu. Carries the
             // bar index under the cursor so "Play from here" can start playback at the
-            // right-clicked bar; -1 when the click landed in the empty right margin.
+            // right-clicked bar (-1 in the empty right margin), plus the component under
+            // the cursor when one is within grab distance, so the menu can open directly
+            // on that series' actions instead of making the user hunt the series list.
             int barIndex = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
             if (barIndex < 0 || barIndex >= state.Data.Count) barIndex = -1;
-            _eventBus.Publish(new OpenChartContextMenuEvent(x, y, barIndex));
+            var componentHit = HitTestComponents(x, y, width, height);
+            _eventBus.Publish(new OpenChartContextMenuEvent(
+                x, y, barIndex, componentHit?.SeriesId, componentHit?.ComponentIndex ?? -1));
         }
 
         private void HandleMouseDown(DateTime date, double price, double x, double y, double width, double height)
@@ -321,6 +367,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Viewport pan-drag ────────────────────────────────────────────────
 
+        /// <summary>
+        /// Magnet snap: returns the nearest of the bar's open/high/low/close when the
+        /// cursor price is within 3% of the visible range of it; otherwise the raw price.
+        /// Internal for unit tests.
+        /// </summary>
+        internal static double SnapToOhlc(double price, Ohlcv bar, double viewportSpan)
+        {
+            double tolerance = Math.Abs(viewportSpan) * 0.03;
+            if (tolerance <= 0) return price;
+            double best = price;
+            double bestDist = tolerance;
+            Span<double> levels = stackalloc double[] { bar.Open, bar.High, bar.Low, bar.Close };
+            foreach (double level in levels)
+            {
+                double d = Math.Abs(level - price);
+                if (d < bestDist) { bestDist = d; best = level; }
+            }
+            return best;
+        }
+
         /// <summary>Begin a click-drag pan from the given cursor X (pixels).</summary>
         private void BeginPan(double x)
         {
@@ -368,7 +434,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// cursor lands where the mouse pointed, letting a low-vision user click roughly
         /// then fine-tune with arrows. A real drag speaks the new viewport range instead.
         /// </summary>
-        private void EndPan(double x, double width)
+        private void EndPan(double x, double y, double width, double height)
         {
             _isPanning = false;
             _panAccumBars = 0;
@@ -377,7 +443,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (wasClick)
             {
-                SelectBarAtPixel(x, width);
+                SelectBarAtPixel(x, y, width, height);
                 return;
             }
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.ViewportChange, ""));
@@ -387,8 +453,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Move the keyboard cursor to the bar under pixel <paramref name="x"/> and fire
         /// the standard navigation feedback (speech + sonification). Clicks on the empty
         /// right margin / future space are no-ops — there is no bar there to hear.
+        /// When the click lands near an indicator component (hit-tester), keyboard
+        /// focus also moves to that series + component first, so what is spoken is the
+        /// thing the user pointed at — with the bar-only fallback keeping imprecise
+        /// clicks working.
         /// </summary>
-        private void SelectBarAtPixel(double x, double width)
+        private void SelectBarAtPixel(double x, double y, double width, double height)
         {
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0 || width <= 0) return;
@@ -396,9 +466,67 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int index = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
             if (index < 0 || index >= state.Data.Count) return;
 
+            var hit = HitTestComponents(x, y, width, height);
+            if (hit != null &&
+                (hit.SeriesId != (state.FocusedSeriesId ?? state.PrimarySeriesId)
+                 || hit.ComponentIndex != state.FocusedComponentIndex))
+            {
+                _store.Dispatch(new SelectSeriesAction(hit.SeriesId));
+                _store.Dispatch(new SelectComponentAction(hit.ComponentIndex));
+            }
+
             _store.Dispatch(new SetCursorAction(index));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
+        }
+
+        /// <summary>Hit-test the component under the cursor via the shared tester. Null when
+        /// no vertical coordinate is available, or nothing is within grab distance.
+        /// Without a pane layout (tests, pre-first-render) a single Main pane is assumed.</summary>
+        private ChartHit? HitTestComponents(double x, double y, double width, double height)
+        {
+            if (height <= 0) return null;
+            var dividers = _paneLayout?.Dividers
+                ?? (IReadOnlyList<(string BelowPaneName, float DividerFraction)>)Array.Empty<(string, float)>();
+            float axisFrac = _paneLayout?.AxisHeightFraction ?? 0f;
+            return ChartHitTester.HitTest(_store.State, dividers, axisFrac, x, y, width, height);
+        }
+
+        /// <summary>
+        /// Shift+click range measurement: speaks a summary of the span from the current
+        /// keyboard cursor to the clicked bar — bar count, dates, high, low, and net
+        /// close-to-close change — WITHOUT moving the cursor, so measuring never loses
+        /// the user's place. Works identically for keyboard users via cursor + End etc.;
+        /// this is the mouse shortcut for "how far is that from here?".
+        /// </summary>
+        private void SpeakRangeSummary(double x, double width)
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0 || width <= 0) return;
+
+            int target = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            if (target < 0 || target >= state.Data.Count) return;
+
+            int from = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
+            int lo = Math.Min(from, target), hi = Math.Max(from, target);
+
+            double high = double.MinValue, low = double.MaxValue;
+            for (int i = lo; i <= hi; i++)
+            {
+                if (state.Data[i].High > high) high = state.Data[i].High;
+                if (state.Data[i].Low < low) low = state.Data[i].Low;
+            }
+            double closeFrom = state.Data[from].Close;
+            double closeTo = state.Data[target].Close;
+            double change = closeTo - closeFrom;
+            double pct = Math.Abs(closeFrom) > double.Epsilon ? change / closeFrom * 100.0 : 0.0;
+
+            int bars = hi - lo + 1;
+            string dir = change >= 0 ? "up" : "down";
+            _eventBus.Publish(new AnnouncementEvent(
+                $"Range: {bars} bars, {state.Data[lo].Date:MMM d HH:mm} to {state.Data[hi].Date:MMM d HH:mm}. " +
+                $"High {SpeechPriceFormatter.FormatPrice(high)}, low {SpeechPriceFormatter.FormatPrice(low)}. " +
+                $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct):0.##} percent."));
         }
 
         /// <summary>

@@ -33,6 +33,36 @@
             <h2 id="settings-title" tabindex="-1">Settings</h2>
 
             @* ── Tab list ──────────────────────────────────────────────────── *@
+            @* Settings search (Phase D second pass): filters a registry of every
+               setting by label/keywords; choosing a result jumps to its tab and
+               focuses the control. Cognitive-accessibility item — nobody should
+               need to memorise which of six tabs holds a setting. *@
+            <div class="modal-row" style="margin-bottom:10px;">
+                <label for="s-search">Search settings</label>
+                <input id="s-search" type="search"
+                       value="@_searchQuery"
+                       @oninput="OnSearchInput"
+                       placeholder="e.g. speech, theme, alerts"
+                       aria-describedby="s-search-count" />
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                <div role="region" aria-label="Setting search results"
+                     style="border:1px solid #bbb; border-radius:4px; padding:6px 10px; margin-bottom:12px;">
+                    <p id="s-search-count" role="status" style="margin:2px 0; font-size:0.85rem; color:var(--text-muted);">
+                        @_searchResults.Count matching setting@(_searchResults.Count == 1 ? "" : "s").
+                    </p>
+                    @foreach (var r in _searchResults)
+                    {
+                        var captured = r;
+                        <button style="display:block; width:100%; text-align:left; padding:5px 8px; background:transparent; border:none; cursor:pointer;"
+                                @onclick="() => GoToSetting(captured)">
+                            @captured.Label <span style="color:var(--text-muted); font-size:0.8rem;">— @captured.Tab tab</span>
+                        </button>
+                    }
+                </div>
+            }
+
             <div role="tablist" aria-label="Settings categories"
                  style="display:flex; gap:0; border-bottom:2px solid #bbb; margin-bottom:16px;">
                 @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "Alerts", "License", "About" })
@@ -327,6 +357,27 @@
                             is readable by shape alone — works with any colors.
                         </span>
                     </div>
+
+                    <div class="modal-row">
+                        <label for="s-ui-scale">Text size</label>
+                        <select id="s-ui-scale"
+                                value="@_uiScale"
+                                @onchange="OnUiScaleChanged"
+                                aria-describedby="s-ui-scale-hint">
+                            <option value="85">85%</option>
+                            <option value="100">100% (default)</option>
+                            <option value="115">115%</option>
+                            <option value="130">130%</option>
+                            <option value="150">150%</option>
+                            <option value="175">175%</option>
+                        </select>
+                    </div>
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span id="s-ui-scale-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            Scales the interface text throughout the terminal. Browser zoom still
+                            works on top of this.
+                        </span>
+                    </div>
                 </fieldset>
             </div>
 
@@ -552,11 +603,67 @@
     private bool _announceBars;
     private int _wasapiLatency;
 
+    // ── Settings search (Phase D second pass) ────────────────────────────────
+    private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
+
+    // One registry row per user-facing setting: label + owning tab + control id
+    // (focused after the jump) + extra match keywords.
+    private static readonly List<SettingEntry> _settingRegistry = new()
+    {
+        new("Speech enabled", "General", "s-speech-enabled", "voice talk announce tts"),
+        new("Speak timestamps", "General", "s-speak-timestamps", "time date spoken"),
+        new("Read column headers", "General", "s-read-headers", "table grid"),
+        new("Announce new bars", "General", "s-announce-bars", "live candle close"),
+        new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
+        new("Reset paper account", "General", "s-paper-reset", "balance restart"),
+        new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
+        new("Sonification enabled", "General", "s-sonif-enabled", "tones audio sound music"),
+        new("Audio latency (WASAPI)", "General", "s-wasapi", "buffer delay sound"),
+        new("Panning granularity", "General", "s-granularity", "step scroll viewport"),
+        new("Background color", "Appearance", "s-bg-color", "chart theme"),
+        new("Theme", "Appearance", "s-theme", "dark light contrast solarized braille colors"),
+        new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
+        new("Color-vision-safe chart colors", "Appearance", "s-colorvision", "colorblind deuteranopia protanopia red green blue orange"),
+        new("Hollow up-candles", "Appearance", "s-hollow-candles", "colorblind outline shape candle"),
+        new("Text size", "Appearance", "s-ui-scale", "font zoom scale magnify low vision bigger"),
+        new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap"),
+        new("Email alerts", "Alerts", "s-email-host", "smtp mail notification"),
+        new("Telegram alerts", "Alerts", "s-tg-token", "bot chat notification"),
+        new("License", "License", "tab-license", "tier supporter key"),
+    };
+
+    private string _searchQuery = string.Empty;
+    private List<SettingEntry> _searchResults = new();
+
+    private void OnSearchInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _searchQuery = e.Value?.ToString() ?? string.Empty;
+        var q = _searchQuery.Trim();
+        _searchResults = string.IsNullOrEmpty(q)
+            ? new List<SettingEntry>()
+            : _settingRegistry.Where(s =>
+                    s.Label.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || s.Keywords.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || s.Tab.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+    }
+
+    private async void GoToSetting(SettingEntry entry)
+    {
+        _activeTab = entry.Tab;
+        _searchQuery = string.Empty;
+        _searchResults.Clear();
+        await InvokeAsync(StateHasChanged);
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", entry.ControlId); }
+        catch { /* JS bridge may be absent in tests */ }
+    }
+
     // Appearance tab — derived from ThemeService.Current
     // Visual accessibility toggles (Phase D) — all default OFF, applied immediately.
     private bool _visualEarcons;
     private bool _colorVisionSafe;
     private bool _hollowUpCandles;
+    private int _uiScale = 100;
     private string _backgroundColor = "#000000";
     private string _candleUpColor   = "#00cc44";
     private string _candleDownColor = "#cc2200";
@@ -634,6 +741,18 @@
                              : "Color-vision-safe colors off.", true));
     }
 
+    private async void OnUiScaleChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int scale)) return;
+        _uiScale = Math.Clamp(scale, 50, 250);
+        Settings.SetSetting("appearance.uiScale", _uiScale);
+        Settings.SaveSettings();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", _uiScale); }
+        catch { /* JS bridge may be absent in tests */ }
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Text size {_uiScale} percent.", true));
+    }
+
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _hollowUpCandles = e.Value is bool b && b;
@@ -670,6 +789,7 @@
         _visualEarcons   = Settings.GetSetting("accessibility.visualEarcons")?.ToObject<bool>() ?? false;
         _colorVisionSafe = Settings.GetSetting("appearance.colorVisionSafe")?.ToObject<bool>() ?? false;
         _hollowUpCandles = Settings.GetSetting("appearance.hollowUpCandles")?.ToObject<bool>() ?? false;
+        _uiScale         = Settings.GetSetting("appearance.uiScale")?.ToObject<int>() ?? 100;
         _backgroundColor = SkColorToHex(ThemeService.Current.Background);
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
         _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);

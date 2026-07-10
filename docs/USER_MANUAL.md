@@ -368,6 +368,27 @@ in the area you care about and then fine-tune with Left and Right arrows; pointi
 precision is never required. Clicks in the empty space to the right of the newest bar
 do nothing.
 
+**Click near an indicator to focus it.** If your click lands close to an indicator
+line — an EMA, a MACD line, a band — keyboard focus also moves to that series and
+component before the bar is announced, so what you hear is the thing you pointed at.
+A click that isn't near anything specific simply selects the bar on whatever was
+already focused, so imprecise pointing still works.
+
+**Shift+click to measure.** Hold Shift and click a bar, and the terminal speaks a
+range summary from the reading cursor to the clicked bar — how many bars, the dates,
+the high and low of the span, and the net change in price and percent. Measuring
+never moves your cursor, so you never lose your place.
+
+**Magnet snap for drawings.** Off by default; toggle it from the chart's right-click
+menu. With magnet on, drawing anchors pull to the nearest open, high, low, or close
+of the bar under the pointer when you get close — trend lines land exactly on the
+wick or the close without pixel-perfect aim.
+
+**Hover sound.** Also off by default, also in the right-click menu: a soft, short
+tick as the pointer crosses each bar, pitched to that bar's closing price — sweep the
+mouse across the chart and it hums the price contour, without touching your reading
+cursor or interrupting speech.
+
 **Scroll wheel.** Scrolling zooms in and out, keeping the bar under the pointer fixed
 in place. **Shift+scroll pans through time instead** — down or right for newer bars, up
 or left for older — using the same pan step as the bracket keys, with no button-holding
@@ -389,8 +410,10 @@ chart's right-click menu.
 **The right-click menu.** Right-click on open chart space (or press the Application
 key — or Shift+F10 — with the chart focused) for the chart menu: **Play from here**
 starts playback at the bar you clicked; **Jump to latest** returns to the live edge;
-**Show/Hide crosshair** toggles the crosshair; and beneath those, every series on the
-chart is listed **by name**. Choose a series to get its actions — Focus, Mute or
+**Show/Hide crosshair**, **Magnet snap**, and **Hover sound** toggles; and beneath
+those, every series on the chart is listed **by name**. Better still: right-click
+*near an indicator line* and the menu opens directly on that series' actions — no
+hunting the list — with Back one press away. Choose a series to get its actions — Focus, Mute or
 Unmute, Hide or Show, Properties, and Remove. Listing series as menu items is
 deliberate: acting on an indicator never requires clicking on a thin line, which
 matters as much for shaky hands and low vision as it does for screen reader users.
@@ -1134,10 +1157,20 @@ and saves the moment you toggle it:
 - **Hollow up-candles** draws rising candles as outlines and falling candles filled,
   making direction readable by shape alone, with any colours.
 
+The same group holds a **Text size** selector (85% to 175%) that scales the
+interface text throughout the terminal — browser zoom still works on top of it. And
+at the top of the whole dialog there is now a **Search settings** box: type a word
+like "speech", "theme", or "alerts" and matching settings are listed with the tab
+they live on; choose one and the dialog jumps there and focuses the control, so you
+never need to remember which of the six tabs holds a setting.
+
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled
 automatically; and on touchscreens, buttons and tabs enlarge automatically to
-comfortable touch sizes.
+comfortable touch sizes. On high-resolution screens the chart image itself now
+renders at your display's native pixel density, so candles and axis text are sharp
+rather than softly upscaled. During playback, the highlighted bar on screen follows
+the audio bar for bar, so a sighted companion can watch what you are hearing.
 
 ### The sound designer
 

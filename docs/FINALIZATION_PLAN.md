@@ -1,12 +1,13 @@
 # Finalization Plan — Accessible Trade Terminal
 
 **Created:** 2026-07-09 (v1.4.0 baseline, commit `1a07d62d`)
-**Status:** Phases A, B (first pass), C (first pass, web), and D (first pass)
-COMPLETE 2026-07-09; full suite 1314/1314 green — pending Cody's real-app +
-real-device verification. Phase D shipped the opt-in visual accessibility set
-(visual earcons, color-vision-safe colors, hollow candles — all default OFF,
-audio-first presentation preserved) plus reduced-motion, the contrast sweep, and
-Help quickstart.
+**Status:** Phases A, B (both passes), C (web + JS tests), D (both passes)
+COMPLETE 2026-07-09; full suite 1326/1326 xunit + 12/12 JS green — pending Cody's
+real-app + real-device verification. Remaining before Phase E:
+**native touch only** (iOS adjustable element + rotor, Android ExploreByTouchHelper
+— gated on macOS + physical devices), plus small tracked leftovers (speech-template
+editor UI, play-range, axis dragging, journal ticker) in TODO.md's 2026-07-09
+second-pass section.
 Phase C first pass shipped the web touch layer (gestures, SR bar navigator, touch
 toolbar, viewport fix) which also serves the MAUI apps via their WebView; the native
 second pass (iOS adjustable element + rotor, Android ExploreByTouchHelper) is specced

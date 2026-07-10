@@ -33,6 +33,7 @@
 @inject AccessibleTrader.Core.Services.Alerts.AlertDeliveryService _alertDelivery
 @inject ILogger<MainLayout> _layoutLogger
 @inject DemoPolicy Demo
+@inject ISettingsManager _settings
 @* Per-circuit pipeline init: on the multi-user web host every browser connection is its
    own DI scope, so the data/indicator/input/accessibility pipeline is initialized HERE,
    once per visitor (it used to run once at app start). MainLayout is the parent of the
@@ -225,6 +226,19 @@
                 // Log silently; keyboard input may be partially unavailable but the
                 // app should still render rather than throw.
                 _layoutLogger.LogError(ex, "Keyboard bridge init failed.");
+            }
+
+            // Apply the persisted UI text scale (Settings → Appearance → Text size).
+            // 100% is a no-op; failures are non-fatal (default browser size stands).
+            try
+            {
+                int uiScale = _settings.GetSetting("appearance.uiScale")?.ToObject<int>() ?? 100;
+                if (uiScale != 100)
+                    await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", uiScale);
+            }
+            catch (Exception ex)
+            {
+                _layoutLogger.LogDebug(ex, "UI scale apply failed (non-fatal).");
             }
 
             // Re-instantiate every saved strategy whose IsAutoActivate flag is true. Idempotent —

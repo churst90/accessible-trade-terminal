@@ -34,6 +34,14 @@ namespace AccessibleTrader.BlazorClient.Services
     {
         private readonly IInputService _input;
         private readonly IWorkspaceStore _store;
+        // Optional (Phase B second pass): quiet hover sonification. Both null in
+        // tests / manual composition; DI supplies them.
+        private readonly ISonificationManager? _sonification;
+        private readonly ISettingsManager? _settings;
+        private int _lastSonifiedIndex = -1;
+
+        /// <summary>Setting key: soft pitch tick as the hovered bar changes. Default OFF.</summary>
+        public const string HoverSonificationKey = "accessibility.hoverSonification";
 
         /// <summary>Crosshair visibility toggle (chart context menu). Default on.</summary>
         public bool IsEnabled { get; private set; } = true;
@@ -44,10 +52,13 @@ namespace AccessibleTrader.BlazorClient.Services
         /// <summary>Raised whenever <see cref="Current"/> or <see cref="IsEnabled"/> changes.</summary>
         public event Action? Changed;
 
-        public ChartHoverTracker(IInputService input, IWorkspaceStore store)
+        public ChartHoverTracker(IInputService input, IWorkspaceStore store,
+            ISonificationManager? sonification = null, ISettingsManager? settings = null)
         {
             _input = input;
             _store = store;
+            _sonification = sonification;
+            _settings = settings;
             _input.MouseEvent += OnMouse;
         }
 
@@ -98,6 +109,25 @@ namespace AccessibleTrader.BlazorClient.Services
                 OhlcText: $"O {PriceFormatter.FormatPrice(bar.Open)}  H {PriceFormatter.FormatPrice(bar.High)}  " +
                           $"L {PriceFormatter.FormatPrice(bar.Low)}  C {PriceFormatter.FormatPrice(bar.Close)}");
             Changed?.Invoke();
+
+            // Quiet hover sonification (opt-in, default OFF): one soft, short tick per
+            // BAR CHANGE — never per pixel — pitched to the bar's close within the
+            // visible range, so sweeping the mouse across the chart hums the price
+            // contour without touching the keyboard cursor or the speech channel.
+            if (index != _lastSonifiedIndex)
+            {
+                _lastSonifiedIndex = index;
+                if (_sonification != null
+                    && (_settings?.GetSetting(HoverSonificationKey)?.ToObject<bool>() ?? false))
+                {
+                    double span = state.ViewportRange.Max - state.ViewportRange.Min;
+                    double pct = span > 0
+                        ? Math.Clamp((bar.Close - state.ViewportRange.Min) / span, 0, 1)
+                        : 0.5;
+                    double freq = 220 + pct * (880 - 220); // A3..A5 — audible but unobtrusive
+                    _sonification.PlayNote(freq, 0.04, "sine", 0.05f, 0f);
+                }
+            }
         }
 
         public static string FormatBarDate(DateTime d)

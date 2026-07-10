@@ -281,7 +281,10 @@ canonical path; the other columns show the parity actions.
 | Drawing context menu (Delete / Duplicate / Properties) | Application key or Shift+F10 (drawing focused) | Right-click on a drawing's anchor handle | Press and hold on the anchor handle |
 | Place a drawing | Tool shortcut, navigate, re-press | Click-drag (live preview) or click-click | Tap-tap (after arming the tool) |
 | Move a drawing anchor | Re-place via tool shortcut | Drag the anchor handle | Drag the anchor handle |
-| Inspect a bar without moving the cursor | — (arrows always move the cursor) | Hover — crosshair readout shows date, price, OHLC (visual only, never spoken) | — |
+| Inspect a bar without moving the cursor | — (arrows always move the cursor) | Hover — crosshair readout shows date, price, OHLC (visual only, never spoken); optional hover sound ticks per bar | — |
+| Focus the indicator under the pointer | Page Up / Page Down + Up / Down | Click near its line (falls back to bar-select on a miss) | Tap near its line |
+| Measure a range (spoken summary, cursor stays put) | — | **Shift+click** the far bar | — |
+| Snap drawing anchors to O/H/L/C | — (keyboard anchors already land on the bar's close) | Right-click menu → Magnet snap (off by default) | same |
 
 **With VoiceOver or TalkBack running**, the screen reader owns the touchscreen, so use
 the **Bar navigator slider** (flick up/down to step through bars; TalkBack steps one

@@ -222,8 +222,10 @@ window.accessibleTrader = {
         el.addEventListener('mouseup', function (e) {
             buttonDown = false;
             const rect = el.getBoundingClientRect();
+            // Shift+click measures a range (spoken summary) instead of selecting.
+            const type = e.shiftKey ? 'ShiftMouseUp' : 'MouseUp';
             dotnetHelper.invokeMethodAsync('OnMouseEvent',
-                e.clientX - rect.left, e.clientY - rect.top, 'MouseUp', rect.width, rect.height);
+                e.clientX - rect.left, e.clientY - rect.top, type, rect.width, rect.height);
         });
 
         // Release outside the chart still ends the drag. The element's own mouseup
@@ -233,8 +235,9 @@ window.accessibleTrader = {
             if (!buttonDown) return;
             buttonDown = false;
             const rect = el.getBoundingClientRect();
+            const type = e.shiftKey ? 'ShiftMouseUp' : 'MouseUp';
             dotnetHelper.invokeMethodAsync('OnMouseEvent',
-                e.clientX - rect.left, e.clientY - rect.top, 'MouseUp', rect.width, rect.height);
+                e.clientX - rect.left, e.clientY - rect.top, type, rect.width, rect.height);
         });
 
         // Right-click → suppress the browser context menu and forward the cursor
@@ -440,6 +443,26 @@ window.accessibleTrader = {
             }
             touchState.mode = 'idle';
         });
+    },
+
+    /**
+     * Applies the user's UI text scale (Settings → Appearance → Text size).
+     * rem-based typography follows the root font-size; layout px dimensions stay.
+     */
+    setUiScale: function (percent) {
+        const clamped = Math.min(250, Math.max(50, percent | 0));
+        document.documentElement.style.fontSize = (clamped * 16 / 100) + 'px';
+    },
+
+    /**
+     * Reports the chart surface's CSS size and devicePixelRatio so the server
+     * can render the chart PNG at native resolution (HiDPI sharpness).
+     */
+    getChartMetrics: function (elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return [0, 0, 1];
+        const rect = el.getBoundingClientRect();
+        return [rect.width, rect.height, window.devicePixelRatio || 1];
     },
 
     /**

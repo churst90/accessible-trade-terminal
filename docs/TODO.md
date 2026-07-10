@@ -4,6 +4,54 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-09] — Second passes B2 / C2a / D2 (Finalization plan)
+
+Closes most of the deferred items from the Phase B/C/D sections below (their open
+checkboxes are superseded by this section). Full detail in `CHANGES.md` [Unreleased].
+
+### Shipped
+
+- [x] **Hit-tester** (`ChartHitTester`, on-demand — no render-path bookkeeping):
+  click near an indicator line focuses that series/component before announcing;
+  right-click near a component opens the chart menu directly on it. Imprecise-click
+  fallbacks preserved throughout.
+- [x] **Shift+click range measurement** — spoken bars/dates/high/low/net-change,
+  cursor never moves.
+- [x] **Magnet snap** (`drawing.magnetSnap`, default OFF, chart-menu toggle) —
+  anchors pull to nearest O/H/L/C within 3% of visible range.
+- [x] **Hover sonification** (`accessibility.hoverSonification`, default OFF,
+  chart-menu toggle) — one soft tick per hovered bar, pitched to close.
+- [x] **Settings search** in F12 (20-entry registry; jump + focus).
+- [x] **Text size setting** (`appearance.uiScale`, 85–175%) applied at startup + on change.
+- [x] **HiDPI chart rendering** at element size × devicePixelRatio (density-scaled;
+  safe fallback) — closes the fuzzy-1280×720 item.
+- [x] **JS gesture tests** — zero-dependency node runner
+  (`node tools/jstests/gesture-tests.mjs`), 12 tests over tap/drag/long-press/
+  double-tap/pinch/wheel variants; closes the no-JS-test-infra gap without npm.
+- [x] **Verified already working (stale audit items):** playback advances the
+  on-screen cursor bar-by-bar (AudioSequencer → NavigateAction); recommended
+  strategy is already surfaced (★ + banner in the Library table).
+- [x] 12 new xunit tests; full suite 1326/1326 green.
+
+### Still open (the honest remainder)
+
+- [ ] **Native touch layer** — iOS adjustable `UIAccessibilityElement` + rotor
+  custom actions, Android `ExploreByTouchHelper`, on-device VoiceOver/TalkBack
+  verification. **Gated on macOS + physical devices**; spec in
+  PLATFORM_STRATEGY_AND_ROADMAP §4.
+- [ ] **Speech-template editor UI** — needs ISpeechTemplateService DI registration
+  in both hosts plus per-component integration in PropertiesModal (958 lines);
+  deliberately not rushed. Templates remain editable in
+  `speech_templates.json` ({value}/{name}/{type}/{trend}/{open}/{high}/{low}/
+  {body}/{zone}/{price} placeholders).
+- [ ] **Play range** — sequencer needs an end-index concept; shift+click summary
+  covers the measurement half.
+- [ ] Price-axis drag to scale (needs a manual y-range override in state);
+  time-axis drag to zoom.
+- [ ] "Recent events" visual journal ticker (visual earcons cover the alerting half).
+
+---
+
 ## [2026-07-09] — Multi-disability visual accessibility, opt-in (Finalization plan, Phase D)
 
 Phase D of `docs/FINALIZATION_PLAN.md`. Audio-first stays the default presentation —

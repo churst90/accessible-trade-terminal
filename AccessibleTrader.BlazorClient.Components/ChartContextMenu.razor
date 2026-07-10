@@ -7,6 +7,7 @@
 @inject IWorkspaceStore Store
 @inject ISpeechFeedbackRouter Speech
 @inject ChartHoverTracker HoverTracker
+@inject ISettingsManager Settings
 @inject Microsoft.JSInterop.IJSRuntime Js
 @implements IDisposable
 
@@ -46,6 +47,14 @@
             <button role="menuitem" class="ctx-item" @onclick="OnJumpToLatest">Jump to latest</button>
             <button role="menuitem" class="ctx-item" @onclick="OnToggleCrosshair">
                 @(HoverTracker.IsEnabled ? "Hide crosshair" : "Show crosshair")
+            </button>
+            <button role="menuitem" class="ctx-item" @onclick="OnToggleMagnet">
+                @(GetBool(AccessibleTrader.Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey)
+                    ? "Magnet snap: on" : "Magnet snap: off")
+            </button>
+            <button role="menuitem" class="ctx-item" @onclick="OnToggleHoverSound">
+                @(GetBool(AccessibleTrader.BlazorClient.Services.ChartHoverTracker.HoverSonificationKey)
+                    ? "Hover sound: on" : "Hover sound: off")
             </button>
             @if (_seriesList.Count > 0)
             {
@@ -89,18 +98,23 @@
     protected override void OnInitialized()
     {
         _sub = EventBus.Subscribe<OpenChartContextMenuEvent>(ev =>
-            InvokeAsync(() => Open(ev.ViewportX, ev.ViewportY, ev.BarIndex)));
+            InvokeAsync(() => Open(ev.ViewportX, ev.ViewportY, ev.BarIndex, ev.HitSeriesId)));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
             if (_isVisible && e.ModalName == "ChartContextMenu") InvokeAsync(Close);
         });
     }
 
-    private async void Open(double x, double y, int barIndex)
+    private async void Open(double x, double y, int barIndex, string? hitSeriesId = null)
     {
         _barIndex = barIndex;
-        _selectedSeries = null;
         _seriesList = Store.State.ActiveSeries.ToList();
+        // Right-click landed near a specific component (Phase B hit-tester):
+        // open directly on that series' actions — the series list stays one
+        // "Back" away for everything else.
+        _selectedSeries = hitSeriesId == null
+            ? null
+            : _seriesList.FirstOrDefault(s => s.Id == hitSeriesId);
 
         // Mouse origin anchors at the cursor; keyboard origin (NaN) self-positions
         // centrally — same convention as DrawingContextMenu.
@@ -174,6 +188,33 @@
         Close();
         HoverTracker.Toggle();
         Speech.Speak(HoverTracker.IsEnabled ? "Crosshair on." : "Crosshair off.", interrupt: false);
+    }
+
+    private bool GetBool(string key)
+        => Settings.GetSetting(key)?.ToObject<bool>() ?? false;
+
+    /// <summary>Magnet snap (Phase B second pass, persisted, default off): drawing
+    /// anchors pull to the nearest OHLC of the bar under the cursor. Lives in this
+    /// menu — where drawing happens — rather than in F12.</summary>
+    private void OnToggleMagnet()
+    {
+        bool next = !GetBool(AccessibleTrader.Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey);
+        Settings.SetSetting(AccessibleTrader.Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey, next);
+        Settings.SaveSettings();
+        Close();
+        Speech.Speak(next ? "Magnet snap on. Drawing anchors snap to open, high, low, or close."
+                          : "Magnet snap off.", interrupt: false);
+    }
+
+    /// <summary>Quiet hover sonification (persisted, default off): a soft pitch tick
+    /// per hovered bar — sweep the mouse to hum the price contour.</summary>
+    private void OnToggleHoverSound()
+    {
+        bool next = !GetBool(AccessibleTrader.BlazorClient.Services.ChartHoverTracker.HoverSonificationKey);
+        Settings.SetSetting(AccessibleTrader.BlazorClient.Services.ChartHoverTracker.HoverSonificationKey, next);
+        Settings.SaveSettings();
+        Close();
+        Speech.Speak(next ? "Hover sound on." : "Hover sound off.", interrupt: false);
     }
 
     // ── Per-series actions ───────────────────────────────────────────────────

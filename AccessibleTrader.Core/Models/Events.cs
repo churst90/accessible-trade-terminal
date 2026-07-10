@@ -95,7 +95,9 @@ namespace AccessibleTrader.Core.Models
     /// <paramref name="BarIndex"/> is the bar under the cursor, or -1 in the empty
     /// right margin (keyboard origin passes the current cursor index).
     /// </summary>
-    public record OpenChartContextMenuEvent(double ViewportX, double ViewportY, int BarIndex);
+    public record OpenChartContextMenuEvent(
+        double ViewportX, double ViewportY, int BarIndex,
+        string? HitSeriesId = null, int HitComponentIndex = -1);
     /// <summary>
     /// Published by <see cref="Accessibility.EarconService"/> whenever an earcon
     /// actually plays (after the enable + throttle gates), so a visual channel can

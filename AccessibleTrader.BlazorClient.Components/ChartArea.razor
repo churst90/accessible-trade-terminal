@@ -520,6 +520,30 @@
             return;
         }
 
+        // HiDPI: render at the element's CSS size × devicePixelRatio (capped) so
+        // the chart is pixel-sharp on retina/high-DPI displays instead of a fuzzy
+        // upscaled 1280×720. Metrics come from a cheap JS call per (100 ms
+        // throttled) render; any failure — JS bridge absent in tests, pre-layout
+        // zero sizes — falls back to the fixed legacy resolution. Mouse mapping
+        // is unaffected: it works in CSS pixels against the element rect.
+        int renderWidth = BrowserRenderWidth, renderHeight = BrowserRenderHeight;
+        float renderDensity = 1.0f;
+        try
+        {
+            var metrics = await JS.InvokeAsync<double[]>(
+                "accessibleTrader.getChartMetrics", "chart-interact-zone");
+            if (metrics is { Length: 3 } && metrics[0] > 50 && metrics[1] > 50)
+            {
+                double dpr = Math.Clamp(metrics[2], 1.0, 3.0);
+                renderWidth = (int)Math.Clamp(metrics[0] * dpr, 320, 3840);
+                renderHeight = (int)Math.Clamp(metrics[1] * dpr, 180, 2160);
+                // Density follows DPR so axis text / line widths scale with the
+                // higher-resolution bitmap instead of shrinking.
+                renderDensity = (float)dpr;
+            }
+        }
+        catch { /* fallback to fixed size */ }
+
         // Render + encode off the renderer's caller thread so the SignalR
         // hub thread isn't pinned for the full ~5-20 ms cost.
         //
@@ -532,15 +556,15 @@
         {
             string dataUrl = await Task.Run(() =>
             {
-                var info = new SKImageInfo(BrowserRenderWidth, BrowserRenderHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+                var info = new SKImageInfo(renderWidth, renderHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
                 using var surface = SKSurface.Create(info);
                 var canvas = surface.Canvas;
                 canvas.Clear(SKColors.Black);
 
                 Renderer.Render(
                     canvas,
-                    BrowserRenderWidth,
-                    BrowserRenderHeight,
+                    renderWidth,
+                    renderHeight,
                     state.Data,
                     state.ActiveSeries,
                     state.CurrentDataIndex,
@@ -550,7 +574,7 @@
                     state.PaneRanges,
                     state.IsHeikinAshi,
                     state.IsLogScale,
-                    density: 1.0f,
+                    density: renderDensity,
                     state.PaneHeightRatios,
                     state.IndicatorPaneScrollIndex,
                     state.RightMarginBars);

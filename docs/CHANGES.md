@@ -6,6 +6,68 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Second passes: mouse depth (B2), JS test coverage (C2a), UX leftovers (D2) — 2026-07-09
+
+**Chart hit-tester → click-to-focus + component-aware right-click (B2a).** New
+`ChartHitTester` maps a cursor position to the component under it — computed on
+demand from the same inputs the renderer draws from (pane divider fractions from
+`IPaneLayoutService`, `PaneRanges`/`ViewportRange`, component data arrays), so the
+render path gains zero per-frame bookkeeping and the math stays consistent with
+`ChartMath`. Clicking near an indicator line now moves keyboard focus to that series
+and component before the bar is announced — you hear the thing you pointed at, with
+the bar-only fallback keeping imprecise clicks working. Right-clicking near a
+component opens the chart menu directly on that series' actions
+(`OpenChartContextMenuEvent` gained optional `HitSeriesId`/`HitComponentIndex`).
+Drawings are excluded (their anchor handles keep their own interactions).
+
+**Shift+click range measurement (B2b).** New `ShiftMouseUp` mouse type from JS:
+speaks bars/dates/high/low/net-change from the reading cursor to the clicked bar
+WITHOUT moving the cursor — measuring never loses the user's place. Full "play range"
+needs a sequencer end-index and stays tracked.
+
+**Magnet snap, opt-in (B2c).** `drawing.magnetSnap` (default OFF, toggled in the
+chart right-click menu): drawing anchor prices pull to the nearest O/H/L/C of the
+bar under the cursor within 3% of the visible range — precision without pixel aim
+(also applies to endpoint edit-drags). Keyboard anchoring is untouched (it already
+lands on the close).
+
+**Quiet hover sonification, opt-in (B2d).** `accessibility.hoverSonification`
+(default OFF, chart menu): one soft 40 ms sine tick per hovered BAR (never per
+pixel), pitched to close within the visible range — sweeping the mouse hums the
+price contour without touching the cursor or speech.
+
+**Settings search (D2a).** Search box atop the F12 dialog filtering a 20-entry
+registry of every user-facing setting (label + keywords); picking a result jumps to
+the owning tab and focuses the control. Nobody needs to memorise six tabs.
+
+**Text size + HiDPI (D2b).** `appearance.uiScale` (85–175%, default 100%) scales the
+root font size, applied on toggle and at circuit start. The browser chart now renders
+at the element's CSS size × devicePixelRatio (capped 3840×2160, density-scaled so
+axis text keeps its size) instead of fixed fuzzy 1280×720 — closing the tracked
+HiDPI item; safe fallback to the fixed size when metrics are unavailable (tests,
+pre-layout).
+
+**Verified-closed without code (D2c):** playback ALREADY advances the on-screen
+cursor bar-by-bar (AudioSequencer dispatches NavigateAction per played bar — the
+browser re-render path draws it); the recommended-strategy surfacing ALREADY exists
+(★ row highlight + banner in the strategy Library). Both June-audit leftovers were
+stale.
+
+**JS gesture-engine tests (C2a).** `tools/jstests/gesture-tests.mjs` — a
+zero-dependency node runner (no npm) loading keyboard.js into a vm sandbox with fake
+DOM/timers/RAF and asserting the .NET bridge calls: tap, drag (slop), long-press,
+double-tap timing, pinch in/out with centroid, shift+wheel pan, trackpad-swipe pan,
+ShiftMouseUp, dblclick. 12/12 passing; closes the "no JS test infra" gap.
+Run: `node tools/jstests/gesture-tests.mjs`.
+
+**Still open after this pass (tracked in TODO):** speech-template editor UI (needs
+ISpeechTemplateService DI registration + PropertiesModal surgery — deliberately not
+rushed), price/time-axis dragging, play-range, journal ticker, and the
+device-gated native touch layer (iOS adjustable element + rotor, Android
+ExploreByTouchHelper).
+
+Tests: 12 new xunit (`ChartHitTesterAndRangeTests`) + 12 JS. Full suite 1326/1326.
+
 ### Multi-disability visual accessibility, all opt-in — Phase D of the finalization plan (2026-07-09)
 
 Design rule: the terminal presents itself AUDIO-FIRST. Every visual accommodation
