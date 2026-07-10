@@ -1,8 +1,12 @@
 # Finalization Plan — Accessible Trade Terminal
 
 **Created:** 2026-07-09 (v1.4.0 baseline, commit `1a07d62d`)
-**Status:** Phases A, B (first pass), and C (first pass, web) COMPLETE 2026-07-09;
-full suite 1301/1301 green — pending Cody's real-app + real-device verification.
+**Status:** Phases A, B (first pass), C (first pass, web), and D (first pass)
+COMPLETE 2026-07-09; full suite 1314/1314 green — pending Cody's real-app +
+real-device verification. Phase D shipped the opt-in visual accessibility set
+(visual earcons, color-vision-safe colors, hollow candles — all default OFF,
+audio-first presentation preserved) plus reduced-motion, the contrast sweep, and
+Help quickstart.
 Phase C first pass shipped the web touch layer (gestures, SR bar navigator, touch
 toolbar, viewport fix) which also serves the MAUI apps via their WebView; the native
 second pass (iOS adjustable element + rotor, Android ExploreByTouchHelper) is specced
@@ -24,7 +28,7 @@ work lands.
 | A | Security hardening + Tier-1 money-path tests | **Complete 2026-07-09** (see CHANGES.md [Unreleased] + TODO.md 2026-07-09 section) |
 | B | Mouse completion (click-bar, crosshair, context menus, hit-test index) | **First pass complete 2026-07-09** — click-bar/wheel-pan/dbl-click/crosshair/chart menu shipped; hit-test index + range select + axis drag + magnet deferred (TODO.md) |
 | C | Touch input (web gestures + slider semantics, iOS adjustable, Android ExploreByTouchHelper) | **Web first pass complete 2026-07-09** — gestures/slider/toolbar/viewport shipped; native iOS/Android second pass specced in PLATFORM_STRATEGY_AND_ROADMAP §4, needs macOS + devices |
-| D | Multi-disability UX (deaf/HoH, colorblind, vestibular, cognitive, low-vision) | Not started |
+| D | Multi-disability UX (deaf/HoH, colorblind, vestibular, cognitive, low-vision) | **First pass complete 2026-07-09** — visual earcons, color-vision palette, hollow candles (all opt-in, default off), reduced-motion, contrast sweep, touch targets, Help quickstart; remainder (playback cursor, settings search, UI scale, template editor) tracked in TODO.md |
 | E | Test debt (continuous; Tier 1 inside Phase A, Tiers 2–4 ongoing) | Started with Phase A |
 
 Rationale for the order: A removes live risk on the public site now; B builds the

@@ -34,7 +34,7 @@
 
     @if (Spec.Root == null)
     {
-        <p style="color:#888; font-size: 0.85rem;">
+        <p style="color:var(--text-muted); font-size: 0.85rem;">
             No conditions yet. Add a root group (AND / OR / NOT) and then add leaves inside it.
         </p>
     }
@@ -208,7 +208,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
                        @onchange="OnScoreThresholdChanged"
                        placeholder="e.g. 3.0 (blank = OR fallback)" />
             </div>
-            <p style="color:#888; font-size:0.8rem;">
+            <p style="color:var(--text-muted); font-size:0.8rem;">
                 Max possible score (immediate leaves): <strong>@MaxScoreForSelectedGroup().ToString("F1")</strong>.
                 Leaves deeper in nested groups are not summed here.
             </p>
@@ -222,7 +222,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             </p>
         }
 
-        <p style="color:#888; font-size:0.8rem;">
+        <p style="color:var(--text-muted); font-size:0.8rem;">
             @Spec.SelectedNode.Children.Count child node(s).
         </p>
     </fieldset>

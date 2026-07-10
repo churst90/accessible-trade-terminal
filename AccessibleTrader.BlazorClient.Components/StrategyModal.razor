@@ -88,7 +88,7 @@
             <section id="panel-library" role="tabpanel" aria-labelledby="tab-library"
                      hidden="@(_activeTab != "library")" style="margin-top: 20px;">
                 <h3>Strategy Library</h3>
-                <p style="color: #888; font-size: 0.85rem;">
+                <p style="color: var(--text-muted); font-size: 0.85rem;">
                     Specs you've built in the Build Setup tab. Start a spec to begin running it
                     against live data; on next launch, every started spec is automatically restored.
                     Stopped specs remain in the library as templates you can edit and re-run later.
@@ -96,7 +96,7 @@
 
                 @if (StrategyLibrary.All.Count == 0)
                 {
-                    <p style="color: #888; margin-top: 16px;">
+                    <p style="color: var(--text-muted); margin-top: 16px;">
                         No saved strategies yet. Switch to <strong>Build Setup</strong> to compose one.
                     </p>
                 }
@@ -152,7 +152,7 @@
                                     <td style="padding: 6px 8px; color: @(isActive ? "#6f6" : "#888");">
                                         @(isActive ? "Active" : "Stopped")
                                     </td>
-                                    <td style="padding: 6px 8px; color: #aaa;">@spec.Description</td>
+                                    <td style="padding: 6px 8px; color: var(--text-muted);">@spec.Description</td>
                                     <td style="padding: 6px 8px; white-space: nowrap;">
                                         @if (isActive)
                                         {
@@ -248,7 +248,7 @@
                 }
                 else
                 {
-                    <p style="color: #888; margin-top: 10px;">
+                    <p style="color: var(--text-muted); margin-top: 10px;">
                         No active strategies. Switch to the <strong>Library</strong> tab and click
                         Start on a saved spec, or compose a new one in <strong>Build Setup</strong>.
                     </p>
@@ -259,7 +259,7 @@
             <section id="panel-bt" role="tabpanel" aria-labelledby="tab-bt"
                      hidden="@(_activeTab != "bt")" style="margin-top: 20px;">
                 <h3>Backtest</h3>
-                <p style="color: #888; font-size: 0.85rem; margin-bottom: 12px;">
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px;">
                     Runs the selected library spec against the currently loaded price data with
                     full TP / stop / VPVR replay correctness.
                 </p>
@@ -406,7 +406,7 @@
             <section id="panel-custom" role="tabpanel" aria-labelledby="tab-custom"
                      hidden="@(_activeTab != "custom")" style="margin-top: 20px;">
                 <h3>Custom C# Strategy</h3>
-                <p style="color: #888; font-size: 0.85rem; margin-bottom: 10px;">
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px;">
                     Write a C# class that implements <code>ITradingStrategy</code> (from AccessibleTrader.Sdk).
                     The class will be compiled at runtime and added to the strategy engine.
                 </p>

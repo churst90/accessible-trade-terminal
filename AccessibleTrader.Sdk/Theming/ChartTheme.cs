@@ -25,6 +25,25 @@ public record ChartTheme
     public required SKColor VolumeBearish { get; init; }
     // Indicator palette (12 color slots)
     public required ImmutableList<SKColor> IndicatorPalette { get; init; }
+
+    // ── Visual accessibility overrides (Phase D, all default OFF) ────────────
+    // Set by ThemeService from settings, consulted by the renderers. These are
+    // deliberate override modes (like OS high-contrast) — when on, they take
+    // precedence over per-component color customisation for direction cues.
+
+    /// <summary>
+    /// Color-vision-safe direction colors: up = blue, down = orange instead of
+    /// the red/green convention that deuteranopia/protanopia users cannot
+    /// separate. Applied to candles and price-action-colored bars.
+    /// </summary>
+    public bool ColorVisionSafe { get; init; } = false;
+
+    /// <summary>
+    /// Draw up-candles hollow (outline only) so direction is readable by shape
+    /// alone — the classic colorblind-safe candlestick convention, independent
+    /// of any palette.
+    /// </summary>
+    public bool HollowUpCandles { get; init; } = false;
     // Profile
     public required SKColor ProfilePOC { get; init; }
     public required SKColor ProfileValueArea { get; init; }

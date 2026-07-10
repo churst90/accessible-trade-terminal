@@ -6,6 +6,62 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Multi-disability visual accessibility, all opt-in — Phase D of the finalization plan (2026-07-09)
+
+Design rule: the terminal presents itself AUDIO-FIRST. Every visual accommodation
+below is OFF BY DEFAULT and lives in Settings (F12) → Appearance → "Visual
+accessibility", applying and persisting the moment it is toggled.
+
+**Visual earcons (deaf/hard-of-hearing).** `EarconService` now publishes an
+`EarconVisualEvent` alongside every earcon that actually plays — after the same
+enable + throttle gates, so the visual cadence exactly matches the audio. The new
+`VisualEarconOverlay` shows (only when opted in) a brief top-center badge naming the
+event ("Buy order filled", "Stop loss hit", "Long setup", "New bar"…) with a
+tone-coded accent bar (blue/orange/red/grey — colorblind-safe by default).
+Photosensitivity by construction: one fade per event, a newer event replaces the
+badge rather than stacking flashes (WCAG 2.3.1), and `prefers-reduced-motion` renders
+it static. The EventBus parameter is optional so existing two-arg EarconService
+construction keeps working.
+
+**Color-vision-safe chart colors (deuteranopia/protanopia).** New setting
+`appearance.colorVisionSafe`: candles and direction-colored bars render blue-up /
+orange-down instead of red/green. Implemented as a deliberate override mode (like OS
+high-contrast) in `StandardRenderers.ApplyColorVision` — one switch, takes precedence
+over per-component colors while on. Plumbed as `ChartTheme.ColorVisionSafe`, applied
+by `ThemeService` from settings, preserved across theme switches, refreshed live via
+the new `IThemeService.RefreshAccessibilityOverrides()` (default-interface no-op so
+substitutes don't care).
+
+**Hollow up-candles.** New setting `appearance.hollowUpCandles`: rising bodies render
+as outlines, falling filled — direction readable by shape alone, independent of any
+palette (the classic colorblind-safe candle convention). Phase-colored candles
+(Cipher S) stay filled since the phase itself is the message.
+
+**Reduced motion.** `prefers-reduced-motion: reduce` now collapses all transitions
+and animations app-wide (blackout fade, loading shimmer, hover lifts, earcon badge
+fade) — respects the OS/browser setting directly, so no in-app toggle is needed.
+
+**Touch target sizes.** On coarse-pointer devices, tab buttons rise to ≥44 px and
+buttons/selects to ≥40 px — desktop density untouched.
+
+**WCAG contrast sweep completed.** All 41 inline `color:#888` / `color:#aaa`
+foreground literals across 13 modal/component files replaced with
+`var(--text-muted)`, which resolves to the AA-compliant #555 on light modal panels
+via the existing scope override and #aaa on dark surfaces. (Closes the tracked
+TODO item from the 2026-06 sweep note.)
+
+**Getting-started in Help (F1).** New first section: the five steps to a first chart,
+plus pointers to QUICKSTART.md and USER_MANUAL.md.
+
+**Audit correction recorded:** the June audit claimed the AI Analyst's output was
+speech-only; in fact `AIAnalystModal` already renders the full analysis as text in a
+labelled region. No change needed — noted so it isn't re-raised.
+
+Tests: 17 new (`VisualAccessibilityTests` ×13 — visual-event cadence/throttle/
+disabled-gate, theme override persistence + live refresh, ApplyColorVision exact
+colors; `VisualEarconOverlayTests` bUnit ×4 — default-off, opt-in badge, tone
+fallback, replace-not-stack). Full suite 1314/1314.
+
 ### Touch input, web-first — Phase C of the finalization plan (2026-07-09)
 
 The web client (hosted terminal + public demo at accessibletrader.com, and the same

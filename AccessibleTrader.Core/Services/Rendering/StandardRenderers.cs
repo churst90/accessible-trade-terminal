@@ -3,11 +3,32 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Theming;
 
 namespace AccessibleTrader.Core.Services.Rendering
 {
     public static class StandardRenderers
     {
+        // ── Visual accessibility overrides (Phase D) ─────────────────────────
+
+        /// <summary>
+        /// Deuteranopia/protanopia-safe direction pair used when
+        /// <see cref="ChartTheme.ColorVisionSafe"/> is on: up = blue, down =
+        /// orange — the standard colorblind-friendly trading convention.
+        /// Public so tests (and docs) can pin the exact values.
+        /// </summary>
+        public static readonly SKColor ColorVisionUp = new(64, 156, 255);
+        public static readonly SKColor ColorVisionDown = new(255, 160, 32);
+
+        /// <summary>
+        /// When the color-vision override is on, replaces a resolved up/down
+        /// pair with the safe pair. An override mode by design (like OS
+        /// high-contrast): it takes precedence over per-component colors so
+        /// the toggle is one switch, not a per-indicator recoloring chore.
+        /// </summary>
+        internal static (SKColor up, SKColor down) ApplyColorVision(ChartTheme theme, SKColor up, SKColor down)
+            => theme.ColorVisionSafe ? (ColorVisionUp, ColorVisionDown) : (up, down);
+
         // ── Per-bar color helpers ─────────────────────────────────────────────
 
         /// <summary>
@@ -85,6 +106,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 SKColor.TryParse(bodyComp.ColorHex, out bullish);
                 SKColor.TryParse(bodyComp.ColorHexSecondary, out bearish);
             }
+            (bullish, bearish) = ApplyColorVision(ctx.Theme, bullish, bearish);
+            bool hollowUp = ctx.Theme.HollowUpCandles;
 
             // Wick color: read from the wick components' own ColorHex so users can style
             // wicks independently from the candle body via the Properties modal.
@@ -150,7 +173,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                 using var bodyLease = SKPaintPool.Rent();
                 var bodyPaint = bodyLease.Paint;
                 bodyPaint.Color = bodyColor;
-                bodyPaint.Style = SKPaintStyle.Fill;
+                // Hollow-up-candles accessibility mode: up-bodies are outlined, down
+                // filled — direction readable by shape alone, no color perception
+                // needed. Phase-colored candles stay filled (phase IS the message).
+                bool drawHollow = hollowUp && !hasPhaseOverride && bar.Close >= bar.Open;
+                bodyPaint.Style = drawHollow ? SKPaintStyle.Stroke : SKPaintStyle.Fill;
+                if (drawHollow) bodyPaint.StrokeWidth = 1.5f;
                 // Pixel-align body edges so the rect is symmetric around the
                 // same center as the wick stroke. Without flooring, the body's
                 // left edge and width both drifted on sub-pixel boundaries and
@@ -308,6 +336,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 upColor = parsedUp;
             if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
                 downColor = parsedDown;
+            (upColor, downColor) = ApplyColorVision(ctx.Theme, upColor, downColor);
             using var upPaint = SKPaintPool.Rent();
             upPaint.Paint.Color = upColor.WithAlpha(180);
             upPaint.Paint.Style = SKPaintStyle.Fill;

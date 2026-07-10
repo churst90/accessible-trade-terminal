@@ -35,7 +35,7 @@
                 }
                 else
                 {
-                    <span aria-hidden="true" style="color:#888; font-size:0.8rem;">Live</span>
+                    <span aria-hidden="true" style="color:var(--text-muted); font-size:0.8rem;">Live</span>
                 }
             </div>
 
@@ -53,7 +53,7 @@
             {
                 @if (_isLive)
                 {
-                    <div style="margin-bottom:8px; font-size:0.8rem; color:#aaa; display:flex; align-items:center; gap:12px;">
+                    <div style="margin-bottom:8px; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:12px;">
                         <label for="ob-announce"><input id="ob-announce" type="checkbox" checked="@_announceLarge" @onchange="e => _announceLarge = e.Value is bool b && b" /> Announce large orders</label>
                         @if (_announceLarge)
                         {
@@ -65,7 +65,7 @@
                 @* Spread / top-of-book summary. Updates silently with the rest of the book —
                    no aria-live so the user reads it on focus rather than being interrupted
                    by every depth change. The visual labels stay obvious to sighted users. *@
-                <p style="font-size:0.85rem; color:#aaa; margin-bottom:8px;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">
                     Best bid: <strong style="color:#44BB44;">@(_bids.FirstOrDefault().Price.ToString("G6"))</strong>
                     &nbsp;|&nbsp;
                     Best ask: <strong style="color:#FF4444;">@(_asks.FirstOrDefault().Price.ToString("G6"))</strong>
@@ -105,7 +105,7 @@
                                         style="background: linear-gradient(to left, rgba(68,187,68,0.15) @(pct.ToString("P0")), transparent @(pct.ToString("P0"))); outline-offset: -2px;">
                                         <td style="padding:3px 6px; color:#44BB44;">@bid.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@bid.Quantity.ToString("G4")</td>
-                                        <td style="padding:3px 6px; text-align:right; color:#888;">@bidCumul.ToString("G4")</td>
+                                        <td style="padding:3px 6px; text-align:right; color:var(--text-muted);">@bidCumul.ToString("G4")</td>
                                     </tr>
                                 }
                             </tbody>
@@ -142,7 +142,7 @@
                                         style="background: linear-gradient(to right, rgba(255,68,68,0.15) @(pct2.ToString("P0")), transparent @(pct2.ToString("P0"))); outline-offset: -2px;">
                                         <td style="padding:3px 6px; color:#FF4444;">@ask.Price.ToString("G6")</td>
                                         <td style="padding:3px 6px; text-align:right;">@ask.Quantity.ToString("G4")</td>
-                                        <td style="padding:3px 6px; text-align:right; color:#888;">@askCumul.ToString("G4")</td>
+                                        <td style="padding:3px 6px; text-align:right; color:var(--text-muted);">@askCumul.ToString("G4")</td>
                                     </tr>
                                 }
                             </tbody>

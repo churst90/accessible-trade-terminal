@@ -97,6 +97,18 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record OpenChartContextMenuEvent(double ViewportX, double ViewportY, int BarIndex);
     /// <summary>
+    /// Published by <see cref="Accessibility.EarconService"/> whenever an earcon
+    /// actually plays (after the enable + throttle gates), so a visual channel can
+    /// mirror the audio one for deaf/hard-of-hearing users.
+    /// <see cref="BlazorClient.Components.VisualEarconOverlay"/> subscribes and — only
+    /// when the opt-in "visual earcons" setting is on — shows a brief, single-fade
+    /// badge (no strobing; WCAG 2.3.1 stays satisfied by design).
+    /// <paramref name="Label"/> is the human-readable event name ("Order filled");
+    /// <paramref name="Tone"/> is "positive" | "negative" | "alert" | "neutral" and
+    /// drives the badge accent (blue/orange — colorblind-safe by default).
+    /// </summary>
+    public record EarconVisualEvent(string Label, string Tone);
+    /// <summary>
     /// RESERVED / UNUSED. Never published or subscribed. Drawing placement actually flows through
     /// <see cref="AddDrawingEvent"/>: <see cref="Input.CommandDispatcher"/> publishes one
     /// <c>AddDrawingEvent</c> each time the user re-presses a drawing shortcut, and

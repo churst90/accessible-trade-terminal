@@ -26,7 +26,7 @@
             @if (_existingProfiles.Count > 0)
             {
                 <div style="margin-top: 12px;">
-                    <p style="font-size: 0.85rem; color: #aaa;">Existing profiles (select to overwrite):</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Existing profiles (select to overwrite):</p>
                     <ul role="listbox" aria-label="Existing workspace profiles" style="list-style: none; padding: 0; margin: 4px 0; max-height: 150px; overflow-y: auto;">
                         @foreach (var profile in _existingProfiles)
                         {

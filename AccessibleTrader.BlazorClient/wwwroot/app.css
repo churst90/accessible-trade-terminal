@@ -570,3 +570,25 @@ label {
 .touch-nav-btn:active {
     background: #0078d4;
 }
+
+/* ── Reduced motion (Phase D) ─────────────────────────────────────────────
+   Respects the OS/browser "reduce motion" preference (WCAG 2.3.3 guidance):
+   transitions and animations collapse to near-instant. The app's animations
+   are already minimal; this makes them zero for vestibular-sensitive users. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── Coarse-pointer target sizes (Phase D) ────────────────────────────────
+   On touchscreens, lift small controls toward the 44px minimum without
+   affecting the dense desktop layout. */
+@media (pointer: coarse) {
+    .tab-btn { min-height: 44px; padding: 8px 14px; }
+    button   { min-height: 40px; }
+    select, input[type="checkbox"], input[type="radio"] { min-height: 32px; min-width: 32px; }
+}

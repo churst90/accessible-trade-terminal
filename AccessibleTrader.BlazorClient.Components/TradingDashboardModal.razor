@@ -29,7 +29,7 @@
                 @if (_availableKeys.Any())
                 {
                     <div class="key-selector">
-                        <label for="key-select" style="font-size: 0.8rem; color: #888; margin-right: 8px;">Switch API Key:</label>
+                        <label for="key-select" style="font-size: 0.8rem; color: var(--text-muted); margin-right: 8px;">Switch API Key:</label>
                         <select id="key-select" value="@_activeKeyNickname" @onchange="OnKeyChanged" style="padding: 4px; background: #222; color: #fff; border: 1px solid #444;">
                             @foreach (var key in _availableKeys)
                             {
@@ -46,7 +46,7 @@
                     <div style="font-size: 2rem; margin-bottom: 15px;">🚫</div>
                     <h3>Trading Not Supported</h3>
                     <p>The current provider <strong>@(Store.State.Identity.Provider ?? "Unknown")</strong> does not support order execution.</p>
-                    <p style="font-size: 0.85rem; color: #888; margin-top: 10px;">Please switch to a supported exchange (e.g., Binance, Coinbase, Alpaca) to enable trading features.</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">Please switch to a supported exchange (e.g., Binance, Coinbase, Alpaca) to enable trading features.</p>
                 </div>
                 <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
                     <button @onclick="Close">Close</button>
@@ -202,7 +202,7 @@
                                     <input id="leverage-input" type="number" min="1" max="@_maxLeverage" step="1"
                                            aria-label="Leverage multiplier"
                                            @bind="_leverage" />
-                                    <span style="font-size:0.8rem; color:#888;">×&nbsp;(max @_maxLeverage)</span>
+                                    <span style="font-size:0.8rem; color:var(--text-muted);">×&nbsp;(max @_maxLeverage)</span>
                                 </div>
 
                                 <div class="entry-row">
@@ -248,14 +248,14 @@
 
                             @if (_bookLoading)
                             {
-                                <p style="font-size:0.85rem; color:#888;">Loading order book…</p>
+                                <p style="font-size:0.85rem; color:var(--text-muted);">Loading order book…</p>
                             }
                             else
                             {
                                 @* No aria-live here: the book refreshes every 2s and a live region
                                    would re-announce the spread endlessly. The order book reads on
                                    demand (Tab through it) and via the dedicated Alt+B panel. *@
-                                <p style="font-size:0.8rem; color:#888; margin:0 0 6px;">
+                                <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 6px;">
                                     Spread: <strong>@GetSpread()</strong>
                                 </p>
 
@@ -423,7 +423,7 @@
 <style>
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; padding: 12px; margin-bottom: 15px; }
-    .panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #888; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    .panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; }
     
     .market-stats { display: flex; gap: 20px; }
     .stat { display: flex; flex-direction: column; }
@@ -465,7 +465,7 @@
     .book-row { display: flex; justify-content: space-between; padding: 2px 0; }
     .asks .price { color: #f44; }
     .bids .price { color: #4f4; }
-    .book-spread { text-align: center; padding: 5px; background: #222; margin: 5px 0; color: #888; font-size: 0.8rem; }
+    .book-spread { text-align: center; padding: 5px; background: #222; margin: 5px 0; color: var(--text-muted); font-size: 0.8rem; }
 
     .tabs-mini { display: flex; gap: 5px; margin-bottom: 10px; }
     .tabs-mini button { background: transparent; border: none; color: #666; font-size: 0.8rem; cursor: pointer; padding: 2px 5px; }

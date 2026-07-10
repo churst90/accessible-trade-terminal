@@ -50,7 +50,7 @@
                         }
                         @if (!_scripts.Any())
                         {
-                            <div style="padding:10px; color:#888; font-style:italic;">No scripts yet</div>
+                            <div style="padding:10px; color:var(--text-muted); font-style:italic;">No scripts yet</div>
                         }
                     </div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -116,7 +116,7 @@
                     }
                     else
                     {
-                        <p style="color:#888; font-style:italic; margin-top:16px;">
+                        <p style="color:var(--text-muted); font-style:italic; margin-top:16px;">
                             Select or create a script to edit.
                         </p>
                     }
@@ -131,7 +131,7 @@
                         <button @onclick="ImportAtpkgFromFile" aria-label="Import .atpkg file from disk">
                             &#128194; Import from file…
                         </button>
-                        <span style="font-size:0.8rem; color:#888;">— or paste legacy JSON below —</span>
+                        <span style="font-size:0.8rem; color:var(--text-muted);">— or paste legacy JSON below —</span>
                     </div>
                     <textarea rows="3" style="width:100%; font-family:monospace; font-size:0.8rem;"
                               placeholder='Paste legacy .atpkg JSON: {"Name":"...","Code":"..."}'

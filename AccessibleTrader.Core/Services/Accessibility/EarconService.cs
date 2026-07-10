@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
@@ -72,11 +73,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly ConcurrentDictionary<string, long> _lastPlayedAtMs = new();
         private const long MinIntervalMs = 200;
 
-        public EarconService(ISonificationManager sonificationManager, ISoundPatchLibrary patchLibrary)
+        // Optional so existing two-arg construction (tests, manual composition)
+        // keeps working; DI supplies the bus, enabling the visual earcon channel.
+        private readonly IEventBus? _eventBus;
+
+        public EarconService(ISonificationManager sonificationManager, ISoundPatchLibrary patchLibrary,
+            IEventBus? eventBus = null)
         {
             _sonificationManager = sonificationManager;
             _patchLibrary = patchLibrary;
+            _eventBus = eventBus;
         }
+
+        /// <summary>
+        /// Mirrors a just-played earcon onto the visual channel (Phase D,
+        /// deaf/hard-of-hearing support). Fired only after the same enable +
+        /// throttle gates as the audio, so visual and audio cadence match; the
+        /// overlay component decides visibility from the opt-in setting.
+        /// </summary>
+        private void SignalVisual(string label, string tone)
+            => _eventBus?.Publish(new EarconVisualEvent(label, tone));
 
         /// <summary>
         /// Plays a note using the assigned SoundPatch for <paramref name="earconKey"/> if one
@@ -102,6 +118,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayInfo()
         {
             if (!CanPlay("info")) return;
+            SignalVisual("Info", "neutral");
             PlayWithPatchFallback("Info", 660, 0.1, "sine", 0.1f);
         }
 
@@ -117,6 +134,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayError(ErrorSeverity severity)
         {
             if (!CanPlay("error")) return;
+            SignalVisual($"Error ({severity})", "alert");
 
             switch (severity)
             {
@@ -137,6 +155,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlaySuccess()
         {
             if (!CanPlay("success")) return;
+            SignalVisual("Success", "positive");
             _sonificationManager.PlayNote(440, 0.1, "sine", 0.1f, 0);
             _sonificationManager.PlayNote(880, 0.1, "sine", 0.1f, 0);
         }
@@ -144,6 +163,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayRetry()
         {
             if (!CanPlay("retry")) return;
+            SignalVisual("Retrying", "neutral");
             _sonificationManager.PlayNote(330, 0.1, "sine", 0.1f, 0);
             _sonificationManager.PlayNote(220, 0.1, "sine", 0.1f, 0);
         }
@@ -151,12 +171,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayBoundary()
         {
             if (!CanPlay("boundary")) return;
+            SignalVisual("Boundary", "neutral");
             PlayWithPatchFallback("Boundary", 150, 0.1, "square", 0.1f);
         }
 
         public void PlayNewBar()
         {
             if (!CanPlay("newbar")) return;
+            SignalVisual("New bar", "neutral");
             if (_patchLibrary.EarconOverrides.EarconPatchIds.TryGetValue("NewBar", out var patchId))
             {
                 var patch = _patchLibrary.GetPatch(patchId);
@@ -183,6 +205,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string key = $"setup_{(side == OrderSide.Buy ? "long" : "short")}_{(reconfirmation ? "rc" : "new")}";
             if (!CanPlay(key)) return;
+            SignalVisual(side == OrderSide.Buy
+                ? (reconfirmation ? "Long setup re-confirmed" : "Long setup")
+                : (reconfirmation ? "Short setup re-confirmed" : "Short setup"),
+                side == OrderSide.Buy ? "positive" : "negative");
 
             float vol = reconfirmation ? 0.06f : 0.14f;
             double dur = reconfirmation ? 0.30 : 0.70;
@@ -207,6 +233,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string key = $"setup_armed_{(side == OrderSide.Buy ? "long" : "short")}";
             if (!CanPlay(key)) return;
+            SignalVisual(side == OrderSide.Buy ? "Long setup armed" : "Short setup armed",
+                side == OrderSide.Buy ? "positive" : "negative");
             // Two-tone fifth: long = rising 660 → 990, short = falling 330 → 220.
             // Distinct from PlaySetupBell by being a clean two-note fifth instead of a chord
             // and by using moderate (~0.10) rather than full (~0.14) volume.
@@ -226,6 +254,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string key = $"setup_entry_{(side == OrderSide.Buy ? "long" : "short")}";
             if (!CanPlay(key)) return;
+            SignalVisual(side == OrderSide.Buy ? "Long entry reached" : "Short entry reached",
+                side == OrderSide.Buy ? "positive" : "negative");
             // Brighter and slightly longer than PlaySetupArmed but lighter than PlaySetupBell.
             // Long = 550 + 825 + 1100 (close to setup_long but slightly elevated). Short = mirror.
             if (side == OrderSide.Buy)
@@ -246,6 +276,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string key = $"order_fill_{(side == OrderSide.Buy ? "buy" : "sell")}";
             if (!CanPlay(key)) return;
+            SignalVisual(side == OrderSide.Buy ? "Buy order filled" : "Sell order filled",
+                side == OrderSide.Buy ? "positive" : "negative");
             if (side == OrderSide.Buy)
             {
                 // Two staccato pickups then a sustained resolve a fourth up.
@@ -264,6 +296,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayStopHit()
         {
             if (!CanPlay("stop_hit")) return;
+            SignalVisual("Stop loss hit", "alert");
             // Urgent but orderly: low minor-third descent, square for bite — deliberately
             // shorter and cleaner than PlayError's dissonant beating pair.
             _sonificationManager.PlayNote(220, 0.18, "square", 0.16f, 0f); // A3
@@ -274,6 +307,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayTakeProfitHit()
         {
             if (!CanPlay("tp_hit")) return;
+            SignalVisual("Take profit hit", "positive");
             // Bright major arpeggio up — the "win" sound.
             _sonificationManager.PlayNote(523,  0.10, "sine", 0.12f, 0f); // C5
             _sonificationManager.PlayNote(659,  0.10, "sine", 0.12f, 0f); // E5
@@ -284,6 +318,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void PlayConnectionState(ConnectionState state)
         {
             if (!CanPlay($"conn_{state}")) return;
+            SignalVisual($"Connection: {state}",
+                state == ConnectionState.Error || state == ConnectionState.Disconnected ? "alert" : "neutral");
 
             switch (state)
             {

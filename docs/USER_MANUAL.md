@@ -1118,6 +1118,27 @@ over your shoulder — and an alerts section holds the email and Telegram delive
 details that let fired alerts reach you away from the keyboard. Changes apply when you
 close the dialog.
 
+**Visual accessibility options.** The Appearance tab also carries a group of visual
+accommodations. All of them are **off by default** — the terminal presents itself
+audio-first, and these exist for users who want a visual channel too. Each applies
+and saves the moment you toggle it:
+
+- **Visual earcons** mirrors every sound cue — order fills, stops, take-profits,
+  setups, errors, new bars, connection changes — as a brief on-screen badge naming
+  the event, for deaf and hard-of-hearing traders or anyone working with the sound
+  down. Each event fades in and out once; nothing ever flashes repeatedly.
+- **Color-vision-safe chart colors** replaces the red/green up-down convention with
+  blue for up and orange for down on candles and direction-coloured bars — the two
+  hues remain distinct with deuteranopia or protanopia. While on, it deliberately
+  overrides any per-indicator direction colours so one switch covers the whole chart.
+- **Hollow up-candles** draws rising candles as outlines and falling candles filled,
+  making direction readable by shape alone, with any colours.
+
+Two further accommodations need no switch at all: if your operating system or browser
+is set to **reduce motion**, the terminal's animations and transitions are disabled
+automatically; and on touchscreens, buttons and tabs enlarge automatically to
+comfortable touch sizes.
+
 ### The sound designer
 
 Two layers of audio control sit underneath settings. The first is each indicator's

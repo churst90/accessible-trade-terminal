@@ -186,7 +186,7 @@
                                     @* ── Color Rules ──────────────────────────────────────────── *@
                                     <div style="margin-top:10px; border-top:1px solid #222; padding-top:8px;">
                                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                                            <span style="font-size:0.78rem; color:#888; text-transform:uppercase; letter-spacing:0.05em;">
+                                            <span style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
                                                 Color Rules <span style="font-weight:normal;">(first match wins, overrides static color)</span>
                                             </span>
                                             <button style="font-size:0.75rem; padding:2px 8px;"
@@ -323,13 +323,13 @@
                         <div class="scroll-area">
                             <fieldset>
                                 <legend>Available Tokens</legend>
-                                <p style="font-size:0.78rem; color:#aaa; margin:0 0 6px 0;">
+                                <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 6px 0;">
                                     Continuous templates (line / oscillator / band):
                                     <code>{name}</code>, <code>{type}</code>, <code>{value}</code>,
                                     <code>{value:F2}</code>, <code>{value:price}</code>,
                                     <code>{trend}</code>, <code>{zone}</code>
                                 </p>
-                                <p style="font-size:0.78rem; color:#aaa; margin:0;">
+                                <p style="font-size:0.78rem; color:var(--text-muted); margin:0;">
                                     Signal (marker) templates:
                                     <code>{name}</code>, <code>{price}</code>. Empty template on a marker = silent.
                                 </p>
@@ -495,7 +495,7 @@
                                                     aria-label="Preview bearish patch for @comp.Name">&#9654;</button>
                                         </div>
                                     }
-                                    <p style="font-size:0.75rem; color:#888; margin:2px 0 8px;">
+                                    <p style="font-size:0.75rem; color:var(--text-muted); margin:2px 0 8px;">
                                         Patches are built in the Sound Designer and live-link here — edit a patch there and
                                         every component using it updates.
                                         @if (IsDirectional(comp))
@@ -566,7 +566,7 @@
     .tabs-header { display: flex; border-bottom: 1px solid #333; margin-bottom: 15px; }
     .tabs-header button {
         flex: 1; padding: 10px; background: transparent; border: none; border-bottom: 2px solid transparent;
-        color: #888; cursor: pointer; font-weight: bold;
+        color: var(--text-muted); cursor: pointer; font-weight: bold;
     }
     .tabs-header button.active { color: #0078d4; border-bottom-color: #0078d4; }
     
@@ -574,7 +574,7 @@
     .scroll-area { overflow-y: auto; padding-right: 10px; }
     
     fieldset { border: 1px solid #333; border-radius: 4px; padding: 10px; margin-bottom: 15px; }
-    legend { padding: 0 5px; color: #888; font-size: 0.8rem; text-transform: uppercase; }
+    legend { padding: 0 5px; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; }
     
     .modal-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .modal-row label { flex: 1; font-size: 0.9rem; }

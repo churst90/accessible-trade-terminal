@@ -1,0 +1,117 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@inject IEventBus EventBus
+@inject ISettingsManager Settings
+@implements IDisposable
+
+@*
+    Visual earcons (Phase D, opt-in — Settings F12 → Appearance → Visual
+    accessibility, DEFAULT OFF). Mirrors every earcon that actually played as a
+    brief on-screen badge for deaf and hard-of-hearing users: label text plus a
+    tone-coded accent bar. Accent colors are blue/orange/grey — colorblind-safe
+    by default, matching the chart's color-vision-safe palette.
+
+    Photosensitivity: ONE fade-in/fade-out per event, no repetition, no strobing
+    — a new event replaces the current badge rather than stacking flashes, so
+    WCAG 2.3.1 (three flashes per second) is satisfied by construction.
+
+    aria-hidden — this is purely the visual channel; the audio/speech pipeline
+    is the accessible source of truth for these events.
+*@
+
+@if (_visible && _label != null)
+{
+    <div aria-hidden="true" class="visual-earcon @ToneClass" @key="_instance">
+        @_label
+    </div>
+}
+
+<style>
+    .visual-earcon {
+        position: fixed;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9000;
+        pointer-events: none;
+        background: rgba(18, 18, 18, 0.92);
+        color: #fff;
+        font-size: 1rem;
+        padding: 8px 18px;
+        border-radius: 6px;
+        border-left: 6px solid #888;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        animation: visual-earcon-fade 1.6s ease-out forwards;
+    }
+    .visual-earcon.tone-positive { border-left-color: #409cff; } /* blue = up/good */
+    .visual-earcon.tone-negative { border-left-color: #ffa020; } /* orange = down */
+    .visual-earcon.tone-alert    { border-left-color: #ff5252; }
+    .visual-earcon.tone-neutral  { border-left-color: #9e9e9e; }
+
+    @@keyframes visual-earcon-fade {
+        0%   { opacity: 0; }
+        8%   { opacity: 1; }
+        70%  { opacity: 1; }
+        100% { opacity: 0; }
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .visual-earcon { animation: none; opacity: 1; }
+    }
+</style>
+
+@code {
+    private bool _visible;
+    private string? _label;
+    private string _tone = "neutral";
+    private int _instance; // forces the CSS animation to restart per event (@key)
+    private IDisposable? _sub;
+    private System.Threading.CancellationTokenSource? _hideCts;
+
+    private string ToneClass => $"tone-{_tone}";
+
+    protected override void OnInitialized()
+    {
+        _sub = EventBus.Subscribe<EarconVisualEvent>(ev => InvokeAsync(() => Show(ev)));
+    }
+
+    private async void Show(EarconVisualEvent ev)
+    {
+        // Opt-in gate, read per event (cheap in-memory lookup) so a settings
+        // change takes effect without restarting the circuit.
+        bool enabled = Settings.GetSetting("accessibility.visualEarcons")?.ToObject<bool>() ?? false;
+        if (!enabled) return;
+
+        _label = ev.Label;
+        _tone = ev.Tone switch
+        {
+            "positive" or "negative" or "alert" => ev.Tone,
+            _ => "neutral",
+        };
+        _instance++;      // new @key → animation restarts cleanly
+        _visible = true;
+        StateHasChanged();
+
+        // Remove the element after the fade completes (reduced-motion users get
+        // a static badge for the same duration). A newer event supersedes the
+        // pending hide.
+        _hideCts?.Cancel();
+        var cts = new System.Threading.CancellationTokenSource();
+        _hideCts = cts;
+        try
+        {
+            await System.Threading.Tasks.Task.Delay(1700, cts.Token);
+            _visible = false;
+            StateHasChanged();
+        }
+        catch (System.Threading.Tasks.TaskCanceledException)
+        {
+            // superseded by a newer badge — nothing to do
+        }
+    }
+
+    public void Dispose()
+    {
+        _hideCts?.Cancel();
+        _sub?.Dispose();
+    }
+}

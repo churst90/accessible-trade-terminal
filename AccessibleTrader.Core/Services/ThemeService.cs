@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using Newtonsoft.Json.Linq;
 using SkiaSharp;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
@@ -32,18 +33,23 @@ namespace AccessibleTrader.Core.Services
 
         private const string ThemeSettingKey = "ui.theme";
 
+        // Visual accessibility overrides (Phase D). Both default OFF: the terminal
+        // presents audio-first; visual accommodations are opt-in per user.
+        public const string ColorVisionSafeKey = "appearance.colorVisionSafe";
+        public const string HollowUpCandlesKey = "appearance.hollowUpCandles";
+
         public ThemeService(ISettingsManager settings)
         {
             _settings = settings;
             // Restore previously-saved theme; fall back to HighContrastDark if not set.
             var saved = _settings.GetSetting(ThemeSettingKey)?.ToString();
             var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.HighContrastDark;
-            Current = BuildTheme(type);
+            Current = WithAccessibilityOverrides(BuildTheme(type));
         }
 
         public void SetTheme(ThemeType theme)
         {
-            Current = BuildTheme(theme);
+            Current = WithAccessibilityOverrides(BuildTheme(theme));
             ThemeChanged?.Invoke(this, Current);
             // Persist immediately so the choice survives restart.
             _settings.SetSetting(ThemeSettingKey, theme.ToString());
@@ -52,6 +58,25 @@ namespace AccessibleTrader.Core.Services
 
         // Keep old API for code that calls ApplyTheme(ThemeType).
         public void ApplyTheme(ThemeType theme) => SetTheme(theme);
+
+        /// <summary>
+        /// Re-reads the visual-accessibility settings and re-fires ThemeChanged so
+        /// the chart repaints. Called by the Settings dialog after toggling
+        /// color-vision-safe colors or hollow candles.
+        /// </summary>
+        public void RefreshAccessibilityOverrides()
+        {
+            Current = WithAccessibilityOverrides(BuildTheme(Current.ThemeType));
+            ThemeChanged?.Invoke(this, Current);
+        }
+
+        private ChartTheme WithAccessibilityOverrides(ChartTheme theme)
+        {
+            bool colorVision = _settings.GetSetting(ColorVisionSafeKey)?.Value<bool?>() ?? false;
+            bool hollow      = _settings.GetSetting(HollowUpCandlesKey)?.Value<bool?>() ?? false;
+            if (!colorVision && !hollow) return theme;
+            return theme with { ColorVisionSafe = colorVision, HollowUpCandles = hollow };
+        }
 
         private static ChartTheme BuildTheme(ThemeType type) => type switch
         {

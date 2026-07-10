@@ -4,6 +4,44 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-09] — Multi-disability visual accessibility, opt-in (Finalization plan, Phase D)
+
+Phase D of `docs/FINALIZATION_PLAN.md`. Audio-first stays the default presentation —
+every visual accommodation is OFF until the user enables it in F12 → Appearance →
+Visual accessibility. Full detail in `CHANGES.md` [Unreleased]. Pending Cody's
+real-app verification.
+
+### Shipped
+
+- [x] **Visual earcons** (deaf/HoH) — every earcon mirrors to an on-screen badge via
+  `EarconVisualEvent` + `VisualEarconOverlay`; same throttle/enable gates as audio;
+  one fade per event, replace-not-stack (WCAG 2.3.1 by construction). Default OFF.
+- [x] **Color-vision-safe chart colors** — blue-up/orange-down override for candles +
+  direction bars (`ChartTheme.ColorVisionSafe`, `StandardRenderers.ApplyColorVision`);
+  survives theme switches; live refresh. Default OFF.
+- [x] **Hollow up-candles** — direction by shape alone. Default OFF.
+- [x] **`prefers-reduced-motion`** honoured app-wide (no toggle needed — OS setting).
+- [x] **Coarse-pointer target sizes** — tabs ≥44 px, buttons ≥40 px on touchscreens.
+- [x] **Contrast sweep DONE** — all 41 inline `#888`/`#aaa` foreground literals →
+  `var(--text-muted)` (closes the WCAG color contrast sweep item below from 2026-06).
+- [x] **Help (F1) getting-started section** with QUICKSTART/USER_MANUAL pointers.
+- [x] **Audit correction:** AI Analyst already shows its analysis as text — the June
+  claim of speech-only output was wrong; do not re-raise.
+- [x] 17 new tests; full suite 1314/1314 green.
+
+### Phase D remaining (deferred, tracked)
+
+- [ ] Playback visual cursor — verify whether playback already advances the rendered
+  cursor bar on the browser re-render path; if not, add a highlighted-bar overlay.
+- [ ] Settings search (filter box across the six F12 tabs).
+- [ ] In-app UI scale setting (root font-size multiplier) for low vision.
+- [ ] Speech-template editor UI (templates currently hand-edited JSON).
+- [ ] "Recent events" visual ticker surfacing the Journal ambiently (deaf/HoH).
+- [ ] Wire the built "Use Recommended" strategy preset button into BuildSetupTab.
+- [ ] HiDPI chart rendering at client devicePixelRatio (low vision; tracked earlier).
+
+---
+
 ## [2026-07-09] — Touch input, web-first (Finalization plan, Phase C, first pass)
 
 Phase C of `docs/FINALIZATION_PLAN.md`. Web layer shipped; native (MAUI) layer specced
