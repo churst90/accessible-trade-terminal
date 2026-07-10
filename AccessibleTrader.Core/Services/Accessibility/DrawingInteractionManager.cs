@@ -57,6 +57,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private bool _isPanning;
         private double _panLastX;
         private double _panAccumBars;   // carried fractional bars between moves
+        // Total absolute pixel travel across the drag. A "pan" that never leaves the
+        // click dead zone is a plain click — and a click on empty chart space selects
+        // the bar under the cursor (same pipeline as arrow-key navigation, so speech
+        // and sonification fire identically for mouse and keyboard users).
+        private double _panTravelPixels;
         // When a leftward pan brings the viewport start within this many bars of the
         // data edge, request a history backfill — mirrors ViewportManager.HandlePan.
         private const int PanHistoryBackfillThreshold = 50;
@@ -95,12 +100,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // preview OR an active edit-drag is allowed even when _pendingDrawingType is
             // None, because a two-point drawing's preview (or a handle-drag edit) outlives
             // the pending flag until MouseUp commits. An in-progress pan-drag likewise
-            // keeps MouseMove/MouseUp flowing so it can complete.
+            // keeps MouseMove/MouseUp flowing so it can complete. ContextMenu must always
+            // pass: right-click works from idle (it opens the drawing menu on an anchor
+            // hit, or the chart-level menu on a miss).
             if (_pendingDrawingType == DrawingType.None
                 && _previewSeriesId == null
                 && _editSeriesId == null
                 && !_isPanning
-                && type != "MouseDown") return;
+                && type != "MouseDown"
+                && type != "ContextMenu") return;
 
             // Active pan drag is resolved in pure pixel space, ahead of the anchor
             // coordinate mapping below (which rejects cursor positions outside the data
@@ -108,7 +116,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_isPanning)
             {
                 if (type == "MouseMove") { UpdatePan(x, width); return; }
-                if (type == "MouseUp")   { EndPan(); return; }
+                if (type == "MouseUp")   { EndPan(x, width); return; }
             }
 
             var state = _store.State;
@@ -196,7 +204,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (bestSeriesId != null)
             {
                 _eventBus.Publish(new OpenDrawingContextMenuEvent(bestSeriesId, x, y));
+                return;
             }
+
+            // No drawing anchor under the cursor → chart-level context menu. Carries the
+            // bar index under the cursor so "Play from here" can start playback at the
+            // right-clicked bar; -1 when the click landed in the empty right margin.
+            int barIndex = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            if (barIndex < 0 || barIndex >= state.Data.Count) barIndex = -1;
+            _eventBus.Publish(new OpenChartContextMenuEvent(x, y, barIndex));
         }
 
         private void HandleMouseDown(DateTime date, double price, double x, double y, double width, double height)
@@ -311,6 +327,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _isPanning = true;
             _panLastX = x;
             _panAccumBars = 0;
+            _panTravelPixels = 0;
         }
 
         /// <summary>
@@ -327,6 +344,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             double dxPixels = x - _panLastX;
             _panLastX = x;
+            _panTravelPixels += Math.Abs(dxPixels);
 
             double barsPerPixel = state.ViewportLength / width;
             _panAccumBars += dxPixels * barsPerPixel;
@@ -342,12 +360,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _store.Dispatch(new PanAction(-whole));
         }
 
-        /// <summary>End a pan-drag and let the feedback coordinator speak the new range.</summary>
-        private void EndPan()
+        /// <summary>
+        /// End a pan-drag. A drag that never left the click dead zone is a plain click:
+        /// select the bar under the cursor through the exact pipeline the arrow keys use
+        /// (SetCursor + Navigation feedback), so a sighted user's click and a keyboard
+        /// user's arrows produce identical speech + sonification — and the keyboard
+        /// cursor lands where the mouse pointed, letting a low-vision user click roughly
+        /// then fine-tune with arrows. A real drag speaks the new viewport range instead.
+        /// </summary>
+        private void EndPan(double x, double width)
         {
             _isPanning = false;
             _panAccumBars = 0;
+            bool wasClick = _panTravelPixels < DragDeadZonePixels;
+            _panTravelPixels = 0;
+
+            if (wasClick)
+            {
+                SelectBarAtPixel(x, width);
+                return;
+            }
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.ViewportChange, ""));
+        }
+
+        /// <summary>
+        /// Move the keyboard cursor to the bar under pixel <paramref name="x"/> and fire
+        /// the standard navigation feedback (speech + sonification). Clicks on the empty
+        /// right margin / future space are no-ops — there is no bar there to hear.
+        /// </summary>
+        private void SelectBarAtPixel(double x, double width)
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0 || width <= 0) return;
+
+            int index = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            if (index < 0 || index >= state.Data.Count) return;
+
+            _store.Dispatch(new SetCursorAction(index));
+            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
         }
 
         /// <summary>
@@ -482,20 +533,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         private static double PriceToScreenY(double price, WorkspaceState state, double height)
-        {
-            double min = state.ViewportRange.Min;
-            double max = state.ViewportRange.Max;
-            if (state.IsLogScale)
-            {
-                if (min <= 0) min = 0.01;
-                if (max <= min) max = min + 1.0;
-                double pct = (Math.Log(price) - Math.Log(min)) / (Math.Log(max) - Math.Log(min));
-                return (1.0 - pct) * height;
-            }
-            if (max <= min) return 0;
-            double linearPct = (price - min) / (max - min);
-            return (1.0 - linearPct) * height;
-        }
+            => ChartMath.PriceToScreenY(price, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
 
         /// <summary>
         /// Create a preview drawing series seeded with anchor1 on both ends so the user
@@ -624,23 +662,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return data[^1].Date + System.TimeSpan.FromTicks(step.Ticks * offsetBars);
         }
 
-        private double MapYToPrice(double y, double height, double min, double max, bool isLog)
-        {
-            double percent = 1.0 - (y / height);
-            if (isLog)
-            {
-                if (min <= 0) min = 0.01;
-                if (max <= min) max = min + 1.0;
-                return Math.Exp(Math.Log(min) + (percent * (Math.Log(max) - Math.Log(min))));
-            }
-            return min + (percent * (max - min));
-        }
+        // Pointer↔chart coordinate mapping lives in ChartMath so the hover crosshair,
+        // click-select, and drawing placement all share one tested implementation.
+        private static double MapYToPrice(double y, double height, double min, double max, bool isLog)
+            => ChartMath.MapYToPrice(y, height, min, max, isLog);
 
-        private int MapXToIndex(double x, double width, int startIndex, int length)
-        {
-            double percent = x / width;
-            return startIndex + (int)Math.Round(percent * (length - 1));
-        }
+        private static int MapXToIndex(double x, double width, int startIndex, int length)
+            => ChartMath.MapXToIndex(x, width, startIndex, length);
 
         private void HandleDrawingStep(DateTime date, double price)
         {

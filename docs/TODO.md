@@ -4,6 +4,48 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-09] — Mouse interaction completion (Finalization plan, Phase B, first pass)
+
+Phase B of `docs/FINALIZATION_PLAN.md`. Design rule: every mouse action lands in the
+same store state the keyboard navigates — speech + sonification identical for both.
+Full engineering detail in `CHANGES.md` [Unreleased]. Pending real-app verification
+by Cody.
+
+### Shipped
+
+- [x] **Click a bar to hear it** — click on empty chart space moves the keyboard
+  cursor to the clicked bar via the Home/End jump pipeline; spoken + sonified like
+  arrow navigation; right-margin clicks are no-ops. (Replaces the accidental
+  "click speaks viewport range" behaviour.)
+- [x] **Shift+scroll / horizontal trackpad swipe pans through time** — honours the
+  user's pan granularity, backfills history near the edge; no button-hold (motor win).
+- [x] **Double-click jumps to the live edge** (mouse twin of Backslash).
+- [x] **Hover crosshair + readout** — bar-snapped hairline + date/price/OHLC readout
+  as real DOM text (magnifier/zoom friendly), aria-hidden, never speaks; toggleable
+  from the chart menu; hides on mouseleave.
+- [x] **Chart-level right-click menu** — Play from here / Jump to latest / crosshair
+  toggle / all series listed BY NAME with Focus, Mute, Hide, Properties, Remove (no
+  pixel-precise pointing needed — low-vision/tremor win). Keyboard parity via the
+  Application key when no drawing is focused (previously an error message).
+- [x] **Bug fix:** right-click was dead from idle state — the DrawingInteractionManager
+  fast-reject swallowed ContextMenu events, so the v1.4.0 drawing anchor menu only
+  worked mid-drawing. Now pinned by regression test.
+- [x] **Shared coordinate math** — MapXToIndex / MapYToPrice / PriceToScreenY moved to
+  ChartMath with round-trip tests (linear + log + degenerate guards).
+- [x] 35 new tests; full suite 1288/1288 green.
+
+### Phase B second pass (deferred, tracked)
+
+- [ ] Render-time hit-test index in ChartRenderer (per-series/component screen
+  geometry) → true per-component right-click menus + click-to-focus-series. Shared
+  infra for Phase C explore-by-touch and DotPad region mapping.
+- [ ] Click-drag range selection → Play range / spoken range summary / backtest here.
+- [ ] Price-axis drag to scale; time-axis drag to zoom; double-click axis to reset.
+- [ ] Magnet/snap mode for drawing anchors (snap to nearest bar OHLC).
+- [ ] Optional quiet hover-sonification mode (default off).
+
+---
+
 ## [2026-07-09] — Security hardening (Finalization plan, Phase A)
 
 Phase A of `docs/FINALIZATION_PLAN.md` (the five-area finalization audit: mouse, touch,

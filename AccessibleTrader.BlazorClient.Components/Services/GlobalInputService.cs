@@ -119,6 +119,36 @@ namespace AccessibleTrader.BlazorClient.Services
         }
 
         /// <summary>
+        /// Forwarded from the JS <c>wheel</c> handler when Shift is held or the wheel
+        /// event is a horizontal trackpad swipe: pans the viewport through time instead
+        /// of zooming. A motor-friendly alternative to click-drag panning — no button
+        /// hold required. Uses <see cref="WorkspacePanEvent"/> so the step honours the
+        /// user's configured panning granularity, exactly like the toolbar pan buttons.
+        /// <paramref name="direction"/> +1 = forward in time (newer bars), -1 = back.
+        /// Panning toward the data edge requests a history backfill like drag-pan does.
+        /// </summary>
+        [JSInvokable]
+        public void OnWheelPan(int direction)
+        {
+            if (direction < 0 && _store.State.ViewportStartIndex < 50)
+                _eventBus.Publish(new RequestHistoryEvent());
+            _store.Dispatch(new WorkspacePanEvent(direction));
+        }
+
+        /// <summary>
+        /// Forwarded from the JS <c>dblclick</c> handler on the chart: jump to the live
+        /// edge (latest bar), mirroring the keyboard's jump-to-live command. The standard
+        /// navigation feedback fires, so the latest bar is spoken and sonified.
+        /// </summary>
+        [JSInvokable]
+        public void OnDoubleClick()
+        {
+            _store.Dispatch(new JumpToLatestAction());
+            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
+        }
+
+        /// <summary>
         /// Normalises a raw <see cref="Microsoft.AspNetCore.Components.Web.KeyboardEventArgs.Key"/>
         /// value to the upper-case token ShortcutManager recognises. Mirrors the
         /// mapping in wwwroot/js/keyboard.js so the element-level Blazor fallback

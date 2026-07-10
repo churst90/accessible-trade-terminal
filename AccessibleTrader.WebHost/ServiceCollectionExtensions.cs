@@ -135,6 +135,7 @@ namespace AccessibleTrader.WebHost
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
             });
             services.AddScoped<GlobalInputService>();
+            services.AddScoped<ChartHoverTracker>();
 
             services.AddScoped<ISettingsManager, SettingsManager>();
             services.AddScoped<ThemeService>();

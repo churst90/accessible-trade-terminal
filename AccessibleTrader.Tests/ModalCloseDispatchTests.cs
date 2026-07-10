@@ -136,20 +136,26 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void OpenDrawingContextMenu_FeedbackError_WhenNoDrawingFocused()
+        public void OpenDrawingContextMenu_OpensChartMenu_WhenNoDrawingFocused()
         {
+            // Phase B: the Application key with no drawing focused used to speak an
+            // error ("No drawing focused."); it now opens the chart-level context
+            // menu — full keyboard parity with mouse right-click on empty chart space.
             var (dispatcher, bus, _) = BuildDispatcher();
             dispatcher.SetChartActive(true);
 
-            var openEvents = new List<OpenDrawingContextMenuEvent>();
-            var feedback = new List<FeedbackRequestEvent>();
-            bus.Subscribe<OpenDrawingContextMenuEvent>(openEvents.Add);
-            bus.Subscribe<FeedbackRequestEvent>(feedback.Add);
+            var drawingMenu = new List<OpenDrawingContextMenuEvent>();
+            var chartMenu = new List<OpenChartContextMenuEvent>();
+            bus.Subscribe<OpenDrawingContextMenuEvent>(drawingMenu.Add);
+            bus.Subscribe<OpenChartContextMenuEvent>(chartMenu.Add);
 
             dispatcher.Dispatch(SystemCommand.OpenDrawingContextMenu);
 
-            Assert.Empty(openEvents);
-            Assert.Contains(feedback, f => f.Message == "No drawing focused.");
+            Assert.Empty(drawingMenu);
+            var ev = Assert.Single(chartMenu);
+            // Sentinel NaN coords = "self-position centrally" (keyboard origin).
+            Assert.True(double.IsNaN(ev.ViewportX));
+            Assert.True(double.IsNaN(ev.ViewportY));
         }
     }
 }

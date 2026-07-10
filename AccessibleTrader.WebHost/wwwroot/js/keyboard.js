@@ -252,13 +252,38 @@ window.accessibleTrader = {
         // +1 for wheel-up (zoom in) and -1 for wheel-down (zoom out); anchor fraction
         // is the cursor's X position within the chart rect, so the bar under the
         // cursor stays fixed as the viewport expands or contracts.
+        //
+        // Shift+wheel — or a horizontal trackpad swipe — pans through time instead of
+        // zooming (motor-friendly: no click-hold needed). Scroll down/right = newer
+        // bars, up/left = older bars.
         el.addEventListener('wheel', function (e) {
             e.preventDefault();
             const rect = el.getBoundingClientRect();
+            const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+            if (e.shiftKey || horizontal) {
+                const delta = horizontal ? e.deltaX : e.deltaY;
+                if (delta !== 0) {
+                    dotnetHelper.invokeMethodAsync('OnWheelPan', delta > 0 ? 1 : -1);
+                }
+                return;
+            }
             const anchorFraction = (e.clientX - rect.left) / Math.max(1, rect.width);
             const direction = e.deltaY < 0 ? 1 : -1;
             dotnetHelper.invokeMethodAsync('OnWheel', direction, anchorFraction);
         }, { passive: false });
+
+        // Double-click on the chart jumps to the live edge (latest bar) — the mouse
+        // twin of the keyboard's jump-to-live command.
+        el.addEventListener('dblclick', function () {
+            dotnetHelper.invokeMethodAsync('OnDoubleClick');
+        });
+
+        // Cursor leaving the chart hides the hover crosshair. Forwarded as a distinct
+        // mouse type; the drawing pipeline ignores it.
+        el.addEventListener('mouseleave', function () {
+            const rect = el.getBoundingClientRect();
+            dotnetHelper.invokeMethodAsync('OnMouseEvent', -1, -1, 'MouseLeave', rect.width, rect.height);
+        });
     },
 
     /**

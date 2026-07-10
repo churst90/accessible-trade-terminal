@@ -126,6 +126,58 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// Maps a cursor X pixel position to an absolute bar index in the loaded data.
+        /// Inverse of the renderer's bar layout: 0 px = ViewportStartIndex, full width =
+        /// start + length - 1. The result is NOT clamped to the data range — callers
+        /// decide whether right-margin/future indices are meaningful (drawings allow
+        /// them; bar selection does not).
+        /// </summary>
+        public static int MapXToIndex(double x, double width, int startIndex, int length)
+        {
+            if (width <= 0 || length <= 0) return startIndex;
+            double percent = x / width;
+            return startIndex + (int)Math.Round(percent * (length - 1));
+        }
+
+        /// <summary>
+        /// Maps a cursor Y pixel position to a price within the viewport range.
+        /// Inverse of <see cref="MapY"/> for the pane spanning [0, height]. Supports
+        /// linear and log scales, with the same degenerate-range guards the forward
+        /// mapping uses (min forced positive on log scale; max forced above min).
+        /// </summary>
+        public static double MapYToPrice(double y, double height, double min, double max, bool isLog)
+        {
+            if (height <= 0) return min;
+            double percent = 1.0 - (y / height);
+            if (isLog)
+            {
+                if (min <= 0) min = 0.01;
+                if (max <= min) max = min + 1.0;
+                return Math.Exp(Math.Log(min) + (percent * (Math.Log(max) - Math.Log(min))));
+            }
+            return min + (percent * (max - min));
+        }
+
+        /// <summary>
+        /// Maps a price to a Y pixel position within a pane spanning [0, height] —
+        /// the forward companion of <see cref="MapYToPrice"/>, used by anchor-handle
+        /// hit-testing and the hover crosshair.
+        /// </summary>
+        public static double PriceToScreenY(double price, double height, double min, double max, bool isLog)
+        {
+            if (isLog)
+            {
+                if (min <= 0) min = 0.01;
+                if (max <= min) max = min + 1.0;
+                double pct = (Math.Log(price) - Math.Log(min)) / (Math.Log(max) - Math.Log(min));
+                return (1.0 - pct) * height;
+            }
+            if (max <= min) return 0;
+            double linearPct = (price - min) / (max - min);
+            return (1.0 - linearPct) * height;
+        }
+
+        /// <summary>
         /// Maps a numeric data value to a physical Y-coordinate within a bounded area.
         /// Supports both Linear and Logarithmic scaling.
         /// </summary>

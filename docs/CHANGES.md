@@ -6,7 +6,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Security hardening — Phase A of the finalization plan (`docs/FINALIZATION_PLAN.md`).
+### Mouse interaction completion — Phase B of the finalization plan (2026-07-09)
+
+Design rule for everything below: every mouse action lands in the SAME store state the
+keyboard navigates, so speech + sonification fire identically for mouse and keyboard
+users, and the two input methods never disagree about where you are.
+
+**Click a bar to hear it.** A single click on empty chart space (a "pan" that never
+leaves the 5 px drag dead zone) moves the keyboard cursor to the bar under the pointer
+via the exact jump pipeline Home/End use (`SetCursorAction` + Navigation feedback) —
+the bar is spoken and sonified as if arrowed to, and subsequent arrow keys continue
+from the clicked bar. Clicks in the empty right margin are no-ops. Previously a plain
+click announced the viewport range (an accidental byproduct of pan-drag).
+
+**Shift+scroll pans through time; horizontal trackpad swipes pan too.** New
+`GlobalInputService.OnWheelPan` routed from the JS wheel handler; dispatches
+`WorkspacePanEvent` so the step honours the user's configured panning granularity,
+with the same near-edge history backfill as drag-pan. Motor-friendly: no button-hold.
+
+**Double-click jumps to the live edge** (mouse twin of Backslash), with standard
+navigation feedback.
+
+**Hover crosshair + readout.** New `ChartHoverTracker` (Components) follows the mouse:
+vertical hairline snapped to the hovered bar, horizontal line at the pointer, and a
+top-corner readout with the bar's date, the pointer's price, and the bar's OHLC. The
+readout is REAL DOM TEXT (not baked into the chart PNG) so magnifiers/zoom/user CSS
+work on it; it is aria-hidden and never speaks — the spoken path is clicking the bar.
+Toggleable from the chart context menu. Hides on mouseleave (new JS event).
+
+**Chart-level right-click context menu.** Right-click on open chart space (previously
+a silent no-op) opens `ChartContextMenu`: Play from here (starts playback at the
+right-clicked bar), Jump to latest, Show/Hide crosshair, and a Series section listing
+every active series BY NAME with per-series actions (Focus / Mute / Hide / Properties /
+Remove — primary price series protected from Remove). Listing series as menu items is
+deliberate accessibility design: acting on an indicator never requires pointing at a
+2-pixel line — a win for low-vision and tremor users. Keyboard parity: the Application
+key / Shift+F10 with no drawing focused now opens this menu (it previously spoke
+"No drawing focused." and did nothing); with a drawing focused it still opens the
+drawing menu.
+
+**Right-click fixed from idle.** The fast-reject in `DrawingInteractionManager`
+swallowed ContextMenu events whenever no drawing flow was active, so right-clicking a
+drawing's anchor on an idle chart never opened the v1.4.0 drawing menu. ContextMenu
+now always passes through (regression-pinned).
+
+**Shared, tested coordinate math.** The pointer↔chart mapping (`MapXToIndex`,
+`MapYToPrice`, `PriceToScreenY`) moved from private duplicates inside
+DrawingInteractionManager into `ChartMath`, now covered by round-trip tests (linear +
+log scale, degenerate-range guards) so one implementation serves click-select, the
+crosshair, drawing placement, and the context menu.
+
+Tests: 35 new (ChartMathPointerMappingTests, ChartMouseInteractionTests,
+ChartContextMenuTests bUnit; ModalCloseDispatch keyboard-parity test updated).
+Deliberately deferred to a later Phase B pass (tracked in FINALIZATION_PLAN.md):
+render-time per-series/component hit-test index, per-component context menus,
+click-drag range selection with "play range", price/time axis dragging, magnet snap.
+
+### Security hardening — Phase A of the finalization plan (`docs/FINALIZATION_PLAN.md`)
 
 **Script sandbox is now mandatory (refuse, don't downgrade).** When the OS sandbox
 primitive is unavailable at script-launch time — `bwrap` not installed on Linux,

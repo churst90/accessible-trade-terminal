@@ -353,6 +353,50 @@ range just as the keys do, so they are safe to use with a screen reader. You can
 **click and drag the chart itself** to pan — provided no drawing tool is selected —
 dragging right to reveal older bars; letting go of the button anywhere stops the pan.
 
+### Using the mouse on the chart
+
+Every mouse action on the chart lands in the same place the keyboard navigates, so the
+mouse and the keyboard always agree about where you are — and everything a mouse action
+does is spoken through the same pipeline the arrow keys use. That makes the mouse fully
+usable alongside a screen reader, and it makes the chart approachable for a sighted or
+low-vision trader sharing the terminal with you.
+
+**Click a bar to hear it.** A single click on the chart moves the reading cursor to the
+bar under the pointer and announces it exactly as if you had arrowed there — values
+spoken, tone played. Because the click really moves the cursor, you can click roughly
+in the area you care about and then fine-tune with Left and Right arrows; pointing
+precision is never required. Clicks in the empty space to the right of the newest bar
+do nothing.
+
+**Scroll wheel.** Scrolling zooms in and out, keeping the bar under the pointer fixed
+in place. **Shift+scroll pans through time instead** — down or right for newer bars, up
+or left for older — using the same pan step as the bracket keys, with no button-holding
+or dragging needed, which makes it the easiest way to move through history if clicking
+and dragging is difficult for you. A sideways swipe on a trackpad pans the same way.
+
+**Double-click to jump to now.** Double-clicking anywhere on the chart jumps straight
+to the newest, live bar and announces it — the mouse twin of the Backslash key.
+
+**The crosshair.** As the pointer moves over the chart, a crosshair follows it: a
+vertical line snapped to the bar under the pointer, a horizontal line at the pointer's
+price, and a readout in the top corner showing the bar's date, the price at the pointer,
+and the bar's open/high/low/close. The readout is real text on the page — not part of
+the chart image — so screen magnifiers, browser zoom, and custom styles all work on it.
+It never speaks (that would be constant chatter as the mouse moves); the spoken
+equivalent is simply clicking the bar. You can turn the crosshair off and on from the
+chart's right-click menu.
+
+**The right-click menu.** Right-click on open chart space (or press the Application
+key — or Shift+F10 — with the chart focused) for the chart menu: **Play from here**
+starts playback at the bar you clicked; **Jump to latest** returns to the live edge;
+**Show/Hide crosshair** toggles the crosshair; and beneath those, every series on the
+chart is listed **by name**. Choose a series to get its actions — Focus, Mute or
+Unmute, Hide or Show, Properties, and Remove. Listing series as menu items is
+deliberate: acting on an indicator never requires clicking on a thin line, which
+matters as much for shaky hands and low vision as it does for screen reader users.
+Right-clicking directly on a drawing's anchor handle still opens the drawing's own
+menu (Delete, Duplicate, Properties), as before.
+
 ### Moving between panes and components
 
 Page Down moves your focus to the next pane below, Page Up to the pane above; as you

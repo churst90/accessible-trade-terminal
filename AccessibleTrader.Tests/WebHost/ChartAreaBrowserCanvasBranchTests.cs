@@ -107,6 +107,12 @@ public class ChartAreaBrowserCanvasBranchTests
             harness.EventBus,
             harness.WorkspaceStore));
 
+        // ChartHoverTracker (Phase B crosshair) — concrete class injected by ChartArea;
+        // no mouse events flow in these render-branch tests.
+        harness.Ctx.Services.AddSingleton(new ChartHoverTracker(
+            Substitute.For<IInputService>(),
+            harness.WorkspaceStore));
+
         // ChartRenderer — concrete class, only called inside
         // RenderChartImageAsync which is gated behind the 100 ms render
         // trigger. We never wait for that in these tests, so we just need

@@ -132,6 +132,7 @@ namespace AccessibleTrader.BlazorClient
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
             });
             services.AddSingleton<GlobalInputService>();
+            services.AddSingleton<ChartHoverTracker>();
 
             // Configuration, themes, and styling.
             services.AddSingleton<ISettingsManager, SettingsManager>();

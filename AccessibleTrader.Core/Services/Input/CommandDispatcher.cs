@@ -254,17 +254,20 @@ namespace AccessibleTrader.Core.Services.Input
                 // Chart-focus is still required (categorised as ChartScoped above).
                 case SystemCommand.OpenDrawingContextMenu:
                 {
+                    // A focused drawing gets the drawing menu; anything else gets the
+                    // chart-level menu (the same one mouse right-click opens on empty
+                    // chart space), carrying the current cursor bar for "Play from here".
                     var focusedId = _store.State.FocusedSeriesId;
                     var focused = string.IsNullOrEmpty(focusedId)
                         ? null
                         : _store.State.ActiveSeries.FirstOrDefault(s => s.Id == focusedId);
-                    if (focused == null || !focused.IsDrawing)
+                    if (focused != null && focused.IsDrawing)
                     {
-                        _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.Error, "No drawing focused.", true));
+                        _eventBus.Publish(new OpenDrawingContextMenuEvent(focused.Id, double.NaN, double.NaN));
                         return;
                     }
-                    _eventBus.Publish(new OpenDrawingContextMenuEvent(focused.Id, double.NaN, double.NaN));
+                    _eventBus.Publish(new OpenChartContextMenuEvent(
+                        double.NaN, double.NaN, _store.State.CurrentDataIndex));
                     return;
                 }
                 case SystemCommand.CloseModal:

@@ -87,6 +87,16 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record OpenDrawingContextMenuEvent(string SeriesId, double ViewportX, double ViewportY);
     /// <summary>
+    /// Fired when a right-click on the chart does NOT land on a drawing anchor: the
+    /// chart-level context menu (play from here, jump to latest, crosshair toggle, and
+    /// a per-series action list — deliberately requiring no pixel-precise pointing).
+    /// <paramref name="ViewportX"/>/<paramref name="ViewportY"/> are CSS pixels relative
+    /// to the chart-interact-zone (NaN/NaN = keyboard origin, self-positions centrally);
+    /// <paramref name="BarIndex"/> is the bar under the cursor, or -1 in the empty
+    /// right margin (keyboard origin passes the current cursor index).
+    /// </summary>
+    public record OpenChartContextMenuEvent(double ViewportX, double ViewportY, int BarIndex);
+    /// <summary>
     /// RESERVED / UNUSED. Never published or subscribed. Drawing placement actually flows through
     /// <see cref="AddDrawingEvent"/>: <see cref="Input.CommandDispatcher"/> publishes one
     /// <c>AddDrawingEvent</c> each time the user re-presses a drawing shortcut, and

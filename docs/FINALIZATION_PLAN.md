@@ -1,8 +1,12 @@
 # Finalization Plan — Accessible Trade Terminal
 
 **Created:** 2026-07-09 (v1.4.0 baseline, commit `1a07d62d`)
-**Status:** Phase A COMPLETE (2026-07-09, full suite 1253/1253 green — pending Cody's
-real-app verification). Phase B is next. Phases B–D not started; Phase E continues.
+**Status:** Phase A COMPLETE (2026-07-09). Phase B FIRST PASS COMPLETE (2026-07-09,
+full suite 1288/1288 green — pending Cody's real-app verification): click-bar-to-hear,
+shift+wheel pan, double-click jump-to-live, crosshair + DOM readout, chart-level
+context menu with per-series actions, idle right-click fix, shared ChartMath pointer
+mapping + tests. Phase B second pass (hit-test index, per-component menus, range
+selection, axis drag, magnet snap) deferred and tracked in TODO.md. Phase C is next.
 
 This document captures the five-area finalization audit (mouse, touch, UX/disabilities,
 unit tests, security/robustness) and the agreed phased execution plan. It is the
@@ -16,7 +20,7 @@ work lands.
 | Phase | Scope | Status |
 |-------|-------|--------|
 | A | Security hardening + Tier-1 money-path tests | **Complete 2026-07-09** (see CHANGES.md [Unreleased] + TODO.md 2026-07-09 section) |
-| B | Mouse completion (click-bar, crosshair, context menus, hit-test index) | Not started — next up |
+| B | Mouse completion (click-bar, crosshair, context menus, hit-test index) | **First pass complete 2026-07-09** — click-bar/wheel-pan/dbl-click/crosshair/chart menu shipped; hit-test index + range select + axis drag + magnet deferred (TODO.md) |
 | C | Touch input (web Pointer Events + slider semantics, iOS adjustable, Android ExploreByTouchHelper) | Not started |
 | D | Multi-disability UX (deaf/HoH, colorblind, vestibular, cognitive, low-vision) | Not started |
 | E | Test debt (continuous; Tier 1 inside Phase A, Tiers 2–4 ongoing) | Started with Phase A |

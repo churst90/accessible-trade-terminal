@@ -265,6 +265,26 @@ The Journal is the persistent review surface for everything the application has 
 
 ---
 
+## Mouse equivalents
+
+Every mouse action routes into the same store the keyboard navigates, so speech and
+sonification fire identically for both. The keyboard remains the canonical path; the
+mouse column shows the parity action.
+
+| Action | Keyboard | Mouse |
+|---|---|---|
+| Move cursor to a bar and hear it | Left / Right arrows | Single click on the bar |
+| Jump to the latest live bar | `\` (Backslash) | Double-click the chart |
+| Pan the viewport | `[` / `]` | Click-drag the chart, or **Shift+scroll** (or horizontal trackpad swipe) |
+| Zoom in / out | `=` / `-` | Scroll wheel (anchored at the pointer) |
+| Chart context menu (play from here, jump to latest, crosshair, per-series actions) | Application key or Shift+F10 (chart focused, no drawing focused) | Right-click on open chart space |
+| Drawing context menu (Delete / Duplicate / Properties) | Application key or Shift+F10 (drawing focused) | Right-click on a drawing's anchor handle |
+| Place a drawing | Tool shortcut, navigate, re-press | Click-drag (live preview) or click-click |
+| Move a drawing anchor | Re-place via tool shortcut | Drag the anchor handle |
+| Inspect a bar without moving the cursor | — (arrows always move the cursor) | Hover — crosshair readout shows date, price, OHLC (visual only, never spoken) |
+
+---
+
 ## Notes
 
 - **Tab** is not a shortcut in this application. Series switching uses Page Up / Page Down.

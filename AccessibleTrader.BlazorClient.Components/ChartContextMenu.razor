@@ -1,0 +1,232 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.BlazorClient.Services
+@inject IEventBus EventBus
+@inject IWorkspaceStore Store
+@inject ISpeechFeedbackRouter Speech
+@inject ChartHoverTracker HoverTracker
+@inject Microsoft.JSInterop.IJSRuntime Js
+@implements IDisposable
+
+@*
+    Chart-level right-click context menu — opens when a right-click on the chart does
+    NOT land on a drawing anchor (OpenChartContextMenuEvent from
+    DrawingInteractionManager), and from the keyboard Application/Shift+F10 key when no
+    drawing is focused (CommandDispatcher). Two views:
+
+      1. Main: Play from here / Jump to latest / Crosshair toggle, then a Series section
+         listing every active series by name. Listing series as MENU ITEMS is deliberate
+         accessibility design: acting on an indicator line never requires pointing at a
+         2-pixel-wide line — a win for low-vision and tremor users.
+      2. Per-series: Focus / Mute / Hide / Properties / Remove, with Back.
+
+    All actions route through the existing event/action surfaces (ToggleMuteEvent,
+    ToggleHideEvent, DeleteSeriesEvent, OpenPropertiesEvent, SetPlaybackAction…), so
+    announcements and redraws behave exactly like their keyboard twins.
+*@
+
+@if (_isVisible)
+{
+    <div role="none"
+         @onclick="Close"
+         @oncontextmenu:preventDefault="true"
+         style="position:fixed; inset:0; z-index:9998; background:transparent;">
+    </div>
+    <div role="menu"
+         aria-label="@(_selectedSeries == null ? "Chart actions" : $"Actions for {_selectedSeries.FriendlyName}")"
+         style="@_menuStyle"
+         @onclick:stopPropagation="true"
+         @oncontextmenu:preventDefault="true">
+        @if (_selectedSeries == null)
+        {
+            <button id="chart-ctx-first" role="menuitem" class="ctx-item" @onclick="OnPlayFromHere"
+                    disabled="@(_barIndex < 0)">Play from here</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnJumpToLatest">Jump to latest</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnToggleCrosshair">
+                @(HoverTracker.IsEnabled ? "Hide crosshair" : "Show crosshair")
+            </button>
+            @if (_seriesList.Count > 0)
+            {
+                <div role="separator" style="border-top:1px solid #444; margin:4px 0;"></div>
+                <div aria-hidden="true" style="color:#999; font-size:0.75rem; padding:2px 14px;">Series</div>
+                @foreach (var s in _seriesList)
+                {
+                    var captured = s;
+                    <button role="menuitem" class="ctx-item" aria-haspopup="menu"
+                            @onclick="() => OpenSeries(captured)">@captured.FriendlyName ▸</button>
+                }
+            }
+        }
+        else
+        {
+            <button id="chart-ctx-first" role="menuitem" class="ctx-item" @onclick="CloseSeries">◂ Back</button>
+            <div role="separator" style="border-top:1px solid #444; margin:4px 0;"></div>
+            <button role="menuitem" class="ctx-item" @onclick="OnFocusSeries">Focus</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnToggleMute">
+                @(_selectedSeries.IsMuted ? "Unmute" : "Mute")
+            </button>
+            <button role="menuitem" class="ctx-item" @onclick="OnToggleHide">
+                @(_selectedSeries.IsVisible ? "Hide" : "Show")
+            </button>
+            <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnRemove"
+                    disabled="@(!CanRemove(_selectedSeries))">Remove</button>
+        }
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private int _barIndex = -1;
+    private string _menuStyle = "";
+    private ChartSeries? _selectedSeries;
+    private List<ChartSeries> _seriesList = new();
+    private IDisposable? _sub;
+    private IDisposable? _closeSub;
+
+    protected override void OnInitialized()
+    {
+        _sub = EventBus.Subscribe<OpenChartContextMenuEvent>(ev =>
+            InvokeAsync(() => Open(ev.ViewportX, ev.ViewportY, ev.BarIndex)));
+        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_isVisible && e.ModalName == "ChartContextMenu") InvokeAsync(Close);
+        });
+    }
+
+    private async void Open(double x, double y, int barIndex)
+    {
+        _barIndex = barIndex;
+        _selectedSeries = null;
+        _seriesList = Store.State.ActiveSeries.ToList();
+
+        // Mouse origin anchors at the cursor; keyboard origin (NaN) self-positions
+        // centrally — same convention as DrawingContextMenu.
+        bool keyboardOrigin = double.IsNaN(x) || double.IsNaN(y);
+        string position = keyboardOrigin
+            ? "position:fixed; left:40vw; top:30vh; "
+            : $"position:fixed; left:{(x + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; " +
+              $"top:{(y + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; ";
+        _menuStyle = position +
+            "z-index:9999; min-width:180px; max-height:60vh; overflow-y:auto; background:#1c1c1e; " +
+            "border:1px solid #333; border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+
+        _isVisible = true;
+        EventBus.Publish(new ModalStateChangedEvent(true, "ChartContextMenu"));
+        await InvokeAsync(StateHasChanged);
+
+        if (keyboardOrigin)
+        {
+            try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
+            catch { /* non-critical */ }
+        }
+    }
+
+    private void Close()
+    {
+        if (!_isVisible) return;
+        _isVisible = false;
+        _selectedSeries = null;
+        EventBus.Publish(new ModalStateChangedEvent(false, "ChartContextMenu"));
+        StateHasChanged();
+    }
+
+    private async void OpenSeries(ChartSeries s)
+    {
+        _selectedSeries = s;
+        await InvokeAsync(StateHasChanged);
+        try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
+        catch { /* non-critical */ }
+    }
+
+    private async void CloseSeries()
+    {
+        _selectedSeries = null;
+        await InvokeAsync(StateHasChanged);
+        try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
+        catch { /* non-critical */ }
+    }
+
+    // ── Main actions ─────────────────────────────────────────────────────────
+
+    private void OnPlayFromHere()
+    {
+        int index = _barIndex;
+        Close();
+        if (index < 0) return;
+        Store.Dispatch(new SetCursorAction(index));
+        Store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+        Store.Dispatch(new SetPlaybackAction(true));
+    }
+
+    private void OnJumpToLatest()
+    {
+        Close();
+        Store.Dispatch(new JumpToLatestAction());
+        Store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
+    }
+
+    private void OnToggleCrosshair()
+    {
+        Close();
+        HoverTracker.Toggle();
+        Speech.Speak(HoverTracker.IsEnabled ? "Crosshair on." : "Crosshair off.", interrupt: false);
+    }
+
+    // ── Per-series actions ───────────────────────────────────────────────────
+
+    private void OnFocusSeries()
+    {
+        var s = _selectedSeries;
+        Close();
+        if (s == null) return;
+        Store.Dispatch(new SelectSeriesAction(s.Id));
+        Store.Dispatch(new SelectComponentAction(0));
+        Store.Dispatch(new SetInteractionContextAction(InteractionContext.Series));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, null, true));
+    }
+
+    private void OnToggleMute()
+    {
+        var s = _selectedSeries;
+        Close();
+        if (s == null) return;
+        // Explicit SERIES scope: the menu targets the whole series regardless of
+        // where the keyboard's component focus happens to sit.
+        EventBus.Publish(new ToggleMuteEvent(Scope: "SERIES", SeriesId: s.Id));
+    }
+
+    private void OnToggleHide()
+    {
+        var s = _selectedSeries;
+        Close();
+        if (s == null) return;
+        EventBus.Publish(new ToggleHideEvent(Scope: "SERIES", SeriesId: s.Id));
+    }
+
+    private void OnProperties()
+    {
+        var s = _selectedSeries;
+        Close();
+        if (s == null) return;
+        EventBus.Publish(new OpenPropertiesEvent(s.Id));
+    }
+
+    private static bool CanRemove(ChartSeries s)
+        => s.Id != "candles" && s.Id != "price";
+
+    private void OnRemove()
+    {
+        var s = _selectedSeries;
+        Close();
+        if (s == null || !CanRemove(s)) return;
+        var name = s.FriendlyName;
+        EventBus.Publish(new DeleteSeriesEvent(s.Id));
+        Speech.Speak($"{name} removed.", interrupt: false);
+    }
+
+    public void Dispose() { _sub?.Dispose(); _closeSub?.Dispose(); }
+}
