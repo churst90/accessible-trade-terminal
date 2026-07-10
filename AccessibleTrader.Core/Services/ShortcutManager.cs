@@ -23,7 +23,13 @@ namespace AccessibleTrader.Core.Services
         /// Also removes any conflicting binding that already uses the same combo.
         /// Persists the updated profile to disk immediately.
         /// </summary>
-        void UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false);
+        /// <returns>
+        /// Any OTHER commands that were left with NO binding at all as a result of this
+        /// rebind stealing their combo (a command with a second binding is not reported).
+        /// Callers surface this so a keyboard user learns a shortcut went unbound rather
+        /// than discovering it silently later. Empty when nothing was displaced.
+        /// </returns>
+        IReadOnlyList<SystemCommand> UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false);
     }
 
     public class ShortcutManager : IShortcutManager
@@ -123,9 +129,19 @@ namespace AccessibleTrader.Core.Services
             return string.Join("+", parts);
         }
 
-        public void UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false)
+        public IReadOnlyList<SystemCommand> UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false)
         {
             string newComboKey = GenerateLookupKey(key, shift, ctrl, alt);
+
+            // Commands currently occupying the target combo (excluding the one we're
+            // binding) — these are about to lose that combo to conflict resolution.
+            var displaced = CurrentProfile.Shortcuts
+                .Where(s => GenerateLookupKey(s.Key, s.Shift, s.Ctrl, s.Alt) == newComboKey
+                            && s.Command != command)
+                .Select(s => s.Command)
+                .Distinct()
+                .ToList();
+
             // Remove any binding already occupying this combo (conflict resolution)
             CurrentProfile.Shortcuts.RemoveAll(s =>
                 GenerateLookupKey(s.Key, s.Shift, s.Ctrl, s.Alt) == newComboKey);
@@ -135,6 +151,12 @@ namespace AccessibleTrader.Core.Services
             CurrentProfile.Shortcuts.Add(new ShortcutDefinition(command, key.ToUpperInvariant(), Shift: shift, Ctrl: ctrl, Alt: alt));
             LoadProfile(CurrentProfile);
             SaveToDisk();
+
+            // A displaced command is only truly stranded if it now has no binding at
+            // all — one that had a second combo (e.g. arrow keys) is unaffected.
+            return displaced
+                .Where(c => !CurrentProfile.Shortcuts.Any(s => s.Command == c))
+                .ToList();
         }
 
         private void InitializeDefaultProfile()

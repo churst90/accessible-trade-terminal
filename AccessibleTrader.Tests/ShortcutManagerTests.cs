@@ -98,21 +98,43 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void UpdateBinding_EvictsTheConflictingCommandFromTheCombo()
+        public void UpdateBinding_EvictsTheConflictingCommandFromTheCombo_AndReportsIt()
         {
             var mgr = new ShortcutManager(_paths);
 
             // F12 (unmodified) is OpenSettings by default. Rebinding OpenHelp onto it
             // must evict OpenSettings from that combo — one combo, one command.
-            mgr.UpdateBinding(SystemCommand.OpenHelp, "F12");
+            var displaced = mgr.UpdateBinding(SystemCommand.OpenHelp, "F12");
 
             Assert.Equal(SystemCommand.OpenHelp, mgr.GetCommand("F12", false, false, false));
-            // OpenSettings now has NO binding at all (as implemented: the conflicting
-            // binding is removed outright, not reassigned elsewhere).
+            // OpenSettings now has NO binding at all — and UpdateBinding REPORTS that,
+            // so the Settings UI can tell the user rather than leaving it silent.
             Assert.DoesNotContain(mgr.CurrentProfile.Shortcuts,
                 s => s.Command == SystemCommand.OpenSettings);
+            Assert.Contains(SystemCommand.OpenSettings, displaced);
             // Shift+F12 (OpenProperties) is a different combo and must be untouched.
             Assert.Equal(SystemCommand.OpenProperties, mgr.GetCommand("F12", true, false, false));
+        }
+
+        [Fact]
+        public void UpdateBinding_DoesNotReport_ACommandThatStillHasAnotherBinding()
+        {
+            var mgr = new ShortcutManager(_paths);
+
+            // NavLeft has two default bindings (LEFT and ARROWLEFT). Stealing just one
+            // of them leaves NavLeft still bound, so it must NOT be reported as stranded.
+            var displaced = mgr.UpdateBinding(SystemCommand.OpenHelp, "ARROWLEFT");
+
+            Assert.DoesNotContain(SystemCommand.NavLeft, displaced);
+            Assert.Equal(SystemCommand.NavLeft, mgr.GetCommand("LEFT", false, false, false));
+        }
+
+        [Fact]
+        public void UpdateBinding_ToAFreeCombo_ReportsNothingDisplaced()
+        {
+            var mgr = new ShortcutManager(_paths);
+            var displaced = mgr.UpdateBinding(SystemCommand.OpenHelp, "F9", ctrl: true, alt: true, shift: true);
+            Assert.Empty(displaced);
         }
 
         [Fact]

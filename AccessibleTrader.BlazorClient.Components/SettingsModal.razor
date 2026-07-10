@@ -1031,7 +1031,8 @@
     public void OnKeyCaptured(string key, bool shift, bool ctrl, bool alt)
     {
         if (_capturingCommand == null) return;
-        ShortcutService.UpdateBinding(_capturingCommand.Value, key, shift, ctrl, alt);
+        string reboundName = _capturingCommandName;
+        var displaced = ShortcutService.UpdateBinding(_capturingCommand.Value, key, shift, ctrl, alt);
         _uniqueBindings = ShortcutService.GetAllBindings()
             .GroupBy(b => b.Description)
             .Select(g => g.First())
@@ -1039,6 +1040,17 @@
         _capturingCommand = null;
         _capturingCommandName = "";
         InvokeAsync(StateHasChanged);
+
+        // Tell the user when this rebind stole another command's only shortcut, so a
+        // keyboard-first user learns it went unbound now — not by pressing a dead key
+        // later. They can re-bind the displaced command from this same dialog.
+        if (displaced.Count > 0)
+        {
+            var names = displaced.Select(c => c.ToString());
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"{reboundName} rebound. This removed the only shortcut for {string.Join(", ", names)}; " +
+                "rebind from the Keyboard tab if you still need it.", true));
+        }
     }
 
     private void CancelCapture()

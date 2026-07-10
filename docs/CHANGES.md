@@ -6,6 +6,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Finalization tie-ups — rendering tests, CI, shortcut UX (2026-07-10)
+
+**Shortcut rebind eviction is no longer silent.** Rebinding a shortcut onto a combo
+that another command owns still evicts that command (one combo, one command), but
+`IShortcutManager.UpdateBinding` now RETURNS the commands it left with no binding at
+all (a command that keeps a second binding is not reported), and the Settings
+keyboard-capture handler announces it: "OpenHelp rebound. This removed the only
+shortcut for OpenSettings; rebind from the Keyboard tab if you still need it." A
+keyboard-first user learns immediately instead of pressing a dead key later. Tests
+updated + added (`ShortcutManagerTests`).
+
+**Rendering layer test coverage (56 tests), previously the largest lightly-tested
+area.** `ChartMathRenderingTests` (28) covers the forward/remaining `ChartMath`
+surface — `MapY` linear+log with round-trips and degenerate guards, `GetSeriesRange`
+sub-pane min/max/buffer, `GetPointValue` snapshot/live/OHLCV-mapping fallbacks,
+`CalculateHeikinAshi` against hand-computed values. `StandardRenderersSmokeTests`
+(28) renders candles/bars/lines onto a real 200×200 SKBitmap and asserts behavior,
+not exact colors: no-throw across empty/single/NaN/log/overflow inputs, and pixel-diff
+proof that hollow-candle and color-vision modes actually change the output.
+
+**CI now runs the JS gesture tests.** `tools/jstests/gesture-tests.mjs` runs as a
+step in `tests.yml` (ubuntu ships Node; zero dependencies).
+
+**Docs:** README test count corrected (was a stale "383 / 383" / "1038 tests" — the
+doc-drift guard checks this against `--list-tests`; now 1505).
+
+Suite: **1505/1505 xunit + 12/12 JS.**
+
 ### Phase E — test-debt closure + one real fix (2026-07-10)
 
 **Provider contract enrollment (63 new tests).** Binance, InteractiveBrokers, Schwab,

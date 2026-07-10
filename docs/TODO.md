@@ -28,10 +28,16 @@ Full detail in `CHANGES.md` [Unreleased]. Suite 1447/1447 xunit + 12/12 JS.
 
 ### Follow-ups raised by this pass
 
-- [ ] ShortcutManager rebind eviction leaves the evicted command unbound — consider
-  warning the user or offering a swap.
-- [ ] Wire `node tools/jstests/gesture-tests.mjs` into `.github/workflows/tests.yml`.
+- [x] ShortcutManager rebind eviction now REPORTS the stranded command; the Settings
+  capture handler announces it (2026-07-10). (A full swap/offer UI is still possible
+  later but the silent-loss sharp edge is closed.)
+- [x] Wired `node tools/jstests/gesture-tests.mjs` into `.github/workflows/tests.yml`
+  (2026-07-10).
+- [x] Rendering layer test coverage added (ChartMath forward mappings + renderer smoke
+  tests, 56 tests) — closes the "largest lightly-tested class" gap (2026-07-10).
 - [ ] Mexc full contract enrollment after per-plugin dependency folders land.
+- [ ] `ResolveBarColor` is private → only indirectly tested; an InternalsVisibleTo
+  would allow direct color-rule tests (deferred — not worth a production change alone).
 
 ---
 

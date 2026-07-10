@@ -58,6 +58,13 @@ jobs:
             --verbosity normal \
             --logger "trx;LogFileName=test-results.trx"
 
+      # JS gesture-engine tests (Phase C/F). Plain Node, zero dependencies —
+      # loads wwwroot/js/keyboard.js into a vm sandbox and asserts the .NET
+      # bridge calls each touch/mouse gesture emits. ubuntu-latest ships Node,
+      # so no setup step is needed.
+      - name: JS gesture tests
+        run: node tools/jstests/gesture-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
