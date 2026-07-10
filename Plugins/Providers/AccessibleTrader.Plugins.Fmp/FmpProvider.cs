@@ -286,7 +286,11 @@ namespace AccessibleTrader.Plugins.Fmp
                 .Where(b => b.HasValue)
                 .Select(b => b!.Value)
                 .OrderBy(b => b.Date)
-                .Take(request.Limit)
+                // TakeLast, not Take: Limit must keep the MOST-RECENT bars like every
+                // sibling provider (Finnhub/Schwab/Kraken) — Take kept the oldest ones,
+                // silently serving stale data when FMP returned more than Limit.
+                // (Found by the Phase E contract-test enrollment, 2026-07-09.)
+                .TakeLast(request.Limit)
                 .ToList();
         }
 

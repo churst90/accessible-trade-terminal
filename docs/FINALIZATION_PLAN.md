@@ -1,13 +1,14 @@
 # Finalization Plan — Accessible Trade Terminal
 
 **Created:** 2026-07-09 (v1.4.0 baseline, commit `1a07d62d`)
-**Status:** Phases A, B (both passes), C (web + JS tests), D (both passes)
-COMPLETE 2026-07-09; full suite 1326/1326 xunit + 12/12 JS green — pending Cody's
-real-app + real-device verification. Remaining before Phase E:
-**native touch only** (iOS adjustable element + rotor, Android ExploreByTouchHelper
-— gated on macOS + physical devices), plus small tracked leftovers (speech-template
-editor UI, play-range, axis dragging, journal ticker) in TODO.md's 2026-07-09
-second-pass section.
+**Status: ALL PHASES COMPLETE (A, B, C-web, D, E) as of 2026-07-10.** Full suite
+1447/1447 xunit + 12/12 JS — pending Cody's real-app + real-device verification.
+The only phase work not done from this machine is the device-gated native touch
+layer (iOS adjustable element + rotor, Android ExploreByTouchHelper — needs macOS +
+physical devices; spec in PLATFORM_STRATEGY_AND_ROADMAP §4). Small tracked
+leftovers (speech-template editor UI, play-range, axis dragging, journal ticker,
+Mexc full enrollment, ShortcutManager eviction UX) live in TODO.md's dated
+sections.
 Phase C first pass shipped the web touch layer (gestures, SR bar navigator, touch
 toolbar, viewport fix) which also serves the MAUI apps via their WebView; the native
 second pass (iOS adjustable element + rotor, Android ExploreByTouchHelper) is specced
@@ -30,7 +31,7 @@ work lands.
 | B | Mouse completion (click-bar, crosshair, context menus, hit-test index) | **First pass complete 2026-07-09** — click-bar/wheel-pan/dbl-click/crosshair/chart menu shipped; hit-test index + range select + axis drag + magnet deferred (TODO.md) |
 | C | Touch input (web gestures + slider semantics, iOS adjustable, Android ExploreByTouchHelper) | **Web first pass complete 2026-07-09** — gestures/slider/toolbar/viewport shipped; native iOS/Android second pass specced in PLATFORM_STRATEGY_AND_ROADMAP §4, needs macOS + devices |
 | D | Multi-disability UX (deaf/HoH, colorblind, vestibular, cognitive, low-vision) | **First pass complete 2026-07-09** — visual earcons, color-vision palette, hollow candles (all opt-in, default off), reduced-motion, contrast sweep, touch targets, Help quickstart; remainder (playback cursor, settings search, UI scale, template editor) tracked in TODO.md |
-| E | Test debt (continuous; Tier 1 inside Phase A, Tiers 2–4 ongoing) | Started with Phase A |
+| E | Test debt (continuous; Tier 1 inside Phase A, Tiers 2–4 ongoing) | **Complete 2026-07-10** — provider enrollment (Mexc partial, dependency-rework-gated), alerts/dispatcher/settings/shortcuts/auth-policy tests, FMP Limit bug found+fixed; suite 1447/1447 + 12 JS |
 
 Rationale for the order: A removes live risk on the public site now; B builds the
 render-time hit-test index that C reuses (explore-by-touch, DotPad region mapping);

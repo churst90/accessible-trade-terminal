@@ -4,6 +4,37 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-10] — Phase E test-debt closure (Finalization plan)
+
+Full detail in `CHANGES.md` [Unreleased]. Suite 1447/1447 xunit + 12/12 JS.
+
+### Shipped
+
+- [x] **Provider contract enrollment** — Binance, IBKR, Schwab, Finnhub, TwelveData,
+  Fmp fully enrolled in fetch/live-stream contract tests (63 tests). Mexc partial
+  (JK.Mexc.Net owns its HttpClient — no test seam without production changes; helpers
+  covered; full enrollment rides the per-plugin-dependency rework below).
+- [x] **FMP intraday Limit bug FIXED** — kept oldest bars (`Take`) instead of most
+  recent (`TakeLast`); found by the enrollment pass, regression-pinned.
+- [x] **AlertEvaluator/AlertOrchestrator** first-ever tests (15) — hysteresis,
+  warm-up tick, exception isolation, persistence.
+- [x] **CommandDispatcher runtime gates** (18 cases) — chart-focus + data gates,
+  NAV/playback routing.
+- [x] **SettingsManager** (8) — corrupt-file quarantine, nested paths, demo block.
+- [x] **ShortcutManager** (9) — rebind eviction pinned (evicted command left unbound
+  — UX sharp edge worth a future prompt), corrupt-file fallback.
+- [x] **Hosted auth policy pinned to docs** (7) — Identity/lockout/cookie options
+  asserted against SERVER_SETUP.md.
+
+### Follow-ups raised by this pass
+
+- [ ] ShortcutManager rebind eviction leaves the evicted command unbound — consider
+  warning the user or offering a swap.
+- [ ] Wire `node tools/jstests/gesture-tests.mjs` into `.github/workflows/tests.yml`.
+- [ ] Mexc full contract enrollment after per-plugin dependency folders land.
+
+---
+
 ## [2026-07-09] — Second passes B2 / C2a / D2 (Finalization plan)
 
 Closes most of the deferred items from the Phase B/C/D sections below (their open

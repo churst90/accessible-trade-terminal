@@ -6,6 +6,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Phase E — test-debt closure + one real fix (2026-07-10)
+
+**Provider contract enrollment (63 new tests).** Binance, InteractiveBrokers, Schwab,
+Finnhub, TwelveData, and Fmp are now fully enrolled in fetch/live-stream contract
+coverage (`ProviderFetchOhlcvTests.Enrollment.cs`, `ProviderLiveStreamTests.Enrollment.cs`):
+canned-JSON happy paths with values+dates asserted, malformed-body and HTTP-error
+no-throw paths, on-wire symbol normalisation, auth-token placement, and websocket
+frame parsing (kline/trade/order-update emit, zero-price drops, malformed no-throw).
+Schwab's browser OAuth is bypassed by seeding a refresh token; IBKR's gateway concerns
+proved to live in the transport, so its parse paths test cleanly. **Mexc is enrolled
+partially and honestly**: JK.Mexc.Net owns its HttpClient internally (no seam without
+production changes), so only its separable helpers (futures-symbol mapping, empty-bar
+sentinel) are covered — the rest is tracked against the per-plugin-dependency rework.
+
+**Real defect found and FIXED: FMP intraday `Limit` kept the OLDEST bars.**
+`FmpProvider.FetchIntradayAsync` used `.Take(limit)` after the ascending sort — every
+sibling provider keeps the most-recent N via `TakeLast`. A caller passing a Limit
+smaller than FMP's returned window silently got stale data. Fixed to `TakeLast`;
+regression-pinned by `IntradayLimit_KeepsMostRecentBars`.
+
+**Core-service coverage (58 new tests), previously zero or thin:**
+- `AlertEvaluatorTests` (8) — cross direction, strict-cross hysteresis (no re-fire
+  until reversal), exact-touch boundary semantics, IsActive gate, per-alert exception
+  isolation.
+- `AlertOrchestratorTests` (7) — persisted-alert restore, Save on add/remove, the
+  cold-start warm-up tick (first Ready tick seeds, never evaluates — the
+  false-crossover fix), AlertFiredEvent routing, Stop() unsubscription.
+- `CommandDispatcherGatingTests` (12 methods / 18 cases) — chart-focus gate
+  (chart-scoped commands silently suppressed pre-focus; ChartFocusEvent opens the
+  gate), empty-workspace data gate speaks "No chart loaded.", NAV_* routing, playback
+  routing (scopes, stop-while-paused, PlayPause→TogglePause, speed ±0.1).
+- `SettingsManagerTests` (8) — defaults, nested keyPath round-trips, corrupt-file
+  quarantine to `settings.json.corrupt-*` with bytes preserved, demo-mode save block.
+- `ShortcutManagerTests` (9) — default profile, modifier disambiguation, rebind
+  eviction (pinned: the evicted command is left UNBOUND — a documented sharp edge),
+  persistence + corrupt-file fallback, chord formatting.
+- `HostedAccountsAuthPolicyTests` (7) — asserts the ACTUAL Identity/cookie
+  configuration matches the documented policy (RequiredLength 10, lockout 10,
+  Secure/HttpOnly/SameSite=Lax, 14-day sliding, /account/* paths, replace-don't-add
+  DI contract).
+
+Suite: **1447/1447 xunit + 12/12 JS** (v1.4.0 baseline was 1176 — +271 tests this
+release cycle).
+
 ### Second passes: mouse depth (B2), JS test coverage (C2a), UX leftovers (D2) — 2026-07-09
 
 **Chart hit-tester → click-to-focus + component-aware right-click (B2a).** New
