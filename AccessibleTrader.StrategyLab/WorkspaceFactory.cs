@@ -47,6 +47,8 @@ public static class WorkspaceFactory
         "FUNDING_RATE",
         "OPEN_INTEREST",
         "COINMETRICS",  // CoinMetrics community-tier on-chain (MVRV, active addresses, hash rate)
+        "COT_POSITIONING", // promoted Core COT indicator (v23c gate) — reads xs_cftc_*_cot_1w.json
+                           // via __symbol mapping (XAU/USD→GOLD_COT, SPY→SP500_COT, ...)
 
         // v22 family — single-indicator reversal detector. Self-contained
         // (no cross-series cache); included in the default pack so v22 specs

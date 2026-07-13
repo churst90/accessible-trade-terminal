@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Lab walk-forward validation of the new seeds (2026-07-13)
+
+H1/H2 walk-forward in the StrategyLab (costs + slippage included) on daily
+SPY/QQQ/gold (new Twelve Data snapshots) + BTC, with fresh full-history CFTC
+cross-series snapshots (release-Friday stamping, replacing the stale
+report-date ones):
+
+- **Trend Baseline: SURVIVOR on all four assets** — positive expectancy in
+  both halves everywhere (SPY +0.24/+0.28R, QQQ +0.16/+0.39R, gold
+  +0.08/+0.72R, BTC +2.02/+0.87R at 33% WR / profit factor 8.0 — the classic
+  trend profile). The benchmark is real.
+- **v23c (Cipher+Faber+COT): recent-regime refinement, not a replacement** —
+  strong H2 (gold +0.85R/69% WR, SPY +0.45R/64%) but weak H1 on gold/QQQ;
+  bare v23 survives both halves on all three assets. The COT gate removed
+  zero metals trades (crowding and WT-oversold rarely co-occur) — its role is
+  tail protection. On BTC it fires 0 trades by design. Verdicts recorded in
+  both seed descriptions.
+- Lab default indicator pack now includes COT_POSITIONING; new snapshots
+  committed under strategy-lab-data/ (twelvedata_{XAU_USD,SPY,QQQ}_1d +
+  regenerated xs_cftc_{gold,sp500,nasdaq,bitcoin}_cot_1w).
+
 ### Indicator triage from the 10-asset gate battery (2026-07-13)
 
 Cross-asset gate battery (BTC, ETH, gold, silver/SLV, SPY, QQQ, AAPL, MSFT,

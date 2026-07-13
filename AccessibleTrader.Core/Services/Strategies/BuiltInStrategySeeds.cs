@@ -452,12 +452,13 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "THE BENCHMARK, not a setup: enters when price crosses above the 200-bar " +
                     "SMA and rides with a wide ATR(14)x4 stop that trails after TP1. Any " +
                     "cipher/cycle strategy should beat this on the same asset in walk-forward " +
-                    "before being trusted. Cross-asset evidence (2026-07): strongest on crypto " +
-                    "(BTC trend Sharpe 1.05-1.19 vs 0.80 hold, drawdown cut 4x when vol-" +
-                    "targeted); on indices and gold it matches buy-and-hold returns with " +
-                    "2-3x smaller drawdowns; on single growth stocks plain holding wins; " +
-                    "long-only FX has no edge. REQUIRES: Regime Filter loaded. Daily bars " +
-                    "recommended.",
+                    "before being trusted. LAB WALK-FORWARD 2026-07 (H1/H2, costs included): " +
+                    "POSITIVE IN BOTH HALVES ON ALL FOUR ASSETS TESTED — SPY +0.24/+0.28R, " +
+                    "QQQ +0.16/+0.39R, gold +0.08/+0.72R, BTC +2.02/+0.87R (33% win rate, " +
+                    "profit factor 8.0/2.9 — the classic trend profile of rare huge winners). " +
+                    "Cross-asset study: strongest on crypto; crash insurance on indices/gold; " +
+                    "plain holding wins on single growth stocks; long-only FX has no edge. " +
+                    "REQUIRES: Regime Filter loaded. Daily bars recommended.",
                 Side: OrderSide.Buy,
                 Conditions: root,
                 Risk: risk,
@@ -533,10 +534,16 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "long (COT 26-week z < 1.5). Gate battery 2026-07 (10 assets, era-sliced): " +
                     "Faber gate on this trigger hit 84-91% on gold/silver/SPY/QQQ; adding the " +
                     "COT gate produced the battery's best cell (QQQ: 94% hit, +5.01%/20d, " +
-                    "t=5.65). ASSET-SPECIFIC: metals and equity indices on DAILY bars — every " +
-                    "gate HURT on BTC (trade it ungated there), FX is inverted, single stocks " +
-                    "neutral. REQUIRES: Cipher B + Regime Filter + COT Positioning loaded. " +
-                    "Risk: ATR(14)x3 stop, 2R/4R ladder, BE after TP1, 0.5% risk per trade.",
+                    "t=5.65). LAB WALK-FORWARD 2026-07 (H1/H2, costs, 2R/4R ladder): strong " +
+                    "in the recent decade (gold H2 +0.85R/69% WR, SPY H2 +0.45R/64%) but weak " +
+                    "H1 (2006-2016) on gold/QQQ — bare v23 survives BOTH halves on all three " +
+                    "assets, so treat this as a recent-regime refinement, not a replacement. " +
+                    "The COT gate removed ZERO metals trades in the lab (crowding and WT-" +
+                    "oversold rarely co-occur): its role is tail protection, not extra edge. " +
+                    "ASSET-SPECIFIC: metals and equity indices on DAILY bars — every " +
+                    "gate HURT on BTC (fires 0 trades there by design), FX is inverted, single " +
+                    "stocks neutral. REQUIRES: Cipher B + Regime Filter + COT Positioning " +
+                    "loaded. Risk: ATR(14)x3 stop, 2R/4R ladder, BE after TP1, 0.5% risk.",
                 Side: OrderSide.Buy,
                 Conditions: root,
                 Risk: risk,
