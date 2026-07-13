@@ -70,12 +70,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_A",
-                Name        = "Cipher A",
+                Name        = "Cipher A (retired)",
                 Category    = "Multi-Signal",
                 DefaultPane = "Main",
+                IsDeprecated = true,
                 Description =
-                    "Price-chart overlay: continuous WT momentum ribbon, buy/sell dots, divergence diamonds, " +
-                    "and smart-money confluence signals. All signals render at actual price levels.",
+                    "RETIRED 2026-07: Cipher A's engine is the same WaveTrend as Cipher B, so on any " +
+                    "chart with Cipher B it adds no independent information — it is B's signals " +
+                    "projected onto the price pane. Kept functional for saved workspaces and legacy " +
+                    "strategies (v16/v17 Trilogy), but hidden from the Add Indicator dialog. Use " +
+                    "Cipher B instead. Original: price-chart overlay with WT momentum ribbon, " +
+                    "buy/sell dots, divergence diamonds, and confluence crosses.",
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // ── WT Momentum ribbon ───────────────────────────────────────────────────────

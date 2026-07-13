@@ -109,10 +109,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Category    = "Cycles",
                 DefaultPane = "Pane_LOUKAS",
                 Description = "Count-based layered cycle tracker: Daily Cycle, Intermediate Cycle, " +
-                              "and (BTC-only) Four-Year Cycle phase. Pivot-anchored, timing-band " +
+                              "and (BTC charts only) Four-Year Cycle phase. Pivot-anchored, timing-band " +
                               "aware, no momentum math. Pairs with Cipher C for count + turn " +
-                              "confirmation setups. Default parameters tuned for BTC daily (35-60 " +
-                              "bar DC, 3 DCs per IC).",
+                              "confirmation setups. The default [35, 90] bar DC window was validated " +
+                              "cross-asset 2026-07: realized daily-cycle lengths measured a ~50-bar " +
+                              "median with 90th percentile 68-91 on BTC, ETH, gold, silver, S&P, " +
+                              "Nasdaq, large-cap stocks, and EUR alike — the same window fits every " +
+                              "asset class at daily bars, so no per-asset tuning is needed. Cycle " +
+                              "position is CONTEXT: a fixed in-window filter tested as a mechanical " +
+                              "entry gate did not improve results — use the count to know where you " +
+                              "are, not as a standalone trigger.",
                 RequiresFullRecalcOnTick = true,
 
                 Components = new List<IndicatorComponentMetadata>
@@ -320,7 +326,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int  dcMaxBars   = GetInt(parameters, "DcMaxBars", 90);
             int  swingLookback = GetInt(parameters, "SwingLookback", 10);
             int  icDcCount   = GetInt(parameters, "IcDcCount", 3);
-            bool enableFy    = GetBool(parameters, "EnableFourYearCycle", false);
+            bool enableFy    = GetBool(parameters, "EnableFourYearCycle", false) && IsBtcSymbol(parameters);
 
             // Clamp to safe ranges so a bad parameter never crashes the calc.
             if (dcMinBars < 1) dcMinBars = 1;
@@ -628,6 +634,25 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!p.TryGetValue(k, out var v) || v == null) return def;
             if (v is bool b) return b;
             return Convert.ToBoolean(v);
+        }
+
+        /// <summary>
+        /// The Four-Year Cycle anchors are Bitcoin halving dates — on any other
+        /// instrument the day counts are numerically meaningless, so the FY
+        /// components are suppressed unless the chart symbol (stamped as
+        /// <c>__symbol</c> by the orchestrator) is a BTC pair. When no symbol
+        /// hint is present (snapshot caches, tests) the user's explicit
+        /// EnableFourYearCycle=true is honored as before.
+        /// </summary>
+        private static bool IsBtcSymbol(Dictionary<string, object> parameters)
+        {
+            if (parameters == null ||
+                !parameters.TryGetValue("__symbol", out var raw) ||
+                raw is not string s || string.IsNullOrWhiteSpace(s))
+                return true; // no hint — honor the user's explicit opt-in
+
+            string baseToken = s.Split('/', '-', ':')[0].Trim().ToUpperInvariant();
+            return baseToken is "BTC" or "XBT" or "BITCOIN";
         }
     }
 }

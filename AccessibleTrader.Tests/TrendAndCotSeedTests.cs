@@ -55,9 +55,12 @@ namespace AccessibleTrader.Tests
             Assert.Equal(LeafOperator.LessThan, cotLeaf.Operator);
             Assert.Equal(1.5, cotLeaf.Value); // matches the indicator's extreme threshold
 
-            // Still a v23-family reversal: trigger trio + anchor gate present.
+            // Still a v23-family reversal: trigger trio + anchor gate present, plus
+            // the Faber bull-regime gate the 2026-07 battery validated for this combo.
             Assert.Contains(leaves, l => l.SignalDescriptorId == "CIPHER_B.Oversold Crossover");
             Assert.Contains(leaves, l => l.SignalDescriptorId == "CIPHER_B.Anchor Wave");
+            Assert.Contains(leaves, l => l.SignalDescriptorId == "REGIME.AboveSma200"
+                                         && l.Operator == LeafOperator.GreaterThan);
         }
 
         [Fact]

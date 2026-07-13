@@ -110,6 +110,8 @@
         // In the public demo the list is narrowed to the curated indicator codes.
         _allIndicators = IndicatorService.GetAvailableIndicators()
             .Where(i => Demo.IsIndicatorAllowed(i.Code))
+            .Where(i => !i.IsDeprecated) // retired indicators keep working in saved
+                                         // workspaces/strategies but are not offered here
             .ToList();
 
         _categories = _allIndicators.Select(i => i.Category).Distinct().OrderBy(c => c).ToList();

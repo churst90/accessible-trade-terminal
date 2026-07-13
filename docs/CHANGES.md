@@ -6,6 +6,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Indicator triage from the 10-asset gate battery (2026-07-13)
+
+Cross-asset gate battery (BTC, ETH, gold, silver/SLV, SPY, QQQ, AAPL, MSFT,
+EUR, COIN; WaveTrend reversal trigger; Faber / COT / cycle-window / RSI /
+variance-ratio gates; era-sliced) drove four changes:
+
+- **Cipher A retired.** New `IndicatorMetadata.IsDeprecated` flag: retired
+  indicators stay fully functional for saved workspaces and legacy strategies
+  (v16/v17 Trilogy) but are hidden from the Add Indicator dialog. Cipher A's
+  engine is the same WaveTrend as Cipher B — on any chart with B it adds no
+  independent information.
+- **Cipher C reframed** (category → Cycles): micro-cycle context and
+  FAILED-CYCLE detector, not an entry engine — its top/bottom dots tested weak
+  standalone (negative on FX); the shallow-peak/trough failure detection is
+  the distinctive, kept feature.
+- **Loukas cycles validated cross-asset, FY guard added.** Realized daily-cycle
+  lengths measured ~50-bar median / p90 68–91 on every asset class — the
+  default [35, 90] window fits BTC, metals, indices, stocks, and EUR alike (no
+  per-asset tuning needed; documented in the description). The Four-Year Cycle
+  components now suppress on non-BTC charts (halving anchors are meaningless
+  elsewhere); explicit opt-in still honored when no symbol hint exists.
+- **v23c seed upgraded** with the Faber bull-regime gate: the battery's
+  strongest single filter on indices/metals (SPY 91% hit t=4.9, gold 84%,
+  silver 86%), and Faber+COT was the best cell anywhere (QQQ 94% hit,
+  +5.01%/20d, t=5.65). Renamed "Cipher Reversal + Trend + COT Gates —
+  Metals/Indices Daily". Battery also confirmed: every gate HURTS on BTC
+  (trade the trigger ungated there), and daily WaveTrend shorts have no edge
+  on any asset even bear-regime-gated.
+
 ### Strategy seeds: trend benchmark + COT-gated reversal (2026-07-13)
 
 Two new built-in strategy templates (both Suggestion mode, not auto-activated):

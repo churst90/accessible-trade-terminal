@@ -94,11 +94,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code        = "CIPHER_C",
                 Name        = "Cipher C",
-                Category    = "Oscillators",
+                Category    = "Cycles",
                 DefaultPane = "Pane_CIPHER_C",
-                Description = "Adaptive cycle oscillator. Three-tier top/bottom signals plus cycle " +
-                              "failure detection for trend continuation. Uses Fisher Transform " +
-                              "normalization with Hull RSI confirmation. Best on daily and weekly timeframes.",
+                Description = "Micro-cycle CONTEXT and cycle-failure detector — not an entry engine. " +
+                              "Measures position within the 2-6 week swing (Ehlers cyber-cycle bandpass, " +
+                              "Fisher-normalized, Hull RSI tiers). Cross-asset testing 2026-07: its " +
+                              "top/bottom dots are weak standalone entries (negative on FX) — take entries " +
+                              "from Cipher B and use C for WHERE you are in the swing. Its distinctive " +
+                              "value is the Shallow Peak / Shallow Trough FAILED-CYCLE detection " +
+                              "(ADX-gated): an up-cycle that never reaches overbought inside a downtrend " +
+                              "is the classic cycle-failure short context. Daily/weekly timeframes.",
                 RequiresFullRecalcOnTick = false,
 
                 Components = new List<IndicatorComponentMetadata>

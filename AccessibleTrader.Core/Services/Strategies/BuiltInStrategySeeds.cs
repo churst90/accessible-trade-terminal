@@ -188,14 +188,16 @@ namespace AccessibleTrader.Core.Services.Strategies
         // single secular-growth names holding wins; FX long-only has no edge.
         public const string LongTrendBaselineId = "builtin.long.trend-baseline";
 
-        // v23c — Cipher B Reversal + COT not-crowded gate (LONG, gold / S&P
-        // daily). Promoted from the 2026-07-13 CFTC positioning study: on SPY,
-        // v23-style oversold dip-buys returned +2.16%/20d at a 75% hit rate when
-        // fund positioning was NOT crowded long (26-week z < 1.5) vs −0.29% when
-        // crowded; gold crowded-long extremes collapsed forward drift to ~zero
-        // in every era. NOTE: the gate is asset-specific — do NOT use on BTC
-        // (CME positioning is basis-trade contaminated) or FX (specs are
-        // informed trend flow there).
+        // v23c — Cipher B Reversal + Faber + COT not-crowded gates (LONG, metals /
+        // equity indices, daily). From the 2026-07-13 gate battery (10 assets,
+        // era-sliced): the Faber bull-regime gate was the strongest single filter
+        // on this trigger for indices and metals (SPY 91% hit t=4.9, QQQ 90%,
+        // gold 84% t=4.6, silver 86%), and stacking the COT not-crowded gate on
+        // top produced the best cell in the battery (QQQ Faber+COT: 94% hit,
+        // +5.01%/20d, t=5.65, n=16). NOTE the per-asset validity: do NOT use on
+        // BTC (every gate REDUCED the edge there — ungated is best; CME
+        // positioning is basis-trade contaminated) or FX (specs are informed
+        // trend flow); on single stocks the Faber gate was neutral-to-negative.
         public const string LongV23cCipherBCotId = "builtin.long.v23c-cipherb-cot";
 
         // Asset-aware v23 preset map. Empirical research (2026-04-27 rounds 3-4):
@@ -489,17 +491,24 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Id: "v23cl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
                 Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
 
-            // The gate that carried the study: funds NOT at a crowded-long extreme.
-            // NaN (COT indicator absent, unmapped symbol, or z warmup) evaluates
-            // false, so the spec simply never fires without its data — same
-            // contract as the funding-gated v23rf.
+            // Bull-regime gate — the strongest single filter for this trigger on
+            // indices and metals in the 2026-07 battery.
+            var faberBull = new ConditionLeaf(
+                Id: "v23cl-faber", SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.GreaterThan, Value: 0.0, Score: 1.0);
+
+            // Funds NOT at a crowded-long extreme — stacks with Faber for the best
+            // cell in the battery (QQQ 94% hit). NaN (COT indicator absent,
+            // unmapped symbol, or z warmup) evaluates false, so the spec simply
+            // never fires without its data — same contract as the funding-gated
+            // v23rf.
             var cotNotCrowded = new ConditionLeaf(
                 Id: "v23cl-cot", SignalDescriptorId: "COT_POSITIONING.Positioning Z-Score",
                 Operator: LeafOperator.LessThan, Value: 1.5, Score: 1.0);
 
             var root = new ConditionGroup(
                 Id: "v23cl-root", Logic: LogicOperator.And,
-                Children: new List<ConditionNode> { trigger, anchorBear, cotNotCrowded });
+                Children: new List<ConditionNode> { trigger, anchorBear, faberBull, cotNotCrowded });
 
             var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
             var tpLadder = new List<TpLadderRung>
@@ -517,17 +526,17 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23cCipherBCotId,
-                Name: "Cipher Reversal + COT Gate — Gold/S&P Daily (Long)",
+                Name: "Cipher Reversal + Trend + COT Gates — Metals/Indices Daily (Long)",
                 Description:
                     "v23 base trigger (WT Cross Bull / Blue dot / Bull Divergence within 2) " +
-                    "AND Anchor Wave < 0 AND fund positioning NOT crowded long (COT 26-week " +
-                    "z-score < 1.5). Positioning study 2026-07: on SPY the same dip-buys " +
-                    "returned +2.16%/20d at 75% hit when not crowded vs -0.29% when crowded; " +
-                    "gold crowded-long extremes collapsed forward drift in every era. " +
-                    "ASSET-SPECIFIC: gold and equity indices on DAILY bars only — the gate " +
-                    "is invalid on BTC (basis-trade contamination) and inverted on FX. " +
-                    "REQUIRES: Cipher B + COT Positioning loaded on the chart. Risk: " +
-                    "ATR(14)x3 stop, 2R/4R ladder, BE after TP1, 0.5% risk per trade.",
+                    "AND Anchor Wave < 0 AND price > SMA200 AND fund positioning NOT crowded " +
+                    "long (COT 26-week z < 1.5). Gate battery 2026-07 (10 assets, era-sliced): " +
+                    "Faber gate on this trigger hit 84-91% on gold/silver/SPY/QQQ; adding the " +
+                    "COT gate produced the battery's best cell (QQQ: 94% hit, +5.01%/20d, " +
+                    "t=5.65). ASSET-SPECIFIC: metals and equity indices on DAILY bars — every " +
+                    "gate HURT on BTC (trade it ungated there), FX is inverted, single stocks " +
+                    "neutral. REQUIRES: Cipher B + Regime Filter + COT Positioning loaded. " +
+                    "Risk: ATR(14)x3 stop, 2R/4R ladder, BE after TP1, 0.5% risk per trade.",
                 Side: OrderSide.Buy,
                 Conditions: root,
                 Risk: risk,

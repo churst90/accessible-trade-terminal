@@ -219,6 +219,13 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public bool RequiresFullRecalcOnTick { get; set; } = false;
         public string Category { get; set; } = "General";
+
+        /// <summary>
+        /// Retired indicators: hidden from the Add Indicator dialog but still fully
+        /// functional, so saved workspaces and strategy specs that reference the
+        /// code keep working. Set with a Description note explaining the retirement.
+        /// </summary>
+        public bool IsDeprecated { get; set; } = false;
         public string Description { get; set; } = string.Empty;
         public List<IndicatorParameterMetadata> Parameters { get; set; } = new();
         public List<IndicatorComponentMetadata> Components { get; set; } = new();
