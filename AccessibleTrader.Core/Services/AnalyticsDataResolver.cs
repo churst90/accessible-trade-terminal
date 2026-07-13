@@ -143,6 +143,16 @@ namespace AccessibleTrader.Core.Services
             CotMetric("COT_EURO_FX",   "COT Net Positioning — Euro FX",        "EUR",    "EURO_FX_COT");
             CotMetric("COT_USD_INDEX", "COT Net Positioning — US Dollar Index","DXY",    "USD_INDEX_COT");
 
+            // FINRA daily short-volume ratio — per-symbol; callers append the
+            // ticker to build the symbol ("{TICKER}_SHORTVOL"), so only liquid
+            // reference names are registered as browsable metrics here.
+            reg["SHORT_VOLUME_SPY"] = new MetricEntry(
+                "Daily Short Volume % — SPY", "Positioning", new[] { "SPX" },
+                new[] { new MetricSource("FINRA", "Derivatives", "SPY_SHORTVOL", "1d", false) });
+            reg["SHORT_VOLUME_QQQ"] = new MetricEntry(
+                "Daily Short Volume % — QQQ", "Positioning", new[] { "NDX" },
+                new[] { new MetricSource("FINRA", "Derivatives", "QQQ_SHORTVOL", "1d", false) });
+
             // ── Sentiment ──────────────────────────────────────────────────
 
             reg["FEAR_GREED"] = new MetricEntry(

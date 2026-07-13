@@ -6,6 +6,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### COT Positioning indicator + FINRA short-volume provider (2026-07-13)
+
+**COT Positioning indicator** (`COT_POSITIONING`, category "Positioning") —
+promoted from the StrategyLab after cross-asset validation. Plots the 26-week
+z-score of hedge-fund net positioning (unique-weekly-value tracking so daily
+forward-fill can't deflate the variance) with Crowded Long / Crowded Short
+markers at ±1.5σ, audible level crossings, and per-asset interpretation baked
+into the description and detail facts (contrarian on gold, a long-entry gate on
+the S&P, inverted on FX, basis-trade-contaminated on CME crypto). Contract
+auto-selected from the chart symbol (XAU→gold, BTC→Bitcoin CME, SPY→E-mini,
+EUR→Euro FX, etc.); raw net-%-of-OI ships as a hidden queryable component.
+Registered in both heads and the StrategyLab.
+
+**FINRA daily short-volume provider** (`AccessibleTrader.Plugins.Finra`) — the
+equity analog of funding rate: per-symbol short volume as % of total volume,
+daily, for every US stock, from FINRA's free keyless Reg SHO files. Day files
+are fetched concurrently (6 in flight) and cached per session so the first
+symbol pays the download and the rest are instant; market holidays (404) are
+skipped cleanly. Symbols follow `{TICKER}_SHORTVOL`; renders as a 0–100%
+oscillator with "heavy shorting" / "buyers dominant" reference levels and
+zone noise.
+
+25 new tests (suite 1526 → 1551): symbol→contract mapping, z-score
+unique-value math, extreme markers, Reg SHO parsing, holiday handling,
+day-file caching across symbols.
+
 ### CFTC Commitment-of-Traders provider (2026-07-13)
 
 New analytics plugin `AccessibleTrader.Plugins.Cftc`: weekly fund positioning

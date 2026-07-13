@@ -90,6 +90,7 @@
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceVision\AccessibleTrader.Plugins.BinanceVision.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Cftc\AccessibleTrader.Plugins.Cftc.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Finra\AccessibleTrader.Plugins.Finra.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />

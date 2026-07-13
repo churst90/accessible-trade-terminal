@@ -227,6 +227,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, LoukasCyclesProvider>();
             services.AddScoped<ICrossSeriesCache, CrossSeriesCache>();
             services.AddScoped<IIndicatorProvider, FundingRateProvider>();
+            services.AddScoped<IIndicatorProvider, CotPositioningProvider>();
             services.AddScoped<IIndicatorProvider, OpenInterestProvider>();
             services.AddScoped<IIndicatorProvider, FearGreedProvider>();
             services.AddScoped<IIndicatorProvider, CrowdingIndexProvider>();

@@ -257,6 +257,7 @@ namespace AccessibleTrader.BlazorClient
             // so independent indicators that share a source don't double-fetch.
             services.AddSingleton<ICrossSeriesCache, CrossSeriesCache>();
             services.AddSingleton<IIndicatorProvider, FundingRateProvider>();
+            services.AddSingleton<IIndicatorProvider, CotPositioningProvider>();
             services.AddSingleton<IIndicatorProvider, OpenInterestProvider>();
             services.AddSingleton<IIndicatorProvider, FearGreedProvider>();
             services.AddSingleton<IIndicatorProvider, CrowdingIndexProvider>();
