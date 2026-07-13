@@ -472,9 +472,17 @@ public class ConfigurableStrategy : BaseStrategy
                 ? (eval.Score / eval.MaxScore).ToString("F2")
                 : "1.00";
 
+            // Full trade plan in one utterance — entry, stop, every ladder rung — so the
+            // user can execute manually without opening the dashboard. The same string
+            // becomes the journal's StrategySignal entry verbatim.
+            string targets = resolved.TpPrices.Count == 1
+                ? $"target {resolved.TpPrices[0]:F4}"
+                : string.Join(", ", resolved.TpPrices.Select(
+                      (tp, k) => $"target {k + 1} {tp:F4}"));
             string rationale =
-                $"{(_spec.Side == OrderSide.Buy ? "Long" : "Short")} setup, score {normalizedScore}. " +
-                $"Stop {resolved.StopPrice:F4}, first target {resolved.TpPrices[0]:F4} (R:R {resolved.RewardRiskRatio:F2}). " +
+                $"{(_spec.Side == OrderSide.Buy ? "Long" : "Short")} setup, {_spec.Name}, score {normalizedScore}. " +
+                $"Entry {resolved.EntryPrice:F4}, stop {resolved.StopPrice:F4}, {targets} " +
+                $"(R:R {resolved.RewardRiskRatio:F2}). " +
                 resolved.Notes;
 
             if (publishEvents) _eventBus.Publish(new SetupConfirmedEvent(

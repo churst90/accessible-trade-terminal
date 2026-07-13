@@ -40,6 +40,47 @@ namespace AccessibleTrader.Core.Services
                     text));
             }));
 
+            // Setup lifecycle beyond the signal itself. A CONFIRMED setup is already
+            // journaled via StrategySignalEvent (same rationale, same bar) — but ARMED
+            // setups (conditions met, entry trigger pending), the entry-trigger firing,
+            // and condition dropouts produce speech with no signal, so without these
+            // subscriptions they would only be findable in the raw Speech log.
+            _subs.Add(bus.Subscribe<SetupArmedEvent>(e =>
+            {
+                string targets = string.Join(", ", e.ResolvedPlan.TpPrices.Select(
+                    (tp, k) => $"target {k + 1} {tp:F4}"));
+                Add(new JournalEntry(
+                    DateTime.Now,
+                    JournalEntryKind.StrategySignal,
+                    e.StrategyName,
+                    _store.State.Identity.Symbol,
+                    $"{e.Side} setup ARMED (entry trigger pending): {e.TriggerDescription} " +
+                    $"Entry {e.ResolvedPlan.EntryPrice:F4}, stop {e.ResolvedPlan.StopPrice:F4}, {targets} " +
+                    $"(R:R {e.ResolvedPlan.RewardRiskRatio:F2})."));
+            }));
+
+            _subs.Add(bus.Subscribe<SetupEntryReachedEvent>(e =>
+            {
+                Add(new JournalEntry(
+                    DateTime.Now,
+                    JournalEntryKind.StrategySignal,
+                    e.StrategyName,
+                    _store.State.Identity.Symbol,
+                    $"{e.Side} setup entry zone reached at {e.TriggerPrice:F4}, {e.BarsArmed} bars after arming."));
+            }));
+
+            _subs.Add(bus.Subscribe<SetupDroppedEvent>(e =>
+            {
+                if (e.DroppedLeafLabels == null || e.DroppedLeafLabels.Count == 0) return;
+                Add(new JournalEntry(
+                    DateTime.Now,
+                    JournalEntryKind.StrategySignal,
+                    e.StrategyName,
+                    _store.State.Identity.Symbol,
+                    $"Setup conditions dropped: {string.Join(", ", e.DroppedLeafLabels)}. " +
+                    (e.SetupStillActive ? "Setup still active." : "Setup invalidated.")));
+            }));
+
             // User-defined price/indicator alerts.
             _subs.Add(bus.Subscribe<AlertFiredEvent>(e =>
             {

@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Setup announcements: full trade plan + journal lifecycle logging (2026-07-13)
+
+Setup confirmations now speak (and journal) the COMPLETE trade plan: "Long
+setup, {strategy}, score N. Entry X, stop Y, target 1 A, target 2 B (R:R Z)"
+— every ladder rung, so the plan can be executed manually without opening the
+dashboard. The journal additionally records the setup lifecycle stages that
+previously produced speech with no journal entry of their own: ARMED (with
+the full plan), entry-zone-reached, and condition dropouts. Confirmed setups
+were already journaled via the signal path; the long/short setup bells were
+already unique chords (ascending sine = long, descending triangle = short).
+3 new tests (1554 → 1557).
+
 ### Lab walk-forward validation of the new seeds (2026-07-13)
 
 H1/H2 walk-forward in the StrategyLab (costs + slippage included) on daily
