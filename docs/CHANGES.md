@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Strategy seeds: trend benchmark + COT-gated reversal (2026-07-13)
+
+Two new built-in strategy templates (both Suggestion mode, not auto-activated):
+**Trend Baseline — Faber Cross** (`builtin.long.trend-baseline`) — the
+benchmark, not a setup: price crosses above SMA200, wide ATR(14)x4 stop, single
+distant target, ATR-trail after TP1. Any cipher/cycle strategy should beat it
+in walk-forward before being trusted. **Cipher Reversal + COT Gate — Gold/S&P
+Daily** (`builtin.long.v23c-cipherb-cot`) — v23 trigger trio gated on fund
+positioning NOT crowded long (COT z < 1.5); evidence: SPY dip-buys +2.16%/20d
+at 75% hit when not crowded vs −0.29% when crowded. Gate documented as invalid
+on BTC (basis trade) and FX (informed flow). 3 seed-wiring tests (1551 → 1554).
+
 ### COT Positioning indicator + FINRA short-volume provider (2026-07-13)
 
 **COT Positioning indicator** (`COT_POSITIONING`, category "Positioning") —

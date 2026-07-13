@@ -178,6 +178,26 @@ namespace AccessibleTrader.Core.Services.Strategies
         // use v23p when you want peak conviction (per-trade R champion).
         public const string LongV23orCipherBOrConfId = "builtin.long.v23or-cipherb-orconf";
 
+        // Trend Baseline — the "boring institutional strategy" every fancier spec
+        // must beat. Faber cross entry (price crosses above SMA200), wide ATR
+        // stop, single distant target, ATR-trail after TP1 so the trend runs.
+        // 2026-07-13 cross-asset study (TSMOM-12m / MA-10m / vol-target, monthly,
+        // era-sliced): crypto is where it shines (BTC vol-targeted trend Sharpe
+        // 1.19 vs 0.80 hold, maxDD 23% vs 83%); on indices/gold it matches
+        // buy-and-hold Sharpe with 2-3x smaller drawdowns (crash insurance); on
+        // single secular-growth names holding wins; FX long-only has no edge.
+        public const string LongTrendBaselineId = "builtin.long.trend-baseline";
+
+        // v23c — Cipher B Reversal + COT not-crowded gate (LONG, gold / S&P
+        // daily). Promoted from the 2026-07-13 CFTC positioning study: on SPY,
+        // v23-style oversold dip-buys returned +2.16%/20d at a 75% hit rate when
+        // fund positioning was NOT crowded long (26-week z < 1.5) vs −0.29% when
+        // crowded; gold crowded-long extremes collapsed forward drift to ~zero
+        // in every era. NOTE: the gate is asset-specific — do NOT use on BTC
+        // (CME positioning is basis-trade contaminated) or FX (specs are
+        // informed trend flow there).
+        public const string LongV23cCipherBCotId = "builtin.long.v23c-cipherb-cot";
+
         // Asset-aware v23 preset map. Empirical research (2026-04-27 rounds 3-4):
         // the right v23 variant depends on BOTH asset and timeframe.
         //
@@ -384,6 +404,137 @@ namespace AccessibleTrader.Core.Services.Strategies
             yield return BuildV23hCipherBHurstShort();
             yield return BuildV23aCipherBAvwapLong();
             yield return BuildV23orCipherBOrConfLong();
+            yield return BuildTrendBaselineLong();
+            yield return BuildV23cCipherBCotLong();
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // Trend Baseline — Faber cross entry, ATR-trailed exit. See LongTrendBaselineId
+        // docs for the cross-asset evidence. Deliberately has NO oscillator trigger:
+        // this is the benchmark, not a setup — if a cipher/cycle spec can't beat this
+        // in walk-forward on the same asset, it isn't earning its complexity.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildTrendBaselineLong()
+        {
+            var faberCross = new ConditionLeaf(
+                Id: "trendbase-cross",
+                SignalDescriptorId: "REGIME.AboveSma200",
+                Operator: LeafOperator.CrossesAbove,
+                Value: 0.0,
+                Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "trendbase-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { faberCross });
+
+            // Wide stop + one distant rung + ATR trail after TP1 = "ride the trend
+            // until it bends" expressed in the RiskPlan vocabulary. The 10R rung is
+            // intentionally far: the trail is the real exit.
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 4.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 10.0, ClosePortion: 1.0),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.TrailByAtr,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongTrendBaselineId,
+                Name: "Trend Baseline — Faber Cross (Long, benchmark)",
+                Description:
+                    "THE BENCHMARK, not a setup: enters when price crosses above the 200-bar " +
+                    "SMA and rides with a wide ATR(14)x4 stop that trails after TP1. Any " +
+                    "cipher/cycle strategy should beat this on the same asset in walk-forward " +
+                    "before being trusted. Cross-asset evidence (2026-07): strongest on crypto " +
+                    "(BTC trend Sharpe 1.05-1.19 vs 0.80 hold, drawdown cut 4x when vol-" +
+                    "targeted); on indices and gold it matches buy-and-hold returns with " +
+                    "2-3x smaller drawdowns; on single growth stocks plain holding wins; " +
+                    "long-only FX has no edge. REQUIRES: Regime Filter loaded. Daily bars " +
+                    "recommended.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v23c — Cipher B Reversal + COT not-crowded gate (gold / S&P daily long).
+        // See LongV23cCipherBCotId docs for the positioning-study evidence.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV23cCipherBCotLong()
+        {
+            var blueDot = new ConditionLeaf(
+                Id: "v23cl-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v23cl-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v23cl-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var trigger = new ConditionGroup(
+                Id: "v23cl-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            var anchorBear = new ConditionLeaf(
+                Id: "v23cl-anchor", SignalDescriptorId: "CIPHER_B.Anchor Wave",
+                Operator: LeafOperator.LessThan, Value: 0.0, Score: 1.0);
+
+            // The gate that carried the study: funds NOT at a crowded-long extreme.
+            // NaN (COT indicator absent, unmapped symbol, or z warmup) evaluates
+            // false, so the spec simply never fires without its data — same
+            // contract as the funding-gated v23rf.
+            var cotNotCrowded = new ConditionLeaf(
+                Id: "v23cl-cot", SignalDescriptorId: "COT_POSITIONING.Positioning Z-Score",
+                Operator: LeafOperator.LessThan, Value: 1.5, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v23cl-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, anchorBear, cotNotCrowded });
+
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.50),
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 4.0, ClosePortion: 0.50),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 2.0,
+                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV23cCipherBCotId,
+                Name: "Cipher Reversal + COT Gate — Gold/S&P Daily (Long)",
+                Description:
+                    "v23 base trigger (WT Cross Bull / Blue dot / Bull Divergence within 2) " +
+                    "AND Anchor Wave < 0 AND fund positioning NOT crowded long (COT 26-week " +
+                    "z-score < 1.5). Positioning study 2026-07: on SPY the same dip-buys " +
+                    "returned +2.16%/20d at 75% hit when not crowded vs -0.29% when crowded; " +
+                    "gold crowded-long extremes collapsed forward drift in every era. " +
+                    "ASSET-SPECIFIC: gold and equity indices on DAILY bars only — the gate " +
+                    "is invalid on BTC (basis-trade contamination) and inverted on FX. " +
+                    "REQUIRES: Cipher B + COT Positioning loaded on the chart. Risk: " +
+                    "ATR(14)x3 stop, 2R/4R ladder, BE after TP1, 0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
         }
 
         // ─────────────────────────────────────────────────────────────────────────────
