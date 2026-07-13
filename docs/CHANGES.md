@@ -4,6 +4,79 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### CFTC Commitment-of-Traders provider (2026-07-13)
+
+New analytics plugin `AccessibleTrader.Plugins.Cftc`: weekly fund positioning
+(net position as % of open interest) for 11 futures contracts — gold, silver,
+copper, WTI, natural gas (managed-money cohort, disaggregated dataset) and
+Bitcoin, Ether, E-mini S&P, Nasdaq-100, Euro FX, US Dollar Index (leveraged-funds
+cohort, TFF dataset) — from the free, keyless CFTC Socrata API
+(publicreporting.cftc.gov). Bars are stamped at the release date (report
+Tuesday + 3 days) so backtests can never see a value before it was public.
+Registered in the analytics resolver as `COT_GOLD`, `COT_BITCOIN`, etc.
+(category "Positioning"); renders as a zero-line oscillator with spoken
+"% of open interest" values. Contract codes verified against the live API.
+8 provider tests (Socrata parsing, dataset/cohort selection, release-date
+stamping, error contract). The StrategyLab's ZIP-archive COT pipeline is
+unchanged; note it stamps at report date, three days earlier than this provider.
+
+### Branding: application logo everywhere (2026-07-10)
+
+The green-and-gold medallion logo from accessibletrader.com is now the app's identity
+across every surface:
+
+- **App icon (MAUI)**: `Resources/AppIcon/` — flat brand-green background layer
+  (`appicon.svg`) + pre-rasterized medallion foreground with Android adaptive-icon
+  safe-zone padding (`appiconfg.png`, 1024px). Replaces the .NET-template purple
+  placeholder. Windows taskbar/window icon and iOS icons flatten from the same pair.
+- **Splash screen**: medallion on brand green (`Resources/Splash/splash.png`),
+  replaces the .NET splash; `dotnet_bot.svg` removed (no references).
+- **Favicons**: both heads' null `data:,` favicons replaced. The master SVG ships
+  once in the Components RCL (`wwwroot/images/logo.svg`, served at `_content/…`);
+  the WebHost adds PNG fallbacks (`wwwroot/icons/`: 32/192/512 + apple-touch-icon).
+  Relative hrefs so the reverse-proxied demo/hosted subpaths resolve correctly.
+- **Auth pages** (hosted mode): the placeholder "A" tile in the header is now the
+  logo; favicon links added.
+- **Boot screen + About**: the MAUI boot screen shows the logo above the spinner,
+  and Settings > About displays it with descriptive alt text.
+
+Assets were rasterized from the site SVG (wordmark renders via metric-compatible
+font substitution) and visually verified at 1024, 512, and 32 px.
+
+### Settings correctness + restart safety (2026-07-10)
+
+**About page version can no longer drift.** The hardcoded "1.0.0-alpha" in
+Settings > About is gone; the page now reads the assembly informational version at
+runtime. `Directory.Build.props` is the single version source — the MAUI head's
+`ApplicationDisplayVersion` and the WebHost assembly version both inherit from it.
+Release bumps touch exactly one line.
+
+**Background color picker now actually works.** The Appearance > Colors picker
+persisted to `WorkspaceState.BackgroundColor` but nothing in the render path read
+it. It is now a theme override applied inside `ThemeService`
+(`appearance.backgroundColor`), so the SkiaSharp background layer, the canvas
+clear, and the loading overlay all pick it up. Applies immediately on change (like
+the other appearance settings), survives theme switches, and a new "Reset to theme
+default" button clears it. Importing a visual profile applies its background too.
+Tests added (`VisualAccessibilityTests`).
+
+**Open positions are announced after a restart.** New
+`TradingReconciliationCoordinator`: persisted paper-account exposure (positions /
+working orders) is spoken once at startup, and live-broker exposure is fetched and
+spoken the first time each trading provider connects in a session — previously the
+only way to discover resting exposure was to open the Trading Dashboard manually.
+Announcements are non-interrupting and skipped for flat accounts. Tests added
+(`TradingReconciliationTests`, 7 tests).
+
+**Settings text cleanup.** Removed the out-of-place candle-color note from the
+Theme fieldset (candle colors live in the per-series Properties dialog); About
+table corrected (128-voice audio engine, both platform heads, full 14-provider
+list).
+
+---
+
 ## [1.5.0] — 2026-07-10
 
 The **finalization release**: a full mouse-interaction suite, web touch support with

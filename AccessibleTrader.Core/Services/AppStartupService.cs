@@ -105,6 +105,14 @@ namespace AccessibleTrader.Core.Services
             //    and announced here — a silent settings "reset" with no explanation is
             //    exactly the kind of invisible failure this app must never have.
             AnnounceQuarantinedFiles();
+
+            // 9. Trading reconciliation — resolve so live-provider connections get
+            //    a first-connect exposure announcement, and speak any persisted
+            //    paper positions/orders now. A user who restarted with open
+            //    exposure must hear about it without opening the dashboard.
+            var reconciliation = _services.GetService<ITradingReconciliationCoordinator>();
+            if (reconciliation != null)
+                await reconciliation.AnnounceAtStartupAsync().ConfigureAwait(false);
         }
 
         private void AnnounceQuarantinedFiles()

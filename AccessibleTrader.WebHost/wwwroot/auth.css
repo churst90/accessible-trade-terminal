@@ -66,13 +66,9 @@ body {
   letter-spacing: -0.01em;
 }
 .auth-header .mark {
+  /* Circular brand medallion (the app logo), not the old letter tile. */
   width: 1.9rem; height: 1.9rem;
-  border-radius: 8px;
-  background: var(--brand-primary);
-  color: #fff;
-  display: inline-grid;
-  place-items: center;
-  font-weight: 800;
+  border-radius: 50%;
 }
 
 /* ── Centred card ── */

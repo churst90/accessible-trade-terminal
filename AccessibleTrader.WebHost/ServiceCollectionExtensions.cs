@@ -410,6 +410,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<INotificationHub, NotificationHub>();
             services.AddScoped<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
             services.AddScoped<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
+            services.AddScoped<ITradingReconciliationCoordinator, TradingReconciliationCoordinator>();
 
             // Tactile output. Linux + non-Windows hosts use NullDotPadNative
             // (see the docs in IDotPadNative.cs and the SDK research findings

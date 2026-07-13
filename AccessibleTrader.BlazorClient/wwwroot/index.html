@@ -7,7 +7,7 @@
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="AccessibleTrader.BlazorClient.styles.css" />
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/svg+xml" href="_content/AccessibleTrader.BlazorClient.Components/images/logo.svg">
     <!-- Inline transparent background applied synchronously before app.css loads,
          preventing the WebView2 white flash during Blazor bootstrap. -->
     <style>
@@ -21,6 +21,7 @@
             gap: 16px; background: #1a1a1a; color: #dcdcdc;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        .boot-logo { width: 96px; height: 96px; }
         .boot-title { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.5px; color: #4ec9b0; }
         .boot-sub { font-size: 0.95rem; color: #9aa; }
         .boot-spinner {
@@ -35,6 +36,7 @@
 <body>
     <div id="app">
         <div class="boot-screen" role="status" aria-live="polite" aria-label="Loading Accessible Trader, please wait">
+            <img class="boot-logo" src="_content/AccessibleTrader.BlazorClient.Components/images/logo.svg" alt="" aria-hidden="true" />
             <div class="boot-spinner" aria-hidden="true"></div>
             <div class="boot-title">Accessible Trader</div>
             <div class="boot-sub">Loading… please wait</div>

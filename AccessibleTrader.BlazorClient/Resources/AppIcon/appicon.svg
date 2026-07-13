@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- App-icon background layer: flat brand green behind the medallion foreground
+     (appiconfg.png). Android adaptive icons require a simple full-bleed
+     background; Windows/iOS flatten this + the foreground into one icon. -->
 <svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="456" height="456" fill="#512BD4" />
+    <rect x="0" y="0" width="456" height="456" fill="#0B2F21" />
 </svg>

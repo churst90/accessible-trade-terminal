@@ -23,7 +23,10 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css" />
     <link rel="stylesheet" href="AccessibleTrader.WebHost.styles.css" />
-    <link rel="icon" href="data:,">
+    @* Relative hrefs so the icons resolve under the reverse-proxy base path too. *@
+    <link rel="icon" type="image/svg+xml" href="_content/AccessibleTrader.BlazorClient.Components/images/logo.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <HeadOutlet @rendermode="RenderMode.InteractiveServer" />
 </head>
 <body>

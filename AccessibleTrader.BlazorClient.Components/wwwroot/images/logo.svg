@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="logo-title logo-desc">
+  <title id="logo-title">Accessible Trade Terminal</title>
+  <desc id="logo-desc">A circular medallion with a soft deep-green center, a reflective 24-karat gold border, and the wordmark "Accessible Trade Terminal" in gold across three lines.</desc>
+
+  <defs>
+    <!-- Reflective 24k gold: bright specular top, rich mid, shadowed base (coin sheen) -->
+    <linearGradient id="goldRing" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0"    stop-color="#fbefb0"/>
+      <stop offset="0.12" stop-color="#eecb61"/>
+      <stop offset="0.32" stop-color="#d4af37"/>
+      <stop offset="0.50" stop-color="#a9822a"/>
+      <stop offset="0.63" stop-color="#c99a34"/>
+      <stop offset="0.82" stop-color="#f2d777"/>
+      <stop offset="1"    stop-color="#7a5e1a"/>
+    </linearGradient>
+
+    <!-- Brighter gold for the wordmark, tuned for contrast on deep green -->
+    <linearGradient id="goldText" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#fbeaa0"/>
+      <stop offset="0.45" stop-color="#e8c657"/>
+      <stop offset="1"    stop-color="#c99a2e"/>
+    </linearGradient>
+
+    <!-- Plush deep-green cushion: lit upper-left, shadowed rim -->
+    <radialGradient id="green" cx="0.40" cy="0.36" r="0.72">
+      <stop offset="0"    stop-color="#227050"/>
+      <stop offset="0.45" stop-color="#124532"/>
+      <stop offset="0.78" stop-color="#0b2f21"/>
+      <stop offset="1"    stop-color="#061a12"/>
+    </radialGradient>
+
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <!-- Reflective gold border (outer coin) -->
+  <circle cx="200" cy="200" r="196" fill="url(#goldRing)"/>
+  <!-- crisp darker edge to define the rim -->
+  <circle cx="200" cy="200" r="196" fill="none" stroke="#6b5116" stroke-width="2"/>
+
+  <!-- Specular highlights on the ring for the reflective/plush sheen -->
+  <path d="M 83 61 A 182 182 0 0 1 317 61" fill="none" stroke="#fff7d8"
+        stroke-width="5" stroke-linecap="round" opacity="0.55" filter="url(#soft)"/>
+  <path d="M 42 291 A 182 182 0 0 0 358 291" fill="none" stroke="#fff2c0"
+        stroke-width="4" stroke-linecap="round" opacity="0.22" filter="url(#soft)"/>
+
+  <!-- Deep-green plush center -->
+  <circle cx="200" cy="200" r="170" fill="url(#green)"/>
+  <!-- inner separation: dark groove + thin bright gold keyline -->
+  <circle cx="200" cy="200" r="170" fill="none" stroke="#04120b" stroke-width="3"/>
+  <circle cx="200" cy="200" r="165" fill="none" stroke="#e8c657" stroke-width="1.5" opacity="0.85"/>
+
+  <!-- small gold accents flanking the wordmark -->
+  <circle cx="40"  cy="200" r="5" fill="url(#goldText)"/>
+  <circle cx="360" cy="200" r="5" fill="url(#goldText)"/>
+
+  <!-- framing hairlines -->
+  <line x1="140" y1="138" x2="260" y2="138" stroke="url(#goldText)" stroke-width="1.5" opacity="0.8"/>
+  <line x1="140" y1="270" x2="260" y2="270" stroke="url(#goldText)" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Wordmark: ACCESSIBLE / TRADE / TERMINAL -->
+  <g font-family="'Open Sans','Segoe UI',system-ui,sans-serif" font-weight="700"
+     text-anchor="middle" fill="url(#goldText)">
+    <text x="200" y="178" font-size="40" letter-spacing="2">ACCESSIBLE</text>
+    <text x="200" y="219" font-size="40" letter-spacing="9">TRADE</text>
+    <text x="200" y="260" font-size="40" letter-spacing="5">TERMINAL</text>
+  </g>
+</svg>

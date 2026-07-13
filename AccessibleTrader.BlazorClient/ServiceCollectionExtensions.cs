@@ -494,6 +494,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<INotificationHub, NotificationHub>();
             services.AddSingleton<IGlobalErrorCoordinator, GlobalErrorCoordinator>();
             services.AddSingleton<IHistoryBufferCoordinator, HistoryBufferCoordinator>();
+            services.AddSingleton<ITradingReconciliationCoordinator, TradingReconciliationCoordinator>();
 
             // Tactile output for the Dot Pad 2nd-gen refreshable display. The Windows
             // native binding (DotPadSDK-3.0.0.dll via P/Invoke) is the only real

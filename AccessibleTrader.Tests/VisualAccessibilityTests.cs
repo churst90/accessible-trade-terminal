@@ -89,13 +89,16 @@ public class VisualAccessibilityTests
 
     // ── Theme accessibility overrides ────────────────────────────────────────
 
-    private static ISettingsManager SettingsWith(bool colorVision = false, bool hollow = false)
+    private static ISettingsManager SettingsWith(bool colorVision = false, bool hollow = false,
+        string? background = null)
     {
         var settings = Substitute.For<ISettingsManager>();
         settings.GetSetting(ThemeService.ColorVisionSafeKey, Arg.Any<JToken?>())
             .Returns(colorVision ? new JValue(true) : null);
         settings.GetSetting(ThemeService.HollowUpCandlesKey, Arg.Any<JToken?>())
             .Returns(hollow ? new JValue(true) : null);
+        settings.GetSetting(ThemeService.BackgroundOverrideKey, Arg.Any<JToken?>())
+            .Returns(background != null ? new JValue(background) : null);
         return settings;
     }
 
@@ -138,6 +141,31 @@ public class VisualAccessibilityTests
 
         Assert.True(fired);
         Assert.True(svc.Current.ColorVisionSafe);
+    }
+
+    // ── Background color override ────────────────────────────────────────────
+
+    [Fact]
+    public void Theme_BackgroundOverride_Applies_AndSurvivesThemeSwitches()
+    {
+        var svc = new ThemeService(SettingsWith(background: "#123456"));
+        Assert.Equal(new SKColor(0x12, 0x34, 0x56), svc.Current.Background);
+
+        // Like the other appearance overrides, a custom background is a user
+        // preference layered over whichever theme is active.
+        svc.SetTheme(ThemeType.Solarized);
+        Assert.Equal(new SKColor(0x12, 0x34, 0x56), svc.Current.Background);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-color")]
+    public void Theme_BackgroundOverride_AbsentOrInvalid_UsesThemeDefault(string? stored)
+    {
+        var svc = new ThemeService(SettingsWith(background: stored));
+        Assert.Equal(SKColors.Black, svc.Current.Background); // HighContrastDark default
     }
 
     // ── Renderer color-vision override ───────────────────────────────────────

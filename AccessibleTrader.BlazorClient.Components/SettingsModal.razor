@@ -6,6 +6,7 @@
 @using AccessibleTrader.Sdk.Alerts
 @using AccessibleTrader.Sdk.Analysis
 @using Newtonsoft.Json.Linq
+@using System.Reflection
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
@@ -277,8 +278,12 @@
                         <label for="s-bg-color">Background color</label>
                         <input id="s-bg-color" type="color"
                                value="@_backgroundColor"
-                               @onchange="e => _backgroundColor = e.Value?.ToString() ?? _backgroundColor"
+                               @onchange="OnBackgroundColorChanged"
                                aria-label="Chart background color" />
+                        <button @onclick="ResetBackgroundColor"
+                                aria-label="Reset background color to theme default">
+                            Reset to theme default
+                        </button>
                     </div>
 
                 </fieldset>
@@ -300,12 +305,6 @@
                         </select>
                     </div>
 
-                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-                        <span style="font-size:0.85rem;color:var(--text-muted);">
-                            Candle bullish/bearish colors are set per-indicator in the Properties dialog
-                            (Shift+F12 while the candle series is focused).
-                        </span>
-                    </div>
                 </fieldset>
 
                 @* Visual accessibility (Phase D). ALL OFF BY DEFAULT: the terminal
@@ -569,13 +568,17 @@
                  aria-labelledby="tab-about"
                  hidden="@(_activeTab != "About")">
 
+                <img src="_content/AccessibleTrader.BlazorClient.Components/images/logo.svg"
+                     alt="Accessible Trade Terminal logo: a deep-green medallion with a reflective gold ring and gold wordmark"
+                     style="width:120px; height:120px; display:block; margin:4px auto 12px;" />
+
                 <table class="shortcuts-table" style="margin-top:4px;">
                     <tbody>
-                        <tr><td>Version</td><td>1.0.0-alpha</td></tr>
-                        <tr><td>Platform</td><td>.NET 10 MAUI + Blazor Hybrid</td></tr>
+                        <tr><td>Version</td><td>@AppVersion</td></tr>
+                        <tr><td>Platform</td><td>.NET 10 — MAUI Blazor Hybrid + ASP.NET Core WebHost</td></tr>
                         <tr><td>Chart Engine</td><td>SkiaSharp</td></tr>
-                        <tr><td>Audio Engine</td><td>64-voice polyphonic DSP (NAudio/WASAPI)</td></tr>
-                        <tr><td>Plugins</td><td>Binance, Alpaca, Bitstamp, Coinbase, Polygon, FRED</td></tr>
+                        <tr><td>Audio Engine</td><td>128-voice polyphonic synthesis (cross-platform DSP)</td></tr>
+                        <tr><td>Providers</td><td>Alpaca, Binance, Bitstamp, Coinbase, Finnhub, FMP, Interactive Brokers, Kraken, MEXC, Oanda, Polygon, Schwab, Tradier, Twelve Data</td></tr>
                         <tr><td>Repository</td><td><a href="https://github.com/accessible-trader/accessible-trader" target="_blank" style="color:#0078d4;">GitHub</a></td></tr>
                     </tbody>
                 </table>
@@ -686,6 +689,15 @@
 
     private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
 
+    // Single source of truth is the <Version> property in Directory.Build.props;
+    // it flows into the assembly informational version at build time. Strip any
+    // "+commitsha" suffix appended by SourceLink.
+    private static readonly string AppVersion =
+        (typeof(SettingsModal).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+         ?? typeof(SettingsModal).Assembly.GetName().Version?.ToString(3)
+         ?? "unknown").Split('+')[0];
+
     protected override void OnInitialized()
     {
         _eventSub = EventBus.Subscribe<OpenSettingsEvent>(_ => InvokeAsync(ShowAsync));
@@ -751,6 +763,32 @@
         catch { /* JS bridge may be absent in tests */ }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Text size {_uiScale} percent.", true));
+    }
+
+    // ── Background color override — persists + applies immediately like the
+    //    other appearance settings. Stored under ThemeService.BackgroundOverrideKey
+    //    and applied by ThemeService, so the renderer, background layer, and the
+    //    loading overlay all pick it up through ThemeService.Current.Background.
+    private void OnBackgroundColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _backgroundColor = e.Value?.ToString() ?? _backgroundColor;
+        Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, _backgroundColor);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Chart background color changed.", true));
+    }
+
+    private void ResetBackgroundColor()
+    {
+        Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, string.Empty);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        _backgroundColor = SkColorToHex(ThemeService.Current.Background);
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Background color reset to theme default.", true));
     }
 
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -981,6 +1019,18 @@
         {
             string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
             WorkspaceLibrary.ImportVisualProfile(json, Store);
+
+            // Apply the imported background to the live theme — the store value
+            // alone only feeds re-export; rendering reads ThemeService.Current.
+            var importedBg = Store.State.BackgroundColor;
+            if (!string.IsNullOrWhiteSpace(importedBg))
+            {
+                Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, importedBg);
+                Settings.SaveSettings();
+                ThemeService.RefreshAccessibilityOverrides();
+                EventBus.Publish(new RedrawEvent());
+            }
+
             _profileStatus = "Visual profile imported.";
             StateHasChanged();
         }

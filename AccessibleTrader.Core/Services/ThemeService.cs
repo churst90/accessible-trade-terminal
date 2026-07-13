@@ -38,6 +38,11 @@ namespace AccessibleTrader.Core.Services
         public const string ColorVisionSafeKey = "appearance.colorVisionSafe";
         public const string HollowUpCandlesKey = "appearance.hollowUpCandles";
 
+        // Optional user override of the theme's chart background ("#RRGGBB").
+        // Empty/absent means "use the theme's own background". Applies across
+        // theme switches until cleared from Settings > Appearance.
+        public const string BackgroundOverrideKey = "appearance.backgroundColor";
+
         public ThemeService(ISettingsManager settings)
         {
             _settings = settings;
@@ -74,8 +79,14 @@ namespace AccessibleTrader.Core.Services
         {
             bool colorVision = _settings.GetSetting(ColorVisionSafeKey)?.Value<bool?>() ?? false;
             bool hollow      = _settings.GetSetting(HollowUpCandlesKey)?.Value<bool?>() ?? false;
-            if (!colorVision && !hollow) return theme;
-            return theme with { ColorVisionSafe = colorVision, HollowUpCandles = hollow };
+            if (colorVision || hollow)
+                theme = theme with { ColorVisionSafe = colorVision, HollowUpCandles = hollow };
+
+            var bgOverride = _settings.GetSetting(BackgroundOverrideKey)?.ToString();
+            if (!string.IsNullOrWhiteSpace(bgOverride) && SKColor.TryParse(bgOverride, out var bg))
+                theme = theme with { Background = bg };
+
+            return theme;
         }
 
         private static ChartTheme BuildTheme(ThemeType type) => type switch

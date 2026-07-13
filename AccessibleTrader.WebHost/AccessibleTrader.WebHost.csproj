@@ -19,7 +19,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>AccessibleTrader.WebHost</RootNamespace>
-    <Version>1.5.0</Version>
+    <!-- Version inherited from Directory.Build.props — bump it there only. -->
     <!-- Release builds run as a windowed (GUI-subsystem) app on Windows so the
          shipped binary doesn't pop a black console window when the user double-
          clicks it; the app opens the browser itself. Debug stays a console app
@@ -89,6 +89,7 @@
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceVision\AccessibleTrader.Plugins.BinanceVision.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Cftc\AccessibleTrader.Plugins.Cftc.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />

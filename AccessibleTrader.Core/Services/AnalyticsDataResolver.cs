@@ -120,6 +120,29 @@ namespace AccessibleTrader.Core.Services
                     new MetricSource("BGeometrics",         "OnChain",     "OI_FUTURES",             "1d", false),
                 });
 
+            // ── Positioning (CFTC Commitment of Traders) ───────────────────
+            // Weekly net fund positioning as % of open interest, from the free
+            // CFTC Socrata API. One metric per contract: resolution is by metric
+            // name only (the asset parameter is unused — see Resolve()), so
+            // multi-contract data gets one registry key per contract.
+
+            void CotMetric(string key, string display, string asset, string symbol) =>
+                reg[key] = new MetricEntry(
+                    display, "Positioning", new[] { asset },
+                    new[] { new MetricSource("CFTC", "Derivatives", symbol, "1w", false) });
+
+            CotMetric("COT_BITCOIN",   "COT Net Positioning — Bitcoin CME",    "BTC",    "BITCOIN_COT");
+            CotMetric("COT_ETHER",     "COT Net Positioning — Ether CME",      "ETH",    "ETHER_COT");
+            CotMetric("COT_GOLD",      "COT Net Positioning — Gold",           "GOLD",   "GOLD_COT");
+            CotMetric("COT_SILVER",    "COT Net Positioning — Silver",         "SILVER", "SILVER_COT");
+            CotMetric("COT_COPPER",    "COT Net Positioning — Copper",         "COPPER", "COPPER_COT");
+            CotMetric("COT_WTI_CRUDE", "COT Net Positioning — WTI Crude Oil",  "OIL",    "WTI_CRUDE_COT");
+            CotMetric("COT_NATGAS",    "COT Net Positioning — Natural Gas",    "NATGAS", "NATGAS_COT");
+            CotMetric("COT_SP500",     "COT Net Positioning — E-mini S&P 500", "SPX",    "SP500_COT");
+            CotMetric("COT_NASDAQ",    "COT Net Positioning — Nasdaq-100",     "NDX",    "NASDAQ_COT");
+            CotMetric("COT_EURO_FX",   "COT Net Positioning — Euro FX",        "EUR",    "EURO_FX_COT");
+            CotMetric("COT_USD_INDEX", "COT Net Positioning — US Dollar Index","DXY",    "USD_INDEX_COT");
+
             // ── Sentiment ──────────────────────────────────────────────────
 
             reg["FEAR_GREED"] = new MetricEntry(

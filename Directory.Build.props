@@ -1,0 +1,10 @@
+<Project>
+  <!-- Single source of truth for the application version. Both heads and the
+       About dialog derive from this value: the MAUI head via
+       ApplicationDisplayVersion=$(Version), the WebHost via the implicit
+       assembly version, and Settings > About via the assembly informational
+       version read at runtime. Bump ONLY here on release. -->
+  <PropertyGroup>
+    <Version>1.5.0</Version>
+  </PropertyGroup>
+</Project>
