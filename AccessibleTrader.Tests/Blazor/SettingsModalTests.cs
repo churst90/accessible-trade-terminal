@@ -84,8 +84,13 @@ public class SettingsModalTests
 
         cut.Find("button#tab-alerts").Click();
 
-        Assert.Equal("true",  cut.Find("button#tab-alerts").GetAttribute("aria-selected"));
-        Assert.Equal("false", cut.Find("button#tab-general").GetAttribute("aria-selected"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("true",  cut.Find("button#tab-alerts").GetAttribute("aria-selected"));
+            Assert.Equal("false", cut.Find("button#tab-general").GetAttribute("aria-selected"));
+        });
     }
 
     [Fact]
@@ -110,8 +115,13 @@ public class SettingsModalTests
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
 
-        var alertsPanel = cut.Find("#tabpanel-alerts");
-        Assert.False(alertsPanel.HasAttribute("hidden"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            var alertsPanel = cut.Find("#tabpanel-alerts");
+            Assert.False(alertsPanel.HasAttribute("hidden"));
+        });
     }
 
     [Fact]
@@ -126,7 +136,12 @@ public class SettingsModalTests
         cut.Find("button[aria-label='Send a test email alert']").Click();
 
         // The Email status <p role="status"> appears with the error message.
-        Assert.Contains("Channel not registered", cut.Markup);
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Channel not registered", cut.Markup);
+        });
     }
 
     [Fact]
@@ -140,8 +155,13 @@ public class SettingsModalTests
         cut.Find("button#tab-alerts").Click();
         cut.Find("button[aria-label='Send a test email alert']").Click();
 
-        Assert.Contains("Required fields are missing", cut.Markup);
-        Assert.Equal(0, email.SendCallCount);
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Required fields are missing", cut.Markup);
+            Assert.Equal(0, email.SendCallCount);
+        });
     }
 
     [Fact]
@@ -155,9 +175,14 @@ public class SettingsModalTests
         cut.Find("button#tab-alerts").Click();
         cut.Find("button[aria-label='Send a test email alert']").Click();
 
-        Assert.Equal(1, email.SendCallCount);
-        Assert.NotNull(email.LastSent);
-        Assert.Contains("Test sent successfully", cut.Markup);
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, email.SendCallCount);
+            Assert.NotNull(email.LastSent);
+            Assert.Contains("Test sent successfully", cut.Markup);
+        });
     }
 
     [Fact]
@@ -174,8 +199,13 @@ public class SettingsModalTests
         cut.Find("button#tab-alerts").Click();
         cut.Find("button[aria-label='Send a test email alert']").Click();
 
-        Assert.Contains("Send failed: SMTP refused", cut.Markup);
-        Assert.Equal(1, email.SendCallCount); // tried once, threw, caught
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Send failed: SMTP refused", cut.Markup);
+            Assert.Equal(1, email.SendCallCount); // tried once, threw, caught
+        });
     }
 
     [Fact]
@@ -190,8 +220,13 @@ public class SettingsModalTests
         cut.Find("button#tab-alerts").Click();
         cut.Find("button[aria-label='Send a test Telegram alert']").Click();
 
-        Assert.Equal(1, telegram.SendCallCount);
-        Assert.Equal(0, email.SendCallCount);
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, telegram.SendCallCount);
+            Assert.Equal(0, email.SendCallCount);
+        });
     }
 
     [Fact]
@@ -208,8 +243,13 @@ public class SettingsModalTests
         // Production code calls PersistAlertSettings BEFORE SendTestAlertAsync,
         // which writes through every alerts.* key and then SaveSettings().
         // Verify the persistence side-effects fired.
-        h.SettingsManager.Received().SetSetting("alerts.email.host",       Arg.Any<JToken>());
-        h.SettingsManager.Received().SetSetting("alerts.telegram.botToken", Arg.Any<JToken>());
-        h.SettingsManager.Received().SaveSettings();
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            h.SettingsManager.Received().SetSetting("alerts.email.host",       Arg.Any<JToken>());
+            h.SettingsManager.Received().SetSetting("alerts.telegram.botToken", Arg.Any<JToken>());
+            h.SettingsManager.Received().SaveSettings();
+        });
     }
 }

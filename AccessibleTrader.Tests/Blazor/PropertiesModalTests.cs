@@ -125,8 +125,13 @@ public class PropertiesModalTests
         var cut = OpenProperties(h);
         cut.Find("button#props-tab-appearance").Click();
 
-        Assert.Equal("true",  cut.Find("button#props-tab-appearance").GetAttribute("aria-selected"));
-        Assert.Equal("false", cut.Find("button#props-tab-general").GetAttribute("aria-selected"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("true",  cut.Find("button#props-tab-appearance").GetAttribute("aria-selected"));
+            Assert.Equal("false", cut.Find("button#props-tab-general").GetAttribute("aria-selected"));
+        });
     }
 
     [Fact]
@@ -138,7 +143,12 @@ public class PropertiesModalTests
         var cut = OpenProperties(h);
         cut.Find("button#props-tab-sonification").Click();
 
-        Assert.Equal("true", cut.Find("button#props-tab-sonification").GetAttribute("aria-selected"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", cut.Find("button#props-tab-sonification").GetAttribute("aria-selected"));
+        });
     }
 
     [Fact]
@@ -150,7 +160,12 @@ public class PropertiesModalTests
         var cut = OpenProperties(h);
         cut.Find("button#props-tab-speech").Click();
 
-        Assert.Equal("true", cut.Find("button#props-tab-speech").GetAttribute("aria-selected"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", cut.Find("button#props-tab-speech").GetAttribute("aria-selected"));
+        });
     }
 
     [Fact]
@@ -190,7 +205,9 @@ public class PropertiesModalTests
 
         cancel.Click();
 
-        Assert.False(DialogRendered(cut));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() => Assert.False(DialogRendered(cut)));
     }
 
     /// <summary>A series with a directional (Candle) component and a non-directional (Line) one,
@@ -218,7 +235,12 @@ public class PropertiesModalTests
         var cut = OpenProperties(h);
         cut.Find("button#props-tab-sonification").Click();
 
-        Assert.Contains(cut.FindAll("label"), l => l.TextContent.Contains("Sound Patch"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains(cut.FindAll("label"), l => l.TextContent.Contains("Sound Patch"));
+        });
     }
 
     [Fact]
@@ -231,7 +253,12 @@ public class PropertiesModalTests
         cut.Find("button#props-tab-sonification").Click();
 
         // Exactly one green/red pair — the candle body's; the line omits them.
-        Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Green (bullish) patch"));
-        Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Red (bearish) patch"));
+        // Post-click renders can lag on starved CI runners; poll instead of
+        // asserting a single frame (this class of test flaked 3 CI runs in a row).
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Green (bullish) patch"));
+            Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Red (bearish) patch"));
+        });
     }
 }
