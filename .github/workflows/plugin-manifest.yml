@@ -48,10 +48,12 @@ jobs:
       - name: Build Release (net10.0-windows)
         shell: pwsh
         run: |
+          # No --no-restore: the windows TFM's implicit runtime pack (win-x64)
+          # must be restored with the full build context — a bare `dotnet restore`
+          # doesn't fetch it and the build then dies with NETSDK1112.
           dotnet build AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
             --configuration Release `
             --framework net10.0-windows10.0.19041.0 `
-            --no-restore `
             -p:WindowsPackageType=None
 
       - name: Locate produced manifest

@@ -122,6 +122,12 @@ public class OutOfProcessScriptingTests
         }
     }
 
+#if DEBUG
+    // Release builds ignore ACCESSIBLETRADER_SCRIPT_IN_PROCESS entirely — that is
+    // the documented security policy, so the opt-in path only exists (and is only
+    // testable) in Debug. Compiling the test out in Release keeps CI honest instead
+    // of asserting behavior the build intentionally does not have. (This mismatch
+    // kept the Release CI suite red from 1.4.0 through 1.6.0.)
     [Fact]
     public async Task InProcessOptIn_FallsBackToLegacyPath_WhenEnvVarSet()
     {
@@ -152,4 +158,5 @@ public class OutOfProcessScriptingTests
             Environment.SetEnvironmentVariable(key, prev);
         }
     }
+#endif
 }

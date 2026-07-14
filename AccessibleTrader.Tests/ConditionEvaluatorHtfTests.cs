@@ -161,8 +161,16 @@ namespace AccessibleTrader.Tests
 
             int linesForA = capture.Lines.Count(l => l.Contains("leafA") && l.Contains("1h"));
             int linesForB = capture.Lines.Count(l => l.Contains("leafB") && l.Contains("4h"));
+#if DEBUG
+            // One deduped Debug.WriteLine per (leaf, timeframe).
             Assert.Equal(1, linesForA);
             Assert.Equal(1, linesForB);
+#else
+            // Debug.WriteLine compiles out entirely in Release (CI runs Release —
+            // this mismatch kept the CI suite red from 1.4.0 through 1.6.0).
+            Assert.Equal(0, linesForA);
+            Assert.Equal(0, linesForB);
+#endif
 
             // LastHtfDegradation is overwritten each Evaluate — the most recent call wins.
             Assert.NotNull(eval.LastHtfDegradation);

@@ -39,6 +39,8 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 - [ ] Pre-registered lab test: wider ladder (3R/6R or trail) for the gated v23 variants.
 - [ ] Lab GUI tab in the Strategy modal (battery/rolling sweeps, spoken ranked results).
 - [ ] Live order-stream subscription audit (SubscribeOrderUpdatesAsync has no callers).
+- [ ] PropertiesModal bUnit tests are timing-flaky on slow CI runners (8 failed on one
+  run, passed on rerun and locally) — needs a render-settle wait in the click helpers.
 
 ---
 
