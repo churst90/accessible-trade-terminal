@@ -148,7 +148,7 @@ public static class WorkspaceFactory
                 }
 
                 // Research-knob overrides (e.g. --set CIPHER_B.ThresholdMode=Percentile
-                // from face-rolling). Applied last so they win over the defaults above —
+                // from rolling-window). Applied last so they win over the defaults above —
                 // this is how era-adaptive threshold experiments load the SAME battery
                 // cells against a differently-parameterised indicator instead of
                 // duplicating cell definitions.

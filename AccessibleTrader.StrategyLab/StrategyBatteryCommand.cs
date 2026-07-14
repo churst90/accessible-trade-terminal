@@ -7,14 +7,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
-/// Tests the published Crypto Face Market Cipher setup against the snapshot in a small,
+/// Tests the published original published cipher setup against the snapshot in a small,
 /// curated battery rather than a brute-force sweep. The test grid is designed to answer
 /// three specific questions:
 ///
-///   1. Does Face's full 3-stage long setup (Anchor washed + Trigger > 0 + MFW NEGATIVE
+///   1. Does the published cipher 3-stage long setup (Anchor washed + Trigger > 0 + MFW NEGATIVE
 ///      + entry pulse) survive walk-forward with bootstrap CIs?
 ///
-///   2. Does the contrarian Money Flow direction (NEGATIVE per Face) outperform the naive
+///   2. Does the contrarian Money Flow direction (NEGATIVE per the published setup) outperform the naive
 ///      "buy when MF is bullish" v1 reading (POSITIVE)?
 ///
 ///   3. Does the symmetric short setup (Anchor in OB + Trigger &lt; 0 + MFW POSITIVE +
@@ -22,13 +22,13 @@ namespace AccessibleTrader.StrategyLab;
 ///
 /// Each cell is reported with H1/H2 trade count, R-expectancy, 95% bootstrap CI lower
 /// bound, and a SURVIVOR flag if both halves clear CI-lo &gt; 0 with at least 5 trades each
-/// (relaxed from the sweep's 10-trade gate because Face setups are intentionally rare).
+/// (relaxed from the sweep's 10-trade gate because these setups are intentionally rare).
 ///
 /// All cells use Cipher B Money Flow Wave's true zero (-80 raw) and Cipher B Anchor Wave's
-/// natural zero (0 raw). The Face long stages are encoded as published in
+/// natural zero (0 raw). The published cipher long stages are encoded as published in
 /// BuiltInStrategySeeds.cs lines 287-330.
 /// </summary>
-public static class FaceBatteryCommand
+public static class StrategyBatteryCommand
 {
     private const double MfBaseline = -80.0;  // Money Flow Wave plotted baseline (CipherBProvider line 531)
 
@@ -64,7 +64,7 @@ public static class FaceBatteryCommand
         {
             idx++;
             Console.Write($"  [{idx,2}/{cells.Count}] {(side == OrderSide.Buy ? "L" : "S")} {label,-58} ");
-            var spec = MakeSpec($"face.{idx}", label, root, side);
+            var spec = MakeSpec($"cell.{idx}", label, root, side);
             var h1 = await Run(spec, backtester, factory, snapshot, state, snapshot.FirstDate, midDate, warmupBars);
             var h2 = await Run(spec, backtester, factory, snapshot, state, midDate, snapshot.LastDate, warmupBars);
             Console.WriteLine($"H1 tr={h1.Trades,3} R={h1.ExpectancyR,+6:0.000} CIlo={h1.CiLo,+6:0.00}  H2 tr={h2.Trades,3} R={h2.ExpectancyR,+6:0.000} CIlo={h2.CiLo,+6:0.00}");
@@ -93,8 +93,8 @@ public static class FaceBatteryCommand
         ConditionGroup Group(string id, LogicOperator logic, params ConditionNode[] children) =>
             new(Id: id, Logic: logic, Children: children.ToList());
 
-        // The "any bull entry pulse" group used inside Face long setups: blue dot OR gold OR
-        // Cipher A buy, all FiredWithin 5 bars (Face teaches a small look-back so the entry
+        // The "any bull entry pulse" group used inside the cipher long setups: blue dot OR gold OR
+        // Cipher A buy, all FiredWithin 5 bars (the published method uses a small look-back so the entry
         // doesn't have to be on the exact stage-3 bar).
         ConditionGroup BullEntryPulse(string idPrefix) => Group($"{idPrefix}-pulse", LogicOperator.Or,
             Fired($"{idPrefix}-blue", "CIPHER_B.Oversold Crossover", withinBars: 5),
@@ -125,23 +125,23 @@ public static class FaceBatteryCommand
                 Lt("c2-anc", "CIPHER_B.Anchor Wave", 0),
                 BullEntryPulse("c2"))));
 
-        // 3. Anchor washed (Face stage 1): Anchor < -53 AND bull pulse.
-        cells.Add(("Face S1: Anchor Wave < -53 AND bull pulse",
+        // 3. Anchor washed (cipher stage 1): Anchor < -53 AND bull pulse.
+        cells.Add(("Cipher S1: Anchor Wave < -53 AND bull pulse",
             OrderSide.Buy,
             Group("c3", LogicOperator.And,
                 Lt("c3-anc", "CIPHER_B.Anchor Wave", -53),
                 BullEntryPulse("c3"))));
 
         // 4. Stages 1+2: Anchor washed AND Trigger > 0 AND bull pulse.
-        cells.Add(("Face S1+S2: Anchor < -53 AND Trigger > 0 AND pulse",
+        cells.Add(("Cipher S1+S2: Anchor < -53 AND Trigger > 0 AND pulse",
             OrderSide.Buy,
             Group("c4", LogicOperator.And,
                 Lt("c4-anc", "CIPHER_B.Anchor Wave", -53),
                 Gt("c4-trg", "CIPHER_B.Trigger Wave", 0),
                 BullEntryPulse("c4"))));
 
-        // 5. FULL Face long (S1+S2+S3 contrarian MFW negative): Face's published setup.
-        cells.Add(("Face FULL: Anc<-53 AND Trg>0 AND MFW<0(base) AND pulse",
+        // 5. FULL cipher long (S1+S2+S3 contrarian MFW negative): the published setup.
+        cells.Add(("Cipher FULL: Anc<-53 AND Trg>0 AND MFW<0(base) AND pulse",
             OrderSide.Buy,
             Group("c5", LogicOperator.And,
                 Lt("c5-anc", "CIPHER_B.Anchor Wave", -53),
@@ -149,7 +149,7 @@ public static class FaceBatteryCommand
                 Lt("c5-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),  // raw < -80 = below visual zero
                 BullEntryPulse("c5"))));
 
-        // 6. v1 inverse (the "naive" reading Face explicitly rejects): same gates but MFW POSITIVE.
+        // 6. v1 inverse (the "naive" reading the published method explicitly rejects): same gates but MFW POSITIVE.
         cells.Add(("v1 NAIVE: Anc<-53 AND Trg>0 AND MFW>0(base) AND pulse",
             OrderSide.Buy,
             Group("c6", LogicOperator.And,
@@ -158,7 +158,7 @@ public static class FaceBatteryCommand
                 Gt("c6-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),
                 BullEntryPulse("c6"))));
 
-        // 7. Just MFW sign filter, no anchor: bull pulse AND MFW < 0(base) (the Face contrarian-MF idea on its own).
+        // 7. Just MFW sign filter, no anchor: bull pulse AND MFW < 0(base) (the contrarian-MF idea on its own).
         cells.Add(("MFW negative only: bull pulse AND MFW < 0(base)",
             OrderSide.Buy,
             Group("c7", LogicOperator.And,
@@ -185,8 +185,8 @@ public static class FaceBatteryCommand
                 Gt("c8b-ema", "REGIME.AboveEma200", 0),
                 BullEntryPulse("c8b"))));
 
-        // 8c. Face FULL + SMA200 — does the regime filter rescue Face's stages?
-        cells.Add(("Face FULL + Close>SMA200",
+        // 8c. Cipher FULL + SMA200 — does the regime filter rescue the published stages?
+        cells.Add(("Cipher FULL + Close>SMA200",
             OrderSide.Buy,
             Group("c8c", LogicOperator.And,
                 Gt("c8c-sma", "REGIME.AboveSma200", 0),
@@ -781,15 +781,15 @@ public static class FaceBatteryCommand
             OrderSide.Sell,
             BearEntryPulse("c9")));
 
-        // 10. Symmetric Face short S1: Anchor > +53 AND bear pulse.
-        cells.Add(("Face SHORT S1: Anchor Wave > +53 AND bear pulse",
+        // 10. Symmetric cipher short S1: Anchor > +53 AND bear pulse.
+        cells.Add(("Cipher SHORT S1: Anchor Wave > +53 AND bear pulse",
             OrderSide.Sell,
             Group("c10", LogicOperator.And,
                 Gt("c10-anc", "CIPHER_B.Anchor Wave", 53),
                 BearEntryPulse("c10"))));
 
-        // 11. Symmetric Face short FULL: Anchor > +53 AND Trigger < 0 AND MFW > 0(base) AND bear pulse.
-        cells.Add(("Face SHORT FULL: Anc>+53 AND Trg<0 AND MFW>0(base) AND pulse",
+        // 11. Symmetric cipher short FULL: Anchor > +53 AND Trigger < 0 AND MFW > 0(base) AND bear pulse.
+        cells.Add(("Cipher SHORT FULL: Anc>+53 AND Trg<0 AND MFW>0(base) AND pulse",
             OrderSide.Sell,
             Group("c11", LogicOperator.And,
                 Gt("c11-anc", "CIPHER_B.Anchor Wave", 53),
@@ -867,7 +867,7 @@ public static class FaceBatteryCommand
 
         // === v23 — Cipher B Weekly Reversal (oscillator-based, survives aggregation) ===
         // Walk-windows said v23r-LONG ETH 1d cleared the visual "this works" bar at
-        // +0.534R / 4-of-6 / n=15. Face-rolling subjects the same setup to the strict
+        // +0.534R / 4-of-6 / n=15. Rolling-window testing subjects the same setup to the strict
         // bootstrap-CI gate the suite uses to flag "deployable" cells. Bare v23 is
         // the same trigger without the Faber filter — useful for distinguishing
         // "trigger has edge" from "Faber gate is providing the edge."
@@ -945,7 +945,7 @@ public static class FaceBatteryCommand
 
         // === v23+ — Cipher confluence experiments (KAS/TAO investigation) ===
         // Tests whether adding orthogonal Cipher signals to v23 LONG actually lifts
-        // edge or just dilutes it. Crypto Face's "Trilogy" thesis says A+B+SR all
+        // edge or just dilutes it. the original cipher methodology's "Trilogy" thesis says A+B+SR all
         // firing together = highest-conviction setup. Cipher C is independent cycle
         // detection; should add signal regardless of TF since it's bar-relative.
 
@@ -1285,7 +1285,7 @@ public static class FaceBatteryCommand
                 Gt("c-v24sh-vr", "VOL_REGIME.VolRatio", 1.0))));
 
         // FALSIFICATION cell — compression-gated reversals. The combo run said this
-        // destroys the edge (H1 +0.450→-0.449 on the blue dot). If face-rolling
+        // destroys the edge (H1 +0.450→-0.449 on the blue dot). If rolling-window
         // disagrees and this cell ranks well, the elevated-vol interpretation above
         // is wrong and the v24 family should not be promoted.
         cells.Add(("v24c LONG (falsif.): trigger + Anchor<0 + VolState<0",
@@ -1447,7 +1447,7 @@ public static class FaceBatteryCommand
     {
         Console.WriteLine();
         Console.WriteLine("══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════");
-        Console.WriteLine("CRYPTO FACE BATTERY — published Market Cipher long + symmetric short setups, no-reverse, bootstrap CIs");
+        Console.WriteLine("STRATEGY GATE BATTERY — published Market Cipher long + symmetric short setups, no-reverse, bootstrap CIs");
         Console.WriteLine("══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════");
         Console.WriteLine($"{"Setup",-62} {"Sd",2} {"H1 tr",6} {"H1 R",8} {"H1 CIlo",8} {"H2 tr",6} {"H2 R",8} {"H2 CIlo",8} flags");
         Console.WriteLine(new string('─', 122));
@@ -1469,7 +1469,7 @@ public static class FaceBatteryCommand
         var survivors = ranked.Where(r => r.H1.CiLo > 0 && r.H2.CiLo > 0 && r.H1.Trades >= 5 && r.H2.Trades >= 5).ToList();
         if (survivors.Count == 0)
         {
-            Console.WriteLine("VERDICT: No Face setup has CI lower bound > 0 in BOTH halves on this snapshot.");
+            Console.WriteLine("VERDICT: No battery cell has CI lower bound > 0 in BOTH halves on this snapshot.");
         }
         else
         {
@@ -1497,7 +1497,7 @@ public static class FaceBatteryCommand
             StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
             NotionalEquity: 10000.0);
         return new StrategySpec(
-            Id: id, Name: name, Description: "Face battery cell.",
+            Id: id, Name: name, Description: "Gate battery cell.",
             Side: side, Conditions: root, Risk: risk,
             ExecutionMode: StrategyExecutionMode.Suggestion,
             CreatedUtc: DateTime.UtcNow, UpdatedUtc: DateTime.UtcNow,
@@ -1508,8 +1508,8 @@ public static class FaceBatteryCommand
         StrategySpec spec, IStrategyBacktester backtester, IConfigurableStrategyFactory factory,
         SnapshotFile snapshot, WorkspaceState state, DateTime start, DateTime end, int warmup)
     {
-        // 2026-04-09: face battery now matches RunCommand's cost model. Previously the
-        // face battery defaulted CommissionRate and SlippagePercent to 0, which made
+        // 2026-04-09: gate battery now matches RunCommand's cost model. Previously the
+        // gate battery defaulted CommissionRate and SlippagePercent to 0, which made
         // every reported expectancy GROSS of execution costs. Several "CI survivors"
         // turned out to be cost-blind artifacts (see project_pulse_reversal_long memory).
         // 10 bps commission + 5 bps slippage matches both legs of a typical centralized-

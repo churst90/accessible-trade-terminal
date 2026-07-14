@@ -4,7 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.6.0] — 2026-07-13
+
+The **positioning & risk release**: institutional positioning data (CFTC COT for
+11 futures contracts, FINRA daily short volume for every US stock — both free and
+keyless), a promoted COT Positioning indicator with per-asset interpretation, a
+lab-validated trend-following benchmark strategy, evidence-backed strategy seeds
+with honest walk-forward verdicts in their descriptions, full-trade-plan setup
+announcements with journal lifecycle logging, warn-only leverage/liquidation and
+sector-stacking hints in the order review, a Discord/Slack/custom webhook alert
+channel, human-readable strategy names, the brand logo everywhere, restart
+reconciliation of open positions, and the retirement of Cipher A. The StrategyLab
+gains its first unit tests and loses all legacy third-party terminology
+("battery" / "rolling-window" commands). No breaking changes: saved workspaces,
+strategies, shortcuts, and API keys from 1.5.0 load unchanged (strategy IDs are
+stable; only display names changed).
 
 ### Setup announcements: full trade plan + journal lifecycle logging (2026-07-13)
 
@@ -2412,7 +2426,7 @@ are events, tops are processes."
 - "Commit this session's work in logical groups" (line 1339) — long since
   committed across many subsequent sessions.
 - "Commit all uncommitted work (~120+ files modified)" (line 1395) — same.
-- "v3 / v4 r1 / v6 stale Crypto Face seeds" (lines 2371-2373) — verified absent
+- "v3 / v4 r1 / v6 stale the original cipher author seeds" (lines 2371-2373) — verified absent
   from `BuiltInStrategySeeds.cs` (already deleted in an earlier cleanup pass).
 
 ### Tooling
@@ -2425,7 +2439,7 @@ are events, tops are processes."
 ## [2026-04-27 evening 12] — Round 9: closing the v23 investigation backlog
 
 Final pass through every open follow-up after round 8. Six concrete deliverables
-shipped: HIGH-CONVICTION secondary tier in face-rolling output, OR-CONF promoted
+shipped: HIGH-CONVICTION secondary tier in rolling-window output, OR-CONF promoted
 to a first-class seed (`v23or`), BTC_STRENGTH alignment-drift logging, three
 ETH-4h SHORT confluence cells, Alpaca forward-pagination fix in SnapshotCommand,
 and a single-shot `GetRecommendedV23(Long|Short)Spec` accessor that consolidates
@@ -2435,7 +2449,7 @@ the bars-classified + symbol-string + bare-default fallback chain into one call.
 
 ### Round-9 deliverables
 
-**1. HIGH-CONVICTION secondary tier in `FaceRollingCommand`.**
+**1. HIGH-CONVICTION secondary tier in `RollingWindowCommand`.**
 The strict ROBUST gate (≥70% positive AND ≥3 windows with CIlo>0) is calibrated
 for high-volume Pulse-style cells. Three almost-ROBUST cells from the v23
 investigation miss it by exactly one criterion: v23 LONG ETH 1d (100% pos,
@@ -2450,7 +2464,7 @@ ROBUST so the two tiers don't blur visually.
 
 **2. `builtin.long.v23or-cipherb-orconf` — first-class OR-CONF seed.**
 Cipher B reversal trigger AND Anchor < 0 AND (AVWAP Bias Soft > 0.5 OR Pivot
-Zone < -0.5). Promoted from face-rolling cell with these readings:
+Zone < -0.5). Promoted from rolling-window cell with these readings:
 
 | Asset / TF | PctPositive | CIlo>0 | meanER | avgTr | ROBUST tier? |
 |------------|-------------|--------|--------|-------|--------------|
@@ -2474,14 +2488,14 @@ will surface immediately rather than masking another silent-failure bug.
 v23r SHORT works on ETH 1d (100%/2/+0.664R) and BTC 4h (81%/16/+0.459R)
 but fails ETH 4h (47%/70/-0.009R). Hypothesis: ETH intraday bear rallies
 are more persistent than BTC's, so the bare bear-cipher trigger fires too
-early. Three new face-rolling cells layer different confirmation signals:
+early. Three new rolling-window cells layer different confirmation signals:
 
 - `v23r-ASELL SHORT`: + Cipher A.Sell within 5 bars
 - `v23r-AEXH SHORT`: + Cipher A.Exhaustion within 5 bars
 - `v23r-SRRES SHORT`: + Cipher SR.Resistance within 5 bars
 
-Cells available in `FaceBatteryCommand.BuildCells`. Run via:
-`StrategyLab face-rolling --snapshot mexc_ETH_USDT_4h.json --filter "v23r-ASELL,v23r-AEXH,v23r-SRRES"`
+Cells available in `StrategyBatteryCommand.BuildCells`. Run via:
+`StrategyLab rolling-window --snapshot mexc_ETH_USDT_4h.json --filter "v23r-ASELL,v23r-AEXH,v23r-SRRES"`
 
 **5. Alpaca forward-pagination fix in `SnapshotCommand`.**
 Bitstamp/MEXC support `Until`-only walk-back from "now" toward the past;
@@ -2520,7 +2534,7 @@ covers it"; the new accessor turns that two-step into one.
 
 | Strategy (UI Name)                                                     | Best on        | Validation                  |
 | ---------------------------------------------------------------------- | -------------- | --------------------------- |
-| Distribution Top — BTC 4h ROBUST (Short)                               | BTC 4h         | **face-rolling ROBUST** 100% / 16 / +0.79R |
+| Distribution Top — BTC 4h ROBUST (Short)                               | BTC 4h         | **rolling-window ROBUST** 100% / 16 / +0.79R |
 | Cipher Reversal + Bear Trend Filter — BTC/ETH (Short)                  | BTC 4h         | promising 81% / 16 / +0.459R |
 | Cipher Reversal in Mean-Reverting Regime — Universal (Short)           | KAS 4h         | promising 62% / +0.207R     |
 | Cipher Reversal — Universal (Crypto Any TF, Short)                     | KAS 1d/2d      | promising 86% / 14% / +0.257R |
@@ -2616,7 +2630,7 @@ Compared to individual gates on ETH 1d:
 OR-CONF is a "broader, less peaky" alternative to v23p. Per-trade R
 sits between AVWAP and Pivots, trade count is highest of the three.
 Doesn't dethrone v23p (still empirical-best) but offers a higher-sample
-alternative. Not promoted to a seed yet — face-rolling cell only.
+alternative. Not promoted to a seed yet — rolling-window cell only.
 
 ### Alpaca provider added to SnapshotCommand
 
@@ -2687,7 +2701,7 @@ both symbol-string and behavior-classified routes).
   `Since` for providers that don't support `Until`-only pagination.
   Once done, can pull TSLA/AMZN/SPY/etc. and exercise AssetClassifier
   on equities.
-- **OR-CONF promotion**: face-rolling cell is promising on ETH/BTC 1d
+- **OR-CONF promotion**: rolling-window cell is promising on ETH/BTC 1d
   but doesn't beat v23p individually. Could ship as alternative seed.
 - **INV-BTCD SHORT KAS** is real but asset-specific. Not worth a global
   seed; user can build it manually in BuildSetupTab if needed.
@@ -2762,13 +2776,13 @@ to ROBUST anywhere outside v22-distribution-top).
 
 Added `builtin.long.v23a-cipherb-avwap` (NEW seed). Cipher B reversal
 trigger AND Anchor Wave < 0 AND AVWAP Bias Soft > 0.5. Validation:
-- ETH 1d: face-rolling 100% / 0% CI / +0.277R / 22.7 trades / 6 windows
-- BTC 1d: face-rolling 80% / 7% CI / +0.203R / 23 trades / 15 windows
+- ETH 1d: rolling-window 100% / 0% CI / +0.277R / 22.7 trades / 6 windows
+- BTC 1d: rolling-window 80% / 7% CI / +0.203R / 23 trades / 15 windows
 
 Risk plan matches v23p (ATR×3 stop, 2R/4R ladder). REQUIRES Cipher B
 + Anchored VWAP indicators on the chart. Complementary to v23p (different
 gate type — AVWAP is a price-relative reference level, Pivots is an
-HLC-derived level — the two could even be ANDed if face-rolling future-
+HLC-derived level — the two could even be ANDed if rolling-window future-
 investigates whether the conjunction is *not* over-restrictive on liquid
 majors specifically).
 
@@ -2789,7 +2803,7 @@ majors specifically).
 
 | Strategy (UI Name)                                                     | Best on        | Validation                  |
 | ---------------------------------------------------------------------- | -------------- | --------------------------- |
-| Distribution Top — BTC 4h ROBUST (Short)                               | BTC 4h         | **face-rolling ROBUST** 100% / 16 / +0.79R |
+| Distribution Top — BTC 4h ROBUST (Short)                               | BTC 4h         | **rolling-window ROBUST** 100% / 16 / +0.79R |
 | Cipher Reversal + Bear Trend Filter — BTC/ETH (Short)                  | BTC 4h         | promising 81% / 16 / +0.459R |
 | Cipher Reversal in Mean-Reverting Regime — Universal (Short)           | KAS 4h         | promising 62% / +0.207R     |
 | Cipher Reversal — Universal (Crypto Any TF, Short)                     | KAS 1d/2d      | promising 86% / 14% / +0.257R |
@@ -2826,7 +2840,7 @@ majors specifically).
   conjunctions fire 0 trades. Suspect bar-time alignment drift between
   MEXC and Bitstamp.
 - **v23a + v23p combined cell**: AVWAP and Pivots target overlapping
-  but not identical setups. Worth one face-rolling pass to check if
+  but not identical setups. Worth one rolling-window pass to check if
   the OR-gate of them lifts coverage on BTC/ETH 1d.
 - **Wire `GetV23LongPresetForBars` (classifier route) into BuildSetupTab**
   so the live UI auto-recommends per asset behavior, not just per asset
@@ -2853,7 +2867,7 @@ restrictive — tagged ±1, rarely 0). The soft `BiasSoft`:
 - +1 if close above EITHER anchor (any bullish positioning)
 - 0 only when between the two anchors
 
-This dramatically broadens the gate's fire rate. Two new face-rolling
+This dramatically broadens the gate's fire rate. Two new rolling-window
 cells (`v23+AVWAPS` LONG/SHORT) tested across BTC/ETH/KAS/TAO 4h+1d.
 
 | Cell                       | ETH 1d (1500w)              | BTC 1d (1500w)              | KAS 4h                | TAO 4h               |
@@ -2878,7 +2892,7 @@ Snapshot lookup tries `{asset_provider}_BTC_USDT_{tf}.json` first, then
 falls back to `bitstamp_BTC_USDT_{tf}.json`. Skipped cleanly (NaN columns)
 if no BTC sibling exists. Auto-included in `WorkspaceFactory.DefaultIndicatorPack`.
 
-Two face-rolling cells tested on KAS/TAO 4h+1d.
+Two rolling-window cells tested on KAS/TAO 4h+1d.
 
 **Verdict: gate too restrictive.** `bull cipher fire AND Anchor<0 AND
 BtcRatioMomentum>0` produces 0 trades on every test. The conjunction
@@ -2943,7 +2957,7 @@ high-vol no-trend → High/Range, plus 4 RecommendV23Long branch tests.
 
 | Strategy / Cell                  | Asset / TF | Status                                          |
 | -------------------------------- | ---------- | ----------------------------------------------- |
-| `v22-distribution-top` (S)       | BTC 4h     | face-rolling **ROBUST** 100% / 16 / +0.79R      |
+| `v22-distribution-top` (S)       | BTC 4h     | rolling-window **ROBUST** 100% / 16 / +0.79R      |
 | **v23+AVWAPS LONG (cell)**       | ETH 1d     | promising **100%** / 0% / +0.277R / 22.7 trades |
 | `v23p-cipherb-pivots` (L) seed   | ETH 1d     | promising 100% / 33% CI / +0.523R / 6 windows   |
 | v23+AVWAPS LONG (cell)           | BTC 1d     | promising 80% / 7% CI / +0.203R                 |
@@ -2976,7 +2990,7 @@ ship a TradeRanker score helper that combines all the edge signals into a
 0-100 confidence number per fire. 781/783 tests passing (was 757; +24 new
 tests). 0 warnings, 0 errors.
 
-### Three new strategy seeds (promoted from face-rolling cells)
+### Three new strategy seeds (promoted from rolling-window cells)
 
 - **`builtin.long.v23p-cipherb-pivots`** — v23 base trigger + Anchor<0 +
   Pivot Zone < -0.5 (price near classic S1/S2/S3 or Camarilla L3/L4 support).
@@ -3056,7 +3070,7 @@ the start of the analysis.
 
 | Strategy                            | Asset / TF | Validation                                    |
 | ----------------------------------- | ---------- | --------------------------------------------- |
-| `v22-distribution-top` (S)          | BTC 4h     | face-rolling **ROBUST** 100% / 16 / +0.79R    |
+| `v22-distribution-top` (S)          | BTC 4h     | rolling-window **ROBUST** 100% / 16 / +0.79R    |
 | **`v23p-cipherb-pivots` (L)**       | ETH 1d     | promising 100% / 33% CI / **+0.523R** ★★      |
 | `v23p-cipherb-pivots` (L)           | BTC 1d     | promising 73% / 13% CI / +0.294R              |
 | `v23h-cipherb-hurst` (L)            | BTC 1d     | promising 71% / 14% / **+0.411R**             |
@@ -3077,7 +3091,7 @@ Two seeds DEPRECATED, kept for back-compat: `v22r-cipherb-faber`,
 
 User-requested investigation: do "objective edge" indicators outside the
 Cipher family lift v23's performance? Three new universal price-action
-indicators added, six new face-rolling cells testing v23 + each gate.
+indicators added, six new rolling-window cells testing v23 + each gate.
 Re-tested KAS, TAO, BTC, and ETH at 1d / 4h. **Major positive results
 on BTC/ETH — modest on altcoins.** 757/759 tests passing (no new tests
 broken; pre-existing flakes unchanged). 0 warnings, 0 errors.
@@ -3106,9 +3120,9 @@ broken; pre-existing flakes unchanged). 0 warnings, 0 errors.
 
 All three registered in `BlazorClient.ServiceCollectionExtensions` and
 `StrategyLab.LabHost`, added to `WorkspaceFactory.DefaultIndicatorPack`
-so all face-rolling and walk-windows runs automatically include them.
+so all rolling-window and walk-windows runs automatically include them.
 
-### Six new face-rolling cells (`FaceBatteryCommand`)
+### Six new rolling-window cells (`StrategyBatteryCommand`)
 
 Each adds one new gate to the v23 base trigger:
 - v23+AVWAP LONG: + AVWAP.Bias > 0
@@ -3116,7 +3130,7 @@ Each adds one new gate to the v23 base trigger:
 - v23+PIVOTS LONG: + Pivot Zone < -0.5 (price near support pivot)
 - v23+AVWAP SHORT / v23+HURST SHORT / v23+PIVOTS SHORT — symmetric.
 
-### Cross-asset face-rolling matrix (1500-bar windows)
+### Cross-asset rolling-window matrix (1500-bar windows)
 
 | Asset/TF       | Base v23 LONG          | +HURST LONG               | +AVWAP LONG          | +PIVOTS LONG                   |
 | -------------- | ---------------------- | ------------------------- | -------------------- | ------------------------------ |
@@ -3132,13 +3146,13 @@ Each adds one new gate to the v23 base trigger:
 | KAS 1d         | 86% / 14% / +0.257R    | (no trades)               | 57% / 0% / +0.112R    | 43% / 14% / +0.213R            |
 | TAO 1d         | 80% / 0% / +0.213R     | (no trades)               | 60% / 0% / +0.273R    | 60% / 0% / +0.122R             |
 
-★ = "promising" face-rolling flag (≥70% positive). ★★ = closest to ROBUST
+★ = "promising" rolling-window flag (≥70% positive). ★★ = closest to ROBUST
 gate (≥70% positive AND ≥3 CI>0 windows) anywhere in the investigation.
 
 ### Headline findings
 
 **1. v23+PIVOTS LONG on ETH 1d hit 100% positive / 33% CI / +0.523R**
-across 6 windows on the 1500-bar face-rolling test. **The closest any
+across 6 windows on the 1500-bar rolling-window test. **The closest any
 cell has come to strict ROBUST anywhere** — needs ≥3 CI windows for the
 canonical flag, this hit 2. Per-trade R is 44% higher than the previous
 ETH 1d champion (v23 LONG base at +0.362R). Pivot levels add genuine
@@ -3188,7 +3202,7 @@ has 5,000+ daily bars and the gate has more room to fire.
 
 | Strategy                          | Asset / TF | Validation                                    |
 | --------------------------------- | ---------- | --------------------------------------------- |
-| `v22-distribution-top` (S)        | BTC 4h     | face-rolling **ROBUST** 100%/16/+0.79R        |
+| `v22-distribution-top` (S)        | BTC 4h     | rolling-window **ROBUST** 100%/16/+0.79R        |
 | **`v23+PIVOTS` LONG** (cell)      | ETH 1d     | **100% / 33% CI / +0.523R / 6 windows** ★★    |
 | `v23+HURST` LONG (cell)           | BTC 1d     | promising 71% / 14% CI / **+0.411R**          |
 | `v23+PIVOTS` LONG (cell)          | BTC 1d     | promising 73% / 13% CI / +0.294R              |
@@ -3198,8 +3212,8 @@ has 5,000+ daily bars and the gate has more room to fire.
 | `v23r-cipherb-faber` (S)          | BTC 4h     | promising 81% / 16 / +0.459R                  |
 | `v23+HURST` SHORT (cell)          | KAS 4h     | promising 62% / +0.207R (240% better than base)|
 
-Note: the new "best of class" cells are face-rolling **cells** in
-`FaceBatteryCommand`, not strategy seeds. Promoting them to deployable
+Note: the new "best of class" cells are rolling-window **cells** in
+`StrategyBatteryCommand`, not strategy seeds. Promoting them to deployable
 seeds in `BuiltInStrategySeeds.cs` is the natural follow-up — they're
 just gated v23 trigger + an additional indicator condition, easy to wire.
 
@@ -3209,7 +3223,7 @@ just gated v23 trigger + an additional indicator condition, easy to wire.
 
 User-requested test on two assets they actually trade: KAS/USDT and TAO/USDT,
 both on MEXC, max-history snapshots at 1h/4h/12h/1d/2d. Five new experimental
-confluence cells in `FaceBatteryCommand` to answer the user's specific
+confluence cells in `StrategyBatteryCommand` to answer the user's specific
 questions: do triple-confluence / Cipher SR / Cipher C / Cipher A / EMA200
 add edge to v23? MEXC provider added to `SnapshotCommand` (new `--provider`
 flag, defaults to bitstamp). 757/759 tests passing (same 2 pre-existing
@@ -3230,7 +3244,7 @@ TAO/USDT spans 2023-03-03 → 2026-04-27 (3.1 years).
 `StrategyLab snapshot --provider mexc --symbol KAS/USDT --tf 1d --bars 5000`
 is the new invocation. 12h aggregated from 1h (group=12), 2d from 1d (group=2).
 
-### KAS/USDT face-rolling matrix
+### KAS/USDT rolling-window matrix
 
 | TF  | Best LONG cell                              | Best SHORT cell                                     |
 | --- | ------------------------------------------- | --------------------------------------------------- |
@@ -3246,7 +3260,7 @@ where Cipher B's bear cross + Anchor>0 catches working trades. The 1d
 v23 SHORT result (86%/14% CI) is the best individual cell on KAS — and
 notably it's **bare v23**, with no Faber gate or other confluence.
 
-### TAO/USDT face-rolling matrix
+### TAO/USDT rolling-window matrix
 
 | TF  | Best LONG cell                                          | Best SHORT cell                          |
 | --- | ------------------------------------------------------- | ---------------------------------------- |
@@ -3275,14 +3289,14 @@ extended range/fade — so the late-history bias toward SHORTs is consistent.
 
 - **Triple confluence does NOT add validity** on KAS or TAO at any TF
   tested. Each Cipher addition cuts trade count without lifting per-trade
-  R. The "Trilogy" thesis (Crypto Face's published methodology) doesn't
+  R. The "Trilogy" thesis (the original published methodology) doesn't
   generalize to these mid-cap altcoins.
 - **Cipher SR doesn't add meaningful edge** here. On KAS it's 40% vs the
   base's 52%; on TAO it produces marginal R near zero.
 - **Cipher C bottoms don't help on KAS/TAO at any TF tested.** Cipher C's
   cycle math (bull/bear/range divisions of WT) doesn't mesh with these
   assets' parabolic-pump-then-extended-fade shape. It works on BTC/ETH
-  in calmer historical regimes per face battery's earlier results, but
+  in calmer historical regimes per gate battery's earlier results, but
   on extreme-volatility altcoins it just adds noise.
 - **Cipher A.Buy is neutral-to-slightly-negative** on both assets.
 - **EMA200 (instead of SMA200) is asset-dependent — and it's better
@@ -3346,14 +3360,14 @@ nullable), nested `@{}` blocks not allowed inside `@if {}`.
 ## [2026-04-27 evening 4] — v23 round-3: smaller-window CI, cross-asset SHORT, alt funding-gates dead, asset-aware preset selector
 
 Round 3 closes out the v23 investigation. Four parallel tasks: smaller
-face-rolling window for ETH/BTC 1d to chase the strict-CI gate, v23r-SHORT
+rolling-window window for ETH/BTC 1d to chase the strict-CI gate, v23r-SHORT
 cross-asset on BTC 1d / ETH 4h / ETH 1d, two more funding-gate variants
 (v23rf2 with FundingZScore>0.5, v23rf3 with FundingZScore>0), and asset-aware
 preset selector helper. 757/759 tests passing (+14 new preset tests vs
 prior round; same 2 pre-existing flakes on main, unrelated). 0 warnings,
 0 errors.
 
-### Smaller-window face-rolling — chasing strict CI
+### Smaller-window rolling-window — chasing strict CI
 
 Hypothesis: v23 LONG ETH 1d hit 100% positive but only 1 CIlo>0 window in
 round 2 because `--window 1500` × 6 windows had avgTr=27 — too low for
@@ -3367,7 +3381,7 @@ but-more-numerous windows.
 | v23r SHORT                        | 3 valid / 0% / −0.383R         | 0 valid                       |
 
 **v23r LONG ETH 1d hit +0.890R mean across 7 valid windows with 29% CI
-clearance** — strongest individual face-rolling result of the entire
+clearance** — strongest individual rolling-window result of the entire
 investigation. Doesn't reach strict ROBUST gate (29% × 7 = 2 CI windows,
 need ≥3) but closer than ever. **BTC 1d v23r LONG passes the CI count
 gate (10% × 29 = ~3)** but fails the 70% positive gate (62% < 70%). Two
@@ -3376,7 +3390,7 @@ notable: v23r SHORT collapses on smaller windows because the smaller
 windows post-2018 are mostly bull regime — the previous result was being
 buoyed by the 2018 bear in the larger window.
 
-### v23r-SHORT cross-asset face-rolling
+### v23r-SHORT cross-asset rolling-window
 
 | Asset / TF | valid windows | ER>0% | mean R | flag      |
 | ---------- | :-----------: | :---: | :----: | --------- |
@@ -3423,7 +3437,7 @@ returns the recommended v23 LONG seed ID per asset class:
 
 UI flow when wired in BuildSetupTab: user selects symbol → click "Use
 recommended v23 strategy" → seed loaded with one click. The mapping is
-deliberately small and empirical — driven by face-rolling cross-asset
+deliberately small and empirical — driven by rolling-window cross-asset
 evidence rather than asset-class theorizing.
 
 14 new tests in `BuiltInStrategySeedsPresetTests.cs` covering BTC/ETH
@@ -3434,13 +3448,13 @@ XRP/LTC mapping, unknown-asset fallback, null/empty handling.
 
 | Strategy                          | Asset / TF | Validation summary                              |
 | --------------------------------- | ---------- | ----------------------------------------------- |
-| `v22-distribution-top` (S)        | BTC 4h     | face-rolling **ROBUST** 100%/16/+0.79R          |
-| `v23r-cipherb-faber` (S)          | BTC 4h     | face-rolling promising 81%/16/+0.459R           |
-| `v23r-cipherb-faber` (S)          | BTC 1d     | face-rolling promising 75%/4/+0.305R            |
+| `v22-distribution-top` (S)        | BTC 4h     | rolling-window **ROBUST** 100%/16/+0.79R          |
+| `v23r-cipherb-faber` (S)          | BTC 4h     | rolling-window promising 81%/16/+0.459R           |
+| `v23r-cipherb-faber` (S)          | BTC 1d     | rolling-window promising 75%/4/+0.305R            |
 | `v22-capitulation-bottom` (L)     | BTC 1d     | walk-windows +0.654R / 4-of-6 / n=10            |
-| **`v23r-cipherb-faber` (L)**      | ETH 1d     | face-rolling 100%/7/**+0.890R**/29% CI ★★        |
-| `v23-cipherb-weekly` (L)          | ETH 1d     | face-rolling 100%/6/+0.362R / 17% CI            |
-| `v23-cipherb-weekly` (L)          | BTC 1d     | face-rolling 87%/15/+0.248R / 13% CI            |
+| **`v23r-cipherb-faber` (L)**      | ETH 1d     | rolling-window 100%/7/**+0.890R**/29% CI ★★        |
+| `v23-cipherb-weekly` (L)          | ETH 1d     | rolling-window 100%/6/+0.362R / 17% CI            |
+| `v23-cipherb-weekly` (L)          | BTC 1d     | rolling-window 87%/15/+0.248R / 13% CI            |
 | `v23r-cipherb-faber` (L)          | BTC 1d     | passes CI count (3/29) but 62% positive         |
 | `v23r-cipherb-faber` (L)          | ETH 4h     | full-snap +0.130R / +$971 / n=113               |
 | `v23r-cipherb-faber` (L)          | BTC 4h     | full-snap +0.282R / +$1,650 / n=138             |
@@ -3463,7 +3477,7 @@ Three orthogonal claims:
 1. **Bottoms are events, tops are processes.**
 2. **TF-quality is non-monotonic for event detectors, monotonic-positive
    for oscillator detectors.** v23 evidence: BTC LONG 4h +0.065R → 1d
-   +0.116R → 1w +0.770R; ETH LONG 4h +0.011R → 1d +0.037R (face-rolling
+   +0.116R → 1w +0.770R; ETH LONG 4h +0.011R → 1d +0.037R (rolling-window
    +0.890R window=800) → 1w +0.491R.
 3. **Long-side reversals work; short-side is structurally weaker.**
    Confirmed across v22, v23, v23r, v23rf — only BTC 4h SHORT (both v22
@@ -3472,14 +3486,14 @@ Three orthogonal claims:
 
 ---
 
-## [2026-04-27 evening 3] — v23 round-2: face-rolling, weekly cross-asset, v23rf
+## [2026-04-27 evening 3] — v23 round-2: rolling-window, weekly cross-asset, v23rf
 
 Round 2 deeper-validation of the v23 Cipher B Weekly Reversal seed family.
-Three parallel investigations: (1) face-rolling all v23 cells across BTC 4h /
+Three parallel investigations: (1) rolling-window all v23 cells across BTC 4h /
 BTC 1d / ETH 1d for strict-CI bootstrap testing; (2) weekly cross-asset
 generalization on XRP/SOL/DOGE/LTC (snapshots aggregated from existing daily
 files via `aggregate --group 7 --tf 1w`); (3) v23rf-SHORT funding-gated
-variant. 5 new face-rolling cells in `FaceBatteryCommand` (v23/v23r both
+variant. 5 new rolling-window cells in `StrategyBatteryCommand` (v23/v23r both
 sides + v23rf SHORT). 1 new strategy seed `builtin.short.v23rf-cipherb-funding`.
 743/745 tests passing (2 pre-existing flakes on main, unrelated). 0 warnings,
 0 errors.
@@ -3494,7 +3508,7 @@ sides + v23rf SHORT). 1 new strategy seed `builtin.short.v23rf-cipherb-funding`.
 | v23 SHORT (no Faber)                     | 1/6 = 17% / −0.156R         | 2/15 = 13% / −0.313R        | 35/73 = 48% / −0.043R       |
 | v23rf SHORT (+ funding>0)                | 0 valid windows everywhere  | 0 valid windows             | 0 valid windows             |
 
-★ = "promising" by face-rolling's flag (≥70% positive). None reach the strict
+★ = "promising" by rolling-window's flag (≥70% positive). None reach the strict
 ROBUST gate (≥70% positive AND ≥3 CIlo>0 windows) because the trade-per-
 window count caps at avgTr=27 and tight CIs need bigger samples.
 
@@ -3564,11 +3578,11 @@ based on a simple rule (BTC/ETH → use Faber; everything else → bare v23).
 
 | Strategy                          | Asset / TF | Validation                                |
 | --------------------------------- | ---------- | ----------------------------------------- |
-| `v22-distribution-top` (short)    | BTC 4h     | face-rolling **ROBUST** 100%/16/+0.79R    |
-| **`v23r-cipherb-faber` (short)**  | BTC 4h     | face-rolling promising 81%/16/+0.459R     |
+| `v22-distribution-top` (short)    | BTC 4h     | rolling-window **ROBUST** 100%/16/+0.79R    |
+| **`v23r-cipherb-faber` (short)**  | BTC 4h     | rolling-window promising 81%/16/+0.459R     |
 | `v22-capitulation-bottom` (long)  | BTC 1d     | walk-windows +0.654R / 4-of-6 / n=10      |
-| **`v23-cipherb-weekly` (long)**   | ETH 1d     | face-rolling promising 100%/6/+0.362R ★   |
-| `v23-cipherb-weekly` (long)       | BTC 1d     | face-rolling promising 87%/15/+0.248R ★   |
+| **`v23-cipherb-weekly` (long)**   | ETH 1d     | rolling-window promising 100%/6/+0.362R ★   |
+| `v23-cipherb-weekly` (long)       | BTC 1d     | rolling-window promising 87%/15/+0.248R ★   |
 | `v23r-cipherb-faber` (long)       | ETH 1d     | walk-windows +0.534R / 4-of-6 / n=15      |
 | `v23r-cipherb-faber` (long)       | ETH 4h     | full-snap +0.130R / +$971 / n=113         |
 | `v23r-cipherb-faber` (long)       | BTC 4h     | full-snap +0.282R / +$1,650 / n=138       |
@@ -3722,7 +3736,7 @@ ARE more reliable, mathematically.
 | Strategy                        | Asset / TF | Validation                               |
 | ------------------------------- | ---------- | ---------------------------------------- |
 | `v22-capitulation-bottom`       | BTC 1d     | walk-windows +0.654R / 4-of-6 / n=10     |
-| `v22-distribution-top`          | BTC 4h     | face-rolling ROBUST 100% / 16w / +0.79R  |
+| `v22-distribution-top`          | BTC 4h     | rolling-window ROBUST 100% / 16w / +0.79R  |
 | **`v23r-cipherb-faber` (long)** | ETH 1d     | walk-windows +0.534R / 4-of-6 / n=15 ✓✓  |
 | **`v23r-cipherb-faber` (long)** | ETH 4h     | full-snap +0.130R / +$971 / n=113        |
 | **`v23r-cipherb-faber` (long)** | BTC 4h     | full-snap +0.282R / +$1,650 / n=138      |
@@ -3902,7 +3916,7 @@ event-vs-process design holds in the math).
 
 Two new seeds, registered in `BuiltInStrategySeeds.GetAllSeeds()` and
 included in StrategyLab's `WorkspaceFactory.DefaultIndicatorPack` so
-`walk` / `run` / `face-rolling` resolve them without caller plumbing.
+`walk` / `run` / `rolling-window` resolve them without caller plumbing.
 Both fire on `TOP_BOTTOM_DETECTOR.{Bottom,Top} Confirmed` (FiredWithin 2
 bars). Long-side risk: ATR(14)×2 stop, 1.5R/3R TP ladder, BE-after-TP1,
 0.5% risk per trade. Short-side: ATR(14)×1.5 stop, 1R/2R ladder
@@ -4018,7 +4032,7 @@ hide as cherry-picks. New `StrategyLab walk-windows` subcommand
 into N equal chronological windows (default 6) and reports per-window
 n / avgR / WR / PF / maxDD plus aggregate "windows positive" / "mean
 avgR" metrics. Builds the DI host + indicator workspace once and reuses
-it across windows. Pattern follows `FaceRollingCommand` for the heavy-
+it across windows. Pattern follows `RollingWindowCommand` for the heavy-
 step caching.
 
 **Re-running the full v22 / v22r matrix through walk-windows revealed
@@ -4064,8 +4078,8 @@ run through walk-windows at 6+ slices before any ship/scrap decision.
 
 ### Face-rolling bootstrap-CI verdict (same-day follow-up)
 
-Two new cells added to `FaceBatteryCommand.BuildCells` — `v22 LONG: TBD
-Bottom Confirmed` and `v22 SHORT: TBD Top Confirmed` — and `face-rolling`
+Two new cells added to `StrategyBatteryCommand.BuildCells` — `v22 LONG: TBD
+Bottom Confirmed` and `v22 SHORT: TBD Top Confirmed` — and `rolling-window`
 run on BTC 4h + ETH 4h with default 1500-bar window / 250-bar step.
 Result table (S = side, valid = windows with ≥5 trades, ER>0 = % windows
 positive expectancy, CI>0 = % windows whose 95% bootstrap CI lower bound
@@ -4074,7 +4088,7 @@ exceeds zero, meanER = mean expectancy across valid windows):
 ```
 BTC 4h (74 rolling windows)
   v22 SHORT  S   16 valid  100% ER>0  19% CI>0  +0.79R  worstCI -1.00  ✓ ROBUST
-  v22 LONG   L    0 valid    —    —    —    —    —     —    too rare for face-rolling
+  v22 LONG   L    0 valid    —    —    —    —    —     —    too rare for rolling-window
 
 ETH 4h (70 rolling windows)
   v22 SHORT  S   45 valid   67% ER>0  13% CI>0  +0.32R  worstCI -1.00  marginal
@@ -4085,7 +4099,7 @@ ETH 4h (70 rolling windows)
 Faber-Pulse**: 100% of 16 valid rolling 9-month windows positive, 3
 windows pass strict CI>0, mean +0.79R per trade. This is the cleanest
 short-side result anywhere in the suite — only a handful of cells
-across the entire 89-cell battery clear face-rolling's robustness bar.
+across the entire 89-cell battery clear rolling-window's robustness bar.
 
 **Why this looks like a contradiction with walk-windows but isn't.**
 Walk-windows on BTC 4h had said v22-SHORT was −0.25R losing across
@@ -4106,23 +4120,23 @@ but only after enough rally has built up to detect — which is itself
 a regime-conditional state." The robustness is real but the
 utilization is low (~22% of rolling 9-month windows).
 
-**v22-LONG BTC 4h is filtered out by face-rolling's n≥5 gate.** The
+**v22-LONG BTC 4h is filtered out by rolling-window's n≥5 gate.** The
 signal fires only ~50 times in 9 years, which doesn't reach 5 fires per
 9-month rolling window. Walk-windows had said it was a 4/6-positive
-survivor at +0.22R; that result is unaffected by face-rolling's
+survivor at +0.22R; that result is unaffected by rolling-window's
 filter — the strict bootstrap-CI test simply can't evaluate it at
-default settings. To test it through face-rolling, either the marker's
+default settings. To test it through rolling-window, either the marker's
 ConfirmThreshold needs loosening (0.6 → 0.5, more fires) or the
 rolling-window size needs increasing (1500 → 3000 bars). Tracked as
 follow-up.
 
 ### Follow-ups (open in `docs/TODO.md`)
 
-- **Loosen v22-LONG threshold (or window size) so face-rolling can
+- **Loosen v22-LONG threshold (or window size) so rolling-window can
   evaluate it.** The walk-windows result on BTC 4h says it's a
-  4/6-positive +0.22R candidate, but face-rolling's n≥5 gate filters
+  4/6-positive +0.22R candidate, but rolling-window's n≥5 gate filters
   it out at default settings. Try ConfirmThreshold 0.5 (rarer-but-
-  higher-conviction → more fires per window) or face-rolling
+  higher-conviction → more fires per window) or rolling-window
   --window 3000 (twice the lookback span per evaluation).
 - **Cross-instrument validation for v22-SHORT BTC 4h** (run same-day):
 
@@ -4145,7 +4159,7 @@ follow-up.
   strategy-validation guidance so future iterations pass through
   walk-windows by default; reserve H1/H2 split for snapshots too short
   to slice into 6.
-- **Document face-rolling's n≥5 valid-window gate explicitly.** It's
+- **Document rolling-window's n≥5 valid-window gate explicitly.** It's
   not in the existing docs and the BTC 4h v22-LONG result above shows
   the gate has real consequences: it filters out rare-but-real signals
   that walk-windows can still see.
@@ -8376,7 +8390,7 @@ of trying to do visual-only work through the data-component pipeline.
 ### Dead strategy cleanup (14 + 2 builders removed)
 
 `BuiltInStrategySeeds.cs` shrank from 3339 → ~1100 lines. Removed:
-`CryptoFaceLong`, `V3`, `V4Claude`, `V5CipherSr`, `V6CipherCCycle`,
+`LegacyCipherLong`, `V3`, `V4Claude`, `V5CipherSr`, `V6CipherCCycle`,
 `V7ScoreConfluence`, `V72DailyHtf4hEntry`, `V8LoukasCipherConfluence`,
 `V9CrossSeriesConfluence`, `V92CrossSeriesRegimeFiltered`,
 `V10FaceSequence`, `V11BlueDotIsolated`, `V12AnchorFilteredBlueDot`,
@@ -9058,8 +9072,8 @@ A long research session dedicated to building, testing, and walk-forward-validat
 
 `BuiltInStrategySeeds` static seeder + `IStrategyLibrary.EnsureSeeded` called from `JsonStrategyLibrary.Reload()`. Idempotent on stable IDs — never overwrites user edits, never reseeds the same ID twice. Bumping version suffix forces re-seed for new variants.
 
-- **v2 — Crypto Face Market Cipher Long (`builtin.cryptoface.long.v2`)**: OR-of-three-pulses (Cipher B blue dot, gold cross, Cipher A buy signal) with `FiredWithin(7)` window, ATR(14)×2 stop, 1.5R/3R ladder, breakeven after TP1, 0.5% risk. **Walked forward stable** (BTC first half PF ~1.9, second half PF ~1.5). Generalized to ETH 1d (PF 1.58). Failed on BTC 4h (PF 0.96). Failed on SOL 1d (n=13 too small). **The only mechanical baseline worth deploying.**
-- **v3 — Full Crypto Face stage gates (`builtin.cryptoface.long.v3`)**: Anchor < -53 + Trigger > 0 + Money Flow < 0 stage gates + entry pulse. ~26 trades, PF 2.12, Avg R 0.34. *Worse* than v2 — the literal stage gates over-fit to deep washouts and miss trend-continuation entries. Empirically refuted the "buy red MF" thesis.
+- **v2 — the original cipher author Market Cipher Long (`builtin.cryptoface.long.v2`)**: OR-of-three-pulses (Cipher B blue dot, gold cross, Cipher A buy signal) with `FiredWithin(7)` window, ATR(14)×2 stop, 1.5R/3R ladder, breakeven after TP1, 0.5% risk. **Walked forward stable** (BTC first half PF ~1.9, second half PF ~1.5). Generalized to ETH 1d (PF 1.58). Failed on BTC 4h (PF 0.96). Failed on SOL 1d (n=13 too small). **The only mechanical baseline worth deploying.**
+- **v3 — Full the original cipher author stage gates (`builtin.cryptoface.long.v3`)**: Anchor < -53 + Trigger > 0 + Money Flow < 0 stage gates + entry pulse. ~26 trades, PF 2.12, Avg R 0.34. *Worse* than v2 — the literal stage gates over-fit to deep washouts and miss trend-continuation entries. Empirically refuted the "buy red MF" thesis.
 - **v4 r1 (broken HTF leaf)**: Used `weekly Cipher B WT > 0` true HTF leaf — produced 0 trades because of the future-leak bug in `EvaluateHtfIndicatorLeaf`. Left in library as a teaching example.
 - **v4 r2 — Anchor Wave proxy (`builtin.cryptoface.long.v4-claude.r2`)**: Replaced HTF leaf with active-TF `Anchor Wave > 0`, kept Trigger > 0 sequencing, added third TP rung at 6R, divergences upweighted. Full backtest: **27 trades, WR 77.8%, Avg R 0.86, PF 7.03, DD 0.7%** — looked spectacular. **Walk-forward decimated it**: first half WR 78.6% / Avg R 0.58, second half WR 50% / Avg R 0.06 / **negative total return**. The 6R runner rung amplified first-half luck on BTC's 2017 bull run.
 - **v5 — Cipher SR support entries (`builtin.long.v5-cipher-sr`)**: Single-hypothesis test of `PriceRejectsLevel` price-location gate + entry pulse. **Walk-forward failed**: first half PF ~1.55, second half PF ~0.62 with WR collapsing 26 points to 36% and DD 5.2%. Partly fixable — strategy treats stale 200-bar-old pivots equivalently to fresh ones because `PriceRejectsLevel` ignores the `Strength` field that `CipherSrLevelProvider` already computes.

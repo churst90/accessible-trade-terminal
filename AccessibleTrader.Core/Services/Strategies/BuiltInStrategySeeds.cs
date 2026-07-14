@@ -46,7 +46,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         // v16 — Trilogy Long. The "real MCB methodology" confluence: Cipher A Buy
         // Signal + Cipher B Blue Dot + Cipher SR Support all firing within small
-        // windows of each other. This is how Crypto Face teaches MCB — A provides
+        // windows of each other. This is the original confluence teaching: A provides
         // tape read, B provides oscillator read, SR provides structure. High-
         // conviction setups require all three orthogonal dimensions to agree.
         public const string LongV16TrilogyId = "builtin.long.v16-trilogy";
@@ -144,7 +144,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         public const string ShortV23rfCipherBFundingId = "builtin.short.v23rf-cipherb-funding";
 
         // v23p — Cipher B Reversal + Pivot zone gate (LONG). Promoted from
-        // FaceBatteryCommand cell after round-4 face-rolling proved this is the
+        // StrategyBatteryCommand cell after round-4 rolling-window proved this is the
         // closest-to-ROBUST cell anywhere: ETH 1d 100% positive / 33% CI / +0.523R
         // across 6 windows, BTC 1d 73% / 13% CI / +0.294R. Adds the Pivot Zone
         // gate (price near classic S1/S2/S3/CamL3/CamL4) to v23 base. Pivots are
@@ -153,7 +153,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         public const string LongV23pCipherBPivotsId = "builtin.long.v23p-cipherb-pivots";
 
         // v23h — Cipher B Reversal + Hurst regime gate (LONG and SHORT). Promoted
-        // from face-rolling cells: BTC 1d v23+HURST LONG = 71% / 14% / +0.411R
+        // from rolling-window cells: BTC 1d v23+HURST LONG = 71% / 14% / +0.411R
         // (65% better per-trade R than v23 base on the same TF). KAS 4h
         // v23+HURST SHORT = 62% / +0.207R (240% better than base). The gate is
         // simple: fire reversals only when Hurst < 0.45 (mean-reverting regime
@@ -163,14 +163,14 @@ namespace AccessibleTrader.Core.Services.Strategies
         public const string ShortV23hCipherBHurstId = "builtin.short.v23h-cipherb-hurst";
 
         // v23a — Cipher B Reversal + AVWAP soft-bias gate. Promoted from
-        // FaceBatteryCommand cell after round 6 face-rolling: ETH 1d 100% positive
+        // StrategyBatteryCommand cell after round 6 rolling-window: ETH 1d 100% positive
         // / +0.277R / 22.7 trades; BTC 1d 80% / 7% CI / +0.203R. AVWAP soft bias
         // is the looser version (close above EITHER anchor) which surfaces more
         // signal than the strict version (close above BOTH).
         public const string LongV23aCipherBAvwapId = "builtin.long.v23a-cipherb-avwap";
 
         // v23or — Cipher B Reversal + (AVWAP Bias Soft OR Pivot Support) gate.
-        // Promoted from face-rolling round 8 (2026-04-27 evening 11): ETH 1d 100%
+        // Promoted from rolling-window round 8 (2026-04-27 evening 11): ETH 1d 100%
         // positive / 0% CI / +0.335R / 25.3 trades; BTC 1d 73% / 7% CI / +0.188R /
         // 24.3 trades. Higher trade count than either v23a or v23p individually
         // (v23a: 22.7 / v23p ETH: 14). Per-trade R sits between the two pure
@@ -204,7 +204,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // the right v23 variant depends on BOTH asset and timeframe.
         //
         // BTC/ETH 1d: v23p-Pivots is the strongest. ETH 1d hit 100% positive /
-        //   33% CI / +0.523R in face-rolling — closest to ROBUST anywhere.
+        //   33% CI / +0.523R in rolling-window — closest to ROBUST anywhere.
         // BTC/ETH 4h: v23r-Faber lifts R materially (validated cross-mechanism
         //   alongside v13, Faber-Pulse, BareBullPulse).
         // BTC/ETH 1w: v23 base — weekly trends survive aggregation cleanly.
@@ -359,8 +359,8 @@ namespace AccessibleTrader.Core.Services.Strategies
         public static IEnumerable<StrategySpec> GetAllSeeds()
         {
             // Library state 2026-04-09 (post-rolling-window stress-test):
-            // The rolling-window walk-forward harness (StrategyLab `face-rolling`)
-            // tested every face battery cell across 10 rolling 1500-bar windows on a
+            // The rolling-window walk-forward harness (StrategyLab `rolling-window`)
+            // tested every gate battery cell across 10 rolling 1500-bar windows on a
             // fresh 4000-bar BTC daily snapshot. Result:
             //
             //   • BULL pulse + Close > SMA200 (Faber filter):  70% windows positive,
@@ -527,7 +527,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23cCipherBCotId,
-                Name: "Cipher Reversal + Trend + COT Gates — Metals/Indices Daily (Long)",
+                Name: "Cipher Reversal + Trend + COT Gates — Metals/Indices Daily (Long) [v23c]",
                 Description:
                     "v23 base trigger (WT Cross Bull / Blue dot / Bull Divergence within 2) " +
                     "AND Anchor Wave < 0 AND price > SMA200 AND fund positioning NOT crowded " +
@@ -760,7 +760,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV13BlueDotSma200Id,
-                Name: "v13 — Blue Dot + SMA200",
+                Name: "Dip Buy in Uptrend — Blue Dot + SMA200 (Long) [v13]",
                 Description:
                     "Cipher B Oversold Crossover (blue dot) AND price above SMA(200) at " +
                     "entry. The first survivor on the post-rewrite Cipher B: BTC daily H1 " +
@@ -819,7 +819,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV14HiddenBullSma200Id,
-                Name: "v14 — Hidden Bull Continuation + SMA200",
+                Name: "Trend Continuation — Hidden Bull + SMA200 (Long) [v14]",
                 Description:
                     "Cipher B Hidden Bull Continuation AND price above SMA(200). " +
                     "Hidden Bull Continuation passed strict bootstrap CI on BTC 4h " +
@@ -878,7 +878,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV15BlueDotBullDivId,
-                Name: "v15 — Blue Dot + Bullish Divergence (confluence)",
+                Name: "Reversal Confluence — Blue Dot + Divergence (Long) [v15]",
                 Description:
                     "Cipher B Oversold Crossover (blue dot) AND a Bullish Divergence " +
                     "fired within the last 5 bars. The two highest-R Cipher B long " +
@@ -943,7 +943,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV16TrilogyId,
-                Name: "v16 — Trilogy Long (A + B + SR)",
+                Name: "Triple Confluence — Cipher A+B+Support (Long) [v16, legacy]",
                 Description:
                     "Real MCB methodology confluence. Cipher A Buy Signal within 5 " +
                     "bars AND Cipher B Blue Dot AND Cipher SR Support within 3 bars. " +
@@ -1007,7 +1007,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV16TrilogyId,
-                Name: "v16s — Trilogy Short (A + B + SR)",
+                Name: "Triple Confluence — Cipher A+B+Resistance (Short) [v16s, legacy]",
                 Description:
                     "Symmetric short mirror of v16. Cipher A Sell Signal within 5 " +
                     "bars AND Cipher B Red Dot AND Cipher SR Resistance within 3 " +
@@ -1074,7 +1074,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV17GoldTrilogyId,
-                Name: "v17 — Gold Trilogy (A + B Gold + SR)",
+                Name: "Gold-Dot Triple Confluence (Long) [v17, legacy]",
                 Description:
                     "Cipher A Buy Signal within 5 bars AND Cipher B Gold Dot AND " +
                     "Cipher SR Support within 3 bars. Tests the speculation that real " +
@@ -1151,7 +1151,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV18RefinedShortId,
-                Name: "v18 — Refined Short (Hidden Bear + bear regime + funding)",
+                Name: "Bear-Rally Fade — Hidden Bear + Bear Regime + Crowded Funding (Short) [v18]",
                 Description:
                     "Cipher B Hidden Bear Continuation AND price below SMA(200) AND " +
                     "funding rate positive. Uses a continuation signal (NOT bearish " +
@@ -1229,7 +1229,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV21MvrvCapitulationTrilogyId,
-                Name: "v21 — MVRV Capitulation Trilogy",
+                Name: "On-Chain Capitulation Confluence — MVRV (Long) [v21]",
                 Description:
                     "v16 Trilogy (A Buy + B Blue + SR Support) gated by COINMETRICS " +
                     "MVRV Regime < 2 (capitulation band: MVRV < 1.0, holders underwater). " +
@@ -1291,7 +1291,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV22CapitulationBottomId,
-                Name: "Single-Bar Capitulation Bottom — BTC 1d (Long)",
+                Name: "Capitulation Bottom — BTC Daily (Long) [v22]",
                 Description:
                     "Fires on TOP_BOTTOM_DETECTOR.Bottom Confirmed within 2 bars. " +
                     "The detector signals a single-bar capitulation event: volume " +
@@ -1357,7 +1357,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV22DistributionTopId,
-                Name: "Distribution Top — BTC 4h ROBUST (Short)",
+                Name: "Distribution Top — BTC 4h, robust (Short) [v22s]",
                 Description:
                     "Fires on TOP_BOTTOM_DETECTOR.Top Confirmed within 2 bars. " +
                     "The detector accumulates distribution evidence over multiple " +
@@ -1429,7 +1429,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV22rCapitulationFaberId,
-                Name: "v22r — Capitulation Bottom + Faber MA (Long) [DEPRECATED]",
+                Name: "Capitulation Bottom + Trend Filter (Long) [v22r, deprecated]",
                 Description:
                     "[DEPRECATED 2026-04-27 round 5] Walk-windows verdict on BTC 4h: " +
                     "high per-trade R (+1.03R) but trade count collapses to n=11 over " +
@@ -1507,7 +1507,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV22rDistributionBearFundedId,
-                Name: "v22r — Distribution Top + Bear Regime + Funding (Short) [DEPRECATED]",
+                Name: "Distribution Top + Bear Regime + Funding (Short) [v22rs, deprecated]",
                 Description:
                     "[DEPRECATED 2026-04-27 round 5] Walk-windows verdict: mechanism " +
                     "DEAD — fires zero times on BTC 1d/4h and ETH 1d/4h across all six " +
@@ -1550,7 +1550,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         //   • 4/10 windows pass strict bootstrap 95% CI (40%)
         //   • mean +0.43R/trade, std 0.60, range -0.38R to +1.36R
         //   • avg 15.3 trades per window
-        //   • highest CI-pass count of any cell in the 89-cell face battery
+        //   • highest CI-pass count of any cell in the 89-cell gate battery
         //
         // Cross-asset rolling validation pending — this spec needs to be re-tested on
         // ETH/XRP/SOL/LTC daily before it can be called a portable survivor. As of
@@ -1625,12 +1625,12 @@ namespace AccessibleTrader.Core.Services.Strategies
                     "pulse (Cipher B Oversold Crossover / Triple Confluence Buy / Cipher A " +
                     "Buy Signal / Cipher SR Support, FiredWithin 5 bars) ONLY when Close > " +
                     "SMA(200) — the textbook Mebane Faber 2007 regime filter. Validated " +
-                    "via rolling-window walk-forward stress test (StrategyLab face-rolling, " +
+                    "via rolling-window walk-forward stress test (StrategyLab rolling-window, " +
                     "10 windows × 1500 bars × 250-bar step on fresh BTC daily 4000-bar " +
                     "snapshot 2015-2026): 70% windows positive expectancy, 40% windows pass " +
                     "strict bootstrap CI, mean +0.43R/trade, range -0.38R to +1.36R, ~15 " +
                     "trades per window. Highest CI-pass count of any cell in the 89-cell " +
-                    "face battery — outperformed every Pulse v1-v12 confluence stack across " +
+                    "gate battery — outperformed every Pulse v1-v12 confluence stack across " +
                     "13 prior iterations. The empirical lesson is filter restraint: stacking " +
                     "additional gates on top consistently REDUCED robustness in the rolling " +
                     "test. BTC-validated only as of shipping; cross-asset rolling test on " +
@@ -1649,7 +1649,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // Bare Bull Pulse Long — the simplest possible Pulse strategy. ANY bull entry
         // pulse from the Cipher A/B/SR family with NO confluence filter at all.
         //
-        // Cross-asset rolling-window stress test (StrategyLab face-rolling, fresh
+        // Cross-asset rolling-window stress test (StrategyLab rolling-window, fresh
         // 4000-bar BTC + 3159-bar ETH + 3402-bar XRP + 3000-bar LTC daily snapshots,
         // 1500-bar windows × 250-bar step):
         //
@@ -1658,7 +1658,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         //   XRP: 71% windows positive,  0% windows pass strict CI, mean +0.12R, 26.6 tr/win
         //   LTC: 50% windows positive,  0% windows pass strict CI, mean +0.07R, 32.3 tr/win
         //
-        // The MOST cross-asset-consistent cell in the entire 89-cell face battery. Three
+        // The MOST cross-asset-consistent cell in the entire 89-cell gate battery. Three
         // out of four major crypto assets show ≥71% positive expectancy across rolling
         // windows. LTC is the lone exception (50% — coin-flip).
         //
@@ -1845,7 +1845,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Name: "Bare Bull Pulse Long (cross-asset)",
                 Description:
                     "The simplest Pulse strategy and the most cross-asset-consistent cell " +
-                    "in the entire face battery. Fires any bull entry pulse (Cipher B Oversold " +
+                    "in the entire gate battery. Fires any bull entry pulse (Cipher B Oversold " +
                     "Crossover / Triple Confluence Buy / Cipher A Buy Signal / Cipher SR Support, " +
                     "FiredWithin 5 bars) with NO confluence filter at all. Rolling-window walk-" +
                     "forward stress test (10 windows × 1500 bars × 250-bar step on fresh daily " +
@@ -1957,7 +1957,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23CipherBWeeklyId,
-                Name: "Cipher Reversal — Universal (Crypto Any TF, Long)",
+                Name: "Cipher Reversal — Universal (Long) [v23]",
                 Description:
                     "Weekly-targeted long built on Cipher B's oscillator-based capitulation " +
                     "rather than v22's single-bar event score. Fires when EITHER an Oversold " +
@@ -2040,7 +2040,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV23CipherBWeeklyId,
-                Name: "Cipher Reversal — Universal (Crypto Any TF, Short)",
+                Name: "Cipher Reversal — Universal (Short) [v23s]",
                 Description:
                     "Weekly-targeted short. Symmetric mirror of v23-LONG. Fires when EITHER " +
                     "an Overbought Crossover (Red dot) OR a Bearish Divergence happened within " +
@@ -2113,7 +2113,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23rCipherBFaberId,
-                Name: "Cipher Reversal + Trend Filter — BTC/ETH 4h (Long)",
+                Name: "Cipher Reversal + Trend Filter — BTC/ETH 4h (Long) [v23r]",
                 Description:
                     "v23 base trigger (WT Cross Bull / Blue dot / Bull Divergence within 2) " +
                     "AND Anchor Wave < 0 AND price > SMA200. The Faber regime gate restricts " +
@@ -2177,7 +2177,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV23rCipherBFaberId,
-                Name: "Cipher Reversal + Bear Trend Filter — BTC/ETH (Short)",
+                Name: "Cipher Reversal + Bear Trend Filter — BTC/ETH (Short) [v23rs]",
                 Description:
                     "v23 short base trigger AND Anchor Wave > 0 AND price < SMA200. Mirror " +
                     "of v23r-LONG. Mirrors v18-refined-short pattern: don't try to call tops " +
@@ -2252,7 +2252,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV23rfCipherBFundingId,
-                Name: "Cipher Reversal + Bear + Crowded-Long Funding (Short) [NEGATIVE]",
+                Name: "Cipher Reversal + Bear + Crowded Funding (Short) [v23rf, negative edge]",
                 Description:
                     "v23 short trigger AND Anchor Wave > 0 AND price < SMA200 AND funding > 0. " +
                     "The only short setup that has historically worked on BTC: fade rallies in " +
@@ -2272,7 +2272,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // ─────────────────────────────────────────────────────────────────────────────
         // v23p — Cipher B Reversal + Pivot zone (LONG).
         //
-        // Promoted from FaceBatteryCommand cell (2026-04-27 round 4). Best
+        // Promoted from StrategyBatteryCommand cell (2026-04-27 round 4). Best
         // single result anywhere: ETH 1d 100% positive / 33% CI / +0.523R / 6
         // windows. BTC 1d 73% / 13% CI / +0.294R. Pivot zone is the bar's
         // proximity (in ATR units) to classic floor-trader S1/S2/S3 or Camarilla
@@ -2324,13 +2324,13 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23pCipherBPivotsId,
-                Name: "Cipher Reversal at Pivot Support — BTC/ETH 1d (Long) ★",
+                Name: "Cipher Reversal at Pivot Support — BTC/ETH Daily (Long) [v23p] ★",
                 Description:
                     "v23 base trigger (WT Cross Bull / Blue / Bull Divergence within 2) " +
                     "AND Anchor Wave < 0 AND PIVOTS.Pivot Zone < -0.5 (price within ATR-" +
                     "tolerance of classic S1/S2/S3 or Camarilla L3/L4 support). Empirical " +
                     "champion as of round 4 of the v23 investigation: ETH 1d 100% positive " +
-                    "/ 33% CI / +0.523R across 6 face-rolling windows; BTC 1d 73% / 13% / " +
+                    "/ 33% CI / +0.523R across 6 rolling-window windows; BTC 1d 73% / 13% / " +
                     "+0.294R. REQUIRES: Cipher B + Pivot Levels indicators loaded. Risk: " +
                     "ATR(14)×3 stop, 2R/4R TP ladder, BE after TP1, 0.5% risk per trade. " +
                     "Best on liquid majors (BTC/ETH) at the daily timeframe.",
@@ -2390,7 +2390,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23hCipherBHurstId,
-                Name: "Cipher Reversal in Mean-Reverting Regime — Universal (Long)",
+                Name: "Cipher Reversal in Mean-Reverting Regime (Long) [v23h]",
                 Description:
                     "v23 base trigger AND Anchor Wave < 0 AND HURST.Hurst < 0.45 " +
                     "(mean-reverting regime). The Hurst gate explicitly filters out " +
@@ -2455,7 +2455,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: ShortV23hCipherBHurstId,
-                Name: "Cipher Reversal in Mean-Reverting Regime — Universal (Short)",
+                Name: "Cipher Reversal in Mean-Reverting Regime (Short) [v23hs]",
                 // (continued below — see v23a builder for the new AVWAP seed)
                 Description:
                     "v23 short trigger AND Anchor Wave > 0 AND HURST.Hurst < 0.45. The " +
@@ -2477,7 +2477,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // ─────────────────────────────────────────────────────────────────────────────
         // v23a — Cipher B Reversal + AVWAP soft-bias gate (LONG).
         //
-        // Promoted from FaceBatteryCommand cell after round 6: ETH 1d 100% positive
+        // Promoted from StrategyBatteryCommand cell after round 6: ETH 1d 100% positive
         // / +0.277R / 22.7 trades; BTC 1d 80% / 7% / +0.203R. AVWAP soft-bias is the
         // looser version of the strict bias — accepts close above EITHER anchor
         // (high-anchor or low-anchor) rather than requiring above BOTH. This
@@ -2528,7 +2528,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23aCipherBAvwapId,
-                Name: "Cipher Reversal + AVWAP Bias — BTC/ETH 1d (Long)",
+                Name: "Cipher Reversal + AVWAP Bias — BTC/ETH Daily (Long) [v23a]",
                 Description:
                     "Cipher B reversal trigger (WT Cross Bull / Blue / Bull Divergence within " +
                     "2) AND Anchor Wave < 0 AND AVWAP Bias Soft > 0.5 (close above either " +
@@ -2550,7 +2550,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         // ─────────────────────────────────────────────────────────────────────────────
         // v23or — Cipher B Reversal + (AVWAP Bias Soft OR Pivot Support) gate (LONG).
         //
-        // Promoted from FaceBatteryCommand cell after round 8 (2026-04-27 evening 11):
+        // Promoted from StrategyBatteryCommand cell after round 8 (2026-04-27 evening 11):
         // ETH 1d 100% positive / 0% CI / +0.335R / 25.3 trades; BTC 1d 73% / 7% CI /
         // +0.188R / 24.3 trades. Trade count is the highest of the v23a / v23p / v23or
         // family (v23or 25.3 > v23a 22.7 > v23p ETH 14.0). Per-trade R sits between
@@ -2611,7 +2611,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23orCipherBOrConfId,
-                Name: "Cipher Reversal + AVWAP-or-Pivot Confluence — BTC/ETH 1d (Long)",
+                Name: "Cipher Reversal + AVWAP-or-Pivot Confluence — BTC/ETH Daily (Long) [v23or]",
                 Description:
                     "Cipher B reversal trigger (WT Cross Bull / Blue / Bull Divergence within " +
                     "2) AND Anchor Wave < 0 AND (AVWAP Bias Soft > 0.5 OR Pivot Zone < -0.5). " +

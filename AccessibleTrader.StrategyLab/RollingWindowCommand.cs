@@ -8,13 +8,13 @@ using System.Reflection;
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
-/// Rolling-window walk-forward stress-test for face battery cells.
+/// Rolling-window walk-forward stress-test for gate battery cells.
 ///
 /// Why this exists (2026-04-09 evening): the chop-gate experiment shipped a "first
 /// BTC short to reach CI" claim that was a single-snapshot artifact. CIlo=0.00 on a
 /// 10-trade sample was borderline, not robust, and a fresh 4000-bar resnapshot of
 /// BTC daily killed the result entirely (H2 +0.83R → -0.05R). The single-split
-/// face battery's CI cannot distinguish "real survivor" from "lucky split" — it
+/// gate battery's CI cannot distinguish "real survivor" from "lucky split" — it
 /// reports a single H1/H2 reading and the bootstrap CI is computed within that
 /// single split, so it cannot detect the across-split instability.
 ///
@@ -32,10 +32,10 @@ namespace AccessibleTrader.StrategyLab;
 /// caught the chop gate before I shipped it.
 ///
 /// Usage:
-///   StrategyLab face-rolling --snapshot bitstamp_BTC_USDT_1d.json
+///   StrategyLab rolling-window --snapshot bitstamp_BTC_USDT_1d.json
 ///                            [--window 1500] [--step 250] [--filter funding,cftc]
 /// </summary>
-public static class FaceRollingCommand
+public static class RollingWindowCommand
 {
     public static async Task<int> RunAsync(string snapshotPath, int windowBars, int stepBars, string? labelFilter, int warmupBars,
         Dictionary<string, Dictionary<string, object>>? paramOverrides = null)
@@ -59,9 +59,9 @@ public static class FaceRollingCommand
         var factory = host.Services.GetRequiredService<IConfigurableStrategyFactory>();
         var backtester = host.Services.GetRequiredService<IStrategyBacktester>();
 
-        // Borrow FaceBatteryCommand's private cell list via reflection — keeps the cell
+        // Borrow StrategyBatteryCommand's private cell list via reflection — keeps the cell
         // catalog single-source and avoids duplicating ~700 lines of cell construction.
-        var buildCellsMethod = typeof(FaceBatteryCommand).GetMethod("BuildCells",
+        var buildCellsMethod = typeof(StrategyBatteryCommand).GetMethod("BuildCells",
             BindingFlags.NonPublic | BindingFlags.Static)!;
         var allCells = (List<(string Label, OrderSide Side, ConditionGroup Root)>)
             buildCellsMethod.Invoke(null, null)!;
@@ -110,12 +110,12 @@ public static class FaceRollingCommand
             idx++;
             Console.Write($"  [{idx,2}/{cells.Count}] {(side == OrderSide.Buy ? "L" : "S")} {Trim(label, 58),-58} ");
             var windowResults = new List<WindowResult>();
-            // Reuse FaceBattery's private MakeSpec + Run via reflection to keep cost model identical.
-            var makeSpec = typeof(FaceBatteryCommand).GetMethod("MakeSpec",
+            // Reuse StrategyBattery's private MakeSpec + Run via reflection to keep cost model identical.
+            var makeSpec = typeof(StrategyBatteryCommand).GetMethod("MakeSpec",
                 BindingFlags.NonPublic | BindingFlags.Static)!;
-            var runMethod = typeof(FaceBatteryCommand).GetMethod("Run",
+            var runMethod = typeof(StrategyBatteryCommand).GetMethod("Run",
                 BindingFlags.NonPublic | BindingFlags.Static)!;
-            var spec = (StrategySpec)makeSpec.Invoke(null, new object[] { $"face.r{idx}", label, root, side })!;
+            var spec = (StrategySpec)makeSpec.Invoke(null, new object[] { $"cell.r{idx}", label, root, side })!;
 
             foreach (var w in windows)
             {
@@ -146,7 +146,7 @@ public static class FaceRollingCommand
     private static CellSummary Aggregate(string label, OrderSide side, List<WindowResult> windows)
     {
         // Only count windows that produced at least 5 trades — fewer than that and
-        // the expectancy is statistical noise. This matches the face battery's CI gate.
+        // the expectancy is statistical noise. This matches the gate battery's CI gate.
         var meaningful = windows.Where(w => w.Trades >= 5).ToList();
         int total = windows.Count;
         int withTrades = meaningful.Count;

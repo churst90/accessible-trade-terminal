@@ -279,7 +279,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// <c>children[N-2].WithinNBars</c> bars where the previous child fires; and so on.
         /// All children must place in strictly chronological order to satisfy the sequence.
         ///
-        /// This expresses the Crypto Face setup natively: "Anchor washed out, THEN Trigger
+        /// This expresses the classic cipher confluence setup natively: "Anchor washed out, THEN Trigger
         /// crossed up, THEN buy signal fired" — instead of v9's parallel "all of these
         /// happened in their own windows independently" which loses causal ordering and
         /// fires on bars where the ingredients existed in the wrong order.

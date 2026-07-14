@@ -31,13 +31,13 @@ try
         "diagnostic"   => await HandleDiagnostic(args.Skip(1).ToArray()),
         "combo"        => await HandleCombo(args.Skip(1).ToArray()),
         "combo-sweep"  => await HandleComboSweep(args.Skip(1).ToArray()),
-        "face"         => await HandleFace(args.Skip(1).ToArray()),
+        "battery"         => await HandleBattery(args.Skip(1).ToArray()),
         "bnv-funding"  => await HandleBnvFunding(args.Skip(1).ToArray()),
         "bnv-oi"       => await HandleBnvOi(args.Skip(1).ToArray()),
         "cftc-cot"     => await HandleCftcCot(args.Skip(1).ToArray()),
         "coinmetrics"  => await HandleCoinMetrics(args.Skip(1).ToArray()),
         "profile"      => ProfileCommand.Run(GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data"),
-        "face-rolling" => await HandleFaceRolling(args.Skip(1).ToArray()),
+        "rolling-window" => await HandleRollingWindow(args.Skip(1).ToArray()),
         "asset-profile" => await AssetProfileCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
@@ -254,15 +254,15 @@ static async Task<int> HandleBnvOi(string[] a)
     return await BinanceVisionOiCommand.RunAsync(outDir, symbols);
 }
 
-static async Task<int> HandleFace(string[] a)
+static async Task<int> HandleBattery(string[] a)
 {
     string? snap = GetFlag(a, "--snapshot");
     int warmup = int.TryParse(GetFlag(a, "--warmup"), out var w) ? w : 200;
     if (snap == null) { Console.Error.WriteLine("--snapshot is required"); return 1; }
-    return await FaceBatteryCommand.RunAsync(snap, warmup);
+    return await StrategyBatteryCommand.RunAsync(snap, warmup);
 }
 
-static async Task<int> HandleFaceRolling(string[] a)
+static async Task<int> HandleRollingWindow(string[] a)
 {
     string? snap = GetFlag(a, "--snapshot");
     int window = int.TryParse(GetFlag(a, "--window"), out var win) ? win : 1500;
@@ -271,7 +271,7 @@ static async Task<int> HandleFaceRolling(string[] a)
     string? filter = GetFlag(a, "--filter");
     var overrides = ParseSetOverrides(a);
     if (snap == null) { Console.Error.WriteLine("--snapshot is required"); return 1; }
-    return await FaceRollingCommand.RunAsync(snap, window, step, filter, warmup, overrides);
+    return await RollingWindowCommand.RunAsync(snap, window, step, filter, warmup, overrides);
 }
 
 // Parses repeatable `--set CODE.Param=Value` flags into per-indicator parameter

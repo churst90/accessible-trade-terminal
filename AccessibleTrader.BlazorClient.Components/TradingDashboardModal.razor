@@ -744,7 +744,14 @@
             string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 
             _orderError  = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
-            string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.";
+            // Paper orders skip the live review, so the sector-stacking hint (warn-only,
+            // never blocking) rides along with the fill confirmation instead.
+            string sectorHint = !_orderError
+                ? AccessibleTrader.Core.Services.SectorClassifier.BuildSectorHint(
+                      Store.State.Identity.Symbol, _positions.Select(p => p.Symbol)) ?? ""
+                : "";
+            if (sectorHint.Length > 0) sectorHint = " " + sectorHint;
+            string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sectorHint}";
             _orderStatus = _orderError ? $"Order rejected for {Store.State.Identity.Symbol}." : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
@@ -824,9 +831,57 @@
         string tp = IsEntryType && _takeProfit > 0 ? $" Target {PriceFormatter.FormatPrice(_takeProfit)}." : "";
         _reviewArmed = true;
         _orderError = false;
-        _orderStatus = $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}. Confirm or cancel.";
+        _orderStatus = $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Warn-only risk hints appended to the pre-submit review — the terminal never
+    /// blocks a trade the user wants, it just makes sure they heard the risk first.
+    ///   1. Liquidation buffer: on leveraged entries, the estimated liquidation
+    ///      distance (~1/leverage, less a 10% maintenance/fee haircut) should be at
+    ///      least TWICE the stop distance so the exchange can never close the trade
+    ///      before the stop does.
+    ///   2. Sector stacking: correlated open positions (BTC+ETH, gold+silver,
+    ///      SPY+QQQ) count toward one 2%-per-sector risk budget.
+    /// </summary>
+    private string BuildRiskWarnings(double entryPrice)
+    {
+        var warnings = new System.Text.StringBuilder();
+
+        if (IsEntryType && _leverage > 1 && entryPrice > 0)
+        {
+            // Isolated-margin approximation: liquidation ~ entry ± entry/leverage,
+            // haircut 10% for maintenance margin and fees. Real exchange liq prices
+            // differ per venue; this is a deliberate conservative estimate.
+            double liqDistancePct = (1.0 / _leverage) * 0.90 * 100.0;
+            if (_stopLoss > 0)
+            {
+                double stopDistancePct = Math.Abs(entryPrice - _stopLoss) / entryPrice * 100.0;
+                if (liqDistancePct <= stopDistancePct)
+                    warnings.Append($" WARNING: at {_leverage:0.#}x leverage, estimated liquidation " +
+                                    $"({liqDistancePct:0.#} percent away) is CLOSER than your stop " +
+                                    $"({stopDistancePct:0.#} percent) — the exchange would close this " +
+                                    $"trade before your stop fires. Reduce leverage.");
+                else if (liqDistancePct < stopDistancePct * 2)
+                    warnings.Append($" Caution: estimated liquidation {liqDistancePct:0.#} percent away " +
+                                    $"is within two stop-distances (stop {stopDistancePct:0.#} percent). " +
+                                    $"Little margin for slippage or gaps.");
+            }
+            else
+            {
+                warnings.Append($" Caution: {_leverage:0.#}x leverage with no stop set — estimated " +
+                                $"liquidation only {liqDistancePct:0.#} percent from entry.");
+            }
+        }
+
+        var hint = AccessibleTrader.Core.Services.SectorClassifier.BuildSectorHint(
+            Store.State.Identity.Symbol,
+            _positions.Select(p => p.Symbol));
+        if (hint != null) warnings.Append(' ').Append(hint);
+
+        return warnings.ToString();
     }
 
     private void CancelReview()

@@ -80,6 +80,7 @@
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Binance\AccessibleTrader.Plugins.Binance.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.InteractiveBrokers\AccessibleTrader.Plugins.InteractiveBrokers.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Schwab\AccessibleTrader.Plugins.Schwab.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.StrategyLab\AccessibleTrader.StrategyLab.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Cftc\AccessibleTrader.Plugins.Cftc.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Finra\AccessibleTrader.Plugins.Finra.csproj" />

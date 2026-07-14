@@ -61,8 +61,8 @@ public static class AssetProfileCommand
 
         Console.WriteLine($"Profiling {files.Count} asset(s) at {tf}. Warmup {Warmup} bars.\n");
 
-        var makeSpec = typeof(FaceBatteryCommand).GetMethod("MakeSpec", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var runMethod = typeof(FaceBatteryCommand).GetMethod("Run", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var makeSpec = typeof(StrategyBatteryCommand).GetMethod("MakeSpec", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var runMethod = typeof(StrategyBatteryCommand).GetMethod("Run", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var fingerprints = new List<Fingerprint>();
 

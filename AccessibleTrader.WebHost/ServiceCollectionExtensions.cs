@@ -310,6 +310,10 @@ namespace AccessibleTrader.WebHost
                 new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
                     BuildAlertChannelHttpClient(),
                     () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+            services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+                new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
+                    BuildAlertChannelHttpClient(),
+                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
 
             services.AddScoped<IMultiTimeframeDataService, MultiTimeframeDataService>();
@@ -475,6 +479,18 @@ namespace AccessibleTrader.WebHost
             {
                 BotToken = token,
                 ChatId = chat,
+            };
+        }
+
+        private static AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig? LoadWebhookAlertConfig(ISettingsManager settings)
+        {
+            var url  = settings.GetSetting("alerts.webhook.url")?.ToString();
+            var auth = settings.GetSetting("alerts.webhook.authHeader")?.ToString();
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            return new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig
+            {
+                WebhookUrl = url,
+                AuthHeader = auth,
             };
         }
     }

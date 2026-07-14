@@ -364,6 +364,10 @@ namespace AccessibleTrader.BlazorClient
                 new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
                     BuildAlertChannelHttpClient(),
                     () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+            services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
+                new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
+                    BuildAlertChannelHttpClient(),
+                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
 
             // Session B additions:
@@ -571,6 +575,21 @@ namespace AccessibleTrader.BlazorClient
             {
                 BotToken = token,
                 ChatId = chat,
+            };
+        }
+
+        /// <summary>Loads webhook alert channel config from settings under the
+        /// "alerts.webhook" key-path. Only the URL is required (HTTPS enforced by
+        /// the channel's IsConfigured check).</summary>
+        private static AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig? LoadWebhookAlertConfig(ISettingsManager settings)
+        {
+            var url  = settings.GetSetting("alerts.webhook.url")?.ToString();
+            var auth = settings.GetSetting("alerts.webhook.authHeader")?.ToString();
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            return new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig
+            {
+                WebhookUrl = url,
+                AuthHeader = auth,
             };
         }
     }

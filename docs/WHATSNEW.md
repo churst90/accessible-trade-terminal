@@ -1,3 +1,60 @@
+# What's New in 1.6.0
+
+A short, user-facing summary of what changed since **1.5.0**. For the full engineering
+changelog see [`CHANGES.md`](CHANGES.md).
+
+> Version note: 1.6.0 is a **minor** release — nothing breaks. Saved workspaces,
+> strategies, shortcuts, and API keys from 1.5.0 load unchanged. Some strategies
+> have new, clearer display names; their identities (and your copies) are untouched.
+
+---
+
+## See what the big money holds — for free
+
+- **COT Positioning** (new indicator): weekly hedge-fund positioning for gold,
+  silver, copper, oil, gas, Bitcoin, Ether, the S&P, the Nasdaq, the euro, and the
+  dollar index, straight from the CFTC — no key, no subscription. It speaks a
+  z-score with "crowded long" / "crowded short" bells, and its help text tells you
+  honestly where the signal works (gold, indices) and where it doesn't (crypto, FX).
+- **Daily short volume** for any US stock (new FINRA data source, also free):
+  chart `AAPL_SHORTVOL` and hear how much of the day's tape was short sales.
+
+## Strategies you can actually pick from a list
+
+- Every built-in strategy now has a **plain-English name** ("Dip Buy in Uptrend",
+  "Capitulation Bottom", "Trend Baseline") with the research version tag at the end.
+- New **Trend Baseline** benchmark strategy — the boring institutional standard that
+  every fancier strategy must beat; it passed walk-forward on all four assets tested.
+- New **Cipher Reversal + Trend + COT Gates** for metals and index dip-buying, with
+  its full validation record (including the weak spots) spoken in its description.
+- Setup announcements now speak the **complete trade plan** — entry, stop, and every
+  take-profit rung — and armed/triggered/dropped setups all land in the Journal for
+  review, so a missed announcement is never lost.
+
+## Risk management that talks, never blocks
+
+- The live-order review now **warns about liquidation**: if your leverage would let
+  the exchange close the trade before your stop fires, you hear it before confirming.
+- A **sector hint** notes when a new trade stacks onto correlated positions you
+  already hold (BTC + ETH + KAS is one bet, not three) — a nudge toward the
+  2%-per-sector discipline, never a refusal.
+
+## Alerts, everywhere you are
+
+- New **webhook channel**: paste a Discord or Slack webhook URL in Settings → Alerts
+  and every alert lands in your channel — alongside the existing speech, sounds,
+  email, and Telegram. Custom endpoints get structured JSON.
+
+## Housekeeping
+
+- The green-and-gold logo is now the app icon, splash, favicon, and About emblem.
+- On restart, the terminal announces any open paper or broker positions it finds.
+- Settings pages corrected (live version number, working background-color picker).
+- Cipher A is retired (Cipher B carries all of its information); saved workspaces
+  that use it keep working.
+
+---
+
 # What's New in 1.5.0
 
 A short, user-facing summary of what changed since **1.4.0**. For the full engineering

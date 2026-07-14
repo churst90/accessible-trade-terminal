@@ -25,7 +25,7 @@ namespace AccessibleTrader.Tests
         public void V23LongPreset_BtcOrEthDaily_ReturnsPivots(string symbol, string tf)
         {
             // Empirical champion at 1d on BTC/ETH = Pivots gate
-            // (ETH 1d 100% / 33% CI / +0.523R from round 4 face-rolling).
+            // (ETH 1d 100% / 33% CI / +0.523R from round 4 rolling-window).
             var preset = BuiltInStrategySeeds.GetV23LongPresetForAsset(symbol, tf);
             Assert.Equal(BuiltInStrategySeeds.LongV23pCipherBPivotsId, preset);
         }
