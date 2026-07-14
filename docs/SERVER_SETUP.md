@@ -171,9 +171,18 @@ the second layer behind it.
 
 ## Security checklist (hosted)
 
-- HTTPS only at nginx; `Secure` + `HttpOnly` + `SameSite=Lax` auth cookie (14-day sliding).
+- HTTPS only at nginx; `Secure` + `HttpOnly` + `SameSite=Lax` auth cookie (14-day sliding),
+  named `__Host-att.auth` since 2026-07 — the `__Host-` prefix pins it to the exact host
+  over HTTPS (Path=/, no Domain) and the neutral name drops the ASP.NET Identity
+  fingerprint. NOTE: deploying this rename signs every existing session out once.
   `SameSite=Lax` also blocks cross-site WebSocket hijacking of the Blazor circuit —
   browsers do not attach Lax cookies to cross-site WebSocket handshakes.
+- Identity lockout: 10 failed attempts → 15-minute cool-off, enforced for new accounts.
+  Sign-in shows the same generic message whether the password was wrong or the account
+  is locked (no enumeration oracle); the real reason is in the security event log,
+  which since 2026-07 records login success/failure/lockout and registration with the
+  real client IP (via `X-Forwarded-For`). Registration has a screen-reader-safe
+  honeypot and returns a generic message on duplicate email.
 - Response security headers are set by the app on every response (`SecurityHeadersPolicy`,
   added 2026-07): CSP (`script-src 'self'`, `frame-ancestors 'none'`),
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`,

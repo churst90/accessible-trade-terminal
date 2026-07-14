@@ -77,8 +77,8 @@ For oscillators (indicators that have a center line, such as MACD or RSI), the p
 
 The type of sound — its tonal color — changes based on where a value sits relative to key thresholds.
 
-- When an oscillator is above zero, it uses one waveform (such as a triangle wave, which sounds smooth and full).
-- When it is below zero, it switches to a different waveform (such as a sine wave, which sounds pure and clean).
+- Every sound is built on a warm sine base, with a slight coloring blended in rather than a whole different waveform.
+- When an oscillator is above its midline, the tone takes on a brighter, slightly reedy square coloring; below the midline it takes on a softer, warmer triangle coloring — so you can hear which side you are on without checking a number.
 - When a value pushes into an overbought or oversold zone on a bounded oscillator (RSI, Stochastics, MFI, CCI, Williams %R, or the Ultimate Oscillator), a noticeable noise texture roughens the tone so you can hear the extremity without checking a number. You can set how strong this roughness is per level with the Zone Texture slider in the indicator's properties dialog, under Reference Levels.
 
 This means you can often tell at a glance — or rather, at a listen — not just what the value is but where it sits relative to the structure of the indicator.

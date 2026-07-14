@@ -91,9 +91,14 @@ a MACD — pitch rises above a mid-point for positive readings and falls below i
 negative ones, so zero has a recognisable pitch you come to know by feel.
 
 The *kind* of sound — its timbre, the tonal colour rather than the pitch — tells you
-where a value sits relative to the structure that matters. An oscillator above its
-zero line uses one waveform and below it uses another, so you can hear which side of
-zero you are on without checking a number; and when a reading pushes into an
+where a value sits relative to the structure that matters. Every voice is built on a
+warm sine base with a slight coloring blended in, and the coloring carries the
+meaning: an oscillator takes on a brighter square tinge above its midline and a
+softer triangle warmth below it, so you can hear which side you are on without
+checking a number; a candle's body adds a deep sub-octave weight that grows with the
+body's size — a big conviction candle sounds *heavier* than a doji at the same
+loudness, so size reads as character rather than volume — and wicks ring as clean
+pings whose grit grows with their length. Meanwhile, and when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
 tone so the extremity itself is audible. It is a pronounced roughness, not a faint
