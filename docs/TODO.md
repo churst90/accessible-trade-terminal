@@ -4,6 +4,44 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-13] — 1.6.0 positioning & risk release
+
+Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
+
+### Shipped
+
+- [x] **CFTC COT provider** (11 contracts, free Socrata API, release-Friday stamping)
+  + **COT Positioning indicator** promoted from the lab (z26, ±1.5σ crowded markers,
+  per-asset interpretation) + **FINRA daily short-volume provider** (any US stock).
+- [x] **Trend Baseline strategy** — lab walk-forward survivor on all 4 assets tested;
+  **v23c Cipher+Trend+COT** seed with honest H1-weakness verdict in its description.
+- [x] **Setup announcements speak the full trade plan** (entry/stop/every TP rung);
+  armed/entry-reached/dropped stages journaled.
+- [x] **Warn-only risk hints**: liquidation-buffer check on leveraged entries; sector-
+  stacking note (2%-per-sector) on live review and paper fills. Never blocks.
+- [x] **Webhook alert channel** (Discord/Slack/custom JSON, HTTPS-only) + settings UI.
+- [x] **Cipher A retired** (IsDeprecated — hidden from Add dialog, saved workspaces
+  unaffected); Cipher C reframed as micro-cycle/failure context; Loukas [35,90] window
+  validated cross-asset, FY components suppressed on non-BTC charts.
+- [x] **StrategyLab de-branded** (battery / rolling-window verbs; zero third-party
+  references) + first lab unit tests (BootstrapCi, MarkerSideHelper, snapshot cache).
+- [x] Strategy display names rewritten user-readable with [vNN] tags (IDs stable).
+- [x] Brand logo everywhere; restart position reconciliation; settings fixes
+  (runtime version in About, working background-color override).
+- [x] Manual: new Strategy Lab section; positioning indicators, risk hints, webhook,
+  full-plan setup speech documented.
+
+### Follow-ups
+
+- [ ] FINRA Query API short-interest metric (needs free dev registration — Cody).
+- [ ] Tiered RiskPercent by setup quality (2-tier, evidence-based) in RiskPlan.
+- [ ] Sector risk governor as an optional *enforcing* mode (default stays warn-only).
+- [ ] Pre-registered lab test: wider ladder (3R/6R or trail) for the gated v23 variants.
+- [ ] Lab GUI tab in the Strategy modal (battery/rolling sweeps, spoken ranked results).
+- [ ] Live order-stream subscription audit (SubscribeOrderUpdatesAsync has no callers).
+
+---
+
 ## [2026-07-10] — Phase E test-debt closure (Finalization plan)
 
 Full detail in `CHANGES.md` [Unreleased]. Suite 1447/1447 xunit + 12/12 JS.

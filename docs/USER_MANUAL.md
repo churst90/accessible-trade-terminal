@@ -34,7 +34,7 @@ feature and understand what it is doing.
 4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap, the object tree
 5. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
-7. [Automation](#automation) — alerts, strategies, custom scripts
+7. [Automation](#automation) — alerts, strategies, custom scripts, the Strategy Lab
 8. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
 9. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
 10. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
@@ -207,7 +207,8 @@ Trading/Analytics switch — picking **Analytics** in the Market dropdown is how
 cross over. When you do, an extra **Analytics type** selector appears right after
 Market offering Economic, OnChain, Derivatives, and Sentiment; choose one and the
 Provider and Symbol lists refill with that category's sources (FRED economic series,
-on-chain metrics, funding/open-interest, Fear & Greed, and so on). For everything else
+on-chain metrics, funding/open-interest, Fear & Greed, weekly CFTC fund positioning,
+daily short-sale volume for any US stock, and so on). For everything else
 — actual markets you can trade — you simply never touch the Analytics entry. One consequence worth understanding: moving through this cascade does not
 speak on its own — the terminal repopulates the dropdowns silently, and it is your
 screen reader, reading each list as you open it with the arrow keys, that tells you
@@ -538,7 +539,8 @@ playback itself.
 ### Adding and tuning indicators
 
 Press Alt+A to open the Add Indicator dialog. Indicators are grouped into categories
-— Multi-Signal, Trend, Momentum, Volatility, Volume, and Profiles — and you move
+— Multi-Signal, Trend, Momentum, Cycles, Positioning, Derivatives, Volatility,
+Volume, and Profiles — and you move
 through the category and indicator lists with the arrow keys and add one with Enter.
 A new indicator arrives with audio properties already chosen for its type, so it is
 immediately playable; you can refine them later.
@@ -557,7 +559,24 @@ periods, smoothing, thresholds — and, per component, the things that shape how
 heard: the waveform that colours its continuous tone, the bell patch that rings on
 its signal events, and its relative volume. A "Save as Defaults" option stores your
 preferences so the next indicator of that type starts already configured the way you
-like. Tab and the arrow keys move through the dialog and your screen reader reads
+like.
+
+**Positioning indicators — who actually holds what.** Two 1.6.0 additions read
+official positioning data instead of price. **COT Positioning** (Positioning
+category) speaks the weekly CFTC report — hedge-fund net position as a 26-week
+z-score, with "crowded long" and "crowded short" bells at the ±1.5-sigma extremes —
+and picks the right futures contract from whatever chart you are on (gold, silver,
+copper, oil, gas, Bitcoin, Ether, the S&P, the Nasdaq, the euro, the dollar index).
+Its detail facts tell you honestly where the signal has tested well (contrarian on
+gold, a dip-buy gate on equity indices) and where it has not (CME crypto, FX). For
+individual stocks, load the **FINRA** analytics provider and chart
+`{TICKER}_SHORTVOL` — the share of each day's volume that was sold short, a daily
+crowding gauge for any US equity. Both sources are free and need no key.
+
+**A note on Cipher A.** As of 1.6.0 Cipher A is retired from the Add Indicator
+dialog: its engine is the same WaveTrend as Cipher B, so it added no independent
+information. Saved workspaces and strategies that use it keep working exactly as
+before — it is hidden from the menu, not removed from the terminal. Tab and the arrow keys move through the dialog and your screen reader reads
 every label and value.
 
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
@@ -868,7 +887,16 @@ Paper orders submit the instant you activate the submit button. **Live** orders 
 not — they get a spoken safety review first. When you submit on a live profile, the
 terminal speaks a one-line summary — "Confirm: {side} {qty} {symbol}, {type}. Stop
 {price}. Target {price}. Estimated cost {amount}, fee {amount}. Confirm or cancel." —
-and replaces the submit button with **Confirm** and **Cancel**. Nothing reaches the
+and replaces the submit button with **Confirm** and **Cancel**. The review also
+carries two warn-only risk checks. On a leveraged entry it estimates the liquidation
+distance and compares it with your stop: if the exchange could close the trade
+before your stop fires you hear a plain warning to reduce leverage, and if the
+buffer is under two stop-distances you hear a caution. And if the order stacks onto
+open positions in the same sector — Bitcoin and Ether are one bet, gold and silver
+are one bet, SPY and QQQ are one bet — a sector note reminds you that correlated
+exposure counts toward one 2-percent-per-sector risk budget. Neither ever blocks
+the order; the terminal informs, you decide. (Paper fills speak the sector note
+too, so the habit forms where the money is pretend.) Nothing reaches the
 exchange until you activate Confirm; Cancel backs out with "Order canceled before
 submit." It is the deliberate pause that a real-money order deserves, and it is on
 automatically whenever you are live.
@@ -968,9 +996,12 @@ When an alert fires it reaches you immediately. Per its Delivery setting it spea
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
 {value}." — and/or plays an alert earcon, and the event is written to the Journal so
 you can read it back. Alerts are never gated by your speech or sonification toggles —
-a condition you asked to be told about will always tell you. If you have set up email
-or Telegram in Settings (under the alerts options), fired alerts are sent there too,
-so you can be notified away from the keyboard.
+a condition you asked to be told about will always tell you. If you have set up email,
+Telegram, or a webhook in Settings (under the alerts options), fired alerts are sent
+there too, so you can be notified away from the keyboard. The webhook channel takes
+any HTTPS endpoint: paste a Discord or Slack webhook URL and alerts appear in that
+channel with no bot setup, or point it at a custom service to receive the alert as
+structured JSON.
 
 ### Strategies
 
@@ -990,8 +1021,12 @@ to the engine marks it to re-load on the next launch, so your strategies survive
 restart.
 
 A running strategy talks to you as its state changes. When its conditions line up it
-rings a setup bell and speaks the rationale — "Long setup, score 0.85. Stop 49,500,
-first target 51,000 (R:R 2.50). {why}." — and if the entry is conditional you will
+rings a setup bell — a bright ascending chord for longs, a heavy descending chord
+for shorts, unlike any other sound in the terminal — and speaks the complete trade
+plan: "Long setup, {strategy name}, score 0.85. Entry 50,000, stop 49,500, target 1
+51,000, target 2 52,500 (R:R 2.50). {why}." Every ladder rung is spoken, so you can
+hand the order to the strategy or place it yourself, manually, from what you just
+heard. — and if the entry is conditional you will
 hear it arm ("waiting for {trigger}") and then report when the trigger is reached.
 While the setup holds it heartbeats a quieter reconfirmation, and if a condition drops
 away it names what fell off. It also tells you when it is not yet ready: "indicators
@@ -1118,6 +1153,47 @@ set the environment variable `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1`; the
 terminal will honour it, and it records a security event every time a script runs that
 way so the decision is never invisible.
 
+### The Strategy Lab
+
+Everything above runs inside the terminal. The **Strategy Lab** is a separate,
+optional command-line research harness that ships in the same repository — the place
+where strategy ideas are tested *before* they earn a spot in the application. The
+division of labor is deliberate: the lab is for research, the terminal is for
+trading. Nothing you run in the lab touches your workspaces, keys, or positions, and
+nothing in the terminal depends on the lab being present. When a lab experiment
+survives validation, its logic is promoted into the terminal as a built-in strategy
+or indicator — that is where the built-in strategies' bracketed research tags
+([v13], [v23] and so on) come from, and why each one's description quotes its actual
+walk-forward record, including the weak spots.
+
+You do not need the lab to validate a strategy day-to-day: the Strategy Manager's
+**Backtest** tab has walk-forward first-half / last-half buttons built in, which is
+the same honesty check in point-and-speak form. Reach for the lab when you want the
+heavier machinery — testing dozens of gate combinations at once, or stress-testing
+across many rolling windows instead of one split.
+
+The lab is run from a terminal window with the .NET SDK installed, from the
+repository root. `dotnet run --project AccessibleTrader.StrategyLab -- help` lists
+every command; the ones that matter:
+
+- `snapshot` — download bar history for a symbol into `strategy-lab-data/` (the
+  lab always works from these saved snapshots, so experiments are reproducible).
+- `cftc-cot` — download CFTC positioning history for named contracts.
+- `run` / `walk` — backtest one built-in strategy by its id against a snapshot;
+  `walk` splits the data in half and reports each half separately, which is the
+  minimum standard of evidence used throughout this project.
+- `battery` — run the full grid of entry/gate combinations against a snapshot and
+  report which cells survive both halves with statistical confidence.
+- `rolling-window` — the strictest test: the same battery across many overlapping
+  windows, reporting how *consistently* each cell wins, not just whether it won
+  once.
+
+A typical session: fetch a snapshot, `walk` a strategy id you are curious about,
+and read the two halves side by side. If the first half and the second half
+disagree, the lab just saved you from a strategy that only worked in one era —
+which is precisely its job. All output is plain console text, fully readable with
+a screen reader, and per-trade CSVs are written for deeper review.
+
 ---
 
 ## Customizing
@@ -1137,7 +1213,7 @@ announces each new bar as it closes (the rolling "Close … New bar …" you met
 first loaded a market). It is also where you switch **paper trading mode** on, and
 where, on the desktop heads, you set the audio engine's latency. An appearance section
 sets the theme and chart colours — most relevant to a sighted collaborator looking
-over your shoulder — and an alerts section holds the email and Telegram delivery
+over your shoulder — and an alerts section holds the email, Telegram, and webhook delivery
 details that let fired alerts reach you away from the keyboard. Changes apply when you
 close the dialog.
 

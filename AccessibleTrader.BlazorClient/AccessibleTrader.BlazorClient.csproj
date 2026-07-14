@@ -37,7 +37,7 @@
         <!-- Versions — display version inherits from Directory.Build.props;
              ApplicationVersion is the store build counter, bumped per submission. -->
         <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
-        <ApplicationVersion>8</ApplicationVersion>
+        <ApplicationVersion>9</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>

@@ -787,4 +787,10 @@ If you are opening Accessible Trader for the first time, here is a recommended s
 6. Press F1 to open the help dialog and explore the full shortcut reference.
 7. Press Alt+A to open the Add Indicator dialog and add one indicator to get familiar with the workflow.
 
+When you are ready to go deeper, the [User Manual](USER_MANUAL.md) covers trading,
+alerts (including Discord/Slack webhooks), automated strategies with spoken trade
+plans, and the Strategy Lab — the command-line research harness where strategies are
+validated before they ship (see the manual's Automation chapter for how the lab and
+the terminal divide the work).
+
 Welcome to Accessible Trader.
