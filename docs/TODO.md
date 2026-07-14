@@ -33,6 +33,18 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ### Follow-ups
 
+- [ ] **Auth: password-reset flow** — blocked on outbound email. Option B first
+  (admin-mediated reset token via trusted channel, ~0.5d, no infra), option A
+  (msmtp → Postmark/SES + ForgotPassword pages, ~1-1.5d incl. SPF/DKIM DNS)
+  when transactional email is wanted anyway. Also the only full fix for the
+  residual registration enumeration oracle (redirect-vs-error).
+- [ ] **Auth: HaveIBeenPwned password validator** — k-anonymity range API,
+  fail-open, needs outbound-HTTPS egress confirmed from the VPS first (~0.5d).
+- [ ] **Auth: optional TOTP 2FA** — token providers already registered; cost is
+  accessible enrollment UX (QR + copyable text key), LoginWith2fa + recovery
+  codes (~1.5-2d). Best next auth step — no new infrastructure.
+- [ ] **Ops: systemd `UMask=0077`** drop-in on the hosted unit so future files
+  (auth.db recreations, security logs) default private (~5 min, not a repo change).
 - [ ] FINRA Query API short-interest metric (needs free dev registration — Cody).
 - [ ] Tiered RiskPercent by setup quality (2-tier, evidence-based) in RiskPlan.
 - [ ] Sector risk governor as an optional *enforcing* mode (default stays warn-only).

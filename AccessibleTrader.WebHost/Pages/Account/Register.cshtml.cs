@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,14 +15,22 @@ namespace AccessibleTrader.WebHost.Pages.Account
     {
         private readonly UserManager<AppUser> _users;
         private readonly SignInManager<AppUser> _signIn;
+        private readonly ISecurityEventLog _audit;
 
-        public RegisterModel(UserManager<AppUser> users, SignInManager<AppUser> signIn)
+        public RegisterModel(UserManager<AppUser> users, SignInManager<AppUser> signIn, ISecurityEventLog audit)
         {
             _users = users;
             _signIn = signIn;
+            _audit = audit;
         }
 
         [BindProperty] public InputModel Input { get; set; } = new();
+
+        // Honeypot. Real users never see or fill this (it is visually-hidden,
+        // aria-hidden and out of the tab order); bots that fill every field trip
+        // it. Not part of InputModel so it carries no validation attributes.
+        [BindProperty] public string? Website { get; set; }
+
         public List<string> Errors { get; } = new();
 
         public class InputModel
@@ -43,6 +52,17 @@ namespace AccessibleTrader.WebHost.Pages.Account
         {
             if (!ModelState.IsValid) return Page();
 
+            // Honeypot tripped — almost certainly a bot. Silently drop the
+            // submission without creating an account, mimicking the success
+            // redirect so the bot gets no signal that it was rejected.
+            if (!string.IsNullOrEmpty(Website))
+                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+
+            var email = Input.Email?.Trim() ?? "";
+            // RemoteIpAddress sits behind the already-configured forwarded-headers
+            // middleware, so this is the real client IP, not nginx's.
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
             var user = new AppUser
             {
                 UserName = Input.Email,   // email is the username (RequireUniqueEmail)
@@ -54,11 +74,29 @@ namespace AccessibleTrader.WebHost.Pages.Account
             var result = await _users.CreateAsync(user, Input.Password);
             if (result.Succeeded)
             {
+                _audit.Record(new SecurityEvent(
+                    DateTime.UtcNow, SecurityEventKind.AuthRegistration, "auth",
+                    "New account registered.",
+                    new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
                 await _signIn.SignInAsync(user, isPersistent: false);
                 return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
             }
 
-            Errors.AddRange(result.Errors.Select(e => e.Description));
+            // Map a duplicate email/username to a generic failure so registration
+            // does not confirm that an address is already registered (an
+            // enumeration oracle). Preserve every other validation message
+            // (e.g. weak password) verbatim so users can still self-correct.
+            bool duplicate = false;
+            foreach (var e in result.Errors)
+            {
+                if (e.Code is "DuplicateEmail" or "DuplicateUserName")
+                    duplicate = true;
+                else
+                    Errors.Add(e.Description);
+            }
+            if (duplicate)
+                Errors.Add("We couldn't create your account with those details. Please check your information and try again.");
+
             return Page();
         }
     }

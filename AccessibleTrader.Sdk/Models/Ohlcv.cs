@@ -48,5 +48,5 @@ namespace AccessibleTrader.Sdk.Models
     /// <param name="CrossDirection">Set when the value crossed a reference / OB / OS level on this bar,
     /// for firing a directional cross earcon: +1 = crossed upward, -1 = crossed downward, 0 = no cross.
     /// Inherits the same PlayEarcon / subscription gating as <c>TriggerClick</c>.</param>
-    public readonly record struct AudioPoint(double Frequency, float Volume, string Waveform, double Pan, string EnvelopeType = "Sustain", bool TriggerClick = false, double ReferenceLevel = 0, float NoiseAmount = 0f, string? PatchId = null, string NoiseType = "pink", IReadOnlyList<OscillatorLayer>? PatchLayers = null, int CrossDirection = 0);
+    public readonly record struct AudioPoint(double Frequency, float Volume, string Waveform, double Pan, string EnvelopeType = "Sustain", bool TriggerClick = false, double ReferenceLevel = 0, float NoiseAmount = 0f, string? PatchId = null, string NoiseType = "pink", IReadOnlyList<OscillatorLayer>? PatchLayers = null, int CrossDirection = 0, float SquareMix = 0f, float SawMix = 0f, float TriangleMix = 0f, float SubSawMix = 0f);
 }

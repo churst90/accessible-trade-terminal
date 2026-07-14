@@ -57,7 +57,8 @@ public class CrossEarconTests
 #pragma warning restore CS0067
         public void SetVoice(int slot, double frequency, float volume, float pan, string waveform,
             bool continuous, double durationSeconds = 0.2, int dataIndex = -1, string envelope = "Sustain",
-            bool click = false, float noiseAmount = 0f, string noiseType = "pink")
+            bool click = false, float noiseAmount = 0f, string noiseType = "pink", float squareMix = 0f, float sawMix = 0f,
+            float triangleMix = 0f, float subSawMix = 0f)
             => Calls.Add(new Call(slot, frequency, envelope));
         public void StopVoice(int slot) { }
         public void StopAll() { }

@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +13,13 @@ namespace AccessibleTrader.WebHost.Pages.Account
     public class LoginModel : PageModel
     {
         private readonly SignInManager<AppUser> _signIn;
-        public LoginModel(SignInManager<AppUser> signIn) => _signIn = signIn;
+        private readonly ISecurityEventLog _audit;
+
+        public LoginModel(SignInManager<AppUser> signIn, ISecurityEventLog audit)
+        {
+            _signIn = signIn;
+            _audit = audit;
+        }
 
         [BindProperty] public InputModel Input { get; set; } = new();
         public string? Error { get; set; }
@@ -33,16 +42,44 @@ namespace AccessibleTrader.WebHost.Pages.Account
         {
             if (!ModelState.IsValid) return Page();
 
+            var email = Input.Email?.Trim() ?? "";
+            // RemoteIpAddress sits behind the already-configured forwarded-headers
+            // middleware, so this is the real client IP, not nginx's.
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
             // Users register with email as their username, so sign in by email.
             var result = await _signIn.PasswordSignInAsync(
-                Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+                email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
             if (result.Succeeded)
+            {
+                _audit.Record(new SecurityEvent(
+                    DateTime.UtcNow, SecurityEventKind.AuthLoginSucceeded, "auth",
+                    "Sign-in succeeded.",
+                    new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
                 return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+            }
 
-            Error = result.IsLockedOut
-                ? "This account is temporarily locked after too many failed attempts. Please try again later."
-                : "Email or password is incorrect.";
+            if (result.IsLockedOut)
+            {
+                _audit.Record(new SecurityEvent(
+                    DateTime.UtcNow, SecurityEventKind.AuthLockout, "auth",
+                    "Sign-in refused: account locked out after too many failed attempts.",
+                    new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
+            }
+            else
+            {
+                _audit.Record(new SecurityEvent(
+                    DateTime.UtcNow, SecurityEventKind.AuthLoginFailed, "auth",
+                    "Sign-in failed: invalid credentials.",
+                    new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
+            }
+
+            // Show the SAME generic message for the locked-out and wrong-credentials
+            // branches. A distinct "account is locked" message would confirm the
+            // address is registered (an enumeration oracle); the real reason is kept
+            // only in the audit log above.
+            Error = "Email or password is incorrect.";
             return Page();
         }
     }

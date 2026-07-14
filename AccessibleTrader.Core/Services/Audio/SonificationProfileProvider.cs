@@ -35,13 +35,25 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (role == ComponentRole.Wick || displayType == ComponentDisplayType.Wick)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.None, 440, 1.0, false, "Ping");
 
-        // 3. Bars and Histograms: sharp square wave
-        if (role == ComponentRole.Histogram || role == ComponentRole.Volume || displayType == ComponentDisplayType.Bar || displayType == ComponentDisplayType.Histogram)
-            return new SonificationProfile("square", "square", "square", AmplitudeMapping.Size, PitchMapping.PriceDirection, 440, 1.0, false, "Sustain");
+        // 3a. Volume bars: base SINE with a light sawtooth partial mixed in (SawMix ∝ bar size,
+        //     set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as GRIT, not
+        //     loudness — quiet bars stay clearly audible instead of dropping toward silence. Low
+        //     base pitch (330 Hz) seats it under the candle body / price line as its own distinct
+        //     instrument, and a sustained envelope makes it a continuous bed during playback.
+        if (role == ComponentRole.Volume)
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 330, 1.0, false, "Sustain");
 
-        // 4. Oscillators: triangle above, sine below
+        // 3b. Histograms and other bars: base SINE with a fixed square partial (reedy character,
+        //     set in CreateAudioPoint) plus saw ∝ magnitude — a distinct timbre from the volume
+        //     bed, so the two never blur together when both sound during playback.
+        if (role == ComponentRole.Histogram || displayType == ComponentDisplayType.Bar || displayType == ComponentDisplayType.Histogram)
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.Size, PitchMapping.PriceDirection, 440, 1.0, false, "Sustain");
+
+        // 4. Oscillators: base SINE; above/below the reference level are differentiated by a
+        //     sawtooth partial (SawMix set in CreateAudioPoint when val ≥ ReferenceLevel), not by
+        //     swapping the whole waveform — so it's bright/gritty above and pure sine below.
         if (displayType == ComponentDisplayType.Oscillator)
-            return new SonificationProfile("triangle", "triangle", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, true, "Sustain");
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, true, "Sustain");
 
         // 5. Dot / Arrow: transient Ping earcon, direction-mapped pitch.
         //     Sparse signal markers — one earcon per signal bar, silence on NaN bars.
@@ -53,7 +65,11 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         // DeltaFromPrice amplitude: body volume scales with |close-open|/(high-low) ratio
         // so a doji is quiet and a marubozu is loud, viewport-normalized (no absolute-price floor issue).
         if (displayType == ComponentDisplayType.Candle)
-            return new SonificationProfile("square", "square", "square", AmplitudeMapping.DeltaFromPrice, PitchMapping.Direction, 440, 1.0, false, "Sustain");
+            // Base SINE with a fixed square partial + saw ∝ body size (set in CreateAudioPoint):
+            // a distinct "body" timbre vs the pure-sine price line, where body size reads as GRIT
+            // rather than loudness (loudness held constant so a doji and a marubozu are equally
+            // present, differing in character).
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.Direction, 440, 1.0, false, "Sustain");
 
         // 5. Static levels: quiet low sine
         if (displayType == ComponentDisplayType.Level)

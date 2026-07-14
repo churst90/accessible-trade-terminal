@@ -37,6 +37,13 @@
             }
 
             <form method="post">
+                @* Honeypot: hidden from real users (visually-hidden + aria-hidden +
+                   out of the tab order). Bots that fill every field trip it and are
+                   silently rejected server-side. Not a validated field. *@
+                <div class="visually-hidden" aria-hidden="true">
+                    <label for="Website">Leave this field blank</label>
+                    <input asp-for="Website" type="text" tabindex="-1" autocomplete="off" />
+                </div>
                 <div class="auth-field">
                     <label asp-for="Input.Email">Email</label>
                     <input class="auth-input" asp-for="Input.Email" type="email" autocomplete="username" autofocus aria-describedby="email-err" />

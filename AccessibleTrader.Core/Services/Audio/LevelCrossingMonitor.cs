@@ -50,12 +50,12 @@ namespace AccessibleTrader.Core.Services.Audio
         // Tier 1 chime: high, short, quiet. Amplitude scales with proximity.
         private const double Tier1Freq = 1400.0;
         private const double Tier1Dur = 0.08;
-        private const float Tier1BaseVol = 0.15f;
+        private const float Tier1BaseVol = 0.32f;   // audible above the bed (was 0.15)
 
         // Tier 3 confirmation: low, slightly longer, steady.
         private const double Tier3Freq = 220.0;
         private const double Tier3Dur = 0.25;
-        private const float Tier3Vol = 0.20f;
+        private const float Tier3Vol = 0.42f;   // audible above the bed (was 0.20)
 
         internal class LevelTrackerState
         {

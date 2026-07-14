@@ -34,12 +34,23 @@ namespace AccessibleTrader.Core.Services.Audio
         public float NoiseAmount;
         /// <summary>Noise colour: "white" (raw), "pink" (one-pole filtered), "brown" (heavier filtered).</summary>
         public string NoiseType;
+        /// <summary>Additive square-wave partial amount [0,∞] mixed into the base waveform. 0 = none.</summary>
+        public float SquareMix;
+        /// <summary>Additive sawtooth partial amount [0,∞] mixed into the base waveform. 0 = none.</summary>
+        public float SawMix;
+        /// <summary>Additive triangle partial amount [0,∞] mixed into the base waveform. 0 = none.</summary>
+        public float TriangleMix;
+        /// <summary>Additive sub-octave sawtooth partial amount [0,∞] (one octave down). 0 = none.</summary>
+        public float SubSawMix;
     }
 
     internal class OscillatorVoice
     {
         public int Slot { get; set; }
         public double Phase { get; set; }
+        /// <summary>Independent phase accumulator for the sub-octave sawtooth partial
+        /// (advances at half <see cref="CurrentFrequency"/> → one octave down).</summary>
+        public double SubPhase { get; set; }
 
         public double TargetFrequency { get; set; }
         public float TargetVolume { get; set; }
@@ -67,6 +78,21 @@ namespace AccessibleTrader.Core.Services.Audio
         public float NoiseState { get; set; }
         /// <summary>Two-pole filter state for brown noise generation.</summary>
         public float NoiseState2 { get; set; }
+
+        /// <summary>Additive square-wave partial amount mixed into the base waveform (normalized blend).</summary>
+        public float SquareMix { get; set; }
+        /// <summary>Additive sawtooth partial amount mixed into the base waveform (normalized blend).</summary>
+        public float SawMix { get; set; }
+        /// <summary>Additive triangle partial amount mixed into the base waveform (normalized blend).</summary>
+        public float TriangleMix { get; set; }
+        /// <summary>Additive sub-octave sawtooth partial amount mixed into the base waveform (normalized blend).</summary>
+        public float SubSawMix { get; set; }
+
+        /// <summary>Per-voice attack/release fade gain [0,1]. Ramps 0→1 on (re)start and
+        /// 1→0 on release over FADE_ENV_SAMPLES so onsets/offsets never snap (declick).</summary>
+        public float FadeGain { get; set; }
+        /// <summary>True while the voice is fading out toward deactivation.</summary>
+        public bool Releasing { get; set; }
     }
 
     public class AudioEngine
@@ -151,8 +177,11 @@ namespace AccessibleTrader.Core.Services.Audio
         private readonly Random _rng = new();
 
         private int _sampleRate = 44100;
-        private const int GLIDE_SAMPLES = 220; 
-        private const int ENVELOPE_SAMPLES = 220;
+        // Per-voice attack/release fade length (~12 ms @44.1k). Applied to EVERY voice —
+        // including continuous playback voices — so note onsets/offsets ramp instead of
+        // snapping, which removes the inter-note clicks heard at slow playback speeds.
+        private const int FADE_ENV_SAMPLES = 530;
+        private const int ENVELOPE_SAMPLES = 530;
         private const int FADE_SAMPLES = 882;
 
         private float _masterGain = 1.0f;
@@ -175,7 +204,7 @@ namespace AccessibleTrader.Core.Services.Audio
             _targetMasterGain = Math.Clamp(gain, 0.0f, 1.0f);
         }
 
-        public void SetVoice(int slot, double freq, float vol, float pan, string wave, bool continuous, double durationSec, int dataIndex = -1, string envelope = "Sustain", bool click = false, float noiseAmount = 0f, string noiseType = "pink")
+        public void SetVoice(int slot, double freq, float vol, float pan, string wave, bool continuous, double durationSec, int dataIndex = -1, string envelope = "Sustain", bool click = false, float noiseAmount = 0f, string noiseType = "pink", float squareMix = 0f, float sawMix = 0f, float triangleMix = 0f, float subSawMix = 0f)
         {
             if (slot < 0 || slot >= _voices.Length) return;
 
@@ -194,7 +223,11 @@ namespace AccessibleTrader.Core.Services.Audio
                 DurationSamples = durationSec * _sampleRate,
                 DataIndex = dataIndex, IsActive = true,
                 NoiseAmount = Math.Max(0f, noiseAmount),
-                NoiseType = noiseType ?? "pink"
+                NoiseType = noiseType ?? "pink",
+                SquareMix = Math.Max(0f, squareMix),
+                SawMix = Math.Max(0f, sawMix),
+                TriangleMix = Math.Max(0f, triangleMix),
+                SubSawMix = Math.Max(0f, subSawMix)
             });
         }
 
@@ -300,10 +333,10 @@ namespace AccessibleTrader.Core.Services.Audio
                     var voice = _voices[i];
                     if (!cmd.IsActive)
                     {
-                        voice.IsActive = false;
-                        voice.TargetVolume = 0;
+                        // Begin a short release fade instead of snapping to silence (declick).
+                        // The per-frame loop ramps FadeGain→0, then deactivates the voice.
+                        voice.Releasing = true;
                         voice.Continuous = false;
-                        voice.Phase = 0;
                         continue;
                     }
 
@@ -318,17 +351,24 @@ namespace AccessibleTrader.Core.Services.Audio
                     voice.EnvelopeType = cmd.EnvelopeType;
                     voice.NoiseAmount = cmd.NoiseAmount;
                     voice.NoiseType = cmd.NoiseType ?? "pink";
-                    
+                    voice.SquareMix = cmd.SquareMix;
+                    voice.SawMix = cmd.SawMix;
+                    voice.TriangleMix = cmd.TriangleMix;
+                    voice.SubSawMix = cmd.SubSawMix;
+
                     if (cmd.TriggerClick || !voice.IsActive)
                     {
                         voice.Phase = 0;
+                        voice.SubPhase = 0;
                         voice.CurrentFrequency = cmd.Frequency;
                         voice.CurrentPan = cmd.Pan;
                         voice.CurrentVolume = cmd.Volume;
+                        voice.FadeGain = 0f;   // fade in from silence → no onset click
                     }
                     // else: active voice — current values are the glide start point; the
                     // per-frame exponential convergence in Read() handles the smooth transition.
 
+                    voice.Releasing = false;   // (re)activated — cancel any pending release fade
                     voice.IsActive = true;
                 }
             }
@@ -360,6 +400,19 @@ namespace AccessibleTrader.Core.Services.Audio
                     var v = _voices[i];
                     if (!v.IsActive) continue;
 
+                    // Per-voice attack/release fade — applies to ALL voices incl. continuous,
+                    // so onsets/offsets ramp over ~12 ms instead of snapping (declick).
+                    const float FADE_STEP = 1f / FADE_ENV_SAMPLES;
+                    if (v.Releasing)
+                    {
+                        v.FadeGain -= FADE_STEP;
+                        if (v.FadeGain <= 0f) { v.FadeGain = 0f; v.IsActive = false; v.Releasing = false; continue; }
+                    }
+                    else if (v.FadeGain < 1f)
+                    {
+                        v.FadeGain = Math.Min(1f, v.FadeGain + FADE_STEP);
+                    }
+
                     // GLIDE: Exponential convergence to target values
                     v.CurrentFrequency += (v.TargetFrequency - v.CurrentFrequency) * GLIDE_FACTOR;
                     v.CurrentPan += (v.TargetPan - v.CurrentPan) * GLIDE_FACTOR;
@@ -379,8 +432,11 @@ namespace AccessibleTrader.Core.Services.Audio
                         else if (v.RemainingSamples < ENVELOPE_SAMPLES)
                             renderVolume = (float)(v.TargetVolume * (v.RemainingSamples / ENVELOPE_SAMPLES));
                     }
-                    
-                    float sample = v.Waveform switch
+
+                    // Apply the per-voice attack/release fade on top of any note envelope.
+                    renderVolume *= v.FadeGain;
+
+                    float baseSample = v.Waveform switch
                     {
                         WaveformType.Sine     => (float)Math.Sin(v.Phase),
                         WaveformType.Square   => v.Phase < Math.PI ? 1.0f : -1.0f,
@@ -389,6 +445,24 @@ namespace AccessibleTrader.Core.Services.Audio
                         WaveformType.Noise    => 0.0f, // Pure noise: base sample is 0; noise path below provides signal
                         _                     => (float)Math.Sin(v.Phase)
                     };
+
+                    // Additive partials: mix square/saw shapes into the base (usually sine) so a
+                    // single voice can be "mostly sine with a touch of grit". Normalized weighted
+                    // sum keeps peak amplitude bounded regardless of the mix amounts.
+                    float sample = baseSample;
+                    if (v.SquareMix > 0f || v.SawMix > 0f || v.TriangleMix > 0f || v.SubSawMix > 0f)
+                    {
+                        float squareSample = v.Phase < Math.PI ? 1.0f : -1.0f;
+                        float sawSample = (float)(2.0 * (v.Phase / (2.0 * Math.PI)) - 1.0);
+                        float triSample = (float)(Math.Abs((v.Phase / Math.PI) % 2 - 1) * 2 - 1);
+                        float subSawSample = (float)(2.0 * (v.SubPhase / (2.0 * Math.PI)) - 1.0);
+                        sample = (baseSample
+                                  + v.SquareMix * squareSample
+                                  + v.TriangleMix * triSample
+                                  + v.SawMix * sawSample
+                                  + v.SubSawMix * subSawSample)
+                                 / (1f + v.SquareMix + v.TriangleMix + v.SawMix + v.SubSawMix);
+                    }
 
                     // Noise texturing: additive noise layered on top of the oscillator.
                     // "white" = raw white noise; "pink" = one-pole filtered; "brown" = heavier filtered.
@@ -420,13 +494,19 @@ namespace AccessibleTrader.Core.Services.Audio
                         sample = sample + noiseAmt * noiseSignal;
                     }
 
-                    // Panning (Linear)
+                    // Panning (equal-power): constant perceived loudness as the sound sweeps
+                    // left→right, so the time axis doesn't dip ~6 dB through the centre.
                     float p = (Math.Clamp(v.CurrentPan, -1.0f, 1.0f) + 1.0f) / 2.0f;
-                    leftSum += sample * renderVolume * (1.0f - p);
-                    rightSum += sample * renderVolume * p;
+                    double panAngle = p * (Math.PI / 2.0);
+                    leftSum += sample * renderVolume * (float)Math.Cos(panAngle);
+                    rightSum += sample * renderVolume * (float)Math.Sin(panAngle);
 
                     v.Phase += 2.0 * Math.PI * v.CurrentFrequency / _sampleRate;
                     if (v.Phase >= 2.0 * Math.PI) v.Phase -= 2.0 * Math.PI;
+
+                    // Sub-octave sawtooth phase: advances at half frequency (one octave down).
+                    v.SubPhase += Math.PI * v.CurrentFrequency / _sampleRate;
+                    if (v.SubPhase >= 2.0 * Math.PI) v.SubPhase -= 2.0 * Math.PI;
 
                     if (!v.Continuous)
                     {

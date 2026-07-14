@@ -104,3 +104,6 @@ strategy-lab-data/ml/*.csv
 
 # Business plan — personal/RSB/PASS materials, discussion only, not for public repo.
 accessible trade terminal business plan/
+
+# Patch handoff inbox — applied patches live in git history, not here.
+patches/

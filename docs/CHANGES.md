@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Auth hardening + warmer sound palette (2026-07-14)
+
+**Hosted-accounts auth hardening** (from the reviewed auth-hardening patch):
+security-event audit trail for sign-in success/failure/lockout and registration
+(with real client IPs via the forwarded-headers pipeline); 15-minute lockout
+cool-off enforced for new accounts; session cookie renamed to `__Host-att.auth`
+(host-pinned, HTTPS-only, drops the ASP.NET Identity fingerprint); account-
+enumeration oracles closed (locked-out sign-ins and duplicate-email
+registrations both return generic messages — the real reason lives only in the
+audit log); and a registration honeypot that is invisible to sighted users AND
+screen readers (visually-hidden, aria-hidden, out of the tab order). Deferred
+follow-ups (password reset, HIBP validator, TOTP 2FA, systemd UMask) are
+tracked in TODO.md with options and estimates.
+
+**Warmer, unified sound palette** (from the reviewed sound-design patch): the
+audio engine gains four additive partials per voice (square, triangle, saw, and
+a sub-octave saw with its own phase accumulator), a 12 ms attack/release fade
+on every voice (no onset clicks), and equal-power panning (no mid-sweep volume
+dip). Every component is now base sine with slight coloring: price line gets
+triangle+square warmth over a brown-noise haze; candle bodies carry sub-octave
+weight proportional to body size (size reads as timbre, loudness stays flat);
+wicks are pure sine pings with grit proportional to length; volume is a
+brown-tinged bed with growing sub-octave texture; oscillators split
+triangle-below / square-above the midline (no more harsh same-octave saw).
+Event sounds rebalanced louder than the bed (cross earcons 0.22→0.5, level
+tiers up, setup bells 0.14→0.28). User Sound Designer patches are untouched —
+partials only apply to the built-in role palette.
+
 ## [1.6.0] — 2026-07-13
 
 The **positioning & risk release**: institutional positioning data (CFTC COT for

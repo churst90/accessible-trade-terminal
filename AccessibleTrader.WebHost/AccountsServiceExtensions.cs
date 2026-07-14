@@ -66,6 +66,8 @@ namespace AccessibleTrader.WebHost
                     o.User.RequireUniqueEmail = true;
                     o.SignIn.RequireConfirmedAccount = false;    // no transactional email wired yet
                     o.Lockout.MaxFailedAccessAttempts = 10;      // brute-force guard
+                    o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15); // cool-off after the limit
+                    o.Lockout.AllowedForNewUsers = true;         // enforce lockout for accounts created here
                 })
                 .AddEntityFrameworkStores<AuthDbContext>()
                 .AddSignInManager()
@@ -86,6 +88,12 @@ namespace AccessibleTrader.WebHost
                 o.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
                 o.Cookie.HttpOnly = true;
                 o.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
+                // Neutral cookie name (drops the default ".AspNetCore.Identity.Application"
+                // fingerprint). The __Host- prefix pins the cookie to this exact host over
+                // HTTPS and requires Secure + Path=/ + no Domain — Secure is already set
+                // above, so lock Path to "/" and leave Domain unset to satisfy the prefix.
+                o.Cookie.Name = "__Host-att.auth";
+                o.Cookie.Path = "/";
                 o.SlidingExpiration = true;
                 o.ExpireTimeSpan = TimeSpan.FromDays(14);
             });

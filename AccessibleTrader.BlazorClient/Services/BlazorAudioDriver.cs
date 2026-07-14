@@ -308,11 +308,12 @@ namespace AccessibleTrader.BlazorClient.Services
 
         public void SetVoice(int slot, double frequency, float volume, float pan,
             string waveform, bool continuous, double durationSeconds = 0.2,
-            int dataIndex = -1, string envelope = "Sustain", bool click = false, float noiseAmount = 0f, string noiseType = "pink")
+            int dataIndex = -1, string envelope = "Sustain", bool click = false, float noiseAmount = 0f, string noiseType = "pink",
+            float squareMix = 0f, float sawMix = 0f, float triangleMix = 0f, float subSawMix = 0f)
         {
             EnsureAudioInit();
             _engine.SetVoice(slot, frequency, volume, pan, waveform, continuous,
-                durationSeconds, dataIndex, envelope, click, noiseAmount, noiseType);
+                durationSeconds, dataIndex, envelope, click, noiseAmount, noiseType, squareMix, sawMix, triangleMix, subSawMix);
         }
 
         public void StopVoice(int slot) => _engine.StopVoice(slot);

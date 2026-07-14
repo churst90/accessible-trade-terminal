@@ -21,7 +21,7 @@ namespace AccessibleTrader.Core.Services.Audio
         private const double HighFreq = 783.99;  // G5 (a perfect fifth up)
         private const double NoteDur = 0.09;      // seconds per note
         private const int GapMs = 70;             // stagger between the two notes
-        private const float BaseVol = 0.22f;
+        private const float BaseVol = 0.5f;   // sits clearly above the continuous bed (was 0.22)
 
         /// <summary>
         /// Fires the chirp. <paramref name="direction"/>: +1 = crossed up (rising), -1 = crossed down

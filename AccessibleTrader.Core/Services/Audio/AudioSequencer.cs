@@ -268,14 +268,14 @@ namespace AccessibleTrader.Core.Services.Audio
             // Gradient blend: sine carrier on the main slot; blend waveform on the aux slot.
             if (comp.UsesGradientSpeech)
             {
-                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
                 float blendVol = ComputeGradientBlend(series, comp, i, scaledVol, out string blendWave);
                 if (auxSlot >= 0 && blendVol > 0.01f)
                     _audioDriver.SetVoice(auxSlot, audioPt.Frequency, blendVol, pan, blendWave, continuous, durationSec, i, audioPt.EnvelopeType, false, 0f);
             }
             else
             {
-                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
             }
 
             // Detuned pair bell (built-in patch): second voice on the aux slot.

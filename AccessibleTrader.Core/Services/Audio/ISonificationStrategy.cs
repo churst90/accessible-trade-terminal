@@ -128,11 +128,10 @@ namespace AccessibleTrader.Core.Services.Audio
             {
                 if (comp.DisplayType == ComponentDisplayType.Candle || comp.Role == ComponentRole.Body)
                 {
-                    // Body volume = body size as fraction of full bar range.
-                    // Doji → quiet; marubozu → loud. Viewport-normalized so works at any price level.
-                    double bodySize = Math.Abs(point.Close - point.Open);
-                    double barRange = Math.Max((double)(point.High - point.Low), 1e-10);
-                    vol = (float)Math.Clamp((bodySize / barRange) * 1.5 + 0.1, 0.1, 1.0) * baseVolume;
+                    // Body loudness is now CONSTANT — body size is encoded as GRIT (SawMix below),
+                    // not loudness, so a doji and a marubozu are equally present and differ only in
+                    // character. A steady bed (×0.9) keeps the body from dominating the price line.
+                    vol = baseVolume * 0.9f;
                 }
                 else
                 {
@@ -141,13 +140,19 @@ namespace AccessibleTrader.Core.Services.Audio
                     double bodyMax = Math.Max(point.Open, point.Close);
                     double bodyMin = Math.Min(point.Open, point.Close);
                     double wickSize = isUpper ? (point.High - bodyMax) : (bodyMin - point.Low);
-                    vol = (float)Math.Clamp((wickSize / rangeSpan) * 4.0, 0.05, 1.0) * baseVolume;
+                    // Raised gain + audible floor so wicks are clearly heard as "the reach"
+                    // above/below the body, instead of scaling down toward silence.
+                    vol = (float)Math.Clamp((wickSize / rangeSpan) * 6.0 + 0.12, 0.18, 1.0) * baseVolume;
                 }
             }
 
             // 5. WAVEFORM SELECTION
+            // Base waveform is SINE for almost everything (see SonificationProfileProvider); timbre
+            // differences now come from the additive SquareMix/SawMix partials computed below, not
+            // from swapping the whole waveform. Wicks are pure sine (differ only by pitch: 880/220).
             string wave = series.IsProfile ? "sawtooth" : comp.Waveform;
-            if (!series.IsProfile && comp.ReferenceLevel.HasValue)
+            bool isWickComp = comp.Role == ComponentRole.Wick || comp.DisplayType == ComponentDisplayType.Wick;
+            if (!series.IsProfile && !isWickComp && comp.ReferenceLevel.HasValue)
             {
                 wave = (val >= comp.ReferenceLevel.Value) ? comp.AboveReferenceWaveform : comp.BelowReferenceWaveform;
             }
@@ -272,10 +277,96 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
             }
 
+            // ── Additive partials: timbre by role ──────────────────────────────────────────
+            // Everything is base SINE with SLIGHT coloring. Partials are MIXED IN by a small
+            // amount so a single voice reads as "mostly sine with a touch of character" — never a
+            // whole-waveform swap. GRIT is now a SUB-OCTAVE sawtooth (warm weight, an octave down),
+            // NOT a same-octave sawtooth (which fizzes harshly). Oscillator zones use triangle
+            // (warm) / square (bright), never sawtooth. User patches (patchLayers / a resolved
+            // library waveform) opt out — they carry their own timbre — so partials only apply to
+            // the built-in profiles. This block runs AFTER the zone-noise block above, so any
+            // brown-noise tinge set here for the line/volume is not clobbered by zone noise.
+            float squareMix = 0f;
+            float sawMix = 0f;
+            float triangleMix = 0f;
+            float subSawMix = 0f;
+            if (!series.IsProfile && patchLayers == null && string.IsNullOrEmpty(resolvedPatchId))
+            {
+                bool isBodyComp = comp.Role == ComponentRole.Body || comp.DisplayType == ComponentDisplayType.Candle;
+                bool isHistogramComp = comp.Role == ComponentRole.Histogram || comp.DisplayType == ComponentDisplayType.Histogram;
+                if (comp.DisplayType == ComponentDisplayType.Line)
+                {
+                    // Price line: warmth (triangle) + a touch of definition (square) + a tinge of
+                    // brown noise. No saw — the line is a single continuous voice; grit would imply
+                    // a second note. This gives the line real character while staying mellow.
+                    triangleMix = 0.10f;
+                    squareMix = 0.08f;
+                    noiseAmt = Math.Max(noiseAmt, 0.05f);
+                    noiseType = "brown";
+                }
+                else if (isBodyComp)
+                {
+                    // Light "body" character (square) + warm sub-octave weight ∝ body size: a small
+                    // body is ≈ pure sine+square, a big body gains low-end heft (not fizz).
+                    double barRange = Math.Max((double)(point.High - point.Low), 1e-10);
+                    double bodySizeNorm = Math.Clamp(Math.Abs(point.Close - point.Open) / barRange, 0.0, 1.0);
+                    squareMix = 0.10f;
+                    subSawMix = (float)(0.25 * bodySizeNorm);
+                }
+                else if (comp.Role == ComponentRole.Volume)
+                {
+                    // Brown-noise tinge + warm sub-octave grit ∝ bar size; loudness is constant so
+                    // texture alone carries intensity (a quiet bar stays clean, a big bar has weight).
+                    noiseAmt = Math.Max(noiseAmt, 0.06f);
+                    noiseType = "brown";
+                    squareMix = 0.10f;   // same "bar" character as the candle body (a sibling timbre)
+                    subSawMix = (float)(0.30 * normalizedValue);
+                }
+                else if (isWickComp)
+                {
+                    // Pure sine ping with a tiny sub-octave grit ∝ wick LENGTH. Upper/lower wicks
+                    // otherwise differ only by pitch (880 / 220 Hz).
+                    bool isUpperW = comp.Name.Contains("Upper") || comp.Name.Contains("High");
+                    double bodyHi = Math.Max(point.Open, point.Close);
+                    double bodyLo = Math.Min(point.Open, point.Close);
+                    double wickLen = isUpperW ? (point.High - bodyHi) : (bodyLo - point.Low);
+                    double wickNorm = Math.Clamp(wickLen / rangeSpan * 3.0, 0.0, 1.0);
+                    subSawMix = (float)(0.12 * wickNorm);
+                }
+                else if (comp.DisplayType == ComponentDisplayType.Oscillator)
+                {
+                    // Split on the visible-range MIDPOINT (not a reference level, which many
+                    // oscillators leave unset/at 0), so the upper vs lower zone is ALWAYS audible:
+                    // lower half = warm triangle, upper half = bright square. NO sawtooth. For an
+                    // RSI in a 0-100 pane it clearly brightens as it rises through the middle. Two
+                    // soft, contrasting timbres (warm↔bright) read clearly without harshness.
+                    if (normalizedValue >= 0.5)
+                    {
+                        // Upper zone: brighter, but softened — a little square with a touch of
+                        // triangle warmth, so it reads as "up" without a loud square edge.
+                        squareMix = 0.09f;
+                        triangleMix = 0.06f;
+                    }
+                    else
+                    {
+                        triangleMix = 0.14f;
+                    }
+                }
+                else if (isHistogramComp)
+                {
+                    // Reedy square (distinct from the volume bed) + warm sub-octave weight ∝ magnitude.
+                    double absMax = Math.Max(Math.Abs(viewportRange.Max), Math.Abs(viewportRange.Min));
+                    double magnitudeNorm = absMax > 0 ? Math.Clamp(Math.Abs(val) / absMax, 0.0, 1.0) : 0.0;
+                    squareMix = 0.18f;
+                    subSawMix = (float)(0.25 * magnitudeNorm);
+                }
+            }
+
             return new AudioPoint(Frequency: freq, Volume: vol, Waveform: wave, Pan: pan,
                                   EnvelopeType: effEnvelope, TriggerClick: triggerClick, NoiseAmount: noiseAmt,
                                   PatchId: resolvedPatchId, NoiseType: noiseType, PatchLayers: patchLayers,
-                                  CrossDirection: crossDir);
+                                  CrossDirection: crossDir, SquareMix: squareMix, SawMix: sawMix,
+                                  TriangleMix: triangleMix, SubSawMix: subSawMix);
         }
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume)

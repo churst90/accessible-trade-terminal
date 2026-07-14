@@ -210,7 +210,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : (reconfirmation ? "Short setup re-confirmed" : "Short setup"),
                 side == OrderSide.Buy ? "positive" : "negative");
 
-            float vol = reconfirmation ? 0.06f : 0.14f;
+            float vol = reconfirmation ? 0.12f : 0.28f;   // setup signal sits above the bed (was 0.06/0.14)
             double dur = reconfirmation ? 0.30 : 0.70;
 
             if (side == OrderSide.Buy)

@@ -237,7 +237,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else
             {
-                _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+                _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
 
                 // Detuned pair bell: fire second voice on Slot 1 at patch offset.
                 if (isPing && focusedCompForNav != null &&
@@ -480,7 +480,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // immediately interrupts any prior navigation note.  PlayNote (earcons) uses
             // slots 16-31 and never interferes with slot 0.
             _audioDriver.StopVoice(SLOT_NAV_START);
-            _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, (float)audioPt.Pan, audioPt.Waveform, false, durationSeconds, dataIndex, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType);
+            _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, (float)audioPt.Pan, audioPt.Waveform, false, durationSeconds, dataIndex, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
         }
 
 

@@ -33,6 +33,14 @@ public enum SecurityEventKind
     UnsandboxedScriptOverride,
     /// <summary>Audio engine command ring buffer overflowed; a voice command was dropped. Not security-sensitive, but shares the same telemetry plumbing because it's another "silent drop" event users need to be able to review after the fact.</summary>
     AudioCommandDropped,
+    /// <summary>A hosted-account sign-in succeeded.</summary>
+    AuthLoginSucceeded,
+    /// <summary>A hosted-account sign-in failed (bad credentials or unknown user).</summary>
+    AuthLoginFailed,
+    /// <summary>A hosted-account sign-in was refused because the account is locked out after too many failed attempts.</summary>
+    AuthLockout,
+    /// <summary>A new hosted account was created via the registration page.</summary>
+    AuthRegistration,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }
