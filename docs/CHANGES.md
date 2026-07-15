@@ -6,6 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### FINRA short interest + days-to-cover (2026-07-15)
+
+The FINRA provider now serves biweekly **short interest** (`{TICKER}_SHORTINT`,
+shares) and **days-to-cover** (`{TICKER}_DTC`) via FINRA's public Query API
+(equityShortInterestStandardized) — still completely keyless: the dataset turned
+out to be publicly queryable, no OAuth credential required. Values are stamped
+at settlement + 13 calendar days (FINRA's publication lag) so backtests can
+never see a number before it was public — same release-honesty rule as COT.
+HONEST LIMITATION, verified against the live API: FINRA publishes short
+interest for **OTC securities only** — exchange-listed names (AAPL, TSLA)
+return no rows there by design; the daily short-volume ratio remains the
+positioning gauge for listed equities. Days-to-cover ships squeeze-fuel
+reference levels (3 elevated / 8 crowded) with earcons. 8 new tests
+(1610 → 1618).
+
 ### Alerts: symbol scoping, per-asset webhook routing, setup bridge; admin password reset; sound tweaks (2026-07-14)
 
 **Alerts grow up** (reviewed alerts-symbol-routing patch, Parts A-C): every alert

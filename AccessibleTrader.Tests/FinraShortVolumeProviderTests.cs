@@ -129,5 +129,86 @@ namespace AccessibleTrader.Tests
             Assert.Contains("AAPL", provider.GetSymbolDisplayName("AAPL_SHORTVOL"));
             Assert.Null(provider.GetSymbolRenderHints("NOT A TICKER!!"));
         }
+
+        // ── Short interest (Query API, OTC-only) ─────────────────────────────
+
+        private const string ShortIntJson = """
+            [
+              {"settlementDate":"2026-06-15","currentShortPositionQuantity":839207,
+               "daysToCoverQuantity":2.5,"securitiesInformationProcessorSymbolIdentifier":"AABB"},
+              {"settlementDate":"2026-06-30","currentShortPositionQuantity":900000,
+               "daysToCoverQuantity":3.1,"securitiesInformationProcessorSymbolIdentifier":"AABB"}
+            ]
+            """;
+
+        [Theory]
+        [InlineData("AABB_SHORTINT", "ShortInterest")]
+        [InlineData("AABB_DTC", "DaysToCover")]
+        [InlineData("AABB_SHORTVOL", "ShortVolume")]
+        [InlineData("AABB", "ShortVolume")]
+        public void ParseSymbol_RoutesSuffixesToSeriesKinds(string symbol, string expectedKind)
+        {
+            var (ticker, kind) = FinraShortVolumeProvider.ParseSymbol(symbol);
+            Assert.Equal("AABB", ticker);
+            Assert.Equal(expectedKind, kind.ToString());
+        }
+
+        [Fact]
+        public void ParseShortInterestJson_StampsPublicationLag_AndSorts()
+        {
+            var rows = FinraShortVolumeProvider.ParseShortInterestJson(ShortIntJson);
+
+            Assert.Equal(2, rows.Count);
+            // Settlement 2026-06-15 → public knowledge ~13 calendar days later.
+            Assert.Equal(new DateTime(2026, 6, 28), rows[0].Date.Date);
+            Assert.Equal(839207, rows[0].Shares, 3);
+            Assert.Equal(2.5, rows[0].Dtc, 3);
+            Assert.True(rows[0].Date < rows[1].Date);
+        }
+
+        [Fact]
+        public async Task FetchShortInterest_ReturnsSeries_AndCachesPerTicker()
+        {
+            int hits = 0;
+            var handler = new FakeHttpMessageHandler()
+                .Add(HttpMethod.Post, @"api\.finra\.org/data/group/otcMarket", req =>
+                {
+                    hits++;
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent(ShortIntJson) };
+                });
+            var provider = NewProvider(handler);
+
+            var si = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "AABB_SHORTINT", "1d", 100));
+            var dtc = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "AABB_DTC", "1d", 100));
+
+            Assert.Equal(2, si.Ohlcv.Count);
+            Assert.Equal(900000, si.Ohlcv[1].Close, 3);
+            Assert.Equal(3.1, dtc.Ohlcv[1].Close, 3);
+            Assert.Equal(1, hits); // second series served from the per-ticker cache
+        }
+
+        [Fact]
+        public async Task FetchShortInterest_ListedSymbol_NoContent_ReturnsEmpty()
+        {
+            // Exchange-listed names aren't in the OTC dataset — the API answers 204.
+            var handler = new FakeHttpMessageHandler()
+                .Add(HttpMethod.Post, @"api\.finra\.org/data/group/otcMarket", _ =>
+                    new HttpResponseMessage(HttpStatusCode.NoContent));
+            var provider = NewProvider(handler);
+
+            var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "AAPL_SHORTINT", "1d", 100));
+
+            Assert.Empty(result.Ohlcv);
+        }
+
+        [Fact]
+        public void RenderHints_DifferPerSeriesKind()
+        {
+            var provider = new FinraShortVolumeProvider();
+            Assert.Contains("days to cover", provider.GetSymbolRenderHints("AABB_DTC")!.SpeechTemplate!);
+            Assert.Contains("shares short", provider.GetSymbolRenderHints("AABB_SHORTINT")!.SpeechTemplate!);
+            Assert.Contains("OTC only", provider.GetSymbolDisplayName("AABB_SHORTINT"));
+        }
     }
 }
