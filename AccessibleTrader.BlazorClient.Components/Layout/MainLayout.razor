@@ -31,6 +31,9 @@
    beyond subscribing, and DI would otherwise lazy-construct it only on first
    caller, leaving early alerts undelivered to SMTP / Telegram channels. *@
 @inject AccessibleTrader.Core.Services.Alerts.AlertDeliveryService _alertDelivery
+@* SetupAlertBridge subscribes to Setup* events on construction; eager-resolved here
+   so setups can be routed to webhooks the moment the app starts (default-off gate). *@
+@inject AccessibleTrader.Core.Services.Alerts.SetupAlertBridge _setupAlertBridge
 @inject ILogger<MainLayout> _layoutLogger
 @inject DemoPolicy Demo
 @inject ISettingsManager _settings

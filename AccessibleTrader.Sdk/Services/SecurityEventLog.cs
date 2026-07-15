@@ -41,6 +41,10 @@ public enum SecurityEventKind
     AuthLockout,
     /// <summary>A new hosted account was created via the registration page.</summary>
     AuthRegistration,
+    /// <summary>A hosted-account password-reset link was requested (via the ForgotPassword page or the admin CLI). Records the submitted email so the operator can action it; does NOT confirm the address exists.</summary>
+    AuthPasswordResetRequested,
+    /// <summary>A hosted-account password was successfully reset via a reset token on the ResetPassword page.</summary>
+    AuthPasswordReset,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }

@@ -166,6 +166,18 @@ body {
 .auth-error ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
 .field-error { display: block; margin-top: 0.3rem; font-size: 0.88rem; color: var(--danger); }
 
+/* Neutral status / confirmation banner (password updated, reset requested).
+   Brand-accent framing keeps it distinct from the danger-red error banner. */
+.auth-note {
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--brand-accent);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--brand-accent) 10%, var(--surface));
+  color: var(--text);
+}
+
 /* ── Footer link row ── */
 .auth-alt {
   margin: 1.5rem 0 0;

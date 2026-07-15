@@ -203,8 +203,11 @@ namespace AccessibleTrader.Core.Services.Audio
             // to convey oscillator pitch and glide feel during arrow-key hold (each bar replaces the
             // previous note), but always self-terminates so Home/End/PageUp/PageDown never leave a
             // stuck drone. continuous=false for all navigation voices; continuous=true is for playback only.
-            bool isPing = string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase);
             var focusedCompForNav = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
+            // Volume reads as a short "tick"/ping under MANUAL navigation (it stays a continuous bed
+            // only during playback), so arrow-stepping bars doesn't hold a sustained drone under the price.
+            string navEnvelope = (focusedCompForNav?.Role == ComponentRole.Volume) ? "Ping" : audioPt.EnvelopeType;
+            bool isPing = string.Equals(navEnvelope, "Ping", StringComparison.OrdinalIgnoreCase);
             double navDuration = isPing
                 ? (focusedCompForNav != null ? ResolveNavPingDuration(focusedCompForNav, audioPt) : 0.15)
                 : 0.45;
@@ -237,7 +240,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else
             {
-                _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
+                _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, navEnvelope, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
 
                 // Detuned pair bell: fire second voice on Slot 1 at patch offset.
                 if (isPing && focusedCompForNav != null &&

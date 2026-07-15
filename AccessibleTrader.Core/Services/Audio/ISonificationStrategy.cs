@@ -310,7 +310,12 @@ namespace AccessibleTrader.Core.Services.Audio
                     // body is ≈ pure sine+square, a big body gains low-end heft (not fizz).
                     double barRange = Math.Max((double)(point.High - point.Low), 1e-10);
                     double bodySizeNorm = Math.Clamp(Math.Abs(point.Close - point.Open) / barRange, 0.0, 1.0);
-                    squareMix = 0.10f;
+                    // Direction also colours the timbre subtly: an up-bar is a hair brighter (a touch
+                    // more square), a down-bar a hair warmer (a little triangle) — so direction reads
+                    // by tone as well as by pitch (up 440 / down 220). Kept small: slight colouring only.
+                    bool bodyUp = point.Close >= point.Open;
+                    squareMix   = bodyUp ? 0.13f : 0.06f;
+                    triangleMix = bodyUp ? 0f    : 0.07f;
                     subSawMix = (float)(0.25 * bodySizeNorm);
                 }
                 else if (comp.Role == ComponentRole.Volume)

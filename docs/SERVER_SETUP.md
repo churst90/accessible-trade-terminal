@@ -192,6 +192,23 @@ the second layer behind it.
   and orphans the encrypted secret store). Restrict it to the service user:
   `chmod -R 700` on the directory, owned by the service account, no other readers.
 - Back up `auth.db` + `users/` + `dp-keys/` (single instance = single disk).
+
+## Password reset (admin-mediated — no mail server)
+
+Users who forget their password use **Forgot password** on the sign-in page, which
+never confirms whether an address exists; it tells them to contact support and logs
+an `AuthPasswordResetRequested` security event (with IP) so you can see the request.
+You then mint a reset link out of band:
+
+```
+dotnet AccessibleTrader.WebHost.dll --accounts --reset-link user@example.com
+```
+
+This prints a one-time reset URL (Identity token, default 1-day expiry) WITHOUT
+starting the server; deliver it to the user through a trusted channel. The user sets
+their own new password on the ResetPassword page (the admin never sees it); success
+is audited as `AuthPasswordReset`. Unknown emails produce the same generic CLI output
+(no enumeration even at the console).
 - Real-money trading and broker keys are **desktop-only** — never on the server.
 - Custom user scripts are **off** in hosted mode (server-side Roslyn = RCE risk). Anywhere
   scripts ARE enabled (local WebHost / desktop Linux), `bubblewrap` must be installed —

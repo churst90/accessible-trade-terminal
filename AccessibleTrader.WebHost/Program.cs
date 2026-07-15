@@ -140,6 +140,47 @@ if (accountsEnabled)
     }
 }
 
+// One-off admin CLI: mint a password-reset link and exit WITHOUT starting Kestrel
+// (mirrors the owner-seed one-off above). There is no outbound mail server, so the
+// admin generates the reset token here and delivers the URL to the user through a
+// trusted channel; the user sets their own new password on the ResetPassword page.
+// Run as:  dotnet AccessibleTrader.WebHost.dll --accounts --reset-link user@example.com
+if (accountsEnabled)
+{
+    var resetIdx = Array.IndexOf(args, "--reset-link");
+    if (resetIdx >= 0)
+    {
+        var resetEmail = resetIdx + 1 < args.Length ? args[resetIdx + 1]?.Trim() : null;
+        if (string.IsNullOrWhiteSpace(resetEmail))
+        {
+            Console.WriteLine("Usage: --accounts --reset-link <email>");
+            return;
+        }
+
+        using var resetScope = app.Services.CreateScope();
+        var resetUsers = resetScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var resetUser = await resetUsers.FindByEmailAsync(resetEmail);
+        if (resetUser is null)
+        {
+            // No enumeration even at the CLI: same generic message whether or not the
+            // account exists. (The admin can retry with the exact address on file.)
+            Console.WriteLine("If that account exists, a reset link was generated.");
+            return;
+        }
+
+        var resetToken = await resetUsers.GeneratePasswordResetTokenAsync(resetUser);
+        // Public HTTPS base, including the /terminal PathBase. Configurable so a
+        // differently-mounted host can still print a correct link.
+        var resetBase = (builder.Configuration["Accounts:ResetLinkBaseUrl"]
+                         ?? "https://trade.codyhurst.com/terminal").TrimEnd('/');
+        var resetUrl = $"{resetBase}/account/resetpassword" +
+                       $"?email={Uri.EscapeDataString(resetEmail)}" +
+                       $"&token={Uri.EscapeDataString(resetToken)}";
+        Console.WriteLine(resetUrl);
+        return;
+    }
+}
+
 // Hosted accounts run behind nginx (TLS terminated upstream). Honour X-Forwarded-Proto/For
 // so the app knows requests are HTTPS (Secure-cookie policy + correct redirect URLs after
 // login) and sees the real client IP for the rate limiter. nginx is the only upstream and

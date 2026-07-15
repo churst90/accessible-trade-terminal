@@ -315,6 +315,8 @@ namespace AccessibleTrader.WebHost
                     BuildAlertChannelHttpClient(),
                     () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
+            // Part C — strategy-setup → AlertFiredEvent bridge (default-off; see SetupAlertBridge).
+            services.AddScoped<AccessibleTrader.Core.Services.Alerts.SetupAlertBridge>();
 
             services.AddScoped<IMultiTimeframeDataService, MultiTimeframeDataService>();
             services.AddScoped<IBacktestWarmupAnalyzer, BacktestWarmupAnalyzer>();
@@ -483,15 +485,6 @@ namespace AccessibleTrader.WebHost
         }
 
         private static AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig? LoadWebhookAlertConfig(ISettingsManager settings)
-        {
-            var url  = settings.GetSetting("alerts.webhook.url")?.ToString();
-            var auth = settings.GetSetting("alerts.webhook.authHeader")?.ToString();
-            if (string.IsNullOrWhiteSpace(url)) return null;
-            return new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig
-            {
-                WebhookUrl = url,
-                AuthHeader = auth,
-            };
-        }
+            => AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.Load(settings);
     }
 }

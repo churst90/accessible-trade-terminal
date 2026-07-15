@@ -6,8 +6,10 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Models;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 
 namespace AccessibleTrader.Tests.Blazor;
 
@@ -46,6 +48,15 @@ public class AlertsModalTests
         IEventBus bus = new EventBus();
         ctx.Services.AddSingleton<IAlertOrchestrator>(orch);
         ctx.Services.AddSingleton(bus);
+
+        // AlertsModal now injects IWorkspaceStore (current-symbol default) and
+        // ISettingsManager (webhook-target dropdown). Provide substitutes with a
+        // non-null state so Store.State.SymbolDisplayName doesn't NRE.
+        var store = Substitute.For<IWorkspaceStore>();
+        store.State.Returns(WorkspaceState.Initial with { SymbolDisplayName = "BTC/USD" });
+        ctx.Services.AddSingleton(store);
+        ctx.Services.AddSingleton(Substitute.For<ISettingsManager>());
+
         ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
         return (ctx, orch, bus);
     }

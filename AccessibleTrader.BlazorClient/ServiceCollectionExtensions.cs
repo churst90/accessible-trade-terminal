@@ -369,6 +369,9 @@ namespace AccessibleTrader.BlazorClient
                     BuildAlertChannelHttpClient(),
                     () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
+            // Part C — bridges strategy setup events into AlertFiredEvent (default-off,
+            // gated by the "alerts.setups.enabled" setting) so setups can reach webhooks.
+            services.AddSingleton<AccessibleTrader.Core.Services.Alerts.SetupAlertBridge>();
 
             // Session B additions:
             services.AddSingleton<IMultiTimeframeDataService, MultiTimeframeDataService>();
@@ -578,20 +581,11 @@ namespace AccessibleTrader.BlazorClient
             };
         }
 
-        /// <summary>Loads webhook alert channel config from settings under the
-        /// "alerts.webhook" key-path. Only the URL is required (HTTPS enforced by
-        /// the channel's IsConfigured check).</summary>
+        /// <summary>Loads webhook alert channel config from settings: the named list at
+        /// "alerts.webhooks", migrating a legacy single "alerts.webhook.url" into a
+        /// {Name:"Default"} entry. HTTPS is enforced by the channel's IsConfigured check.</summary>
         private static AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig? LoadWebhookAlertConfig(ISettingsManager settings)
-        {
-            var url  = settings.GetSetting("alerts.webhook.url")?.ToString();
-            var auth = settings.GetSetting("alerts.webhook.authHeader")?.ToString();
-            if (string.IsNullOrWhiteSpace(url)) return null;
-            return new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannelConfig
-            {
-                WebhookUrl = url,
-                AuthHeader = auth,
-            };
-        }
+            => AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.Load(settings);
     }
 }
 

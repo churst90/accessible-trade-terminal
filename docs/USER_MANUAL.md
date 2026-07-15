@@ -1002,11 +1002,18 @@ interrupting whatever is being said — "{name}: crossed above {level}. Current 
 {value}." — and/or plays an alert earcon, and the event is written to the Journal so
 you can read it back. Alerts are never gated by your speech or sonification toggles —
 a condition you asked to be told about will always tell you. If you have set up email,
-Telegram, or a webhook in Settings (under the alerts options), fired alerts are sent
-there too, so you can be notified away from the keyboard. The webhook channel takes
-any HTTPS endpoint: paste a Discord or Slack webhook URL and alerts appear in that
-channel with no bot setup, or point it at a custom service to receive the alert as
-structured JSON.
+Telegram, or webhooks in Settings (under the alerts options), fired alerts are sent
+there too, so you can be notified away from the keyboard. Webhooks are a **named
+list**: add as many as you like — "BTC channel", "Gold channel" — each pointing at a
+Discord webhook URL, a Slack incoming webhook, or any custom HTTPS endpoint, and
+each alert chooses which one it posts to from a dropdown when you create it. That is
+how a Bitcoin alert lands in your #btc Discord channel while a gold alert lands in
+#gold. Alerts are also **scoped to a symbol** now: a new alert defaults to the chart
+it was created on and only evaluates there, so a BTC alert no longer fires against
+whatever chart happens to be on screen (choose "any symbol" if you do want that).
+And if you enable "send setups to alerts" in Settings, confirmed and armed strategy
+setups flow through the same delivery — your Discord channel hears "Long setup —
+gold" with the trade plan, even when you're away from the terminal.
 
 ### Strategies
 
@@ -1218,8 +1225,8 @@ announces each new bar as it closes (the rolling "Close … New bar …" you met
 first loaded a market). It is also where you switch **paper trading mode** on, and
 where, on the desktop heads, you set the audio engine's latency. An appearance section
 sets the theme and chart colours — most relevant to a sighted collaborator looking
-over your shoulder — and an alerts section holds the email, Telegram, and webhook delivery
-details that let fired alerts reach you away from the keyboard. Changes apply when you
+over your shoulder — and an alerts section holds the email, Telegram, and named-webhook delivery
+details (add/remove webhook rows, each with a name and URL) that let fired alerts reach you away from the keyboard. Changes apply when you
 close the dialog.
 
 **Visual accessibility options.** The Appearance tab also carries a group of visual

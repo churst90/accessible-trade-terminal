@@ -1,7 +1,10 @@
 @using AccessibleTrader.Sdk.Alerts
 @using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Core.Services
 @inherits ModalBase
 @inject IAlertOrchestrator AlertOrchestrator
+@inject IWorkspaceStore Store
+@inject ISettingsManager Settings
 
 @if (_isVisible)
 {
@@ -27,7 +30,7 @@
                         {
                             <li role="listitem"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #444;">
-                                <span>@alert.Name — @alert.Target @alert.Condition@(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")</span>
+                                <span>@alert.Name — @(alert.Symbol ?? "Any") · @alert.Target @alert.Condition@(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
                                 <button aria-label="@($"Delete alert: {alert.Name}")"
                                         @onclick="() => DeleteAlert(alert.Id)">
                                     Delete
@@ -80,6 +83,23 @@
                         <option value="@AlertDelivery.Both">Both</option>
                     </select>
                 </div>
+                <div class="modal-row">
+                    <label for="alert-symbol">Symbol:</label>
+                    <select id="alert-symbol" @bind="_newAlertScopeToSymbol">
+                        <option value="true">This symbol (@(_currentSymbol ?? "current chart"))</option>
+                        <option value="false">Any symbol</option>
+                    </select>
+                </div>
+                <div class="modal-row">
+                    <label for="alert-webhook">Webhook:</label>
+                    <select id="alert-webhook" @bind="_newAlertWebhookTarget">
+                        <option value="">— none —</option>
+                        @foreach (var name in _webhookNames)
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </div>
                 <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end;">
                     <button @onclick="AddAlert"
                             aria-label="Add alert"
@@ -105,6 +125,13 @@
     private double _newAlertThreshold;
     private AlertDelivery _newAlertDelivery = AlertDelivery.Both;
 
+    // Part A — symbol scoping. Default a new alert to the on-screen chart's symbol.
+    private bool _newAlertScopeToSymbol = true;
+    private string? _currentSymbol;
+    // Part B — per-asset webhook routing target ("" = none).
+    private string _newAlertWebhookTarget = "";
+    private List<string> _webhookNames = new();
+
     protected override void OnInitialized()
     {
         // _eventSub is declared in ModalBase and disposed there automatically.
@@ -115,7 +142,26 @@
     private async Task ShowAsync()
     {
         RefreshAlerts();
+        RefreshChartContext();
         await ShowModalAsync("alerts-title");
+    }
+
+    private void RefreshChartContext()
+    {
+        var sym = Store.State.SymbolDisplayName;
+        _currentSymbol = string.IsNullOrWhiteSpace(sym) ? null : sym;
+        // Populate the webhook-target dropdown from the configured named webhooks
+        // (migrating a legacy single URL to "Default").
+        _webhookNames = AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader
+            .ParseWebhooks(
+                Settings.GetSetting("alerts.webhooks"),
+                Settings.GetSetting("alerts.webhook.url")?.ToString(),
+                Settings.GetSetting("alerts.webhook.authHeader")?.ToString())
+            .Select(w => w.Name)
+            .ToList();
+        // Drop a stale selection if the named webhook no longer exists.
+        if (!string.IsNullOrEmpty(_newAlertWebhookTarget) && !_webhookNames.Contains(_newAlertWebhookTarget))
+            _newAlertWebhookTarget = "";
     }
 
     private void Close() => CloseModal();
@@ -138,7 +184,10 @@
             Target = _newAlertTarget,
             Condition = _newAlertCondition,
             Threshold = _newAlertThreshold,
-            Delivery = _newAlertDelivery
+            Delivery = _newAlertDelivery,
+            // Scope to the current chart's symbol (null = any) and route to the chosen webhook.
+            Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
+            WebhookTarget = string.IsNullOrWhiteSpace(_newAlertWebhookTarget) ? null : _newAlertWebhookTarget,
         };
         AlertOrchestrator.AddAlert(def);
         _newAlertName = "";

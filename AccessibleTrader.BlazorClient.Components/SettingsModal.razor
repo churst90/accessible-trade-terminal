@@ -552,33 +552,49 @@
                     <legend style="font-weight:700; color:#111; padding:0 6px;">Webhook (Discord / Slack / custom)</legend>
 
                     <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
-                        Sends alerts as a JSON POST to any HTTPS endpoint. Paste a Discord webhook URL
-                        (Server Settings, Integrations, Webhooks) or a Slack incoming-webhook URL and
-                        alerts appear in that channel — no bot setup needed. Custom services also
-                        receive the structured fields (name, value, timestamp).
+                        Sends alerts as a JSON POST to any HTTPS endpoint. Add one or more named
+                        webhooks — a Discord webhook URL (Server Settings, Integrations, Webhooks) or a
+                        Slack incoming-webhook URL — and give each a Name (e.g. "BTC channel"). Each
+                        alert then routes to the webhook whose name you pick in the Alerts dialog, so
+                        BTC alerts land in your BTC channel and KAS alerts in your KAS channel.
                     </p>
 
+                    @for (int i = 0; i < _webhooks.Count; i++)
+                    {
+                        var row = _webhooks[i];
+                        int idx = i;
+                        <div class="modal-row" style="align-items:flex-end; gap:8px;">
+                            <div style="flex:1;">
+                                <label for="s-webhook-name-@idx">Name</label>
+                                <input id="s-webhook-name-@idx" type="text"
+                                       value="@row.Name"
+                                       placeholder="e.g. BTC channel"
+                                       @onchange="e => row.Name = e.Value?.ToString() ?? string.Empty" />
+                            </div>
+                            <div style="flex:2;">
+                                <label for="s-webhook-url-@idx">Webhook URL (HTTPS)</label>
+                                <input id="s-webhook-url-@idx" type="url"
+                                       value="@row.Url"
+                                       placeholder="https://discord.com/api/webhooks/…"
+                                       @onchange="e => row.Url = e.Value?.ToString() ?? string.Empty" />
+                            </div>
+                            <div style="flex:1;">
+                                <label for="s-webhook-auth-@idx">Auth header (optional)</label>
+                                <input id="s-webhook-auth-@idx" type="password"
+                                       value="@row.Auth"
+                                       autocomplete="new-password"
+                                       placeholder="Bearer token"
+                                       @onchange="e => row.Auth = e.Value?.ToString() ?? string.Empty" />
+                            </div>
+                            <button @onclick="() => RemoveWebhook(idx)"
+                                    aria-label="@($"Remove webhook {row.Name}")">Remove</button>
+                        </div>
+                    }
                     <div class="modal-row">
-                        <label for="s-webhook-url">Webhook URL (HTTPS)</label>
-                        <input id="s-webhook-url" type="url"
-                               value="@_webhookUrl"
-                               placeholder="https://discord.com/api/webhooks/…"
-                               @onchange="e => _webhookUrl = e.Value?.ToString() ?? string.Empty" />
-                    </div>
-                    <div class="modal-row">
-                        <label for="s-webhook-auth">Authorization header (optional)</label>
-                        <input id="s-webhook-auth" type="password"
-                               value="@_webhookAuth"
-                               autocomplete="new-password"
-                               placeholder="Bearer token"
-                               @onchange="e => _webhookAuth = e.Value?.ToString() ?? string.Empty" />
-                    </div>
-                    <div class="modal-row">
-                        <span style="flex:1; font-size:0.85rem; color:#555;">
-                            Sends a sample alert using current values (saved on Close).
-                        </span>
+                        <button @onclick="AddWebhook" aria-label="Add a webhook">Add webhook</button>
+                        <span style="flex:1;"></span>
                         <button @onclick="TestWebhookAsync"
-                                aria-label="Send a test webhook alert">Send test</button>
+                                aria-label="Send a test webhook alert to the first webhook">Send test</button>
                     </div>
                     @if (!string.IsNullOrEmpty(_webhookStatus))
                     {
@@ -727,10 +743,18 @@
     private string _tgChatId = string.Empty;
     private string _telegramStatus = string.Empty;
     private bool   _telegramStatusIsError;
-    private string _webhookUrl = string.Empty;
-    private string _webhookAuth = string.Empty;
+    // Named multi-webhook list (Part B). Mutable rows for editing; serialized to
+    // the "alerts.webhooks" settings key on Close.
+    private sealed class WebhookRow { public string Name = ""; public string Url = ""; public string Auth = ""; }
+    private List<WebhookRow> _webhooks = new();
     private string _webhookStatus = string.Empty;
     private bool   _webhookStatusIsError;
+
+    private void AddWebhook() => _webhooks.Add(new WebhookRow());
+    private void RemoveWebhook(int idx)
+    {
+        if (idx >= 0 && idx < _webhooks.Count) _webhooks.RemoveAt(idx);
+    }
 
     private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
 
@@ -893,8 +917,14 @@
         _tgChatId   = Settings.GetSetting("alerts.telegram.chatId")?.ToString() ?? string.Empty;
         _telegramStatus = string.Empty; _telegramStatusIsError = false;
 
-        _webhookUrl  = Settings.GetSetting("alerts.webhook.url")?.ToString() ?? string.Empty;
-        _webhookAuth = Settings.GetSetting("alerts.webhook.authHeader")?.ToString() ?? string.Empty;
+        // Load the named webhook list (migrating a legacy single URL if present).
+        var parsed = AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ParseWebhooks(
+            Settings.GetSetting("alerts.webhooks"),
+            Settings.GetSetting("alerts.webhook.url")?.ToString(),
+            Settings.GetSetting("alerts.webhook.authHeader")?.ToString());
+        _webhooks = parsed
+            .Select(w => new WebhookRow { Name = w.Name, Url = w.Url, Auth = w.AuthHeader ?? string.Empty })
+            .ToList();
         _webhookStatus = string.Empty; _webhookStatusIsError = false;
     }
 
@@ -959,15 +989,36 @@
         Settings.SetSetting("alerts.email.toAddress",   JToken.FromObject(_emailTo));
         Settings.SetSetting("alerts.telegram.botToken", JToken.FromObject(_tgBotToken));
         Settings.SetSetting("alerts.telegram.chatId",   JToken.FromObject(_tgChatId));
-        Settings.SetSetting("alerts.webhook.url",        JToken.FromObject(_webhookUrl));
-        Settings.SetSetting("alerts.webhook.authHeader", JToken.FromObject(_webhookAuth));
+        // Persist the named webhook list. Only rows with both Name + URL are kept.
+        var named = _webhooks
+            .Where(w => !string.IsNullOrWhiteSpace(w.Name) && !string.IsNullOrWhiteSpace(w.Url))
+            .Select(w => new AccessibleTrader.Core.Services.Alerts.NamedWebhook
+            {
+                Name = w.Name.Trim(),
+                Url = w.Url.Trim(),
+                AuthHeader = string.IsNullOrWhiteSpace(w.Auth) ? null : w.Auth,
+            });
+        Settings.SetSetting("alerts.webhooks",
+            AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ToJson(named));
         Settings.SaveSettings();
     }
 
     private async Task TestWebhookAsync()
     {
         PersistAlertSettings();
-        await SendTestAlertAsync("webhook", s => { _webhookStatus = s.Message; _webhookStatusIsError = s.IsError; });
+        // Route the test to the first configured webhook so it actually posts.
+        var target = _webhooks.FirstOrDefault(w =>
+            !string.IsNullOrWhiteSpace(w.Name) && !string.IsNullOrWhiteSpace(w.Url))?.Name;
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            _webhookStatus = "Add a webhook (Name + HTTPS URL) first.";
+            _webhookStatusIsError = true;
+            StateHasChanged();
+            return;
+        }
+        await SendTestAlertAsync("webhook",
+            s => { _webhookStatus = s.Message; _webhookStatusIsError = s.IsError; },
+            webhookTarget: target);
     }
 
     private async Task TestEmailAsync()
@@ -982,7 +1033,8 @@
         await SendTestAlertAsync("telegram", s => { _telegramStatus = s.Message; _telegramStatusIsError = s.IsError; });
     }
 
-    private async Task SendTestAlertAsync(string channelId, Action<(string Message, bool IsError)> report)
+    private async Task SendTestAlertAsync(string channelId, Action<(string Message, bool IsError)> report,
+        string? webhookTarget = null)
     {
         var channel = AlertChannels.FirstOrDefault(c => c.Id == channelId);
         if (channel == null)
@@ -1005,6 +1057,7 @@
                 Target = AlertTarget.Price,
                 Condition = AlertCondition.CrossesAbove,
                 Delivery = AlertDelivery.Both,
+                WebhookTarget = webhookTarget,
             },
             TriggeringValue: 0.0,
             PreviousValue: null,

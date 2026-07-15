@@ -6,6 +6,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alerts: symbol scoping, per-asset webhook routing, setup bridge; admin password reset; sound tweaks (2026-07-14)
+
+**Alerts grow up** (reviewed alerts-symbol-routing patch, Parts A-C): every alert
+can now be scoped to a Symbol/Provider/Timeframe (new alerts default to the chart
+they were created on — fixes the cross-contamination where a BTC alert evaluated
+against whatever chart was on screen); the single webhook URL is replaced by a
+NAMED webhook list with per-alert routing (BTC alerts → #btc Discord channel, gold
+→ #gold; legacy single URL auto-migrates to a "Default" entry); and an opt-in
+SetupAlertBridge forwards confirmed/armed/dropped strategy setups through the same
+delivery pipeline so setups reach Discord/email/Telegram (default off). AlertFired
+carries the firing symbol in every payload. Custom alert condition trees (Part D)
+are specced for a later build.
+
+**Admin-mediated password reset** (reviewed password-reset patch — the no-infra
+option B): `--accounts --reset-link <email>` mints a one-time reset URL at the CLI
+without starting the server; new ForgotPassword (neutral messaging, request
+audited) and ResetPassword (user sets their own password, success audited) pages;
+"Forgot your password?" link on sign-in; no enumeration anywhere, including the CLI.
+
+**Sound tweaks**: volume reads as a short tick under manual bar-stepping (continuous
+bed only during playback — no more sustained drone under the price while arrowing),
+and candle direction now colours timbre subtly (up-bars a hair brighter/square,
+down-bars a hair warmer/triangle) on top of the existing up/down pitch split.
+
 ### Auth hardening + warmer sound palette (2026-07-14)
 
 **Hosted-accounts auth hardening** (from the reviewed auth-hardening patch):

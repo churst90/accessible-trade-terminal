@@ -33,11 +33,14 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ### Follow-ups
 
-- [ ] **Auth: password-reset flow** — blocked on outbound email. Option B first
-  (admin-mediated reset token via trusted channel, ~0.5d, no infra), option A
-  (msmtp → Postmark/SES + ForgotPassword pages, ~1-1.5d incl. SPF/DKIM DNS)
-  when transactional email is wanted anyway. Also the only full fix for the
-  residual registration enumeration oracle (redirect-vs-error).
+- [x] **Auth: password-reset flow (option B)** — DONE 2026-07-14 via reviewed patch:
+  `--reset-link <email>` CLI mints the token (no Kestrel), ForgotPassword/ResetPassword
+  pages with generic messaging, audit events, end-to-end token tests. Option A
+  (verify-by-email via msmtp → Postmark/SES) remains the eventual upgrade and the
+  only full fix for the residual registration redirect-vs-error oracle.
+- [ ] **Alerts: custom condition trees (Part D)** — embed ConditionTreeEditor in
+  AlertsModal behind an "Advanced condition" toggle; evaluate via the strategy tree
+  evaluator when set (~2-3d, spec in the 2026-07-14 alerts-symbol-routing spec).
 - [ ] **Auth: HaveIBeenPwned password validator** — k-anonymity range API,
   fail-open, needs outbound-HTTPS egress confirmed from the VPS first (~0.5d).
 - [ ] **Auth: optional TOTP 2FA** — token providers already registered; cost is

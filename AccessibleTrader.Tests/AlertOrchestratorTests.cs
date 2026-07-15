@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
             new DateTime(2026, 1, 1, 0, minute, 0, DateTimeKind.Utc),
             close - 1, close + 1, close - 2, close, 1000);
 
-        private static WorkspaceState ReadyState(int barCount)
+        private static WorkspaceState ReadyState(int barCount, string symbol = "")
         {
             var bars = Enumerable.Range(0, barCount).Select(i => Bar(100 + i, i)).ToList();
             // Fresh buffer per call: the orchestrator's DistinctUntilChanged compares
@@ -35,8 +35,20 @@ namespace AccessibleTrader.Tests
                 Data = new TimeSeriesBuffer<Ohlcv>(bars),
                 CurrentDataIndex = barCount - 1,
                 InitStatus = InitializationStatus.Ready,
+                SymbolDisplayName = symbol,
             };
         }
+
+        private static AlertDefinition SymbolAlert(string id, string? symbol) => new()
+        {
+            Id = id,
+            Name = $"Alert {id}",
+            Target = AlertTarget.Price,
+            Condition = AlertCondition.CrossesAbove,
+            Threshold = 100,
+            Delivery = AlertDelivery.Speech,
+            Symbol = symbol,
+        };
 
         private static AlertDefinition SomeAlert(string id = "a1") => new()
         {
@@ -168,6 +180,78 @@ namespace AccessibleTrader.Tests
 
             store.EmitState(ReadyState(barCount: 3)); // now evaluation runs
             Assert.Single(bus.Log.OfType<AlertFiredEvent>());
+        }
+
+        [Fact]
+        public void SymbolScopedAlert_IsSkipped_WhenChartSymbolDiffers()
+        {
+            // A "KAS/USD" alert must NOT be evaluated while the on-screen chart is BTC/USD
+            // (the cross-contamination bug Part A fixes). The orchestrator filters the alert
+            // out of the list it hands the evaluator.
+            var (orch, store, _, evaluator, _) = Build(
+                new List<AlertDefinition> { SymbolAlert("kas", "KAS/USD") });
+            orch.Start();
+
+            store.EmitState(ReadyState(3, symbol: "BTC/USD")); // warm-up
+            store.EmitState(ReadyState(4, symbol: "BTC/USD")); // real evaluation
+
+            evaluator.Received().EvaluateAlerts(
+                Arg.Is<IReadOnlyList<AlertDefinition>>(l => l.Count == 0),
+                Arg.Any<WorkspaceState>(), Arg.Any<Ohlcv>(), Arg.Any<Ohlcv>(),
+                Arg.Any<IReadOnlyDictionary<string, double>>());
+        }
+
+        [Fact]
+        public void SymbolScopedAlert_IsEvaluated_WhenChartSymbolMatches_CaseInsensitively()
+        {
+            var (orch, store, _, evaluator, _) = Build(
+                new List<AlertDefinition> { SymbolAlert("btc", "btc/usd") });
+            orch.Start();
+
+            store.EmitState(ReadyState(3, symbol: "BTC/USD")); // warm-up
+            store.EmitState(ReadyState(4, symbol: "BTC/USD")); // real evaluation
+
+            evaluator.Received().EvaluateAlerts(
+                Arg.Is<IReadOnlyList<AlertDefinition>>(l => l.Any(a => a.Id == "btc")),
+                Arg.Any<WorkspaceState>(), Arg.Any<Ohlcv>(), Arg.Any<Ohlcv>(),
+                Arg.Any<IReadOnlyDictionary<string, double>>());
+        }
+
+        [Fact]
+        public void NullSymbolAlert_IsAlwaysEvaluated_ForAnyChart()
+        {
+            var (orch, store, _, evaluator, _) = Build(
+                new List<AlertDefinition> { SymbolAlert("any", null) });
+            orch.Start();
+
+            store.EmitState(ReadyState(3, symbol: "KAS/USD")); // warm-up
+            store.EmitState(ReadyState(4, symbol: "KAS/USD")); // real evaluation
+
+            evaluator.Received().EvaluateAlerts(
+                Arg.Is<IReadOnlyList<AlertDefinition>>(l => l.Any(a => a.Id == "any")),
+                Arg.Any<WorkspaceState>(), Arg.Any<Ohlcv>(), Arg.Any<Ohlcv>(),
+                Arg.Any<IReadOnlyDictionary<string, double>>());
+        }
+
+        [Fact]
+        public void FiredEvent_IsStampedWithTheChartSymbol_WhenAlertSymbolWasNull()
+        {
+            // The evaluator returns a fired alert with a null Symbol (the simple case).
+            // The orchestrator stamps the on-screen symbol so delivery/routing know the market.
+            var (orch, store, bus, evaluator, _) = Build(new List<AlertDefinition> { SomeAlert() });
+            var fired = new AlertFired(SomeAlert(), 101, 99, "spoken", Symbol: null);
+            evaluator.EvaluateAlerts(
+                    Arg.Any<IReadOnlyList<AlertDefinition>>(), Arg.Any<WorkspaceState>(),
+                    Arg.Any<Ohlcv>(), Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyDictionary<string, double>>())
+                .Returns(new[] { fired });
+            orch.Start();
+
+            store.EmitState(ReadyState(3, symbol: "ETH/USD")); // warm-up
+            store.EmitState(ReadyState(4, symbol: "ETH/USD")); // evaluation
+
+            var ev = Assert.Single(bus.Log.OfType<AlertFiredEvent>());
+            Assert.Equal("ETH/USD", ev.Alert.Symbol);
+            Assert.Equal("ETH/USD", ev.Symbol);
         }
 
         [Fact]

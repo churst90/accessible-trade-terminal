@@ -129,7 +129,12 @@ namespace AccessibleTrader.Core.Models
         bool IsDuplicate = false
     );
 
-    public record AlertFiredEvent(AlertFired Alert);
+    public record AlertFiredEvent(AlertFired Alert)
+    {
+        /// <summary>The symbol the alert fired against (from <see cref="AlertFired.Symbol"/>),
+        /// surfaced on the event for delivery payloads + per-asset webhook routing.</summary>
+        public string? Symbol => Alert.Symbol;
+    }
 
     // ── UI Modal Events ───────────────────────────────────────────────────────
     public record OpenAlertsEvent();

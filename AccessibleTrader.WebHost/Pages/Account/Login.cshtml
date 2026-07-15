@@ -26,6 +26,11 @@
             <h1>Sign in</h1>
             <p class="auth-sub">Welcome back &mdash; sign in to your paper-trading account.</p>
 
+            @if (Model.PasswordReset)
+            {
+                <div class="auth-note" role="status" aria-live="polite">Your password has been updated. Sign in with your new password.</div>
+            }
+
             @if (!string.IsNullOrEmpty(Model.Error))
             {
                 <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
@@ -49,6 +54,7 @@
             </form>
 
             <p class="auth-alt">
+                <a href="@Url.Content("~/account/forgotpassword")">Forgot your password?</a><br />
                 New here? <a href="@Url.Content("~/account/register")">Create a free account</a>
             </p>
         </div>

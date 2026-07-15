@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
@@ -7,13 +9,29 @@ using AccessibleTrader.Sdk.Alerts;
 
 namespace AccessibleTrader.Core.Services.Alerts
 {
-    /// <summary>Configuration for the generic webhook channel; read lazily on each send.</summary>
-    public sealed record WebhookAlertChannelConfig
+    /// <summary>
+    /// A single named webhook endpoint. <see cref="Name"/> is matched against an
+    /// alert's <c>WebhookTarget</c> to route per-asset (e.g. "BTC channel" → #btc).
+    /// </summary>
+    public sealed record NamedWebhook
     {
-        /// <summary>Full endpoint URL — a Discord webhook, Slack incoming webhook, or any HTTP service.</summary>
-        public string? WebhookUrl { get; init; }
+        public required string Name { get; init; }
+        /// <summary>Full endpoint URL — a Discord webhook, Slack incoming webhook, or any HTTPS service.</summary>
+        public required string Url { get; init; }
         /// <summary>Optional value for the Authorization header (e.g. "Bearer abc123").</summary>
         public string? AuthHeader { get; init; }
+    }
+
+    /// <summary>
+    /// Configuration for the generic webhook channel; read lazily on each send.
+    /// Holds a named list so alerts can route to per-asset channels (Part B). The
+    /// legacy single <c>alerts.webhook.url</c> is migrated into a <c>{Name:"Default"}</c>
+    /// entry on load (see <see cref="WebhookAlertConfigLoader"/>).
+    /// </summary>
+    public sealed record WebhookAlertChannelConfig
+    {
+        /// <summary>The configured named webhooks. Empty = channel unconfigured.</summary>
+        public IReadOnlyList<NamedWebhook> Webhooks { get; init; } = Array.Empty<NamedWebhook>();
     }
 
     /// <summary>
@@ -23,6 +41,10 @@ namespace AccessibleTrader.Core.Services.Alerts
     ///   • Slack incoming webhooks read <c>text</c>
     ///   • custom endpoints get the full structured object
     /// Unknown fields are ignored by all three, so no per-service mode switch is needed.
+    ///
+    /// Routing (Part B): each fired alert is posted only to the webhook whose
+    /// <see cref="NamedWebhook.Name"/> equals the alert's <c>WebhookTarget</c>. An
+    /// alert with a null <c>WebhookTarget</c> is not posted to any webhook.
     /// </summary>
     public sealed class WebhookAlertChannel : IAlertChannel
     {
@@ -43,24 +65,40 @@ namespace AccessibleTrader.Core.Services.Alerts
             get
             {
                 var cfg = _configProvider();
-                return cfg != null
-                    && !string.IsNullOrWhiteSpace(cfg.WebhookUrl)
-                    && Uri.TryCreate(cfg.WebhookUrl, UriKind.Absolute, out var uri)
-                    && uri.Scheme == Uri.UriSchemeHttps; // alerts may carry position info — never plaintext
+                return cfg != null && cfg.Webhooks.Any(IsValid);
             }
         }
+
+        private static bool IsValid(NamedWebhook w) =>
+            w != null
+            && !string.IsNullOrWhiteSpace(w.Name)
+            && !string.IsNullOrWhiteSpace(w.Url)
+            && Uri.TryCreate(w.Url, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps; // alerts may carry position info — never plaintext
 
         public async Task SendAsync(AlertFired alert, CancellationToken ct = default)
         {
             var cfg = _configProvider();
-            if (cfg == null || !IsConfigured) return;
+            if (cfg == null) return;
 
-            string message = $"🔔 {alert.Definition.Name}: {alert.SpeechText}";
+            // Route to the webhook named by the alert. A null target means "no webhook
+            // for this alert" — email/Telegram fan-out still happens via their channels.
+            var target = alert.Definition.WebhookTarget;
+            if (string.IsNullOrWhiteSpace(target)) return;
+
+            var hook = cfg.Webhooks.FirstOrDefault(w =>
+                IsValid(w) && string.Equals(w.Name, target, StringComparison.OrdinalIgnoreCase));
+            if (hook == null) return; // configured target not found / invalid — skip silently
+
+            string symbolPrefix = string.IsNullOrWhiteSpace(alert.Symbol) ? "" : $"[{alert.Symbol}] ";
+            string message = $"🔔 {symbolPrefix}{alert.Definition.Name}: {alert.SpeechText}";
             var payload = new
             {
                 content = message,                       // Discord
                 text = message,                          // Slack
                 alert_name = alert.Definition.Name,
+                symbol = alert.Symbol,
+                condition = alert.Definition.Condition.ToString(),
                 speech_text = alert.SpeechText,
                 triggering_value = alert.TriggeringValue,
                 previous_value = alert.PreviousValue,
@@ -68,12 +106,12 @@ namespace AccessibleTrader.Core.Services.Alerts
                 source = "AccessibleTradeTerminal",
             };
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, cfg.WebhookUrl)
+            using var req = new HttpRequestMessage(HttpMethod.Post, hook.Url)
             {
                 Content = JsonContent.Create(payload)
             };
-            if (!string.IsNullOrWhiteSpace(cfg.AuthHeader))
-                req.Headers.TryAddWithoutValidation("Authorization", cfg.AuthHeader);
+            if (!string.IsNullOrWhiteSpace(hook.AuthHeader))
+                req.Headers.TryAddWithoutValidation("Authorization", hook.AuthHeader);
 
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();

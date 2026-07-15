@@ -100,11 +100,25 @@ namespace AccessibleTrader.Core.Services
                 return; // skip alert evaluation on warm-up tick
             }
 
-            var results = _evaluator.EvaluateAlerts(_alerts, state, lastBar, prevBar, _previousValues);
+            // Part A — symbol gating. Until multi-workspace lands, alerts still only
+            // fire for the on-screen symbol, but an alert scoped to a specific Symbol is
+            // skipped entirely when the current chart's SymbolDisplayName doesn't match
+            // (case-insensitive). A null Symbol means "any / current chart" (back-compat).
+            var applicable = _alerts
+                .Where(a => a.Symbol == null
+                         || string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var results = _evaluator.EvaluateAlerts(applicable, state, lastBar, prevBar, _previousValues);
 
             foreach (var res in results)
             {
-                _eventBus.Publish(new AlertFiredEvent(res));
+                // Stamp the firing symbol (the on-screen chart) so delivery payloads and
+                // per-asset webhook routing know which market fired, even for "any"-scoped alerts.
+                var enriched = res.Symbol == null && !string.IsNullOrEmpty(state.SymbolDisplayName)
+                    ? res with { Symbol = state.SymbolDisplayName }
+                    : res;
+                _eventBus.Publish(new AlertFiredEvent(enriched));
             }
 
             // Snapshot current indicator component values for next tick's crossover comparison.

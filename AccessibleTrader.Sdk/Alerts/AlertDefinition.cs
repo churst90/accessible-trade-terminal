@@ -35,4 +35,22 @@ public record AlertDefinition
     public bool IsActive { get; init; } = true;
     public bool RepeatIfStillActive { get; init; } = false;
     public TimeSpan Cooldown { get; init; } = TimeSpan.FromSeconds(30);
+
+    // ── Symbol scoping (Part A) ──────────────────────────────────────────────
+    // All nullable; null = "any / current chart" for back-compat. Existing
+    // alerts.json entries deserialize these as null and evaluate exactly as
+    // before. When Symbol is set, AlertOrchestrator only evaluates the alert
+    // while the on-screen chart's SymbolDisplayName matches (case-insensitive),
+    // so a "BTC" alert no longer fires against KAS when you switch tabs.
+    /// <summary>Display-name of the symbol this alert is scoped to (e.g. "BTC/USD"); null = any / current chart.</summary>
+    public string? Symbol { get; init; }
+    /// <summary>Optional provider scope (informational / future multi-workspace routing); null = any.</summary>
+    public string? Provider { get; init; }
+    /// <summary>Optional timeframe scope (informational / future multi-workspace routing); null = any.</summary>
+    public string? Timeframe { get; init; }
+
+    // ── Per-asset webhook routing (Part B) ───────────────────────────────────
+    /// <summary>Name of the configured webhook (see <c>alerts.webhooks</c>) this alert
+    /// posts to; null = do not post to any webhook. Email/Telegram fan-out is unaffected.</summary>
+    public string? WebhookTarget { get; init; }
 }

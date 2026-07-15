@@ -24,6 +24,9 @@ namespace AccessibleTrader.WebHost.Pages.Account
         [BindProperty] public InputModel Input { get; set; } = new();
         public string? Error { get; set; }
 
+        /// <summary>Set when the visitor arrives from a successful password reset (?reset=1) — shows a confirmation banner.</summary>
+        public bool PasswordReset { get; set; }
+
         public class InputModel
         {
             [Required, EmailAddress, Display(Name = "Email")]
@@ -36,7 +39,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet() { }
+        public void OnGet(int reset = 0) => PasswordReset = reset == 1;
 
         public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {
