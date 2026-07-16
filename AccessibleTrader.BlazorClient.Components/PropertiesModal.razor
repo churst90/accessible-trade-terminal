@@ -670,13 +670,16 @@
             or ComponentDisplayType.ZeroDot
             or ComponentDisplayType.ZeroArea;
 
-    /// <summary>Selectable sound patches: built-in registry bells first, then user Sound Designer patches.</summary>
+    /// <summary>Selectable sound patches: built-in registry bells, factory instrument
+    /// voices (the sound-theme bank), then user Sound Designer patches.</summary>
     private IEnumerable<(string Value, string Label)> PatchOptions()
     {
         var ids = PatchRegistry.GetPatchIds();
         if (ids != null)
             foreach (var id in ids.OrderBy(x => x))
                 yield return (id, "Built-in: " + Prettify(id));
+        foreach (var v in AccessibleTrader.Core.Services.Audio.SoundThemes.FactoryPatches.Values.OrderBy(p => p.Name))
+            yield return (v.Id, "Voice: " + v.Name);
         var user = PatchLibrary.GetPatches();
         if (user != null)
             foreach (var p in user)

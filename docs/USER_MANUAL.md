@@ -252,6 +252,15 @@ unit you choose — min, hr, day, wk, or mo. Together they read as a timeframe s
 as 1 hr or 15 min; the default is 1 hr. When a provider advertises a set of common
 timeframes, quick-pick buttons appear alongside the two fields so you can jump
 straight to, for example, "Set timeframe to 1h" without touching the multiplier.
+The quick-picks are always the provider's *own* list — a button you can press is a
+timeframe that provider genuinely serves. Two consequences follow. When a provider
+offers exactly one timeframe (most analytics feeds — Fear and Greed, COT
+positioning, short volume — are daily-only), the whole Time area disappears:
+there is nothing to choose, and the timeframe still reads in the tab title and
+the F4 context summary. And when you switch to a provider that doesn't offer your
+current timeframe, the terminal snaps to one it does offer and tells you so —
+"provides 1d data only; timeframe set to 1d" — instead of silently fetching
+nothing.
 
 A worked path makes the cascade concrete. Suppose you want Bitcoin against the
 dollar on Binance at the hourly. Tab to Market and select Crypto; the Provider list
@@ -1343,6 +1352,26 @@ through the properties dialog above, and the link is live: edit a patch in the s
 designer and every component and earcon using it updates at once. Patches saved by
 older versions still load unchanged. Think of the properties dialog as choosing which
 instrument each part plays and the sound designer as building the instruments.
+
+The earcon list in this panel now includes the three reference-level cues — the
+crossing chirps (up and down separately), the approach ping, and the
+sustained-in-zone tone — so those can be re-skinned with any patch too. And a
+factory bank of ready-made **instrument voices** ships alongside the built-in
+bells: flute, clarinet, pipe-organ registrations, glass, and string-ensemble
+patches (they appear as "Voice: …" in every patch dropdown). They exist for the
+sound themes below but you can assign them anywhere by hand.
+
+**Sound themes.** Settings (F12), General, "Sound theme" assigns those factory
+voices automatically, one instrument per indicator *family*: with the Orchestra
+theme, price and moving-average lines are a flute, bounded oscillators like the
+RSI a clarinet, zero-cross indicators like the MACD a pipe organ, and band edges
+glass. The point is playback: press Space on a busy chart and you can tell which
+line is talking by its instrument alone. The Pipe organ and Strings themes voice
+the same families with different registrations of a single instrument, and
+Classic is the original pure-tone palette. A theme applies to indicators you add
+after choosing it, never touches candles, wicks, or volume (their sound carries
+size information that a fixed instrument would erase), and any per-component
+patch you pick in a Properties dialog always wins.
 
 ### Tabs and workspaces
 

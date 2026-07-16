@@ -57,12 +57,17 @@ namespace AccessibleTrader.Core.Services.Audio
         private const int SLOT_UI_START = 16;
         private int _uiSlotCounter;
 
-        public NavigationSonifier(IAudioDriver audioDriver, ISonificationStrategy strategy, ISoundPatchRegistry patchRegistry)
+        public NavigationSonifier(IAudioDriver audioDriver, ISonificationStrategy strategy, ISoundPatchRegistry patchRegistry,
+            ISoundPatchLibrary? patchLibrary = null)
         {
             _audioDriver = audioDriver;
             _strategy = strategy;
             _patchRegistry = patchRegistry;
+            _patchLibrary = patchLibrary;
         }
+
+        // Optional: user patch library for level-cue earcon overrides (null in minimal tests).
+        private readonly ISoundPatchLibrary? _patchLibrary;
 
         /// <summary>
         /// Resolves the navigation Ping duration for a component, applying patch DefaultDecayMs
@@ -286,7 +291,10 @@ namespace AccessibleTrader.Core.Services.Audio
             // Directional cross earcon: fires when the focused component's value crossed a
             // reference / OB / OS level between the previous bar and this one — so it sounds whether
             // you arrowed forward or backward onto the cross bar.
-            if (audioPt.CrossDirection != 0)
+            if (audioPt.CrossDirection != 0
+                && !EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
+                    audioPt.CrossDirection > 0 ? EarconPatchPlayer.CrossUpKey : EarconPatchPlayer.CrossDownKey,
+                    1f, pan))
                 CrossEarcon.Fire(_audioDriver, audioPt.CrossDirection, 1f, pan);
 
             for (int i = 2; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);

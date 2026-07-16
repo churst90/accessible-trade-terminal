@@ -491,7 +491,25 @@ namespace AccessibleTrader.Core.Services
             }
 
             if (!_availableTimeframes.Contains(_selectedTimeframe))
-                _selectedTimeframe = "1h";
+            {
+                // Coerce to a timeframe the provider ACTUALLY offers. The old fallback
+                // hardcoded "1h", which a daily-only analytics provider doesn't have —
+                // the fetch then silently returned nothing. Prefer familiar defaults,
+                // else take the provider's first. Announce the change: a provider
+                // switch must never silently alter granularity on a blind user.
+                string coerced = _availableTimeframes.Contains("1h") ? "1h"
+                               : _availableTimeframes.Contains("1d") ? "1d"
+                               : _availableTimeframes.FirstOrDefault() ?? "1d";
+                if (!string.IsNullOrEmpty(_selectedTimeframe) && coerced != _selectedTimeframe)
+                {
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                        _availableTimeframes.Count == 1
+                            ? $"{_selectedProvider} provides {coerced} data only; timeframe set to {coerced}."
+                            : $"{_selectedProvider} does not offer {_selectedTimeframe}; timeframe set to {coerced}.",
+                        Interrupt: false, IsUserInitiated: false));
+                }
+                _selectedTimeframe = coerced;
+            }
 
             _pipelineUpdated.OnNext(Unit.Default);
         }

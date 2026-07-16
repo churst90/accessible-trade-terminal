@@ -208,6 +208,43 @@
                                value="@Store.State.WasapiLatency"
                                @onchange="e => _wasapiLatency = int.TryParse(e.Value?.ToString(), out int v) ? v : Store.State.WasapiLatency" />
                     </div>
+
+                    <div class="modal-row">
+                        <label for="s-hover-sonif">Hover sonification (soft pitch tick under the mouse)</label>
+                        <input id="s-hover-sonif" type="checkbox"
+                               checked="@_hoverSonification"
+                               @onchange="OnHoverSonificationChanged" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-sound-theme">Sound theme (per-indicator instrument voices)</label>
+                        <select id="s-sound-theme"
+                                value="@_soundTheme"
+                                @onchange="OnSoundThemeChanged"
+                                aria-label="Sound theme: which instrument family each indicator uses">
+                            @foreach (var t in Core.Services.Audio.SoundThemes.All)
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        A theme gives each indicator family its own instrument so you can tell
+                        the RSI from the MACD from the price line by timbre alone during playback.
+                        Applies to newly added indicators; per-component patch choices in an
+                        indicator's Properties always win.
+                    </p>
+                </fieldset>
+
+                @* ── Drawing ─────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Drawing</legend>
+                    <div class="modal-row">
+                        <label for="s-magnet-snap">Magnet snap (drawing anchors snap to nearest open/high/low/close)</label>
+                        <input id="s-magnet-snap" type="checkbox"
+                               checked="@_magnetSnap"
+                               @onchange="OnMagnetSnapChanged" />
+                    </div>
                 </fieldset>
 
                 @* ── Viewport ────────────────────────────────────────────────── *@
@@ -640,6 +677,42 @@
                         </p>
                     }
                 </fieldset>
+
+                @* ── Strategy setup alerts ─────────────────────────────────────
+                   The SetupAlertBridge (confirmed/armed/dropped setups → email /
+                   Telegram / webhook) existed and was documented in the manual, but
+                   its settings had no UI — the feature was unreachable. *@
+                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:#111; padding:0 6px;">Strategy setup alerts</legend>
+                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                        When on, confirmed and armed strategy setups are delivered through the
+                        same channels as alerts — email, Telegram, and (optionally) a webhook —
+                        so your Discord channel hears "Long setup — gold" with the trade plan
+                        even when you're away from the terminal.
+                    </p>
+                    <div class="modal-row">
+                        <label for="s-setup-alerts">Send strategy setups to alert channels</label>
+                        <input id="s-setup-alerts" type="checkbox"
+                               checked="@_setupAlertsEnabled"
+                               @onchange="e => _setupAlertsEnabled = e.Value is bool b && b" />
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-setup-webhook">Webhook for setups (fallback when no per-symbol route)</label>
+                        <select id="s-setup-webhook"
+                                value="@_setupWebhookTarget"
+                                @onchange="e => _setupWebhookTarget = e.Value?.ToString() ?? string.Empty"
+                                aria-label="Webhook that receives strategy setups">
+                            <option value="">(none — email and Telegram only)</option>
+                            @foreach (var w in _webhooks)
+                            {
+                                if (!string.IsNullOrWhiteSpace(w.Name))
+                                {
+                                    <option value="@w.Name" selected="@(w.Name == _setupWebhookTarget)">@w.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </fieldset>
             </div>
 
             @* ── License tab ───────────────────────────────────────────────── *@
@@ -913,6 +986,37 @@
     private int  _bgPollSeconds = 30;
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
+    private bool _hoverSonification;
+    private bool _magnetSnap;
+    private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
+
+    private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _hoverSonification = e.Value is bool b && b;
+        Settings.SetSetting(Services.ChartHoverTracker.HoverSonificationKey, _hoverSonification);
+        Settings.SaveSettings();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _hoverSonification ? "Hover sonification on." : "Hover sonification off.", true));
+    }
+
+    private void OnMagnetSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _magnetSnap = e.Value is bool b && b;
+        Settings.SetSetting(Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey, _magnetSnap);
+        Settings.SaveSettings();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
+    }
+
+    private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _soundTheme = e.Value?.ToString() ?? Core.Services.Audio.SoundThemes.ClassicId;
+        Settings.SetSetting(Core.Services.Audio.SoundThemes.SettingsKey, _soundTheme);
+        Settings.SaveSettings();
+        var theme = Core.Services.Audio.SoundThemes.All.FirstOrDefault(t => t.Id == _soundTheme);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Sound theme {theme?.Name ?? _soundTheme}. Applies to indicators you add from now on.", true));
+    }
 
     // ── Background monitoring — persist + apply immediately ──
     private void OnBgMonitoringChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -955,6 +1059,10 @@
         _paperTradingModeInitial = _paperTradingMode;
         _brailleEnabled = Settings.GetSetting("accessibility.braille.enabled")?.ToObject<bool>() ?? false;
         _brailleEnabledInitial = _brailleEnabled;
+        _hoverSonification = Settings.GetSetting(Services.ChartHoverTracker.HoverSonificationKey)?.ToObject<bool>() ?? false;
+        _magnetSnap = Settings.GetSetting(Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey)?.ToObject<bool>() ?? false;
+        _soundTheme = Settings.GetSetting(Core.Services.Audio.SoundThemes.SettingsKey)?.ToString()
+                      ?? Core.Services.Audio.SoundThemes.ClassicId;
         _wasapiLatency = Store.State.WasapiLatency;
         _visualEarcons   = Settings.GetSetting("accessibility.visualEarcons")?.ToObject<bool>() ?? false;
         _colorVisionSafe = Settings.GetSetting("appearance.colorVisionSafe")?.ToObject<bool>() ?? false;
@@ -989,7 +1097,13 @@
             .Select(w => new WebhookRow { Name = w.Name, Url = w.Url, Auth = w.AuthHeader ?? string.Empty })
             .ToList();
         _webhookStatus = string.Empty; _webhookStatusIsError = false;
+
+        _setupAlertsEnabled  = Settings.GetSetting("alerts.setups.enabled")?.ToObject<bool>() ?? false;
+        _setupWebhookTarget  = Settings.GetSetting("alerts.setups.webhookTarget")?.ToString() ?? string.Empty;
     }
+
+    private bool _setupAlertsEnabled;
+    private string _setupWebhookTarget = string.Empty;
 
     private async Task ShowAsync()
     {
@@ -1063,6 +1177,8 @@
             });
         Settings.SetSetting("alerts.webhooks",
             AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ToJson(named));
+        Settings.SetSetting("alerts.setups.enabled", JToken.FromObject(_setupAlertsEnabled));
+        Settings.SetSetting("alerts.setups.webhookTarget", JToken.FromObject(_setupWebhookTarget));
         Settings.SaveSettings();
     }
 

@@ -64,9 +64,27 @@ namespace AccessibleTrader.Core.Services.Audio
             public bool ApproachFired;
         }
 
-        public LevelCrossingMonitor(INavigationSonifier sonifier)
+        public LevelCrossingMonitor(INavigationSonifier sonifier, ISoundPatchLibrary? patchLibrary = null)
         {
             _sonifier = sonifier;
+            _patchLibrary = patchLibrary;
+        }
+
+        // Optional: user patch library for cue overrides (null in minimal tests).
+        private readonly ISoundPatchLibrary? _patchLibrary;
+
+        /// <summary>Plays the Sound Designer patch assigned to a cue key, if any.
+        /// Returns false so callers fall back to the built-in tone.</summary>
+        private bool TryPlayCuePatch(string earconKey, float volumeScale, float pan)
+        {
+            if (_patchLibrary == null) return false;
+            if (!_patchLibrary.EarconOverrides.EarconPatchIds.TryGetValue(earconKey, out var pid)
+                || string.IsNullOrEmpty(pid))
+                return false;
+            var patch = _patchLibrary.GetPatch(pid);
+            if (patch == null) return false;
+            _sonifier.PlayPatch(patch, volumeScale, pan);
+            return true;
         }
 
         public void Reset() => _states.Clear();
@@ -130,7 +148,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 {
                     s.SustainedFired = true;
                     float pan = ComputePan(state);
-                    _sonifier.PlayNote(Tier3Freq, Tier3Dur, "sine", Tier3Vol * lc.EarconVolume, pan);
+                    if (!TryPlayCuePatch(EarconPatchPlayer.SustainedKey, lc.EarconVolume, pan))
+                        _sonifier.PlayNote(Tier3Freq, Tier3Dur, "sine", Tier3Vol * lc.EarconVolume, pan);
                 }
                 return;
             }
@@ -157,7 +176,9 @@ namespace AccessibleTrader.Core.Services.Audio
                 double proximity = 1.0 - (distance / band); // 1.0 = at the line; 0.0 = band edge
                 float vol = Tier1BaseVol * (float)Math.Clamp(proximity, 0.0, 1.0) * lc.EarconVolume;
                 float pan = ComputePan(state);
-                _sonifier.PlayNote(Tier1Freq, Tier1Dur, "sine", vol, pan);
+                if (!TryPlayCuePatch(EarconPatchPlayer.ApproachKey,
+                        (float)Math.Clamp(proximity, 0.0, 1.0) * lc.EarconVolume, pan))
+                    _sonifier.PlayNote(Tier1Freq, Tier1Dur, "sine", vol, pan);
                 s.ApproachFired = true;
             }
             else if (!approaching)

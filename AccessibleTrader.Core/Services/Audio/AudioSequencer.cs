@@ -56,14 +56,19 @@ namespace AccessibleTrader.Core.Services.Audio
         public IObservable<Unit> PlaybackFinished => _playbackFinished;
         public IObservable<int> PointReached => _pointReached;
 
-        public AudioSequencer(IAudioDriver audioDriver, ISonificationStrategy strategy, IWorkspaceStore store, ISoundPatchRegistry patchRegistry, ILogger<AudioSequencer> logger)
+        public AudioSequencer(IAudioDriver audioDriver, ISonificationStrategy strategy, IWorkspaceStore store, ISoundPatchRegistry patchRegistry, ILogger<AudioSequencer> logger,
+            ISoundPatchLibrary? patchLibrary = null)
         {
             _audioDriver = audioDriver;
             _strategy = strategy;
             _store = store;
             _patchRegistry = patchRegistry;
             _logger = logger;
+            _patchLibrary = patchLibrary;
         }
+
+        // Optional: user patch library for level-cue earcon overrides (null in minimal tests).
+        private readonly ISoundPatchLibrary? _patchLibrary;
 
         /// <summary>
         /// Returns the volume multiplier for a PlaybackLayer:
@@ -255,7 +260,10 @@ namespace AccessibleTrader.Core.Services.Audio
             // Directional cross earcon — fires whenever this component crossed a level on this bar,
             // independent of how its voices render below. On the shared 30/31 slots, so simultaneous
             // crosses across components collapse to one chirp per bar rather than a cluster.
-            if (audioPt.CrossDirection != 0)
+            if (audioPt.CrossDirection != 0
+                && !EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
+                    audioPt.CrossDirection > 0 ? EarconPatchPlayer.CrossUpKey : EarconPatchPlayer.CrossDownKey,
+                    1f, pan))
                 CrossEarcon.Fire(_audioDriver, audioPt.CrossDirection, 1f, pan);
 
             // Multi-oscillator user patch: one voice per layer across the reserved slots.

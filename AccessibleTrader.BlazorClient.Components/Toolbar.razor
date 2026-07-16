@@ -197,41 +197,49 @@
         @* ── Custom timeframe composer ────────────────────────────────────
            Multiplier + unit inputs compose a timeframe string like "4h", "15m", "2w".
            Quick-pick buttons (from AvailableTimeframes) fill the fields in one click.
-           Hidden in the public demo, which exposes only the 4h/1d quick-picks. *@
-        @if (!Demo.IsDemo)
+           Hidden in the public demo, which exposes only the 4h/1d quick-picks.
+           SINGLE-TIMEFRAME PROVIDERS (most analytics feeds are daily-only): the whole
+           timeframe area is hidden — composer AND quick-picks — because there is
+           nothing to choose. The timeframe still shows in the tab title and chart
+           announcements, so the user always knows what they're on. A provider that
+           declares NO timeframes (unknown support) keeps the composer. *@
+        @if (MarketOrchestrator.AvailableTimeframes.Count != 1)
         {
-            <label for="tf-mult">Time:</label>
-            <input id="tf-mult"
-                   type="number"
-                   min="1"
-                   max="999"
-                   aria-label="Timeframe multiplier"
-                   style="width:4rem;"
-                   value="@_tfMult"
-                   @onchange="OnTfMultChanged" />
-            <label for="tf-unit" class="sr-only">Timeframe unit</label>
-            <select id="tf-unit"
-                    aria-label="Timeframe unit"
-                    @onchange="OnTfUnitChanged"
-                    value="@_tfUnit">
-                <option value="m" selected="@(_tfUnit == "m")">min</option>
-                <option value="h" selected="@(_tfUnit == "h")">hr</option>
-                <option value="d" selected="@(_tfUnit == "d")">day</option>
-                <option value="w" selected="@(_tfUnit == "w")">wk</option>
-                <option value="M" selected="@(_tfUnit == "M")">mo</option>
-            </select>
-        }
-        @if (MarketOrchestrator.AvailableTimeframes.Count > 0)
-        {
-            <div style="display:inline-flex; flex-wrap:wrap; gap:3px;">
-                @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
-                {
-                    <button style="padding:2px 5px; font-size:0.8rem;"
-                            aria-label="Set timeframe to @tf"
-                            title="Set timeframe to @tf"
-                            @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
-                }
-            </div>
+            @if (!Demo.IsDemo)
+            {
+                <label for="tf-mult">Time:</label>
+                <input id="tf-mult"
+                       type="number"
+                       min="1"
+                       max="999"
+                       aria-label="Timeframe multiplier"
+                       style="width:4rem;"
+                       value="@_tfMult"
+                       @onchange="OnTfMultChanged" />
+                <label for="tf-unit" class="sr-only">Timeframe unit</label>
+                <select id="tf-unit"
+                        aria-label="Timeframe unit"
+                        @onchange="OnTfUnitChanged"
+                        value="@_tfUnit">
+                    <option value="m" selected="@(_tfUnit == "m")">min</option>
+                    <option value="h" selected="@(_tfUnit == "h")">hr</option>
+                    <option value="d" selected="@(_tfUnit == "d")">day</option>
+                    <option value="w" selected="@(_tfUnit == "w")">wk</option>
+                    <option value="M" selected="@(_tfUnit == "M")">mo</option>
+                </select>
+            }
+            @if (MarketOrchestrator.AvailableTimeframes.Count > 1)
+            {
+                <div style="display:inline-flex; flex-wrap:wrap; gap:3px;">
+                    @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
+                    {
+                        <button style="padding:2px 5px; font-size:0.8rem;"
+                                aria-label="Set timeframe to @tf"
+                                title="Set timeframe to @tf"
+                                @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
+                    }
+                </div>
+            }
         }
 
         <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"

@@ -57,7 +57,13 @@ namespace AccessibleTrader.Core.Services
         public SoundPatch? GetPatch(string? id)
         {
             if (string.IsNullOrEmpty(id)) return null;
-            return _patches.FirstOrDefault(p => p.Id == id);
+            // User patches win (a user can clone-and-tweak a factory voice under the
+            // same id); the factory voice bank ("voice_*", used by sound themes)
+            // resolves through the same call so every patch consumer — components,
+            // earcon overrides, previews — can use factory voices without special
+            // cases.
+            return _patches.FirstOrDefault(p => p.Id == id)
+                ?? (Audio.SoundThemes.FactoryPatches.TryGetValue(id, out var factory) ? factory : null);
         }
 
         public void AddPatch(SoundPatch patch)

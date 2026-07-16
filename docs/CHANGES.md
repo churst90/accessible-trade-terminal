@@ -6,6 +6,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Sound themes, level-cue earcon patches, provider-true timeframes, settings exposure (2026-07-16)
+
+**Sound themes (factory voice bank).** New Settings → General → "Sound theme":
+each indicator family gets its own instrument so the RSI, the MACD, and the
+price line are tellable apart by timbre alone during playback. Four themes —
+Classic (unchanged default), Orchestra (flute lines / clarinet oscillators /
+organ zero-cross / glass bands), Pipe organ (a different drawbar registration
+per family), Strings (detuned ensemble by register). Voices are ordinary
+multi-oscillator patches built from classic additive recipes ("voice_*" ids in
+`SoundThemes.FactoryPatches`), resolvable everywhere patches work: the
+Properties patch dropdown lists them under "Voice:", they preview in the Sound
+Designer, and they're assignable to earcons. Themes apply at series creation
+(newly added indicators); per-component choices always win. Candles, wicks,
+volume, and histograms are NEVER themed — their timbre is semantic (grit
+encodes size) and a fixed patch would erase it.
+
+**Level cues are now re-skinnable.** The three reference-level cues — cross
+chirp, approach ping, sustained-zone tone — route through the Sound Designer's
+earcon override map under four new keys (LevelCrossUp/Down, LevelApproach,
+LevelSustained). No patch assigned = built-in tones, unchanged. Per-indicator
+enable/disable already existed (each level's "Play Earcon on Crossing" in
+Properties gates all three tiers).
+
+**Timeframes are provider-true.** The quick-pick buttons were already built
+from the provider's declared list; now (a) a single-timeframe provider (most
+analytics feeds are daily-only) hides the whole timeframe area — composer and
+buttons — since there is nothing to choose (the timeframe stays in the tab
+title), and (b) switching to a provider that doesn't offer the current
+timeframe coerces to one it does offer (1h → 1d → first) and ANNOUNCES the
+change; the old fallback hardcoded "1h" even for daily-only providers, which
+made the fetch silently return nothing.
+
+**Hidden settings exposed** (QA audit findings): strategy setup→alert delivery
+(the manual documented it; the UI didn't exist — now an Alerts-tab section with
+an enable checkbox and a webhook dropdown), hover sonification and drawing
+magnet snap (were reachable only through the chart context menu; now also in
+Settings). Dead `CoordinateEntryCompleteEvent` removed. QA sweep verdict:
+modal open/close/Escape contracts 100% consistent (17/17), settings
+persistence wiring clean, keyboard.js copies identical across hosts.
+
 ### Zone-only oscillator texture, exact volume speech, longer grit pings (2026-07-15, round 2)
 
 The noise makeup gain (below) unmasked constant baseline noise the bounded

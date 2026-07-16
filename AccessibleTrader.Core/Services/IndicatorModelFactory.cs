@@ -20,11 +20,14 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly IStylingService _stylingService;
         private readonly IIndicatorPreferencesService _prefsService;
+        private readonly ISettingsManager? _settings; // optional: sound-theme lookup (null in minimal tests)
 
-        public IndicatorModelFactory(IStylingService stylingService, IIndicatorPreferencesService prefsService)
+        public IndicatorModelFactory(IStylingService stylingService, IIndicatorPreferencesService prefsService,
+            ISettingsManager? settings = null)
         {
             _stylingService = stylingService;
             _prefsService   = prefsService;
+            _settings       = settings;
         }
 
         public ComponentConfig CreateComponentConfig(string indicatorCode, string componentName)
@@ -60,7 +63,13 @@ namespace AccessibleTrader.Core.Services
                 ColorBaseline = _stylingService.GetColorBaseline(indicatorCode, componentName),
                 IsEnabled = true,
                 IsVisible = true,
-                Volume = 1.0f
+                Volume = 1.0f,
+                // Sound theme: the active theme may voice this component with a factory
+                // instrument patch (per-family). Null = classic built-in timbre. The user
+                // can always override per component in Properties, which wins because it
+                // simply overwrites this same field.
+                SoundPatchId = Audio.SoundThemes.ResolvePatchId(
+                    _settings?.GetSetting(Audio.SoundThemes.SettingsKey)?.ToString(), type, role)
             };
         }
 
