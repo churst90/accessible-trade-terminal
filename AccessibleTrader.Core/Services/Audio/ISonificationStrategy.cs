@@ -234,7 +234,13 @@ namespace AccessibleTrader.Core.Services.Audio
             // Sign-coloured components (histograms, zero-line dots/areas, or any polarity-coloured
             // component) are green/red by their own value vs ColorBaseline; candles/bars are green/red
             // by the price bar's direction (close vs open).
-            bool barBullish = (comp.UsePolarityColoring
+            // Oscillators pick their patch by which side of the visible MIDLINE the value
+            // sits on (RSI 50, Stoch 50, WT 0 in a symmetric pane) — "bullish/bearish bar"
+            // has no meaning for them, and this matches the midpoint split the built-in
+            // timbre uses. The Properties dialog labels these "Above/Below midline patch".
+            bool barBullish = comp.DisplayType == ComponentDisplayType.Oscillator
+                ? normalizedValue >= 0.5
+                : (comp.UsePolarityColoring
                     || comp.DisplayType is ComponentDisplayType.Histogram
                         or ComponentDisplayType.ZeroDot or ComponentDisplayType.ZeroArea)
                 ? val >= comp.ColorBaseline

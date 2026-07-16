@@ -466,11 +466,12 @@
                                     </div>
                                     @if (IsDirectional(comp))
                                     {
+                                        var dir = DirectionLabels(comp);
                                         <div class="modal-row">
-                                            <label>Green (bullish) patch</label>
+                                            <label>@dir.Up</label>
                                             <select value="@(comp.BullishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BullishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
-                                                    aria-label="Bullish-bar sound patch for @comp.Name">
+                                                    aria-label="@dir.Up for @comp.Name">
                                                 <option value="">(use Sound Patch above)</option>
                                                 @foreach (var opt in PatchOptions())
                                                 {
@@ -481,10 +482,10 @@
                                                     aria-label="Preview bullish patch for @comp.Name">&#9654;</button>
                                         </div>
                                         <div class="modal-row">
-                                            <label>Red (bearish) patch</label>
+                                            <label>@dir.Down</label>
                                             <select value="@(comp.BearishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BearishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
-                                                    aria-label="Bearish-bar sound patch for @comp.Name">
+                                                    aria-label="@dir.Down for @comp.Name">
                                                 <option value="">(use Sound Patch above)</option>
                                                 @foreach (var opt in PatchOptions())
                                                 {
@@ -500,7 +501,7 @@
                                         every component using it updates.
                                         @if (IsDirectional(comp))
                                         {
-                                            <text>Green/red patches let up-bars and down-bars sound different.</text>
+                                            <text>@DirectionLabels(comp).Hint</text>
                                         }
                                         Leave a field blank to fall back to the Sound Patch, then the manual controls below.
                                     </p>
@@ -668,7 +669,25 @@
             or ComponentDisplayType.Bar
             or ComponentDisplayType.Histogram
             or ComponentDisplayType.ZeroDot
-            or ComponentDisplayType.ZeroArea;
+            or ComponentDisplayType.ZeroArea
+            or ComponentDisplayType.Oscillator;
+
+    /// <summary>
+    /// Labels for the two-patch split, matched to what the engine ACTUALLY splits
+    /// on (see DefaultSonificationStrategy): oscillators split at the visible
+    /// midline (RSI 50), zero-anchored shapes at their baseline, price bars by
+    /// candle direction. "Bullish/bearish" is only shown where it is true.
+    /// </summary>
+    private static (string Up, string Down, string Hint) DirectionLabels(ComponentConfig comp) =>
+        comp.DisplayType == ComponentDisplayType.Oscillator
+            ? ("Above midline patch", "Below midline patch",
+               "Above/below patches split at the middle of the pane's range (RSI 50). The overbought/oversold zone texture from Reference Levels still plays on top of any patch.")
+        : comp.DisplayType is ComponentDisplayType.Histogram or ComponentDisplayType.ZeroDot or ComponentDisplayType.ZeroArea
+          || comp.UsePolarityColoring
+            ? ("Positive patch", "Negative patch",
+               "Positive/negative patches split at the zero (baseline) line.")
+            : ("Green (bullish) patch", "Red (bearish) patch",
+               "Green/red patches let up-bars and down-bars sound different.");
 
     /// <summary>Selectable sound patches: built-in registry bells, factory instrument
     /// voices (the sound-theme bank), then user Sound Designer patches.</summary>

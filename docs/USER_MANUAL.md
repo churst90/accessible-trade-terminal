@@ -1328,11 +1328,16 @@ Two layers of audio control sit underneath settings. The first is each indicator
 properties dialog (P). Its **Sonification** tab has an **Acoustics** section for the
 component you pick there, and at the top of it a **Sound Patch** dropdown chooses the
 voice that component plays — any built-in patch (the bells and more) or any patch you
-have made yourself — with a ▶ Preview button beside it to hear it. Components that
-are coloured green for up and red for down — candles, bars, volume and other
-histograms, and anything polarity-coloured — additionally get **Green (bullish)
-patch** and **Red (bearish) patch** dropdowns, so rising bars and falling bars can
-sound different; plain lines and areas show only the single patch. Leave a patch
+have made yourself — with a ▶ Preview button beside it to hear it. The second and third
+dropdowns adapt to what the component actually is: price bars get **Green
+(bullish)** and **Red (bearish)** patches so rising and falling bars can sound
+different; zero-anchored histograms and areas get **Positive** and **Negative**
+patches split at their baseline; and bounded oscillators like the RSI get
+**Above midline** and **Below midline** patches split at the middle of their
+range (RSI 50). Plain lines show only the single patch. Whatever patch you
+choose, the overbought/oversold **zone texture** from the Reference Levels
+section still plays on top — a patch changes the instrument, never the zone
+cue. Leave a patch
 unset and the older manual controls — waveform, noise, volume — take over as a
 fallback, and "Save as Defaults" still makes your choices stick for the next
 indicator of that type.

@@ -6,6 +6,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Oscillator patches respect the sound's meaning (2026-07-16, Cody's RSI report)
+
+Assigning a patch to an RSI flattened it into one sound everywhere: the
+overbought/oversold texture vanished during playback (the playback renderer
+dropped zone noise for patch layers — navigation kept it), and the above/below-
+midline character had nothing patch-equivalent. Fixed on Cody's design:
+
+- **Zone texture survives patches everywhere.** One shared rule
+  (PatchLayerNoise): a patch changes the INSTRUMENT, never silences the zone
+  cue — layer 0 always carries at least the level's Zone Texture, in both the
+  navigation and playback renderers.
+- **Oscillators split their two patches at the midline, not by candle colour.**
+  The second/third patch dropdowns now mean "above/below the middle of the
+  pane's range" (RSI 50) for oscillator components — candle direction is
+  meaningless for an RSI and is no longer used for them.
+- **Only relevant options are shown.** The Properties Sonification tab labels
+  the two-patch split by what the engine actually splits on: "Above/Below
+  midline patch" for oscillators (with a hint that zone texture still plays on
+  top of any patch), "Positive/Negative patch" for zero-anchored histograms/
+  areas/dots, "Green (bullish)/Red (bearish) patch" only for price bars, where
+  it's true. Oscillators previously showed no split at all; bars keep theirs.
+
+7 new tests (1691 → 1698) pin the shared noise rule and the midline selection.
+
 ### Debt items 5-7: modal contract enforcement, shared JS, the data seam (2026-07-16)
 
 **Modal contract is now un-bypassable** (item 5): a source-scanning test walks

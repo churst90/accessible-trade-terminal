@@ -269,7 +269,8 @@ namespace AccessibleTrader.Core.Services.Audio
             // Multi-oscillator user patch: one voice per layer across the reserved slots.
             if (audioPt.PatchLayers != null)
             {
-                RenderPatchLayers(slots, audioPt.PatchLayers, audioPt.Frequency, scaledVol, pan, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick);
+                RenderPatchLayers(slots, audioPt.PatchLayers, audioPt.Frequency, scaledVol, pan, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick,
+                    audioPt.NoiseAmount, audioPt.NoiseType);
                 return;
             }
 
@@ -329,15 +330,20 @@ namespace AccessibleTrader.Core.Services.Audio
         /// (e.g. a per-colour patch with fewer layers this bar) are silenced so they don't drone.
         /// </summary>
         private void RenderPatchLayers(int[] slots, IReadOnlyList<AccessibleTrader.Sdk.Models.OscillatorLayer> layers,
-            double baseFreq, float baseVol, float pan, bool continuous, double durationSec, int dataIndex, string envelope, bool click)
+            double baseFreq, float baseVol, float pan, bool continuous, double durationSec, int dataIndex, string envelope, bool click,
+            float zoneNoise = 0f, string? zoneNoiseType = null)
         {
             int n = Math.Min(layers.Count, slots.Length);
             for (int k = 0; k < n; k++)
             {
                 var L = layers[k];
+                // Shared rule (PatchLayerNoise): the OB/OS zone texture rides layer 0 even
+                // under a user patch. Playback used to drop it — a patched RSI lost its
+                // overbought roughness under Space while keeping it under arrow keys.
+                var (noise, noiseType) = PatchLayerNoise.Merge(k, L, zoneNoise, zoneNoiseType);
                 _audioDriver.SetVoice(slots[k], baseFreq * L.FreqRatio, Math.Clamp(baseVol * L.Gain, 0f, 1f), pan,
                     L.Waveform, continuous, durationSec, k == 0 ? dataIndex : -1, envelope, k == 0 && click,
-                    Math.Max(0f, L.NoiseAmount), string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
+                    noise, noiseType);
             }
             for (int k = n; k < slots.Length; k++) _audioDriver.StopVoice(slots[k]);
         }

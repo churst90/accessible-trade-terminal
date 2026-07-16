@@ -250,14 +250,9 @@ namespace AccessibleTrader.Core.Services.Audio
                     int navSlot = li == 0 ? SLOT_NAV_START : SLOT_NAV_START + 7 + li; // 8,9,10,...
                     if (navSlot > SLOT_UI_START - 1) break;                            // stay within 0-15
                     var L = layers[li];
-                    // Layer 0 carries the stronger of the patch's own noise and the computed
-                    // zone noise (OB/OS texturing) — a user patch must not silence the zone cue.
-                    float layerNoise = li == 0
-                        ? Math.Max(Math.Max(0f, L.NoiseAmount), audioPt.NoiseAmount)
-                        : Math.Max(0f, L.NoiseAmount);
-                    string layerNoiseType = li == 0 && audioPt.NoiseAmount > L.NoiseAmount
-                        ? audioPt.NoiseType
-                        : (string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
+                    // Shared rule (PatchLayerNoise): a patch changes the instrument, never
+                    // silences the OB/OS zone cue — layer 0 carries at least the zone texture.
+                    var (layerNoise, layerNoiseType) = PatchLayerNoise.Merge(li, L, audioPt.NoiseAmount, audioPt.NoiseType);
                     _audioDriver.SetVoice(navSlot, audioPt.Frequency * L.FreqRatio,
                         Math.Clamp(audioPt.Volume * L.Gain, 0f, 1f), pan, L.Waveform, false, navDuration,
                         li == 0 ? idx : -1, audioPt.EnvelopeType, li == 0 && audioPt.TriggerClick,
