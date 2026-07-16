@@ -20,7 +20,25 @@ public class TouchNavBarTests
         h.WorkspaceStore.State.Returns(_ => state ?? WorkspaceState.Initial);
         var nav = Substitute.For<INavigationEngine>();
         h.Ctx.Services.AddSingleton(nav);
+        // The bar renders only on touch-capable devices (JS probe on first render).
+        h.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(true);
         return (h, nav);
+    }
+
+    [Fact]
+    public void Stays_out_of_the_DOM_on_non_touch_devices()
+    {
+        // Desktop (probe returns false): the toolbar must not exist AT ALL —
+        // hidden-by-CSS still cluttered desktop screen readers' tab order.
+        var h = new BlazorTestHarness();
+        using var _1 = h;
+        h.WorkspaceStore.State.Returns(_ => WorkspaceState.Initial);
+        h.Ctx.Services.AddSingleton(Substitute.For<INavigationEngine>());
+        h.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(false);
+
+        var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
     }
 
     private static IRenderedComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>

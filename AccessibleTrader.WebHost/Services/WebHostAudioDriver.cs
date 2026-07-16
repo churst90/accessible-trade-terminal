@@ -69,10 +69,17 @@ namespace AccessibleTrader.WebHost.Services
         public long TotalCommandCount   => _engine.TotalCommandCount;
         public void ResetAudioTelemetry() => _engine.ResetTelemetry();
 
-        public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink)
+        // Host shutdown signal — lets the pump distinguish "player died because we
+        // are all shutting down (Ctrl+C)" from "player died mid-session". Optional
+        // so unit tests can construct the driver without a host.
+        private readonly CancellationToken _hostStopping;
+
+        public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink,
+            Microsoft.Extensions.Hosting.IHostApplicationLifetime? lifetime = null)
         {
             _logger = logger;
             _browserSink = browserSink;
+            _hostStopping = lifetime?.ApplicationStopping ?? CancellationToken.None;
 
             // PointReached + drop telemetry flow through to the same surfaces the
             // MAUI driver exposes, so SonificationManager / JournalModal don't care
@@ -255,6 +262,21 @@ namespace AccessibleTrader.WebHost.Services
                         // OS pipe buffer naturally back-pressures the producer at audio rate.
                     }
                 }
+            }
+            catch (IOException ex) when (ex.InnerException is System.Net.Sockets.SocketException
+                                         || ex.Message.Contains("pipe", StringComparison.OrdinalIgnoreCase))
+            {
+                // Broken pipe: the player child (pw-cat/pacat/aplay) is gone. On
+                // Ctrl+C the child receives SIGINT with us and dies before our
+                // cancellation token trips, so this is the NORMAL shutdown path —
+                // don't scare the operator with a stack trace. If it ever happens
+                // mid-session the message still says what to do.
+                if (token.IsCancellationRequested || _disposed || _hostStopping.IsCancellationRequested)
+                    _logger.LogDebug("Audio pump stopped: output pipe closed during shutdown.");
+                else
+                    _logger.LogWarning(
+                        "Audio output player exited (pipe closed); sonification is now silent. " +
+                        "Restart the app to recover. ({Message})", ex.Message);
             }
             catch (Exception ex) when (!token.IsCancellationRequested)
             {

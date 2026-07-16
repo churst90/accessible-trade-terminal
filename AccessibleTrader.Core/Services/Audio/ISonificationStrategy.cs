@@ -135,14 +135,11 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
                 else
                 {
-                    // Wick volume = wick length as fraction of viewport price range.
-                    bool isUpper = comp.Name.Contains("Upper") || comp.Name.Contains("High");
-                    double bodyMax = Math.Max(point.Open, point.Close);
-                    double bodyMin = Math.Min(point.Open, point.Close);
-                    double wickSize = isUpper ? (point.High - bodyMax) : (bodyMin - point.Low);
-                    // Raised gain + audible floor so wicks are clearly heard as "the reach"
-                    // above/below the body, instead of scaling down toward silence.
-                    vol = (float)Math.Clamp((wickSize / rangeSpan) * 6.0 + 0.12, 0.18, 1.0) * baseVolume;
+                    // Wick loudness is CONSTANT, matching the body: per the audio design rule,
+                    // loudness never encodes size. Wick LENGTH is carried entirely by the
+                    // sub-octave grit computed in the partials block below — a long wick is
+                    // rough, a stub is a clean sine ping, both equally loud.
+                    vol = baseVolume * 0.85f;
                 }
             }
 
@@ -264,7 +261,9 @@ namespace AccessibleTrader.Core.Services.Audio
                         var layer0 = layers[0];
                         wave = layer0.Waveform;
                         if (!string.IsNullOrEmpty(libPatch.EnvelopeType)) effEnvelope = libPatch.EnvelopeType;
-                        if (layer0.NoiseAmount > 0f)
+                        // Take the stronger of the patch's own noise and the zone noise already
+                        // computed above — a clean user patch must not silence the OB/OS zone cue.
+                        if (layer0.NoiseAmount > noiseAmt)
                         {
                             noiseAmt  = layer0.NoiseAmount;
                             noiseType = string.IsNullOrEmpty(layer0.NoiseType) ? noiseType : layer0.NoiseType;
@@ -329,14 +328,16 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
                 else if (isWickComp)
                 {
-                    // Pure sine ping with a tiny sub-octave grit ∝ wick LENGTH. Upper/lower wicks
-                    // otherwise differ only by pitch (880 / 220 Hz).
+                    // Sine ping whose GRIT carries the wick length (loudness is constant —
+                    // see the DeltaFromPrice block above). Upper/lower wicks otherwise differ
+                    // only by pitch (880 / 220 Hz). The wick's grit range matches the body's
+                    // (0.25–0.30) so "how big" reads on the same scale across the candle.
                     bool isUpperW = comp.Name.Contains("Upper") || comp.Name.Contains("High");
                     double bodyHi = Math.Max(point.Open, point.Close);
                     double bodyLo = Math.Min(point.Open, point.Close);
                     double wickLen = isUpperW ? (point.High - bodyHi) : (bodyLo - point.Low);
                     double wickNorm = Math.Clamp(wickLen / rangeSpan * 3.0, 0.0, 1.0);
-                    subSawMix = (float)(0.12 * wickNorm);
+                    subSawMix = (float)(0.30 * wickNorm);
                 }
                 else if (comp.DisplayType == ComponentDisplayType.Oscillator)
                 {

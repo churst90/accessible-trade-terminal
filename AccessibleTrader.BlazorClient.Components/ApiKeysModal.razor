@@ -154,8 +154,8 @@
 
                 <div class="modal-row">
                     <label for="key-secret">API Secret</label>
-                    <input id="key-secret" type="password" autocomplete="off" spellcheck="false"
-                           @bind="_newApiSecret" aria-label="API secret" style="flex:1;" />
+                    <input id="key-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Optional — only exchanges need it"
+                           @bind="_newApiSecret" aria-label="API secret (optional — key-only providers like Twelve Data, FMP, and Polygon leave this blank)" style="flex:1;" />
                 </div>
 
                 <div class="modal-row">
@@ -255,6 +255,13 @@
 
         try
         {
+            // Auto-activate when this is the provider's only profile (or its first
+            // active one). Saving a key that then sat INACTIVE was a silent trap:
+            // ConfigureStoredKeyProviders skips inactive keys, so the provider stayed
+            // on the "API key required" sentinel and the user had no idea why.
+            bool autoActivate = !_keys.Any(k =>
+                k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase) && k.IsActive);
+
             var config = new ApiKeyConfig(
                 Provider:    _newProvider,
                 Nickname:    _newNickname,
@@ -266,6 +273,8 @@
                 IsActive:    false);
 
             await ApiKeyService.SaveKeyAsync(config);
+            if (autoActivate)
+                await ApiKeyService.SetActiveKeyAsync(config.Nickname);
             // Configure the provider now so it is usable immediately — otherwise the
             // symbol dropdown gates on IsConfigured before the first (lazy) data fetch
             // that would configure it, and the provider appears stuck on the
@@ -282,7 +291,9 @@
             StateHasChanged();
 
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"Profile {config.Nickname} saved"));
+                autoActivate
+                    ? $"Profile {config.Nickname} saved and activated"
+                    : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
         }
         catch (Exception ex)
         {
@@ -296,6 +307,9 @@
         try
         {
             await ApiKeyService.SetActiveKeyAsync(nickname);
+            // Re-configure providers so the newly-active key takes effect immediately
+            // instead of on the next app restart.
+            await DataService.ConfigureStoredKeyProvidersAsync();
             _keys = await ApiKeyService.GetAllKeysAsync();
             StateHasChanged();
 

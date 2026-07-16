@@ -124,16 +124,50 @@ namespace AccessibleTrader.Tests
         // ── Volume tests ──────────────────────────────────────────────────────
 
         [Fact]
-        public void Volume_NoComponentData_ReturnsRawVolumeFloat()
+        public void Volume_BullishBar_SpeaksCompactUnsignedValue()
         {
             var comp = MakeComponent("Volume");
             var s = MakeSeries("volume", comp);
-            var pt = MakeBar(100, 105, 110, 98, volume: 12345.678);
+            var pt = MakeBar(open: 100, close: 105, high: 110, low: 98, volume: 12345.678);
             var state = BuildState(s, 0, true);
 
             string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
 
-            Assert.Equal("12345.68", result);
+            Assert.Equal("12,346", result);
+        }
+
+        [Fact]
+        public void Volume_BearishBar_SpeaksNegativePrefix()
+        {
+            // Bullish and bearish volume bars carry the same number; speech marks
+            // direction the way the bar's colour does (close vs open).
+            var comp = MakeComponent("Volume");
+            var s = MakeSeries("volume", comp);
+            var pt = MakeBar(open: 105, close: 100, high: 110, low: 98, volume: 12345.678);
+            var state = BuildState(s, 0, true);
+
+            string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
+
+            Assert.Equal("negative 12,346", result);
+        }
+
+        [Fact]
+        public void CandleBody_ComponentContext_SpeaksOpenAndClose()
+        {
+            // The body IS the open→close span — a single number can't convey its
+            // size, so component-context navigation reads both ends.
+            var body = MakeComponent("Body");
+            body.Role = ComponentRole.Body;
+            var s = MakeSeries("candles", body);
+            var pt = MakeBar(open: 100, close: 110, high: 115, low: 95, volume: 5000);
+            var state = BuildState(s, 0, summary: false);
+
+            string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
+
+            Assert.Contains("Open", result);
+            Assert.Contains("close", result);
+            Assert.Contains("100", result);
+            Assert.Contains("110", result);
         }
 
         // ── Indicator data tests ──────────────────────────────────────────────

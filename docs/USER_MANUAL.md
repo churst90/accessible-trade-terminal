@@ -114,6 +114,18 @@ high-confluence signals, and a rich multi-harmonic blend for momentum signals. W
 a bell catches your attention during playback you can stop and read the exact event
 through your screen reader.
 
+Reference levels themselves (the 30/70 lines on an RSI, a zero line, your own levels)
+speak up in three stages as a value interacts with them. Approaching a level —
+within about five percent, not yet across — fires one very short, very high ping
+(1,400 hertz), louder the closer the value sits to the line; it is a "heads up,
+almost there" cue and fires once per approach. Crossing the level rings a two-note
+chirp: rising pitch for an upward cross, falling for a downward one. And when a
+value has *stayed* beyond the level for several bars, a single low, longer tone
+(220 hertz) confirms "still out there". These are navigation cues, not trade
+signals — they are not written to the Journal, and none of them changes with your
+strategy setup. If you hear one lone high beep while arrowing across an RSI, that is
+the approach ping.
+
 Two more cues round out the picture. Stereo position places you in time: the
 leftmost visible bar plays hard in the left channel and the rightmost hard in the
 right, so as playback advances or you move the cursor rightward the sound travels

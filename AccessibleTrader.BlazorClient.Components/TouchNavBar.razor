@@ -6,6 +6,7 @@
 @inject INavigationEngine Nav
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 @*
@@ -15,42 +16,48 @@
     motor-impaired users and anyone on whom gesture recognition fails. Gestures
     must never be the only path.
 
-    Hidden on fine-pointer (mouse) devices via CSS `@media (pointer: coarse)` in
-    app.css; keyboard/desktop users have the full shortcut set instead. Every
-    button routes through the exact command the equivalent key uses, so speech
-    and sonification are identical.
+    Rendered ONLY on touch-capable devices (accessibleTrader.isTouchCapable JS
+    probe) — CSS `@media (pointer: coarse)` still styles it, but the C# gate keeps
+    it out of the DOM entirely on desktop, where it was cluttering the screen-
+    reader tab order. Keyboard/desktop users have the full shortcut set instead.
+    Every button routes through the exact command the equivalent key uses, so
+    speech and sonification are identical.
 *@
 
-<div class="touch-nav" role="toolbar" aria-label="Touch navigation">
-    <button class="touch-nav-btn" aria-label="Previous bar"
-            @onclick="@(() => Nav.ProcessNavigation("NAV_LEFT"))">
-        <span aria-hidden="true">◀</span>
-    </button>
-    <button class="touch-nav-btn" aria-label="Next bar"
-            @onclick="@(() => Nav.ProcessNavigation("NAV_RIGHT"))">
-        <span aria-hidden="true">▶</span>
-    </button>
-    <button class="touch-nav-btn" aria-label="Previous component"
-            @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_UP"))">
-        <span aria-hidden="true">▲</span>
-    </button>
-    <button class="touch-nav-btn" aria-label="Next component"
-            @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_DOWN"))">
-        <span aria-hidden="true">▼</span>
-    </button>
-    <button class="touch-nav-btn" aria-label="@(IsPlaying ? "Stop playback" : "Play chart")"
-            aria-pressed="@(IsPlaying ? "true" : "false")"
-            @onclick="TogglePlayback">
-        <span aria-hidden="true">@(IsPlaying ? "■" : "▶▶")</span>
-    </button>
-    <button class="touch-nav-btn" aria-label="Chart menu"
-            @onclick="OpenChartMenu">
-        <span aria-hidden="true">☰</span>
-    </button>
-</div>
+@if (_isTouchDevice)
+{
+    <div class="touch-nav" role="toolbar" aria-label="Touch navigation">
+        <button class="touch-nav-btn" aria-label="Previous bar"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_LEFT"))">
+            <span aria-hidden="true">◀</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Next bar"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_RIGHT"))">
+            <span aria-hidden="true">▶</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Previous component"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_UP"))">
+            <span aria-hidden="true">▲</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Next component"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_DOWN"))">
+            <span aria-hidden="true">▼</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="@(IsPlaying ? "Stop playback" : "Play chart")"
+                aria-pressed="@(IsPlaying ? "true" : "false")"
+                @onclick="TogglePlayback">
+            <span aria-hidden="true">@(IsPlaying ? "■" : "▶▶")</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Chart menu"
+                @onclick="OpenChartMenu">
+            <span aria-hidden="true">☰</span>
+        </button>
+    </div>
+}
 
 @code {
     private IDisposable? _sub;
+    private bool _isTouchDevice; // false until the JS probe says otherwise → not in the DOM
 
     private bool IsPlaying => Store.State.IsPlaying || Store.State.IsPaused;
 
@@ -61,6 +68,24 @@
             .Select(s => s.IsPlaying || s.IsPaused)
             .DistinctUntilChanged()
             .Subscribe(_ => InvokeAsync(StateHasChanged));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            bool touch = await JSRuntime.InvokeAsync<bool>("accessibleTrader.isTouchCapable");
+            if (touch)
+            {
+                _isTouchDevice = true;
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+            // JS unavailable (prerender/tests): stay hidden — desktop-safe default.
+        }
     }
 
     /// <summary>Mirrors CommandDispatcher.TogglePlayback(Chart) — the Space key's

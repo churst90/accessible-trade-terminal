@@ -298,8 +298,16 @@ namespace AccessibleTrader.Core.Services.Workspace
 
         public void Dispose()
         {
-            _cts.Cancel();
-            _cts.Dispose();
+            // Cancel, but only dispose the CTS after the loop task has actually
+            // finished — disposing while the loop is inside Task.Delay(token)
+            // races the token registration and throws ObjectDisposedException
+            // (surfaced as an unobserved-task error during app shutdown / Ctrl+C).
+            try { _cts.Cancel(); } catch (ObjectDisposedException) { }
+            var loop = _loop;
+            if (loop == null || loop.IsCompleted)
+                _cts.Dispose();
+            else
+                loop.ContinueWith(_ => _cts.Dispose(), TaskScheduler.Default);
         }
     }
 }

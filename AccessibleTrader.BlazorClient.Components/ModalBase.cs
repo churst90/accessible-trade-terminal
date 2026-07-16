@@ -53,7 +53,18 @@ namespace AccessibleTrader.BlazorClient.Components
         protected override void OnInitialized()
         {
             base.OnInitialized();
-            _closeRequestSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+            ArmCloseRequestSubscription();
+        }
+
+        /// <summary>
+        /// Subscribes to CloseTopModalEvent (idempotent). Called from OnInitialized AND
+        /// from ShowModalAsync as a safety net: a concrete modal that overrides
+        /// OnInitialized without calling base.OnInitialized() would otherwise silently
+        /// lose Escape-to-close (the SaveWorkspaceModal bug, 2026-07-15).
+        /// </summary>
+        private void ArmCloseRequestSubscription()
+        {
+            _closeRequestSub ??= EventBus.Subscribe<CloseTopModalEvent>(e =>
             {
                 if (_isVisible && e.ModalName == ModalName)
                     InvokeAsync(CloseModal);
@@ -76,6 +87,7 @@ namespace AccessibleTrader.BlazorClient.Components
         /// </param>
         protected async Task ShowModalAsync(string headingElementId)
         {
+            ArmCloseRequestSubscription(); // no-op when already armed via OnInitialized
             _isVisible = true;
             EventBus.Publish(new ModalStateChangedEvent(true, ModalName));
             StateHasChanged();

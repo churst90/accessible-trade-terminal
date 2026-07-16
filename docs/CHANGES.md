@@ -6,6 +6,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Audio truthfulness + modal/UX fixes from Cody's 1.6.x review (2026-07-15)
+
+**Loudness never encodes size — for real this time.** Candle wicks still scaled
+their gain with wick length (the one surviving violation of the audio design
+rule); wick loudness is now constant (×0.85 bed) and length is carried entirely
+by sub-octave grit, boosted from a barely-there 0.12 max to the body's 0.30
+scale. **Noise textures were inaudible everywhere**: the pink/brown one-pole
+filters attenuate ~25–30 dB and nothing compensated, so the RSI overbought/
+oversold zone texture (0.3 pink) landed ~40 dB under the tone. Makeup gain in
+AudioEngine (pink ×18, brown ×14, clamped) restores filtered noise to roughly
+white-noise loudness — zone texturing, the volume bed's brown tinge, and Sound
+Designer noise layers are all audible now. Two more zone-noise droppers fixed:
+single-layer user patches *replaced* zone noise (now max()), and multi-layer
+patches ignored it entirely (layer 0 now carries the stronger of patch/zone
+noise). **Volume bars** get a longer navigation pulse (0.30 s vs 0.15 s) so the
+low-frequency grit actually registers.
+
+**Speech**: the candle Body component now reads both ends — "Body. Bullish.
+Open 49,800, close 50,200." (a single number can't convey a span); volume bars
+speak direction like their colour — bearish bars read "negative 22,400".
+
+**Modals**: all four ModalBase-derived modals (Save/Load workspace, AI Analyst,
+Alerts) overrode OnInitialized without calling base — silently losing the
+Escape-to-close subscription; fixed, and ModalBase now re-arms the subscription
+from ShowModalAsync so the pattern can't regress. The Journal modal's audio-
+telemetry row was a second aria-live region that collided with the "Journal
+dialog opened" announcement — it's a plain group now, so the modal announces
+like every other.
+
+**Touch nav bar** is gated out of the DOM on non-touch devices via a JS probe
+(navigator.maxTouchPoints / pointer:coarse) — CSS hiding alone left it in some
+desktop screen readers' tab order.
+
+**API keys**: saving a provider's first profile now auto-activates it (an
+inactive saved key silently left the provider on the "API key required"
+sentinel); Activate reconfigures providers immediately instead of on restart;
+the Secret field is labelled optional (key-only providers: Twelve Data, FMP,
+Polygon, etc.).
+
+**WebHost Ctrl+C**: the audio pump treated the player child's death during
+shutdown as an "unexpected exit" and printed a Broken-pipe stack trace; it now
+recognizes host shutdown (IHostApplicationLifetime) and logs a debug line. Also
+hardened BackgroundWorkspaceMonitor.Dispose against a CTS dispose race at exit.
+
+Docs: manual documents the three-stage reference-level cues (approach ping at
+1,400 Hz, cross chirp, sustained-zone tone) — the "single high beep" heard while
+arrowing an RSI near 30/70 is the approach ping, by design and not journaled.
+6 new/updated tests (1630 → 1636).
+
 ### Multi-workspace background monitoring (2026-07-15)
 
 Non-focused tabs are no longer deaf. Opt-in via Settings → General → "Monitor

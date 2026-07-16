@@ -35,6 +35,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 new CloudComponentStrategy(),
                 new PhaseNameStrategy(),
                 new MarkerSignalStrategy(),
+                new CandleBodyStrategy(),
+                new VolumeBarStrategy(),
             };
             _fallback = new StandardTemplateStrategy();
         }
@@ -473,6 +475,57 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Replace("{price}", priceStr)
                 .Replace("{name}", ctx.Comp.DisplayName);
         }
+    }
+
+    /// <summary>
+    /// The candle Body component in component context (Ctrl+Up/Down onto "Body", then
+    /// arrowing bars). The body IS the open→close span, so a single number can't convey
+    /// its size — speak both ends plus direction: "Body. Bullish. Open 49,800, close
+    /// 50,200." Series-context navigation (the full-candle summary) is unaffected.
+    /// </summary>
+    internal sealed class CandleBodyStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            ctx.Comp.Role == ComponentRole.Body
+            || ctx.Comp.DisplayType == ComponentDisplayType.Candle;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            var pt = ctx.Pt;
+            string open  = SpeechPriceFormatter.FormatPrice(pt.Open);
+            string close = SpeechPriceFormatter.FormatPrice(pt.Close);
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return $"Open {open}, close {close}";
+            string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
+            return $"{ctx.Comp.DisplayName}. {trend}. Open {open}, close {close}.";
+        }
+    }
+
+    /// <summary>
+    /// Volume bars: bullish and bearish bars carry the same number, so speech marks
+    /// direction the same way the bar's colour does (close vs open): a bearish bar
+    /// reads "negative 22,400", a bullish bar just "22,400".
+    /// </summary>
+    internal sealed class VolumeBarStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            ctx.Comp.Role == ComponentRole.Volume
+            || ctx.Series.Id.Equals("volume", StringComparison.OrdinalIgnoreCase);
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            if (double.IsNaN(ctx.Value)) return "no data";
+            string sign = ctx.Pt.Close >= ctx.Pt.Open ? "" : "negative ";
+            string v = FormatCompactVolume(ctx.Value);
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return sign + v;
+            return $"{ctx.Comp.DisplayName}. bar. {sign}{v}.";
+        }
+
+        private static string FormatCompactVolume(double vol)
+            => vol >= 1_000_000 ? $"{vol / 1_000_000:F2} million"
+             : vol >= 1_000     ? $"{vol:N0}"
+             : vol.ToString("F0");
     }
 
     /// <summary>

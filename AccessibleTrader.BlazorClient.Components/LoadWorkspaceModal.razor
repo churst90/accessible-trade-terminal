@@ -74,6 +74,7 @@
 
     protected override void OnInitialized()
     {
+        base.OnInitialized(); // arms ModalBase's CloseTopModalEvent (Escape) subscription
         _eventSub = EventBus.Subscribe<OpenLoadWorkspaceEvent>(_ => InvokeAsync(ShowAsync));
     }
 

@@ -76,8 +76,11 @@
                Surfaces the AudioEngine ring-buffer drop counter so a blind user
                can audit whether their session lost any sonification under load.
                A non-zero figure here means voices were squelched; re-check with
-               the Reset button after adjusting density / volume settings. *@
-            <div role="status" aria-live="polite"
+               the Reset button after adjusting density / volume settings.
+               NOT a live region: it populated the instant the modal rendered,
+               and two live regions announcing at once made screen readers drop
+               the "Journal dialog opened" announcement — the modal opened silent. *@
+            <div role="group" aria-label="Audio engine telemetry"
                  style="margin-top:12px; padding:6px 8px; background:#111; border:1px solid #333; border-radius:4px;
                         font-family:Consolas,'Courier New',monospace; font-size:0.8rem; color:#bbb;
                         display:flex; justify-content:space-between; align-items:center; gap:8px;">

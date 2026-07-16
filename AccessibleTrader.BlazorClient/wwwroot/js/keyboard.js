@@ -476,6 +476,18 @@ window.accessibleTrader = {
         }
     },
 
+    /**
+     * True when the device actually has a touch input. Used to gate the touch
+     * navigation toolbar out of the DOM entirely on desktop — CSS media queries
+     * alone left it in the accessibility tree for screen-reader users on some
+     * desktop browsers.
+     */
+    isTouchCapable: function () {
+        return (navigator.maxTouchPoints || 0) > 0
+            || ('ontouchstart' in window)
+            || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    },
+
     downloadCsv: function(filename, content) {
         const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);

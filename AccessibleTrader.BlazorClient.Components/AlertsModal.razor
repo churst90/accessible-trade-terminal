@@ -134,6 +134,7 @@
 
     protected override void OnInitialized()
     {
+        base.OnInitialized(); // arms ModalBase's CloseTopModalEvent (Escape) subscription
         // _eventSub is declared in ModalBase and disposed there automatically.
         _eventSub = EventBus.Subscribe<OpenAlertsEvent>(_ => InvokeAsync(ShowAsync));
         RefreshAlerts();

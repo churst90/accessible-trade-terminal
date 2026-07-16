@@ -211,6 +211,11 @@ namespace AccessibleTrader.Core.Services.Audio
             double navDuration = isPing
                 ? (focusedCompForNav != null ? ResolveNavPingDuration(focusedCompForNav, audioPt) : 0.15)
                 : 0.45;
+            // Volume bars carry their size as sub-octave grit + brown-noise texture; a
+            // 0.15s ping is too short for a low-frequency texture to register, so volume
+            // gets a longer pulse (unless the user set an explicit DecayMs).
+            if (focusedCompForNav?.Role == ComponentRole.Volume && !focusedCompForNav.DecayMs.HasValue)
+                navDuration = 0.30;
 
             if (isGradient)
             {
@@ -232,10 +237,18 @@ namespace AccessibleTrader.Core.Services.Audio
                     int navSlot = li == 0 ? SLOT_NAV_START : SLOT_NAV_START + 7 + li; // 8,9,10,...
                     if (navSlot > SLOT_UI_START - 1) break;                            // stay within 0-15
                     var L = layers[li];
+                    // Layer 0 carries the stronger of the patch's own noise and the computed
+                    // zone noise (OB/OS texturing) — a user patch must not silence the zone cue.
+                    float layerNoise = li == 0
+                        ? Math.Max(Math.Max(0f, L.NoiseAmount), audioPt.NoiseAmount)
+                        : Math.Max(0f, L.NoiseAmount);
+                    string layerNoiseType = li == 0 && audioPt.NoiseAmount > L.NoiseAmount
+                        ? audioPt.NoiseType
+                        : (string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
                     _audioDriver.SetVoice(navSlot, audioPt.Frequency * L.FreqRatio,
                         Math.Clamp(audioPt.Volume * L.Gain, 0f, 1f), pan, L.Waveform, false, navDuration,
                         li == 0 ? idx : -1, audioPt.EnvelopeType, li == 0 && audioPt.TriggerClick,
-                        Math.Max(0f, L.NoiseAmount), string.IsNullOrEmpty(L.NoiseType) ? "pink" : L.NoiseType);
+                        layerNoise, layerNoiseType);
                 }
             }
             else

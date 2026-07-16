@@ -478,16 +478,21 @@ namespace AccessibleTrader.Core.Services.Audio
                         }
                         else if (nType == "brown")
                         {
-                            // Two-stage low-pass for deeper, warmer texture.
+                            // Two-stage low-pass for deeper, warmer texture. The cascade
+                            // attenuates the signal ~25 dB, so a makeup gain restores it to
+                            // roughly white-noise loudness — without it NoiseAmount 0.3 was
+                            // ~0.01 effective and the OB/OS zone texture was inaudible.
                             v.NoiseState  = 0.99f * v.NoiseState  + 0.01f * white;
                             v.NoiseState2 = 0.99f * v.NoiseState2 + 0.01f * v.NoiseState;
-                            noiseSignal = v.NoiseState2;
+                            noiseSignal = Math.Clamp(v.NoiseState2 * 14f, -1f, 1f);
                         }
                         else
                         {
-                            // pink: one-pole filtered
+                            // pink: one-pole filtered (~28 dB down) + makeup gain, same
+                            // rationale as brown — NoiseAmount means the same loudness for
+                            // white, pink, and brown.
                             v.NoiseState = 0.997f * v.NoiseState + 0.003f * white;
-                            noiseSignal = v.NoiseState;
+                            noiseSignal = Math.Clamp(v.NoiseState * 18f, -1f, 1f);
                         }
                         float noiseAmt = (v.Waveform == WaveformType.Noise) ? 1.0f : v.NoiseAmount;
                         // Additive blend: oscillator stays at full amplitude; noise is layered on top.
