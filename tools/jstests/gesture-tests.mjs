@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const source = readFileSync(
-  join(root, 'AccessibleTrader.WebHost', 'wwwroot', 'js', 'keyboard.js'), 'utf8');
+  join(root, 'AccessibleTrader.BlazorClient.Components', 'wwwroot', 'js', 'keyboard.js'), 'utf8');
 
 // ── Sandbox scaffolding ─────────────────────────────────────────────────────
 
