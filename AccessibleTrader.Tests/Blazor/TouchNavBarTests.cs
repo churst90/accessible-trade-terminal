@@ -26,6 +26,24 @@ public class TouchNavBarTests
     }
 
     [Fact]
+    public void HideOverride_WinsEvenOnTouchDevices()
+    {
+        // Device probes have misfired on desktop input stacks before — the user's
+        // explicit "Never show" must beat any probe result.
+        var h = new BlazorTestHarness();
+        using var _1 = h;
+        h.WorkspaceStore.State.Returns(_ => WorkspaceState.Initial);
+        h.Ctx.Services.AddSingleton(Substitute.For<INavigationEngine>());
+        h.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(true);
+        h.SettingsManager.GetSetting(AccessibleTrader.Core.Services.SettingsKeys.TouchNavBar)
+            .Returns(Newtonsoft.Json.Linq.JToken.FromObject("hide"));
+
+        var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
+    }
+
+    [Fact]
     public void Stays_out_of_the_DOM_on_non_touch_devices()
     {
         // Desktop (probe returns false): the toolbar must not exist AT ALL —

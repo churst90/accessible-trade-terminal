@@ -49,6 +49,9 @@ namespace AccessibleTrader.Core.Services
         // Viewport
         int PanningGranularity { get; set; }
 
+        /// <summary>Touch navigation bar: "auto" (coarse-pointer devices only), "show", "hide".</summary>
+        string TouchNavBarMode { get; set; }
+
         // Drawing
         bool MagnetSnap { get; set; }
 
@@ -165,6 +168,12 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetInt(SettingsKeys.PanningGranularity, 10);
             set => Set(SettingsKeys.PanningGranularity, value);
+        }
+
+        public string TouchNavBarMode
+        {
+            get => GetString(SettingsKeys.TouchNavBar, "auto");
+            set => Set(SettingsKeys.TouchNavBar, value);
         }
 
         public bool MagnetSnap

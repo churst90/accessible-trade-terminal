@@ -7,6 +7,7 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
+@inject IAppSettings App
 @implements IDisposable
 
 @*
@@ -73,18 +74,35 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        try
+        await EvaluateVisibilityAsync();
+        // Re-evaluate when Settings closes so the ui.touchNavBar override applies
+        // without a restart.
+        _settingsClosedSub = EventBus.Subscribe<ModalStateChangedEvent>(e =>
         {
-            bool touch = await JSRuntime.InvokeAsync<bool>("accessibleTrader.isTouchCapable");
-            if (touch)
-            {
-                _isTouchDevice = true;
-                StateHasChanged();
-            }
+            if (!e.IsOpen && e.ModalName == "Settings")
+                _ = InvokeAsync(EvaluateVisibilityAsync);
+        });
+    }
+
+    private IDisposable? _settingsClosedSub;
+
+    private async Task EvaluateVisibilityAsync()
+    {
+        // Explicit user override wins over any device probe — probes have been
+        // wrong on desktop Linux input stacks before (2026-07-16).
+        string mode = App.TouchNavBarMode;
+        bool visible;
+        if (mode == "show") visible = true;
+        else if (mode == "hide") visible = false;
+        else
+        {
+            try { visible = await JSRuntime.InvokeAsync<bool>("accessibleTrader.isTouchCapable"); }
+            catch { visible = false; } // JS unavailable (prerender/tests): desktop-safe default
         }
-        catch
+        if (visible != _isTouchDevice)
         {
-            // JS unavailable (prerender/tests): stay hidden — desktop-safe default.
+            _isTouchDevice = visible;
+            StateHasChanged();
         }
     }
 
@@ -106,5 +124,9 @@
             double.NaN, double.NaN, Store.State.CurrentDataIndex));
     }
 
-    public void Dispose() => _sub?.Dispose();
+    public void Dispose()
+    {
+        _sub?.Dispose();
+        _settingsClosedSub?.Dispose();
+    }
 }

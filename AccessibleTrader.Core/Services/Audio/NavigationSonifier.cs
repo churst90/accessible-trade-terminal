@@ -400,7 +400,19 @@ namespace AccessibleTrader.Core.Services.Audio
             return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal);
         }
 
-        public void StopNavigationVoice() => _audioDriver.StopVoice(SLOT_NAV_START);
+        /// <summary>
+        /// Key-release stop for the CURRENT navigation note. Must silence the whole
+        /// navigation slot range (0–15), not just slot 0: multi-oscillator patches
+        /// put layers 1+ on slots 8–15 and the detuned/gradient aux voice on slot 1 —
+        /// stopping only the fundamental left an organ patch's upper partials ringing
+        /// after the key lifted while the fundamental cut, splitting the note in two.
+        /// Each stop is a declick release fade, so held layers end together and clean.
+        /// </summary>
+        public void StopNavigationVoice()
+        {
+            for (int slot = SLOT_NAV_START; slot < SLOT_UI_START; slot++)
+                _audioDriver.StopVoice(slot);
+        }
         public void SetMasterGain(float gain) => _audioDriver.SetMasterGain(gain);
         public void Silence() => _audioDriver.Reset();
 

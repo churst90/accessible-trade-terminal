@@ -24,6 +24,8 @@ namespace AccessibleTrader.Core.Services
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
         public const string UiScale            = "appearance.uiScale";
         public const string UiTheme            = "ui.theme";
+        /// <summary>"auto" (touch devices only), "show", or "hide".</summary>
+        public const string TouchNavBar        = "ui.touchNavBar";
 
         // ── Audio ────────────────────────────────────────────────────────────
         public const string SoundTheme         = "audio.soundTheme";

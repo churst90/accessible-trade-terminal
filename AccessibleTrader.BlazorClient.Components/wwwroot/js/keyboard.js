@@ -483,9 +483,11 @@ window.accessibleTrader = {
      * desktop browsers.
      */
     isTouchCapable: function () {
-        return (navigator.maxTouchPoints || 0) > 0
-            || ('ontouchstart' in window)
-            || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        // PRIMARY pointer only: phones/tablets match (pointer: coarse); a desktop
+        // with a mouse matches (pointer: fine) even when touch hardware exists.
+        // maxTouchPoints / ontouchstart were too loose - desktop Linux input
+        // stacks report them and the touch bar appeared for mouse users.
+        return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
     },
 
     downloadCsv: function(filename, content) {

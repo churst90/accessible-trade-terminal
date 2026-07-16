@@ -6,6 +6,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Key-release stops the WHOLE note; touch bar override (2026-07-16, round 2)
+
+**Multi-layer patches now release together.** Lifting an arrow key stopped only
+voice slot 0 — a patch's upper layers (an organ's octave partials, slots 8–15)
+and the detune/gradient aux voice (slot 1) kept ringing to their full duration
+while the fundamental cut, audibly splitting the note in two. StopNavigationVoice
+now releases the entire navigation slot range (0–15) with the declick fade, so a
+patched note ends as one sound exactly when a plain note would.
+
+**Touch navigation bar: explicit override + honest probe.** The device probe
+was too loose (maxTouchPoints / ontouchstart fire on desktop Linux input
+stacks), so the bar re-appeared for mouse users. The probe is now primary-
+pointer-coarse only, AND Settings → General gains "Touch navigation bar:
+Automatic / Always show / Never show" (ui.touchNavBar) — the user's explicit
+choice beats any probe, applies when Settings closes, no restart. New test pins
+that "Never" wins even when the probe says touch.
+
 ### Oscillator patches respect the sound's meaning (2026-07-16, Cody's RSI report)
 
 Assigning a patch to an RSI flattened it into one sound everywhere: the
