@@ -73,6 +73,11 @@ namespace AccessibleTrader.Core.Services
             //     first patch that references them can play.
             _services.GetService<Audio.IWavetableLibrary>();
 
+            // 1d. Global preferences — seed the store's speech/audio/viewport
+            //     preferences from settings.json and arm the write-back subscription
+            //     (they were session-only before debt item 3b: every launch reset them).
+            _services.GetService<IPreferencePersistenceService>()?.Initialize();
+
             // 2. Data Orchestration
             _services.GetRequiredService<IDataOrchestrationService>();
 

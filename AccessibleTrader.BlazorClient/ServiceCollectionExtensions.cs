@@ -137,6 +137,7 @@ namespace AccessibleTrader.BlazorClient
             // Configuration, themes, and styling.
             services.AddSingleton<ISettingsManager, SettingsManager>();
             services.AddSingleton<IAppSettings, AppSettings>(); // typed facade (debt item 3a)
+            services.AddSingleton<IPreferencePersistenceService, PreferencePersistenceService>(); // store prefs → settings.json (3b)
             services.AddSingleton<ThemeService>();
             services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
             services.AddSingleton<IComponentRoleMapper, ComponentRoleMapper>();

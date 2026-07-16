@@ -35,6 +35,19 @@ namespace AccessibleTrader.Core.Services
 
         // Audio
         string SoundTheme { get; set; }
+        int WasapiLatency { get; set; }
+
+        // Speech (persisted source for the WorkspaceState mirrors — see
+        // PreferencePersistenceService, which seeds the store at startup and
+        // writes changes back here)
+        bool SpeakTimestamps { get; set; }
+        string TimestampReadLocation { get; set; }
+        bool ReadColumnHeaders { get; set; }
+        string SpeechOrder { get; set; }
+        bool AnnounceNewBars { get; set; }
+
+        // Viewport
+        int PanningGranularity { get; set; }
 
         // Drawing
         bool MagnetSnap { get; set; }
@@ -114,6 +127,44 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetString(SettingsKeys.SoundTheme, Audio.SoundThemes.ClassicId);
             set => Set(SettingsKeys.SoundTheme, value);
+        }
+        public int WasapiLatency
+        {
+            get => GetInt(SettingsKeys.WasapiLatency, 100);
+            set => Set(SettingsKeys.WasapiLatency, value);
+        }
+
+        // Defaults mirror WorkspaceState.Initial — the store seeds from here at startup.
+        public bool SpeakTimestamps
+        {
+            get => GetBool(SettingsKeys.SpeakTimestamps, def: true);
+            set => Set(SettingsKeys.SpeakTimestamps, value);
+        }
+        public string TimestampReadLocation
+        {
+            get => GetString(SettingsKeys.TimestampReadLocation, "Along X Axis");
+            set => Set(SettingsKeys.TimestampReadLocation, value);
+        }
+        public bool ReadColumnHeaders
+        {
+            get => GetBool(SettingsKeys.ReadColumnHeaders, def: true);
+            set => Set(SettingsKeys.ReadColumnHeaders, value);
+        }
+        public string SpeechOrder
+        {
+            get => GetString(SettingsKeys.SpeechOrder, "HeaderValue");
+            set => Set(SettingsKeys.SpeechOrder, value);
+        }
+        public bool AnnounceNewBars
+        {
+            get => GetBool(SettingsKeys.AnnounceNewBars, def: true);
+            set => Set(SettingsKeys.AnnounceNewBars, value);
+        }
+
+        public int PanningGranularity
+        {
+            get => GetInt(SettingsKeys.PanningGranularity, 10);
+            set => Set(SettingsKeys.PanningGranularity, value);
         }
 
         public bool MagnetSnap

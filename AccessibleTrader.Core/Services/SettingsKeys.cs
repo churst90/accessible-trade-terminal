@@ -27,6 +27,17 @@ namespace AccessibleTrader.Core.Services
 
         // ── Audio ────────────────────────────────────────────────────────────
         public const string SoundTheme         = "audio.soundTheme";
+        public const string WasapiLatency      = "audio.wasapiLatency";
+
+        // ── Speech (stage b: persisted mirrors of WorkspaceState preferences) ─
+        public const string SpeakTimestamps       = "speech.speakTimestamps";
+        public const string TimestampReadLocation = "speech.timestampReadLocation";
+        public const string ReadColumnHeaders     = "speech.readColumnHeaders";
+        public const string SpeechOrder           = "speech.speechOrder";
+        public const string AnnounceNewBars       = "speech.announceNewBars";
+
+        // ── Viewport ─────────────────────────────────────────────────────────
+        public const string PanningGranularity  = "viewport.panningGranularity";
 
         // ── Drawing ──────────────────────────────────────────────────────────
         public const string MagnetSnap         = "drawing.magnetSnap";

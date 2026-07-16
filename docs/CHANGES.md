@@ -6,6 +6,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Preferences finally persist + wavetable DI fix (2026-07-16, debt item 3 stage b)
+
+**Your speech and viewport preferences now survive a restart.** The global
+preferences living on WorkspaceState — speak timestamps, timestamp location,
+read column headers, speech order, new-bar announcements, WASAPI latency,
+panning granularity — were never persisted anywhere: every launch silently
+reset them to defaults (only an explicit profile export carried some). A new
+PreferencePersistenceService seeds the store from settings.json at startup and
+writes any change back (observed on the store stream, so every writer — the
+Settings dialog, the Shift+bracket granularity keys, profile imports — persists
+automatically; throttled to one file write per burst). Deliberately excluded:
+the F2/F3 speech/sonification toggles — a blind user must never launch into a
+silent terminal, so those stay session-only by design.
+
+**WebHost accounts-mode crash fixed** (Cody's wavetable-di-fix patch, applied):
+IWavetableLibrary was registered Singleton but depends on the per-user Scoped
+path service — ValidateOnBuild rejected the graph on the accounts build. Now
+Scoped on the WebHost; the wavetable data itself stays process-global in the
+static bank. Known hosted-mode caveat recorded in TODO: per-user imports share
+one process-wide bank, so table ids are visible across users on a multi-user
+host.
+
 ### Typed settings facade (2026-07-16, debt item 3 stage a)
 
 Every settings.json key path now lives in ONE place (`SettingsKeys`), and the

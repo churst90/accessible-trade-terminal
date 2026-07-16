@@ -21,7 +21,13 @@ shippable; none blocks the others.
    wavetable waveform type in AudioEngine (user WAV / AKWF import → custom
    oscillator timbre at any pitch), one-shot WAV sample layers in the Sound
    Designer for earcons/signals. Lands on top of item 1's clean params. (~3-5 d)
-3. [~] **Typed settings + one source of truth.** Stage (a) DONE 2026-07-16 (SettingsKeys + IAppSettings, consumers migrated); stage (b) — store-resident preferences (SpeakTimestamps, WasapiLatency, PanningGranularity, …) — still open. Preferences split arbitrarily
+3. [x] **Typed settings + one source of truth.** DONE 2026-07-16 both stages:
+   (a) SettingsKeys + IAppSettings, consumers migrated; (b) store-resident
+   preferences persist via PreferencePersistenceService (seed at startup,
+   write-back on change; F2/F3 mute toggles deliberately session-only).
+   Follow-up: hosted multi-user WavetableBank is process-global — per-user
+   imports share ids across users; scope it per-user before promoting WAV
+   import on the hosted build. Preferences split arbitrarily
    between WorkspaceState (speak timestamps, WASAPI latency) and SettingsManager
    JSON (braille, paper mode, themes); keys are stringly-typed. Stage (a): a
    strongly-typed AppSettings facade over the JSON, all key constants

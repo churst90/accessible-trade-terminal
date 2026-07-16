@@ -139,6 +139,7 @@ namespace AccessibleTrader.WebHost
 
             services.AddScoped<ISettingsManager, SettingsManager>();
             services.AddScoped<IAppSettings, AppSettings>(); // typed facade (debt item 3a)
+            services.AddScoped<IPreferencePersistenceService, PreferencePersistenceService>(); // store prefs → settings.json (3b)
             services.AddScoped<ThemeService>();
             services.AddScoped<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
             services.AddScoped<IComponentRoleMapper, ComponentRoleMapper>();
@@ -149,7 +150,14 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ISoundPatchLibrary, SoundPatchLibrary>();
             // Wavetable/sample imports are process-global (static WavetableBank), so a
             // singleton on both hosts; the ctor loads persisted imports at startup.
-            services.AddSingleton<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
+            // Scoped (not Singleton): WavetableLibraryService depends on the per-user Scoped
+            // IPlatformPathService, so a Singleton captured it and the accounts-path ValidateOnBuild
+            // rejected the graph at startup (crash-loop). It's still effectively process-global —
+            // the wavetable data lives in a static WavetableBank shared across instances — and it's
+            // only ever resolved via GetService in per-circuit startup, so Scoped is safe (no
+            // singleton constructor-injects it). Ideal follow-up: keep Singleton but give it a
+            // non-scoped app-global path source.
+            services.AddScoped<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
             services.AddScoped<IWorkspaceLibraryService, WorkspaceLibraryService>();
             services.AddScoped<IIndicatorPreferencesService, IndicatorPreferencesService>();
             services.AddScoped<IWorkspaceInitializer, WorkspaceInitializer>();
