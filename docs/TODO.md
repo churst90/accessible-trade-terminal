@@ -4,6 +4,55 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Structural debt register (2026-07-16 whole-app assessment)
+
+From the full-codebase quality assessment (agreed with Cody). Ordered by
+recommended attack order — ROI over severity. Each item is independently
+shippable; none blocks the others.
+
+1. [ ] **VoiceParams struct + perceptual audio snapshot tests.** `SetVoice` has 16
+   positional params and `AudioPoint` keeps growing; wrong-position bugs are one
+   refactor away. Introduce a `VoiceParams` struct (single call-site-compatible
+   overload, then migrate callers), and an "audio snapshot" test harness: render
+   ~2 s of a voice through AudioEngine, assert per-band RMS — this would have
+   mechanically caught the months-long inaudible-noise bug (filters with no
+   makeup gain). DO THIS BEFORE the wavetable oscillator lands. (~2-3 d)
+2. [ ] **Wavetable oscillator + WAV layers** (sound plan steps 3-4): single-cycle
+   wavetable waveform type in AudioEngine (user WAV / AKWF import → custom
+   oscillator timbre at any pitch), one-shot WAV sample layers in the Sound
+   Designer for earcons/signals. Lands on top of item 1's clean params. (~3-5 d)
+3. [ ] **Typed settings + one source of truth.** Preferences split arbitrarily
+   between WorkspaceState (speak timestamps, WASAPI latency) and SettingsManager
+   JSON (braille, paper mode, themes); keys are stringly-typed. Stage (a): a
+   strongly-typed AppSettings facade over the JSON, all key constants
+   consolidated, typo-proof accessors. Stage (b): migrate store-resident
+   preferences into it one at a time with compat shims. Each stage shippable. (~3-4 d)
+4. [ ] **Speech utterance builder.** Today an utterance can come from provider
+   GetComponentSpeech, a strategy class, template expansion, or a hardcoded
+   branch, with precedence spread across NavigationFeedbackManager +
+   SpeechFormatter. Consolidate into one pipeline with a single visible
+   precedence list. Existing speech tests protect the behavior. (~2-3 d)
+5. [ ] **Modal view-models + mandatory ModalBase.** Pull persistence/test-send
+   logic out of the big modals (SettingsModal ~1,300 lines) into view-model
+   classes; kills the bUnit timing-flake class and makes ModalBase bypass
+   impossible. Incremental, one modal at a time, opportunistic. (~0.5 d/modal)
+6. [ ] **Shared JS assets.** BlazorClient and WebHost wwwroot/js are identical
+   copies kept in sync by discipline only. Single shared static-assets source
+   (project or build-copy step). (~0.5 d)
+7. [ ] **Chart data pipeline: keyed feeds.** THE structural debt — 7 singletons
+   assume one chart identity (DataManager stops the previous stream on start;
+   store holds one live state + frozen TabSnapshots; orchestrator/alert/strategy
+   evaluate "the" state). Decision 2026-07-16: do NOT big-bang this. Plan:
+   (a) introduce an `IMarketFeed`/feed-registry seam now-ish — focused identity
+   delegates to the live pipeline, background identities to the existing
+   monitors — and migrate consumers to it opportunistically; (b) full keyed
+   refactor only behind an explicit trigger: tick-level background evaluation,
+   simultaneous multi-chart rendering (DotPad split view), or hosted multi-user
+   scale. Until a trigger fires, polling monitors + the one-driver contract are
+   correct, tested, and sufficient for the validated daily/4h strategies.
+
+---
+
 ## [2026-07-15] — Multi-workspace background monitoring
 
 Full detail in `CHANGES.md` [Unreleased]. Suite 1630 Debug / 1629 Release.
