@@ -266,7 +266,24 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else
             {
-                _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, pan, audioPt.Waveform, false, navDuration, idx, navEnvelope, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
+                _audioDriver.SetVoice(SLOT_NAV_START, new VoiceParams
+                {
+                    Frequency = audioPt.Frequency,
+                    Volume = audioPt.Volume,
+                    Pan = pan,
+                    Waveform = audioPt.Waveform,
+                    Continuous = false,
+                    DurationSeconds = navDuration,
+                    DataIndex = idx,
+                    Envelope = navEnvelope,
+                    Click = audioPt.TriggerClick,
+                    NoiseAmount = audioPt.NoiseAmount,
+                    NoiseType = audioPt.NoiseType,
+                    SquareMix = audioPt.SquareMix,
+                    SawMix = audioPt.SawMix,
+                    TriangleMix = audioPt.TriangleMix,
+                    SubSawMix = audioPt.SubSawMix,
+                });
 
                 // Detuned pair bell: fire second voice on Slot 1 at patch offset.
                 if (isPing && focusedCompForNav != null &&

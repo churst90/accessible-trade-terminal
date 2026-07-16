@@ -276,14 +276,30 @@ namespace AccessibleTrader.Core.Services.Audio
             // Gradient blend: sine carrier on the main slot; blend waveform on the aux slot.
             if (comp.UsesGradientSpeech)
             {
-                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, "sine", continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
+                _audioDriver.SetVoice(mainSlot, new VoiceParams
+                {
+                    Frequency = audioPt.Frequency, Volume = scaledVol, Pan = pan,
+                    Waveform = "sine", Continuous = continuous, DurationSeconds = durationSec,
+                    DataIndex = i, Envelope = audioPt.EnvelopeType, Click = audioPt.TriggerClick,
+                    NoiseAmount = audioPt.NoiseAmount, NoiseType = audioPt.NoiseType,
+                    SquareMix = audioPt.SquareMix, SawMix = audioPt.SawMix,
+                    TriangleMix = audioPt.TriangleMix, SubSawMix = audioPt.SubSawMix,
+                });
                 float blendVol = ComputeGradientBlend(series, comp, i, scaledVol, out string blendWave);
                 if (auxSlot >= 0 && blendVol > 0.01f)
                     _audioDriver.SetVoice(auxSlot, audioPt.Frequency, blendVol, pan, blendWave, continuous, durationSec, i, audioPt.EnvelopeType, false, 0f);
             }
             else
             {
-                _audioDriver.SetVoice(mainSlot, audioPt.Frequency, scaledVol, pan, audioPt.Waveform, continuous, durationSec, i, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
+                _audioDriver.SetVoice(mainSlot, new VoiceParams
+                {
+                    Frequency = audioPt.Frequency, Volume = scaledVol, Pan = pan,
+                    Waveform = audioPt.Waveform, Continuous = continuous, DurationSeconds = durationSec,
+                    DataIndex = i, Envelope = audioPt.EnvelopeType, Click = audioPt.TriggerClick,
+                    NoiseAmount = audioPt.NoiseAmount, NoiseType = audioPt.NoiseType,
+                    SquareMix = audioPt.SquareMix, SawMix = audioPt.SawMix,
+                    TriangleMix = audioPt.TriangleMix, SubSawMix = audioPt.SubSawMix,
+                });
             }
 
             // Detuned pair bell (built-in patch): second voice on the aux slot.
