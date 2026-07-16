@@ -503,8 +503,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
     /// <summary>
     /// Volume bars: bullish and bearish bars carry the same number, so speech marks
-    /// direction the same way the bar's colour does (close vs open): a bearish bar
-    /// reads "negative 22,400", a bullish bar just "22,400".
+    /// direction the same way the bar's colour does (close vs open) — the exact value
+    /// first, then a one-word direction: "12,345.68, down". Values are exact (full
+    /// decimals when present), never rounded to a compact form.
     /// </summary>
     internal sealed class VolumeBarStrategy : IComponentSpeechStrategy
     {
@@ -515,17 +516,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public string Format(ComponentFormatContext ctx)
         {
             if (double.IsNaN(ctx.Value)) return "no data";
-            string sign = ctx.Pt.Close >= ctx.Pt.Open ? "" : "negative ";
-            string v = FormatCompactVolume(ctx.Value);
+            string dir = ctx.Pt.Close >= ctx.Pt.Open ? "up" : "down";
+            string v = FormatExactVolume(ctx.Value);
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
-                return sign + v;
-            return $"{ctx.Comp.DisplayName}. bar. {sign}{v}.";
+                return $"{v}, {dir}";
+            return $"{ctx.Comp.DisplayName}. {v}, {dir}.";
         }
 
-        private static string FormatCompactVolume(double vol)
-            => vol >= 1_000_000 ? $"{vol / 1_000_000:F2} million"
-             : vol >= 1_000     ? $"{vol:N0}"
-             : vol.ToString("F0");
+        // Exact, not compact: whole-number volumes read without a fake ".00";
+        // fractional volumes (crypto) keep their decimals.
+        private static string FormatExactVolume(double vol)
+            => vol == Math.Floor(vol) ? vol.ToString("N0") : vol.ToString("N2");
     }
 
     /// <summary>

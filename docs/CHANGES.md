@@ -6,6 +6,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Zone-only oscillator texture, exact volume speech, longer grit pings (2026-07-15, round 2)
+
+The noise makeup gain (below) unmasked constant baseline noise the bounded
+oscillators had always carried (`DefaultNoiseAmount 0.08` on RSI/Stoch/%R/MFI/
+CCI/UO components) — audible at every value, it defeated the OB/OS zone cue.
+New sound contract for bounded oscillators: the line is CLEAN (baseline 0) and
+noise appears only inside an overbought/oversold zone; zone texture raised
+0.3 → 0.45 per Cody's ear. (Other indicators with constant baseline tinges —
+Cipher, Fear & Greed, COT crowding, funding — are left for the sound-theme
+audit; theirs are signatures, not zone cues.) Grit-carrying pings lengthened so
+the sub-octave texture registers: volume bars 0.40 s, wicks 0.25 s (component
+DecayMs still wins). Volume speech reworked again: exact values, never compact
+("12,345.68", whole numbers without fake decimals), direction as a one-word
+suffix matching the bar's colour — "12,345.68, down". Saved workspaces stamp
+component noise at series-creation time, so an existing RSI must be re-added
+(or its Noise slider zeroed in Properties) to pick up the clean baseline.
+
 ### Audio truthfulness + modal/UX fixes from Cody's 1.6.x review (2026-07-15)
 
 **Loudness never encodes size — for real this time.** Candle wicks still scaled

@@ -124,7 +124,7 @@ namespace AccessibleTrader.Tests
         // ── Volume tests ──────────────────────────────────────────────────────
 
         [Fact]
-        public void Volume_BullishBar_SpeaksCompactUnsignedValue()
+        public void Volume_BullishBar_SpeaksExactValueThenUp()
         {
             var comp = MakeComponent("Volume");
             var s = MakeSeries("volume", comp);
@@ -133,14 +133,15 @@ namespace AccessibleTrader.Tests
 
             string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
 
-            Assert.Equal("12,346", result);
+            Assert.Equal("12,345.68, up", result);
         }
 
         [Fact]
-        public void Volume_BearishBar_SpeaksNegativePrefix()
+        public void Volume_BearishBar_SpeaksExactValueThenDown()
         {
             // Bullish and bearish volume bars carry the same number; speech marks
-            // direction the way the bar's colour does (close vs open).
+            // direction the way the bar's colour does (close vs open). Values are
+            // exact — decimals kept when present, no fake ".00" on whole numbers.
             var comp = MakeComponent("Volume");
             var s = MakeSeries("volume", comp);
             var pt = MakeBar(open: 105, close: 100, high: 110, low: 98, volume: 12345.678);
@@ -148,7 +149,20 @@ namespace AccessibleTrader.Tests
 
             string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
 
-            Assert.Equal("negative 12,346", result);
+            Assert.Equal("12,345.68, down", result);
+        }
+
+        [Fact]
+        public void Volume_WholeNumber_ReadsWithoutFakeDecimals()
+        {
+            var comp = MakeComponent("Volume");
+            var s = MakeSeries("volume", comp);
+            var pt = MakeBar(open: 100, close: 105, high: 110, low: 98, volume: 5000);
+            var state = BuildState(s, 0, true);
+
+            string result = _formatter.FormatPointFeedback(state, true, false, s, pt, "");
+
+            Assert.Equal("5,000, up", result);
         }
 
         [Fact]

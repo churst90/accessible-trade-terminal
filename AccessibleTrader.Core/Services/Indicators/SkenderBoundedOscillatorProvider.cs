@@ -33,42 +33,48 @@ namespace AccessibleTrader.Core.Services.Indicators
             System.Collections.Generic.IReadOnlyDictionary<string, double[]> compData, int index)
             => null;
 
+        // Sound contract for bounded oscillators: the line itself is CLEAN
+        // (DefaultNoiseAmount 0 on every component below) and noise texture appears
+        // ONLY inside an overbought/oversold zone (ZoneNoiseAmount on the levels
+        // here). A constant baseline tinge — the old 0.08 — defeats the cue: once
+        // the engine's noise makeup gain made it audible, "rough everywhere" told
+        // the user nothing. Zone level 0.45 is tuned to read clearly over the tone.
         public List<LevelDescriptor> GetDefaultLevels(string code) => code.ToUpperInvariant() switch
         {
             "RSI" => new List<LevelDescriptor>
             {
-                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "STOCH" or "STOCHRSI" => new List<LevelDescriptor>
             {
-                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "ULTOSC" => new List<LevelDescriptor>
             {
-                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
-                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "WILLIAMSR" => new List<LevelDescriptor>
             {
-                new("Overbought", -20.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought", -20.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Midpoint",   -50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -80.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   -80.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "MFI" => new List<LevelDescriptor>
             {
-                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought", 80.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "CCI" => new List<LevelDescriptor>
             {
-                new("Overbought",  100.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Overbought",  100.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Zero",          0.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -100.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.3f, ZoneNoiseType: "pink"),
+                new("Oversold",   -100.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             _ => new List<LevelDescriptor>(),
         };
@@ -86,7 +92,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = "Rsi", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9C27B0",
                             DefaultThickness = 1.5f, DefaultTriggerBoundaryClick = true,
-                            DefaultNoiseAmount = 0.08f,
+                            DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -102,15 +108,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Oscillator", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "Signal",     DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0.08f, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
                     new() { Name = "PercentK",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "PercentD",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0.08f, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -126,10 +132,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "StochRsi", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "Signal",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0.08f, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -144,7 +150,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "UltOsc", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -158,7 +164,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "WilliamsR", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#26C6DA",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -174,7 +180,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "Mfi", DisplayType = ComponentDisplayType.Oscillator,
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
                             DefaultColorSource = ColorSource.Value, DefaultTriggerBoundaryClick = true,
-                            DefaultNoiseAmount = 0.08f, ColorBaseline = 50.0 },
+                            DefaultNoiseAmount = 0f, ColorBaseline = 50.0 },
                 },
             },
             new IndicatorMetadata
@@ -187,7 +193,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Cci", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0.08f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },

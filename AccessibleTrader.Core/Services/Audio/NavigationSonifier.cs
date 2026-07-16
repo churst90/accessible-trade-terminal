@@ -211,11 +211,19 @@ namespace AccessibleTrader.Core.Services.Audio
             double navDuration = isPing
                 ? (focusedCompForNav != null ? ResolveNavPingDuration(focusedCompForNav, audioPt) : 0.15)
                 : 0.45;
-            // Volume bars carry their size as sub-octave grit + brown-noise texture; a
-            // 0.15s ping is too short for a low-frequency texture to register, so volume
-            // gets a longer pulse (unless the user set an explicit DecayMs).
-            if (focusedCompForNav?.Role == ComponentRole.Volume && !focusedCompForNav.DecayMs.HasValue)
-                navDuration = 0.30;
+            // Grit-carrying pings need longer decays: the sub-octave sawtooth that
+            // encodes size sits an octave below the fundamental, and a 0.15s ping is
+            // gone before a low-frequency texture registers. Volume bars (brown noise
+            // + grit) get 0.40s; wicks (grit ∝ length) get 0.25s. An explicit
+            // component DecayMs still wins.
+            if (isPing && focusedCompForNav != null && !focusedCompForNav.DecayMs.HasValue)
+            {
+                if (focusedCompForNav.Role == ComponentRole.Volume)
+                    navDuration = 0.40;
+                else if (focusedCompForNav.Role == ComponentRole.Wick
+                         || focusedCompForNav.DisplayType == ComponentDisplayType.Wick)
+                    navDuration = 0.25;
+            }
 
             if (isGradient)
             {
