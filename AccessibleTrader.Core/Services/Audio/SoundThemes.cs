@@ -30,7 +30,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
     public static class SoundThemes
     {
-        public const string SettingsKey = "audio.soundTheme";
+        public const string SettingsKey = SettingsKeys.SoundTheme;
         public const string ClassicId = "classic";
 
         public static readonly IReadOnlyList<SoundThemeInfo> All = new[]

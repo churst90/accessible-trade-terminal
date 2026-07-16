@@ -142,7 +142,7 @@ namespace AccessibleTrader.Core.Services
         // agrees with the UI about what "paper mode" means.
         private bool IsPaperMode =>
             !_demo.AllowLiveTrading
-            || (_settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+            || (_settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
 
         private async Task<ITradingProvider?> GetTradingProviderAsync(string providerName)
         {

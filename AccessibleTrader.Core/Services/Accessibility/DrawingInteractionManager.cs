@@ -83,7 +83,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly ISettingsManager? _settings;
 
         /// <summary>Setting key: snap drawing anchor prices to the nearest OHLC of the anchor bar. Default OFF.</summary>
-        public const string MagnetSnapKey = "drawing.magnetSnap";
+        public const string MagnetSnapKey = SettingsKeys.MagnetSnap;
 
         public DrawingInteractionManager(
             IEventBus eventBus,

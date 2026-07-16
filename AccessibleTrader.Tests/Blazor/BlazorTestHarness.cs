@@ -112,6 +112,9 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(StrategyCoordinator);
         Ctx.Services.AddSingleton(StrategyLibrary);
         Ctx.Services.AddSingleton(SettingsManager);
+        // Typed facade over the substituted manager — real implementation, so tests
+        // that stub SettingsManager.GetSetting see consistent typed reads.
+        Ctx.Services.AddSingleton<IAppSettings>(new AppSettings(SettingsManager));
         Ctx.Services.AddSingleton(ThemeService);
         Ctx.Services.AddSingleton(DataExporter);
         Ctx.Services.AddSingleton(WorkspaceLibrary);

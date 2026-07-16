@@ -69,7 +69,7 @@ namespace AccessibleTrader.Core.Services
         // regardless of the user setting.
         private bool IsPaperMode =>
             !_demo.AllowLiveTrading
-            || (_settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+            || (_settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
 
         public async Task AnnounceAtStartupAsync()
         {

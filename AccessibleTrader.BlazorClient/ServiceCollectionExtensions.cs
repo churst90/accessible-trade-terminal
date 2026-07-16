@@ -136,6 +136,7 @@ namespace AccessibleTrader.BlazorClient
 
             // Configuration, themes, and styling.
             services.AddSingleton<ISettingsManager, SettingsManager>();
+            services.AddSingleton<IAppSettings, AppSettings>(); // typed facade (debt item 3a)
             services.AddSingleton<ThemeService>();
             services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
             services.AddSingleton<IComponentRoleMapper, ComponentRoleMapper>();
@@ -557,13 +558,13 @@ namespace AccessibleTrader.BlazorClient
         /// channel's IsConfigured check declines to attempt delivery.</summary>
         private static AccessibleTrader.Core.Services.Alerts.EmailAlertChannelConfig? LoadEmailAlertConfig(ISettingsManager settings)
         {
-            var host = settings.GetSetting("alerts.email.host")?.ToString();
-            var port = settings.GetSetting("alerts.email.port")?.ToObject<int>() ?? 587;
-            var useTls = settings.GetSetting("alerts.email.useTls")?.ToObject<bool>() ?? true;
-            var username = settings.GetSetting("alerts.email.username")?.ToString();
-            var password = settings.GetSetting("alerts.email.password")?.ToString();
-            var from = settings.GetSetting("alerts.email.fromAddress")?.ToString();
-            var to   = settings.GetSetting("alerts.email.toAddress")?.ToString();
+            var host = settings.GetSetting(SettingsKeys.EmailHost)?.ToString();
+            var port = settings.GetSetting(SettingsKeys.EmailPort)?.ToObject<int>() ?? 587;
+            var useTls = settings.GetSetting(SettingsKeys.EmailUseTls)?.ToObject<bool>() ?? true;
+            var username = settings.GetSetting(SettingsKeys.EmailUsername)?.ToString();
+            var password = settings.GetSetting(SettingsKeys.EmailPassword)?.ToString();
+            var from = settings.GetSetting(SettingsKeys.EmailFromAddress)?.ToString();
+            var to   = settings.GetSetting(SettingsKeys.EmailToAddress)?.ToString();
             if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
                 return null;
             return new AccessibleTrader.Core.Services.Alerts.EmailAlertChannelConfig
@@ -578,8 +579,8 @@ namespace AccessibleTrader.BlazorClient
         /// "alerts.telegram" key-path. Bot token + chat id are required.</summary>
         private static AccessibleTrader.Core.Services.Alerts.TelegramAlertChannelConfig? LoadTelegramAlertConfig(ISettingsManager settings)
         {
-            var token = settings.GetSetting("alerts.telegram.botToken")?.ToString();
-            var chat  = settings.GetSetting("alerts.telegram.chatId")?.ToString();
+            var token = settings.GetSetting(SettingsKeys.TelegramBotToken)?.ToString();
+            var chat  = settings.GetSetting(SettingsKeys.TelegramChatId)?.ToString();
             if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chat))
                 return null;
             return new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannelConfig

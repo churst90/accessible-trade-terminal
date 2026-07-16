@@ -53,7 +53,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private bool _disposed;
 
         /// <summary>Settings key gating all tactile/braille output and device detection.</summary>
-        internal const string BrailleEnabledKey = "accessibility.braille.enabled";
+        internal const string BrailleEnabledKey = SettingsKeys.BrailleEnabled;
 
         // Whether braille/tactile output is enabled. When false we never probe for a
         // device at startup (the device scan opens COM ports, which can disturb other

@@ -21,9 +21,9 @@ namespace AccessibleTrader.Core.Services.Alerts
 
         public static WebhookAlertChannelConfig? Load(ISettingsManager settings)
         {
-            var token     = settings.GetSetting("alerts.webhooks");
-            var legacyUrl = settings.GetSetting("alerts.webhook.url")?.ToString();
-            var legacyAuth = settings.GetSetting("alerts.webhook.authHeader")?.ToString();
+            var token     = settings.GetSetting(SettingsKeys.Webhooks);
+            var legacyUrl = settings.GetSetting(SettingsKeys.LegacyWebhookUrl)?.ToString();
+            var legacyAuth = settings.GetSetting(SettingsKeys.LegacyWebhookAuth)?.ToString();
 
             var webhooks = ParseWebhooks(token, legacyUrl, legacyAuth);
             if (webhooks.Count == 0) return null;

@@ -21,7 +21,7 @@ shippable; none blocks the others.
    wavetable waveform type in AudioEngine (user WAV / AKWF import → custom
    oscillator timbre at any pitch), one-shot WAV sample layers in the Sound
    Designer for earcons/signals. Lands on top of item 1's clean params. (~3-5 d)
-3. [ ] **Typed settings + one source of truth.** Preferences split arbitrarily
+3. [~] **Typed settings + one source of truth.** Stage (a) DONE 2026-07-16 (SettingsKeys + IAppSettings, consumers migrated); stage (b) — store-resident preferences (SpeakTimestamps, WasapiLatency, PanningGranularity, …) — still open. Preferences split arbitrarily
    between WorkspaceState (speak timestamps, WASAPI latency) and SettingsManager
    JSON (braille, paper mode, themes); keys are stringly-typed. Stage (a): a
    strongly-typed AppSettings facade over the JSON, all key constants

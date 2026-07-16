@@ -41,7 +41,7 @@ namespace AccessibleTrader.BlazorClient.Services
         private int _lastSonifiedIndex = -1;
 
         /// <summary>Setting key: soft pitch tick as the hovered bar changes. Default OFF.</summary>
-        public const string HoverSonificationKey = "accessibility.hoverSonification";
+        public const string HoverSonificationKey = AccessibleTrader.Core.Services.SettingsKeys.HoverSonification;
 
         /// <summary>Crosshair visibility toggle (chart context menu). Default on.</summary>
         public bool IsEnabled { get; private set; } = true;

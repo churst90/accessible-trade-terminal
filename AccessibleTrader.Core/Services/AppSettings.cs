@@ -1,0 +1,202 @@
+using Newtonsoft.Json.Linq;
+
+namespace AccessibleTrader.Core.Services
+{
+    /// <summary>
+    /// Strongly-typed facade over the settings.json store (debt item 3, stage a).
+    ///
+    /// Why: preferences were read via <c>GetSetting("alerts.setups.enabled")?.ToObject&lt;bool&gt;() ?? false</c>
+    /// at every call site — stringly-typed keys (typos silently default), repeated
+    /// null-coalescing, and repeated default values that could drift apart between
+    /// readers. Here each preference is one property: the key, the type, and the
+    /// default live in exactly one place, and a typo is a compile error.
+    ///
+    /// Setters write through immediately but do NOT save; call <see cref="Save"/>
+    /// once after a batch (mirrors the SettingsManager contract). Structured blobs
+    /// (the named webhook list, the per-symbol setup routing map) stay on
+    /// <see cref="ISettingsManager"/> via their loaders — this facade covers the
+    /// scalar preferences.
+    ///
+    /// Stage (b) — migrating the preferences that currently live on WorkspaceState
+    /// (speak timestamps, WASAPI latency, …) into this facade — is tracked in
+    /// docs/TODO.md and lands separately.
+    /// </summary>
+    public interface IAppSettings
+    {
+        // Accessibility
+        bool BrailleEnabled { get; set; }
+        bool HoverSonification { get; set; }
+        bool VisualEarcons { get; set; }
+
+        // Appearance
+        bool ColorVisionSafe { get; set; }
+        bool HollowUpCandles { get; set; }
+        int UiScale { get; set; }
+
+        // Audio
+        string SoundTheme { get; set; }
+
+        // Drawing
+        bool MagnetSnap { get; set; }
+
+        // Trading
+        bool PaperTradingMode { get; set; }
+
+        // Workspace
+        bool BackgroundMonitoring { get; set; }
+        int MonitorPollSeconds { get; set; }
+
+        // Alerts — email
+        string EmailHost { get; set; }
+        int EmailPort { get; set; }
+        bool EmailUseTls { get; set; }
+        string EmailUsername { get; set; }
+        string EmailPassword { get; set; }
+        string EmailFromAddress { get; set; }
+        string EmailToAddress { get; set; }
+
+        // Alerts — Telegram
+        string TelegramBotToken { get; set; }
+        string TelegramChatId { get; set; }
+
+        // Alerts — strategy setup delivery
+        bool SetupAlertsEnabled { get; set; }
+        string SetupWebhookTarget { get; set; }
+
+        /// <summary>Persists all pending writes (delegates to SettingsManager.SaveSettings).</summary>
+        void Save();
+    }
+
+    public sealed class AppSettings : IAppSettings
+    {
+        private readonly ISettingsManager _sm;
+
+        public AppSettings(ISettingsManager settingsManager) => _sm = settingsManager;
+
+        private bool GetBool(string key, bool def = false) => _sm.GetSetting(key)?.ToObject<bool>() ?? def;
+        private int GetInt(string key, int def) => _sm.GetSetting(key)?.ToObject<int>() ?? def;
+        private string GetString(string key, string def = "") => _sm.GetSetting(key)?.ToString() ?? def;
+        private void Set<T>(string key, T value) where T : notnull => _sm.SetSetting(key, JToken.FromObject(value));
+
+        public bool BrailleEnabled
+        {
+            get => GetBool(SettingsKeys.BrailleEnabled);
+            set => Set(SettingsKeys.BrailleEnabled, value);
+        }
+        public bool HoverSonification
+        {
+            get => GetBool(SettingsKeys.HoverSonification);
+            set => Set(SettingsKeys.HoverSonification, value);
+        }
+        public bool VisualEarcons
+        {
+            get => GetBool(SettingsKeys.VisualEarcons);
+            set => Set(SettingsKeys.VisualEarcons, value);
+        }
+
+        public bool ColorVisionSafe
+        {
+            get => GetBool(SettingsKeys.ColorVisionSafe);
+            set => Set(SettingsKeys.ColorVisionSafe, value);
+        }
+        public bool HollowUpCandles
+        {
+            get => GetBool(SettingsKeys.HollowUpCandles);
+            set => Set(SettingsKeys.HollowUpCandles, value);
+        }
+        public int UiScale
+        {
+            get => GetInt(SettingsKeys.UiScale, 100);
+            set => Set(SettingsKeys.UiScale, value);
+        }
+
+        public string SoundTheme
+        {
+            get => GetString(SettingsKeys.SoundTheme, Audio.SoundThemes.ClassicId);
+            set => Set(SettingsKeys.SoundTheme, value);
+        }
+
+        public bool MagnetSnap
+        {
+            get => GetBool(SettingsKeys.MagnetSnap);
+            set => Set(SettingsKeys.MagnetSnap, value);
+        }
+
+        public bool PaperTradingMode
+        {
+            get => GetBool(SettingsKeys.PaperTradingMode);
+            set => Set(SettingsKeys.PaperTradingMode, value);
+        }
+
+        public bool BackgroundMonitoring
+        {
+            get => GetBool(SettingsKeys.BackgroundMonitoring);
+            set => Set(SettingsKeys.BackgroundMonitoring, value);
+        }
+        public int MonitorPollSeconds
+        {
+            get => GetInt(SettingsKeys.MonitorPollSeconds, 30);
+            set => Set(SettingsKeys.MonitorPollSeconds, value);
+        }
+
+        public string EmailHost
+        {
+            get => GetString(SettingsKeys.EmailHost);
+            set => Set(SettingsKeys.EmailHost, value);
+        }
+        public int EmailPort
+        {
+            get => GetInt(SettingsKeys.EmailPort, 587);
+            set => Set(SettingsKeys.EmailPort, value);
+        }
+        public bool EmailUseTls
+        {
+            get => GetBool(SettingsKeys.EmailUseTls, def: true);
+            set => Set(SettingsKeys.EmailUseTls, value);
+        }
+        public string EmailUsername
+        {
+            get => GetString(SettingsKeys.EmailUsername);
+            set => Set(SettingsKeys.EmailUsername, value);
+        }
+        public string EmailPassword
+        {
+            get => GetString(SettingsKeys.EmailPassword);
+            set => Set(SettingsKeys.EmailPassword, value);
+        }
+        public string EmailFromAddress
+        {
+            get => GetString(SettingsKeys.EmailFromAddress);
+            set => Set(SettingsKeys.EmailFromAddress, value);
+        }
+        public string EmailToAddress
+        {
+            get => GetString(SettingsKeys.EmailToAddress);
+            set => Set(SettingsKeys.EmailToAddress, value);
+        }
+
+        public string TelegramBotToken
+        {
+            get => GetString(SettingsKeys.TelegramBotToken);
+            set => Set(SettingsKeys.TelegramBotToken, value);
+        }
+        public string TelegramChatId
+        {
+            get => GetString(SettingsKeys.TelegramChatId);
+            set => Set(SettingsKeys.TelegramChatId, value);
+        }
+
+        public bool SetupAlertsEnabled
+        {
+            get => GetBool(SettingsKeys.SetupAlertsEnabled);
+            set => Set(SettingsKeys.SetupAlertsEnabled, value);
+        }
+        public string SetupWebhookTarget
+        {
+            get => GetString(SettingsKeys.SetupWebhookTarget);
+            set => Set(SettingsKeys.SetupWebhookTarget, value);
+        }
+
+        public void Save() => _sm.SaveSettings();
+    }
+}

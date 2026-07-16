@@ -16,6 +16,7 @@
 @inject ISeriesManagementService SeriesManager
 @inject IShortcutManager ShortcutService
 @inject ISettingsManager Settings
+@inject IAppSettings App
 @inject IEnumerable<IAlertChannel> AlertChannels
 @inject DemoPolicy Demo
 @inject IPaperTradingProvider Paper
@@ -913,8 +914,8 @@
     private void OnVisualEarconsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _visualEarcons = e.Value is bool b && b;
-        Settings.SetSetting("accessibility.visualEarcons", _visualEarcons);
-        Settings.SaveSettings();
+        App.VisualEarcons = _visualEarcons;
+        App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _visualEarcons ? "Visual earcons on." : "Visual earcons off.", true));
     }
@@ -922,8 +923,8 @@
     private void OnColorVisionChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _colorVisionSafe = e.Value is bool b && b;
-        Settings.SetSetting("appearance.colorVisionSafe", _colorVisionSafe);
-        Settings.SaveSettings();
+        App.ColorVisionSafe = _colorVisionSafe;
+        App.Save();
         ThemeService.RefreshAccessibilityOverrides();
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -935,8 +936,8 @@
     {
         if (!int.TryParse(e.Value?.ToString(), out int scale)) return;
         _uiScale = Math.Clamp(scale, 50, 250);
-        Settings.SetSetting("appearance.uiScale", _uiScale);
-        Settings.SaveSettings();
+        App.UiScale = _uiScale;
+        App.Save();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", _uiScale); }
         catch { /* JS bridge may be absent in tests */ }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -972,8 +973,8 @@
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _hollowUpCandles = e.Value is bool b && b;
-        Settings.SetSetting("appearance.hollowUpCandles", _hollowUpCandles);
-        Settings.SaveSettings();
+        App.HollowUpCandles = _hollowUpCandles;
+        App.Save();
         ThemeService.RefreshAccessibilityOverrides();
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -993,8 +994,8 @@
     private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _hoverSonification = e.Value is bool b && b;
-        Settings.SetSetting(Services.ChartHoverTracker.HoverSonificationKey, _hoverSonification);
-        Settings.SaveSettings();
+        App.HoverSonification = _hoverSonification;
+        App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _hoverSonification ? "Hover sonification on." : "Hover sonification off.", true));
     }
@@ -1002,8 +1003,8 @@
     private void OnMagnetSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _magnetSnap = e.Value is bool b && b;
-        Settings.SetSetting(Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey, _magnetSnap);
-        Settings.SaveSettings();
+        App.MagnetSnap = _magnetSnap;
+        App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
     }
@@ -1011,8 +1012,8 @@
     private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _soundTheme = e.Value?.ToString() ?? Core.Services.Audio.SoundThemes.ClassicId;
-        Settings.SetSetting(Core.Services.Audio.SoundThemes.SettingsKey, _soundTheme);
-        Settings.SaveSettings();
+        App.SoundTheme = _soundTheme;
+        App.Save();
         var theme = Core.Services.Audio.SoundThemes.All.FirstOrDefault(t => t.Id == _soundTheme);
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Sound theme {theme?.Name ?? _soundTheme}. Applies to indicators you add from now on.", true));
@@ -1022,8 +1023,8 @@
     private void OnBgMonitoringChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _bgMonitoring = e.Value is bool b && b;
-        Settings.SetSetting(Core.Services.Workspace.BackgroundMonitoringService.EnabledKey, _bgMonitoring);
-        Settings.SaveSettings();
+        App.BackgroundMonitoring = _bgMonitoring;
+        App.Save();
         Monitoring.Reconcile();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _bgMonitoring ? "Background monitoring on." : "Background monitoring off.", true));
@@ -1033,8 +1034,8 @@
     {
         if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
         _bgPollSeconds = Math.Clamp(seconds, 10, 600);
-        Settings.SetSetting(Core.Services.Workspace.BackgroundMonitoringService.PollSecondsKey, _bgPollSeconds);
-        Settings.SaveSettings();
+        App.MonitorPollSeconds = _bgPollSeconds;
+        App.Save();
         // New interval applies to monitors started from now on; restart them to adopt it.
         Monitoring.Reconcile();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1053,21 +1054,20 @@
         _speakTimestamps = Store.State.SpeakTimestamps;
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
-        _paperTradingMode = Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false;
-        _bgMonitoring  = Settings.GetSetting(Core.Services.Workspace.BackgroundMonitoringService.EnabledKey)?.ToObject<bool>() ?? false;
-        _bgPollSeconds = Settings.GetSetting(Core.Services.Workspace.BackgroundMonitoringService.PollSecondsKey)?.ToObject<int>() ?? 30;
+        _paperTradingMode = App.PaperTradingMode;
+        _bgMonitoring  = App.BackgroundMonitoring;
+        _bgPollSeconds = App.MonitorPollSeconds;
         _paperTradingModeInitial = _paperTradingMode;
-        _brailleEnabled = Settings.GetSetting("accessibility.braille.enabled")?.ToObject<bool>() ?? false;
+        _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;
-        _hoverSonification = Settings.GetSetting(Services.ChartHoverTracker.HoverSonificationKey)?.ToObject<bool>() ?? false;
-        _magnetSnap = Settings.GetSetting(Core.Services.Accessibility.DrawingInteractionManager.MagnetSnapKey)?.ToObject<bool>() ?? false;
-        _soundTheme = Settings.GetSetting(Core.Services.Audio.SoundThemes.SettingsKey)?.ToString()
-                      ?? Core.Services.Audio.SoundThemes.ClassicId;
+        _hoverSonification = App.HoverSonification;
+        _magnetSnap = App.MagnetSnap;
+        _soundTheme = App.SoundTheme;
         _wasapiLatency = Store.State.WasapiLatency;
-        _visualEarcons   = Settings.GetSetting("accessibility.visualEarcons")?.ToObject<bool>() ?? false;
-        _colorVisionSafe = Settings.GetSetting("appearance.colorVisionSafe")?.ToObject<bool>() ?? false;
-        _hollowUpCandles = Settings.GetSetting("appearance.hollowUpCandles")?.ToObject<bool>() ?? false;
-        _uiScale         = Settings.GetSetting("appearance.uiScale")?.ToObject<int>() ?? 100;
+        _visualEarcons   = App.VisualEarcons;
+        _colorVisionSafe = App.ColorVisionSafe;
+        _hollowUpCandles = App.HollowUpCandles;
+        _uiScale         = App.UiScale;
         _backgroundColor = SkColorToHex(ThemeService.Current.Background);
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
         _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
@@ -1075,31 +1075,31 @@
 
         // Alerts config — pull fresh from settings so another component's edits
         // (or a crash-recovery re-open) show the persisted values.
-        _emailHost     = Settings.GetSetting("alerts.email.host")?.ToString() ?? string.Empty;
-        _emailPort     = Settings.GetSetting("alerts.email.port")?.ToObject<int>() ?? 587;
-        _emailUseTls   = Settings.GetSetting("alerts.email.useTls")?.ToObject<bool>() ?? true;
-        _emailUsername = Settings.GetSetting("alerts.email.username")?.ToString() ?? string.Empty;
-        _emailPassword = Settings.GetSetting("alerts.email.password")?.ToString() ?? string.Empty;
-        _emailFrom     = Settings.GetSetting("alerts.email.fromAddress")?.ToString() ?? string.Empty;
-        _emailTo       = Settings.GetSetting("alerts.email.toAddress")?.ToString() ?? string.Empty;
+        _emailHost     = App.EmailHost;
+        _emailPort     = App.EmailPort;
+        _emailUseTls   = App.EmailUseTls;
+        _emailUsername = App.EmailUsername;
+        _emailPassword = App.EmailPassword;
+        _emailFrom     = App.EmailFromAddress;
+        _emailTo       = App.EmailToAddress;
         _emailStatus = string.Empty; _emailStatusIsError = false;
 
-        _tgBotToken = Settings.GetSetting("alerts.telegram.botToken")?.ToString() ?? string.Empty;
-        _tgChatId   = Settings.GetSetting("alerts.telegram.chatId")?.ToString() ?? string.Empty;
+        _tgBotToken = App.TelegramBotToken;
+        _tgChatId   = App.TelegramChatId;
         _telegramStatus = string.Empty; _telegramStatusIsError = false;
 
         // Load the named webhook list (migrating a legacy single URL if present).
         var parsed = AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ParseWebhooks(
-            Settings.GetSetting("alerts.webhooks"),
-            Settings.GetSetting("alerts.webhook.url")?.ToString(),
-            Settings.GetSetting("alerts.webhook.authHeader")?.ToString());
+            Settings.GetSetting(SettingsKeys.Webhooks),
+            Settings.GetSetting(SettingsKeys.LegacyWebhookUrl)?.ToString(),
+            Settings.GetSetting(SettingsKeys.LegacyWebhookAuth)?.ToString());
         _webhooks = parsed
             .Select(w => new WebhookRow { Name = w.Name, Url = w.Url, Auth = w.AuthHeader ?? string.Empty })
             .ToList();
         _webhookStatus = string.Empty; _webhookStatusIsError = false;
 
-        _setupAlertsEnabled  = Settings.GetSetting("alerts.setups.enabled")?.ToObject<bool>() ?? false;
-        _setupWebhookTarget  = Settings.GetSetting("alerts.setups.webhookTarget")?.ToString() ?? string.Empty;
+        _setupAlertsEnabled  = App.SetupAlertsEnabled;
+        _setupWebhookTarget  = App.SetupWebhookTarget;
     }
 
     private bool _setupAlertsEnabled;
@@ -1130,9 +1130,9 @@
 
         PersistAlertSettings();
 
-        Settings.SetSetting("trading.paperTradingMode", JToken.FromObject(_paperTradingMode));
-        Settings.SetSetting("accessibility.braille.enabled", JToken.FromObject(_brailleEnabled));
-        Settings.SaveSettings();
+        App.PaperTradingMode = _paperTradingMode;
+        App.BrailleEnabled = _brailleEnabled;
+        App.Save();
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
         if (_paperTradingMode != _paperTradingModeInitial)
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1157,15 +1157,15 @@
 
     private void PersistAlertSettings()
     {
-        Settings.SetSetting("alerts.email.host",        JToken.FromObject(_emailHost));
-        Settings.SetSetting("alerts.email.port",        JToken.FromObject(_emailPort));
-        Settings.SetSetting("alerts.email.useTls",      JToken.FromObject(_emailUseTls));
-        Settings.SetSetting("alerts.email.username",    JToken.FromObject(_emailUsername));
-        Settings.SetSetting("alerts.email.password",    JToken.FromObject(_emailPassword));
-        Settings.SetSetting("alerts.email.fromAddress", JToken.FromObject(_emailFrom));
-        Settings.SetSetting("alerts.email.toAddress",   JToken.FromObject(_emailTo));
-        Settings.SetSetting("alerts.telegram.botToken", JToken.FromObject(_tgBotToken));
-        Settings.SetSetting("alerts.telegram.chatId",   JToken.FromObject(_tgChatId));
+        App.EmailHost = _emailHost;
+        App.EmailPort = _emailPort;
+        App.EmailUseTls = _emailUseTls;
+        App.EmailUsername = _emailUsername;
+        App.EmailPassword = _emailPassword;
+        App.EmailFromAddress = _emailFrom;
+        App.EmailToAddress = _emailTo;
+        App.TelegramBotToken = _tgBotToken;
+        App.TelegramChatId = _tgChatId;
         // Persist the named webhook list. Only rows with both Name + URL are kept.
         var named = _webhooks
             .Where(w => !string.IsNullOrWhiteSpace(w.Name) && !string.IsNullOrWhiteSpace(w.Url))
@@ -1175,11 +1175,11 @@
                 Url = w.Url.Trim(),
                 AuthHeader = string.IsNullOrWhiteSpace(w.Auth) ? null : w.Auth,
             });
-        Settings.SetSetting("alerts.webhooks",
+        Settings.SetSetting(SettingsKeys.Webhooks,
             AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ToJson(named));
-        Settings.SetSetting("alerts.setups.enabled", JToken.FromObject(_setupAlertsEnabled));
-        Settings.SetSetting("alerts.setups.webhookTarget", JToken.FromObject(_setupWebhookTarget));
-        Settings.SaveSettings();
+        App.SetupAlertsEnabled = _setupAlertsEnabled;
+        App.SetupWebhookTarget = _setupWebhookTarget;
+        App.Save();
     }
 
     private async Task TestWebhookAsync()

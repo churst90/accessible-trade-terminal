@@ -42,7 +42,7 @@ namespace AccessibleTrader.Core.Services.Alerts
         }
 
         private bool Enabled =>
-            _settings.GetSetting("alerts.setups.enabled")?.ToObject<bool>() ?? false;
+            _settings.GetSetting(SettingsKeys.SetupAlertsEnabled)?.ToObject<bool>() ?? false;
 
         private void OnConfirmed(SetupConfirmedEvent e)
         {
@@ -111,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Alerts
         private string? ResolveWebhookTarget(string? symbol)
         {
             if (!string.IsNullOrWhiteSpace(symbol) &&
-                _settings.GetSetting("alerts.setups.webhookMap") is JObject map)
+                _settings.GetSetting(SettingsKeys.SetupWebhookMap) is JObject map)
             {
                 foreach (var prop in map.Properties())
                 {
@@ -123,7 +123,7 @@ namespace AccessibleTrader.Core.Services.Alerts
                 }
             }
 
-            var fallback = _settings.GetSetting("alerts.setups.webhookTarget")?.ToString();
+            var fallback = _settings.GetSetting(SettingsKeys.SetupWebhookTarget)?.ToString();
             return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
         }
 

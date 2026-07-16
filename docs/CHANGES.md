@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Typed settings facade (2026-07-16, debt item 3 stage a)
+
+Every settings.json key path now lives in ONE place (`SettingsKeys`), and the
+scalar preferences are exposed through a strongly-typed `IAppSettings` facade —
+one property per preference, with the key, the type, and the default defined
+exactly once. Stringly-typed reads like
+`GetSetting("alerts.setups.enabled")?.ToObject<bool>() ?? false` could be typo'd
+into a silent default and repeated their fallback values at every call site;
+now a typo is a compile error and defaults can't drift between readers.
+SettingsModal, SetupAlertBridge, the email/Telegram channel loaders, and the
+order-service paper-mode checks migrated; the legacy per-service key constants
+(ThemeService, BackgroundMonitoringService, ChartHoverTracker, …) alias into
+SettingsKeys so existing call sites compile unchanged. Structured blobs (named
+webhook list, per-symbol setup routing) stay on ISettingsManager via their
+loaders. Reflection tests pin the contract: every property round-trips, uses
+its own declared key, and all keys are distinct. Stage (b) — migrating the
+preferences that live on WorkspaceState — remains in the debt register.
+5 new tests (1665 → 1670).
+
 ### Wavetable oscillator + WAV import (2026-07-16, debt items 1-2)
 
 **Custom oscillator shapes from WAV files.** The AudioEngine gained two voice

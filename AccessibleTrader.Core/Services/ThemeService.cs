@@ -35,13 +35,13 @@ namespace AccessibleTrader.Core.Services
 
         // Visual accessibility overrides (Phase D). Both default OFF: the terminal
         // presents audio-first; visual accommodations are opt-in per user.
-        public const string ColorVisionSafeKey = "appearance.colorVisionSafe";
-        public const string HollowUpCandlesKey = "appearance.hollowUpCandles";
+        public const string ColorVisionSafeKey = SettingsKeys.ColorVisionSafe;
+        public const string HollowUpCandlesKey = SettingsKeys.HollowUpCandles;
 
         // Optional user override of the theme's chart background ("#RRGGBB").
         // Empty/absent means "use the theme's own background". Applies across
         // theme switches until cleared from Settings > Appearance.
-        public const string BackgroundOverrideKey = "appearance.backgroundColor";
+        public const string BackgroundOverrideKey = SettingsKeys.BackgroundColor;
 
         public ThemeService(ISettingsManager settings)
         {

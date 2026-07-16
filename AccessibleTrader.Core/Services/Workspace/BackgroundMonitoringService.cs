@@ -45,8 +45,8 @@ namespace AccessibleTrader.Core.Services.Workspace
     /// </summary>
     public sealed class BackgroundMonitoringService : IBackgroundMonitoringService, IDisposable
     {
-        public const string EnabledKey = "workspace.backgroundMonitoring";
-        public const string PollSecondsKey = "workspace.monitorPollSeconds";
+        public const string EnabledKey = SettingsKeys.BackgroundMonitoring;
+        public const string PollSecondsKey = SettingsKeys.MonitorPollSeconds;
 
         private readonly IWorkspaceStore _store;
         private readonly IEventBus _eventBus;
