@@ -6,6 +6,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Multi-workspace background monitoring (2026-07-15)
+
+Non-focused tabs are no longer deaf. Opt-in via Settings → General → "Monitor
+background tabs" (`workspace.backgroundMonitoring`, default OFF; desktop/Full
+builds only — Hosted/Demo stay single-workspace): every inactive tab gets a
+self-contained **BackgroundWorkspaceMonitor** that re-fetches its symbol's bars
+on a polling cadence (`workspace.monitorPollSeconds`, default 30 s, floor 10),
+recomputes the tab's own indicator setup from its snapshot, and evaluates that
+symbol's alerts and strategies against the fresh data. Architecture deliberately
+leaves the focused pipeline untouched (no DataManager/WorkspaceStore refactor):
+monitors build a private evaluation WorkspaceState from fetched bars — the same
+technique the StrategyLab uses — and every fetch rides the provider's own rate
+limiter, so N tabs queue behind the budget instead of blowing it (no artificial
+tab cap, per design decision).
+
+Audio policy: **events speak from everywhere; the soundscape belongs to the
+focused chart.** Background alerts/setups deliver at full priority (earcon,
+speech, Journal, email/Telegram/Discord) with every announcement prefixed by its
+symbol; playback/navigation sonification never mixes across tabs. Exactly-one-
+driver contract: strategies are now stamped with the symbol they were started on
+(`ActiveStrategy.Symbol`); the foreground engine skips them while their chart is
+unfocused and the monitor picks them up — nothing double-fires. Null-symbol
+("any") alerts remain focused-chart-only. Background strategy signals are
+announce-only — even Auto mode never places orders from a background tab.
+Setup events (Confirmed/Armed/Reconfirmed/Dropped/EntryReached) carry their
+Symbol through the sonifier and the alert bridge. New command: **Ctrl+Alt+Shift+M**
+speaks per-monitor status (freshness, data errors, armed strategy counts).
+Monitors reconcile on tab switch/open/close, settings changes, and workspace
+restore at startup. 12 new tests (1618 → 1630).
+
 ### FINRA short interest + days-to-cover (2026-07-15)
 
 The FINRA provider now serves biweekly **short interest** (`{TICKER}_SHORTINT`,

@@ -353,6 +353,7 @@ namespace AccessibleTrader.Core.Services.Input
                     _eventBus.Publish(new FocusTabBarEvent());
                     return;
                 case SystemCommand.ContextSummary: _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY", true)); return;
+                case SystemCommand.MonitoringStatus: _eventBus.Publish(new AnnounceMonitoringStatusEvent()); return;
                 case SystemCommand.ChartFocus:
                     // Ask ChartArea to programmatically focus the chart element. The
                     // resulting native focus event will fire ChartFocusEvent as a side

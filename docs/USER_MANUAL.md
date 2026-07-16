@@ -34,7 +34,7 @@ feature and understand what it is doing.
 4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap, the object tree
 5. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
-7. [Automation](#automation) — alerts, strategies, custom scripts, the Strategy Lab
+7. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
 8. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
 9. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
 10. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
@@ -1053,6 +1053,47 @@ P&L, max drawdown, Sharpe ratio, and an expandable trade log of each entry, exit
 reason. Because the whole feature is experimental, read those numbers as a study of
 the rules, not a promise.
 
+### Background monitoring — watching every tab at once
+
+Normally only the chart on screen is live: switch from your BTC tab to a gold tab and
+the BTC alerts and strategies go quiet until you switch back. **Background monitoring**
+lifts that limit. Turn it on in Settings (F12), under General, "Monitor background
+tabs", and every *other* open tab keeps being watched while you work: its data is
+re-fetched on a polling cadence (every 30 seconds by default — adjustable in the same
+place, with a floor of 10), its indicators are recomputed, and its symbol-scoped
+alerts and running strategies are evaluated against the fresh bars. It is off by
+default, like every feature that spends your provider's request budget, and it is a
+desktop feature — the hosted web builds stay single-chart by design.
+
+What you hear follows one simple rule: **events speak from everywhere, the soundscape
+belongs to the focused chart.** A background tab's alerts and strategy setups reach
+you at full priority — earcons, speech, Journal, and your email/Telegram/Discord
+deliveries all fire exactly as if that tab were on screen — and every spoken
+announcement is prefixed with its symbol ("BTC/USD: crossed above 50,000") so you
+always know which market is talking. But playback, navigation ticks, and the
+sonification bed never mix across tabs; only the chart you are actually viewing is
+sonified.
+
+Two rules keep this honest. First, an alert or strategy is evaluated by exactly one
+side at a time: while its tab is focused, the normal live pipeline runs it; the moment
+you switch away, the background monitor takes over — never both, so nothing
+double-fires. (Alerts set to "any symbol" belong to the focused chart only, as
+always.) Second, background strategy signals are **announce-only**: even a strategy in
+Auto mode will speak its signal but never place an order from a background tab.
+Order placement stays something that happens on the chart in front of you.
+
+Press **Ctrl+Alt+Shift+M** any time for a status report: it names each watched tab,
+how fresh its data is ("current", or "last checked 4 minutes ago", or "data error"),
+and how many strategies are armed on it. Monitors start and stop themselves as you
+open, close, and switch tabs, and come back automatically when a saved workspace is
+restored — there is nothing to manage beyond the one setting.
+
+Each background tab costs one small history request per poll, and every request goes
+through the provider's own rate limiter — so many tabs can never blow a provider's
+request budget; at worst they queue behind each other and a tab's "last checked" age
+grows. If you monitor a great many tabs on one provider, lengthen the poll interval
+rather than racing the limiter.
+
 ### Custom scripts
 
 When the built-in indicator set doesn't have the one you want, you can write your own.
@@ -1305,6 +1346,11 @@ bar. Once the bar has focus, switch with the left/right arrow keys, Home and End
 number row (1–9 jump straight to that tab); press Insert to open another tab and Delete
 to close the focused one. The bar is an ARIA tablist, so your screen reader announces
 each tab as you move. See the Platform Support chapter.)
+
+Out of the box only the tab on screen is live — but if you want the others watched
+too, turn on background monitoring in Settings and their alerts and strategies keep
+evaluating while you work elsewhere, each announcement prefixed with its symbol. That
+feature has its own section in the Automation chapter.
 
 A whole arrangement — every tab, its symbol and timeframe, its indicators and drawings
 — is a workspace you can save and restore. Ctrl+Alt+Shift+W saves the current

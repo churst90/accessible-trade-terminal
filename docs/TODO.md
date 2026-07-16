@@ -4,6 +4,34 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## [2026-07-15] — Multi-workspace background monitoring
+
+Full detail in `CHANGES.md` [Unreleased]. Suite 1630 Debug / 1629 Release.
+
+### Shipped
+
+- [x] **Background monitors per inactive tab** — polling fetch + private-state
+  indicator recompute + symbol-scoped alert/strategy evaluation; opt-in setting,
+  poll cadence setting (floor 10 s), Full-mode only (DemoPolicy gate).
+- [x] **One-driver contract** — `ActiveStrategy.Symbol` stamped at start; foreground
+  engine skips unfocused symbols, monitors pick them up; null-symbol alerts stay
+  focused-chart-only. Background signals announce-only (Auto never places orders).
+- [x] **Symbol-prefixed speech** for background alerts + setup events; Symbol threaded
+  through Setup* events, sonifier, and the setup→alert bridge.
+- [x] **Ctrl+Alt+Shift+M** monitoring status command; reconcile on tab switch/close,
+  settings change, and workspace restore; Settings → General fieldset (web UI).
+- [x] 12 unit tests (monitor scoping/warmup/prefix, registry gating/reconcile,
+  engine skip, sonifier prefix); manual/quickstart/shortcuts docs.
+
+### Follow-ups
+
+- [ ] Keyed-feed DataManager refactor if tick-level background evaluation is ever
+  needed (spec'd in the multi-workspace patch; polling is sufficient for the
+  validated daily/4h strategies). The Settings fieldset is in the shared
+  SettingsModal, so both heads already have the UI.
+
+---
+
 ## [2026-07-13] — 1.6.0 positioning & risk release
 
 Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.

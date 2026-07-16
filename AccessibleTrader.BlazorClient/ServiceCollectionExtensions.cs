@@ -433,6 +433,11 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IBarDetailService, BarDetailService>();
             services.AddSingleton<IAlertEvaluator, AlertEvaluator>();
             services.AddSingleton<IAlertOrchestrator, AlertOrchestrator>();
+            // Multi-workspace background monitoring: one polling evaluation loop per
+            // non-focused tab (alerts + symbol-bound strategies), desktop-gated by
+            // DemoPolicy.AllowBackgroundMonitoring and the settings toggle.
+            services.AddSingleton<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,
+                                  AccessibleTrader.Core.Services.Workspace.BackgroundMonitoringService>();
 
             // AI Technical Analyst — LLM providers (Claude priority, then OpenAI, then Ollama)
             services.AddSingleton<ILLMProvider, ClaudeProvider>();

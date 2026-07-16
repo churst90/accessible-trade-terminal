@@ -720,6 +720,9 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Ctrl+Alt+Shift+T | Focus the tab switcher bar (web-safe), then use arrows / Home / End / 1–9 / Insert (new) / Delete (close) |
 | Ctrl+Alt+Shift+W | Save workspace |
 | Ctrl+Alt+W | Load workspace |
+| Ctrl+Alt+Shift+M | Speak background monitoring status |
+
+By default only the chart on screen is live. To keep the other tabs watched too, enable **Monitor background tabs** in Settings (F12), General (desktop builds). Their symbol-scoped alerts and running strategies then keep evaluating on a polling cadence while you work elsewhere — announcements arrive prefixed with the symbol ("BTC/USD: crossed above 50,000"), background strategy signals are announce-only (never auto-placed orders), and the sonification/playback soundscape always belongs to the focused chart only. Press Ctrl+Alt+Shift+M for a spoken status of every watched tab.
 
 ### Sub-Pane and Intra-Pane Navigation
 

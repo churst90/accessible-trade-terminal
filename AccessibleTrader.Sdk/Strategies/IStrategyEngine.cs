@@ -7,7 +7,15 @@ public record ActiveStrategy(
     ITradingStrategy Strategy,
     IDictionary<string, object> Parameters,
     StrategyExecutionMode ExecutionMode,
-    bool IsPaused
+    bool IsPaused,
+    /// <summary>
+    /// The chart symbol this strategy is bound to (stamped from the active chart
+    /// when the strategy is started). The foreground engine only evaluates it while
+    /// that symbol is on screen; a background workspace monitor evaluates it while
+    /// its symbol is NOT on screen — exactly one driver at a time. Null/empty =
+    /// legacy behaviour (always evaluates against whatever chart is focused).
+    /// </summary>
+    string? Symbol = null
 );
 
 public interface IStrategyEngine

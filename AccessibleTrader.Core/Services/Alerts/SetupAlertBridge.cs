@@ -48,17 +48,17 @@ namespace AccessibleTrader.Core.Services.Alerts
         {
             string side = e.Side == OrderSide.Buy ? "Long" : "Short";
             Emit($"setup-{e.InstanceId}",
-                 $"{side} setup armed — {Symbol()}",
-                 e.Rationale);
+                 $"{side} setup armed — {SymbolOr(e.Symbol)}",
+                 e.Rationale, symbolOverride: e.Symbol);
         }
 
         private void OnEntryReached(SetupEntryReachedEvent e)
         {
             string side = e.Side == OrderSide.Buy ? "Long" : "Short";
             Emit($"setup-entry-{e.InstanceId}",
-                 $"{side} entry reached — {Symbol()}",
+                 $"{side} entry reached — {SymbolOr(e.Symbol)}",
                  $"Entry zone reached at {SpeechPriceFormatter.FormatPrice(e.TriggerPrice)}, {e.BarsArmed} bars after arming.",
-                 e.TriggerPrice);
+                 e.TriggerPrice, symbolOverride: e.Symbol);
         }
 
         private void OnDropped(SetupDroppedEvent e)
@@ -67,21 +67,29 @@ namespace AccessibleTrader.Core.Services.Alerts
             string labels = string.Join(", ", e.DroppedLeafLabels);
             string suffix = e.SetupStillActive ? "Setup still active." : "Setup invalidated.";
             Emit($"setup-dropped-{e.InstanceId}",
-                 $"Setup dropped — {Symbol()}",
-                 $"{labels} dropped off. {suffix}");
+                 $"Setup dropped — {SymbolOr(e.Symbol)}",
+                 $"{labels} dropped off. {suffix}", symbolOverride: e.Symbol);
         }
 
-        private string Symbol()
+        /// <summary>Prefer the symbol carried on the setup event (correct for background
+        /// workspace monitors) and fall back to the focused chart for legacy publishers.</summary>
+        private string SymbolOr(string eventSymbol)
         {
+            if (!string.IsNullOrWhiteSpace(eventSymbol)) return eventSymbol;
             var s = _store.State.SymbolDisplayName;
             return string.IsNullOrWhiteSpace(s) ? "current chart" : s;
         }
 
-        private void Emit(string id, string title, string speech, double triggeringValue = 0.0)
+        private void Emit(string id, string title, string speech, double triggeringValue = 0.0,
+            string? symbolOverride = null)
         {
             if (!Enabled) return;
 
-            string? symbol = _store.State.SymbolDisplayName;
+            // Event-carried symbol wins (background monitors publish for charts that
+            // are NOT focused); the focused chart is only a legacy fallback.
+            string? symbol = !string.IsNullOrWhiteSpace(symbolOverride)
+                ? symbolOverride
+                : _store.State.SymbolDisplayName;
             symbol = string.IsNullOrWhiteSpace(symbol) ? null : symbol;
 
             var def = new AlertDefinition

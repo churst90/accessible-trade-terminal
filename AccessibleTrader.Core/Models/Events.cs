@@ -145,6 +145,10 @@ namespace AccessibleTrader.Core.Models
     public record OpenSaveWorkspaceEvent();
     public record OpenLoadWorkspaceEvent();
     public record OpenJournalEvent();
+
+    /// <summary>Ctrl+Alt+Shift+M — ask the background monitoring service to speak its
+    /// status summary ("Monitoring 3 workspaces: KAS current, 1 strategy. ...").</summary>
+    public record AnnounceMonitoringStatusEvent();
     /// <summary>
     /// Fired by any modal when it opens (IsOpen=true) or closes (IsOpen=false).
     /// MainPage subscribes to hide/restore the native SkiaSharp canvas so modals
@@ -210,7 +214,8 @@ namespace AccessibleTrader.Core.Models
         string InstanceId,
         AccessibleTrader.Sdk.Plugins.OrderSide Side,
         string Rationale,
-        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan);
+        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan,
+        string Symbol = "");
 
     /// <summary>
     /// Fired on every subsequent bar where an already-active setup's conditions still hold.
@@ -222,7 +227,8 @@ namespace AccessibleTrader.Core.Models
         string StrategyName,
         string InstanceId,
         AccessibleTrader.Sdk.Plugins.OrderSide Side,
-        int BarsSinceFirstConfirm);
+        int BarsSinceFirstConfirm,
+        string Symbol = "");
 
     /// <summary>
     /// Fired when one or more leaves of an active setup flip from true to false. Carries the
@@ -234,7 +240,8 @@ namespace AccessibleTrader.Core.Models
         string StrategyName,
         string InstanceId,
         IReadOnlyList<string> DroppedLeafLabels,
-        bool SetupStillActive);
+        bool SetupStillActive,
+        string Symbol = "");
 
     /// <summary>
     /// Fired by <c>ConfigurableStrategy</c> when a setup's conditions clear and the resolved
@@ -249,7 +256,8 @@ namespace AccessibleTrader.Core.Models
         string InstanceId,
         AccessibleTrader.Sdk.Plugins.OrderSide Side,
         string TriggerDescription,
-        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan);
+        AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan ResolvedPlan,
+        string Symbol = "");
 
     /// <summary>
     /// Fired the moment the entry trigger of an Armed setup actually fires (e.g. price
@@ -262,5 +270,6 @@ namespace AccessibleTrader.Core.Models
         string InstanceId,
         AccessibleTrader.Sdk.Plugins.OrderSide Side,
         double TriggerPrice,
-        int BarsArmed);
+        int BarsArmed,
+        string Symbol = "");
 }

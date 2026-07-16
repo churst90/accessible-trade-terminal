@@ -357,6 +357,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IBarDetailService, BarDetailService>();
             services.AddScoped<IAlertEvaluator, AlertEvaluator>();
             services.AddScoped<IAlertOrchestrator, AlertOrchestrator>();
+            services.AddScoped<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,
+                               AccessibleTrader.Core.Services.Workspace.BackgroundMonitoringService>();
 
             services.AddScoped<ILLMProvider, ClaudeProvider>();
             services.AddScoped<ILLMProvider, OpenAIProvider>();

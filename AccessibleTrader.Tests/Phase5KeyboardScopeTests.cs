@@ -124,6 +124,9 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.VolChartDown)]
         // Context summary (F4)
         [InlineData(SystemCommand.ContextSummary)]
+        // Background monitoring status (Ctrl+Alt+Shift+M) — a status announcement,
+        // must be reachable from any focus location
+        [InlineData(SystemCommand.MonitoringStatus)]
         // ChartFocus itself MUST be global — it's the way to get focus to the chart
         [InlineData(SystemCommand.ChartFocus)]
         // Tab management
@@ -204,7 +207,8 @@ namespace AccessibleTrader.Tests
                 SystemCommand.VolCompUp, SystemCommand.VolCompDown,
                 SystemCommand.VolSeriesUp, SystemCommand.VolSeriesDown,
                 SystemCommand.VolChartUp, SystemCommand.VolChartDown,
-                SystemCommand.ContextSummary, SystemCommand.ChartFocus,
+                SystemCommand.ContextSummary, SystemCommand.MonitoringStatus,
+                SystemCommand.ChartFocus,
                 SystemCommand.AddTab, SystemCommand.CloseTab,
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,

@@ -113,6 +113,11 @@ namespace AccessibleTrader.Core.Services
             var reconciliation = _services.GetService<ITradingReconciliationCoordinator>();
             if (reconciliation != null)
                 await reconciliation.AnnounceAtStartupAsync().ConfigureAwait(false);
+
+            // 10. Background workspace monitoring — resolve so its tab/settings
+            //     subscriptions are live, then reconcile once for tabs restored
+            //     from a saved workspace profile.
+            _services.GetService<Workspace.IBackgroundMonitoringService>()?.Reconcile();
         }
 
         private void AnnounceQuarantinedFiles()

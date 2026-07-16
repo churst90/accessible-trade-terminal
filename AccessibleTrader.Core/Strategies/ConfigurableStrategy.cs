@@ -380,7 +380,8 @@ public class ConfigurableStrategy : BaseStrategy
                 StrategyName: _spec.Name,
                 InstanceId:   _instanceId,
                 DroppedLeafLabels: droppedLabels,
-                SetupStillActive: eval.OverallTrue && _state != SetupState.Inactive));
+                SetupStillActive: eval.OverallTrue && _state != SetupState.Inactive,
+                Symbol: state.SymbolDisplayName));
         }
 
         _lastLeafResults = new Dictionary<string, bool>(eval.LeafResults);
@@ -412,7 +413,8 @@ public class ConfigurableStrategy : BaseStrategy
                     InstanceId:   _instanceId,
                     Side:         _spec.Side,
                     TriggerPrice: trig,
-                    BarsArmed:    _barsSinceArmed));
+                    BarsArmed:    _barsSinceArmed,
+                    Symbol:       state.SymbolDisplayName));
                 return BuildSignal(_armedPlan, eval, $"Entry trigger fired at {trig:F4}.");
             }
             // Trigger not yet fired — heartbeat reconfirm so the user knows the setup is still alive.
@@ -420,7 +422,8 @@ public class ConfigurableStrategy : BaseStrategy
                 StrategyName: _spec.Name,
                 InstanceId:   _instanceId,
                 Side:         _spec.Side,
-                BarsSinceFirstConfirm: _barsSinceArmed));
+                BarsSinceFirstConfirm: _barsSinceArmed,
+                Symbol:       state.SymbolDisplayName));
             return null;
         }
 
@@ -432,7 +435,8 @@ public class ConfigurableStrategy : BaseStrategy
                 StrategyName: _spec.Name,
                 InstanceId:   _instanceId,
                 Side:         _spec.Side,
-                BarsSinceFirstConfirm: _barsSinceFirstConfirm));
+                BarsSinceFirstConfirm: _barsSinceFirstConfirm,
+                Symbol:       state.SymbolDisplayName));
             return null;
         }
 
@@ -490,7 +494,8 @@ public class ConfigurableStrategy : BaseStrategy
                 InstanceId:   _instanceId,
                 Side:         _spec.Side,
                 Rationale:    rationale,
-                ResolvedPlan: resolved));
+                ResolvedPlan: resolved,
+                Symbol:       state.SymbolDisplayName));
 
             return BuildSignal(resolved, eval, rationale);
         }
@@ -504,7 +509,8 @@ public class ConfigurableStrategy : BaseStrategy
                 InstanceId:   _instanceId,
                 Side:         _spec.Side,
                 TriggerDescription: DescribeTrigger(_spec.Risk.Entry),
-                ResolvedPlan: resolved));
+                ResolvedPlan: resolved,
+                Symbol:       state.SymbolDisplayName));
             return null;
         }
     }

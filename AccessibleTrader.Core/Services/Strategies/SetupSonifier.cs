@@ -41,6 +41,15 @@ namespace AccessibleTrader.Core.Services.Strategies
             _subs.Add(bus.Subscribe<SetupEntryReachedEvent>(OnEntryReached));
         }
 
+        /// <summary>
+        /// "KAS/USDT: " prefix so multi-workspace users always know WHICH chart a
+        /// setup announcement belongs to — essential once background monitors can
+        /// speak for charts that aren't on screen. Empty symbol (legacy publishers,
+        /// blank charts) keeps the old un-prefixed speech.
+        /// </summary>
+        private static string Prefix(string symbol) =>
+            string.IsNullOrWhiteSpace(symbol) ? "" : symbol + ": ";
+
         private void OnArmed(SetupArmedEvent e)
         {
             _earcon.PlaySetupArmed(e.Side);
@@ -55,6 +64,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 ? $" Ladder has {e.ResolvedPlan.TpPrices.Count} rungs — only the first target fires live until multi-rung bracket support ships."
                 : string.Empty;
             _speech.Speak(
+                Prefix(e.Symbol) +
                 $"{(e.Side == AccessibleTrader.Sdk.Plugins.OrderSide.Buy ? "Long" : "Short")} setup armed. " +
                 $"{e.TriggerDescription} Stop {SpeechPriceFormatter.FormatPrice(e.ResolvedPlan.StopPrice)}, first target {SpeechPriceFormatter.FormatPrice(e.ResolvedPlan.TpPrices[0])}.{rungCount}",
                 interrupt: false);
@@ -64,6 +74,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             _earcon.PlaySetupEntryReached(e.Side);
             _speech.Speak(
+                Prefix(e.Symbol) +
                 $"Entry zone reached at {SpeechPriceFormatter.FormatPrice(e.TriggerPrice)}, {e.BarsArmed} bars after arming.",
                 interrupt: false);
         }
@@ -71,9 +82,9 @@ namespace AccessibleTrader.Core.Services.Strategies
         private void OnConfirmed(SetupConfirmedEvent e)
         {
             _earcon.PlaySetupBell(e.Side, reconfirmation: false);
-            // The rationale carries the side, score, stop, first target, R:R, and stop notes —
-            // exactly what the user asked the journal/speech entry to look like.
-            _speech.Speak(e.Rationale, interrupt: false);
+            // The rationale carries the side, score, entry, stop, targets, R:R, and stop
+            // notes — exactly what the user asked the journal/speech entry to look like.
+            _speech.Speak(Prefix(e.Symbol) + e.Rationale, interrupt: false);
         }
 
         private void OnReconfirmed(SetupReconfirmedEvent e)
@@ -82,6 +93,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             // Keep re-confirmation speech terse — the user already has the full rationale
             // from the initial confirmation; subsequent bars just need the heartbeat.
             _speech.Speak(
+                Prefix(e.Symbol) +
                 $"{e.StrategyName} still confirmed, bar {e.BarsSinceFirstConfirm}.",
                 interrupt: false);
         }
@@ -91,7 +103,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (e.DroppedLeafLabels == null || e.DroppedLeafLabels.Count == 0) return;
             string labels = string.Join(", ", e.DroppedLeafLabels);
             string suffix = e.SetupStillActive ? "Setup still active." : "Setup invalidated.";
-            _speech.Speak($"{labels} dropped off. {suffix}", interrupt: false);
+            _speech.Speak($"{Prefix(e.Symbol)}{labels} dropped off. {suffix}", interrupt: false);
         }
 
         public void Dispose()

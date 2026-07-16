@@ -342,6 +342,7 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenCustomScripts, ",",     Alt: true)); // Alt+,
             s.Add(new(SystemCommand.OpenSoundDesigner, "W",     Alt: true)); // Alt+W
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
+            s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
             LoadProfile(p);
         }

@@ -73,6 +73,13 @@ namespace AccessibleTrader.Core.Services
             {
                 if (active.IsPaused) continue;
 
+                // Symbol-bound instances only evaluate while their chart is focused —
+                // evaluating a KAS strategy against BTC bars was the cross-contamination
+                // this closes. Background monitors evaluate the non-focused ones.
+                if (!string.IsNullOrEmpty(active.Symbol)
+                    && !string.Equals(active.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 try
                 {
                     var signal = active.Strategy.OnBar(newBar, history, state);
@@ -150,9 +157,17 @@ namespace AccessibleTrader.Core.Services
             var state = _store.State;
             strategy.Initialize(state.Data, state, @params);
 
-            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false);
+            // Bind the instance to the chart it was started on. The foreground engine
+            // evaluates it only while that symbol is focused; a background workspace
+            // monitor picks it up while the symbol is NOT focused — one driver at a
+            // time (see BackgroundWorkspaceMonitor). Empty symbol (blank chart) keeps
+            // the legacy always-evaluate behaviour.
+            string? boundSymbol = string.IsNullOrWhiteSpace(state.SymbolDisplayName)
+                ? null : state.SymbolDisplayName;
+
+            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol);
             _activeStrategies = _activeStrategies.Add(active);
-            _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode})", nameof(StrategyEngine));
+            _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode}, symbol={boundSymbol ?? "any"})", nameof(StrategyEngine));
             return instanceId;
         }
 
