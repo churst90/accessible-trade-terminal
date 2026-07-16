@@ -20,6 +20,7 @@
 @inject IEnumerable<IAlertChannel> AlertChannels
 @inject DemoPolicy Demo
 @inject IPaperTradingProvider Paper
+@inject IRuntimePlatform Platform
 @inject AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService Monitoring
 @implements IDisposable
 
@@ -175,7 +176,12 @@
                     </fieldset>
                 }
 
-                @* ── Braille / Tactile Display ───────────────────────────────── *@
+                @* ── Braille / Tactile Display ─────────────────────────────────
+                   Hidden on the browser host: the Dot Pad connects to the machine
+                   RUNNING the app (the server), never the user's browser — offering
+                   the toggle there was a dead end. Windows-only besides. *@
+                @if (!Platform.IsBrowserHost)
+                {
                 <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:#111; padding:0 6px;">Braille / Tactile Display</legend>
                     <div class="modal-row">
@@ -191,6 +197,7 @@
                         connected display.
                     </p>
                 </fieldset>
+                }
 
                 @* ── Sonification ────────────────────────────────────────────── *@
                 <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
@@ -1027,6 +1034,7 @@
         _touchNavMode = e.Value?.ToString() ?? "auto";
         App.TouchNavBarMode = _touchNavMode;
         App.Save();
+        EventBus.Publish(new TouchNavBarModeChangedEvent(_touchNavMode));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _touchNavMode switch
             {

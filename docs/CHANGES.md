@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Touch bar detection hardened + instant Never; braille hidden on the web (2026-07-16, round 3)
+
+**Touch bar, third and final pass.** Cody's desktop browser genuinely reports a
+coarse PRIMARY pointer (which is also why the original CSS-only hiding failed) —
+common on Linux input stacks with accessibility tech. The auto probe now
+requires coarse primary AND no fine pointer anywhere (any-pointer: fine): a
+desktop always has a mouse, a phone never does — the reliable discriminator.
+The "Never/Always" override now applies THE INSTANT the dropdown changes (a
+dedicated TouchNavBarModeChangedEvent; previously it waited for the modal to
+close), matching the Settings dialog's no-save-button, changes-apply-live
+model. The shared JS gets cache-busting version queries so a stale cached
+keyboard.js can't resurrect old probe behavior. New live-flow test: bar visible
+→ user selects Never → bar leaves the DOM before the modal even closes.
+
+**Braille setting hidden on the browser host.** The Dot Pad connects to the
+machine RUNNING the app — on the WebHost that's the server, never the user's
+browser, so offering the toggle there was a dead end. The fieldset now gates on
+IRuntimePlatform.IsBrowserHost and appears only on the native (MAUI) heads.
+
 ### Key-release stops the WHOLE note; touch bar override (2026-07-16, round 2)
 
 **Multi-layer patches now release together.** Lifting an arrow key stopped only

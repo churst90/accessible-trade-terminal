@@ -75,8 +75,12 @@
     {
         if (!firstRender) return;
         await EvaluateVisibilityAsync();
-        // Re-evaluate when Settings closes so the ui.touchNavBar override applies
-        // without a restart.
+        // React the INSTANT the setting changes (no save button exists; changes
+        // apply immediately), and re-evaluate on Settings close as a belt.
+        _modeChangedSub = EventBus.Subscribe<TouchNavBarModeChangedEvent>(evt =>
+        {
+            _ = InvokeAsync(EvaluateVisibilityAsync);
+        });
         _settingsClosedSub = EventBus.Subscribe<ModalStateChangedEvent>(e =>
         {
             if (!e.IsOpen && e.ModalName == "Settings")
@@ -85,6 +89,7 @@
     }
 
     private IDisposable? _settingsClosedSub;
+    private IDisposable? _modeChangedSub;
 
     private async Task EvaluateVisibilityAsync()
     {
@@ -128,5 +133,6 @@
     {
         _sub?.Dispose();
         _settingsClosedSub?.Dispose();
+        _modeChangedSub?.Dispose();
     }
 }

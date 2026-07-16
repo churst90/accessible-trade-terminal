@@ -483,11 +483,15 @@ window.accessibleTrader = {
      * desktop browsers.
      */
     isTouchCapable: function () {
-        // PRIMARY pointer only: phones/tablets match (pointer: coarse); a desktop
-        // with a mouse matches (pointer: fine) even when touch hardware exists.
-        // maxTouchPoints / ontouchstart were too loose - desktop Linux input
-        // stacks report them and the touch bar appeared for mouse users.
-        return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        // "Touch device" = coarse PRIMARY pointer AND no fine pointer anywhere.
+        // Desktop Linux input stacks (incl. accessibility setups) can misreport
+        // the primary pointer as coarse, but a desktop always HAS a fine pointer
+        // (the mouse) - any-pointer:fine is the reliable discriminator. Phones
+        // have no fine pointer at all. Tablets with a paired mouse fall back to
+        // hidden; the Settings "Always show" override covers them.
+        if (!window.matchMedia) return false;
+        return window.matchMedia('(pointer: coarse)').matches
+            && !window.matchMedia('(any-pointer: fine)').matches;
     },
 
     downloadCsv: function(filename, content) {

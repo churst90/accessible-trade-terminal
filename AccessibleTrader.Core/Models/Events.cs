@@ -110,6 +110,9 @@ namespace AccessibleTrader.Core.Models
     /// drives the badge accent (blue/orange — colorblind-safe by default).
     /// </summary>
     public record EarconVisualEvent(string Label, string Tone);
+    /// <summary>Settings changed the touch-bar visibility mode ("auto"/"show"/"hide") —
+    /// TouchNavBar re-evaluates immediately, no modal close or restart needed.</summary>
+    public record TouchNavBarModeChangedEvent(string Mode);
     public record IndicatorUpdatedEvent(string? SeriesId = null);
 
     public record AppErrorEvent(

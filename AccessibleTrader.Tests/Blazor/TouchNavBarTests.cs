@@ -44,6 +44,29 @@ public class TouchNavBarTests
     }
 
     [Fact]
+    public void SelectingNever_HidesTheBarImmediately_LiveFlow()
+    {
+        // The full user path: bar visible (probe true, mode auto) → user picks
+        // "Never" in Settings (setting saved + TouchNavBarModeChangedEvent) →
+        // bar leaves the DOM without closing the modal or restarting.
+        var h = new BlazorTestHarness();
+        using var _1 = h;
+        h.WorkspaceStore.State.Returns(_ => WorkspaceState.Initial);
+        h.Ctx.Services.AddSingleton(Substitute.For<INavigationEngine>());
+        h.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(true);
+
+        var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='toolbar']")));
+
+        // The settings handler's exact effects:
+        h.SettingsManager.GetSetting(AccessibleTrader.Core.Services.SettingsKeys.TouchNavBar)
+            .Returns(Newtonsoft.Json.Linq.JToken.FromObject("hide"));
+        cut.InvokeAsync(() => h.EventBus.Publish(new TouchNavBarModeChangedEvent("hide")));
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
+    }
+
+    [Fact]
     public void Stays_out_of_the_DOM_on_non_touch_devices()
     {
         // Desktop (probe returns false): the toolbar must not exist AT ALL —

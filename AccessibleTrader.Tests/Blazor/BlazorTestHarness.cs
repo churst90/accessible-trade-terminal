@@ -135,6 +135,9 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
         // SettingsModal injects IBackgroundMonitoringService (background-monitoring fieldset).
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>());
+        // SettingsModal injects IRuntimePlatform (braille fieldset is hidden on the
+        // browser host). Substitute defaults: all-false → native-desktop-like.
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.IRuntimePlatform>());
         // SoundDesignerModal injects IWavetableLibrary (WAV import). Empty id lists by default.
         var wavetables = Substitute.For<AccessibleTrader.Core.Services.Audio.IWavetableLibrary>();
         wavetables.WavetableIds.Returns(new List<string>());
