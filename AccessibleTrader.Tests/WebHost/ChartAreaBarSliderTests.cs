@@ -33,6 +33,20 @@ public class ChartAreaBarSliderTests
     }
 
     [Fact]
+    public void Slider_is_absent_on_non_touch_devices_even_with_data()
+    {
+        // Cody's desktop Orca kept meeting "Bar navigator" in the tab order:
+        // the flick slider is a MOBILE affordance and shares the toolbar's
+        // touch gate — desktop (no touch) must not render it at all.
+        using var harness = ChartAreaBrowserCanvasBranchTests.BuildHarness(
+            isBrowserHost: true, state: StateWithBars(count: 50, cursor: 10));
+        harness.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(false);
+        var cut = harness.Ctx.RenderComponent<ChartArea>();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#chart-bar-slider")));
+    }
+
+    [Fact]
     public void Slider_is_absent_until_chart_data_loads()
     {
         using var harness = ChartAreaBrowserCanvasBranchTests.BuildHarness(isBrowserHost: true);
@@ -48,6 +62,8 @@ public class ChartAreaBarSliderTests
             isBrowserHost: true, state: StateWithBars(count: 50, cursor: 10));
         var cut = harness.Ctx.RenderComponent<ChartArea>();
 
+        // The slider appears once the async touch-controls gate resolves.
+        cut.WaitForAssertion(() => cut.Find("#chart-bar-slider"));
         var slider = cut.Find("#chart-bar-slider");
         Assert.Equal("0", slider.GetAttribute("min"));
         Assert.Equal("49", slider.GetAttribute("max"));
@@ -62,6 +78,7 @@ public class ChartAreaBarSliderTests
             isBrowserHost: true, state: StateWithBars(count: 50, cursor: 10));
         var cut = harness.Ctx.RenderComponent<ChartArea>();
 
+        cut.WaitForAssertion(() => cut.Find("#chart-bar-slider"));
         var valueText = cut.Find("#chart-bar-slider").GetAttribute("aria-valuetext") ?? "";
         Assert.Contains("Bar 11 of 50", valueText);
         Assert.Contains("close", valueText);
@@ -77,6 +94,7 @@ public class ChartAreaBarSliderTests
         harness.EventBus.Subscribe<AccessibleTrader.Core.Models.FeedbackRequestEvent>(f => feedback = f);
         var cut = harness.Ctx.RenderComponent<ChartArea>();
 
+        cut.WaitForAssertion(() => cut.Find("#chart-bar-slider"));
         cut.Find("#chart-bar-slider").Input("15");
 
         // NavigateAction (not SetCursorAction): it scrolls the viewport to keep
@@ -95,6 +113,7 @@ public class ChartAreaBarSliderTests
             isBrowserHost: true, state: StateWithBars(count: 50, cursor: 10));
         var cut = harness.Ctx.RenderComponent<ChartArea>();
 
+        cut.WaitForAssertion(() => cut.Find("#chart-bar-slider"));
         cut.Find("#chart-bar-slider").Input("10");
 
         harness.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<NavigateAction>());

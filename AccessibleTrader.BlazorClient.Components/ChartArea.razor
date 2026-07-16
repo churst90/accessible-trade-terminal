@@ -20,6 +20,7 @@
 @inject IJSRuntime JS
 @inject GlobalInputService GlobalInput
 @inject IRuntimePlatform RuntimePlatform
+@inject IAppSettings App
 @inject ChartRenderer Renderer
 @inject ChartHoverTracker HoverTracker
 @implements IDisposable
@@ -43,7 +44,7 @@
    VoiceOver steps sliders by ~10% of range per flick; per-bar granularity on
    iOS arrives with the native adjustable element in the MAUI head (Phase C
    second pass). TalkBack honours step=1. *@
-@if ((Store.State.Data?.Count ?? 0) > 0)
+@if (_showBarSlider && (Store.State.Data?.Count ?? 0) > 0)
 {
     <input type="range"
            id="chart-bar-slider"
@@ -249,6 +250,37 @@
             _jsRef = DotNetObjectReference.Create(this);
             try { await JS.InvokeVoidAsync("canvasRegion.start", _jsRef); }
             catch { /* host may lack IJSRuntime during unit tests */ }
+
+            // The flick slider ("Bar navigator") is a MOBILE screen-reader
+            // affordance. It shares the toolbar's ui.touchNavBar gate: hidden on
+            // desktops (it was landing in Orca's tab order), instant Never/Always
+            // override, probe only on "auto".
+            await EvaluateBarSliderAsync();
+            _touchModeSub = EventBus.Subscribe<TouchNavBarModeChangedEvent>(evt =>
+            {
+                _ = InvokeAsync(EvaluateBarSliderAsync);
+            });
+        }
+    }
+
+    private bool _showBarSlider;
+    private IDisposable? _touchModeSub;
+
+    private async Task EvaluateBarSliderAsync()
+    {
+        string mode = App.TouchNavBarMode;
+        bool visible;
+        if (mode == "show") visible = true;
+        else if (mode == "hide") visible = false;
+        else
+        {
+            try { visible = await JS.InvokeAsync<bool>("accessibleTrader.isTouchCapable"); }
+            catch { visible = false; }
+        }
+        if (visible != _showBarSlider)
+        {
+            _showBarSlider = visible;
+            StateHasChanged();
         }
     }
 
@@ -606,6 +638,7 @@
 
     public void Dispose()
     {
+        _touchModeSub?.Dispose();
         HoverTracker.Changed -= OnHoverChanged;
         ThemeService.ThemeChanged -= OnThemeChanged;
         PaneLayout.LayoutChanged -= OnPaneLayoutChanged;

@@ -82,6 +82,11 @@ public class ChartAreaBrowserCanvasBranchTests
         platform.IsBrowserHost.Returns(isBrowserHost);
         harness.Ctx.Services.AddSingleton(platform);
 
+        // The bar-navigator flick slider shares the touch-controls gate
+        // (ui.touchNavBar): report a touch device so the slider tests see it.
+        harness.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(true);
+        harness.Ctx.JSInterop.SetupVoid("canvasRegion.start", _ => true).SetVoidResult();
+
         // IDataOrchestrator — CurrentState read in OnInitialized,
         // StateChanged subscribed to.
         var orch = Substitute.For<IDataOrchestrator>();
@@ -134,7 +139,7 @@ public class ChartAreaBrowserCanvasBranchTests
 
         // ChartArea calls JS interop on first render — shim the calls so
         // bUnit doesn't throw "JSInterop calls cannot be issued at this time".
-        harness.Ctx.JSInterop.SetupVoid("canvasRegion.start", _ => true);
+        harness.Ctx.JSInterop.SetupVoid("canvasRegion.start", _ => true).SetVoidResult();
         harness.Ctx.JSInterop.SetupVoid("canvasRegion.stop");
         harness.Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
         harness.Ctx.JSInterop.SetupVoid("accessibleTrader.setChartFocused", _ => true);

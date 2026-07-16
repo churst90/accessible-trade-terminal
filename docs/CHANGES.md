@@ -6,6 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The REAL "Bar navigator" found and gated (2026-07-16, round 4)
+
+The element Cody kept meeting was never the touch toolbar — it's the flick
+SLIDER inside ChartArea (aria-label "Bar navigator", a real range input for
+VoiceOver/TalkBack flick navigation from web-touch Phase C). It rendered
+whenever chart data existed: visually hidden, but always in the accessibility
+tree, so desktop Orca found it in the tab order every session. It now shares
+the toolbar's ui.touchNavBar gate exactly: hidden on desktops by the
+fine-pointer probe, instant Never/Always override, and a test pinning that a
+desktop with chart data renders NO slider at all.
+
 ### Touch bar detection hardened + instant Never; braille hidden on the web (2026-07-16, round 3)
 
 **Touch bar, third and final pass.** Cody's desktop browser genuinely reports a
