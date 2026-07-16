@@ -33,7 +33,7 @@ shippable; none blocks the others.
    strongly-typed AppSettings facade over the JSON, all key constants
    consolidated, typo-proof accessors. Stage (b): migrate store-resident
    preferences into it one at a time with compat shims. Each stage shippable. (~3-4 d)
-4. [ ] **Speech utterance builder.** Today an utterance can come from provider
+4. [x] **Speech utterance builder.** DONE 2026-07-16 — provider path folded into SpeechFormatter's single precedence list; strategies can decline via null. Today an utterance can come from provider
    GetComponentSpeech, a strategy class, template expansion, or a hardcoded
    branch, with precedence spread across NavigationFeedbackManager +
    SpeechFormatter. Consolidate into one pipeline with a single visible

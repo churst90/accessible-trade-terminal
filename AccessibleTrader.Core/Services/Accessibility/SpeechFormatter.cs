@@ -23,22 +23,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IReadOnlyList<IComponentSpeechStrategy> _strategies;
         private readonly IComponentSpeechStrategy _fallback;
         private readonly ILogger<SpeechFormatter> _logger;
+        // Optional: resolves indicator providers for contextual component speech
+        // (null in minimal tests → the provider strategy simply never matches).
+        private readonly Indicators.IIndicatorEngine? _indicatorEngine;
 
         public SpeechFormatter() : this(NullLogger<SpeechFormatter>.Instance) { }
 
-        public SpeechFormatter(ILogger<SpeechFormatter> logger)
+        public SpeechFormatter(ILogger<SpeechFormatter> logger, Indicators.IIndicatorEngine? indicatorEngine = null)
         {
             _logger = logger;
+            _indicatorEngine = indicatorEngine;
+            // ── THE utterance precedence list (debt item 4) ────────────────────
+            // Component-context speech resolves top-down; first non-null wins.
+            // This array + the fallback IS the whole precedence — there is no
+            // other speech source (NavigationFeedbackManager routes profile and
+            // heatmap shapes separately, and Series-context summaries are the
+            // three branches at the top of FormatPointFeedback).
             _strategies = new IComponentSpeechStrategy[]
             {
-                new HiddenComponentStrategy(),
-                new CloudComponentStrategy(),
-                new PhaseNameStrategy(),
-                new MarkerSignalStrategy(),
-                new CandleBodyStrategy(),
-                new VolumeBarStrategy(),
+                new ProviderSpeechStrategy(),   // 1. indicator's own contextual narrative
+                new HiddenComponentStrategy(),  // 2. "hidden" state announcement
+                new CloudComponentStrategy(),   // 3. Ichimoku-style cloud narration
+                new PhaseNameStrategy(),        // 4. sentiment-phase names
+                new MarkerSignalStrategy(),     // 5. signal-marker templates
+                new CandleBodyStrategy(),       // 6. body = open→close span
+                new VolumeBarStrategy(),        // 7. signed exact volume
             };
-            _fallback = new StandardTemplateStrategy();
+            _fallback = new StandardTemplateStrategy(); // 8. {name}.{type}.{value} templates
         }
 
         public void RegisterTemplate(string indicatorCode, string componentName, string template)
@@ -97,7 +108,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (series.Components.Count == 0) return "";
                 var compIndex = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
                 var comp = series.Components[compIndex];
-                msg = FormatTemplateValue(series, comp, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder);
+                // Provider contextual speech applies in Component context only (the
+                // old NavigationFeedbackManager "path 1" gate, now strategy #1).
+                var provider = state.LastInteractionContext == InteractionContext.Component
+                               && !string.IsNullOrEmpty(series.IndicatorCode)
+                    ? _indicatorEngine?.GetProvider(series.IndicatorCode)
+                    : null;
+                double? liveClose = state.Data != null && state.Data.Count > 0
+                    ? (double?)state.Data[^1].Close
+                    : null;
+                msg = FormatTemplateValue(series, comp, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
+                    isYMove: isYMove, liveClose: liveClose, provider: provider);
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -228,18 +249,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Dispatcher ───────────────────────────────────────────────────────────
 
-        private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder)
+        private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
+            bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null)
         {
             try
             {
                 double val = GetPointValue(series, pt, comp.Name, dataIndex);
-                var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val);
+                var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val,
+                    IsYMove: isYMove, LiveClose: liveClose, Provider: provider);
 
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
-                        return strategy.Format(ctx);
+                    {
+                        var result = strategy.Format(ctx);
+                        if (result != null) return result;
+                    }
 
-                return _fallback.Format(ctx);
+                return _fallback.Format(ctx) ?? "";
             }
             catch (Exception ex)
             {
@@ -370,7 +396,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
     internal interface IComponentSpeechStrategy
     {
         bool CanHandle(ComponentFormatContext ctx);
-        string Format(ComponentFormatContext ctx);
+        /// <summary>Null = decline (consult the next strategy) — e.g. a provider
+        /// that has custom speech for some components but not this one.</summary>
+        string? Format(ComponentFormatContext ctx);
     }
 
     internal readonly record struct ComponentFormatContext(
@@ -380,7 +408,90 @@ namespace AccessibleTrader.Core.Services.Accessibility
         int DataIndex,
         bool ReadHeaders,
         string SpeechOrder,
-        double Value);
+        double Value,
+        // Provider-speech inputs (null/false outside Component-context navigation).
+        bool IsYMove = false,
+        double? LiveClose = null,
+        AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? Provider = null);
+
+    /// <summary>
+    /// Strategy #1: the indicator provider's own contextual speech
+    /// (IIndicatorProvider.GetComponentSpeech) — e.g. Cipher's "Greed Phase 7,
+    /// volatility expanding". Moved here from NavigationFeedbackManager's old
+    /// "path 1" so the whole utterance precedence lives in one list. Declines
+    /// (returns null) for components the provider has no custom narrative for.
+    /// </summary>
+    internal sealed class ProviderSpeechStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => ctx.Provider != null;
+
+        public string? Format(ComponentFormatContext ctx)
+        {
+            var series = ctx.Series;
+            // Component data keyed by DisplayName, plus the companion arrays
+            // providers read directly: _color (gradient source), _touches (S/R
+            // pivot counts), and __live_close (present price for distance speech
+            // regardless of how far back the cursor is).
+            var compDataDict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in series.Components)
+            {
+                var cd = series.GetComponentData(c.Name);
+                if (cd != null) compDataDict[c.DisplayName ?? c.Name] = cd;
+
+                if (c.UsesGradientSpeech)
+                {
+                    var colorKey = c.Name + "_color";
+                    var colorData = series.GetComponentData(colorKey);
+                    if (colorData.Length > 0 && !compDataDict.ContainsKey(colorKey))
+                        compDataDict[colorKey] = colorData;
+                }
+
+                var touchKey = c.Name + "_touches";
+                var touchData = series.GetComponentData(touchKey);
+                if (touchData.Length > 0 && !compDataDict.ContainsKey(touchKey))
+                    compDataDict[touchKey] = touchData;
+            }
+            if (ctx.LiveClose is double live)
+                compDataDict["__live_close"] = new[] { live };
+
+            // Name (the provider's internal switch key), not DisplayName.
+            string? speech = ctx.Provider!.GetComponentSpeech(
+                ctx.Comp.Name, ctx.Value, ctx.Pt, compDataDict, ctx.DataIndex);
+            if (speech == null) return null; // decline → template chain below
+
+            // On UP/DOWN (component switch) prepend "[Name]. [Type]. [Hidden./Muted.]"
+            // so the user hears what they landed on; LEFT/RIGHT scans speak value only.
+            if (!ctx.IsYMove) return speech;
+
+            string typeLabel = ComponentTypeLabel(ctx.Comp);
+            string stateLabel = !ctx.Comp.IsVisible ? "Hidden. "
+                              : ctx.Comp.IsMuted    ? "Muted. "
+                              : "";
+            string namePart = ctx.Comp.DisplayName ?? ctx.Comp.Name;
+            return string.IsNullOrEmpty(typeLabel)
+                ? $"{namePart}. {stateLabel}{speech}"
+                : $"{namePart}. {typeLabel}. {stateLabel}{speech}";
+        }
+
+        /// <summary>Short spoken type qualifier (moved from NavigationFeedbackManager).</summary>
+        internal static string ComponentTypeLabel(ComponentConfig comp)
+        {
+            var dt = comp.DisplayType;
+            if (dt is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea) return "Oscillator";
+            if (dt == ComponentDisplayType.CandleColor) return "Sentiment Phase";
+            if (dt == ComponentDisplayType.Line) return comp.IsZoneLine ? "Level" : "Line";
+            if (dt == ComponentDisplayType.Histogram) return "Histogram";
+            if (dt == ComponentDisplayType.ZeroDot) return "";
+            if (comp.Role == ComponentRole.Level) return "Level";
+            if (dt is ComponentDisplayType.Dot or ComponentDisplayType.Diamond or
+                       ComponentDisplayType.Arrow or ComponentDisplayType.Cross or
+                       ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or
+                       ComponentDisplayType.Square)
+                return (comp.DisplayName ?? comp.Name).Contains("Signal", StringComparison.OrdinalIgnoreCase)
+                    ? "" : "Signal";
+            return "";
+        }
+    }
 
     /// <summary>Announces hidden components so the user still knows where Y-navigation landed.</summary>
     internal sealed class HiddenComponentStrategy : IComponentSpeechStrategy

@@ -6,6 +6,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### One utterance precedence list (2026-07-16, debt item 4)
+
+Component-context speech used to resolve across two files: a provider "path 1"
+in NavigationFeedbackManager (indicator narratives like Cipher's "Greed Phase
+7"), then SpeechFormatter's strategy chain, templates, and hardcoded branches.
+Explaining why a bar said what it said meant tracing four layers. The provider
+path is now strategy #1 of a single, commented precedence list in
+SpeechFormatter's constructor — provider narrative → hidden-state → cloud →
+phase → markers → candle body → volume → template fallback — and strategies can
+decline (return null) to pass to the next. NavigationFeedbackManager's block
+collapsed to one formatter call. Behavior preserved verbatim (all 1,674
+existing tests pass unchanged) with one deliberate fix: provider speech now
+honors the "Along Y Axis" timestamp location setting, which the old path
+ignored. 7 new tests pin the moved contract (provider wins, declines fall
+through, Y-move identity prefix, __live_close reaches providers, series
+summaries never consult providers).
+
 ### Preferences finally persist + wavetable DI fix (2026-07-16, debt item 3 stage b)
 
 **Your speech and viewport preferences now survive a restart.** The global

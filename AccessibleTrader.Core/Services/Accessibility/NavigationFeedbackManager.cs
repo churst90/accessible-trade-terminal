@@ -223,99 +223,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else
             {
-                // Try provider-level contextual speech first (Component context only — not Series summary).
-                if (state.LastInteractionContext == InteractionContext.Component &&
-                    !string.IsNullOrEmpty(s.IndicatorCode))
-                {
-                    var provider = _indicatorEngine.GetProvider(s.IndicatorCode);
-                    if (provider != null)
-                    {
-                        int compIdx = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
-                        var focusedComp = s.Components[compIdx];
-
-                        // Build allComponentData dict keyed by DisplayName (or Name when DisplayName is null).
-                        // Also include companion arrays that providers write to the buffer but do not
-                        // register as navigable components:
-                        //   _color  — gradient source (e.g. "WT Momentum_color" → raw WT1 value)
-                        //   _touches — wick touch count (e.g. "Resistance_touches")
-                        // These are accessed by providers in GetComponentSpeech via raw key lookups.
-                        var compDataDict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var c in s.Components)
-                        {
-                            var cd = s.GetComponentData(c.Name);
-                            if (cd != null) compDataDict[c.DisplayName ?? c.Name] = cd;
-
-                            // Gradient companion (_color array for GradientDot speech and audio)
-                            if (c.UsesGradientSpeech)
-                            {
-                                var colorKey = c.Name + "_color";
-                                var colorData = s.GetComponentData(colorKey);
-                                if (colorData.Length > 0 && !compDataDict.ContainsKey(colorKey))
-                                    compDataDict[colorKey] = colorData;
-                            }
-
-                            // Touch count companion (_touches array for S/R pivot speech)
-                            var touchKey = c.Name + "_touches";
-                            var touchData = s.GetComponentData(touchKey);
-                            if (touchData.Length > 0 && !compDataDict.ContainsKey(touchKey))
-                                compDataDict[touchKey] = touchData;
-                        }
-
-                        // Inject the current live bar's close so providers (e.g. SR) can compute
-                        // distance relative to the present price rather than the navigated bar's
-                        // historical close, regardless of how far back the cursor has scrolled.
-                        if (state.Data != null && state.Data.Count > 0)
-                            compDataDict["__live_close"] = new double[] { (double)state.Data[^1].Close };
-
-                        double compValue = double.NaN;
-                        var cdata = s.GetComponentData(focusedComp.Name);
-                        if (cdata != null && state.CurrentDataIndex >= 0 && state.CurrentDataIndex < cdata.Length)
-                            compValue = cdata[state.CurrentDataIndex];
-
-                        // Pass Name (the provider's internal switch key), not DisplayName.
-                        // DisplayName is the spoken label; Name is the component identity providers match on.
-                        string? providerSpeech = provider.GetComponentSpeech(
-                            focusedComp.Name, compValue, pt, compDataDict, state.CurrentDataIndex);
-
-                        if (providerSpeech != null)
-                        {
-                            // On UP/DOWN (component switch): prepend "[Name]. [TypeLabel]. " so the user
-                            // always hears what component they just arrived on before the value.
-                            // On LEFT/RIGHT (same component, bar scanning): value only — no repeat of name.
-                            string valuePrefix = "";
-                            if (isYMove)
-                            {
-                                string typeLabel = GetComponentTypeLabel(focusedComp);
-                                // Append "Hidden." or "Muted." so the user knows the visual/audio state of this component.
-                                string stateLabel = !focusedComp.IsVisible ? "Hidden. "
-                                                  : focusedComp.IsMuted    ? "Muted. "
-                                                  : "";
-                                valuePrefix = string.IsNullOrEmpty(typeLabel)
-                                    ? $"{focusedComp.DisplayName ?? focusedComp.Name}. {stateLabel}"
-                                    : $"{focusedComp.DisplayName ?? focusedComp.Name}. {typeLabel}. {stateLabel}";
-                            }
-
-                            // Timestamp first — consistent with SpeechFormatter ordering.
-                            string tsPrefix = "";
-                            if (isXMove && state.SpeakTimestamps && state.TimestampReadLocation != "None" && state.TimestampReadLocation != "Along Y Axis")
-                            {
-                                string tsFormat = state.SpeechOrder.Contains("TimeOnly") ? "HH:mm"
-                                                : state.SpeechOrder.Contains("DateOnly") ? "MMMM dd"
-                                                : "MMMM dd, yyyy, HH:mm";
-                                tsPrefix = pt.Date.ToLocalTime().ToString(tsFormat) + ". ";
-                            }
-                            finalSpeech = tsPrefix + (string.IsNullOrEmpty(speechPrefix) ? "" : speechPrefix) + valuePrefix + providerSpeech;
-
-                            if (!string.IsNullOrEmpty(finalSpeech))
-                                _speechRouter.Speak(finalSpeech, interrupt: isUserInitiated);
-                            if (isXMove && focusedOnCandleSeries)
-                                CheckAndPlayZoneProximity(state, state.CurrentDataIndex);
-                            _previousState = state;
-                            return;
-                        }
-                    }
-                }
-
+                // Provider contextual speech, series summaries, component templates —
+                // the ENTIRE utterance precedence now lives in SpeechFormatter (see the
+                // strategy list in its ctor; debt item 4). The old "path 1" provider
+                // block that lived here is strategy #1 there.
                 finalSpeech = _formatter.FormatPointFeedback(state, isXMove, isYMove, s, pt, speechPrefix);
 
                 // Cipher S / CandleColor overlay: prepend the sentiment phase name so it is
@@ -391,43 +302,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Empty string when the type is already implied by the component name, avoiding redundancy.
         /// Used by the UP/DOWN navigation prefix so the user hears "[Name]. [Type]. [Value]."
         /// </summary>
-        private static string GetComponentTypeLabel(ComponentConfig comp)
-        {
-            var dt = comp.DisplayType;
-
-            if (dt is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea)
-                return "Oscillator";
-
-            if (dt == ComponentDisplayType.CandleColor)
-                return "Sentiment Phase";
-
-            if (dt == ComponentDisplayType.Line)
-                return comp.IsZoneLine ? "Level" : "Line";
-
-            if (dt == ComponentDisplayType.Histogram)
-                return "Histogram";
-
-            // ZeroDot: discrete zero-line dots — no type qualifier, name carries the context.
-            if (dt == ComponentDisplayType.ZeroDot)
-                return "";
-
-            // Level role wins over display shape.
-            if (comp.Role == ComponentRole.Level)
-                return "Level";
-
-            // Remaining marker shapes (Dot, Diamond, Arrow, Cross, Triangle, Square) are signals.
-            // Skip "Signal" qualifier when the component name already contains the word "Signal".
-            if (dt is ComponentDisplayType.Dot or ComponentDisplayType.Diamond or
-                       ComponentDisplayType.Arrow or ComponentDisplayType.Cross or
-                       ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or
-                       ComponentDisplayType.Square)
-            {
-                string name = comp.DisplayName ?? comp.Name;
-                return name.Contains("Signal", StringComparison.OrdinalIgnoreCase) ? "" : "Signal";
-            }
-
-            return "";
-        }
+        // GetComponentTypeLabel moved to SpeechFormatter.ProviderSpeechStrategy
+        // (debt item 4) — the label is part of the utterance, so it lives with it.
 
 
         /// <summary>
