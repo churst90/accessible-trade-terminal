@@ -132,6 +132,11 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
         // SettingsModal injects IBackgroundMonitoringService (background-monitoring fieldset).
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>());
+        // SoundDesignerModal injects IWavetableLibrary (WAV import). Empty id lists by default.
+        var wavetables = Substitute.For<AccessibleTrader.Core.Services.Audio.IWavetableLibrary>();
+        wavetables.WavetableIds.Returns(new List<string>());
+        wavetables.SampleIds.Returns(new List<string>());
+        Ctx.Services.AddSingleton(wavetables);
         // MainLayout/Toolbar/AddIndicatorModal inject DemoPolicy; no-op in tests.
         Ctx.Services.AddSingleton(new DemoPolicy(isDemo: false));
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);

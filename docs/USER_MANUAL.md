@@ -1353,6 +1353,16 @@ designer and every component and earcon using it updates at once. Patches saved 
 older versions still load unchanged. Think of the properties dialog as choosing which
 instrument each part plays and the sound designer as building the instruments.
 
+New in this panel: **Import WAV**. A short single-cycle WAV file — the free
+public-domain AKWF collection is thousands of them, or one period of any
+recorded instrument — imports as a **wavetable**: a custom oscillator waveform
+that plays at any pitch and takes envelopes, noise, and layering exactly like
+the built-in shapes. A longer WAV imports as a one-shot **sample** for earcons
+and signal layers, played at its natural speed. Both appear in every
+oscillator's waveform list ("Wavetable: …" and "Sample: …") and survive
+restarts. If an import ever goes missing, patches that reference it fall back
+to a plain sine — audible, never silent.
+
 The earcon list in this panel now includes the three reference-level cues — the
 crossing chirps (up and down separately), the approach ping, and the
 sustained-in-zone tone — so those can be re-skinned with any patch too. And a

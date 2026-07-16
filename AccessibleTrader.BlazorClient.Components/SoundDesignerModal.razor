@@ -1,9 +1,11 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
+@using Microsoft.AspNetCore.Components.Forms
 @inject IEventBus EventBus
 @inject ISoundPatchLibrary PatchLibrary
 @inject ISonificationManager SonificationManager
+@inject AccessibleTrader.Core.Services.Audio.IWavetableLibrary Wavetables
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -87,6 +89,24 @@
                                             <option value="sawtooth">Sawtooth</option>
                                             <option value="triangle">Triangle</option>
                                             <option value="noise">Noise</option>
+                                            @if (Wavetables.WavetableIds.Count > 0)
+                                            {
+                                                <optgroup label="Wavetables (imported, pitched)">
+                                                    @foreach (var wt in Wavetables.WavetableIds)
+                                                    {
+                                                        <option value="@("wavetable:" + wt)">Wavetable: @wt</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                            @if (Wavetables.SampleIds.Count > 0)
+                                            {
+                                                <optgroup label="Samples (imported, one-shot)">
+                                                    @foreach (var sm in Wavetables.SampleIds)
+                                                    {
+                                                        <option value="@("sample:" + sm)">Sample: @sm</option>
+                                                    }
+                                                </optgroup>
+                                            }
                                         </select>
                                         <button @onclick="() => RemoveOscillator(idx)"
                                                 disabled="@(_editOscillators.Count <= 1)"
@@ -233,6 +253,45 @@
                 </table>
             </details>
 
+            @* ── Import WAV (wavetables + one-shot samples) ─────────────────── *@
+            <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; font-weight: bold; padding: 4px 0;">Import WAV (wavetable or sample)</summary>
+                <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                        A short single-cycle WAV (an AKWF file, one period of any recorded
+                        instrument) becomes a <strong>wavetable</strong> — a custom oscillator
+                        waveform playable at any pitch. A longer WAV becomes a one-shot
+                        <strong>sample</strong> for earcons and signal layers. Both appear in
+                        every oscillator waveform list after import.
+                    </p>
+                    <InputFile OnChange="OnWavSelected" accept=".wav" aria-label="Choose a WAV file to import" />
+                    @if (!string.IsNullOrEmpty(_wavImportFeedback))
+                    {
+                        <span role="status" aria-live="polite" style="color: @(_wavImportSuccess ? "#8f8" : "#f88");">
+                            @_wavImportFeedback
+                        </span>
+                    }
+                    @if (Wavetables.WavetableIds.Count + Wavetables.SampleIds.Count > 0)
+                    {
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <label for="sd-wav-remove">Imported material</label>
+                            <select id="sd-wav-remove" @bind="_wavRemoveId" aria-label="Imported wavetables and samples">
+                                @foreach (var wt in Wavetables.WavetableIds)
+                                {
+                                    <option value="@wt">Wavetable: @wt</option>
+                                }
+                                @foreach (var sm in Wavetables.SampleIds)
+                                {
+                                    <option value="@sm">Sample: @sm</option>
+                                }
+                            </select>
+                            <button @onclick="RemoveWavImport" aria-label="Delete the selected imported WAV"
+                                    style="color:#f88;">Delete</button>
+                        </div>
+                    }
+                </div>
+            </details>
+
             @* ── Import ──────────────────────────────────────────────────────── *@
             <details style="margin-top: 8px;">
                 <summary style="cursor: pointer; font-weight: bold; padding: 4px 0;">Import Patch JSON</summary>
@@ -277,6 +336,51 @@
     private float _editVolume = 1.0f;
     private string _editEnvelopeType = "Sustain";
     private double _editDuration = 0.3;
+
+    // WAV import (wavetables + one-shot samples)
+    private string _wavImportFeedback = "";
+    private bool _wavImportSuccess;
+    private string _wavRemoveId = "";
+    private const long MaxWavBytes = 12_000_000; // ~60 s of 16-bit stereo — far above any earcon
+
+    private async Task OnWavSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file.Size > MaxWavBytes)
+            {
+                _wavImportFeedback = "File too large — imports are earcons or single cycles, not tracks.";
+                _wavImportSuccess = false;
+                return;
+            }
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(MaxWavBytes).CopyToAsync(ms);
+            var (ok, message, id) = Wavetables.Import(file.Name, ms.ToArray());
+            _wavImportFeedback = message;
+            _wavImportSuccess = ok;
+            if (ok && id != null) _wavRemoveId = id;
+            EventBus.Publish(new FeedbackRequestEvent(
+                ok ? FeedbackType.StateChange : FeedbackType.Error, message, true));
+        }
+        catch (Exception ex)
+        {
+            _wavImportFeedback = $"Import failed: {ex.Message}";
+            _wavImportSuccess = false;
+        }
+        StateHasChanged();
+    }
+
+    private void RemoveWavImport()
+    {
+        if (string.IsNullOrEmpty(_wavRemoveId)) return;
+        Wavetables.Remove(_wavRemoveId);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Deleted {_wavRemoveId}.", true));
+        _wavRemoveId = Wavetables.WavetableIds.FirstOrDefault()
+                       ?? Wavetables.SampleIds.FirstOrDefault() ?? "";
+        StateHasChanged();
+    }
 
     // Import
     private string _importJson = "";

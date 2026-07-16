@@ -14,6 +14,10 @@ namespace AccessibleTrader.Core.Services.Audio
         Triangle,
         /// <summary>Pink noise (one-pole filtered white noise). NoiseAmount blends it into the base waveform.</summary>
         Noise,
+        /// <summary>User single-cycle table (see <see cref="WavetableBank"/>) looped at pitch — a custom oscillator shape.</summary>
+        Wavetable,
+        /// <summary>User one-shot clip (see <see cref="WavetableBank"/>) played once at natural speed. No pitch mapping.</summary>
+        Sample,
     }
 
     internal partial struct VoiceCommand
@@ -42,6 +46,13 @@ namespace AccessibleTrader.Core.Services.Audio
         public float TriangleMix;
         /// <summary>Additive sub-octave sawtooth partial amount [0,∞] (one octave down). 0 = none.</summary>
         public float SubSawMix;
+        /// <summary>Single-cycle table for Wavetable voices — resolved from WavetableBank at
+        /// SetVoice time so the audio thread never touches the registry.</summary>
+        public float[]? Wavetable;
+        /// <summary>Clip data for Sample voices, resolved at SetVoice time.</summary>
+        public float[]? SampleData;
+        /// <summary>Playback step for Sample voices: sourceRate / engineRate.</summary>
+        public double SampleStep;
     }
 
     internal class OscillatorVoice
@@ -93,6 +104,15 @@ namespace AccessibleTrader.Core.Services.Audio
         public float FadeGain { get; set; }
         /// <summary>True while the voice is fading out toward deactivation.</summary>
         public bool Releasing { get; set; }
+
+        /// <summary>Single-cycle table for Wavetable voices (null otherwise).</summary>
+        public float[]? Wavetable { get; set; }
+        /// <summary>Clip data for Sample voices (null otherwise).</summary>
+        public float[]? SampleData { get; set; }
+        /// <summary>Read position into <see cref="SampleData"/>, in source samples.</summary>
+        public double SamplePos { get; set; }
+        /// <summary>Position advance per engine frame (sourceRate / engineRate).</summary>
+        public double SampleStep { get; set; }
     }
 
     public class AudioEngine
@@ -215,10 +235,31 @@ namespace AccessibleTrader.Core.Services.Audio
             // so the hot path through SetVoice now allocates zero bytes.
             var waveType = ParseWaveform(wave);
 
+            // User material ("wavetable:{id}" / "sample:{id}"): resolve the immutable
+            // float arrays HERE, on the caller's thread, so the audio callback never
+            // touches the WavetableBank dictionaries. Unknown ids fall back to sine —
+            // audible, never silent (a missing table must not mute an alert cue).
+            float[]? wavetable = null;
+            float[]? sampleData = null;
+            double sampleStep = 0;
+            if (waveType == WaveformType.Wavetable)
+            {
+                if (!WavetableBank.TryGetWavetable(wave.Substring(WavetableBank.WavetablePrefix.Length), out wavetable!))
+                    waveType = WaveformType.Sine;
+            }
+            else if (waveType == WaveformType.Sample)
+            {
+                if (WavetableBank.TryGetSample(wave.Substring(WavetableBank.SamplePrefix.Length), out sampleData!, out int srcRate))
+                    sampleStep = (double)srcRate / _sampleRate;
+                else
+                    waveType = WaveformType.Sine;
+            }
+
             EnqueueCommand(new VoiceCommand
             {
                 Slot = slot, Frequency = freq, Volume = vol, Pan = pan,
                 Waveform = waveType, IsContinuous = continuous,
+                Wavetable = wavetable, SampleData = sampleData, SampleStep = sampleStep,
                 EnvelopeType = envelope, TriggerClick = click,
                 DurationSamples = durationSec * _sampleRate,
                 DataIndex = dataIndex, IsActive = true,
@@ -242,6 +283,8 @@ namespace AccessibleTrader.Core.Services.Audio
             if (wave.Equals("saw",      System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Sawtooth;
             if (wave.Equals("triangle", System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Triangle;
             if (wave.Equals("noise",    System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Noise;
+            if (wave.StartsWith(WavetableBank.WavetablePrefix, System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Wavetable;
+            if (wave.StartsWith(WavetableBank.SamplePrefix,    System.StringComparison.OrdinalIgnoreCase)) return WaveformType.Sample;
             return WaveformType.Sine;
         }
 
@@ -249,6 +292,32 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             if (slot < 0 || slot >= _voices.Length) return;
             EnqueueCommand(new VoiceCommand { Slot = slot, IsActive = false });
+        }
+
+        /// <summary>Linear-interpolated read of one cycle of a user wavetable at the voice's phase.</summary>
+        private static float ReadWavetable(OscillatorVoice v)
+        {
+            var t = v.Wavetable;
+            if (t == null || t.Length == 0) return (float)Math.Sin(v.Phase);
+            double idx = v.Phase / (2.0 * Math.PI) * t.Length;
+            int i0 = (int)idx;
+            double frac = idx - i0;
+            if (i0 >= t.Length) i0 -= t.Length;
+            int i1 = i0 + 1 >= t.Length ? 0 : i0 + 1;
+            return (float)(t[i0] * (1.0 - frac) + t[i1] * frac);
+        }
+
+        /// <summary>Linear-interpolated read of a one-shot clip at the voice's sample position.
+        /// Past the end returns silence while the release fade completes.</summary>
+        private static float ReadSampleClip(OscillatorVoice v)
+        {
+            var d = v.SampleData;
+            if (d == null || d.Length == 0) return 0f;
+            double pos = v.SamplePos;
+            if (pos >= d.Length - 1) return 0f;
+            int i0 = (int)pos;
+            double frac = pos - i0;
+            return (float)(d[i0] * (1.0 - frac) + d[i0 + 1] * frac);
         }
 
         public void Reset()
@@ -355,15 +424,24 @@ namespace AccessibleTrader.Core.Services.Audio
                     voice.SawMix = cmd.SawMix;
                     voice.TriangleMix = cmd.TriangleMix;
                     voice.SubSawMix = cmd.SubSawMix;
+                    voice.Wavetable = cmd.Wavetable;
+                    voice.SampleData = cmd.SampleData;
+                    voice.SampleStep = cmd.SampleStep;
 
                     if (cmd.TriggerClick || !voice.IsActive)
                     {
                         voice.Phase = 0;
                         voice.SubPhase = 0;
+                        voice.SamplePos = 0;
                         voice.CurrentFrequency = cmd.Frequency;
                         voice.CurrentPan = cmd.Pan;
                         voice.CurrentVolume = cmd.Volume;
                         voice.FadeGain = 0f;   // fade in from silence → no onset click
+                    }
+                    else if (voice.Waveform == WaveformType.Sample)
+                    {
+                        // A re-triggered one-shot always restarts from the top.
+                        voice.SamplePos = 0;
                     }
                     // else: active voice — current values are the glide start point; the
                     // per-frame exponential convergence in Read() handles the smooth transition.
@@ -443,6 +521,12 @@ namespace AccessibleTrader.Core.Services.Audio
                         WaveformType.Sawtooth => (float)(2.0 * (v.Phase / (2.0 * Math.PI)) - 1.0),
                         WaveformType.Triangle => (float)(Math.Abs((v.Phase / Math.PI) % 2 - 1) * 2 - 1),
                         WaveformType.Noise    => 0.0f, // Pure noise: base sample is 0; noise path below provides signal
+                        // Wavetable: the phase accumulator indexes one cycle of the user table
+                        // (linear interpolation), so pitch, glide, envelopes, partials, and
+                        // noise all behave exactly as for the built-in shapes.
+                        WaveformType.Wavetable => ReadWavetable(v),
+                        // Sample: one-shot clip at natural speed (resampled to engine rate).
+                        WaveformType.Sample    => ReadSampleClip(v),
                         _                     => (float)Math.Sin(v.Phase)
                     };
 
@@ -508,6 +592,15 @@ namespace AccessibleTrader.Core.Services.Audio
 
                     v.Phase += 2.0 * Math.PI * v.CurrentFrequency / _sampleRate;
                     if (v.Phase >= 2.0 * Math.PI) v.Phase -= 2.0 * Math.PI;
+
+                    // One-shot sample advance: natural speed (source rate / engine rate).
+                    // Start the declick release just before the clip end so the tail never snaps.
+                    if (v.Waveform == WaveformType.Sample && v.SampleData != null)
+                    {
+                        v.SamplePos += v.SampleStep;
+                        if (!v.Releasing && v.SamplePos >= v.SampleData.Length - FADE_ENV_SAMPLES * v.SampleStep)
+                            v.Releasing = true;
+                    }
 
                     // Sub-octave sawtooth phase: advances at half frequency (one octave down).
                     v.SubPhase += Math.PI * v.CurrentFrequency / _sampleRate;

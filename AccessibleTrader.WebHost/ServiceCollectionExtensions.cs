@@ -146,6 +146,9 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IStylingService, StylingService>();
 
             services.AddScoped<ISoundPatchLibrary, SoundPatchLibrary>();
+            // Wavetable/sample imports are process-global (static WavetableBank), so a
+            // singleton on both hosts; the ctor loads persisted imports at startup.
+            services.AddSingleton<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
             services.AddScoped<IWorkspaceLibraryService, WorkspaceLibraryService>();
             services.AddScoped<IIndicatorPreferencesService, IndicatorPreferencesService>();
             services.AddScoped<IWorkspaceInitializer, WorkspaceInitializer>();

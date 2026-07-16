@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Wavetable oscillator + WAV import (2026-07-16, debt items 1-2)
+
+**Custom oscillator shapes from WAV files.** The AudioEngine gained two voice
+types: WAVETABLE — a single-cycle WAV (an AKWF file, one period of any recorded
+instrument) looped at any pitch, behaving exactly like a built-in oscillator
+shape (pitch mapping, glide, envelopes, noise, partials all apply) — and
+SAMPLE — a one-shot clip played once at natural speed (resampled from its
+source rate), for earcons and signal layers. Both are referenced as waveform
+strings ("wavetable:{id}" / "sample:{id}"), so they work anywhere a waveform
+does: any Sound Designer oscillator layer, any patch, any earcon override.
+Material registers in a process-wide WavetableBank; arrays are resolved at
+SetVoice time so the audio callback never touches a dictionary; unknown ids
+fall back to an audible sine (never silence). Sound Designer grew an "Import
+WAV" section: ≤4096-frame files (AKWF cycles are 600) import as wavetables,
+longer ones as samples; imports persist in AppData/wavetables + /samples and
+reload on startup. Dependency-free RIFF parser (PCM 8/16/24/32 + float32, any
+channel count mono-ized, bounds-checked, capped).
+
+**VoiceParams + perceptual audio tests** (debt item 1, also in this span):
+named-field SetVoice parameter struct (default interface method; hot call
+sites migrated) and 9 perceptual snapshot tests that render real audio and
+assert energy — noise textures audible (floor 8% of tone RMS vs the ~2% the
+old inaudible-noise bug produced), noise colors equal-loudness within 3x,
+grit audible, equal-power pan, VoiceParams/positional equivalence. 19 new
+tests total (1646 → 1665).
+
 ## [1.7.0] — 2026-07-16
 
 ### Sound themes, level-cue earcon patches, provider-true timeframes, settings exposure (2026-07-16)

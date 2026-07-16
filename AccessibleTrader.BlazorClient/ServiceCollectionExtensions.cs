@@ -145,6 +145,9 @@ namespace AccessibleTrader.BlazorClient
 
             // Workspace persistence and startup sequencing.
             services.AddSingleton<ISoundPatchLibrary, SoundPatchLibrary>();
+            // Wavetable/sample imports are process-global (static WavetableBank), so a
+            // singleton on both hosts; the ctor loads persisted imports at startup.
+            services.AddSingleton<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
             services.AddSingleton<IWorkspaceLibraryService, WorkspaceLibraryService>();
             services.AddSingleton<IIndicatorPreferencesService, IndicatorPreferencesService>();
             services.AddSingleton<IWorkspaceInitializer, WorkspaceInitializer>();

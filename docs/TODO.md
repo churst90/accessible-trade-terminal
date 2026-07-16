@@ -17,7 +17,7 @@ shippable; none blocks the others.
    ~2 s of a voice through AudioEngine, assert per-band RMS — this would have
    mechanically caught the months-long inaudible-noise bug (filters with no
    makeup gain). DO THIS BEFORE the wavetable oscillator lands. (~2-3 d)
-2. [ ] **Wavetable oscillator + WAV layers** (sound plan steps 3-4): single-cycle
+2. [x] **Wavetable oscillator + WAV layers** DONE 2026-07-16. (sound plan steps 3-4): single-cycle
    wavetable waveform type in AudioEngine (user WAV / AKWF import → custom
    oscillator timbre at any pitch), one-shot WAV sample layers in the Sound
    Designer for earcons/signals. Lands on top of item 1's clean params. (~3-5 d)

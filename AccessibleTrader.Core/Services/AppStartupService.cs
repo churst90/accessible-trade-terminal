@@ -68,6 +68,11 @@ namespace AccessibleTrader.Core.Services
             var indicatorService = _services.GetRequiredService<IIndicatorService>();
             indicatorService.LoadIndicatorPlugins(pluginLoader);
 
+            // 1c. User audio material — resolve the wavetable library so persisted
+            //     wavetable/sample imports register with the audio engine before the
+            //     first patch that references them can play.
+            _services.GetService<Audio.IWavetableLibrary>();
+
             // 2. Data Orchestration
             _services.GetRequiredService<IDataOrchestrationService>();
 
