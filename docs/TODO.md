@@ -10,7 +10,7 @@ From the full-codebase quality assessment (agreed with Cody). Ordered by
 recommended attack order — ROI over severity. Each item is independently
 shippable; none blocks the others.
 
-1. [ ] **VoiceParams struct + perceptual audio snapshot tests.** `SetVoice` has 16
+1. [x] **VoiceParams struct + perceptual audio snapshot tests.** DONE 2026-07-16 (commit 6311d42d). `SetVoice` has 16
    positional params and `AudioPoint` keeps growing; wrong-position bugs are one
    refactor away. Introduce a `VoiceParams` struct (single call-site-compatible
    overload, then migrate callers), and an "audio snapshot" test harness: render
