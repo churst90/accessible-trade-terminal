@@ -140,6 +140,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ISettingsManager, SettingsManager>();
             services.AddScoped<IAppSettings, AppSettings>(); // typed facade (debt item 3a)
             services.AddScoped<IPreferencePersistenceService, PreferencePersistenceService>(); // store prefs → settings.json (3b)
+            services.AddScoped<Core.Services.Workspace.IMarketFeeds, Core.Services.Workspace.MarketFeeds>(); // data-access seam (debt item 7)
             services.AddScoped<ThemeService>();
             services.AddScoped<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
             services.AddScoped<IComponentRoleMapper, ComponentRoleMapper>();

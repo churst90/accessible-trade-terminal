@@ -38,14 +38,14 @@ shippable; none blocks the others.
    branch, with precedence spread across NavigationFeedbackManager +
    SpeechFormatter. Consolidate into one pipeline with a single visible
    precedence list. Existing speech tests protect the behavior. (~2-3 d)
-5. [ ] **Modal view-models + mandatory ModalBase.** Pull persistence/test-send
+5. [~] **Modal view-models + mandatory ModalBase.** Contract now ENFORCED by ModalContractScanTests (2026-07-16); AlertTestSender extracted as the view-model pattern. Remaining: extract the other big modals' logic opportunistically as they're touched. Pull persistence/test-send
    logic out of the big modals (SettingsModal ~1,300 lines) into view-model
    classes; kills the bUnit timing-flake class and makes ModalBase bypass
    impossible. Incremental, one modal at a time, opportunistic. (~0.5 d/modal)
-6. [ ] **Shared JS assets.** BlazorClient and WebHost wwwroot/js are identical
+6. [x] **Shared JS assets.** DONE 2026-07-16 — shared trio moved to the components RCL (_content/ path); host-specific audio.js/webSpeech.js stay in WebHost. BlazorClient and WebHost wwwroot/js are identical
    copies kept in sync by discipline only. Single shared static-assets source
    (project or build-copy step). (~0.5 d)
-7. [ ] **Chart data pipeline: keyed feeds.** THE structural debt — 7 singletons
+7. [~] **Chart data pipeline: keyed feeds.** Seam DONE 2026-07-16 (IMarketFeeds; monitors migrated). Full keyed refactor still waits for its trigger: THE structural debt — 7 singletons
    assume one chart identity (DataManager stops the previous stream on start;
    store holds one live state + frozen TabSnapshots; orchestrator/alert/strategy
    evaluate "the" state). Decision 2026-07-16: do NOT big-bang this. Plan:

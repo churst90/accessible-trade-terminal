@@ -31,7 +31,7 @@ namespace AccessibleTrader.Core.Services.Workspace
     /// sonification bed — playback and navigation audio belong exclusively to the
     /// focused chart, per the product's audio policy.
     ///
-    /// Data cadence: polling via <see cref="IDataService.FetchOhlcvAsync"/> (which
+    /// Data cadence: polling via <see cref="IMarketFeeds.GetBarsAsync"/> (which
     /// rides each provider's own rate limiter), NOT a second live websocket — so
     /// providers whose transport allows one subscription are never fought over, and
     /// N monitors cost N small REST calls per poll interval. Alerts and setups fire
@@ -45,7 +45,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly ChartIdentity _identity;
         private readonly string _symbolDisplayName;
         private readonly ImmutableList<ChartSeries> _seriesTemplate;
-        private readonly IDataService _dataService;
+        private readonly IMarketFeeds _feeds;
         private readonly IIndicatorService _indicators;
         private readonly IAlertOrchestrator _alerts;
         private readonly IAlertEvaluator _alertEvaluator;
@@ -76,7 +76,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             ChartIdentity identity,
             string symbolDisplayName,
             ImmutableList<ChartSeries> seriesTemplate,
-            IDataService dataService,
+            IMarketFeeds feeds,
             IIndicatorService indicators,
             IAlertOrchestrator alerts,
             IAlertEvaluator alertEvaluator,
@@ -90,7 +90,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             _symbolDisplayName = string.IsNullOrWhiteSpace(symbolDisplayName)
                 ? identity.Symbol : symbolDisplayName;
             _seriesTemplate = seriesTemplate;
-            _dataService = dataService;
+            _feeds = feeds;
             _indicators = indicators;
             _alerts = alerts;
             _alertEvaluator = alertEvaluator;
@@ -131,11 +131,11 @@ namespace AccessibleTrader.Core.Services.Workspace
         /// <summary>One full poll: fetch → compute indicators → evaluate. Internal-visible for tests.</summary>
         internal async Task EvaluateOnceAsync(CancellationToken ct)
         {
-            var (bars, _) = await _dataService.FetchOhlcvAsync(
-                _identity.Provider,
-                new MarketDataRequest(_identity.Market, _identity.Symbol, _identity.Timeframe, _barsToFetch))
-                .ConfigureAwait(false);
-            if (bars == null || bars.Count < 2) return;
+            // Through the IMarketFeeds seam (debt item 7): background identities fetch
+            // via the provider's rate-limited path; if this identity ever IS the focused
+            // chart, the bars come from the live store with no network call at all.
+            var bars = await _feeds.GetBarsAsync(_identity, _barsToFetch, ct).ConfigureAwait(false);
+            if (bars.Count < 2) return;
             ct.ThrowIfCancellationRequested();
 
             var state = BuildState(bars);
@@ -151,7 +151,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         /// series template with every indicator recomputed against the new data. Never
         /// dispatched anywhere — this state exists only for evaluation.
         /// </summary>
-        private WorkspaceState BuildState(List<Ohlcv> bars)
+        private WorkspaceState BuildState(IReadOnlyList<Ohlcv> bars)
         {
             var span = bars.ToArray();
             var computed = ImmutableList.CreateBuilder<ChartSeries>();
@@ -202,7 +202,7 @@ namespace AccessibleTrader.Core.Services.Workspace
 
         // ── Alerts ───────────────────────────────────────────────────────────
 
-        private void EvaluateAlerts(WorkspaceState state, List<Ohlcv> bars)
+        private void EvaluateAlerts(WorkspaceState state, IReadOnlyList<Ohlcv> bars)
         {
             // STRICT scoping: a monitor only evaluates alerts explicitly bound to its
             // symbol. Null-symbol ("any / current chart") alerts belong to the focused
@@ -258,7 +258,7 @@ namespace AccessibleTrader.Core.Services.Workspace
 
         // ── Strategies ───────────────────────────────────────────────────────
 
-        private void EvaluateStrategies(WorkspaceState state, List<Ohlcv> bars)
+        private void EvaluateStrategies(WorkspaceState state, IReadOnlyList<Ohlcv> bars)
         {
             var lastBar = bars[^1];
             IReadOnlyList<Ohlcv> history = bars;

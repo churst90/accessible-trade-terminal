@@ -52,14 +52,14 @@ namespace AccessibleTrader.Tests
             IAlertEvaluator Evaluator,
             IAlertOrchestrator Alerts,
             IStrategyEngine Engine,
-            IDataService Data);
+            IMarketFeeds Data);
 
         private static Harness Build(string symbol = "KAS/USDT", List<Ohlcv>? bars = null)
         {
             var bus = new SpyEventBus();
-            var data = Substitute.For<IDataService>();
-            data.FetchOhlcvAsync(Arg.Any<string>(), Arg.Any<MarketDataRequest>())
-                .Returns((bars ?? Bars(60), new List<(long, double)>()));
+            var data = Substitute.For<IMarketFeeds>();
+            data.GetBarsAsync(Arg.Any<ChartIdentity>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns((IReadOnlyList<Ohlcv>)(bars ?? Bars(60)));
             var indicators = Substitute.For<IIndicatorService>();
             var alerts = Substitute.For<IAlertOrchestrator>();
             alerts.GetAlerts().Returns(new List<AlertDefinition>());
@@ -286,7 +286,7 @@ namespace AccessibleTrader.Tests
 
             return new BackgroundMonitoringService(
                 store, new SpyEventBus(), settings, new DemoPolicy(mode),
-                Substitute.For<IDataService>(), Substitute.For<IIndicatorService>(),
+                Substitute.For<IMarketFeeds>(), Substitute.For<IIndicatorService>(),
                 Substitute.For<IAlertOrchestrator>(), Substitute.For<IAlertEvaluator>(),
                 engine, NullLogger<BackgroundMonitoringService>.Instance);
         }
@@ -345,7 +345,7 @@ namespace AccessibleTrader.Tests
 
             using var svc = new BackgroundMonitoringService(
                 store, new SpyEventBus(), settings, new DemoPolicy(HostMode.Full),
-                Substitute.For<IDataService>(), Substitute.For<IIndicatorService>(),
+                Substitute.For<IMarketFeeds>(), Substitute.For<IIndicatorService>(),
                 Substitute.For<IAlertOrchestrator>(), Substitute.For<IAlertEvaluator>(),
                 engine, NullLogger<BackgroundMonitoringService>.Instance);
 

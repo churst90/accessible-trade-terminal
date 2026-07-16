@@ -1212,47 +1212,15 @@
         await SendTestAlertAsync("telegram", s => { _telegramStatus = s.Message; _telegramStatusIsError = s.IsError; });
     }
 
+    // Thin UI wrapper — the actual test-send logic (and its user-facing status
+    // strings) lives in AlertTestSender (Core), unit-tested without bUnit.
     private async Task SendTestAlertAsync(string channelId, Action<(string Message, bool IsError)> report,
         string? webhookTarget = null)
     {
-        var channel = AlertChannels.FirstOrDefault(c => c.Id == channelId);
-        if (channel == null)
-        {
-            report(("Channel not registered.", true));
-            return;
-        }
-        if (!channel.IsConfigured)
-        {
-            report(("Required fields are missing — fill them out and try again.", true));
-            StateHasChanged();
-            return;
-        }
-
-        var sample = new AlertFired(
-            Definition: new AlertDefinition
-            {
-                Id = "test-alert",
-                Name = "Accessible Trader test alert",
-                Target = AlertTarget.Price,
-                Condition = AlertCondition.CrossesAbove,
-                Delivery = AlertDelivery.Both,
-                WebhookTarget = webhookTarget,
-            },
-            TriggeringValue: 0.0,
-            PreviousValue: null,
-            SpeechText: "This is a test alert from the Settings modal.");
-
-        report(("Sending…", false));
-        StateHasChanged();
-        try
-        {
-            await channel.SendAsync(sample);
-            report(("Test sent successfully.", false));
-        }
-        catch (Exception ex)
-        {
-            report(($"Send failed: {ex.Message}", true));
-        }
+        var result = await AccessibleTrader.Core.Services.Alerts.AlertTestSender.SendTestAsync(
+            AlertChannels, channelId, webhookTarget,
+            progress: msg => { report((msg, false)); StateHasChanged(); });
+        report(result);
         StateHasChanged();
     }
 

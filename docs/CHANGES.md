@@ -6,6 +6,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Debt items 5-7: modal contract enforcement, shared JS, the data seam (2026-07-16)
+
+**Modal contract is now un-bypassable** (item 5): a source-scanning test walks
+every role="dialog" component and structurally asserts the contract — ModalBase
+inheritors must call base.OnInitialized() from overrides (the exact
+SaveWorkspaceModal Escape bug), self-implemented modals must publish matched
+open/close ModalStateChangedEvent names and subscribe CloseTopModalEvent with
+the same name. A new modal that forgets Escape fails CI, not the user. First
+view-model extraction as the pattern: the Settings dialog's test-send logic is
+now AlertTestSender in Core — pure logic, unit-tested without bUnit, with the
+user-facing status strings pinned verbatim.
+
+**Shared JS assets** (item 6): keyboard.js, canvasRegion.js, and treeKeyboard.js
+moved into the components Razor Class Library (wwwroot/js) and served via
+_content/AccessibleTrader.BlazorClient.Components/… on both heads — the
+per-host copies (kept in sync only by discipline; they had already drifted in
+line endings) are deleted. Host-specific audio.js/webSpeech.js stay in the
+WebHost. Verified served end-to-end on the WebHost.
+
+**IMarketFeeds — the pipeline seam** (item 7, the agreed "seam now, refactor on
+trigger" plan): consumers ask for bars BY IDENTITY — the focused chart answers
+from the live store with no network call; any other identity fetches through
+the provider's rate-limited path. The background monitors are the first
+consumer (they no longer bind IDataService directly). When a trigger feature
+(tick-level background evaluation, split-view, hosted scale) demands the full
+keyed-feed refactor, it lands behind this interface instead of a hunt through
+call sites. New multi-chart features should take IMarketFeeds, not IDataService.
+
+16 new tests (1681 → 1691): modal scanner, AlertTestSender status strings,
+MarketFeeds contract (focused = store + zero provider calls, truncation keeps
+newest, null-fetch returns empty), monitor tests migrated to the seam.
+
 ### One utterance precedence list (2026-07-16, debt item 4)
 
 Component-context speech used to resolve across two files: a provider "path 1"

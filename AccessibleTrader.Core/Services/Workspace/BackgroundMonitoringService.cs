@@ -52,7 +52,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IEventBus _eventBus;
         private readonly ISettingsManager _settings;
         private readonly DemoPolicy _policy;
-        private readonly IDataService _dataService;
+        private readonly IMarketFeeds _feeds;
         private readonly IIndicatorService _indicators;
         private readonly IAlertOrchestrator _alerts;
         private readonly IAlertEvaluator _alertEvaluator;
@@ -70,7 +70,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             IEventBus eventBus,
             ISettingsManager settings,
             DemoPolicy policy,
-            IDataService dataService,
+            IMarketFeeds feeds,
             IIndicatorService indicators,
             IAlertOrchestrator alerts,
             IAlertEvaluator alertEvaluator,
@@ -81,7 +81,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             _eventBus = eventBus;
             _settings = settings;
             _policy = policy;
-            _dataService = dataService;
+            _feeds = feeds;
             _indicators = indicators;
             _alerts = alerts;
             _alertEvaluator = alertEvaluator;
@@ -154,7 +154,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                         identity,
                         string.IsNullOrWhiteSpace(snap.SymbolDisplayName) ? identity.Symbol : snap.SymbolDisplayName,
                         snap.ActiveSeries,
-                        _dataService, _indicators, _alerts, _alertEvaluator,
+                        _feeds, _indicators, _alerts, _alertEvaluator,
                         _strategyEngine, _eventBus, _logger,
                         PollInterval);
                     monitor.Start();
