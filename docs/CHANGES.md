@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.7.0] — 2026-07-16
 
 ### Sound themes, level-cue earcon patches, provider-true timeframes, settings exposure (2026-07-16)
 
