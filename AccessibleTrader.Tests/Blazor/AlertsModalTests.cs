@@ -127,10 +127,15 @@ public class AlertsModalTests
 
         cut.Find($"button[aria-label='Delete alert: {alert.Name}']").Click();
 
-        Assert.Single(orch.Removed);
-        Assert.Equal(alert.Id, orch.Removed[0]);
-        // After delete, list goes back to empty state.
-        Assert.Equal("No active alerts.", cut.Find("p[role='status']").TextContent);
+        // WaitForAssertion: post-click renders settle asynchronously on slow
+        // (2-core) CI runners — the same bUnit timing flake as the modal tests.
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(orch.Removed);
+            Assert.Equal(alert.Id, orch.Removed[0]);
+            // After delete, list goes back to empty state.
+            Assert.Equal("No active alerts.", cut.Find("p[role='status']").TextContent);
+        });
     }
 
     [Fact]
@@ -155,15 +160,20 @@ public class AlertsModalTests
         cut.Find("input#alert-name").Change("Big BTC move");
         cut.Find("input#alert-threshold").Change("65000");
 
-        var addBtn = cut.Find("button[aria-label='Add alert']");
-        Assert.False(addBtn.HasAttribute("disabled"));
+        // WaitForAssertion + re-find: the enable re-render settles asynchronously
+        // on slow (2-core) CI runners — same bUnit timing flake as the modal tests.
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
 
-        addBtn.Click();
+        cut.Find("button[aria-label='Add alert']").Click();
 
-        Assert.Single(orch.Added);
-        Assert.Equal("Big BTC move", orch.Added[0].Name);
-        Assert.Equal(65000, orch.Added[0].Threshold);
-        // After add, the name field is cleared and the row appears in the list.
-        Assert.Single(cut.FindAll("li[role='listitem']"));
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(orch.Added);
+            Assert.Equal("Big BTC move", orch.Added[0].Name);
+            Assert.Equal(65000, orch.Added[0].Threshold);
+            // After add, the name field is cleared and the row appears in the list.
+            Assert.Single(cut.FindAll("li[role='listitem']"));
+        });
     }
 }

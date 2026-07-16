@@ -17,6 +17,10 @@ on:
     tags: [ 'v*' ]
   workflow_dispatch:
 
+permissions:
+  contents: write          # required to attach the manifest to the GitHub Release
+                           # (was missing — 1.6.0 and 1.7.0 manifests were attached manually)
+
 concurrency:
   group: plugin-manifest-${{ github.ref }}
   cancel-in-progress: true
