@@ -19,14 +19,28 @@ namespace AccessibleTrader.Core.Services
         private readonly Dictionary<string, TrendDirection> _previousTrends =
             new(StringComparer.OrdinalIgnoreCase);
 
+        // Part D: strategy condition evaluator for advanced (tree) alerts.
+        // Optional so minimal test constructions keep working; when null,
+        // tree alerts simply never fire (and log once via the try/catch above).
+        private readonly Strategies.IConditionEvaluator? _conditionEvaluator;
+
+        // Edge-trigger memory per tree alert: was the tree true on the last
+        // evaluation, and when did it last fire? Concurrent because the focused
+        // pipeline and a background monitor can hand an alert off between them
+        // (only one drives it at a time, but the handoff can overlap a tick).
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (bool WasTrue, DateTime LastFiredUtc)>
+            _treeState = new(StringComparer.OrdinalIgnoreCase);
+
         public AlertEvaluator(
             ISdkCandlePatternAnalyzer patternAnalyzer,
             IIndicatorContextAnalyzer contextAnalyzer,
-            ILevelService? levels = null)
+            ILevelService? levels = null,
+            Strategies.IConditionEvaluator? conditionEvaluator = null)
         {
             _patternAnalyzer = patternAnalyzer;
             _contextAnalyzer = contextAnalyzer;
             _levels          = levels;
+            _conditionEvaluator = conditionEvaluator;
         }
 
         public IEnumerable<AlertFired> EvaluateAlerts(
@@ -61,6 +75,40 @@ namespace AccessibleTrader.Core.Services
             return results;
         }
 
+        /// <summary>
+        /// Part D: evaluates an advanced-condition alert through the strategy tree
+        /// evaluator. Edge-triggered: fires on the bar where the whole tree FIRST
+        /// evaluates true; while it stays true, RepeatIfStillActive + Cooldown govern
+        /// re-fires; when it goes false the trigger re-arms. (Tree alerts are the
+        /// first alerts to actually honour RepeatIfStillActive/Cooldown — the simple
+        /// rules rely on crossing semantics for natural edge behaviour.)
+        /// </summary>
+        private AlertFired? TryEvaluateTree(AlertDefinition alert, WorkspaceState state)
+        {
+            if (_conditionEvaluator == null || state.Data == null || state.Data.Count == 0)
+                return null;
+
+            var eval = _conditionEvaluator.Evaluate(alert.ConditionTree!, state.Data, state);
+
+            var prev = _treeState.TryGetValue(alert.Id, out var st)
+                ? st : (WasTrue: false, LastFiredUtc: DateTime.MinValue);
+
+            bool fire = eval.OverallTrue
+                && (!prev.WasTrue
+                    || (alert.RepeatIfStillActive && DateTime.UtcNow - prev.LastFiredUtc >= alert.Cooldown));
+
+            _treeState[alert.Id] = (eval.OverallTrue, fire ? DateTime.UtcNow : prev.LastFiredUtc);
+            if (!fire) return null;
+
+            // Score-threshold trees speak their score ("7 of 9"); plain logic trees
+            // just announce the conditions.
+            string speech = eval.MaxScore > 0 && Math.Abs(eval.MaxScore - eval.Score) > 1e-9
+                ? $"{alert.Name}: conditions met, score {eval.Score:0.#} of {eval.MaxScore:0.#}."
+                : $"{alert.Name}: conditions met.";
+
+            return new AlertFired(alert, eval.Score, null, speech);
+        }
+
         private AlertFired? TryEvaluate(
             AlertDefinition alert,
             WorkspaceState state,
@@ -68,6 +116,10 @@ namespace AccessibleTrader.Core.Services
             Ohlcv previousBar,
             IReadOnlyDictionary<string, double> previousValues)
         {
+            // Part D: an advanced condition tree REPLACES the simple rule entirely.
+            if (alert.ConditionTree != null)
+                return TryEvaluateTree(alert, state);
+
             // Resolve current and previous values depending on target
             double currentValue;
             double prevValue;

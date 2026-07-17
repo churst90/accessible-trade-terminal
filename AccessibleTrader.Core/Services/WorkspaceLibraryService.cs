@@ -223,7 +223,7 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 string path = Path.Combine(_libraryDir, "alerts.json");
-                string json = JsonConvert.SerializeObject(alerts, Formatting.Indented);
+                string json = JsonConvert.SerializeObject(alerts, Formatting.Indented, AlertJsonSettings);
                 AtomicFile.WriteAllText(path, json);
                 _logger.LogInformation("Alerts saved.");
             }
@@ -233,6 +233,14 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        // Part D: the advanced-condition tree is polymorphic via System.Text.Json
+        // attributes; this bridge converter lets the Newtonsoft alerts.json path
+        // round-trip it without duplicating the polymorphism rules.
+        private static readonly JsonSerializerSettings AlertJsonSettings = new()
+        {
+            Converters = { new Alerts.ConditionNodeNewtonsoftBridge() },
+        };
+
         public List<AlertDefinition> LoadAlerts()
         {
             try
@@ -240,7 +248,7 @@ namespace AccessibleTrader.Core.Services
                 string path = Path.Combine(_libraryDir, "alerts.json");
                 if (!File.Exists(path)) return new List<AlertDefinition>();
                 string json = File.ReadAllText(path);
-                return JsonConvert.DeserializeObject<List<AlertDefinition>>(json) ?? new List<AlertDefinition>();
+                return JsonConvert.DeserializeObject<List<AlertDefinition>>(json, AlertJsonSettings) ?? new List<AlertDefinition>();
             }
             catch (Exception ex)
             {

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Condition-tree alerts (Alerts Part D, 2026-07-17)
+
+Alerts can now use the strategy composer's full rule tree instead of the single
+Target/Condition/Threshold rule. In the Alerts dialog (Alt+J), switch on
+"Advanced condition" and the same ConditionTreeEditor from the strategy Build
+Setup tab appears: AND/OR/NOT/Score groups over leaves that test indicator
+components — "RSI below 30 AND price above the 200 EMA", with multi-timeframe
+leaves supported. Firing is edge-triggered: the alert speaks on the bar where
+the whole tree FIRST evaluates true, re-arms when it goes false, and — a first
+for alerts — actually honours RepeatIfStillActive + Cooldown while the tree
+stays true. Score-threshold trees speak their score ("conditions met, score 7
+of 9"). Delivery is unchanged (speech/earcon/journal/email/Telegram/webhook,
+per-symbol scoping), and symbol-scoped advanced alerts evaluate from BACKGROUND
+tabs like any other alert — the monitors' private state carries everything the
+tree evaluator needs. Persistence: the tree's polymorphic JSON ($kind, shared
+with strategy specs) round-trips through the Newtonsoft alerts.json path via a
+System.Text.Json bridge converter. Leaves reference indicators by code, so the
+indicator must be on the chart (or on the background tab) to evaluate — the
+dialog says so. 9 new tests (1701 → 1710).
+
 ## [1.8.0] — 2026-07-16
 
 ### The REAL "Bar navigator" found and gated (2026-07-16, round 4)

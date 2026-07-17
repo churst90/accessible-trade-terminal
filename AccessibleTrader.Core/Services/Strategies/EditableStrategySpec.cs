@@ -171,6 +171,11 @@ namespace AccessibleTrader.Core.Services.Strategies
             // the engine-level defaults so the user doesn't start from all-zeros.
         }
 
+        /// <summary>Builds the immutable condition tree from the editable Root, or
+        /// null when the tree is empty. Used by AlertsModal (Part D advanced alerts)
+        /// to reuse the strategy composer's editor without a full StrategySpec.</summary>
+        public ConditionNode? BuildConditionTree() => Root == null ? null : ToConditionNode(Root);
+
         private static ConditionNode ToConditionNode(EditableConditionNode n) => n.IsGroup
             ? new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList(), n.ScoreThreshold)
             : new ConditionLeaf(n.Id, n.SignalDescriptorId, n.Operator, n.Value, n.Value2,

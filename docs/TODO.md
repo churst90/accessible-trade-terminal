@@ -121,7 +121,7 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   pages with generic messaging, audit events, end-to-end token tests. Option A
   (verify-by-email via msmtp → Postmark/SES) remains the eventual upgrade and the
   only full fix for the residual registration redirect-vs-error oracle.
-- [ ] **Alerts: custom condition trees (Part D)** — embed ConditionTreeEditor in
+- [x] **Alerts: custom condition trees (Part D)** DONE 2026-07-17 — — embed ConditionTreeEditor in
   AlertsModal behind an "Advanced condition" toggle; evaluate via the strategy tree
   evaluator when set (~2-3d, spec in the 2026-07-14 alerts-symbol-routing spec).
 - [ ] **Auth: HaveIBeenPwned password validator** — k-anonymity range API,

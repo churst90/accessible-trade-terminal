@@ -1036,6 +1036,18 @@ And if you enable "send setups to alerts" in Settings, confirmed and armed strat
 setups flow through the same delivery — your Discord channel hears "Long setup —
 gold" with the trade plan, even when you're away from the terminal.
 
+For conditions a single rule can't express, switch on **Advanced condition** in
+the add-alert form. The same rule-tree builder the strategy composer uses
+appears: groups (AND, OR, NOT, or a Score threshold) over leaves that test
+indicator components, with optional higher timeframes per leaf — "RSI below 30
+AND price above the 200-day EMA" is three clicks. The alert fires the moment
+the whole tree first becomes true, then re-arms when it goes false; turn on
+repeat-while-active and it re-announces on your cooldown while conditions hold.
+Score trees speak their score ("conditions met, score 7 of 9"). Everything else
+about alerts applies unchanged — delivery channels, symbol scoping, and
+background tabs. One requirement: leaves reference indicators by code, so add
+the indicator to the chart before building conditions on it.
+
 ### Strategies
 
 Press Alt+S for the Strategy Manager — labelled **EXPERIMENTAL**, with the standing

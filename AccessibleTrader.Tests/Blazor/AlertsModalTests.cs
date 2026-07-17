@@ -56,6 +56,11 @@ public class AlertsModalTests
         store.State.Returns(WorkspaceState.Initial with { SymbolDisplayName = "BTC/USD" });
         ctx.Services.AddSingleton(store);
         ctx.Services.AddSingleton(Substitute.For<ISettingsManager>());
+        // Part D: the Advanced toggle renders ConditionTreeEditor, which injects
+        // ISignalCatalog. Empty catalog is fine for render-level tests.
+        var catalog = Substitute.For<AccessibleTrader.Core.Services.Strategies.ISignalCatalog>();
+        catalog.All.Returns(new List<AccessibleTrader.Sdk.Strategies.SignalDescriptor>());
+        ctx.Services.AddSingleton(catalog);
 
         ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
         return (ctx, orch, bus);
@@ -175,5 +180,30 @@ public class AlertsModalTests
             // After add, the name field is cleared and the row appears in the list.
             Assert.Single(cut.FindAll("li[role='listitem']"));
         });
+    }
+
+    [Fact]
+    public void AdvancedToggle_ShowsTreeEditor_AndGatesAddOnTree()
+    {
+        var (ctx, _, bus) = BuildContext();
+        var cut = OpenModal(ctx, bus);
+
+        // Off by default: simple fields visible, no tree editor.
+        Assert.NotEmpty(cut.FindAll("#alert-target"));
+
+        cut.Find("input#alert-advanced").Change(true);
+
+        cut.WaitForAssertion(() =>
+        {
+            // Simple Target/Condition/Threshold are replaced by the tree editor.
+            Assert.Empty(cut.FindAll("#alert-target"));
+            Assert.Empty(cut.FindAll("#alert-threshold"));
+        });
+
+        // With a name but an EMPTY tree, Add stays disabled — an advanced alert
+        // with no conditions can never fire and must not be creatable.
+        cut.Find("input#alert-name").Change("Tree alert");
+        cut.WaitForAssertion(() =>
+            Assert.True(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
     }
 }

@@ -30,7 +30,7 @@
                         {
                             <li role="listitem"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #444;">
-                                <span>@alert.Name — @(alert.Symbol ?? "Any") · @alert.Target @alert.Condition@(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
+                                <span>@alert.Name — @(alert.Symbol ?? "Any") · @(alert.ConditionTree != null ? "Advanced rule" : $"{alert.Target} {alert.Condition}{(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")}")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
                                 <button aria-label="@($"Delete alert: {alert.Name}")"
                                         @onclick="() => DeleteAlert(alert.Id)">
                                     Delete
@@ -50,6 +50,26 @@
                            @bind="_newAlertName"
                            placeholder="e.g. Price crosses 50000" />
                 </div>
+                <div class="modal-row">
+                    <label for="alert-advanced">Advanced condition (custom rule tree):</label>
+                    <input id="alert-advanced" type="checkbox"
+                           checked="@_advancedCondition"
+                           @onchange="OnAdvancedToggled" />
+                </div>
+                @if (_advancedCondition)
+                {
+                    <p style="font-size:0.85rem; color: var(--text-muted); margin: 4px 0 8px;">
+                        Build a rule tree exactly like a strategy's conditions — groups
+                        (AND / OR / NOT / Score) and leaves that test indicator components.
+                        The alert fires on the bar where the whole tree first becomes true,
+                        and re-arms when it goes false again. Leaves reference indicators by
+                        code, so add the indicator to the chart first. Advanced alerts scoped
+                        to a symbol keep working from background tabs.
+                    </p>
+                    <ConditionTreeEditor Spec="_advancedSpec" />
+                }
+                else
+                {
                 <div class="modal-row">
                     <label for="alert-target">Target:</label>
                     <select id="alert-target" @bind="_newAlertTarget">
@@ -75,6 +95,7 @@
                            step="any"
                            @bind="_newAlertThreshold" />
                 </div>
+                }
                 <div class="modal-row">
                     <label for="alert-delivery">Delivery:</label>
                     <select id="alert-delivery" @bind="_newAlertDelivery">
@@ -104,7 +125,7 @@
                     <button @onclick="AddAlert"
                             aria-label="Add alert"
                             class="primary"
-                            disabled="@(string.IsNullOrWhiteSpace(_newAlertName))">
+                            disabled="@(string.IsNullOrWhiteSpace(_newAlertName) || (_advancedCondition && _advancedSpec.Root == null))">
                         Add Alert
                     </button>
                 </div>
@@ -178,22 +199,40 @@
     {
         if (string.IsNullOrWhiteSpace(_newAlertName)) return;
 
+        // Advanced mode: the tree REPLACES the simple rule. Target/Condition are
+        // required record fields, so they carry placeholder values the evaluator
+        // never consults when ConditionTree is set.
+        var tree = _advancedCondition ? _advancedSpec.BuildConditionTree() : null;
+        if (_advancedCondition && tree == null) return;
+
         var def = new AlertDefinition
         {
             Id = Guid.NewGuid().ToString(),
             Name = _newAlertName,
             Target = _newAlertTarget,
             Condition = _newAlertCondition,
-            Threshold = _newAlertThreshold,
+            Threshold = _advancedCondition ? null : _newAlertThreshold,
             Delivery = _newAlertDelivery,
             // Scope to the current chart's symbol (null = any) and route to the chosen webhook.
             Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
             WebhookTarget = string.IsNullOrWhiteSpace(_newAlertWebhookTarget) ? null : _newAlertWebhookTarget,
+            ConditionTree = tree,
         };
         AlertOrchestrator.AddAlert(def);
         _newAlertName = "";
         _newAlertThreshold = 0;
+        if (_advancedCondition) _advancedSpec = new Core.Services.Strategies.EditableStrategySpec();
         RefreshAlerts();
+        StateHasChanged();
+    }
+
+    // ── Part D: advanced condition tree ──────────────────────────────────────
+    private bool _advancedCondition;
+    private Core.Services.Strategies.EditableStrategySpec _advancedSpec = new();
+
+    private void OnAdvancedToggled(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _advancedCondition = e.Value is bool b && b;
         StateHasChanged();
     }
 

@@ -53,4 +53,18 @@ public record AlertDefinition
     /// <summary>Name of the configured webhook (see <c>alerts.webhooks</c>) this alert
     /// posts to; null = do not post to any webhook. Email/Telegram fan-out is unaffected.</summary>
     public string? WebhookTarget { get; init; }
+
+    // ── Advanced condition tree (Part D) ──────────────────────────────────────
+    /// <summary>
+    /// Optional custom condition tree (the strategy composer's AND/OR/NOT/Score
+    /// tree). When set it REPLACES the simple Target/Condition/Threshold rule:
+    /// the alert fires on the bar where the whole tree first evaluates true
+    /// (edge-triggered; <see cref="RepeatIfStillActive"/> + <see cref="Cooldown"/>
+    /// re-arm it while it stays true). Leaves reference indicators by code, so
+    /// the referenced indicators must be on the chart (or on the background
+    /// tab's series) to evaluate. Serialized with System.Text.Json ($kind
+    /// polymorphism, same as strategy specs); the Newtonsoft alerts.json path
+    /// bridges via ConditionNodeNewtonsoftBridge.
+    /// </summary>
+    public AccessibleTrader.Sdk.Strategies.ConditionNode? ConditionTree { get; init; }
 }
