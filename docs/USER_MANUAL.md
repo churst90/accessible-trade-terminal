@@ -1078,6 +1078,18 @@ away it names what fell off. It also tells you when it is not yet ready: "indica
 warming up — {n} of {m} bars loaded. Signals begin once warm." Every one of these
 lands in the Journal's Setups filter for review.
 
+The **Lab** tab brings the research workflow in-app. **Walk-forward windows**
+slices the loaded data into equal chronological windows and backtests one
+strategy in each — hear whether an edge holds across regimes or lived in one
+lucky stretch. **Compare all strategies** backtests every saved strategy on the
+first and second half of the data and ranks them; SURVIVOR means the 95%
+confidence lower bound on per-trade reward-to-risk is positive in both halves
+with at least five trades each — the same statistical gate the offline research
+harness applies, because a single positive average on a dozen trades is
+indistinguishable from luck. Rankings favour the weaker half: a strategy is
+only as good as its weaker regime. Results are tables your screen reader can
+walk, plus a spoken verdict.
+
 The Backtest tab runs a strategy over history with realistic settings — starting
 capital, commission, slippage, and a warm-up period you can auto-detect — over an
 optional date range, including one-press "first half / last half" buttons for

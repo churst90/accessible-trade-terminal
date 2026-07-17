@@ -135,7 +135,7 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 - [ ] Tiered RiskPercent by setup quality (2-tier, evidence-based) in RiskPlan.
 - [ ] Sector risk governor as an optional *enforcing* mode (default stays warn-only).
 - [ ] Pre-registered lab test: wider ladder (3R/6R or trail) for the gated v23 variants.
-- [ ] Lab GUI tab in the Strategy modal (battery/rolling sweeps, spoken ranked results).
+- [x] Lab GUI tab in the Strategy modal DONE 2026-07-17 (walk-forward windows + battery comparison with the CI survivor gate; parameter sweeps remain lab-only for now).
 - [ ] Live order-stream subscription audit (SubscribeOrderUpdatesAsync has no callers).
 - [ ] PropertiesModal bUnit tests are timing-flaky on slow CI runners (8 failed on one
   run, passed on rerun and locally) — needs a render-settle wait in the click helpers.

@@ -309,6 +309,7 @@ namespace AccessibleTrader.WebHost
 
             services.AddScoped<ISignalCatalog, SignalCatalog>();
             services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
+            services.AddScoped<ILabRunner, LabRunner>(); // in-app Lab tab (walk-windows + battery comparison)
             services.AddScoped<IRiskPlanResolver, RiskPlanResolver>();
             services.AddScoped<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
             services.AddScoped<IStrategyLibrary, JsonStrategyLibrary>();

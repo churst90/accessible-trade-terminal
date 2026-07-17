@@ -124,6 +124,8 @@ public class StrategyModalTests
         ctx.Services.AddSingleton<IStrategyLibrary>(lib);
         ctx.Services.AddSingleton<IWorkspaceStore>(store);
         ctx.Services.AddSingleton(bus);
+        // Lab tab (Part: in-app research harness) injects ILabRunner.
+        ctx.Services.AddSingleton(NSubstitute.Substitute.For<AccessibleTrader.Core.Services.Strategies.ILabRunner>());
         // The modal calls JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", ...)
         // on first render after Show. Shim here so every test inherits it.
         ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);

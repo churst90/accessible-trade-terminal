@@ -9,6 +9,7 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
+@inject AccessibleTrader.Core.Services.Strategies.ILabRunner LabRunner
 @implements IDisposable
 
 @if (_isVisible)
@@ -64,6 +65,14 @@
                         @onclick='() => _activeTab = "bt"'
                         style="padding: 6px 14px; background: @(_activeTab == "bt" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
                     Backtest
+                </button>
+                <button role="tab"
+                        id="tab-lab"
+                        aria-selected="@(_activeTab == "lab")"
+                        aria-controls="panel-lab"
+                        @onclick='() => _activeTab = "lab"'
+                        style="padding: 6px 14px; background: @(_activeTab == "lab" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
+                    Lab
                 </button>
                 <button role="tab"
                         id="tab-custom"
@@ -403,6 +412,129 @@
             </section>
 
             @* ── Custom C# Strategy script ─────────────────────────────────────── *@
+            @* ── Lab tab — the research harness, in-app (walk-forward windows +
+               battery comparison, spoken and ranked). Uses the SAME backtester and
+               the SAME survivor gate (95% bootstrap CI on trade R, both halves
+               positive, ≥5 trades each) as the offline StrategyLab. *@
+            <section id="panel-lab" role="tabpanel" aria-labelledby="tab-lab"
+                     hidden="@(_activeTab != "lab")" style="margin-top: 20px;">
+                <p style="font-size: 0.85rem; color: var(--text-muted);">
+                    Research tools over the loaded chart data. Results here are studies of the
+                    rules, not promises — the standing EXPERIMENTAL caveat applies double.
+                    Backtest settings (capital, commission, slippage, warm-up) are shared with
+                    the Backtest tab.
+                </p>
+
+                <fieldset style="border:1px solid #444; padding:10px 14px; margin-bottom:14px;">
+                    <legend>Walk-forward windows</legend>
+                    <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0;">
+                        Slices the loaded data into equal chronological windows and backtests one
+                        strategy in each — an edge that only exists in one window is a regime
+                        artifact, not an edge.
+                    </p>
+                    <div class="modal-row">
+                        <label for="lab-spec">Strategy</label>
+                        <select id="lab-spec" @bind="_labSpecId">
+                            <option value="">— choose —</option>
+                            @foreach (var spec in StrategyLibrary.All)
+                            {
+                                <option value="@spec.Id">@spec.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="modal-row">
+                        <label for="lab-windows">Windows</label>
+                        <input id="lab-windows" type="number" min="2" max="12" value="@_labWindows"
+                               @onchange="e => int.TryParse(e.Value?.ToString(), out _labWindows)" />
+                        <button class="primary" @onclick="RunLabWindowsAsync"
+                                disabled="@(_labRunning || string.IsNullOrEmpty(_labSpecId))"
+                                aria-label="Run walk-forward windows">
+                            @(_labRunning ? "Running…" : "Run windows")
+                        </button>
+                    </div>
+                    @if (_labWindowResults.Count > 0)
+                    {
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                            <caption class="sr-only">Walk-forward window results</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Window</th><th scope="col">Range</th>
+                                    <th scope="col">Trades</th><th scope="col">Avg R</th>
+                                    <th scope="col">Win rate</th><th scope="col">Profit factor</th>
+                                    <th scope="col">Max DD</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var w in _labWindowResults)
+                                {
+                                    <tr style="color:@(w.AverageR > 0 ? "#4a4" : "#f66");">
+                                        <td>@w.Index</td>
+                                        <td>@w.Start.ToString("MMM yy")–@w.End.ToString("MMM yy")</td>
+                                        <td>@w.Trades</td>
+                                        <td>@(double.IsNaN(w.AverageR) ? "—" : w.AverageR.ToString("F2"))</td>
+                                        <td>@w.WinRate.ToString("P0")</td>
+                                        <td>@(double.IsNaN(w.ProfitFactor) ? "—" : w.ProfitFactor.ToString("F2"))</td>
+                                        <td>@w.MaxDrawdown.ToString("P1")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </fieldset>
+
+                <fieldset style="border:1px solid #444; padding:10px 14px; margin-bottom:14px;">
+                    <legend>Compare all strategies (battery)</legend>
+                    <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0;">
+                        Backtests every saved strategy on the first and second half of the loaded
+                        data. SURVIVOR means the 95% confidence lower bound on trade R is positive
+                        in BOTH halves with at least 5 trades each — the research harness's gate.
+                        Ranked by the weaker half, because a strategy is only as good as its
+                        weaker regime.
+                    </p>
+                    <div class="modal-row">
+                        <button class="primary" @onclick="RunLabComparisonAsync"
+                                disabled="@(_labRunning || !StrategyLibrary.All.Any())"
+                                aria-label="Compare all saved strategies on both halves of the data">
+                            @(_labRunning ? "Running…" : $"Compare {StrategyLibrary.All.Count} strategies")
+                        </button>
+                    </div>
+                    @if (_labComparison.Count > 0)
+                    {
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                            <caption class="sr-only">Strategy comparison, ranked by weaker-half confidence bound</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Rank</th><th scope="col">Strategy</th>
+                                    <th scope="col">H1 trades</th><th scope="col">H1 CI-lo</th>
+                                    <th scope="col">H2 trades</th><th scope="col">H2 CI-lo</th>
+                                    <th scope="col">Verdict</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < _labComparison.Count; i++)
+                                {
+                                    var row = _labComparison[i];
+                                    <tr style="color:@(row.Survivor ? "#4a4" : "#ccc");">
+                                        <td>@(i + 1)</td>
+                                        <td>@row.Name</td>
+                                        <td>@row.TradesH1</td>
+                                        <td>@FormatCi(row.CiLoH1)</td>
+                                        <td>@row.TradesH2</td>
+                                        <td>@FormatCi(row.CiLoH2)</td>
+                                        <td>@(row.Survivor ? "SURVIVOR" : "not proven")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </fieldset>
+
+                @if (!string.IsNullOrEmpty(_labMessage))
+                {
+                    <p role="status" aria-live="polite" style="color:@(_labError ? "#f66" : "#4c8");">@_labMessage</p>
+                }
+            </section>
+
             <section id="panel-custom" role="tabpanel" aria-labelledby="tab-custom"
                      hidden="@(_activeTab != "custom")" style="margin-top: 20px;">
                 <h3>Custom C# Strategy</h3>
@@ -499,6 +631,89 @@ public class MyStrategy : BaseStrategy
 
     // Backtester state
     private string _btSelectedSpecId = string.Empty;
+
+    // ── Lab tab state ─────────────────────────────────────────────────────────
+    private string _labSpecId = string.Empty;
+    private int _labWindows = 4;
+    private bool _labRunning;
+    private string _labMessage = string.Empty;
+    private bool _labError;
+    private IReadOnlyList<AccessibleTrader.Core.Services.Strategies.LabWindowResult> _labWindowResults
+        = Array.Empty<AccessibleTrader.Core.Services.Strategies.LabWindowResult>();
+    private IReadOnlyList<AccessibleTrader.Core.Services.Strategies.LabComparisonRow> _labComparison
+        = Array.Empty<AccessibleTrader.Core.Services.Strategies.LabComparisonRow>();
+
+    private static string FormatCi(double ci) =>
+        double.IsNegativeInfinity(ci) ? "no trades" : ci.ToString("+0.00;-0.00");
+
+    private Sdk.Strategies.BacktestConfig LabBaseConfig() => new(
+        StartingCapital: _btCapital,
+        CommissionRate: _btCommission,
+        SlippagePercent: _btSlippage,
+        WarmupBars: _btWarmup,
+        ReplayProfiles: true,
+        PositionSizer: null,
+        StartDate: null,
+        EndDate: null,
+        AllowReverseOnSignal: true);
+
+    private async Task RunLabWindowsAsync()
+    {
+        if (Store.State.Data == null || !Store.State.Data.Any())
+        {
+            _labError = true; _labMessage = "Load chart data first."; return;
+        }
+        _labRunning = true; _labError = false; _labMessage = "Starting…";
+        try
+        {
+            var progress = new Progress<string>(msg => { _labMessage = msg; InvokeAsync(StateHasChanged); });
+            _labWindowResults = await LabRunner.RunWindowsAsync(
+                _labSpecId, Store.State.Data, Store.State, _labWindows, LabBaseConfig(), progress);
+
+            int profitable = _labWindowResults.Count(w => w.AverageR > 0);
+            int traded = _labWindowResults.Count(w => w.Trades > 0);
+            _labMessage = _labWindowResults.Count == 0
+                ? "No windows could be evaluated — not enough data."
+                : $"Done. Profitable in {profitable} of {_labWindowResults.Count} windows"
+                  + (traded < _labWindowResults.Count ? $" ({_labWindowResults.Count - traded} windows had no trades)" : "")
+                  + ". An edge that lives in only one window is a regime artifact.";
+        }
+        catch (Exception ex)
+        {
+            _labError = true; _labMessage = $"Lab run failed: {ex.Message}";
+        }
+        finally { _labRunning = false; StateHasChanged(); }
+    }
+
+    private async Task RunLabComparisonAsync()
+    {
+        if (Store.State.Data == null || !Store.State.Data.Any())
+        {
+            _labError = true; _labMessage = "Load chart data first."; return;
+        }
+        _labRunning = true; _labError = false; _labMessage = "Starting…";
+        try
+        {
+            var specs = StrategyLibrary.All.Select(sp => (sp.Id, sp.Name)).ToList();
+            var progress = new Progress<string>(msg => { _labMessage = msg; InvokeAsync(StateHasChanged); });
+            _labComparison = await LabRunner.CompareAsync(
+                specs, Store.State.Data, Store.State, LabBaseConfig(), progress);
+
+            var survivors = _labComparison.Where(r => r.Survivor).ToList();
+            _labMessage = _labComparison.Count == 0
+                ? "Nothing could be evaluated."
+                : survivors.Count == 0
+                    ? $"Done. {_labComparison.Count} strategies tested — no survivors on this data. That is a result, not a failure."
+                    : $"Done. {survivors.Count} of {_labComparison.Count} survive both halves: "
+                      + string.Join(", ", survivors.Take(3).Select(r => r.Name))
+                      + (survivors.Count > 3 ? $" and {survivors.Count - 3} more." : ".");
+        }
+        catch (Exception ex)
+        {
+            _labError = true; _labMessage = $"Comparison failed: {ex.Message}";
+        }
+        finally { _labRunning = false; StateHasChanged(); }
+    }
     private double _btCapital    = 10000.0;
     private double _btCommission = 0.001;
     private double _btSlippage   = 0.0005;

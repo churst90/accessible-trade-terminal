@@ -345,6 +345,7 @@ namespace AccessibleTrader.BlazorClient
             //   SetupSonifier renders SetupConfirmed/Reconfirmed/Dropped events to bell+speech.
             services.AddSingleton<ISignalCatalog, SignalCatalog>();
             services.AddSingleton<IConditionEvaluator, ConditionEvaluator>();
+            services.AddSingleton<ILabRunner, LabRunner>(); // in-app Lab tab (walk-windows + battery comparison)
             services.AddSingleton<IRiskPlanResolver, RiskPlanResolver>();
             services.AddSingleton<IConfigurableStrategyFactory, ConfigurableStrategyFactory>();
             services.AddSingleton<IStrategyLibrary, JsonStrategyLibrary>();

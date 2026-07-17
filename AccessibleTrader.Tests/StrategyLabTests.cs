@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Strategies;
 using System;
 using System.Collections.Generic;
 using System.IO;

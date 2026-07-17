@@ -6,6 +6,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Lab tab: the research harness, in-app (2026-07-17)
+
+The Strategy modal (Alt+S) gains a **Lab** tab — the first slice of the
+StrategyLab research workflow made accessible in-app, over the loaded chart
+data, with results spoken and ranked:
+
+- **Walk-forward windows**: slice the data into N equal chronological windows
+  (2–12) and backtest one strategy in each. Per-window table (trades, average
+  R, win rate, profit factor, max drawdown) and a spoken verdict: "Profitable
+  in 3 of 4 windows." An edge that lives in only one window is a regime
+  artifact — the UI says so.
+- **Compare all strategies (battery)**: every saved library spec backtested on
+  the FIRST and SECOND half of the data. SURVIVOR uses the research harness's
+  exact gate — the 95% bootstrap confidence lower bound on trade R positive in
+  BOTH halves with ≥5 trades each (BootstrapCi moved from the lab into Core so
+  there is ONE definition of "survivor"). Rows ranked by the WEAKER half's
+  bound, because a strategy is only as good as its weaker regime. Spoken
+  summary names the survivors — and "no survivors" is announced as a result,
+  not a failure.
+
+Backtest settings (capital, commission, slippage, warm-up) are shared with the
+Backtest tab. Everything runs through the same IStrategyBacktester as before —
+no separate engine, no lab installation. New ILabRunner service (Core) with
+unit tests pinning the slicing, the survivor gate, and the weaker-half ranking.
+4 new tests (1710 → 1714).
+
 ### Condition-tree alerts (Alerts Part D, 2026-07-17)
 
 Alerts can now use the strategy composer's full rule tree instead of the single

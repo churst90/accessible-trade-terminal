@@ -1,7 +1,10 @@
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
 
-namespace AccessibleTrader.StrategyLab;
+// Moved from AccessibleTrader.StrategyLab (2026-07-17): the in-app Lab tab
+// needs the same survivor gate (95% bootstrap CI on trade R-multiples) the
+// research harness uses — one implementation, one definition of "survivor".
+namespace AccessibleTrader.Core.Services.Strategies;
 
 /// <summary>
 /// Bootstrap confidence interval helper for R-multiple expectancy.
