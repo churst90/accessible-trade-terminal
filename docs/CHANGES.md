@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.8.0] — 2026-07-16
 
 ### The REAL "Bar navigator" found and gated (2026-07-16, round 4)
 
