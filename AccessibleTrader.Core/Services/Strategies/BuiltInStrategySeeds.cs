@@ -188,6 +188,12 @@ namespace AccessibleTrader.Core.Services.Strategies
         // single secular-growth names holding wins; FX long-only has no edge.
         public const string LongTrendBaselineId = "builtin.long.trend-baseline";
 
+        // v24 — Cycle Low Reversal: v23 trigger family gated by a CONFIRMED daily
+        // cycle low (Loukas DCL) within 5 bars. The cycle-clock alternative (raw
+        // "in timing window" gate) already tested NEUTRAL per the Loukas provider's
+        // own research notes — confirmation is the differentiated hypothesis.
+        public const string LongV24CycleLowReversalId = "builtin.long.v24-cycle-low-reversal";
+
         // v23c — Cipher B Reversal + Faber + COT not-crowded gates (LONG, metals /
         // equity indices, daily). From the 2026-07-13 gate battery (10 assets,
         // era-sliced): the Faber bull-regime gate was the strongest single filter
@@ -408,6 +414,101 @@ namespace AccessibleTrader.Core.Services.Strategies
             yield return BuildV23orCipherBOrConfLong();
             yield return BuildTrendBaselineLong();
             yield return BuildV23cCipherBCotLong();
+            yield return BuildV24CycleLowReversalLong();
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // v24 — Cycle Low Reversal (LONG, BTC daily). Wave 4 of the 2026-07 plan.
+        // Entry EVENT = a confirmed daily cycle low (Loukas DCL within 2); momentum
+        // EVIDENCE = any v23 trigger within 8 (wider than v23's 2 because DCL
+        // confirmation lags the low by the swing lookback). Iteration record from
+        // the 2026-07-17 lab session — kept here because rejected variants are as
+        // informative as the survivor:
+        //   • trigger-within-2 + DCL-within-5:  2 trades / 7 yrs (temporal mismatch)
+        //   • + Anchor Wave < 0 depth gate:     H1 -0.85R — REMOVED (by confirmation
+        //     time the anchor has often recovered; the gate deleted the good half)
+        //   • swing-low(12) structural stop:    H2 -0.10R — cycle-low RETESTS stop it
+        //     out at -1R; ATR(14)x3 fixed it (H2 -0.10 → +0.31)
+        //   • DCL-only (no cipher trigger):     +0.33/+0.18 — trigger improves the
+        //     WEAKER half (+0.18 → +0.31), so it stays per the era-robustness rule
+        // ─────────────────────────────────────────────────────────────────────────────
+        private static StrategySpec BuildV24CycleLowReversalLong()
+        {
+            var wtCrossBull = new ConditionLeaf(
+                Id: "v24-wtx", SignalDescriptorId: "CIPHER_B.WaveTrend Cross Bull",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 8, Score: 1.0);
+            var blueDot = new ConditionLeaf(
+                Id: "v24-blue", SignalDescriptorId: "CIPHER_B.Oversold Crossover",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 8, Score: 1.0);
+            var bullDiv = new ConditionLeaf(
+                Id: "v24-bulldiv", SignalDescriptorId: "CIPHER_B.Bullish Divergence",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 8, Score: 1.0);
+
+            // Momentum evidence near the low: any v23 trigger within the last 8 bars.
+            // The window is wider than v23's 2 because DCL confirmation LAGS the low
+            // by the swing lookback — the Cipher event fires AT the low, the cycle
+            // confirmation arrives days later, and the entry is on the confirmation.
+            var trigger = new ConditionGroup(
+                Id: "v24-trigger", Logic: LogicOperator.Or,
+                Children: new List<ConditionNode> { wtCrossBull, blueDot, bullDiv });
+
+            // THE entry event: a confirmed daily cycle low within the last 2 bars.
+            var dclConfirmed = new ConditionLeaf(
+                Id: "v24-dcl", SignalDescriptorId: "LOUKAS_CYCLES.DCL Confirmed",
+                Operator: LeafOperator.FiredWithin, WithinNBars: 2, Score: 1.0);
+
+            var root = new ConditionGroup(
+                Id: "v24-root", Logic: LogicOperator.And,
+                Children: new List<ConditionNode> { trigger, dclConfirmed });
+
+            // ATR stop, NOT the structurally-appealing swing-low stop: confirmed
+            // cycle lows get RETESTED, and a stop at the low converts every retest
+            // into -1R (lab: swing stop H2 -0.10R vs ATR +0.31R on identical entries).
+            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 3.0);
+            var tpLadder = new List<TpLadderRung>
+            {
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 0.40),
+                // Distant rung: the ATR trail after TP1 is the real exit — ride the up-leg.
+                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 8.0, ClosePortion: 0.60),
+            };
+            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
+            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
+            var risk = new RiskPlan(
+                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
+                MinRewardRiskRatio: 1.5,
+                StopAdjust: StopAdjustOnTp1.TrailByAtr,
+                NotionalEquity: 10000.0);
+
+            return new StrategySpec(
+                Id: LongV24CycleLowReversalId,
+                Name: "Cycle Low Reversal — DCL + Cipher B (Long, crypto daily) [v24]",
+                Description:
+                    "Enters in the first days of a NEW daily cycle: a Loukas daily-cycle-low " +
+                    "CONFIRMATION within 2 bars AND any v23 reversal trigger (WT Cross Bull / " +
+                    "Blue dot / Bull Divergence) within 8. LAB WALK-FORWARD 2026-07-17, BTC " +
+                    "daily 2011-2026, H1/H2: POSITIVE BOTH HALVES — H1 +0.25R (35 trades, " +
+                    "62.9% WR, PF 2.1), H2 +0.31R (35 trades, 57.1% WR, PF 2.1). Six-window " +
+                    "slice: 5 of 6 windows positive, mean +0.49R — the one weak window is the " +
+                    "MOST RECENT (2024-2026: -0.17R on 9 trades), so treat the current regime " +
+                    "with humility. CROSS-ASSET, honestly: ETH positive both halves but thin " +
+                    "in H2 (+0.09R); LTC fails H2 (-0.35R); SOL has too little history to " +
+                    "judge — this is a BTC-DAILY strategy, per the Bitcoin-native Loukas " +
+                    "framework. Design negatives kept on record: the raw in-window clock gate " +
+                    "tests neutral (provider notes), an Anchor-depth gate DELETED the good " +
+                    "half, and the structurally-pretty swing-low stop lost to ATR because " +
+                    "cycle lows get retested. Versus Trend Baseline on BTC (+2.02/+0.87R): " +
+                    "the baseline wins per-trade — v24 is its frequent, high-win-rate " +
+                    "COMPLEMENT (about one trade per cycle month vs a handful per decade), " +
+                    "not its replacement. REQUIRES: Loukas Cycles + Cipher B loaded, DAILY " +
+                    "bars. Risk: ATR(14)x3 stop, 2R banks 40%, ATR trail rides the up-leg, " +
+                    "0.5% risk per trade.",
+                Side: OrderSide.Buy,
+                Conditions: root,
+                Risk: risk,
+                ExecutionMode: StrategyExecutionMode.Suggestion,
+                CreatedUtc: DateTime.UtcNow,
+                UpdatedUtc: DateTime.UtcNow,
+                IsAutoActivate: false);
         }
 
         // ─────────────────────────────────────────────────────────────────────────────

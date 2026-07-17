@@ -136,6 +136,11 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 - [ ] Sector risk governor as an optional *enforcing* mode (default stays warn-only).
 - [ ] Pre-registered lab test: wider ladder (3R/6R or trail) for the gated v23 variants.
 - [x] Lab GUI tab in the Strategy modal DONE 2026-07-17 (walk-forward windows + battery comparison with the CI survivor gate; parameter sweeps remain lab-only for now).
+- [x] **v24 cycle strategy** DONE 2026-07-17 — `builtin.long.v24-cycle-low-reversal`
+  (DCL Confirmed within 2 + any v23 Cipher trigger within 8, ATR×3 stop, trail after
+  TP1). Lab-validated BTC daily both halves positive (+0.25R/+0.31R, 35/35 trades,
+  PF ~2.1), 5-of-6 windows; ETH thin, LTC fails H2, SOL insufficient — shipped as
+  BTC-daily with the negatives in the description. Closes the Wave-4 cycle-strategy arc.
 - [ ] Live order-stream subscription audit (SubscribeOrderUpdatesAsync has no callers).
 - [ ] PropertiesModal bUnit tests are timing-flaky on slow CI runners (8 failed on one
   run, passed on rerun and locally) — needs a render-settle wait in the click helpers.

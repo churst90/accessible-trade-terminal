@@ -6,6 +6,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### v24 Cycle Low Reversal seed — the cycle-strategy arc lands (2026-07-17)
+
+New built-in seed `builtin.long.v24-cycle-low-reversal` — **"Cycle Low
+Reversal — DCL + Cipher B (Long, crypto daily) [v24]"** — the strategy the
+Loukas Cycles indicator was built for. Entry logic: any v23 reversal trigger
+(WaveTrend Cross Bull / Oversold Crossover / Bullish Divergence) fired within
+8 bars AND a **confirmed daily cycle low within 2 bars**. The DCL confirmation
+is the entry event; the Cipher trigger is momentum evidence near the low. The
+8-bar trigger window (vs v23's 2) exists because cycle confirmation LAGS the
+low by the swing lookback — the first design with matched 2-bar windows
+produced 2 trades in 7 years.
+
+**Lab walk-forward (BTC daily 2011–2026, run 2026-07-17): positive BOTH
+halves.** H1 +0.25R (35 trades, 62.9% WR, PF 2.1); H2 +0.31R (35 trades,
+57.1% WR, PF 2.1). Six-window slice: 5 of 6 positive, mean +0.49R — the one
+weak window is the most recent (2024–2026, −0.17R on 9 trades). Cross-asset,
+honestly: ETH positive both halves but thin H2 (+0.09R); **LTC fails H2
+(−0.35R); SOL has too little history** — shipped as a BTC-daily strategy.
+
+Design negatives kept on record (in the seed's description and builder
+comments): an Anchor-Wave-depth gate deleted the good half (H1 −0.85R →
+removed); the structurally-appealing swing-low stop lost to ATR(14)×3 because
+confirmed cycle lows get retested (H2 −0.10R → +0.31R on identical entries);
+DCL-only without the Cipher trigger scored +0.33/+0.18 and lost under the
+weaker-half rule. Risk: ATR(14)×3 stop, 2R banks 40%, ATR trail after TP1
+rides the up-leg, 8R distant rung, 0.5% risk per trade, suggestion-only.
+
+Two new seed tests pin the validated wiring (descriptor strings, windows, the
+ABSENCE of the anchor gate, ATR stop + trail, and DCL component-name
+resolution against LoukasCyclesProvider metadata). 1714 → 1716 tests.
+
 ### The Lab tab: the research harness, in-app (2026-07-17)
 
 The Strategy modal (Alt+S) gains a **Lab** tab — the first slice of the
