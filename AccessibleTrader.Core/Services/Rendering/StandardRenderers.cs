@@ -35,7 +35,8 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// Resolves the per-bar color for a component at the given data index.
         /// Returns <c>null</c> when the component has no ColorRules (use static paint).
         /// </summary>
-        private static SKColor? ResolveBarColor(ComponentConfig comp, double[] data, int dataIdx)
+        // Internal (not private): direct color-rule tests via InternalsVisibleTo.
+        internal static SKColor? ResolveBarColor(ComponentConfig comp, double[] data, int dataIdx)
         {
             if (comp.ColorRules == null || comp.ColorRules.Count == 0) return null;
             if (dataIdx >= data.Length || double.IsNaN(data[dataIdx])) return null;

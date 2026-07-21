@@ -164,8 +164,9 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 - [ ] MAUI native window title: add the live price (WebHost browser-tab title has it,
   1s-sampled off DataStream in MainLayout; MainPage.xaml.cs `_titleSub` needs the same
   DataStream sampling — can't build-verify MAUI on Linux, do on Windows).
-- [ ] PropertiesModal bUnit tests are timing-flaky on slow CI runners (8 failed on one
-  run, passed on rerun and locally) — needs a render-settle wait in the click helpers.
+- [x] PropertiesModal bUnit flake FIXED 2026-07-21 — pre-click Find() raced the
+  initial render on starved runners; now WaitForElement/WaitForAssertion before
+  every interaction.
 
 ---
 
@@ -201,8 +202,8 @@ Full detail in `CHANGES.md` [Unreleased]. Suite 1447/1447 xunit + 12/12 JS.
 - [x] Rendering layer test coverage added (ChartMath forward mappings + renderer smoke
   tests, 56 tests) — closes the "largest lightly-tested class" gap (2026-07-10).
 - [ ] Mexc full contract enrollment after per-plugin dependency folders land.
-- [ ] `ResolveBarColor` is private → only indirectly tested; an InternalsVisibleTo
-  would allow direct color-rule tests (deferred — not worth a production change alone).
+- [x] `ResolveBarColor` direct tests DONE 2026-07-21 — made internal (Core already
+  has InternalsVisibleTo), 15 tests pin every condition boundary + rule ordering.
 
 ---
 
@@ -241,11 +242,9 @@ checkboxes are superseded by this section). Full detail in `CHANGES.md` [Unrelea
   custom actions, Android `ExploreByTouchHelper`, on-device VoiceOver/TalkBack
   verification. **Gated on macOS + physical devices**; spec in
   PLATFORM_STRATEGY_AND_ROADMAP §4.
-- [ ] **Speech-template editor UI** — needs ISpeechTemplateService DI registration
-  in both hosts plus per-component integration in PropertiesModal (958 lines);
-  deliberately not rushed. Templates remain editable in
-  `speech_templates.json` ({value}/{name}/{type}/{trend}/{open}/{high}/{low}/
-  {body}/{zone}/{price} placeholders).
+- [x] **Speech-template editor UI** — SUPERSEDED: shipped 2026-07-16 as the
+  PropertiesModal Speech tab editing ComponentConfig templates directly (no
+  ISpeechTemplateService needed).
 - [ ] **Play range** — sequencer needs an end-index concept; shift+click summary
   covers the measurement half.
 - [ ] Price-axis drag to scale (needs a manual y-range override in state);
@@ -283,12 +282,14 @@ real-app verification.
 
 - [ ] Playback visual cursor — verify whether playback already advances the rendered
   cursor bar on the browser re-render path; if not, add a highlighted-bar overlay.
-- [ ] Settings search (filter box across the six F12 tabs).
-- [ ] In-app UI scale setting (root font-size multiplier) for low vision.
-- [ ] Speech-template editor UI (templates currently hand-edited JSON).
+- [x] Settings search — SHIPPED 2026-07-16 (SettingsModal filter registry).
+- [x] In-app UI scale setting — SHIPPED 2026-07-16 (appearance.uiScale, applied at boot).
+- [x] Speech-template editor UI — SHIPPED 2026-07-16 as the PropertiesModal Speech tab
+  (edits ComponentConfig.SpeechTemplate/SignalSpeechTemplate directly; simpler design
+  than the ISpeechTemplateService item below, which it supersedes).
 - [ ] "Recent events" visual ticker surfacing the Journal ambiently (deaf/HoH).
 - [ ] Wire the built "Use Recommended" strategy preset button into BuildSetupTab.
-- [ ] HiDPI chart rendering at client devicePixelRatio (low vision; tracked earlier).
+- [x] HiDPI chart rendering at devicePixelRatio — SHIPPED 2026-07-16 (ChartArea).
 
 ---
 
@@ -357,13 +358,15 @@ by Cody.
 
 ### Phase B second pass (deferred, tracked)
 
-- [ ] Render-time hit-test index in ChartRenderer (per-series/component screen
-  geometry) → true per-component right-click menus + click-to-focus-series. Shared
-  infra for Phase C explore-by-touch and DotPad region mapping.
-- [ ] Click-drag range selection → Play range / spoken range summary / backtest here.
+- [x] Render-time hit-test index + click-to-focus-series — SHIPPED in the 2026-07-10
+  second pass (ChartHitTester).
+- [x] Click-drag range MEASURE (spoken range summary) — SHIPPED 2026-07-10. The
+  remaining halves are open below: Play-range needs a sequencer end-index; "backtest
+  here" needs date-scoped config plumbed from the selection.
 - [ ] Price-axis drag to scale; time-axis drag to zoom; double-click axis to reset.
-- [ ] Magnet/snap mode for drawing anchors (snap to nearest bar OHLC).
-- [ ] Optional quiet hover-sonification mode (default off).
+- [x] Magnet/snap mode for drawing anchors — SHIPPED 2026-07-10 (AppSettings.MagnetSnap).
+- [x] Quiet hover-sonification mode (default off) — SHIPPED 2026-07-10
+  (accessibility.hoverSonification).
 
 ---
 
@@ -735,9 +738,9 @@ boundary hits) work on Linux. Two candidate backends, both viable:
   `LinuxBwrapLauncherTests`. Hardening follow-ups (deferred, not required by the
   threat model): `--tmpfs` over `$HOME`, `--clearenv`, and a `--seccomp` BPF
   whitelist. **Note: install `bubblewrap` on the Linux host to get the sandbox.**
-- [ ] **L6 — Docs.** Update `docs/PLATFORMS.md` with Linux compat row
-  and the tactile-deferred decision. File an upstream issue at
-  `dotincorp/dotpad-sdk-guide` requesting Linux 3.0.0 parity.
+- [x] **L6 — Docs.** PLATFORMS.md has the Linux compat row + tactile-deferred
+  decision (verified 2026-07-21). REMAINING (Cody, external): file the upstream
+  issue at `dotincorp/dotpad-sdk-guide` requesting Linux 3.0.0 parity.
 - [x] **L7 — Demo deploy.** *(Shipped 2026-06-25/26.)* Implemented as a
   central `DemoPolicy` (`AccessibleTrader.Core/Services/DemoPolicy.cs`)
   running the REAL shell (MainLayout) under a curated whitelist, rather than

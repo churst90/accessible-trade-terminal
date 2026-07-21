@@ -89,7 +89,7 @@ public class PropertiesModalTests
 
         var cut = OpenProperties(h);
 
-        var dialog = cut.Find("[role='dialog']");
+        var dialog = cut.WaitForElement("[role='dialog']");
         Assert.Equal("props-title", dialog.GetAttribute("aria-labelledby"));
     }
 
@@ -101,7 +101,7 @@ public class PropertiesModalTests
 
         var cut = OpenProperties(h);
 
-        var title = cut.Find("h2#props-title");
+        var title = cut.WaitForElement("h2#props-title");
         Assert.Contains("RSI 14", title.TextContent);
     }
 
@@ -113,7 +113,7 @@ public class PropertiesModalTests
 
         var cut = OpenProperties(h);
 
-        Assert.Equal("true", cut.Find("button#props-tab-general").GetAttribute("aria-selected"));
+        Assert.Equal("true", cut.WaitForElement("button#props-tab-general").GetAttribute("aria-selected"));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class PropertiesModalTests
         SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
 
         var cut = OpenProperties(h);
-        cut.Find("button#props-tab-appearance").Click();
+        cut.WaitForElement("button#props-tab-appearance").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -141,7 +141,7 @@ public class PropertiesModalTests
         SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
 
         var cut = OpenProperties(h);
-        cut.Find("button#props-tab-sonification").Click();
+        cut.WaitForElement("button#props-tab-sonification").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -158,7 +158,7 @@ public class PropertiesModalTests
         SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
 
         var cut = OpenProperties(h);
-        cut.Find("button#props-tab-speech").Click();
+        cut.WaitForElement("button#props-tab-speech").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -176,7 +176,7 @@ public class PropertiesModalTests
 
         var cut = OpenProperties(h);
 
-        Assert.NotNull(cut.Find("button#props-tab-general"));
+        Assert.NotNull(cut.WaitForElement("button#props-tab-general"));
         Assert.NotNull(cut.Find("button#props-tab-appearance"));
         Assert.NotNull(cut.Find("button#props-tab-sonification"));
         Assert.NotNull(cut.Find("button#props-tab-speech"));
@@ -201,6 +201,10 @@ public class PropertiesModalTests
         SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
 
         var cut = OpenProperties(h);
+        // FindAll immediately after open races the initial render on starved
+        // runners — wait for the button to exist before grabbing it.
+        cut.WaitForAssertion(() =>
+            Assert.Contains(cut.FindAll("button"), b => b.TextContent.Trim() == "Cancel"));
         var cancel = cut.FindAll("button").First(b => b.TextContent.Trim() == "Cancel");
 
         cancel.Click();
@@ -233,7 +237,7 @@ public class PropertiesModalTests
         SeedActiveSeries(h, SeriesWithComponents());
 
         var cut = OpenProperties(h);
-        cut.Find("button#props-tab-sonification").Click();
+        cut.WaitForElement("button#props-tab-sonification").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -250,7 +254,7 @@ public class PropertiesModalTests
         SeedActiveSeries(h, SeriesWithComponents()); // one Candle (directional) + one Line (not)
 
         var cut = OpenProperties(h);
-        cut.Find("button#props-tab-sonification").Click();
+        cut.WaitForElement("button#props-tab-sonification").Click();
 
         // Exactly one green/red pair — the candle body's; the line omits them.
         // Post-click renders can lag on starved CI runners; poll instead of

@@ -72,7 +72,7 @@ changelog see [`CHANGES.md`](CHANGES.md).
   harness share ONE definition of "survivor"; two latent order-stream bugs
   (paper double-subscribe, single-slot provider drop) fixed before they could
   ever fire.
-- Test coverage grew from 1,701 to **1,740** automated tests, run in Debug and
+- Test coverage grew from 1,701 to **1,755** automated tests, run in Debug and
   Release on every push.
 
 ---

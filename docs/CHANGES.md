@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.9.0] — 2026-07-21
 
 ### Schwab/Tradier fill announcements: polling fallback + Tradier account stream (2026-07-21)
 
