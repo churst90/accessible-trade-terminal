@@ -285,6 +285,7 @@ namespace AccessibleTrader.Core.Services.Input
                 }
                 case SystemCommand.SaveWorkspace: _eventBus.Publish(new OpenSaveWorkspaceEvent()); return;
                 case SystemCommand.LoadWorkspace: _eventBus.Publish(new OpenLoadWorkspaceEvent()); return;
+                case SystemCommand.LoadChart: _eventBus.Publish(new LoadChartRequestedEvent()); return;
                 case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
                 case SystemCommand.AddReferenceLevel:
                 {

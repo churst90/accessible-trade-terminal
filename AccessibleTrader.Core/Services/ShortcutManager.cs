@@ -325,6 +325,7 @@ namespace AccessibleTrader.Core.Services
 
             // Workspace management
             s.Add(new(SystemCommand.SaveWorkspace, "W", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+W
+            s.Add(new(SystemCommand.LoadChart, "L", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+L
             s.Add(new(SystemCommand.LoadWorkspace, "W", Ctrl: true, Alt: true));               // Ctrl+Alt+W
 
             // Sub-pane navigation (jump between panes)

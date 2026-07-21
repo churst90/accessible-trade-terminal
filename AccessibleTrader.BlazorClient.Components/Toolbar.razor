@@ -346,6 +346,7 @@
 
 @code {
     private IDisposable? _pipelineSub;
+    private IDisposable? _loadChartSub;
     private string? _loadError;
 
     // ── Custom timeframe composer state ──────────────────────────────────
@@ -384,6 +385,21 @@
         // Re-render whenever market/provider/symbol/timeframe lists change.
         _pipelineSub = MarketOrchestrator.PipelineUpdated
             .Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
+        // including the shape-change pre-flight warning. Spoken refusal instead of
+        // a silent no-op when the market cascade isn't complete yet.
+        _loadChartSub = EventBus.Subscribe<LoadChartRequestedEvent>(_ => InvokeAsync(async () =>
+        {
+            if (!CanLoad)
+            {
+                EventBus.Publish(new AnnouncementEvent(
+                    "Cannot load yet. Choose a market, provider, and symbol first.", true));
+                return;
+            }
+            await LoadChart();
+            StateHasChanged();
+        }));
 
         // Parse the existing SelectedTimeframe to seed the composer fields.
         ParseTimeframe(MarketOrchestrator.SelectedTimeframe);
@@ -625,5 +641,6 @@
 
     public void Dispose() {
         _pipelineSub?.Dispose();
+        _loadChartSub?.Dispose();
     }
 }

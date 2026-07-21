@@ -139,6 +139,9 @@ namespace AccessibleTrader.Core.Models
     public record OpenAIAnalystEvent();
     public record OpenSaveWorkspaceEvent();
     public record OpenLoadWorkspaceEvent();
+    /// <summary>Keyboard-driven "Load chart" (Ctrl+Alt+Shift+L) — the Toolbar owns the
+    /// selection state and pre-flight warning, so the dispatcher just asks it to load.</summary>
+    public record LoadChartRequestedEvent();
     public record OpenJournalEvent();
 
     /// <summary>Ctrl+Alt+Shift+M — ask the background monitoring service to speak its

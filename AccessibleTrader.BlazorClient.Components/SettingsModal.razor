@@ -751,9 +751,20 @@
                 <div style="padding:8px 0; color:#111; line-height:1.7; font-size:0.92rem;">
                     <p><strong>Accessible Trade Terminal</strong></p>
                     <p>Copyright &copy; 2026 Accessible Trader contributors.</p>
-                    <p>MIT License — Free to use, modify, and distribute with attribution.</p>
-                    <p>Full license text: <a href="https://opensource.org/licenses/MIT" target="_blank"
-                           style="color:#0078d4;">https://opensource.org/licenses/MIT</a></p>
+                    @* Matches the LICENSE file at the repository root — this said MIT
+                       until 2026-07-21, which was wrong. *@
+                    <p>GNU General Public License v3.0 — free software: use, study, modify,
+                       and share it. Derivative works must remain under the same license.</p>
+                    <p>Full license text: <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank"
+                           style="color:#0078d4;">https://www.gnu.org/licenses/gpl-3.0.html</a></p>
+
+                    <h3 style="margin-top:14px;">Support development</h3>
+                    <p>The terminal is donation-supported — free for everyone, kept alive by
+                       the people who use it. If it has earned a place in your trading day:</p>
+                    <ul>
+                        <li>Cash App: <strong>$churst90</strong></li>
+                        <li>PayPal: <strong>cody@x64mail.com</strong></li>
+                    </ul>
                 </div>
             </div>
 
@@ -826,7 +837,7 @@
         new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap"),
         new("Email alerts", "Alerts", "s-email-host", "smtp mail notification"),
         new("Telegram alerts", "Alerts", "s-tg-token", "bot chat notification"),
-        new("License", "License", "tab-license", "tier supporter key"),
+        new("License", "License", "tab-license", "tier supporter key gpl donate donation support cash app paypal"),
     };
 
     private string _searchQuery = string.Empty;

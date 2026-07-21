@@ -170,6 +170,53 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ---
 
+## [2026-07-21] — Cody's UX batch (screened, post-1.9.0)
+
+Shipped immediately (same day): Ctrl+Alt+Shift+L LoadChart command (global, spoken
+refusal when the cascade is incomplete, same pre-flight as the button); License tab
+corrected MIT → GPL v3 + "Support development" donation section (Cash App $churst90,
+PayPal cody@x64mail.com). Verified already-wired: the Applications/Menu key and
+Shift+F10 open the right-click context menu (Phase B) — no work needed.
+
+### Mute-tier redesign (the F-key row) (~2-3d total, ship as one coherent change)
+
+The organizing principle: **unshifted F-key = the interactive channel (things you
+asked for), Shift+F-key = the ambient channel (things that happen to you).**
+
+- [ ] **F2 tightened**: speech off must silence ALL command-response speech —
+  navigation values, zoom/pan announcements, context summary, granularity, every
+  manual command. Today several paths bypass the toggle. Event speech (alerts,
+  fills) still speaks. Needs a Manual-vs-Event channel tag at the speech-router
+  level, not per-call-site checks (that's how the bypasses happened).
+- [ ] **Shift+F2**: mute event-triggered speech (alerts, monitoring, setup
+  announcements). DESIGN DECISION on record: order-execution outcomes (fills,
+  stops, rejections) BREAK THROUGH by default — the manual's "the one feedback
+  you never miss" promise survives the mute; a setting can opt them into the
+  mute group for users who really want total silence.
+- [ ] **F3 unchanged** (chart sonification: nav tones, playback); **Shift+F3**
+  additionally mutes earcons. Same break-through rule for order-event earcons.
+- [ ] **F4 → braille toggle** (was ContextSummary). On WebHost (no braille) it
+  speaks "Braille not available on this platform" instead of silently no-oping.
+- [ ] **ContextSummary → Shift+F1** (F1 help, Shift+F1 "where am I" — same family).
+  Migration: rebindable as always + a WHATSNEW note; users' saved custom bindings
+  are untouched (only the DEFAULT moves).
+- [ ] **Shift+F4 → braille display picker modal** (device selection; desktop heads
+  only, hidden on WebHost like the braille settings).
+- [ ] **Mute exclusions, scoped v1**: per-alert "break through mutes" checkbox in
+  the Alerts dialog (per-earcon/per-event exclusion lists deferred until someone
+  asks — the checkbox plus the order-event default covers the real cases).
+
+### Hosted double-speech (Chrome: Orca + browser TTS both speak) (~1d)
+
+- [ ] **Speech output setting** on the web head: "Screen reader (live region)" /
+  "Browser voice" / "Both", persisted per user. Browsers deliberately do NOT
+  expose whether a screen reader is running (privacy), so detection is
+  impossible — the fix is an explicit choice, not a check. First visit on the
+  hosted site: an accessible one-time prompt ("How should the terminal speak?")
+  defaulting to Screen reader when the user tabs into it (an SR user will hear
+  the live region either way). Local WebHost/desktop unaffected (Orca D-Bus
+  path already exclusive).
+
 ## [2026-07-10] — Phase E test-debt closure (Finalization plan)
 
 Full detail in `CHANGES.md` [Unreleased]. Suite 1447/1447 xunit + 12/12 JS.

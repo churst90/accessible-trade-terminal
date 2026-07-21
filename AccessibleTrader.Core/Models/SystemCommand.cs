@@ -123,6 +123,7 @@ namespace AccessibleTrader.Core.Models
         // Workspace management
         SaveWorkspace,   // Ctrl+Alt+Shift+W: save workspace profile
         LoadWorkspace,   // Ctrl+Alt+W: load workspace profile
+        LoadChart,       // Ctrl+Alt+Shift+L: load the chart for the toolbar's selected symbol
 
         // Sub-pane navigation
         NavSubPaneNext,        // Ctrl+PageDown: jump to first component of next sub-pane

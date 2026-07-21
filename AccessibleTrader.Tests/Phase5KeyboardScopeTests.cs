@@ -138,6 +138,7 @@ namespace AccessibleTrader.Tests
         // Workspace management
         [InlineData(SystemCommand.SaveWorkspace)]
         [InlineData(SystemCommand.LoadWorkspace)]
+        [InlineData(SystemCommand.LoadChart)]
         // Data-source change commands (toolbar-driven, no key binding today)
         [InlineData(SystemCommand.ChangeProvider)]
         [InlineData(SystemCommand.ChangeSymbol)]
@@ -212,7 +213,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.AddTab, SystemCommand.CloseTab,
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,
-                SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace,
+                SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
                 SystemCommand.CloseModal,
