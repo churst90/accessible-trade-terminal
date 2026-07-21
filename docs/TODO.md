@@ -318,15 +318,18 @@ real-app verification.
 
 ### Phase D remaining (deferred, tracked)
 
-- [ ] Playback visual cursor — verify whether playback already advances the rendered
-  cursor bar on the browser re-render path; if not, add a highlighted-bar overlay.
+- [x] Playback visual cursor — VERIFIED WORKING 2026-07-21: AudioSequencer dispatches
+  NavigateAction per point → StateStream → ChartArea's 100ms-throttled browser
+  re-render draws the crosshair at the new cursor. No overlay needed.
 - [x] Settings search — SHIPPED 2026-07-16 (SettingsModal filter registry).
 - [x] In-app UI scale setting — SHIPPED 2026-07-16 (appearance.uiScale, applied at boot).
 - [x] Speech-template editor UI — SHIPPED 2026-07-16 as the PropertiesModal Speech tab
   (edits ComponentConfig.SpeechTemplate/SignalSpeechTemplate directly; simpler design
   than the ISpeechTemplateService item below, which it supersedes).
 - [ ] "Recent events" visual ticker surfacing the Journal ambiently (deaf/HoH).
-- [ ] Wire the built "Use Recommended" strategy preset button into BuildSetupTab.
+- [x] "Use Recommended" preset button DONE 2026-07-21 — BuildSetupTab button loads the
+  per-asset/timeframe recommended v23 spec (same logic as the strategy list's ★)
+  into the editor via LoadFromSpec; side-aware, spoken confirmation/refusals.
 - [x] HiDPI chart rendering at devicePixelRatio — SHIPPED 2026-07-16 (ChartArea).
 
 ---
@@ -712,11 +715,9 @@ Supporting refactors (additive, no production-behaviour change):
 
 ### Medium-value tests still pending
 
-- [ ] `WebHostPathServiceXdgTests` (2 cases) — directory ends with
-  `/AccessibleTrader`; created on construction. Defer until after
-  L5 so the test fixture can share temp-dir helpers.
-- [ ] `WebHostAppLoggerDedupTests` (3 cases) — same-(source,message)
-  inside 3s dedupe behaviour.
+- [x] `WebHostPathServiceXdgTests` DONE 2026-07-21 (3 cases incl. the hosted
+  explicit-root ctor) — WebHostPathAndLoggerTests.
+- [x] `WebHostAppLoggerDedupTests` DONE 2026-07-21 (3 cases) — same file.
 - [ ] `WebHostProgramStartupSmokeTests` (1 case) — boots host via
   `WebApplicationFactory<Program>`, `GET /` returns 200, all DI
   singletons resolvable. Defer until L4-B / L4-C ship so the smoke

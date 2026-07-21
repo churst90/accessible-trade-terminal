@@ -14,6 +14,10 @@
 *@
 
 @using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@inject IWorkspaceStore Store
+@inject IEventBus EventBus
 @implements IDisposable
 
 <div role="tabpanel" aria-labelledby="tab-build">
@@ -47,6 +51,19 @@
                 <option value="@AccessibleTrader.Sdk.Plugins.OrderSide.Sell">Short (Sell)</option>
             </select>
         </div>
+
+        @* Seed the composer with the empirically-recommended preset for the loaded
+           chart (same per-asset/timeframe logic as the ★ in the strategy list).
+           Loads a full editable copy — conditions and risk plan — so the user
+           starts from the validated design instead of a blank tree. *@
+        <div class="modal-row">
+            <button id="bs-use-recommended" type="button"
+                    aria-label="Use recommended preset for the loaded chart"
+                    title="Loads the lab-validated strategy preset for this symbol and timeframe into the editor."
+                    @onclick="UseRecommended">
+                Use Recommended
+            </button>
+        </div>
     </fieldset>
 
     @* ── Child editors ───────────────────────────────────────────────────────── *@
@@ -63,6 +80,31 @@
     private EditableStrategySpec _spec = new();
 
     private void OnSpecReplaced() => StateHasChanged();
+
+    private void UseRecommended()
+    {
+        var state = Store.State;
+        string symbol = state.Identity.Symbol ?? "";
+        if (string.IsNullOrEmpty(symbol))
+        {
+            EventBus.Publish(new AnnouncementEvent("Load a chart first — the recommendation depends on the symbol and timeframe.", true));
+            return;
+        }
+
+        var bars = state.Data?.ToList();
+        var spec = _spec.Side == AccessibleTrader.Sdk.Plugins.OrderSide.Sell
+            ? BuiltInStrategySeeds.GetRecommendedV23ShortSpec(symbol, state.Identity.Timeframe, bars)
+            : BuiltInStrategySeeds.GetRecommendedV23LongSpec(symbol, state.Identity.Timeframe, bars);
+        if (spec == null)
+        {
+            EventBus.Publish(new AnnouncementEvent("No recommended preset for this chart.", true));
+            return;
+        }
+
+        _spec.LoadFromSpec(spec);
+        StateHasChanged();
+        EventBus.Publish(new AnnouncementEvent($"Loaded recommended preset: {spec.Name}. Edit freely — saving creates your own copy.", true));
+    }
 
     public void Dispose()
     {

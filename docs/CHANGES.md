@@ -44,6 +44,20 @@ to you).**
 13 new MuteTierTests pin every gate combination. Modal open/close
 announcements (a router bypass into the ARIA live region) now respect F2 too.
 
+### Small-item sweep (2026-07-21)
+
+- **"Use Recommended" button** in the strategy composer's Build Setup tab:
+  loads the lab-validated preset for the loaded symbol/timeframe (the same
+  per-asset logic as the strategy list's ★) into the editor as a fully
+  editable copy — conditions, risk plan, everything. Side-aware (Long/Short),
+  with spoken confirmation and spoken refusals when no chart is loaded.
+- **Playback visual cursor verified working** — the sequencer already drives
+  the store cursor per point and the browser path re-renders the crosshair at
+  up to 10 fps. TODO item closed as verified, no code needed.
+- **WebHost test debt**: the pending XDG path-service and app-logger-dedup
+  test groups landed (6 tests). Remaining from that list: the startup smoke
+  test and the diag-journal endpoint tests.
+
 ## [1.9.0] — 2026-07-21
 
 ### Schwab/Tradier fill announcements: polling fallback + Tradier account stream (2026-07-21)
