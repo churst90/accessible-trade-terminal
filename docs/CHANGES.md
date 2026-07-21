@@ -6,6 +6,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Schwab/Tradier fill announcements: polling fallback + Tradier account stream (2026-07-21)
+
+Closing the gap the order-stream audit exposed, in two layers:
+
+**Order-status polling fallback (all non-streaming brokers).** New
+`ITradingProvider.SupportsOrderEventStreaming` capability (default-true DIM;
+Schwab/Tradier override). When an order is placed on a provider reporting
+false, `GeneralOrderService` watches it: poll open orders (5s for the first
+minute, then 30s) until the order leaves the list, then look up the fill
+(retrying — the fills endpoint can lag the open list) and publish the same
+`OrderUpdate` a streaming broker would have pushed. The placed ORDER TYPE
+supplies the trigger semantics polling can't see (a StopMarket fill announces
+"Stop loss hit"). No fill record → treated as cancelled (logged, not
+announced as filled). Loop ends on resolution, disconnect, five consecutive
+poll failures (spoken "could not verify" warning), or service disposal.
+Known limitation, in the manual: broker-attached protective legs have their
+own order ids the terminal never sees, so those aren't watched.
+
+**Tradier account-event websocket.** Session minted per (re)connect via
+`POST /v1/accounts/events/session`, then `wss://ws.tradier.com/v1/accounts/
+events` with `{"events":["order"],...}` (sandbox host on sandbox accounts;
+SDK `ReconnectingWebSocket`, heartbeat disabled — Tradier defines no client
+ping). Wire statuses map: filled → Filled (avg_fill_price, stop-type orders
+announce as stop hits), partially_filled → PartialFill (last_fill_quantity,
+not the running total), canceled/expired → Cancelled, rejected → Rejected;
+open/pending/malformed stay silent. `SupportsOrderEventStreaming` is DYNAMIC
+on Tradier — true only while the socket is actually connected and subscribed,
+so if the stream can't come up, the polling fallback still covers every
+order. Not yet verified against a live Tradier account (needs credentials);
+the mapping is pinned by 7 wire-format tests.
+
+Schwab's ACCT_ACTIVITY streamer remains future work (needs the full streamer
+handshake and a real account); polling covers it meanwhile. 16 new tests
+(1724 → 1740).
+
 ### Live order streams finally wired: real-broker fills now announce (2026-07-21)
 
 The order-stream audit found `SubscribeOrderUpdatesAsync` had ZERO production

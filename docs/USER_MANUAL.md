@@ -951,13 +951,15 @@ while you are concentrating elsewhere can be read back afterward. (Realized prof
 and loss are spoken on every paper close; on a live exchange they appear when the
 exchange reports them.)
 
-One honest limitation: these real-time announcements depend on the broker pushing
-order events to the terminal. The paper simulator and the streaming brokers
-(Binance, Alpaca, Coinbase, Kraken, Bitstamp, MEXC, OANDA, Interactive Brokers) do.
-**Schwab and Tradier do not yet stream order events** — orders route and fill
-normally there, but you learn the outcome from the Trading Dashboard's Orders and
-History tabs rather than from an immediate spoken announcement. Closing that gap is
-on the roadmap.
+A timing note for two brokers: most brokers (and the paper simulator) push order
+events instantly, so announcements are immediate. **Tradier** now has a live
+account-event stream too; if it can't connect, and always on **Schwab** (whose
+push channel isn't implemented yet), the terminal instead watches each order you
+place by polling the broker — so fills, stops, and cancels there still announce,
+typically within a few seconds (up to about half a minute for an order that has
+been resting a long time). One thing polling cannot see: protective legs the
+broker attaches server-side get their own order ids, so if one of those fires on
+Schwab you'll find it in the Orders/History tabs rather than hearing it named.
 
 ### Positions, orders, balances, and history
 

@@ -46,6 +46,16 @@ namespace AccessibleTrader.Plugins.Tradier
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // Dynamic: true only while the account websocket is actually connected and
+        // subscribed. GeneralOrderService reads this at order-placement time — if
+        // the stream is down (network trouble, sandbox without the entitlement),
+        // it falls back to status polling so fills still announce either way.
+        public bool SupportsOrderEventStreaming => _accountStreamUp && (_accountWs?.IsConnected ?? false);
+
+        // Account-event websocket (order status push).
+        private ReconnectingWebSocket? _accountWs;
+        private volatile bool _accountStreamUp;
+
         public override string Name => "Tradier";
         public override string Description => "Tradier — US Stocks & Options Trading";
         public override List<MarketType> SupportedMarkets => new List<MarketType> { MarketType.Stock, MarketType.Options };
@@ -165,6 +175,97 @@ namespace AccessibleTrader.Plugins.Tradier
             if (string.IsNullOrEmpty(_accountId))
                 await ValidateApiKeyAsync();
             _connectionStateStream.OnNext(ConnectionState.Connected);
+            if (!string.IsNullOrEmpty(_accountId))
+                StartAccountEventStream();
+        }
+
+        // ── Account-event stream ────────────────────────────────────────────
+        // Tradier pushes order status over a websocket: mint a session id
+        // (POST /accounts/events/session), connect wss://ws.tradier.com
+        // /v1/accounts/events, and send {"events":["order"],"sessionid":...}.
+        // Sessions are single-use and expire 5 minutes after creation, so a
+        // fresh one is minted inside OnConnected on every (re)connect.
+        private void StartAccountEventStream()
+        {
+            if (_accountWs != null) return;
+            string wsUrl = _isSandbox
+                ? "wss://sandbox-ws.tradier.com/v1/accounts/events"
+                : "wss://ws.tradier.com/v1/accounts/events";
+
+            // Heartbeat disabled (negative interval): Tradier defines no client
+            // ping message, and an unrecognised text frame risks a server-side
+            // close → reconnect churn that burns a session POST each cycle.
+            _accountWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromMilliseconds(-1))
+                .OnConnected(async ws =>
+                {
+                    var resp = await _httpClient.PostAsync($"{_baseUrl}/accounts/events/session", null);
+                    var json = JObject.Parse(await resp.Content.ReadAsStringAsync());
+                    var sessionId = json["stream"]?["sessionid"]?.ToString();
+                    if (string.IsNullOrEmpty(sessionId))
+                        throw new InvalidOperationException("Tradier account-events session denied.");
+                    await ws.SendAsync(new JObject
+                    {
+                        ["events"] = new JArray("order"),
+                        ["sessionid"] = sessionId,
+                        ["excludeAccounts"] = new JArray(),
+                    }.ToString(Newtonsoft.Json.Formatting.None));
+                    _accountStreamUp = true;
+                })
+                .OnMessage(HandleAccountEvent)
+                .OnDisconnected(() => _accountStreamUp = false)
+                .OnError(err =>
+                {
+                    _accountStreamUp = false;
+                    _errorStream.OnNext($"Tradier account stream: {err}");
+                });
+            _ = _accountWs.ConnectAsync();
+        }
+
+        internal void HandleAccountEvent(string message)
+        {
+            try
+            {
+                var json = JObject.Parse(message);
+                if (json["event"]?.ToString() != "order") return;
+
+                string status = json["status"]?.ToString() ?? "";
+                OrderStatus? mapped = status switch
+                {
+                    "filled" => OrderStatus.Filled,
+                    "partially_filled" => OrderStatus.PartialFill,
+                    "canceled" or "cancelled" or "expired" => OrderStatus.Cancelled,
+                    "rejected" => OrderStatus.Rejected,
+                    _ => null, // open / pending etc — not announceable events
+                };
+                if (mapped == null) return;
+
+                string type = json["type"]?.ToString() ?? "";
+                string side = json["side"]?.ToString() ?? "";
+                double avgFill   = json["avg_fill_price"]?.Value<double>() ?? 0;
+                double lastQty   = json["last_fill_quantity"]?.Value<double>() ?? 0;
+                double execQty   = json["executed_quantity"]?.Value<double>() ?? 0;
+                double remaining = json["remaining_quantity"]?.Value<double>() ?? 0;
+
+                _orderUpdateSubject.OnNext(new OrderUpdate(
+                    OrderId: json["id"]?.ToString() ?? "",
+                    Symbol: json["symbol"]?.ToString() ?? "",
+                    // Tradier sides include buy_to_cover / sell_short — prefix match.
+                    Side: side.StartsWith("buy", StringComparison.OrdinalIgnoreCase)
+                        ? OrderSide.Buy : OrderSide.Sell,
+                    FilledQuantity: mapped == OrderStatus.PartialFill && lastQty > 0 ? lastQty : execQty,
+                    FilledPrice: avgFill,
+                    RemainingQuantity: remaining,
+                    Status: mapped.Value,
+                    // No trigger flags on the wire; the ORDER TYPE says what a fill means.
+                    StopTriggered: mapped == OrderStatus.Filled
+                        && type.Contains("stop", StringComparison.OrdinalIgnoreCase),
+                    TakeProfitTriggered: false,
+                    Timestamp: DateTime.UtcNow));
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier account event parse error: {ex.Message}");
+            }
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -666,6 +767,7 @@ namespace AccessibleTrader.Plugins.Tradier
                 _httpClient?.Dispose();
                 _streamClient?.Dispose();
                 _streamCts?.Dispose();
+                _accountWs?.Dispose();
                 _orderUpdateSubject?.Dispose();
             }
             base.Dispose(disposing);

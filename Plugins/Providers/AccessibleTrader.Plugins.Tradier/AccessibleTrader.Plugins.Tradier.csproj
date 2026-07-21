@@ -15,4 +15,9 @@
     <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- HandleAccountEvent is internal; the test project pins the order-event mapping. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

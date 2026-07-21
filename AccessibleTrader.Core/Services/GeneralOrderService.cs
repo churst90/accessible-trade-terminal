@@ -148,6 +148,8 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
+            _disposeCts.Cancel();
+            _disposeCts.Dispose();
             _connectionSub?.Dispose();
             lock (_liveStreamLock)
             {
@@ -285,6 +287,20 @@ namespace AccessibleTrader.Core.Services
                         () => VerifyProtectiveOrdersAsync(tp, providerName, capturedSignal),
                         _logger, "VerifyProtectiveOrders");
                 }
+
+                // ── 5. Order-status polling fallback. Brokers whose OrderUpdateStream
+                //    is a dead subject (Schwab, Tradier — no streaming implementation)
+                //    would otherwise NEVER announce this order's outcome. Poll open
+                //    orders until the order resolves and synthesize the OrderUpdate
+                //    the stream would have pushed.
+                if (!IsErrorSentinel(result) && !tp.SupportsOrderEventStreaming)
+                {
+                    var capturedSignal = signal;
+                    string orderId = result;
+                    SafeFireAndForget.Run(
+                        () => PollOrderUntilResolvedAsync(tp, providerName, capturedSignal, orderId),
+                        _logger, "PollOrderStatus");
+                }
                 return result;
             }
             catch (Exception ex)
@@ -387,6 +403,118 @@ namespace AccessibleTrader.Core.Services
         private static bool IsProtectiveType(OrderType t) =>
             t == OrderType.StopMarket || t == OrderType.StopLimit
             || t == OrderType.TakeProfitMarket || t == OrderType.TakeProfitLimit;
+
+        // ── Order-status polling fallback (non-streaming brokers) ─────────────
+        // Poll cadence: fast while the order is fresh (market orders resolve in
+        // seconds), then slow for resting limit/GTC orders. Internal so tests can
+        // shorten them. The loop ends when the order resolves, the provider
+        // disconnects, polling fails repeatedly, or the service is disposed.
+        internal TimeSpan OrderPollFastInterval = TimeSpan.FromSeconds(5);
+        internal TimeSpan OrderPollSlowInterval = TimeSpan.FromSeconds(30);
+        internal int OrderPollFastCount = 12;          // ~1 min of fast polling
+        internal int OrderPollMaxConsecutiveErrors = 5;
+
+        private readonly System.Threading.CancellationTokenSource _disposeCts = new();
+
+        /// <summary>
+        /// Watches one placed order on a non-streaming broker by polling
+        /// GetOpenOrdersAsync until the order leaves the open list, then looks for a
+        /// matching fill record and publishes the same OrderUpdate a streaming broker
+        /// would have pushed — so "Order filled / Stop loss hit / Take profit hit"
+        /// announce on Schwab/Tradier too. Known limitation (documented in the manual):
+        /// protective legs the BROKER attaches server-side to an entry get their own
+        /// order ids we never see, so only orders placed through the terminal are
+        /// watched.
+        /// </summary>
+        internal async Task PollOrderUntilResolvedAsync(
+            ITradingProvider tp, string providerName, TradeSignal signal, string orderId)
+        {
+            var ct = _disposeCts.Token;
+            int errors = 0;
+            for (int i = 0; !ct.IsCancellationRequested; i++)
+            {
+                try
+                {
+                    await Task.Delay(i < OrderPollFastCount ? OrderPollFastInterval : OrderPollSlowInterval, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { return; }
+
+                if (!tp.IsConnected) return; // reconnect starts a fresh session; stale watch ends here
+
+                List<OpenOrder> open;
+                try
+                {
+                    open = await tp.GetOpenOrdersAsync(signal.Symbol).ConfigureAwait(false);
+                    errors = 0;
+                }
+                catch (Exception ex)
+                {
+                    if (++errors >= OrderPollMaxConsecutiveErrors)
+                    {
+                        _logger.LogWarning(ex,
+                            "Order-status polling gave up for {OrderId} on {Provider} after {Errors} consecutive failures.",
+                            orderId, providerName, errors);
+                        _errorCoordinator.ReportError(
+                            $"Could not verify the status of your {signal.Symbol} order — check your open orders.",
+                            ErrorSeverity.Medium);
+                        return;
+                    }
+                    continue;
+                }
+
+                if (open.Any(o => o.Id == orderId)) continue; // still working
+
+                // Gone from the open list → resolved. Find the fill; the fills
+                // endpoint can lag the open-orders endpoint by a beat, so retry a
+                // few times before concluding the order was cancelled.
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    try
+                    {
+                        var fills = await tp.GetFillsAsync(signal.Symbol, 50).ConfigureAwait(false);
+                        var fill = fills.FirstOrDefault(f => f.OrderId == orderId || f.Id == orderId);
+                        if (fill != null)
+                        {
+                            PublishOrderEvent(new OrderUpdate(
+                                orderId, fill.Symbol, fill.Side, fill.Quantity, fill.Price,
+                                RemainingQuantity: 0, OrderStatus.Filled,
+                                // Polling can't see the broker's trigger flags, but the
+                                // ORDER TYPE we placed tells us what a fill means.
+                                StopTriggered: IsStopType(signal.Type),
+                                TakeProfitTriggered: IsTakeProfitType(signal.Type),
+                                Timestamp: fill.FilledAt,
+                                RealizedPnL: fill.RealizedPnL == 0.0 ? null : fill.RealizedPnL));
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Fill lookup failed for {OrderId} on {Provider} (attempt {Attempt}).",
+                            orderId, providerName, attempt + 1);
+                    }
+                    try { await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                }
+
+                // No fill record → cancelled/expired/rejected upstream.
+                _logger.LogInformation(
+                    "Order {OrderId} on {Provider} left the open list with no fill record — treating as cancelled.",
+                    orderId, providerName);
+                PublishOrderEvent(new OrderUpdate(
+                    orderId, signal.Symbol, signal.Side, FilledQuantity: 0, FilledPrice: 0,
+                    RemainingQuantity: signal.Quantity, OrderStatus.Cancelled,
+                    StopTriggered: false, TakeProfitTriggered: false, Timestamp: DateTime.UtcNow));
+                return;
+            }
+        }
+
+        private static bool IsStopType(OrderType t) =>
+            t == OrderType.StopMarket || t == OrderType.StopLimit;
+
+        private static bool IsTakeProfitType(OrderType t) =>
+            t == OrderType.TakeProfitMarket || t == OrderType.TakeProfitLimit;
 
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {

@@ -50,6 +50,10 @@ namespace AccessibleTrader.Tests
             var live = (ITradingProvider)tp;
             live.IsConnected.Returns(true);
             live.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
+            // NSubstitute intercepts the SupportsOrderEventStreaming default interface
+            // member and would return false — which silently starts the polling
+            // fallback in every unrelated test. Pin the real-world default.
+            live.SupportsOrderEventStreaming.Returns(true);
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
 
             var err = Substitute.For<IGlobalErrorCoordinator>();
@@ -336,6 +340,116 @@ namespace AccessibleTrader.Tests
                 System.Threading.Thread.Sleep(20);
             }
             Assert.NotEmpty(fills);
+        }
+
+        // ── Order-status polling fallback (non-streaming brokers) ────────────
+        // Schwab/Tradier declare SupportsOrderEventStreaming=false; the service
+        // must watch each placed order by polling and synthesize the OrderUpdate
+        // the stream would have pushed.
+
+        private static void MakePollingFast(GeneralOrderService svc)
+        {
+            svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(10);
+            svc.OrderPollSlowInterval = TimeSpan.FromMilliseconds(10);
+        }
+
+        [Fact]
+        public async Task NonStreaming_broker_fill_is_discovered_by_polling_and_announced()
+        {
+            var h = Build();
+            MakePollingFast(h.Svc);
+            h.LiveTp.SupportsOrderEventStreaming.Returns(false);
+            h.LiveTp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("SCHWAB-1"));
+            // Poll 1: order still open. Poll 2: gone → fills endpoint has it.
+            int polls = 0;
+            h.LiveTp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(
+                ++polls == 1
+                    ? new List<OpenOrder> { new("SCHWAB-1", "AAPL", OrderSide.Buy, OrderType.Market, 10, 0, "open") }
+                    : new List<OpenOrder>()));
+            h.LiveTp.GetFillsAsync(Arg.Any<string?>(), Arg.Any<int>()).Returns(_ => Task.FromResult(
+                new List<TradeFill> { new("f1", "AAPL", OrderSide.Buy, 10, 231.50, DateTime.UtcNow, OrderId: "SCHWAB-1") }));
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            var result = await h.Svc.PlaceOrderAsync("Schwab", SaneSignal with { Symbol = "AAPL", Quantity = 10 });
+            Assert.Equal("SCHWAB-1", result);
+
+            await WaitFor(() => fills.Count == 1);
+            Assert.Equal("SCHWAB-1", fills[0].Order.OrderId);
+            Assert.Equal(231.50, fills[0].Order.FilledPrice);
+        }
+
+        [Fact]
+        public async Task NonStreaming_stop_order_fill_announces_as_stop_hit()
+        {
+            // Polling can't see broker trigger flags, so the placed ORDER TYPE
+            // decides the announcement: a StopMarket fill must speak as a stop.
+            var h = Build();
+            MakePollingFast(h.Svc);
+            h.LiveTp.SupportsOrderEventStreaming.Returns(false);
+            h.LiveTp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("SCHWAB-2"));
+            h.LiveTp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>()));
+            h.LiveTp.GetFillsAsync(Arg.Any<string?>(), Arg.Any<int>()).Returns(_ => Task.FromResult(
+                new List<TradeFill> { new("f2", "AAPL", OrderSide.Sell, 10, 220.0, DateTime.UtcNow, OrderId: "SCHWAB-2") }));
+            var stops = new List<StopHitEvent>();
+            var plainFills = new List<OrderFilledEvent>();
+            using var s1 = h.Bus.Subscribe<StopHitEvent>(stops.Add);
+            using var s2 = h.Bus.Subscribe<OrderFilledEvent>(plainFills.Add);
+
+            await h.Svc.PlaceOrderAsync("Schwab", SaneSignal with
+            {
+                Symbol = "AAPL", Side = OrderSide.Sell, Quantity = 10,
+                Type = OrderType.StopMarket, TriggerPrice = 220.0,
+            });
+
+            await WaitFor(() => stops.Count == 1);
+            Assert.Empty(plainFills);
+        }
+
+        [Fact]
+        public async Task NonStreaming_order_gone_without_fill_is_treated_as_cancelled_not_filled()
+        {
+            var h = Build();
+            MakePollingFast(h.Svc);
+            h.LiveTp.SupportsOrderEventStreaming.Returns(false);
+            h.LiveTp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("SCHWAB-3"));
+            h.LiveTp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>()));
+            int fillLookups = 0;
+            h.LiveTp.GetFillsAsync(Arg.Any<string?>(), Arg.Any<int>()).Returns(_ =>
+                { fillLookups++; return Task.FromResult(new List<TradeFill>()); });
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            await h.Svc.PlaceOrderAsync("Schwab", SaneSignal);
+
+            // The fills endpoint lags the open list on some brokers — the poller
+            // must retry the lookup before concluding "cancelled".
+            await WaitFor(() => fillLookups >= 3);
+            Assert.Empty(fills);
+        }
+
+        [Fact]
+        public async Task Streaming_broker_is_never_polled()
+        {
+            var h = Build();
+            MakePollingFast(h.Svc);
+            h.LiveTp.SupportsOrderEventStreaming.Returns(true);
+            h.LiveTp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("EX-9"));
+
+            // SaneSignal has no SL/TP → the protective verifier doesn't run either,
+            // so ANY GetOpenOrdersAsync call would come from the poller.
+            await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
+            await Task.Delay(100);
+
+            await h.LiveTp.DidNotReceive().GetOpenOrdersAsync(Arg.Any<string?>());
+        }
+
+        private static async Task WaitFor(Func<bool> condition)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (!condition() && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            Assert.True(condition());
         }
 
         [Fact]

@@ -17,9 +17,11 @@ changelog see [`CHANGES.md`](CHANGES.md).
   OANDA, Interactive Brokers). The fix also means fills keep announcing on
   every connected broker at once, and real-money orders still resting on an
   exchange keep speaking even while you practice in paper mode.
-- Honest limitation, now also stated in the manual: **Schwab and Tradier don't
-  stream order events yet** — outcomes there appear in the Trading Dashboard's
-  Orders/History tabs. Closing that gap is next on the trading roadmap.
+- **Schwab and Tradier announce now too.** Tradier gains a real account-event
+  stream (instant announcements), and both brokers get a polling fallback: the
+  terminal watches every order it places and announces the outcome within
+  seconds even when the broker can't push events. The manual's Trading chapter
+  has the fine print.
 
 ## Sub-dollar assets speak real prices
 
@@ -70,7 +72,7 @@ changelog see [`CHANGES.md`](CHANGES.md).
   harness share ONE definition of "survivor"; two latent order-stream bugs
   (paper double-subscribe, single-slot provider drop) fixed before they could
   ever fire.
-- Test coverage grew from 1,701 to **1,724** automated tests, run in Debug and
+- Test coverage grew from 1,701 to **1,740** automated tests, run in Debug and
   Release on every push.
 
 ---

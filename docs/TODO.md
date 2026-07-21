@@ -145,22 +145,22 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   self-wires per-provider live stream subscriptions on ConnectionStatusEvent(Connected);
   fixed the latent paper double-subscribe and single-slot-drop bugs. Schwab/Tradier
   streams are unfed (no streaming impl) — fills there surface via dashboard refresh.
-- [ ] **Order-status polling fallback** (~0.5-1d) — generic fix for ALL non-streaming
-  brokers (Schwab, Tradier, and any future one): while an order is working on a
-  provider that doesn't stream, poll GetOpenOrdersAsync every few seconds, diff
-  statuses, synthesize OrderUpdate → the existing announce path. Needs a
-  SupportsOrderStreaming capability flag (or just "no OnNext observed") to gate it.
-  Fully testable offline with substitutes — DO THIS FIRST, it closes the user-facing
-  gap on both brokers at once.
-- [ ] **Tradier account-events stream** (~1d) — Tradier has an SSE events endpoint for
-  account/order events and the provider already runs an SSE client for market data
-  (`stream.tradier.com/v1/markets/events`); add the accounts session + map order
-  events → _orderUpdateSubject.OnNext. Sandbox-testable with Cody's Tradier key.
+- [x] **Order-status polling fallback** DONE 2026-07-21 — ITradingProvider gains
+  SupportsOrderEventStreaming (default-true DIM; Schwab static false, Tradier dynamic);
+  GeneralOrderService watches orders on non-streaming brokers (5s→30s poll, fill lookup
+  with lag retries, order-type → trigger semantics, cancelled when no fill record).
+  Limitation on record: broker-attached protective legs aren't watched (unknown ids).
+- [x] **Tradier account-events stream** DONE 2026-07-21 — websocket
+  wss://ws.tradier.com/v1/accounts/events with per-connect session minting; wire-status
+  → OrderUpdate mapping pinned by 7 tests. NOT yet verified against a live/sandbox
+  Tradier account (no credentials on hand) — flag is dynamic so polling covers if the
+  socket can't connect. When Cody gets a Tradier login: place a sandbox order and
+  confirm the instant announcement + no double-announce with polling.
 - [ ] **Schwab streamer ACCT_ACTIVITY** (~2-3d, riskier) — requires the full Schwab
   WebSocket streamer handshake (streamer info from user-preferences endpoint, login
-  frame, ACCT_ACTIVITY subscription + XML payload parsing). v1 deliberately scoped
-  this out; needs a real Schwab account to verify. The polling fallback covers the
-  announce gap until this lands.
+  frame, ACCT_ACTIVITY subscription + XML payload parsing). Needs Cody's
+  developer.schwab.com app credentials (see SERVER_SETUP/API keys flow) and a real
+  account to verify. The polling fallback covers the announce gap until this lands.
 - [ ] MAUI native window title: add the live price (WebHost browser-tab title has it,
   1s-sampled off DataStream in MainLayout; MainPage.xaml.cs `_titleSub` needs the same
   DataStream sampling — can't build-verify MAUI on Linux, do on Windows).

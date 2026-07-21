@@ -119,6 +119,15 @@ namespace AccessibleTrader.Sdk.Plugins
         /// </summary>
         IObservable<OrderUpdate> OrderUpdateStream { get; }
 
+        /// <summary>
+        /// True (the default) when <see cref="OrderUpdateStream"/> is actually fed by a
+        /// broker push channel. Providers whose stream is a dead subject (no streaming
+        /// implementation — e.g. Schwab/Tradier v1) MUST override this to false so the
+        /// order service knows to fall back to status polling; otherwise fills there
+        /// would never announce.
+        /// </summary>
+        bool SupportsOrderEventStreaming => true;
+
         // Account queries
 
         /// <summary>

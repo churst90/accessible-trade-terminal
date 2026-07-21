@@ -62,6 +62,11 @@ namespace AccessibleTrader.Plugins.Schwab
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // The stream above is a dead subject — no streaming implementation yet.
+        // Declaring it lets GeneralOrderService poll order status so fills still
+        // announce. Flip to true when the real event stream lands.
+        public bool SupportsOrderEventStreaming => false;
+
         // Polling state for live OHLCV updates. The Schwab WebSocket streamer
         // is intentionally deferred: we poll the last candle on an interval so
         // the existing LiveStream contract is still honoured.
