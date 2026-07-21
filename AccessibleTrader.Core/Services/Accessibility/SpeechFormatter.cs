@@ -681,13 +681,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // Generic {value:Fn} format handler — catches F0, F1, F2, F3, ... so providers
             // can use any precision without adding a new Replace() line here.
+            // On PRICE-FAMILY series the fixed precision is overridden by the
+            // magnitude-aware formatter: saved workspaces persist the component's
+            // SpeechTemplate, so an old "{value:F2}" on the price line would keep
+            // collapsing sub-dollar assets (KAS at 0.0363 → "0.04") forever even
+            // after the metadata default was fixed. Price values always speak with
+            // ~3 significant digits regardless of what the stored template says.
             result = Regex.Replace(
                 result,
                 @"\{value:F(\d+)\}",
                 m =>
                 {
+                    if (double.IsNaN(val)) return "no data";
+                    if (isPriceSeries) return SpeechPriceFormatter.FormatPrice(val);
                     int digits = int.Parse(m.Groups[1].Value);
-                    return double.IsNaN(val) ? "no data" : val.ToString("F" + digits);
+                    return val.ToString("F" + digits);
                 });
 
             // {value:price} is the magnitude-aware format token for price-space values

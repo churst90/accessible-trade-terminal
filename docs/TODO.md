@@ -141,7 +141,13 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   TP1). Lab-validated BTC daily both halves positive (+0.25R/+0.31R, 35/35 trades,
   PF ~2.1), 5-of-6 windows; ETH thin, LTC fails H2, SOL insufficient — shipped as
   BTC-daily with the negatives in the description. Closes the Wave-4 cycle-strategy arc.
-- [ ] Live order-stream subscription audit (SubscribeOrderUpdatesAsync has no callers).
+- [x] Live order-stream subscription audit DONE 2026-07-21 — GeneralOrderService now
+  self-wires per-provider live stream subscriptions on ConnectionStatusEvent(Connected);
+  fixed the latent paper double-subscribe and single-slot-drop bugs. Schwab/Tradier
+  streams are unfed (no streaming impl) — fills there surface via dashboard refresh.
+- [ ] MAUI native window title: add the live price (WebHost browser-tab title has it,
+  1s-sampled off DataStream in MainLayout; MainPage.xaml.cs `_titleSub` needs the same
+  DataStream sampling — can't build-verify MAUI on Linux, do on Windows).
 - [ ] PropertiesModal bUnit tests are timing-flaky on slow CI runners (8 failed on one
   run, passed on rerun and locally) — needs a render-settle wait in the click helpers.
 

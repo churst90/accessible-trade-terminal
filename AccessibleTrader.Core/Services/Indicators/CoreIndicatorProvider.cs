@@ -60,7 +60,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Role = ComponentRole.PriceAction, DisplayType = ComponentDisplayType.Line, DataMapping = "close",
                             DefaultColorHex = "#FFFFFF", DefaultThickness = 1f,
                             DefaultPitchMapping = PitchMapping.Value,
-                            SpeechTemplate = "{name}. {type}. {value:F2}."
+                            // {value:price} = magnitude-aware precision. A fixed F2 here
+                            // collapsed sub-dollar assets (KAS 0.0363 → "0.04").
+                            SpeechTemplate = "{name}. {type}. {value:price}."
                         }
                     }
                 },

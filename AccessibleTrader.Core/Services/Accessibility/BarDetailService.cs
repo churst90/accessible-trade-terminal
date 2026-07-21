@@ -87,7 +87,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 if (double.IsNaN(val)) continue;
 
-                sb.Append($"{comp.DisplayName ?? comp.Name} {val:F2}, ");
+                // Magnitude-aware, not F2: the raw dump must not collapse sub-dollar
+                // prices (or tiny oscillator values like a MACD of 0.0012) to "0.00".
+                // For ordinary magnitudes it reads identically to the old F2.
+                sb.Append($"{comp.DisplayName ?? comp.Name} {SpeechPriceFormatter.FormatPrice(val)}, ");
             }
 
             // Indicator-specific narrative facts. Layered after the raw value list so the user

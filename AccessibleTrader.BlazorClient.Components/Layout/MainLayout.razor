@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @using System.Threading
+@using System.Reactive.Linq
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.BlazorClient.Services
@@ -132,6 +133,7 @@
     private int _activeBuffer = 1;
     private IDisposable? _stateSub;
     private IDisposable? _modalSub;
+    private IDisposable? _dataSub;
 
     protected override async Task OnInitializedAsync()
     {
@@ -159,6 +161,13 @@
 
         // Re-render on every store state change so the header title stays current.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        // The browser-tab title carries the live price, and live ticks arrive on
+        // DataStream (StateStream doesn't fire per tick). Sample at 1s so a busy
+        // feed re-renders the layout at most once a second, not once per tick.
+        _dataSub = Store.DataStream
+            .Sample(TimeSpan.FromSeconds(1))
+            .Subscribe(_ => InvokeAsync(StateHasChanged));
 
         // Announce modal open/close through the same ARIA live pipeline speech uses.
         // Focus-move alone is not enough — NVDA/JAWS users in browse mode don't hear
@@ -291,8 +300,10 @@
     }
 
     // Browser-tab title: a load-state triangle (filled "▲" = data ready, hollow "△" = still
-    // loading), the chart identity, then the app name — e.g.
-    // "▲ BTC/USDT 4h on Bitstamp - Accessible Trade Terminal".
+    // loading), the LIVE PRICE, the chart identity, then the app name — e.g.
+    // "▲ 67,432.15 BTC/USDT 4h on Bitstamp - Accessible Trade Terminal". Precision is
+    // magnitude-aware (KAS at 0.0363 must not show "0.04"); price refresh rides the
+    // 1s-sampled DataStream subscription above.
     private string GetBrowserTitle()
     {
         var state = Store.State;
@@ -303,14 +314,22 @@
         bool ready = state.InitStatus == AccessibleTrader.Sdk.Models.InitializationStatus.Ready
                      && state.DataStatus == AccessibleTrader.Sdk.Models.DataStatus.Ready;
         string glyph = ready ? "▲" : "△";
+        string price = "";
+        if (ready && state.Data != null && state.Data.Count > 0)
+        {
+            double close = state.Data[^1].Close;
+            if (!double.IsNaN(close))
+                price = SpeechPriceFormatter.FormatPrice(close) + " ";
+        }
         string tf = string.IsNullOrEmpty(identity.Timeframe) ? "" : $"{identity.Timeframe} ";
-        return $"{glyph} {identity.Symbol} {tf}on {identity.Provider} - Accessible Trade Terminal";
+        return $"{glyph} {price}{identity.Symbol} {tf}on {identity.Provider} - Accessible Trade Terminal";
     }
 
     public void Dispose()
     {
         _stateSub?.Dispose();
         _modalSub?.Dispose();
+        _dataSub?.Dispose();
         SpeechManager.OnSpeak = null;
     }
 }

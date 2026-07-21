@@ -7,7 +7,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
     // assets (KAS at 0.0363, SHIB at 0.00003) to "0.04" / "0.00" and strips the
     // precision a trader actually needs. Precision scales with magnitude so the
     // value always carries roughly 3 significant digits.
-    internal static class SpeechPriceFormatter
+    // Public: the UI heads use it too (browser-tab live price in MainLayout).
+    public static class SpeechPriceFormatter
     {
         public static string FormatPrice(double val)
         {

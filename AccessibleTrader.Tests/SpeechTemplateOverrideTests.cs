@@ -108,6 +108,46 @@ namespace AccessibleTrader.Tests
             Assert.Equal("fallback narration for Blue Dot at 42.", msg);
         }
 
+        [Fact]
+        public void Fixed_F2_template_on_the_price_series_is_healed_to_magnitude_aware()
+        {
+            // Saved workspaces persist the component SpeechTemplate, so the old
+            // "{value:F2}" default on the price line survives in user data forever.
+            // On PRICE-FAMILY series the formatter must override the fixed precision:
+            // KAS at 0.0363 spoken as "0.04" (or a flat "0.03" across the whole
+            // series) strips exactly the digits a sub-dollar trader needs.
+            var series = PriceSeries(c =>
+            {
+                c.Name = "line";
+                c.DisplayName = "Price";
+                c.DisplayType = ComponentDisplayType.Line;
+                c.IsVisible = true;
+                c.SpeechTemplate = "{name}. {type}. {value:F2}.";
+            }, values: new[] { 0.0363 });
+
+            var msg = Format(series, focusedCompIndex: 0);
+            Assert.Contains("0.0363", msg);
+            Assert.DoesNotContain("0.04", msg);
+        }
+
+        [Fact]
+        public void Fixed_F2_template_on_a_non_price_series_keeps_its_fixed_precision()
+        {
+            // The heal is scoped to price-family series only — an oscillator provider
+            // that asked for F2 still gets F2.
+            var series = SingleComponent(out _, c =>
+            {
+                c.Name = "osc";
+                c.DisplayName = "Osc";
+                c.DisplayType = ComponentDisplayType.Line;
+                c.IsVisible = true;
+                c.SpeechTemplate = "{name}. {value:F2}.";
+            }, values: new[] { 0.0363 });
+
+            var msg = Format(series, focusedCompIndex: 0);
+            Assert.Equal("Osc. 0.04.", msg);
+        }
+
         // ── Harness — mirrors SpeechFormatterDispatchTests ───────────────────
 
         private static string Format(ChartSeries series, int focusedCompIndex)
@@ -140,6 +180,19 @@ namespace AccessibleTrader.Tests
             var cfg = new SeriesConfig { Id = "s", Name = "s", IndicatorCode = "S", Pane = "Main" };
             cfg.Components.Add(comp);
             var buf = new SeriesDataBuffer { SeriesId = "s" };
+            buf.ComponentData[comp.Name] = values;
+            return new ChartSeries(cfg, buf);
+        }
+
+        // Same as SingleComponent but with the core price-line series id, which is
+        // what flips StandardTemplateStrategy's price-family handling on.
+        private static ChartSeries PriceSeries(Action<ComponentConfig> configure, double[] values)
+        {
+            var comp = new ComponentConfig();
+            configure(comp);
+            var cfg = new SeriesConfig { Id = "price", Name = "Price", IndicatorCode = "PRICE", Pane = "Main" };
+            cfg.Components.Add(comp);
+            var buf = new SeriesDataBuffer { SeriesId = "price" };
             buf.ComponentData[comp.Name] = values;
             return new ChartSeries(cfg, buf);
         }
