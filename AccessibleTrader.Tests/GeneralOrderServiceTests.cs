@@ -230,5 +230,128 @@ namespace AccessibleTrader.Tests
                 ErrorSeverity.High,
                 Arg.Any<ErrorCategory>());
         }
+
+        // ── Live order-stream wiring (the 2026-07 audit fix) ─────────────────
+        // Before this, SubscribeOrderUpdatesAsync had ZERO production callers:
+        // live-broker fills never announced. It is now called reactively on
+        // ConnectionStatusEvent(Connected) and must never touch the paper stream
+        // (which has its own lifetime subscription — double-subscribing it would
+        // double-announce every paper fill).
+
+        private static OrderUpdate LiveFill(string id) => new(
+            id, "BTC/USD", OrderSide.Buy, 0.5, 45000, 0,
+            OrderStatus.Filled, false, false, DateTime.UtcNow);
+
+        [Fact]
+        public async Task Live_fill_publishes_OrderFilledEvent_after_subscription()
+        {
+            var h = Build();
+            var liveStream = new Subject<OrderUpdate>();
+            h.LiveTp.OrderUpdateStream.Returns(liveStream);
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            await h.Svc.SubscribeOrderUpdatesAsync("Binance");
+            liveStream.OnNext(LiveFill("live-1"));
+
+            var fill = Assert.Single(fills);
+            Assert.Equal("live-1", fill.Order.OrderId);
+        }
+
+        [Fact]
+        public async Task SubscribeOrderUpdates_is_idempotent_per_provider()
+        {
+            // A reconnect blip publishes Connected again; the second subscribe must
+            // not stack a second subscription (one fill = one announcement).
+            var h = Build();
+            var liveStream = new Subject<OrderUpdate>();
+            h.LiveTp.OrderUpdateStream.Returns(liveStream);
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            await h.Svc.SubscribeOrderUpdatesAsync("Binance");
+            await h.Svc.SubscribeOrderUpdatesAsync("Binance");
+            liveStream.OnNext(LiveFill("live-2"));
+
+            Assert.Single(fills);
+        }
+
+        [Fact]
+        public async Task PaperMode_does_not_reroute_or_double_subscribe_the_streams()
+        {
+            // Paper mode ON: (a) the LIVE stream still gets subscribed — real-money
+            // orders resting on the exchange keep announcing while the user
+            // practices; (b) a paper fill announces exactly ONCE (the old code
+            // rerouted this call to the paper broker, stacking a second
+            // subscription on top of the constructor's lifetime one).
+            var h = Build();
+            h.Settings.GetSetting("trading.paperTradingMode").Returns(JToken.FromObject(true));
+            var liveStream = new Subject<OrderUpdate>();
+            h.LiveTp.OrderUpdateStream.Returns(liveStream);
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            await h.Svc.SubscribeOrderUpdatesAsync("Binance");
+
+            liveStream.OnNext(LiveFill("live-3"));
+            Assert.Single(fills);
+
+            h.PaperStream.OnNext(LiveFill("paper-3"));
+            Assert.Equal(2, fills.Count); // live + paper, each exactly once
+        }
+
+        [Fact]
+        public async Task DataOnly_provider_is_skipped_without_error()
+        {
+            var h = Build();
+            var dataOnly = Substitute.For<IMarketDataProvider>();
+            var data = Substitute.For<IDataService>();
+            data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(dataOnly));
+            var svc = new GeneralOrderService(
+                data, h.Err, NullLogger<GeneralOrderService>.Instance, h.Bus, h.Paper, h.Settings,
+                new DemoPolicy(isDemo: false));
+
+            await svc.SubscribeOrderUpdatesAsync("FRED"); // must not throw
+        }
+
+        [Fact]
+        public void ConnectionStatusEvent_Connected_wires_the_live_stream()
+        {
+            // The end-to-end wiring: no head calls SubscribeOrderUpdatesAsync —
+            // the service reacts to the connection event on its own.
+            var h = Build();
+            var liveStream = new Subject<OrderUpdate>();
+            h.LiveTp.OrderUpdateStream.Returns(liveStream);
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
+
+            // The subscription hops through the thread pool (SafeFireAndForget);
+            // poll until the fill lands rather than racing it.
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (fills.Count == 0 && DateTime.UtcNow < deadline)
+            {
+                liveStream.OnNext(LiveFill("live-4"));
+                System.Threading.Thread.Sleep(20);
+            }
+            Assert.NotEmpty(fills);
+        }
+
+        [Fact]
+        public void ConnectionStatusEvent_Error_does_not_subscribe()
+        {
+            var h = Build();
+            var liveStream = new Subject<OrderUpdate>();
+            h.LiveTp.OrderUpdateStream.Returns(liveStream);
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Error, "down"));
+            System.Threading.Thread.Sleep(100);
+            liveStream.OnNext(LiveFill("live-5"));
+
+            Assert.Empty(fills);
+        }
     }
 }

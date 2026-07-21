@@ -25,9 +25,13 @@ namespace AccessibleTrader.Core.Services
         private readonly ISettingsManager _settings;
         private readonly DemoPolicy _demo;
 
-        // Tracks the current provider's order-stream subscription so it can be swapped when provider changes.
-        private IDisposable? _orderStreamSub;
-        private string? _subscribedProvider;
+        // One live-broker order-stream subscription per provider, held for the
+        // service lifetime. Keyed per provider (not single-slot) because several
+        // brokers can be connected at once (multi-workspace) and a fill on any of
+        // them must announce. Populated reactively from ConnectionStatusEvent.
+        private readonly Dictionary<string, IDisposable> _liveStreamSubs = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _liveStreamLock = new();
+        private readonly IDisposable _connectionSub;
 
         // The paper broker's order stream is subscribed for the whole lifetime: it
         // only emits when orders are actually routed to it (paper mode on), so this
@@ -68,32 +72,48 @@ namespace AccessibleTrader.Core.Services
             _settings = settings;
             _demo = demo;
             _paperStreamSub = paper.OrderUpdateStream.Subscribe(PublishOrderEvent);
+
+            // Self-wire the live-broker streams: whenever a provider connects, hook
+            // its order stream so fills/stops/TPs announce. No head has to remember
+            // to call anything — before this subscription existed, live fills were
+            // silently never announced (only the paper stream was subscribed).
+            _connectionSub = eventBus.Subscribe<ConnectionStatusEvent>(e =>
+            {
+                if (e.State == ConnectionState.Connected)
+                    SafeFireAndForget.Run(
+                        () => SubscribeOrderUpdatesAsync(e.Provider),
+                        _logger, "SubscribeOrderUpdates");
+            });
         }
 
         /// <summary>
-        /// Subscribes to the OrderUpdateStream of <paramref name="providerName"/> and publishes
-        /// typed trading events to the EventBus based on each update's status flags.
-        /// Safe to call multiple times; automatically unsubscribes from the previous provider.
+        /// Subscribes to the live OrderUpdateStream of <paramref name="providerName"/> and
+        /// publishes typed trading events to the EventBus based on each update's status flags.
+        /// Idempotent per provider; called automatically on ConnectionStatusEvent(Connected).
+        /// Deliberately IGNORES paper mode: the paper stream has its own lifetime
+        /// subscription (constructor), and real-money orders already resting on an
+        /// exchange must keep announcing even while the user practices in paper mode.
+        /// Subscribing the paper broker here would double-announce every paper fill.
         /// </summary>
         public async Task SubscribeOrderUpdatesAsync(string providerName)
         {
-            // In paper mode we subscribe to the paper broker regardless of the data
-            // provider; key the dedup on that so toggling paper mode re-subscribes
-            // to the correct order stream.
-            string effective = IsPaperMode ? "__paper__" : providerName;
-            if (_subscribedProvider == effective) return;
-
-            _orderStreamSub?.Dispose();
-            _subscribedProvider = null;
-
-            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null) return;
-
-            _subscribedProvider = effective;
-            _orderStreamSub = tp.OrderUpdateStream.Subscribe(update =>
+            lock (_liveStreamLock)
             {
-                PublishOrderEvent(update);
-            });
+                if (_liveStreamSubs.ContainsKey(providerName)) return;
+            }
+
+            // Resolve the NAMED provider directly — not GetTradingProviderAsync,
+            // which reroutes to the paper broker when paper mode is on.
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
+            if (provider is not ITradingProvider tp) return;
+
+            lock (_liveStreamLock)
+            {
+                // Re-check under the lock: a reconnect blip can race two events.
+                if (_liveStreamSubs.ContainsKey(providerName)) return;
+                _liveStreamSubs[providerName] = tp.OrderUpdateStream.Subscribe(PublishOrderEvent);
+            }
+            _logger.LogInformation("Subscribed to live order updates from {Provider}", providerName);
         }
 
         private void PublishOrderEvent(OrderUpdate update)
@@ -128,7 +148,12 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
-            _orderStreamSub?.Dispose();
+            _connectionSub?.Dispose();
+            lock (_liveStreamLock)
+            {
+                foreach (var sub in _liveStreamSubs.Values) sub.Dispose();
+                _liveStreamSubs.Clear();
+            }
             _paperStreamSub?.Dispose();
         }
 
