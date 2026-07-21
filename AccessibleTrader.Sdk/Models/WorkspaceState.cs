@@ -103,6 +103,11 @@ namespace AccessibleTrader.Sdk.Models
         int RightMarginBars = 10,
         bool IsSpeechEnabled = true,
         bool IsSonificationEnabled = true,
+        // Shift-tier mutes (session-only, like F2/F3 — never persisted so the
+        // terminal can never START silent): Shift+F2 = ambient/event speech,
+        // Shift+F3 = earcons. Unshifted keys own the interactive channel.
+        bool IsEventSpeechEnabled = true,
+        bool IsEarconsEnabled = true,
         TerminalMode Mode = TerminalMode.Trading,
         MarketType SelectedMarketType = MarketType.Crypto,
         bool IsPlaying = false,
@@ -205,6 +210,8 @@ namespace AccessibleTrader.Sdk.Models
             AnnounceNewBars: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
+            IsEventSpeechEnabled: true,
+            IsEarconsEnabled: true,
             Mode: TerminalMode.Trading,
             SelectedMarketType: MarketType.Crypto,
             IsPlaying: false,
@@ -255,6 +262,8 @@ namespace AccessibleTrader.Sdk.Models
     public record AdjustPlaybackSpeedAction(float Delta) : WorkspaceAction;
     public record ToggleSpeechAction() : WorkspaceAction;
     public record ToggleSonificationAction() : WorkspaceAction;
+    public record ToggleEventSpeechAction() : WorkspaceAction;
+    public record ToggleEarconsAction() : WorkspaceAction;
     public record SelectSeriesAction(string SeriesId) : WorkspaceAction;
     /// <summary>
     /// Sets the workspace's <see cref="WorkspaceState.PrimarySeriesId"/> — the series id that

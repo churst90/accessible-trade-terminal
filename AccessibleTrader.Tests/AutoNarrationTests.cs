@@ -25,7 +25,7 @@ namespace AccessibleTrader.Tests
         private sealed class CapturingSpeechRouter : ISpeechFeedbackRouter
         {
             public List<string> Spoken { get; } = new();
-            public void Speak(string message, bool interrupt = false) => Spoken.Add(message);
+            public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Manual) => Spoken.Add(message);
             public void SpeakPoint(WorkspaceState s, WorkspaceState? p, ChartSeries ser, Ohlcv pt, string pfx = "") { }
             public void SpeakProfile(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int bin, string pfx = "") { }
             public void SpeakHeatmap(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int di, int bin, string pfx = "") { }

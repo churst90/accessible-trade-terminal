@@ -25,6 +25,8 @@ namespace AccessibleTrader.Core.Services
     {
         // Accessibility
         bool BrailleEnabled { get; set; }
+        /// <summary>Shift-tier mutes also silence order-execution outcomes. Default false.</summary>
+        bool MuteIncludesOrderEvents { get; set; }
         bool HoverSonification { get; set; }
         bool VisualEarcons { get; set; }
 
@@ -98,6 +100,12 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.BrailleEnabled);
             set => Set(SettingsKeys.BrailleEnabled, value);
+        }
+
+        public bool MuteIncludesOrderEvents
+        {
+            get => GetBool(SettingsKeys.MuteIncludesOrderEvents);
+            set => Set(SettingsKeys.MuteIncludesOrderEvents, value);
         }
         public bool HoverSonification
         {

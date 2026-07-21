@@ -66,6 +66,8 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
         private long _lastDisplayCompleteTicks; // UTC ticks; updated by OnDisplayComplete
         private string? _lastBrailleText;
 
+        public bool IsAvailable => _native.IsAvailable;
+
         public bool IsConnected { get; private set; }
         public string DeviceName { get; private set; } = "Dot Pad";
 

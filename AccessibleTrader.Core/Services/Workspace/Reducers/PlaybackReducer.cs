@@ -21,6 +21,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // Accessibility toggles
             ToggleSpeechAction          => state with { IsSpeechEnabled = !state.IsSpeechEnabled },
             ToggleSonificationAction    => state with { IsSonificationEnabled = !state.IsSonificationEnabled },
+            ToggleEventSpeechAction     => state with { IsEventSpeechEnabled = !state.IsEventSpeechEnabled },
+            ToggleEarconsAction         => state with { IsEarconsEnabled = !state.IsEarconsEnabled },
 
             // Chart display toggles
             ToggleHeikinAshiAction      => state with { IsHeikinAshi = !state.IsHeikinAshi },

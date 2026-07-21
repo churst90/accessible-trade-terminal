@@ -13,14 +13,17 @@ namespace AccessibleTrader.Core.Services
         event Action PlaybackFinished;
         event Action<int> PlaybackPointReached;
 
-        void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0);
+        /// <summary>Set <paramref name="force"/> to bypass the F3 chart-sonification
+        /// gate — earcons have their own mute tier (Shift+F3, enforced by
+        /// EarconService) and must not die with navigation tones.</summary>
+        void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0, bool force = false);
 
         /// <summary>
         /// Plays an entire <see cref="SoundPatch"/> — all oscillator layers, with envelope and noise
         /// blend/colour — as one-shot voices. Used by the Sound Designer preview and earcon overrides;
         /// unlike <see cref="PlayNote"/> it carries envelope/noise and sounds multi-oscillator patches.
         /// </summary>
-        void PlayPatch(SoundPatch patch, float volumeScale = 1f, float pan = 0f);
+        void PlayPatch(SoundPatch patch, float volumeScale = 1f, float pan = 0f, bool force = false);
         void Stop();
         void Silence();
 

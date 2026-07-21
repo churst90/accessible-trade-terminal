@@ -77,8 +77,8 @@ namespace AccessibleTrader.Tests.Mocks
 #pragma warning restore CS0067
         public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
         public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
-        public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0) { }
-        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
+        public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0, bool force = false) { }
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f, bool force = false) { }
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null) => new AudioPoint(440, 1, "sine", 0, "Sustain");
         public void Stop() { }
         public void Silence() { }
@@ -105,6 +105,7 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class MockEarconService : IEarconService
     {
+        public void PlayAlert(bool breakThroughMutes = false) { }
         public void PlayBoundary() { }
         public void PlayError(ErrorSeverity severity) { }
         public void PlayRetry() { }
@@ -187,7 +188,7 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class MockSpeechRouter : ISpeechFeedbackRouter
     {
-        public void Speak(string text, bool interrupt = false) { }
+        public void Speak(string text, bool interrupt = false, SpeechChannel channel = SpeechChannel.Manual) { }
         public void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "") { }
         public void SpeakProfile(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int binIndex, string prefix = "") { }
         public void SpeakHeatmap(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int dataIndex, int binIndex, string prefix = "") { }

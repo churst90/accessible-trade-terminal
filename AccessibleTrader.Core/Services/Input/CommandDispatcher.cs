@@ -192,6 +192,9 @@ namespace AccessibleTrader.Core.Services.Input
                     command == SystemCommand.CloseModal         ||  // Escape — close topmost modal
                     command == SystemCommand.ToggleSpeech       ||  // F2 — global accessibility toggle
                     command == SystemCommand.ToggleSonification ||  // F3 — same
+                    command == SystemCommand.ToggleEventSpeech  ||  // Shift+F2 — same family
+                    command == SystemCommand.ToggleEarcons      ||  // Shift+F3 — same family
+                    command == SystemCommand.ToggleBraille      ||  // F4 — same family
                     command == SystemCommand.OpenHelp;              // F1 — help is always reachable
                 if (!allowedWhileModalOpen) return;
             }
@@ -310,6 +313,12 @@ namespace AccessibleTrader.Core.Services.Input
                 }
                 case SystemCommand.ToggleSpeech: _store.Dispatch(new ToggleSpeechAction()); return;
                 case SystemCommand.ToggleSonification: _store.Dispatch(new ToggleSonificationAction()); return;
+                case SystemCommand.ToggleEventSpeech: _store.Dispatch(new ToggleEventSpeechAction()); return;
+                case SystemCommand.ToggleEarcons: _store.Dispatch(new ToggleEarconsAction()); return;
+                case SystemCommand.ToggleBraille: _eventBus.Publish(new BrailleToggleRequestedEvent()); return;
+                // Interim: braille device settings live in the Settings dialog; a
+                // dedicated picker modal is TODO (needs multi-device enumeration).
+                case SystemCommand.OpenBrailleSettings: _eventBus.Publish(new OpenSettingsEvent()); return;
                 case SystemCommand.ToggleNarration: // Ctrl+Alt+Shift+N — global, no focus gate
                 {
                     var seriesId = _store.State.FocusedSeriesId;

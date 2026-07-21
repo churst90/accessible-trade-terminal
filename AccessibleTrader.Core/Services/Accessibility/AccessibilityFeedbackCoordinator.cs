@@ -76,10 +76,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _subscriptions.Add(_eventBus.Subscribe<AlertFiredEvent>(ev => {
                 var alert = ev.Alert;
+                // Ambient tier (Shift+F2 / Shift+F3) unless the user marked THIS
+                // alert break-through — then it pierces every mute (Critical).
+                bool pierce = alert.Definition.BreakThroughMutes;
                 if (alert.Definition.Delivery == AlertDelivery.Speech || alert.Definition.Delivery == AlertDelivery.Both)
-                    _speechRouter.Speak(alert.SpeechText, interrupt: true);
+                    _speechRouter.Speak(alert.SpeechText, interrupt: true,
+                        channel: pierce ? SpeechChannel.Critical : SpeechChannel.Event);
                 if (alert.Definition.Delivery == AlertDelivery.Earcon || alert.Definition.Delivery == AlertDelivery.Both)
-                    _audioRouter.PlayEarcon(FeedbackType.Alert);
+                    _earconService.PlayAlert(breakThroughMutes: pierce);
             }));
 
             // Live bar events — gated by AnnounceNewBars setting
@@ -94,27 +98,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _subscriptions.Add(_eventBus.Subscribe<OrderFilledEvent>(e =>
             {
                 _earconService.PlayOrderFill(e.Order.Side);
-                _speechRouter.Speak(FormatFill("Order filled", e.Order), interrupt: true);
+                _speechRouter.Speak(FormatFill("Order filled", e.Order), interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
             _subscriptions.Add(_eventBus.Subscribe<OrderPartialFillEvent>(e =>
             {
                 _earconService.PlayOrderFill(e.Order.Side);
-                _speechRouter.Speak(FormatPartialFill(e.Order), interrupt: true);
+                _speechRouter.Speak(FormatPartialFill(e.Order), interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
             _subscriptions.Add(_eventBus.Subscribe<StopHitEvent>(e =>
             {
                 _earconService.PlayStopHit();
-                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing stop hit" : "Stop loss hit", e.Order), interrupt: true);
+                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing stop hit" : "Stop loss hit", e.Order), interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
             _subscriptions.Add(_eventBus.Subscribe<TakeProfitHitEvent>(e =>
             {
                 _earconService.PlayTakeProfitHit();
-                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order), interrupt: true);
+                _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order), interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
             _subscriptions.Add(_eventBus.Subscribe<OrderRejectedEvent>(e =>
             {
                 _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
-                _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.", interrupt: true);
+                _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.", interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
         }
 
@@ -164,10 +168,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsSpeechEnabled != _previousState.IsSpeechEnabled)
             {
                 _audioRouter.PlayEarcon(FeedbackType.Info);
-                _speechRouter.Speak(state.IsSpeechEnabled ? "Speech on" : "Speech off", interrupt: true);
+                _speechRouter.Speak(state.IsSpeechEnabled ? "Speech on" : "Speech off",
+                    interrupt: true, channel: SpeechChannel.Critical);
             }
             if (state.IsSonificationEnabled != _previousState.IsSonificationEnabled)
-                _speechRouter.Speak(state.IsSonificationEnabled ? "Sound on" : "Sound off", interrupt: true);
+                _speechRouter.Speak(state.IsSonificationEnabled ? "Sound on" : "Sound off",
+                    interrupt: true, channel: SpeechChannel.Critical);
+            if (state.IsEventSpeechEnabled != _previousState.IsEventSpeechEnabled)
+                _speechRouter.Speak(state.IsEventSpeechEnabled ? "Alerts and events on" : "Alerts and events muted",
+                    interrupt: true, channel: SpeechChannel.Critical);
+            if (state.IsEarconsEnabled != _previousState.IsEarconsEnabled)
+                _speechRouter.Speak(state.IsEarconsEnabled ? "Earcons on" : "Earcons muted",
+                    interrupt: true, channel: SpeechChannel.Critical);
             if (state.IsHeikinAshi != _previousState.IsHeikinAshi)
                 _speechRouter.Speak(state.IsHeikinAshi ? "Heikin-Ashi candles" : "Standard candles", interrupt: true);
             if (state.IsLogScale != _previousState.IsLogScale)
@@ -286,7 +298,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void OnNewBar(NewBarEvent e)
         {
             var state = _store.State;
-            if (!state.IsSpeechEnabled || !state.AnnounceNewBars) return;
+            if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
 
             // Pattern on the finalized bar (use up to 2 prior bars for context).
             var data = state.Data;
@@ -299,7 +311,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
 
             _earconService.PlayNewBar();
-            _speechRouter.Speak($"{closedMsg} {openMsg}", interrupt: false);
+            _speechRouter.Speak($"{closedMsg} {openMsg}", interrupt: false, channel: SpeechChannel.Event);
 
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;
@@ -314,7 +326,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void OnIntraBarUpdate(IntraBarUpdateEvent e)
         {
             var state = _store.State;
-            if (!state.IsSpeechEnabled || !state.AnnounceNewBars) return;
+            if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
             if (state.IsPlaying) return;
 
             // Per-user feedback (2026-04-09): intra-bar pattern updates were firing in
@@ -345,7 +357,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string msg = FormatFormingPattern(analysis.Type, analysis.Pattern);
                 if (!string.IsNullOrEmpty(msg))
                 {
-                    _speechRouter.Speak(msg, interrupt: false);
+                    _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
                     _lastAnnouncedPattern    = analysis.Pattern;
                     _lastAnnouncedType       = analysis.Type;
                     _lastPatternAnnouncement = DateTime.UtcNow;
@@ -434,7 +446,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // produced no earcon — violating the silent-failure rule.
                     _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true);
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: SpeechChannel.Critical);
                     break;
 
                 case FeedbackType.Boundary:

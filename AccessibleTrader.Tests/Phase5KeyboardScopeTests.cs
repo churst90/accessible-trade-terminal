@@ -214,6 +214,8 @@ namespace AccessibleTrader.Tests
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
+                SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons,
+                SystemCommand.ToggleBraille, SystemCommand.OpenBrailleSettings,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
                 SystemCommand.CloseModal,

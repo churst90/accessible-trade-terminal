@@ -183,28 +183,19 @@ Shift+F10 open the right-click context menu (Phase B) — no work needed.
 The organizing principle: **unshifted F-key = the interactive channel (things you
 asked for), Shift+F-key = the ambient channel (things that happen to you).**
 
-- [ ] **F2 tightened**: speech off must silence ALL command-response speech —
-  navigation values, zoom/pan announcements, context summary, granularity, every
-  manual command. Today several paths bypass the toggle. Event speech (alerts,
-  fills) still speaks. Needs a Manual-vs-Event channel tag at the speech-router
-  level, not per-call-site checks (that's how the bypasses happened).
-- [ ] **Shift+F2**: mute event-triggered speech (alerts, monitoring, setup
-  announcements). DESIGN DECISION on record: order-execution outcomes (fills,
-  stops, rejections) BREAK THROUGH by default — the manual's "the one feedback
-  you never miss" promise survives the mute; a setting can opt them into the
-  mute group for users who really want total silence.
-- [ ] **F3 unchanged** (chart sonification: nav tones, playback); **Shift+F3**
-  additionally mutes earcons. Same break-through rule for order-event earcons.
-- [ ] **F4 → braille toggle** (was ContextSummary). On WebHost (no braille) it
-  speaks "Braille not available on this platform" instead of silently no-oping.
-- [ ] **ContextSummary → Shift+F1** (F1 help, Shift+F1 "where am I" — same family).
-  Migration: rebindable as always + a WHATSNEW note; users' saved custom bindings
-  are untouched (only the DEFAULT moves).
-- [ ] **Shift+F4 → braille display picker modal** (device selection; desktop heads
-  only, hidden on WebHost like the braille settings).
-- [ ] **Mute exclusions, scoped v1**: per-alert "break through mutes" checkbox in
-  the Alerts dialog (per-earcon/per-event exclusion lists deferred until someone
-  asks — the checkbox plus the order-event default covers the real cases).
+- [x] **Mute-tier redesign DONE 2026-07-21** — all seven items shipped as one
+  change: SpeechChannel (Manual/Event/OrderEvent/Critical) gating at the router,
+  Shift+F2/Shift+F3 tiers with Critical-channel confirmations, order-outcome
+  break-through + speech.muteIncludesOrderEvents opt-in, per-alert
+  BreakThroughMutes checkbox, F4 braille toggle w/ platform message,
+  ContextSummary → Shift+F1. BONUS FIXES found during the build: FeedbackType.Alert
+  had no earcon case (Delivery=Earcon alerts were SILENT in-app — now a real
+  rising double-tone, patch key "Alert"); earcons no longer die silently with F3
+  (own tier now); modal open/close announcements now respect F2.
+- [ ] **Shift+F4 dedicated braille display picker modal** — currently opens the
+  Settings dialog (braille fieldset). A real picker needs multi-device
+  enumeration in the driver layer; do alongside the next Dot Pad hardware
+  session.
 
 ### Hosted double-speech (Chrome: Orca + browser TTS both speak) (~1d)
 

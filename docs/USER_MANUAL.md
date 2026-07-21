@@ -257,7 +257,7 @@ timeframe that provider genuinely serves. Two consequences follow. When a provid
 offers exactly one timeframe (most analytics feeds — Fear and Greed, COT
 positioning, short volume — are daily-only), the whole Time area disappears:
 there is nothing to choose, and the timeframe still reads in the tab title and
-the F4 context summary. And when you switch to a provider that doesn't offer your
+the Shift+F1 context summary. And when you switch to a provider that doesn't offer your
 current timeframe, the terminal snaps to one it does offer and tells you so —
 "provides 1d data only; timeframe set to 1d" — instead of silently fetching
 nothing.
@@ -532,9 +532,21 @@ dwell on each bar, faster to scan a long history.
 
 ### Choosing what you hear
 
-You are always in command of the two output layers. F2 toggles speech on and off and
-F3 toggles the sonification engine, so you can run with numbers only, sound only, or
-both, to suit the task. Volume is adjustable at three depths: F5 and Shift+F5 raise
+You are always in command of the output layers, and the F-key row follows one
+rule: **the plain key controls what you asked for, and Shift controls what
+happens to you.** F2 toggles interactive speech — navigation values, zoom and
+pan announcements, summaries; with it off, your commands run silently.
+Shift+F2 toggles event speech — alerts, monitoring reports, new-bar
+announcements. F3 toggles chart sonification — the navigation tones and
+playback; Shift+F3 toggles earcons. Two things refuse to be silenced: errors,
+and your order outcomes — fills, stop hits, take profits speak and sound
+through every mute, because missing a stop firing costs real money. (If you
+truly want total silence, Settings → Speech has an "Event mutes also silence
+order fills and stops" switch — read its warning first.) Individual alerts can
+also be marked **Break through mutes** when you create them, for the handful
+that must never be missed. F4 toggles the braille display on platforms that
+support one, and Shift+F4 opens its settings. None of these mutes persist —
+the terminal always starts with everything audible. Volume is adjustable at three depths: F5 and Shift+F5 raise
 and lower the focused component, F6 and Shift+F6 the whole focused series, and F7 and
 Shift+F7 the master chart volume — so you can bring one quiet line forward without
 touching the rest. The M key mutes or unmutes the focused series or component without
@@ -771,7 +783,7 @@ and you can turn it on or off under Settings (F12) with "Announce new bars". The
 **detailed point analysis**, Ctrl+Shift+D (Alt+Shift+D on the web host), is the
 on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
 indicator, every signal, in one keystroke, covered back in the chart chapter. And the
-**context summary**, F4 for a quick "symbol, provider, timeframe" and Ctrl+Alt+Shift+C
+**context summary**, Shift+F1 for a quick "symbol, provider, timeframe" and Ctrl+Alt+Shift+C
 for the fuller picture, tells you where you are at any moment. Between them you can run
 as hands-off or as hands-on as you like: narration and new-bar announcements stream the
 live market to you, while Ctrl+Shift+D and the AI Analyst are there the moment you want

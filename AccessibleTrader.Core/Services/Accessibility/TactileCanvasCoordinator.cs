@@ -110,6 +110,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var toggleSub = _eventBus.Subscribe<BrailleModeToggledEvent>(e => OnBrailleModeToggled(e.Enabled));
             if (toggleSub != null) _subs.Add(toggleSub);
 
+            // F4: flip braille output from the keyboard. The coordinator owns the
+            // persisted setting, the platform check, and the spoken confirmation;
+            // the Settings checkbox reflects the new value on next open. Critical
+            // speech channel: a mute-family toggle must always confirm itself.
+            var requestSub = _eventBus.Subscribe<BrailleToggleRequestedEvent>(_ =>
+            {
+                if (!_driver.IsAvailable)
+                {
+                    _speech.Speak("Braille not available on this platform.",
+                        interrupt: true, channel: SpeechChannel.Critical);
+                    return;
+                }
+                bool enable = !_brailleEnabled;
+                _settings.SetSetting(BrailleEnabledKey, Newtonsoft.Json.Linq.JToken.FromObject(enable));
+                _speech.Speak(enable ? "Braille on." : "Braille off.",
+                    interrupt: true, channel: SpeechChannel.Critical);
+                OnBrailleModeToggled(enable);
+            });
+            if (requestSub != null) _subs.Add(requestSub);
+
             // Auto-clear the pause flag whenever the user loads a new chart so a
             // paused state from a previous chart can't silently swallow the new
             // one's frames. Skip the BehaviorSubject's initial replay — only

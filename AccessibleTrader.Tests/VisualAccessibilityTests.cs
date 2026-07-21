@@ -64,17 +64,19 @@ public class VisualAccessibilityTests
     }
 
     [Fact]
-    public void VisualEvent_DoesNotFire_WhenSonificationIsDisabled()
+    public void VisualEvent_StillFires_WhenChartSonificationIsDisabled()
     {
-        // The visual channel mirrors the audio channel — sonification off means
-        // no earcons at all, in either modality.
+        // CONTRACT CHANGE 2026-07-21 (mute-tier redesign): F3 owns chart
+        // sonification only; earcons have their own tier (Shift+F3). An earcon —
+        // and its visual mirror — must survive sonification-off. Before this,
+        // earcons silently died with F3.
         var (sonify, lib, bus) = EarconDeps();
         sonify.IsEnabled.Returns(false);
         var svc = new EarconService(sonify, lib, bus);
 
         svc.PlayStopHit();
 
-        Assert.Empty(bus.Log.OfType<EarconVisualEvent>());
+        Assert.Single(bus.Log.OfType<EarconVisualEvent>());
     }
 
     [Fact]
@@ -84,7 +86,7 @@ public class VisualAccessibilityTests
         var (sonify, lib, _) = EarconDeps();
         new EarconService(sonify, lib).PlaySuccess();
         sonify.Received().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
-            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>());
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
     }
 
     // ── Theme accessibility overrides ────────────────────────────────────────

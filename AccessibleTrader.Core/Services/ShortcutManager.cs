@@ -244,9 +244,18 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenHelp,     "F1"));
             s.Add(new(SystemCommand.OpenSettings, "F12"));
             s.Add(new(SystemCommand.OpenProperties, "F12", Shift: true));
+            // The F-key mute grammar (2026-07-21 redesign): unshifted = the
+            // INTERACTIVE channel (things you asked for), Shift = the AMBIENT
+            // channel (things that happen to you). F4 pairs braille the same way.
+            // ContextSummary moved F4 → Shift+F1 (help family); custom bindings
+            // saved by users are untouched — only these defaults changed.
             s.Add(new(SystemCommand.ToggleSpeech, "F2"));
+            s.Add(new(SystemCommand.ToggleEventSpeech, "F2", Shift: true));
             s.Add(new(SystemCommand.ToggleSonification, "F3"));
-            s.Add(new(SystemCommand.ContextSummary, "F4"));
+            s.Add(new(SystemCommand.ToggleEarcons, "F3", Shift: true));
+            s.Add(new(SystemCommand.ToggleBraille, "F4"));
+            s.Add(new(SystemCommand.OpenBrailleSettings, "F4", Shift: true));
+            s.Add(new(SystemCommand.ContextSummary, "F1", Shift: true));
 
             // Volume Control
             s.Add(new(SystemCommand.VolCompUp, "F5"));

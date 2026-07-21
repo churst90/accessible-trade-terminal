@@ -123,6 +123,18 @@
                                checked="@Store.State.AnnounceNewBars"
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
                     </div>
+
+                    <div class="modal-row">
+                        <label for="s-mute-includes-orders">Event mutes also silence order fills and stops</label>
+                        <input id="s-mute-includes-orders" type="checkbox"
+                               checked="@_muteIncludesOrderEvents"
+                               @onchange="e => _muteIncludesOrderEvents = e.Value is bool b ? b : _muteIncludesOrderEvents" />
+                    </div>
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Off by default: order outcomes — fills, stop hits, take profits — speak and
+                        sound even while Shift+F2 / Shift+F3 have alerts and events muted. Turn this
+                        on only if you truly want total silence; you will not hear your stops fire.
+                    </p>
                     @* The paper/live toggle only makes sense where real-money trading exists
                        (desktop / local). In the hosted + demo builds trading is paper-only, so
                        there is nothing to toggle — hide it (paper mode is forced on elsewhere). *@
@@ -822,6 +834,7 @@
         new("Speak timestamps", "General", "s-speak-timestamps", "time date spoken"),
         new("Read column headers", "General", "s-read-headers", "table grid"),
         new("Announce new bars", "General", "s-announce-bars", "live candle close"),
+        new("Event mutes include order fills", "General", "s-mute-includes-orders", "silence mute stop take profit shift"),
         new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
         new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
@@ -1025,6 +1038,7 @@
     private int  _bgPollSeconds = 30;
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
+    private bool _muteIncludesOrderEvents;
     private bool _hoverSonification;
     private bool _magnetSnap;
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
@@ -1115,6 +1129,7 @@
         _paperTradingModeInitial = _paperTradingMode;
         _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;
+        _muteIncludesOrderEvents = App.MuteIncludesOrderEvents;
         _hoverSonification = App.HoverSonification;
         _magnetSnap = App.MagnetSnap;
         _soundTheme = App.SoundTheme;
@@ -1188,6 +1203,7 @@
 
         App.PaperTradingMode = _paperTradingMode;
         App.BrailleEnabled = _brailleEnabled;
+        App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
         App.Save();
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
         if (_paperTradingMode != _paperTradingModeInitial)

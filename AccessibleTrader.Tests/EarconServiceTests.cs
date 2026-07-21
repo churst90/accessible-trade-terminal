@@ -33,9 +33,9 @@ public class EarconServiceTests
 
         new EarconService(sonify, lib).PlayBoundary();
 
-        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>());
+        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
         sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
-            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>());
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
     }
 
     [Fact]
@@ -46,8 +46,8 @@ public class EarconServiceTests
         new EarconService(sonify, lib).PlayBoundary();
 
         sonify.Received().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
-            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>());
-        sonify.DidNotReceive().PlayPatch(Arg.Any<SoundPatch>(), Arg.Any<float>(), Arg.Any<float>());
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+        sonify.DidNotReceive().PlayPatch(Arg.Any<SoundPatch>(), Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
     }
 
     [Fact]
@@ -61,6 +61,6 @@ public class EarconServiceTests
 
         new EarconService(sonify, lib).PlayNewBar();
 
-        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>());
+        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
     }
 }

@@ -15,6 +15,9 @@ namespace AccessibleTrader.Core.Services
     {
         // ── Accessibility ────────────────────────────────────────────────────
         public const string BrailleEnabled     = "accessibility.braille.enabled";
+        // Opt-in: Shift+F2 / Shift+F3 mutes ALSO silence order-execution outcomes
+        // (fills, stops, TPs). Default false — money events break through mutes.
+        public const string MuteIncludesOrderEvents = "speech.muteIncludesOrderEvents";
         public const string HoverSonification  = "accessibility.hoverSonification";
         public const string VisualEarcons      = "accessibility.visualEarcons";
 

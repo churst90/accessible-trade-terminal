@@ -240,7 +240,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string msg = BuildMarkerMessage(series, comp, val, state, barIndex);
                     if (!string.IsNullOrEmpty(msg))
                     {
-                        _speechRouter.Speak(msg, interrupt: false);
+                        _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
                         announced.Add(barIndex);
                         if (!_lastSeenPivotIndex.TryGetValue(pivotKey, out int cur) || barIndex > cur)
                             _lastSeenPivotIndex[pivotKey] = barIndex;
@@ -269,7 +269,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         string? zoneMsg = BuildZoneTransitionMessage(series.FriendlyName, oscContext.ComponentName, oscContext.Zone, prev.Zone);
                         if (zoneMsg != null)
-                            _speechRouter.Speak(zoneMsg, interrupt: false);
+                            _speechRouter.Speak(zoneMsg, interrupt: false, channel: SpeechChannel.Event);
                     }
 
                     // Crossover appeared
@@ -277,7 +277,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         string? crossMsg = BuildCrossoverMessage(series.FriendlyName, oscContext);
                         if (crossMsg != null)
-                            _speechRouter.Speak(crossMsg, interrupt: false);
+                            _speechRouter.Speak(crossMsg, interrupt: false, channel: SpeechChannel.Event);
                     }
                 }
 
@@ -402,7 +402,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         string breakMsg = isResistance
                             ? $"{series.FriendlyName}: Resistance at {lastVal:F0} broken."
                             : $"{series.FriendlyName}: Support at {lastVal:F0} broken.";
-                        _speechRouter.Speak(breakMsg, interrupt: false);
+                        _speechRouter.Speak(breakMsg, interrupt: false, channel: SpeechChannel.Event);
                         _lastZoneLineValue.Remove(zoneKey);
                         _inProximity.Remove(zoneKey);
                         _lastPriceAboveZone.Remove(zoneKey);
@@ -429,7 +429,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         string touchMsg = isResistance
                             ? $"{series.FriendlyName}: Price tested resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}."
                             : $"{series.FriendlyName}: Price tested support at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}.";
-                        _speechRouter.Speak(touchMsg, interrupt: false);
+                        _speechRouter.Speak(touchMsg, interrupt: false, channel: SpeechChannel.Event);
                     }
                     _lastTouchCount[tcKey] = currentTouches;
                 }
@@ -443,7 +443,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string approachMsg = isResistance
                         ? $"{series.FriendlyName}: Approaching resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}."
                         : $"{series.FriendlyName}: Approaching support at {SpeechPriceFormatter.FormatPrice(currentVal)}.";
-                    _speechRouter.Speak(approachMsg, interrupt: false);
+                    _speechRouter.Speak(approachMsg, interrupt: false, channel: SpeechChannel.Event);
                 }
                 _inProximity[zoneKey] = nowNear;
 
@@ -463,12 +463,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (bullishCrosses.Count > 0)
             {
                 string crossed = string.Join(", ", bullishCrosses);
-                _speechRouter.Speak($"{series.FriendlyName}: Price crossed above {crossed}.", interrupt: false);
+                _speechRouter.Speak($"{series.FriendlyName}: Price crossed above {crossed}.", interrupt: false, channel: SpeechChannel.Event);
             }
             if (bearishCrosses.Count > 0)
             {
                 string crossed = string.Join(", ", bearishCrosses);
-                _speechRouter.Speak($"{series.FriendlyName}: Price crossed below {crossed}.", interrupt: false);
+                _speechRouter.Speak($"{series.FriendlyName}: Price crossed below {crossed}.", interrupt: false, channel: SpeechChannel.Event);
             }
         }
 
@@ -520,7 +520,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     };
 
                     if (msg != null)
-                        _speechRouter.Speak(msg, interrupt: false);
+                        _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
                 }
 
                 _lastCloudPosition[cloudKey] = position;

@@ -197,6 +197,9 @@ namespace AccessibleTrader.Core.Models
 
     /// <summary>Raised when the user toggles braille / tactile-display output in settings.</summary>
     public record BrailleModeToggledEvent(bool Enabled);
+    /// <summary>F4 pressed: flip braille output. Handled by TactileCanvasCoordinator,
+    /// which owns the setting, the platform check, and the spoken confirmation.</summary>
+    public record BrailleToggleRequestedEvent();
 
     // ── Strategy Events ───────────────────────────────────────────────────────
     public record StrategySignalEvent(string StrategyName, StrategySignal Signal, string InstanceId);

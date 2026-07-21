@@ -56,6 +56,12 @@
                            checked="@_advancedCondition"
                            @onchange="OnAdvancedToggled" />
                 </div>
+                <div class="modal-row">
+                    <label for="alert-breakthrough">Break through mutes (fires even when alerts are muted with Shift+F2 / Shift+F3):</label>
+                    <input id="alert-breakthrough" type="checkbox"
+                           checked="@_newAlertBreakThrough"
+                           @onchange="e => _newAlertBreakThrough = e.Value is bool b && b" />
+                </div>
                 @if (_advancedCondition)
                 {
                     <p style="font-size:0.85rem; color: var(--text-muted); margin: 4px 0 8px;">
@@ -145,6 +151,7 @@
     private AlertCondition _newAlertCondition = AlertCondition.CrossesAbove;
     private double _newAlertThreshold;
     private AlertDelivery _newAlertDelivery = AlertDelivery.Both;
+    private bool _newAlertBreakThrough;
 
     // Part A — symbol scoping. Default a new alert to the on-screen chart's symbol.
     private bool _newAlertScopeToSymbol = true;
@@ -217,6 +224,7 @@
             Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
             WebhookTarget = string.IsNullOrWhiteSpace(_newAlertWebhookTarget) ? null : _newAlertWebhookTarget,
             ConditionTree = tree,
+            BreakThroughMutes = _newAlertBreakThrough,
         };
         AlertOrchestrator.AddAlert(def);
         _newAlertName = "";

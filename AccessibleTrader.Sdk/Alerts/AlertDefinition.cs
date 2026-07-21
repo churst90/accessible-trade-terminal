@@ -34,6 +34,13 @@ public record AlertDefinition
     public required AlertDelivery Delivery { get; init; }
     public bool IsActive { get; init; } = true;
     public bool RepeatIfStillActive { get; init; } = false;
+
+    /// <summary>
+    /// When true this alert pierces the Shift+F2 / Shift+F3 ambient mutes —
+    /// for the handful of alerts that must never be missed (margin-call price
+    /// levels, a stop-adjacent warning). Default false: alerts are ambient.
+    /// </summary>
+    public bool BreakThroughMutes { get; init; } = false;
     public TimeSpan Cooldown { get; init; } = TimeSpan.FromSeconds(30);
 
     // ── Symbol scoping (Part A) ──────────────────────────────────────────────

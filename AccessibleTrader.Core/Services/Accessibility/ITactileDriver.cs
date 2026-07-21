@@ -8,6 +8,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         bool IsConnected { get; }
         string DeviceName { get; }
 
+        /// <summary>False when the platform cannot drive a tactile display at all
+        /// (vendor SDK missing — e.g. Linux, browsers). Gates the F4 toggle's
+        /// "not available" message. Default true for implementations that exist
+        /// only on capable platforms.</summary>
+        bool IsAvailable => true;
+
         /// <summary>Width of the device's graphic area in dots. Zero until ConnectAsync resolves the device.</summary>
         int DisplayWidth { get; }
 

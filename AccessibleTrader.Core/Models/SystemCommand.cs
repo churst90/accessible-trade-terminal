@@ -24,8 +24,12 @@ namespace AccessibleTrader.Core.Models
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
         
         // Accessibility Toggles
-        ToggleSpeech,
-        ToggleSonification,
+        ToggleSpeech,        // F2: interactive/command speech
+        ToggleSonification,  // F3: chart sonification (nav tones, playback)
+        ToggleEventSpeech,   // Shift+F2: ambient/event speech (alerts, monitoring, new bars)
+        ToggleEarcons,       // Shift+F3: earcons (order-outcome + error earcons break through)
+        ToggleBraille,       // F4: braille / tactile display output on/off
+        OpenBrailleSettings, // Shift+F4: braille display settings (Settings dialog)
         ToggleNarration,    // Ctrl+Alt+Shift+N: toggle auto-narration for the focused series
         // Navigation (Historical/Static)
         NavLeft,

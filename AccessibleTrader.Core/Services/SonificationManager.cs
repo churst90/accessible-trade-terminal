@@ -129,14 +129,14 @@ namespace AccessibleTrader.Core.Services
             _subscriptions.Add(_eventBus.AsObservable<NavKeyReleasedEvent>().Subscribe(_ => _navigation.StopNavigationVoice()));
         }
 
-        public void PlayNote(double freq, double dur, string wave, float vol, float pan, double delay = 0)
+        public void PlayNote(double freq, double dur, string wave, float vol, float pan, double delay = 0, bool force = false)
         {
-            if (IsEnabled) _navigation.PlayNote(freq, dur, wave, vol, pan, delay);
+            if (IsEnabled || force) _navigation.PlayNote(freq, dur, wave, vol, pan, delay);
         }
 
-        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f)
+        public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f, bool force = false)
         {
-            if (IsEnabled) _navigation.PlayPatch(patch, volumeScale, pan);
+            if (IsEnabled || force) _navigation.PlayPatch(patch, volumeScale, pan);
         }
 
         public void Stop() => _playback.Stop();

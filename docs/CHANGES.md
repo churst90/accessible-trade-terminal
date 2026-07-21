@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### The mute-tier redesign: one grammar for the F-key row (2026-07-21)
+
+Cody's design, built as specified: **unshifted F-key = the interactive channel
+(things you asked for), Shift+F-key = the ambient channel (things that happen
+to you).**
+
+- **F2 actually silences commands now.** The reported leak was real and
+  architectural: viewport/zoom/pan announcements, the context summary, status
+  speech — none checked IsSpeechEnabled. The fix is channel tagging at
+  `SpeechFeedbackRouter` (Manual / Event / OrderEvent / Critical), not
+  per-call-site checks — per-call-site checks are how the bypasses crept in.
+- **Shift+F2 mutes event speech** (alerts, monitoring, new-bar announcements,
+  auto-narration). **Shift+F3 mutes earcons.** Both announce their own state
+  ("Alerts and events muted", "Earcons muted") on the never-muted Critical
+  channel. Neither persists — the terminal can never start silent.
+- **Order outcomes break through everything by default.** Fills, stop hits,
+  take profits speak AND sound through both ambient mutes — the manual's "the
+  one feedback you never miss" promise, now enforced by the router. An
+  explicit Settings opt-in (speech.muteIncludesOrderEvents, with an in-dialog
+  warning) exists for users who truly want total silence. Errors never mute,
+  period.
+- **Per-alert "Break through mutes"** checkbox in the Alerts dialog for the
+  handful of alerts that must pierce the mutes (margin-call levels).
+- **F4 toggles braille** (was: context summary, now **Shift+F1**; saved custom
+  bindings untouched — only defaults moved). On platforms with no tactile
+  driver F4 speaks "Braille not available on this platform". **Shift+F4**
+  opens the braille settings (dedicated picker modal still TODO).
+- **Found and fixed while in there:** `FeedbackType.Alert` had NO case in the
+  earcon router switch — every alert with Delivery=Earcon has been SILENT
+  in-app (speech delivery masked it). Alerts now have a real sound: an urgent
+  rising double-tone, patch-overridable via the "Alert" earcon key. Also:
+  earcons used to die silently with F3 (they gated on the sonification
+  manager); they now have their own tier only, matching what the F-key help
+  always implied.
+
+13 new MuteTierTests pin every gate combination. Modal open/close
+announcements (a router bypass into the ARIA live region) now respect F2 too.
+
 ## [1.9.0] — 2026-07-21
 
 ### Schwab/Tradier fill announcements: polling fallback + Tradier account stream (2026-07-21)

@@ -109,9 +109,13 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| F2 | Toggle speech output on/off | "Speech output enabled/disabled" |
-| F3 | Toggle sonification (audio engine) on/off | "Sonification enabled/disabled" |
-| F4 | Announce context summary | "{Symbol} on {Provider}, {Timeframe}" |
+| F2 | Toggle interactive speech (navigation values, zoom/pan, summaries — everything you asked for) | "Speech on/off" |
+| Shift+F2 | Toggle event speech (alerts, monitoring, new bars — everything that happens to you). Order fills and stops break through unless you opt them in (Settings → Speech) | "Alerts and events on/muted" |
+| F3 | Toggle chart sonification (navigation tones, playback) | "Sound on/off" |
+| Shift+F3 | Toggle earcons. Order-outcome and error earcons break through | "Earcons on/muted" |
+| F4 | Toggle braille / tactile display output ("Braille not available on this platform" where unsupported) | "Braille on/off" |
+| Shift+F4 | Open braille display settings (Settings dialog) | — |
+| Shift+F1 | Announce context summary (moved from F4 in 1.10) | "{Symbol} on {Provider}, {Timeframe}" |
 | Ctrl+Alt+Shift+C | Focus chart area + announce context summary | "{Symbol} context summary" |
 
 ---

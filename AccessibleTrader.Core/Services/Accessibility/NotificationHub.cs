@@ -25,19 +25,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void NotifyError(string message, bool interrupt = true)
         {
-            _speechRouter.Speak(message, interrupt);
+            _speechRouter.Speak(message, interrupt, SpeechChannel.Critical);
             _audioRouter.PlayEarcon(FeedbackType.Error);
         }
 
         public void NotifyAlert(string message, bool interrupt = true)
         {
-            _speechRouter.Speak(message, interrupt);
+            _speechRouter.Speak(message, interrupt, SpeechChannel.Event);
             _audioRouter.PlayEarcon(FeedbackType.Alert);
         }
 
         public void NotifyInfo(string message, bool interrupt = true)
         {
-            _speechRouter.Speak(message, interrupt);
+            _speechRouter.Speak(message, interrupt, SpeechChannel.Event);
             _audioRouter.PlayEarcon(FeedbackType.Info);
         }
     }

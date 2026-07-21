@@ -205,6 +205,9 @@
                 }
 
                 if (string.IsNullOrEmpty(evt.ModalName)) return;
+                // Manual-channel speech: this live-region write bypasses the speech
+                // router, so it must respect the F2 mute itself (2026-07-21 F2 leak fix).
+                if (!Store.State.IsSpeechEnabled) return;
                 var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
                 InvokeAsync(() =>
                 {
