@@ -6,6 +6,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Live order streams finally wired: real-broker fills now announce (2026-07-21)
+
+The order-stream audit found `SubscribeOrderUpdatesAsync` had ZERO production
+callers — live-broker fills, stops, and take-profits were never announced;
+only the paper stream (constructor-subscribed) worked. `GeneralOrderService`
+now self-wires on `ConnectionStatusEvent(Connected)` — the same signal the
+reconciliation coordinator uses — so no head has to remember to call anything.
+
+The rewrite also fixed two latent bugs in the never-called code: paper mode
+rerouted the subscription to the paper broker, stacking a second subscription
+on the constructor's lifetime one (every paper fill would have announced
+twice), and the single-slot design dropped provider A's stream when provider B
+connected. Now: one idempotent subscription per provider name, live streams
+only — real-money orders resting on an exchange keep announcing even while
+the user practices in paper mode.
+
+Audit finding, on record: **Schwab and Tradier never feed their
+OrderUpdateStream subjects** (no streaming implementation — allowed by the
+ITradingProvider contract, which says non-streaming implementations return an
+empty observable). Fills there surface only via dashboard refresh; the manual
+now says so honestly. Roadmap: a generic order-status polling fallback, then
+Tradier's SSE account-events stream, then the Schwab streamer. 6 new tests.
+
+### Sub-dollar price precision in speech + live price in the title (2026-07-21)
+
+Cody's KAS/USDT report: the price line spoke "0.03" across the entire series.
+Root cause: the price line's SpeechTemplate carries a literal `{value:F2}` —
+and templates are PERSISTED in saved workspaces, so fixing the metadata
+default alone would never heal existing user data. `StandardTemplateStrategy`
+now overrides `{value:Fn}` with the magnitude-aware `SpeechPriceFormatter` on
+price-family series (~3 significant digits: KAS speaks "0.0363"); non-price
+series keep their requested fixed precision. The PRICE metadata default is now
+`{value:price}`, and the Ctrl+Shift+D raw value dump uses the same formatter
+(a MACD of 0.0012 no longer reads "0.00"). Visual axis/crosshair labels were
+already range-aware — no change needed. 2 new template tests.
+
+The browser-tab title now carries the live price after the load-state
+triangle: "▲ 0.0363 KAS/USDT 1d on MEXC - Accessible Trade Terminal".
+MainLayout samples DataStream at 1s (live ticks don't flow through
+StateStream) so a busy feed re-renders at most once a second. MAUI
+native-window-title parity is in TODO (needs a Windows build to verify).
+
 ### v24 Cycle Low Reversal seed — the cycle-strategy arc lands (2026-07-17)
 
 New built-in seed `builtin.long.v24-cycle-low-reversal` — **"Cycle Low

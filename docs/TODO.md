@@ -145,6 +145,22 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   self-wires per-provider live stream subscriptions on ConnectionStatusEvent(Connected);
   fixed the latent paper double-subscribe and single-slot-drop bugs. Schwab/Tradier
   streams are unfed (no streaming impl) — fills there surface via dashboard refresh.
+- [ ] **Order-status polling fallback** (~0.5-1d) — generic fix for ALL non-streaming
+  brokers (Schwab, Tradier, and any future one): while an order is working on a
+  provider that doesn't stream, poll GetOpenOrdersAsync every few seconds, diff
+  statuses, synthesize OrderUpdate → the existing announce path. Needs a
+  SupportsOrderStreaming capability flag (or just "no OnNext observed") to gate it.
+  Fully testable offline with substitutes — DO THIS FIRST, it closes the user-facing
+  gap on both brokers at once.
+- [ ] **Tradier account-events stream** (~1d) — Tradier has an SSE events endpoint for
+  account/order events and the provider already runs an SSE client for market data
+  (`stream.tradier.com/v1/markets/events`); add the accounts session + map order
+  events → _orderUpdateSubject.OnNext. Sandbox-testable with Cody's Tradier key.
+- [ ] **Schwab streamer ACCT_ACTIVITY** (~2-3d, riskier) — requires the full Schwab
+  WebSocket streamer handshake (streamer info from user-preferences endpoint, login
+  frame, ACCT_ACTIVITY subscription + XML payload parsing). v1 deliberately scoped
+  this out; needs a real Schwab account to verify. The polling fallback covers the
+  announce gap until this lands.
 - [ ] MAUI native window title: add the live price (WebHost browser-tab title has it,
   1s-sampled off DataStream in MainLayout; MainPage.xaml.cs `_titleSub` needs the same
   DataStream sampling — can't build-verify MAUI on Linux, do on Windows).

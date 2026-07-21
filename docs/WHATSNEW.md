@@ -1,61 +1,76 @@
-# What's New in 1.8.0
+# What's New in 1.9.0
 
-A short, user-facing summary of what changed since **1.7.0**. For the full engineering
+A short, user-facing summary of what changed since **1.8.0**. For the full engineering
 changelog see [`CHANGES.md`](CHANGES.md).
 
-> Version note: 1.8.0 is a **minor** release — nothing breaks. Saved workspaces,
-> strategies, shortcuts, patches, and API keys from 1.7.0 load unchanged.
+> Version note: 1.9.0 is a **minor** release — nothing breaks. Saved workspaces,
+> strategies, shortcuts, patches, and API keys from 1.8.0 load unchanged.
 
 ---
 
-## Your settings finally stick
+## Your live fills now speak
 
-- The speech and navigation preferences that lived only for the session — speak
-  timestamps, timestamp placement, column headers, speech order, new-bar
-  announcements, WASAPI latency, panning step — now **persist across restarts**.
-  They had silently reset to defaults on every launch since the beginning.
-- Deliberately unchanged: the F2/F3 speech and sonification mutes stay
-  session-only, so the terminal can never start silent on you.
+- An audit found that order announcements — "Order filled…", "Stop loss hit…" —
+  only ever worked in paper mode. **Live-broker fills, stops, and take-profits
+  now announce the moment the exchange reports them**, on every broker that
+  streams order events (Binance, Alpaca, Coinbase, Kraken, Bitstamp, MEXC,
+  OANDA, Interactive Brokers). The fix also means fills keep announcing on
+  every connected broker at once, and real-money orders still resting on an
+  exchange keep speaking even while you practice in paper mode.
+- Honest limitation, now also stated in the manual: **Schwab and Tradier don't
+  stream order events yet** — outcomes there appear in the Trading Dashboard's
+  Orders/History tabs. Closing that gap is next on the trading roadmap.
 
-## Bring your own waveforms
+## Sub-dollar assets speak real prices
 
-- **Import WAV files in the Sound Designer.** A short single-cycle WAV (the free
-  AKWF collection is thousands of them, or one period of any recorded
-  instrument) becomes a **wavetable** — a custom oscillator shape playable at
-  any pitch with envelopes, noise, and layering like any built-in waveform. A
-  longer WAV becomes a one-shot **sample** for earcons and signal layers.
-  Imports persist and appear in every oscillator's waveform list.
+- KAS at $0.0363 used to read "0.03" everywhere on the price line. Price speech
+  is now **magnitude-aware** (about three significant digits, however small the
+  asset), and the fix heals **existing saved workspaces**, not just new ones.
+  The Ctrl+Shift+D raw detail readout gets the same treatment.
 
-## Patches that respect what the sound means
+## The live price lives in the title bar
 
-- Putting a patch on an RSI no longer flattens it into one sound: **the
-  overbought/oversold zone texture always plays on top of any patch**, in both
-  navigation and playback.
-- Oscillators get **Above midline / Below midline** patches (split at RSI 50),
-  zero-anchored histograms get **Positive / Negative**, and only price bars say
-  **bullish / bearish** — each component's sound options now match what it is.
-- Lifting an arrow key now stops **the whole note**: multi-layer patches (organ
-  octaves and all) release together instead of the top notes ringing on.
+- The browser tab now reads like a ticker:
+  **"▲ 0.0363 KAS/USDT 1d on MEXC - Accessible Trade Terminal"** — load-state
+  triangle, live price (updated about once a second), symbol, timeframe,
+  exchange. Glance at the tab — or let your screen reader read the window
+  title — and you have the price.
 
-## Touch controls know their place
+## The research lab, in the app
 
-- The touch toolbar **and** the mobile flick slider ("Bar navigator") share one
-  setting: Settings → General → Touch navigation bar — Automatic / Always /
-  Never, applied the instant you change it. Automatic detection is far
-  stricter (a machine with a mouse is a desktop, whatever the input stack
-  claims), and Never is absolute.
-- The Braille / tactile display setting no longer appears on the web host —
-  the Dot Pad connects to the machine running the app, so it belongs to the
-  desktop builds only.
+- The Strategy Manager (Alt+S) gains a **Lab** tab: **walk-forward windows**
+  (slice history into 2–12 windows, backtest each, hear "Profitable in 3 of 4
+  windows") and **Compare all strategies** — every saved strategy tested on the
+  first and second half of your data, with the research harness's exact
+  SURVIVOR gate and ranking by the *weaker* half. "No survivors" is a result,
+  not a failure.
+
+## Alerts grow the full rule tree
+
+- The Alerts dialog (Alt+J) gains an **Advanced condition** toggle: the same
+  AND/OR/NOT/Score tree builder the strategy composer uses, so an alert can be
+  "RSI oversold AND price above the daily 200 SMA" instead of one threshold.
+  Advanced alerts fire once per condition-edge, with optional repeat and
+  cooldown.
+
+## A new built-in strategy: Cycle Low Reversal [v24]
+
+- The strategy the Loukas Cycles indicator was built for: enter in the first
+  days of a new daily cycle, when a **confirmed daily cycle low** meets a
+  Cipher B reversal trigger. Lab walk-forward on BTC daily 2011–2026: positive
+  in **both** halves (+0.25R / +0.31R, 35 trades each, profit factor ~2.1),
+  5 of 6 windows positive. Its description carries the full record — including
+  where it's weak (the most recent window) and where it failed (LTC, thin ETH,
+  not enough SOL history). BTC daily charts, suggestion-only, as always.
 
 ## Under the hood, for people who read changelogs
 
-- One visible speech-precedence list; a typed settings layer where a typo'd
-  key is a compile error; every dialog's open/announce/Escape contract enforced
-  by CI; the audio engine gains "perceptual" tests that measure rendered sound
-  energy so an inaudible-texture bug can never hide again; a data-access seam
-  (IMarketFeeds) preparing the eventual multi-chart pipeline.
-- Test coverage grew from 1,646 to **1,701** automated tests, run in Debug and
+- Condition trees round-trip through alerts.json via a System.Text.Json ↔
+  Newtonsoft bridge; BootstrapCi moved into Core so the app and the research
+  harness share ONE definition of "survivor"; two latent order-stream bugs
+  (paper double-subscribe, single-slot provider drop) fixed before they could
+  ever fire.
+- Test coverage grew from 1,701 to **1,724** automated tests, run in Debug and
   Release on every push.
 
 ---

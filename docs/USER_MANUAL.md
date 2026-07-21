@@ -951,6 +951,14 @@ while you are concentrating elsewhere can be read back afterward. (Realized prof
 and loss are spoken on every paper close; on a live exchange they appear when the
 exchange reports them.)
 
+One honest limitation: these real-time announcements depend on the broker pushing
+order events to the terminal. The paper simulator and the streaming brokers
+(Binance, Alpaca, Coinbase, Kraken, Bitstamp, MEXC, OANDA, Interactive Brokers) do.
+**Schwab and Tradier do not yet stream order events** — orders route and fill
+normally there, but you learn the outcome from the Trading Dashboard's Orders and
+History tabs rather than from an immediate spoken announcement. Closing that gap is
+on the roadmap.
+
 ### Positions, orders, balances, and history
 
 The lower part of the dashboard carries four tabs — Balances, Positions, Orders, and
