@@ -126,9 +126,13 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   evaluator when set (~2-3d, spec in the 2026-07-14 alerts-symbol-routing spec).
 - [ ] **Auth: HaveIBeenPwned password validator** — k-anonymity range API,
   fail-open, needs outbound-HTTPS egress confirmed from the VPS first (~0.5d).
-- [ ] **Auth: optional TOTP 2FA** — token providers already registered; cost is
-  accessible enrollment UX (QR + copyable text key), LoginWith2fa + recovery
-  codes (~1.5-2d). Best next auth step — no new infrastructure.
+- [x] **Auth: optional TOTP 2FA** DONE 2026-07-21 — /account/security hub +
+  accessible enrollment (copyable grouped key primary, QR convenience) +
+  LoginWith2fa/LoginWithRecovery + 10 single-use recovery codes + 6 audit kinds;
+  password-confirmed disable/regenerate; key reset on disable. 12 tests against
+  the real hosted stack incl. independent RFC 6238 verification. FOLLOW-UP: no
+  in-app link to /account/security yet (URL + docs only) — add an account menu
+  to the hosted terminal chrome when the hosted UI gets its next pass.
 - [ ] **Ops: systemd `UMask=0077`** drop-in on the hosted unit so future files
   (auth.db recreations, security logs) default private (~5 min, not a repo change).
 - [ ] FINRA Query API short-interest metric (needs free dev registration — Cody).

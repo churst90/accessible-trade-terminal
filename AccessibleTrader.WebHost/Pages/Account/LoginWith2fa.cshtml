@@ -1,0 +1,55 @@
+@page "/account/loginwith2fa"
+@model AccessibleTrader.WebHost.Pages.Account.LoginWith2faModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Two-factor code";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-factor code — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/auth.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
+</head>
+<body>
+    <header class="auth-header">
+        <a href="/" aria-label="Accessible Trade Terminal home">
+            <img class="mark" src="~/icons/icon-192.png" alt="" aria-hidden="true" />
+            <span>Accessible Trade Terminal</span>
+        </a>
+    </header>
+    <main role="main" class="auth-wrap">
+        <div class="auth-card">
+            <h1>Enter your two-factor code</h1>
+            <p class="auth-sub">Your account is protected with an authenticator app. Enter the current six-digit code.</p>
+
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+            }
+
+            <form method="post">
+                <input type="hidden" asp-for="RememberMe" />
+                <div class="auth-field">
+                    <label asp-for="Input.Code">Authenticator code</label>
+                    <input class="auth-input" asp-for="Input.Code" type="text"
+                           inputmode="numeric" autocomplete="one-time-code"
+                           autofocus aria-describedby="code-err" />
+                    <span id="code-err" class="field-error" asp-validation-for="Input.Code" role="alert"></span>
+                </div>
+                <label class="auth-check">
+                    <input asp-for="Input.RememberMachine" type="checkbox" />
+                    Don't ask again on this browser for 14 days
+                </label>
+                <button class="auth-btn" type="submit">Verify</button>
+            </form>
+
+            <p class="auth-alt">
+                Lost the device? <a href="@Url.Content("~/account/loginwithrecovery")">Use a recovery code</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

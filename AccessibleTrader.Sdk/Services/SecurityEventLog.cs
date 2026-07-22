@@ -45,6 +45,18 @@ public enum SecurityEventKind
     AuthPasswordResetRequested,
     /// <summary>A hosted-account password was successfully reset via a reset token on the ResetPassword page.</summary>
     AuthPasswordReset,
+    /// <summary>Two-factor authentication was enabled on a hosted account (authenticator app enrolled, recovery codes issued).</summary>
+    AuthTwoFactorEnabled,
+    /// <summary>Two-factor authentication was disabled on a hosted account (password-confirmed).</summary>
+    AuthTwoFactorDisabled,
+    /// <summary>A two-factor sign-in challenge succeeded (authenticator code).</summary>
+    AuthTwoFactorLoginSucceeded,
+    /// <summary>A two-factor sign-in challenge failed (wrong/expired code). Repeated failures trip the same lockout as passwords.</summary>
+    AuthTwoFactorLoginFailed,
+    /// <summary>A single-use recovery code was consumed to complete a two-factor sign-in.</summary>
+    AuthRecoveryCodeUsed,
+    /// <summary>A fresh set of two-factor recovery codes was generated (invalidates all previous codes).</summary>
+    AuthRecoveryCodesGenerated,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }

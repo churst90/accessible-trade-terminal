@@ -183,6 +183,17 @@ the second layer behind it.
   which since 2026-07 records login success/failure/lockout and registration with the
   real client IP (via `X-Forwarded-For`). Registration has a screen-reader-safe
   honeypot and returns a generic message on duplicate email.
+- Optional TOTP two-factor authentication (2026-07): any user can enroll an
+  authenticator app at `/account/security` → "Set up two-factor authentication".
+  Enrollment is accessible-first (copyable setup key grouped in fours; the QR code
+  is the phone-scan convenience), issues ten single-use recovery codes shown once,
+  and every 2FA event (enable, disable, challenge success/failure, recovery-code
+  use, code regeneration) lands in the security event log with the client IP.
+  Disabling 2FA or regenerating codes requires the CURRENT password (a hijacked
+  session can't quietly strip the second factor), and disabling resets the
+  authenticator key so re-enrollment always mints a fresh secret. Failed codes
+  count toward the same 10-attempt lockout as passwords. No new infrastructure —
+  Identity's default token providers, same auth.db.
 - Response security headers are set by the app on every response (`SecurityHeadersPolicy`,
   added 2026-07): CSP (`script-src 'self'`, `frame-ancestors 'none'`),
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`,

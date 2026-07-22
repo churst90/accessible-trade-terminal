@@ -1,0 +1,94 @@
+@page "/account/enable2fa"
+@model AccessibleTrader.WebHost.Pages.Account.EnableAuthenticatorModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Set up two-factor authentication";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-factor setup — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/auth.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
+</head>
+<body>
+    <header class="auth-header">
+        <a href="/" aria-label="Accessible Trade Terminal home">
+            <img class="mark" src="~/icons/icon-192.png" alt="" aria-hidden="true" />
+            <span>Accessible Trade Terminal</span>
+        </a>
+    </header>
+    <main role="main" class="auth-wrap">
+        <div class="auth-card">
+            @if (Model.RecoveryCodes != null)
+            {
+                <h1>Two-factor authentication is on</h1>
+                <div class="auth-note" role="status" aria-live="polite">
+                    Your authenticator app is enrolled. Save the recovery codes below now.
+                </div>
+                <p>
+                    These ten single-use recovery codes are your way back in if you lose
+                    the authenticator device. <strong>They are shown only this once.</strong>
+                    Store them somewhere safe — a password manager is ideal.
+                </p>
+                @* A readonly textarea rather than a visual-only list: focusable,
+                   selectable, and screen readers read it line by line. *@
+                <label class="auth-field" for="recovery-codes">Recovery codes, one per line</label>
+                <textarea id="recovery-codes" class="auth-input" rows="10" readonly
+                          style="font-family: monospace;">@string.Join("\n", Model.RecoveryCodes)</textarea>
+                <p class="auth-alt">
+                    <a href="@Url.Content("~/account/security")">Back to account security</a> ·
+                    <a href="@Url.Content("~/")">Open the terminal</a>
+                </p>
+            }
+            else
+            {
+                <h1>Set up two-factor authentication</h1>
+                <p class="auth-sub">
+                    Add a one-time code from an authenticator app (Aegis, FreeOTP, Google
+                    Authenticator, or any TOTP app) to every sign-in.
+                </p>
+
+                @if (!string.IsNullOrEmpty(Model.Error))
+                {
+                    <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+                }
+
+                <h2>1. Add the account to your authenticator</h2>
+                <p>
+                    Enter this setup key in your authenticator app (choose "enter a key
+                    manually" / time-based), or scan the QR code below with a phone.
+                </p>
+                <label class="auth-field" for="shared-key">Setup key (select and copy)</label>
+                <input id="shared-key" class="auth-input" type="text" readonly
+                       style="font-family: monospace;" value="@Model.SharedKey"
+                       aria-describedby="shared-key-hint" />
+                <p id="shared-key-hint" class="auth-sub">
+                    The key is read in groups of four characters. Spaces don't matter when
+                    entering it.
+                </p>
+                <img src="@Model.QrDataUri" width="180" height="180"
+                     alt="QR code carrying the same setup key for phone-camera enrollment. If you cannot scan it, use the setup key text above — they are equivalent." />
+
+                <h2>2. Confirm a code</h2>
+                <form method="post">
+                    <div class="auth-field">
+                        <label asp-for="Input.Code">Six-digit code from the app</label>
+                        <input class="auth-input" asp-for="Input.Code" type="text"
+                               inputmode="numeric" autocomplete="one-time-code"
+                               aria-describedby="code-err" autofocus />
+                        <span id="code-err" class="field-error" asp-validation-for="Input.Code" role="alert"></span>
+                    </div>
+                    <button class="auth-btn" type="submit">Turn on two-factor</button>
+                </form>
+
+                <p class="auth-alt">
+                    <a href="@Url.Content("~/account/security")">Back to account security</a>
+                </p>
+            }
+        </div>
+    </main>
+</body>
+</html>

@@ -63,6 +63,14 @@ namespace AccessibleTrader.WebHost.Pages.Account
                 return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
             }
 
+            if (result.RequiresTwoFactor)
+            {
+                // First factor passed; hand off to the authenticator challenge.
+                // No audit event yet — success/failure is recorded there.
+                return RedirectToPage("LoginWith2fa",
+                    new { rememberMe = Input.RememberMe, returnUrl });
+            }
+
             if (result.IsLockedOut)
             {
                 _audit.Record(new SecurityEvent(

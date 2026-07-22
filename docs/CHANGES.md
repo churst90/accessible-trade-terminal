@@ -6,6 +6,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Hosted accounts: TOTP two-factor authentication (2026-07-21)
+
+The hosted terminal gains optional authenticator-app 2FA — the "best next auth
+step" from the hardening review, built with zero new infrastructure
+(Identity's default token providers, same auth.db; one new package, QRCoder,
+for the enrollment QR).
+
+- **Accessible-first enrollment** at `/account/enable2fa`: the primary path is
+  a copyable setup key in a readonly input, grouped in fours ("gmju 6fk2 …" —
+  reads cleanly under a screen reader and matches authenticator manual entry);
+  the QR code (inline data: PNG, CSP-clean) is the phone-scan convenience with
+  alt text pointing back to the key. Verification accepts codes the way people
+  type them ("123 456", "123-456").
+- **Ten single-use recovery codes**, shown exactly once in a readonly textarea
+  (focusable, selectable, read line-by-line), on enrollment and on regeneration.
+- **`/account/security` hub**: 2FA status, remaining-code count with a ≤3
+  warning, enroll link, regenerate codes, disable — the last two re-confirmed
+  with the CURRENT password so a hijacked session can't strip the second
+  factor. Disabling resets the authenticator key: re-enabling always mints a
+  fresh secret, never revives a possibly-leaked one.
+- **Challenge pages**: `/account/loginwith2fa` (with a 14-day remember-this-
+  browser option) and `/account/loginwithrecovery`. Wrong codes show generic
+  errors (no oracle) and count toward the same 10-attempt lockout as passwords.
+- **Six new audit kinds** (enable/disable/challenge success/failure/recovery
+  used/codes regenerated), all with real client IPs.
+
+12 new tests run the REAL hosted stack (AddHostedAccounts DI, real sqlite):
+the TOTP round-trip is verified with an independently-computed RFC 6238 code,
+so the test proves any standard authenticator app works — not just that
+Identity agrees with itself. Recovery single-use/replay/invalidation pinned.
+
 ### The mute-tier redesign: one grammar for the F-key row (2026-07-21)
 
 Cody's design, built as specified: **unshifted F-key = the interactive channel

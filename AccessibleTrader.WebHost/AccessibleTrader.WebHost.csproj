@@ -49,6 +49,10 @@
          Identity + EF Core stores for the AuthDbContext (auth.db). No effect on the
          local/demo modes or the MAUI head. -->
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
+    <!-- QR rendering for the accessible 2FA enrollment page (pure managed, no
+         native deps; the copyable text key is the primary path, QR is the
+         phone-scan convenience). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
     <!-- SkiaSharp native runtime. Core's Rendering/* uses SKPaint/SKCanvas; the

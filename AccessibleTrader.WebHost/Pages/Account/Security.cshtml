@@ -1,0 +1,99 @@
+@page "/account/security"
+@model AccessibleTrader.WebHost.Pages.Account.SecurityModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Account security";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account security — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/auth.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
+</head>
+<body>
+    <header class="auth-header">
+        <a href="/" aria-label="Accessible Trade Terminal home">
+            <img class="mark" src="~/icons/icon-192.png" alt="" aria-hidden="true" />
+            <span>Accessible Trade Terminal</span>
+        </a>
+    </header>
+    <main role="main" class="auth-wrap">
+        <div class="auth-card">
+            <h1>Account security</h1>
+            <p class="auth-sub">Signed in as @Model.Email</p>
+
+            @if (!string.IsNullOrEmpty(Model.Status))
+            {
+                <div class="auth-note" role="status" aria-live="polite">@Model.Status</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+            }
+
+            @if (Model.NewRecoveryCodes != null)
+            {
+                <h2>Your new recovery codes</h2>
+                <p>All previous codes are now invalid. <strong>These are shown only this once</strong> — save them somewhere safe.</p>
+                <label class="auth-field" for="recovery-codes">Recovery codes, one per line</label>
+                <textarea id="recovery-codes" class="auth-input" rows="10" readonly
+                          style="font-family: monospace;">@string.Join("\n", Model.NewRecoveryCodes)</textarea>
+            }
+
+            <h2>Two-factor authentication</h2>
+            @if (Model.TwoFactorEnabled)
+            {
+                <p>
+                    <strong>On.</strong> Sign-ins require a code from your authenticator app.
+                    You have <strong>@Model.RecoveryCodesLeft</strong> unused recovery
+                    @(Model.RecoveryCodesLeft == 1 ? "code" : "codes") left.
+                    @if (Model.RecoveryCodesLeft <= 3)
+                    {
+                        <span> Consider generating a fresh set below.</span>
+                    }
+                </p>
+
+                <h3>Generate new recovery codes</h3>
+                <p>Invalidates every existing code and issues ten new ones. Confirm with your password.</p>
+                <form method="post" asp-page-handler="RegenerateCodes">
+                    <div class="auth-field">
+                        <label for="regen-password">Current password</label>
+                        <input id="regen-password" class="auth-input" name="Password" type="password"
+                               autocomplete="current-password" />
+                    </div>
+                    <button class="auth-btn" type="submit">Generate new recovery codes</button>
+                </form>
+
+                <h3>Turn off two-factor</h3>
+                <p>Your account goes back to password-only sign-in. Confirm with your password.</p>
+                <form method="post" asp-page-handler="Disable">
+                    <div class="auth-field">
+                        <label for="disable-password">Current password</label>
+                        <input id="disable-password" class="auth-input" name="Password" type="password"
+                               autocomplete="current-password" />
+                    </div>
+                    <button class="auth-btn" type="submit">Turn off two-factor</button>
+                </form>
+            }
+            else
+            {
+                <p>
+                    <strong>Off.</strong> Your sign-in is protected by your password alone.
+                    Adding an authenticator app means a stolen password still can't open
+                    your account.
+                </p>
+                <p><a class="auth-btn" style="display:inline-block; text-decoration:none;"
+                      href="@Url.Content("~/account/enable2fa")">Set up two-factor authentication</a></p>
+            }
+
+            <p class="auth-alt">
+                <a href="@Url.Content("~/")">Back to the terminal</a> ·
+                <a href="@Url.Content("~/account/logout")">Sign out</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>
