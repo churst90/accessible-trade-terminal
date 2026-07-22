@@ -49,16 +49,27 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceLibraryService _library;
         private readonly IIndicatorService _indicatorService;
 
+        // Optional (null in lightweight tests): the strategy-restore collaborators.
+        private readonly Sdk.Strategies.IStrategyEngine? _strategyEngine;
+        private readonly Strategies.IConfigurableStrategyFactory? _strategyFactory;
+        private readonly Strategies.IStrategyLibrary? _strategyLibrary;
+
         public WorkspaceInitializer(
             ISeriesManagementService seriesService,
             IWorkspaceStore store,
             IWorkspaceLibraryService library,
-            IIndicatorService indicatorService)
+            IIndicatorService indicatorService,
+            Sdk.Strategies.IStrategyEngine? strategyEngine = null,
+            Strategies.IConfigurableStrategyFactory? strategyFactory = null,
+            Strategies.IStrategyLibrary? strategyLibrary = null)
         {
             _seriesService = seriesService;
             _store = store;
             _library = library;
             _indicatorService = indicatorService;
+            _strategyEngine = strategyEngine;
+            _strategyFactory = strategyFactory;
+            _strategyLibrary = strategyLibrary;
         }
 
         /// <summary>
@@ -363,6 +374,46 @@ namespace AccessibleTrader.Core.Services
             {
                 // Legacy single-tab format
                 RestoreLegacySingleTab(config, allMeta);
+            }
+
+            RestoreActiveStrategies(config);
+        }
+
+        /// <summary>
+        /// Re-activates the strategies that were live when the workspace was saved.
+        /// REPLACE semantics: loading a workspace means "give me that state back",
+        /// so currently-active strategies are removed first. Each saved record is
+        /// looked up in the library (a deleted spec is skipped with a log — the
+        /// workspace must still load) and re-bound to its SAVED symbol, not the
+        /// currently-focused chart. Roslyn-script specs need async compilation and
+        /// are handled by StrategyAutoLoader's IsAutoActivate path instead.
+        /// </summary>
+        private void RestoreActiveStrategies(WorkspaceConfiguration config)
+        {
+            if (_strategyEngine == null || _strategyFactory == null || _strategyLibrary == null) return;
+            if (config.ActiveStrategies == null) return;
+
+            foreach (var existing in _strategyEngine.ActiveStrategies.ToList())
+                _strategyEngine.RemoveStrategy(existing.InstanceId);
+
+            foreach (var saved in config.ActiveStrategies)
+            {
+                try
+                {
+                    var spec = _strategyLibrary.All.FirstOrDefault(s => s.Id == saved.SpecId);
+                    if (spec == null || !string.IsNullOrWhiteSpace(spec.RoslynSource)) continue;
+
+                    var strategy = _strategyFactory.Create(spec);
+                    var mode = Enum.TryParse<Sdk.Strategies.StrategyExecutionMode>(saved.ExecutionMode, out var m)
+                        ? m : spec.ExecutionMode;
+                    string id = _strategyEngine.AddStrategy(strategy, new Dictionary<string, object>(),
+                        mode, specId: spec.Id, bindSymbol: saved.Symbol);
+                    if (saved.IsPaused) _strategyEngine.PauseStrategy(id, true);
+                }
+                catch (Exception)
+                {
+                    // A bad spec must never block workspace load; the rest restore.
+                }
             }
         }
 

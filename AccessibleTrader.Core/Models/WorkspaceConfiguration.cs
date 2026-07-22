@@ -21,13 +21,21 @@ namespace AccessibleTrader.Core.Models
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();
 
-        /// <summary>
-        /// IDs of the <c>StrategySpec</c>s that were active on this tab when the workspace was
-        /// saved. On load, <c>WorkspaceInitializer</c> looks each ID up via <c>IStrategyLibrary</c>,
-        /// constructs a runtime <c>ConfigurableStrategy</c> via the factory, and registers it with
-        /// the engine. Live strategies survive app restart this way.
-        /// </summary>
-        public List<string> ActiveStrategySpecIds { get; set; } = new();
+    }
+
+    /// <summary>
+    /// One active strategy captured at save time. WORKSPACE-level (not per-tab)
+    /// because the engine is global with per-symbol bindings — a strategy bound
+    /// to "BTC/USD" restores against whichever tab shows that symbol, exactly
+    /// how the engine routes it live. Only library-backed strategies (SpecId set)
+    /// can be persisted; ad-hoc compiled scripts are session-only.
+    /// </summary>
+    public class SavedActiveStrategy
+    {
+        public string SpecId { get; set; } = "";
+        public string? Symbol { get; set; }
+        public string ExecutionMode { get; set; } = "Suggestion";
+        public bool IsPaused { get; set; }
     }
 
     /// <summary>
@@ -45,6 +53,11 @@ namespace AccessibleTrader.Core.Models
         /// series configurations, viewport state, and display toggles.
         /// </summary>
         public List<TabConfiguration> Tabs { get; set; } = new();
+
+        /// <summary>Active strategies at save time (workspace-level; see
+        /// <see cref="SavedActiveStrategy"/> for why not per-tab). Restored by
+        /// WorkspaceInitializer after tabs are rebuilt.</summary>
+        public List<SavedActiveStrategy> ActiveStrategies { get; set; } = new();
 
         // ── Legacy flat fields (kept for backward compatibility with old default.json) ──
         public string Symbol { get; set; } = "";

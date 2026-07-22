@@ -34,14 +34,26 @@ namespace AccessibleTrader.Core.Services
 
     public class WorkspaceLibraryService : IWorkspaceLibraryService
     {
-        private readonly string _libraryDir;
+        private string _libraryDir;
         private readonly ILogger<WorkspaceLibraryService> _logger;
 
-        public WorkspaceLibraryService(ILogger<WorkspaceLibraryService> logger)
+        private readonly Sdk.Strategies.IStrategyEngine? _engine;
+
+        public WorkspaceLibraryService(ILogger<WorkspaceLibraryService> logger,
+            Sdk.Strategies.IStrategyEngine? engine = null)
         {
             _logger = logger;
+            _engine = engine;
             _libraryDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AccessibleTrader", "Workspaces");
             if (!Directory.Exists(_libraryDir)) Directory.CreateDirectory(_libraryDir);
+        }
+
+        /// <summary>Test seam: redirect the library to a temp directory. Also the
+        /// hook a future per-user hosted scoping would use.</summary>
+        internal string LibraryDirectoryOverride
+        {
+            get => _libraryDir;
+            set { _libraryDir = value; Directory.CreateDirectory(value); }
         }
 
         /// <summary>
@@ -114,6 +126,22 @@ namespace AccessibleTrader.Core.Services
                 Tabs = new List<TabConfiguration>()
             };
 
+            // Library-backed active strategies (SpecId set) survive the save;
+            // ad-hoc compiled scripts are session-only by design.
+            if (_engine != null)
+            {
+                config.ActiveStrategies = _engine.ActiveStrategies
+                    .Where(a => !string.IsNullOrEmpty(a.SpecId))
+                    .Select(a => new SavedActiveStrategy
+                    {
+                        SpecId = a.SpecId!,
+                        Symbol = a.Symbol,
+                        ExecutionMode = a.ExecutionMode.ToString(),
+                        IsPaused = a.IsPaused,
+                    })
+                    .ToList();
+            }
+
             // Capture the active tab.
             config.Tabs.Add(CreateTabConfig(state));
 
@@ -146,6 +174,15 @@ namespace AccessibleTrader.Core.Services
             SaveProfile(name, config);
         }
 
+        /// <summary>Drawing anchors live on the runtime ChartSeries; sync them into
+        /// the persisted config so trendlines/channels/fibs survive save/load
+        /// (they did NOT before 2026-07-22 — every drawing vanished on restart).</summary>
+        private static SeriesConfig CaptureConfig(ChartSeries s)
+        {
+            s.Config.Drawing = s.Drawing;
+            return s.Config;
+        }
+
         private static TabConfiguration CreateTabConfig(WorkspaceState state)
         {
             return new TabConfiguration
@@ -158,7 +195,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportLength = state.ViewportLength,
                 IsHeikinAshi = state.IsHeikinAshi,
                 IsLogScale = state.IsLogScale,
-                Series = state.ActiveSeries.Select(s => s.Config).ToList(),
+                Series = state.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
                     ? new Dictionary<string, float>(state.PaneHeightRatios)
                     : new()
@@ -177,7 +214,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportLength = snap.ViewportLength,
                 IsHeikinAshi = snap.IsHeikinAshi,
                 IsLogScale = snap.IsLogScale,
-                Series = snap.ActiveSeries.Select(s => s.Config).ToList(),
+                Series = snap.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = snap.PaneHeightRatios != null
                     ? new Dictionary<string, float>(snap.PaneHeightRatios)
                     : new()

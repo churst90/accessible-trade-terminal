@@ -249,10 +249,14 @@ namespace AccessibleTrader.Core.Services
         public void RegisterSeriesFromConfig(SeriesConfig config)
         {
             // Use the saved config directly — preserves colors, levels, parameters.
+            // Drawing rehydrates from the persisted anchors; the component arrays
+            // start empty and IndicatorOrchestrator recomputes them from the
+            // anchors as soon as chart data is available (its IsDrawing branch).
             var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id })
             {
                 IsProfile = config.IndicatorCode.ToUpperInvariant() is "VPVR" or "VPFR" or "TPO"
-                         || config.IndicatorCode.ToUpperInvariant().Contains("PROFILE")
+                         || config.IndicatorCode.ToUpperInvariant().Contains("PROFILE"),
+                Drawing = config.Drawing
             };
             _store.Dispatch(new AddSeriesAction(series));
             // No PersistWorkspace here — restoring from a saved profile must not overwrite it.

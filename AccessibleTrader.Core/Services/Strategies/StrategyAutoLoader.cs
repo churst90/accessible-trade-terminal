@@ -82,14 +82,14 @@ namespace AccessibleTrader.Core.Services.Strategies
                             continue;
                         }
                         _engine.AddStrategy(result.Strategy!, new System.Collections.Generic.Dictionary<string, object>(),
-                                            spec.ExecutionMode);
+                                            spec.ExecutionMode, specId: spec.Id);
                         count++;
                         continue;
                     }
 
                     var strategy = _factory.Create(spec);
                     _engine.AddStrategy(strategy, new System.Collections.Generic.Dictionary<string, object>(),
-                                        spec.ExecutionMode);
+                                        spec.ExecutionMode, specId: spec.Id);
                     count++;
                 }
                 catch (Exception ex)

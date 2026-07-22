@@ -148,7 +148,9 @@ namespace AccessibleTrader.Core.Services
         public string AddStrategy(
             ITradingStrategy strategy,
             IDictionary<string, object>? parameters = null,
-            StrategyExecutionMode mode = StrategyExecutionMode.Suggestion)
+            StrategyExecutionMode mode = StrategyExecutionMode.Suggestion,
+            string? specId = null,
+            string? bindSymbol = null)
         {
             var instanceId = Guid.NewGuid().ToString("N");
             var @params = parameters ?? new Dictionary<string, object>();
@@ -162,10 +164,10 @@ namespace AccessibleTrader.Core.Services
             // monitor picks it up while the symbol is NOT focused — one driver at a
             // time (see BackgroundWorkspaceMonitor). Empty symbol (blank chart) keeps
             // the legacy always-evaluate behaviour.
-            string? boundSymbol = string.IsNullOrWhiteSpace(state.SymbolDisplayName)
-                ? null : state.SymbolDisplayName;
+            string? boundSymbol = bindSymbol
+                ?? (string.IsNullOrWhiteSpace(state.SymbolDisplayName) ? null : state.SymbolDisplayName);
 
-            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol);
+            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol, specId);
             _activeStrategies = _activeStrategies.Add(active);
             _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode}, symbol={boundSymbol ?? "any"})", nameof(StrategyEngine));
             return instanceId;

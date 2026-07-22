@@ -47,6 +47,15 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public double? RangeMax { get; set; }
 
+        /// <summary>
+        /// For drawing series (trendlines, channels, fibs, labels): the anchor
+        /// data. Runtime lives on <c>ChartSeries.Drawing</c>; this copy exists so
+        /// workspace saves round-trip drawings — synced in at capture time and
+        /// rehydrated onto the series on restore, after which the indicator
+        /// orchestrator recomputes the component arrays against loaded data.
+        /// </summary>
+        public DrawingData? Drawing { get; set; }
+
         public SeriesConfig Clone()
         {
             var c = new SeriesConfig
@@ -55,7 +64,8 @@ namespace AccessibleTrader.Sdk.Models
                 Pane = Pane, IsMuted = IsMuted, Volume = Volume, IsVisible = IsVisible,
                 IsAutoNarrated = IsAutoNarrated,
                 SpeakHeaderFirst = SpeakHeaderFirst, IncludeTimestamp = IncludeTimestamp,
-                RangeMin = RangeMin, RangeMax = RangeMax
+                RangeMin = RangeMin, RangeMax = RangeMax,
+                Drawing = Drawing
             };
             foreach (var comp in Components) c.Components.Add(comp.Clone());
             foreach (var level in Levels) c.Levels.Add(level.Clone());

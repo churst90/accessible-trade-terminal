@@ -113,7 +113,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 RemoveExistingInstancesOfSpec(specId);
 
                 var strategy = _factory.Create(spec);
-                _engine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode);
+                _engine.AddStrategy(strategy, new Dictionary<string, object>(), spec.ExecutionMode, specId: spec.Id);
                 _library.Upsert(spec with { IsAutoActivate = true });
 
                 return StrategyCoordinatorResult.Ok(
