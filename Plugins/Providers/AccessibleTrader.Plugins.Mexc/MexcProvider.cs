@@ -49,6 +49,9 @@ namespace AccessibleTrader.Plugins.Mexc
         public override bool RequiresApiKey => false;
         public override bool IsConfigured => true;
         public override bool SupportsLiveUpdates => true;
+        // Kline updates re-send the current candle with CUMULATIVE volume-so-far;
+        // consolidation must diff, not accumulate (see LiveTickStyle docs).
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 500;
         public override ProviderCapabilities Capabilities =>

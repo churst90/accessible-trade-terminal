@@ -77,7 +77,9 @@ namespace AccessibleTrader.Sdk.Models
             }
             else
             {
-                var newArray = new T[_data.Length * 2];
+                // Math.Max guards the Empty singleton: its backing array is
+                // zero-length, and 0 * 2 == 0 made the first Append overflow.
+                var newArray = new T[Math.Max(1024, _data.Length * 2)];
                 Array.Copy(_data, newArray, _data.Length);
                 newArray[Count] = item;
                 return new TimeSeriesBuffer<T>(newArray, Count + 1);

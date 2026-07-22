@@ -241,24 +241,76 @@ namespace AccessibleTrader.Plugins.Binance
             _currentSymbol = cleanSymbol;
             _currentTimeframe = timeframe;
 
-            bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
-            string wsBase = isFutures ? FutWs : SpotWs;
-            string interval = MapInterval(timeframe);
-            var uri = new Uri($"{wsBase}{cleanSymbol.ToLowerInvariant()}@kline_{interval}");
+            var uri = BuildKlineStreamUri(market, symbol, timeframe);
 
             _ = Task.Run(() => RunSocketAsync(uri, OnKlineMessage, ct));
         }
 
-        private void OnKlineMessage(JsonElement root)
+        internal Uri BuildKlineStreamUri(string market, string symbol, string timeframe)
         {
-            if (!root.TryGetProperty("k", out var k)) return;
+            bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
+            string wsBase = isFutures ? FutWs : SpotWs;
+            string interval = MapInterval(timeframe);
+            return new Uri($"{wsBase}{CleanSymbol(symbol).ToLowerInvariant()}@kline_{interval}");
+        }
+
+        internal static bool TryParseKline(JsonElement root, out Ohlcv bar)
+        {
+            bar = default;
+            if (!root.TryGetProperty("k", out var k)) return false;
             long openTime = k.GetProperty("t").GetInt64();
-            var bar = new Ohlcv(
+            bar = new Ohlcv(
                 DateTimeOffset.FromUnixTimeMilliseconds(openTime).UtcDateTime,
                 Dbl(k, "o"), Dbl(k, "h"), Dbl(k, "l"), Dbl(k, "c"), Dbl(k, "v"));
+            return !(bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0);
+        }
 
-            if (bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0) return;
-            _liveStream.OnNext(bar);
+        private void OnKlineMessage(JsonElement root)
+        {
+            if (TryParseKline(root, out var bar))
+                _liveStream.OnNext(bar);
+        }
+
+        // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
+
+        // Kline messages carry the current kline's CUMULATIVE volume-so-far;
+        // consolidation must diff, not accumulate (see LiveTickStyle docs).
+        public override LiveTickStyle LiveTickStyle => LiveTickStyle.CumulativeBars;
+
+        public override bool SupportsMultipleLiveSubscriptions => true;
+
+        /// <summary>
+        /// One public kline WebSocket per subscription — no auth, no interaction
+        /// with the focused-chart subscription, and well within Binance's 300
+        /// connections / 5 min / IP limit at the hub's feed scale. RunSocketAsync
+        /// owns reconnection for the life of the handle.
+        /// </summary>
+        public override Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+        {
+            var uri = BuildKlineStreamUri(market, symbol, timeframe);
+            var cts = new CancellationTokenSource();
+            var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle);
+
+            _ = Task.Run(() => RunSocketAsync(uri, root =>
+            {
+                if (!TryParseKline(root, out var raw)) return;
+                var bar = consolidator.Apply(raw);
+                if (bar.HasValue) onBar(bar.Value);
+            }, cts.Token));
+
+            return Task.FromResult<IAsyncDisposable>(new LiveSubscriptionHandle(cts));
+        }
+
+        private sealed class LiveSubscriptionHandle : IAsyncDisposable
+        {
+            private CancellationTokenSource? _cts;
+            public LiveSubscriptionHandle(CancellationTokenSource cts) { _cts = cts; }
+            public ValueTask DisposeAsync()
+            {
+                var cts = Interlocked.Exchange(ref _cts, null);
+                if (cts != null) { cts.Cancel(); cts.Dispose(); }
+                return ValueTask.CompletedTask;
+            }
         }
 
         public override async Task DisconnectAsync()

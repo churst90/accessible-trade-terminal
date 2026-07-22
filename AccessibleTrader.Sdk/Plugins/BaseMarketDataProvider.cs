@@ -74,6 +74,30 @@ namespace AccessibleTrader.Sdk.Plugins
         /// </summary>
         public virtual SymbolRenderHints? GetSymbolRenderHints(string symbol) => null;
 
+        /// <summary>
+        /// Live tick semantics (see <see cref="IMarketDataProvider.LiveTickStyle"/>).
+        /// Anchored virtual here for the same vtable reason as <see cref="DataShape"/>:
+        /// kline-style providers override to CumulativeBars so consolidation stops
+        /// double-counting their running volume totals.
+        /// </summary>
+        public virtual LiveTickStyle LiveTickStyle => LiveTickStyle.TradeDeltas;
+
+        /// <summary>
+        /// Keyed-feeds capability (see
+        /// <see cref="IMarketDataProvider.SupportsMultipleLiveSubscriptions"/>).
+        /// Anchored virtual for the vtable reason above.
+        /// </summary>
+        public virtual bool SupportsMultipleLiveSubscriptions => false;
+
+        /// <summary>
+        /// Independent live subscription (see
+        /// <see cref="IMarketDataProvider.SubscribeLiveAsync"/>). Anchored virtual
+        /// for the vtable reason above; only providers that override
+        /// <see cref="SupportsMultipleLiveSubscriptions"/> implement it.
+        /// </summary>
+        public virtual Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+            => throw new NotSupportedException($"{Name} does not support concurrent live subscriptions.");
+
         // ── Capability discovery ──────────────────────────────────────────────────
 
         public virtual T? GetCapability<T>() where T : class

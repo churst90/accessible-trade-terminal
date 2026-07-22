@@ -117,6 +117,30 @@ socket serving many user sessions) is the LATER hosted-alerts work — the hub's
 `Acquire` seam is where a cross-session pool will plug in, but nothing in this
 refactor depends on it.
 
+### Found during Phase B: live-bar volume inflation on kline providers
+
+`Ohlcv.UpdateWith` ADDS tick volume — correct for trade-tick streams, wrong for
+kline-style streams that re-send the current candle with CUMULATIVE
+volume-so-far: every ~1s update re-added the running total, inflating the live
+bar's volume until the next REST refresh corrected it. Fix: providers declare
+`LiveTickStyle` (default TradeDeltas = old behavior) and the new style-aware
+`BarBucketConsolidator` diffs cumulative volumes instead of accumulating.
+
+Fleet classification (2026-07-22 audit, verified at the emission sites):
+- **CumulativeBars (was inflating intra-bar)**: Binance, MEXC, Kraken.
+- **CumulativeBars (one-shot completed bars — style-neutral, declared for
+  accuracy)**: Alpaca, Polygon.
+- **TradeDeltas (correct all along)**: Bitstamp, Coinbase, Finnhub, Oanda,
+  TwelveData, Tradier.
+- **No live stream**: Schwab (REST poll), analytics providers.
+- **Unclear, left on the safe default**: Interactive Brokers (smd field
+  semantics undocumented in-repo; revisit if IB live charts show volume drift).
+
+Also fixed here: `TimeSeriesBuffer.Append` overflowed on the `Empty` singleton
+(0-length array × 2 = 0) — unreachable in the old pipeline because live always
+started after a refresh, reachable the moment a per-feed subscription ticks an
+empty feed.
+
 ### Found during Phase A: the silent strategy gap
 
 `DataManager`'s live loop dispatches `UpdateDataAction` but has NEVER fired

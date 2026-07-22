@@ -44,6 +44,16 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// identity and pumps its ticks into that feed.</summary>
         Task StartFocusedLiveAsync();
         Task StopFocusedLiveAsync();
+
+        /// <summary>
+        /// Tries to open an INDEPENDENT live subscription for this identity's feed
+        /// (Phase B): requires a provider that supports multiple concurrent live
+        /// subscriptions and a demo policy that allows live streaming. Returns
+        /// false — leaving the feed poll/refresh-driven — otherwise. Idempotent.
+        /// </summary>
+        Task<bool> TryStartFeedLiveAsync(ChartIdentity identity);
+        Task StopFeedLiveAsync(ChartIdentity identity);
+        bool IsFeedLive(ChartIdentity identity);
     }
 
     public sealed class MarketFeedHub : IMarketFeedHub
@@ -54,10 +64,15 @@ namespace AccessibleTrader.Core.Services.Feeds
         private const int MaxFeeds = 32;
 
         private readonly IDataOrchestrator _orchestrator;
+        private readonly IDataService _dataService;
+        private readonly DemoPolicy _demo;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<MarketFeedHub> _logger;
         private readonly ConcurrentDictionary<ChartIdentity, ChartFeed> _feeds = new();
         private readonly ConcurrentDictionary<ChartIdentity, int> _leaseCounts = new();
+        // Per-feed independent live subscriptions (Phase B) — provider handles that
+        // own their own socket + reconnection; disposing unsubscribes.
+        private readonly ConcurrentDictionary<ChartIdentity, IAsyncDisposable> _feedSubscriptions = new();
         private readonly object _evictionLock = new();
 
         private volatile ChartFeed? _focused;
@@ -67,9 +82,11 @@ namespace AccessibleTrader.Core.Services.Feeds
         public ChartFeed? FocusedFeed => _focused;
         public event Action<ChartFeed, FeedUpdateKind>? FocusedFeedUpdated;
 
-        public MarketFeedHub(IDataOrchestrator orchestrator, ILoggerFactory loggerFactory)
+        public MarketFeedHub(IDataOrchestrator orchestrator, IDataService dataService, DemoPolicy demo, ILoggerFactory loggerFactory)
         {
             _orchestrator = orchestrator;
+            _dataService = dataService;
+            _demo = demo;
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<MarketFeedHub>();
         }
@@ -118,6 +135,48 @@ namespace AccessibleTrader.Core.Services.Feeds
                 FocusedFeedUpdated?.Invoke(feed, kind);
         }
 
+        // ── Per-feed live subscriptions (Phase B) ────────────────────────────
+
+        public bool IsFeedLive(ChartIdentity identity) => _feedSubscriptions.ContainsKey(identity);
+
+        public async Task<bool> TryStartFeedLiveAsync(ChartIdentity identity)
+        {
+            if (string.IsNullOrEmpty(identity.Symbol)) return false;
+            if (_feedSubscriptions.ContainsKey(identity)) return true;
+
+            // Same policy gate as the focused path: providers with no real live
+            // feed (demo historical-only tiers) must never be live-subscribed.
+            if (!_demo.AllowsLiveStream(identity.Provider)) return false;
+
+            var provider = await _dataService.GetProviderAsync(identity.Provider).ConfigureAwait(false);
+            if (provider == null || !provider.SupportsMultipleLiveSubscriptions) return false;
+
+            var feed = GetOrCreateFeed(identity);
+            var subscription = await provider.SubscribeLiveAsync(
+                identity.Market, identity.Symbol, identity.Timeframe,
+                bar => feed.ApplyLiveTick(bar)).ConfigureAwait(false);
+
+            if (!_feedSubscriptions.TryAdd(identity, subscription))
+            {
+                // A concurrent caller won the race — theirs is live, ours goes away.
+                await subscription.DisposeAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogInformation("MarketFeedHub: independent live subscription started for {Identity}.", identity);
+            }
+            return true;
+        }
+
+        public async Task StopFeedLiveAsync(ChartIdentity identity)
+        {
+            if (_feedSubscriptions.TryRemove(identity, out var subscription))
+            {
+                await subscription.DisposeAsync().ConfigureAwait(false);
+                _logger.LogInformation("MarketFeedHub: independent live subscription stopped for {Identity}.", identity);
+            }
+        }
+
         // Called under _evictionLock, before adding the new feed.
         private void EvictIfOverCapacity()
         {
@@ -126,6 +185,7 @@ namespace AccessibleTrader.Core.Services.Feeds
             var victim = _feeds.Values
                 .Where(f => !ReferenceEquals(f, _focused))
                 .Where(f => !_leaseCounts.TryGetValue(f.Identity, out var n) || n == 0)
+                .Where(f => !_feedSubscriptions.ContainsKey(f.Identity)) // live feeds are wanted feeds
                 .OrderBy(f => f.LastUpdateUtc)
                 .FirstOrDefault();
             if (victim == null) return; // everything pinned — allow temporary overshoot
@@ -191,6 +251,14 @@ namespace AccessibleTrader.Core.Services.Feeds
             try { _pumpTask?.Wait(TimeSpan.FromMilliseconds(500)); }
             catch { /* cancellation surfaces as AggregateException — expected */ }
             _pumpCts?.Dispose();
+            foreach (var identity in _feedSubscriptions.Keys.ToList())
+            {
+                if (_feedSubscriptions.TryRemove(identity, out var subscription))
+                {
+                    try { subscription.DisposeAsync().AsTask().Wait(TimeSpan.FromMilliseconds(500)); }
+                    catch { /* best-effort teardown */ }
+                }
+            }
             foreach (var feed in _feeds.Values)
             {
                 feed.Updated -= OnFeedUpdated;

@@ -10,6 +10,18 @@ namespace AccessibleTrader.Sdk.Plugins
     public enum ConnectionState { Disconnected, Connecting, Connected, Error }
     public enum ProviderEnvironment { Live, Paper, Sandbox, HistoricalOnly }
 
+    /// <summary>
+    /// What a provider's live ticks MEAN, so consolidation can merge them
+    /// correctly. TradeDeltas: each tick is an individual trade (or delta) whose
+    /// volume ADDS to the current bar — Bitstamp's live_trades channel.
+    /// CumulativeBars: each tick is the current source bar re-sent with
+    /// CUMULATIVE volume-so-far — Binance's kline stream. Accumulating
+    /// cumulative volumes double-counts (each ~1s kline update re-adds the
+    /// running total), which inflated live-bar volume on kline providers until
+    /// the next REST refresh corrected it.
+    /// </summary>
+    public enum LiveTickStyle { TradeDeltas, CumulativeBars }
+
     public interface IMarketDataProvider : IProviderPlugin
     {
         new string Name { get; }
@@ -80,6 +92,34 @@ namespace AccessibleTrader.Sdk.Plugins
         Task EnsureConnectedAsync();
         Task SetSubscriptionAsync(string market, string symbol, string timeframe);
         Task DisconnectAsync();
+
+        /// <summary>
+        /// Semantics of the ticks this provider emits on <see cref="LiveStream"/>
+        /// (and delivers to <see cref="SubscribeLiveAsync"/> callbacks before
+        /// consolidation). Defaults to TradeDeltas — the historical assumption.
+        /// Kline-style providers MUST override to CumulativeBars or their live-bar
+        /// volume is double-counted during consolidation.
+        /// </summary>
+        LiveTickStyle LiveTickStyle => LiveTickStyle.TradeDeltas;
+
+        /// <summary>
+        /// True when the provider can hold MULTIPLE concurrent live subscriptions
+        /// via <see cref="SubscribeLiveAsync"/> — the keyed-feeds capability
+        /// (docs/KEYED_FEEDS_DESIGN.md). <see cref="SetSubscriptionAsync"/> remains
+        /// the single REPLACE-style subscription used by the focused chart.
+        /// </summary>
+        bool SupportsMultipleLiveSubscriptions => false;
+
+        /// <summary>
+        /// Opens an independent live subscription that delivers consolidated bars
+        /// for the REQUESTED timeframe to <paramref name="onBar"/>, without
+        /// disturbing the provider's focused-chart subscription or any other
+        /// concurrent subscription. Dispose the returned handle to unsubscribe.
+        /// Implementations own reconnection for the subscription's lifetime.
+        /// Only valid when <see cref="SupportsMultipleLiveSubscriptions"/> is true.
+        /// </summary>
+        Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+            => throw new NotSupportedException($"{Name} does not support concurrent live subscriptions.");
 
         // --- Data Discovery & Fetching ---
         Task<List<string>> GetSupportedSubTypesAsync(MarketType market);

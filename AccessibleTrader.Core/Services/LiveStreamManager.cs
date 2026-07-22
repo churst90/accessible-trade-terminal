@@ -35,7 +35,6 @@ namespace AccessibleTrader.Core.Services
         private IDisposable? _currentConnStateSubscription;
         private ConnectionState _lastConnectionState = ConnectionState.Disconnected;
         private IMarketDataProvider? _currentLiveProvider;
-        private Ohlcv? _currentBucketCandle;
         private string? _currentLiveTimeframe;
         private CancellationTokenSource? _fallbackCts;
         // Monotonic (Environment.TickCount64) rather than DateTime.Now: the silence
@@ -103,7 +102,6 @@ namespace AccessibleTrader.Core.Services
 
             await provider.EnsureConnectedAsync().ConfigureAwait(false);
 
-            _currentBucketCandle = null;
             _currentLiveTimeframe = timeframe;
             _currentLiveProvider = provider;
             _currentMarket = market;
@@ -144,29 +142,22 @@ namespace AccessibleTrader.Core.Services
                 _errorCoordinator.ReportError(err, ErrorSeverity.Medium, ErrorCategory.Provider);
             });
 
+            // Each subscription gets its own consolidator so reconnects/tab switches
+            // reset the bucket naturally. Style-aware: kline providers (Binance)
+            // declare CumulativeBars so their running volume totals are diffed, not
+            // re-added — the old inline UpdateWith accumulation inflated live-bar
+            // volume on every ~1s kline update. Malformed-tick filtering (zero OHLC
+            // legs) lives inside the consolidator now.
+            var consolidator = new BarBucketConsolidator(timeframe, provider.LiveTickStyle);
             _currentProviderSubscription = provider.LiveStream.Subscribe(tick =>
             {
                 _lastTickAtMs = Environment.TickCount64;
                 _fallbackAnnounced = false;
                 _reconnectAttempts = 0;
 
-                DateTime periodStart = TimeframeUtility.GetPeriodStart(tick.Date, _currentLiveTimeframe!);
-                lock (this)
-                {
-                    if (!_currentBucketCandle.HasValue || _currentBucketCandle.Value.Date != periodStart)
-                        _currentBucketCandle = new Ohlcv(periodStart, tick.Open, tick.High, tick.Low, tick.Close, tick.Volume);
-                    else
-                        _currentBucketCandle = _currentBucketCandle.Value.UpdateWith(tick);
-
-                    // Drop malformed ticks before they reach RecalculateLastAsync and corrupt
-                    // indicator buffers. Require all four OHLC legs > 0 (a zero on any leg
-                    // means the feed glitched — real market ticks satisfy Low <= Close <= High
-                    // and Low > 0 for any tradable instrument) and Volume >= 0 (first tick of
-                    // a new period legitimately has zero volume on thin books or pre-market).
-                    var bar = _currentBucketCandle.Value;
-                    if (bar.Open > 0 && bar.High > 0 && bar.Low > 0 && bar.Close > 0 && bar.Volume >= 0)
-                        _liveStreamChannel.Writer.TryWrite(bar);
-                }
+                var bar = consolidator.Apply(tick);
+                if (bar.HasValue)
+                    _liveStreamChannel.Writer.TryWrite(bar.Value);
             });
         }
 
@@ -245,7 +236,6 @@ namespace AccessibleTrader.Core.Services
             // Tear down old subscription before reconnecting.
             _currentProviderSubscription?.Dispose();
             _currentErrorSubscription?.Dispose();
-            _currentBucketCandle = null;
 
             try
             {
@@ -280,7 +270,6 @@ namespace AccessibleTrader.Core.Services
             _currentProviderSubscription = null;
             _currentErrorSubscription = null;
             _currentConnStateSubscription = null;
-            _currentBucketCandle = null;
             await Task.CompletedTask.ConfigureAwait(false);
         }
 

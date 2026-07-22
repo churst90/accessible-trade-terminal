@@ -20,4 +20,8 @@
     <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

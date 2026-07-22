@@ -60,6 +60,9 @@ namespace AccessibleTrader.Plugins.Kraken
         public override bool RequiresApiKey => false;
         public override bool IsConfigured => true;
         public override bool SupportsLiveUpdates => true;
+        // The v2 ohlc channel re-sends the current candle with CUMULATIVE
+        // volume-so-far; consolidation must diff, not accumulate.
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 720;
         public override ProviderCapabilities Capabilities =>

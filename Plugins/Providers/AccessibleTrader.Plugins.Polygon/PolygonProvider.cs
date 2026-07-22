@@ -40,6 +40,9 @@ namespace AccessibleTrader.Plugins.Polygon
         public override bool RequiresApiKey => true;
         public override bool IsConfigured => !string.IsNullOrEmpty(_apiKey);
         public override bool SupportsLiveUpdates => true;
+        // AM/XA/CA aggregates are one-shot per window with the window's TOTAL
+        // volume — cumulative-bar semantics.
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 50000;
         public override ProviderCapabilities Capabilities => ProviderCapabilities.L2;

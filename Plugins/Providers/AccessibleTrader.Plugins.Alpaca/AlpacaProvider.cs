@@ -54,6 +54,9 @@ namespace AccessibleTrader.Plugins.Alpaca
         public override bool RequiresApiKey => true;
         public override bool IsConfigured => !string.IsNullOrEmpty(_apiKey);
         public override bool SupportsLiveUpdates => true;
+        // The stream sends completed one-shot bars (T=="b", per-minute), each
+        // carrying its period's TOTAL volume — cumulative-bar semantics.
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment { get; } = ProviderEnvironment.Paper;
         public override int MaxBarsPerRequest => 10000;
         public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.Brackets;

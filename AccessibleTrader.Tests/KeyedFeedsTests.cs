@@ -71,6 +71,12 @@ namespace AccessibleTrader.Tests
         private static ChartFeed Feed(FakeOrchestrator orch, ChartIdentity? id = null) =>
             new(id ?? Id(), orch, NullLogger.Instance);
 
+        private static MarketFeedHub Hub(FakeOrchestrator? orch = null, IDataService? dataService = null, DemoPolicy? demo = null) =>
+            new(orch ?? new FakeOrchestrator(),
+                dataService ?? Substitute.For<IDataService>(),
+                demo ?? new DemoPolicy(false),
+                NullLoggerFactory.Instance);
+
         // ── ChartFeed: refresh ───────────────────────────────────────────────
 
         [Fact]
@@ -263,7 +269,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Hub_returns_the_same_feed_instance_per_identity()
         {
-            using var hub = new MarketFeedHub(new FakeOrchestrator(), NullLoggerFactory.Instance);
+            using var hub = Hub();
 
             var a = hub.GetOrCreateFeed(Id("BTC/USD"));
             Assert.Same(a, hub.GetOrCreateFeed(Id("BTC/USD")));
@@ -274,7 +280,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Hub_forwards_updates_from_the_focused_feed_only()
         {
-            using var hub = new MarketFeedHub(new FakeOrchestrator(), NullLoggerFactory.Instance);
+            using var hub = Hub();
             var focused = hub.SetFocus(Id("BTC/USD"));
             var other = hub.GetOrCreateFeed(Id("ETH/USD"));
             var forwarded = new List<FeedUpdateKind>();
@@ -290,7 +296,7 @@ namespace AccessibleTrader.Tests
         public async Task Hub_live_pump_routes_orchestrator_ticks_into_the_focused_feed()
         {
             var orch = new FakeOrchestrator();
-            using var hub = new MarketFeedHub(orch, NullLoggerFactory.Instance);
+            using var hub = Hub(orch);
             var feed = hub.SetFocus(Id("BTC/USD"));
             feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0) }));
 
@@ -312,7 +318,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Hub_eviction_skips_focused_and_leased_feeds_and_sheds_the_coldest()
         {
-            using var hub = new MarketFeedHub(new FakeOrchestrator(), NullLoggerFactory.Instance);
+            using var hub = Hub();
             var focused = hub.SetFocus(Id("FOCUS"));
             using var lease = hub.AcquireLease(Id("LEASED"));
 
@@ -331,7 +337,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Hub_released_lease_unpins_the_feed_for_eviction()
         {
-            using var hub = new MarketFeedHub(new FakeOrchestrator(), NullLoggerFactory.Instance);
+            using var hub = Hub();
             var lease = hub.AcquireLease(Id("PINNED"));
             lease.Dispose();
             lease.Dispose(); // double-dispose must not underflow another holder's count
@@ -355,7 +361,7 @@ namespace AccessibleTrader.Tests
 
             public AdapterHarness()
             {
-                Hub = new MarketFeedHub(Orch, NullLoggerFactory.Instance);
+                Hub = new MarketFeedHub(Orch, Substitute.For<IDataService>(), new DemoPolicy(false), NullLoggerFactory.Instance);
                 Store.State.Returns(_ => WorkspaceState.Initial with { DataStatus = _status });
                 Store.When(s => s.Dispatch(Arg.Any<WorkspaceAction>())).Do(ci =>
                 {
