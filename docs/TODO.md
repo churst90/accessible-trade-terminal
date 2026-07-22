@@ -174,6 +174,18 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ---
 
+## [2026-07-22] — Touch Explore mode (Wave 3 web-touch item SHIPPED)
+
+- [x] **Web touch Explore mode** DONE 2026-07-22 — TouchNavBar Explore toggle
+  (real button, SR-reachable; pass-through gesture then explores the canvas);
+  finger slide → TouchExplore events through the existing mouse bridge →
+  ChartHoverTracker speaks each bar (value-first, per-bar, Manual channel) +
+  always-on pitch tick; crosshair follows; lift re-arms; pinch still zooms;
+  drag-to-pan restored on toggle-off. 3 JS + 3 tracker tests.
+- [x] **Hosted circuit lifecycle** documented + observable: Blazor disposes a
+  closed tab's circuit after ~3 min retention → all scoped feeds/providers
+  dispose with the scope; circuit handler logs open/close with active count.
+
 ## [2026-07-22] — My Data: CSV import (Wave 2 CSV item SHIPPED)
 
 - [x] **CSV/custom data provider** DONE 2026-07-22 per the design discussion:

@@ -6,6 +6,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Touch Explore mode + hosted circuit observability (2026-07-22)
+
+**Explore by touch (Wave 3's web-touch item).** The touch toolbar gains an
+Explore toggle (a real button — screen readers reach it through the toolbar,
+then use their pass-through gesture on the chart). With Explore on, a single
+finger sliding across the chart SPEAKS each bar ("43,250, Jan 5 2026" —
+value first, per bar not per pixel, through the F2-mutable Manual channel)
+and plays a pitch tick mapped to the bar's close, instead of panning. The
+crosshair follows the finger; lifting clears it and re-arms speech so
+returning to the same bar announces again; pinch-zoom still works mid-
+explore; toggling off restores drag-to-pan, announced either way. Rides the
+existing hover-tracker path (one new event type through the same JS→.NET
+mouse bridge), so the readout, bar-snapping, and formatting are all shared
+code. 3 new JS gesture tests (15/15) + 3 tracker tests.
+
+**Hosted session lifecycle, on the record + observable.** A closed tab's
+circuit is retained ~3 minutes for reconnects (Blazor default), then
+disposed — which disposes every per-circuit scoped service: feeds,
+providers, audio. Nothing accumulates; no manual cleanup exists or is
+needed. The circuit handler now logs "Browser circuit opened/closed (N
+active)" so the hosted operator can watch session churn in journalctl.
+
 ### Symbol compare + OCO order pairs (2026-07-22)
 
 The last two Wave 2 items.

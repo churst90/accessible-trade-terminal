@@ -83,7 +83,7 @@ function makeHarness() {
   };
   const touch = (x, y) => ({ clientX: x, clientY: y });
 
-  return { calls, fire, advance, touch, tick: (ms) => { now += ms; } };
+  return { calls, fire, advance, touch, tick: (ms) => { now += ms; }, api: sandbox.window.accessibleTrader };
 }
 
 const results = [];
@@ -221,6 +221,43 @@ test('shift+mouseup is reported as ShiftMouseUp (range measure)', () => {
   const types = ofMethod(h.calls, 'OnMouseEvent').map(c => c[3]);
   assert.ok(types.includes('ShiftMouseUp'));
   assert.ok(!types.includes('MouseUp'));
+});
+
+test('explore mode: finger slide emits TouchExplore per move, never pans', () => {
+  const h = makeHarness();
+  h.api.setTouchExploreMode(true);
+  h.fire('touchstart', { touches: [h.touch(100, 100)] });
+  h.fire('touchmove', { touches: [h.touch(160, 100)] });
+  h.fire('touchmove', { touches: [h.touch(220, 100)] });
+  h.fire('touchend', { touches: [], changedTouches: [h.touch(220, 100)] });
+
+  const types = h.calls.filter(c => c[0] === 'OnMouseEvent').map(c => c[3]);
+  assert.equal(types.filter(t => t === 'TouchExplore').length >= 2, true,
+    'expected TouchExplore reports from start + moves');
+  assert.equal(types.includes('MouseDown'), false, 'explore must not start a pan');
+  assert.equal(types.at(-1), 'MouseLeave', 'lifting the finger clears the crosshair');
+});
+
+test('explore mode off: the same slide is a pan (regression guard)', () => {
+  const h = makeHarness();
+  h.api.setTouchExploreMode(false);
+  h.fire('touchstart', { touches: [h.touch(100, 100)] });
+  h.fire('touchmove', { touches: [h.touch(160, 100)] });
+  h.fire('touchend', { touches: [], changedTouches: [h.touch(160, 100)] });
+
+  const types = h.calls.filter(c => c[0] === 'OnMouseEvent').map(c => c[3]);
+  assert.equal(types.includes('MouseDown'), true);
+  assert.equal(types.includes('TouchExplore'), false);
+});
+
+test('explore mode: second finger still pinch-zooms', () => {
+  const h = makeHarness();
+  h.api.setTouchExploreMode(true);
+  h.fire('touchstart', { touches: [h.touch(100, 100)] });
+  h.fire('touchstart', { touches: [h.touch(100, 100), h.touch(200, 100)] });
+  h.fire('touchmove', { touches: [h.touch(60, 100), h.touch(260, 100)] });
+
+  assert.equal(h.calls.some(c => c[0] === 'OnWheel'), true, 'pinch should zoom in explore mode');
 });
 
 test('double-click emits OnDoubleClick (jump to live)', () => {

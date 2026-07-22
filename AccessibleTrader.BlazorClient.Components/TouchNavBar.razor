@@ -49,6 +49,11 @@
                 @onclick="TogglePlayback">
             <span aria-hidden="true">@(IsPlaying ? "■" : "▶▶")</span>
         </button>
+        <button class="touch-nav-btn" aria-label="@(_exploreMode ? "Explore mode on — drag to hear bars" : "Explore mode off")"
+                aria-pressed="@(_exploreMode ? "true" : "false")"
+                @onclick="ToggleExplore">
+            <span aria-hidden="true">@(_exploreMode ? "👆" : "✋")</span>
+        </button>
         <button class="touch-nav-btn" aria-label="Chart menu"
                 @onclick="OpenChartMenu">
             <span aria-hidden="true">☰</span>
@@ -59,6 +64,21 @@
 @code {
     private IDisposable? _sub;
     private bool _isTouchDevice; // false until the JS probe says otherwise → not in the DOM
+    private bool _exploreMode;
+
+    // Explore-by-touch: with the mode ON, a single finger sliding across the
+    // chart speaks and sonifies the bars under it instead of panning. Screen
+    // reader users reach this button through the toolbar (it's a real button),
+    // then use their pass-through gesture on the chart surface.
+    private async Task ToggleExplore()
+    {
+        _exploreMode = !_exploreMode;
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setTouchExploreMode", _exploreMode); }
+        catch { /* JS not ready — the flag simply stays off engine-side */ }
+        EventBus.Publish(new AnnouncementEvent(_exploreMode
+            ? "Explore mode on. Drag a finger across the chart to hear each bar; lift to stop. Panning is paused."
+            : "Explore mode off. Dragging pans the chart again.", true));
+    }
 
     private bool IsPlaying => Store.State.IsPlaying || Store.State.IsPaused;
 

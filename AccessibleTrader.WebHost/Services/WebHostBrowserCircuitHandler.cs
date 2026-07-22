@@ -29,6 +29,14 @@ namespace AccessibleTrader.WebHost.Services
     /// </summary>
     public sealed class WebHostBrowserCircuitHandler : CircuitHandler
     {
+        // Ops observability: how many live browser sessions this process is
+        // carrying. Logged on every open/close so the hosted operator can see
+        // session churn in journalctl. Cleanup itself is Blazor's job — a closed
+        // tab's circuit is retained ~3 minutes for reconnects, then disposed,
+        // which disposes every per-circuit scoped service (feeds, providers,
+        // audio) via standard DI scope disposal.
+        private static int _activeCircuits;
+
         private readonly IShortcutManager _shortcuts;
         private readonly ILogger<WebHostBrowserCircuitHandler> _logger;
         private readonly IServiceProvider _scope;
@@ -45,6 +53,9 @@ namespace AccessibleTrader.WebHost.Services
 
         public override async Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken cancellationToken)
         {
+            int now = System.Threading.Interlocked.Increment(ref _activeCircuits);
+            _logger.LogInformation("Browser circuit opened ({Active} active).", now);
+
             // Hosted accounts: capture "who is this visitor" into the per-circuit ICurrentUser
             // so UserScopedPathService routes their data directory. Resolved optionally — when
             // accounts are off these services aren't registered and this is a no-op.
@@ -74,5 +85,12 @@ namespace AccessibleTrader.WebHost.Services
                 _logger.LogWarning(ex, "Per-circuit browser shortcut remap failed.");
             }
         }
+        public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
+        {
+            int now = System.Threading.Interlocked.Decrement(ref _activeCircuits);
+            _logger.LogInformation("Browser circuit closed ({Active} active).", now);
+            return Task.CompletedTask;
+        }
+
     }
 }

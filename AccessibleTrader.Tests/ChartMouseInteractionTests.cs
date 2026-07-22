@@ -6,6 +6,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
+using NSubstitute;
 using Xunit;
 
 namespace AccessibleTrader.Tests;
@@ -229,6 +230,64 @@ public sealed class ChartMouseInteractionTests
         h.Input.ProcessMouse(-1, -1, "MouseLeave", 1280, 720);
 
         Assert.Null(tracker.Current);
+    }
+
+    // ── Touch Explore mode (Phase C explore-by-touch, 2026-07-22) ───────────
+
+    [Fact]
+    public void TouchExplore_speaks_and_sonifies_each_bar_exactly_once()
+    {
+        var h = new Harness();
+        var speech = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.Accessibility.ISpeechFeedbackRouter>();
+        var sonify = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.ISonificationManager>();
+        using var tracker = new ChartHoverTracker(h.Input, h.Store, sonify, null, speech);
+
+        // Two samples on the SAME bar, then one on a different bar.
+        h.Input.ProcessMouse(320, 360, "TouchExplore", 1280, 720);
+        h.Input.ProcessMouse(322, 360, "TouchExplore", 1280, 720);
+        h.Input.ProcessMouse(600, 360, "TouchExplore", 1280, 720);
+
+        Assert.NotNull(tracker.Current); // crosshair follows the finger
+        // Per-bar, not per-pixel: 2 distinct bars → 2 utterances, 2 ticks.
+        speech.Received(2).Speak(Arg.Any<string>(), Arg.Any<bool>(),
+            Arg.Any<AccessibleTrader.Core.Services.Accessibility.SpeechChannel>());
+        sonify.Received(2).PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void TouchExplore_sonifies_even_with_hover_sonification_off()
+    {
+        // Hover's whisper is opt-in; the exploring finger is a deliberate gesture
+        // and always sounds. No settings manager here = hover setting off.
+        var h = new Harness();
+        var sonify = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.ISonificationManager>();
+        using var tracker = new ChartHoverTracker(h.Input, h.Store, sonify, null);
+
+        h.Input.ProcessMouse(320, 360, "MouseMove", 1280, 720);   // hover: silent
+        sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+
+        h.Input.ProcessMouse(600, 360, "TouchExplore", 1280, 720); // explore: audible
+        sonify.Received(1).PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void Lifting_the_finger_rearms_speech_for_the_same_bar()
+    {
+        // Explore, lift (MouseLeave), explore the SAME bar again — it must speak
+        // again: the user came back on purpose.
+        var h = new Harness();
+        var speech = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.Accessibility.ISpeechFeedbackRouter>();
+        using var tracker = new ChartHoverTracker(h.Input, h.Store, null, null, speech);
+
+        h.Input.ProcessMouse(320, 360, "TouchExplore", 1280, 720);
+        h.Input.ProcessMouse(-1, -1, "MouseLeave", 1280, 720);
+        h.Input.ProcessMouse(320, 360, "TouchExplore", 1280, 720);
+
+        speech.Received(2).Speak(Arg.Any<string>(), Arg.Any<bool>(),
+            Arg.Any<AccessibleTrader.Core.Services.Accessibility.SpeechChannel>());
     }
 
     [Fact]

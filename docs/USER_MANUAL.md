@@ -526,6 +526,18 @@ is, a connected Bluetooth keyboard remains the fully-supported way to drive the 
 apps. Pinch-zooming the page itself is no longer blocked anywhere, so browser-level
 magnification works on the website.
 
+
+**Explore mode** turns the touchscreen into a reading surface. The touch
+toolbar's Explore button (announced with its state) switches a single
+finger's drag from panning to exploring: slide across the chart and each bar
+under your finger speaks — value first, then the date — with a pitch tick
+that traces the price contour, and the crosshair follows for sighted
+partners. Lift to stop; touch again anywhere to keep reading; pinch still
+zooms mid-explore. Screen reader users: activate the Explore button through
+the toolbar as usual, then use your screen reader's pass-through gesture on
+the chart surface to hand it your finger. Turning Explore off restores
+drag-to-pan, and the terminal says so.
+
 ### Moving between panes and components
 
 Page Down moves your focus to the next pane below, Page Up to the pane above; as you

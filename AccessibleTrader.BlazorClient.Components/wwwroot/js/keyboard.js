@@ -320,6 +320,19 @@ window.accessibleTrader = {
 
         el.addEventListener('touchstart', function (e) {
             e.preventDefault();
+            if (e.touches.length === 1 && window.accessibleTrader._touchExploreMode) {
+                // Explore: report the bar under the finger from the very first
+                // contact; no long-press timer (context menu is reachable by
+                // turning Explore off), no drag threshold.
+                const rect = el.getBoundingClientRect();
+                touchState.mode = 'explore';
+                touchState.startX = e.touches[0].clientX - rect.left;
+                touchState.startY = e.touches[0].clientY - rect.top;
+                clearPressTimer();
+                dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                    touchState.startX, touchState.startY, 'TouchExplore', rect.width, rect.height);
+                return;
+            }
             if (e.touches.length === 1) {
                 const rect = el.getBoundingClientRect();
                 touchState.mode = 'pending';
@@ -380,6 +393,18 @@ window.accessibleTrader = {
             const x = e.touches[0].clientX - rect.left;
             const y = e.touches[0].clientY - rect.top;
 
+            if (touchState.mode === 'explore') {
+                pendingTouch = { x: x, y: y, w: rect.width, h: rect.height };
+                if (touchMoveRaf) return;
+                touchMoveRaf = requestAnimationFrame(function () {
+                    touchMoveRaf = 0;
+                    if (!pendingTouch || touchState.mode !== 'explore') return;
+                    dotnetHelper.invokeMethodAsync('OnMouseEvent',
+                        pendingTouch.x, pendingTouch.y, 'TouchExplore', pendingTouch.w, pendingTouch.h);
+                });
+                return;
+            }
+
             if (touchState.mode === 'pending') {
                 if (Math.hypot(x - touchState.startX, y - touchState.startY) < TAP_SLOP_PX) return;
                 clearPressTimer();
@@ -408,7 +433,9 @@ window.accessibleTrader = {
                 return;
             }
             const rect = el.getBoundingClientRect();
-            if (touchState.mode === 'drag') {
+            if (touchState.mode === 'explore') {
+                dotnetHelper.invokeMethodAsync('OnMouseEvent', -1, -1, 'MouseLeave', rect.width, rect.height);
+            } else if (touchState.mode === 'drag') {
                 const t = e.changedTouches[0];
                 dotnetHelper.invokeMethodAsync('OnMouseEvent',
                     t.clientX - rect.left, t.clientY - rect.top, 'MouseUp', rect.width, rect.height);
@@ -469,6 +496,15 @@ window.accessibleTrader = {
      * Moves keyboard focus to an element by its id.
      * Called by AddIndicatorModal when it opens so screen readers discover the dialog.
      */
+    // Touch Explore mode (Phase C explore-by-touch): when on, a single finger
+    // sliding over the chart SPEAKS AND SONIFIES the bars under it instead of
+    // panning the viewport. Toggled by the TouchNavBar Explore button; state
+    // lives here because the gesture engine below consults it per-event.
+    _touchExploreMode: false,
+    setTouchExploreMode: function (on) {
+        window.accessibleTrader._touchExploreMode = !!on;
+    },
+
     focusElement: function (elementId) {
         const el = document.getElementById(elementId);
         if (el) {

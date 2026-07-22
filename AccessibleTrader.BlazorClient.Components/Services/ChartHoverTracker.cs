@@ -38,7 +38,10 @@ namespace AccessibleTrader.BlazorClient.Services
         // tests / manual composition; DI supplies them.
         private readonly ISonificationManager? _sonification;
         private readonly ISettingsManager? _settings;
+        // Optional (touch Explore mode): spoken bar readout as the finger slides.
+        private readonly Core.Services.Accessibility.ISpeechFeedbackRouter? _speech;
         private int _lastSonifiedIndex = -1;
+        private int _lastSpokenIndex = -1;
 
         /// <summary>Setting key: soft pitch tick as the hovered bar changes. Default OFF.</summary>
         public const string HoverSonificationKey = AccessibleTrader.Core.Services.SettingsKeys.HoverSonification;
@@ -53,12 +56,14 @@ namespace AccessibleTrader.BlazorClient.Services
         public event Action? Changed;
 
         public ChartHoverTracker(IInputService input, IWorkspaceStore store,
-            ISonificationManager? sonification = null, ISettingsManager? settings = null)
+            ISonificationManager? sonification = null, ISettingsManager? settings = null,
+            Core.Services.Accessibility.ISpeechFeedbackRouter? speech = null)
         {
             _input = input;
             _store = store;
             _sonification = sonification;
             _settings = settings;
+            _speech = speech;
             _input.MouseEvent += OnMouse;
         }
 
@@ -73,10 +78,17 @@ namespace AccessibleTrader.BlazorClient.Services
         {
             if (type == "MouseLeave")
             {
+                _lastSpokenIndex = -1; // next explore touch re-announces its first bar
                 Clear();
                 return;
             }
-            if (!IsEnabled || type != "MouseMove") return;
+            // TouchExplore (finger sliding in Explore mode) shares the whole hover
+            // path — crosshair, readout — but ALWAYS sonifies and ALSO speaks per
+            // bar, because the exploring finger is a deliberate "tell me" gesture,
+            // not incidental mouse travel. MouseMove keeps the quiet opt-in rules.
+            bool explore = type == "TouchExplore";
+            if (!IsEnabled && !explore) return;
+            if (type != "MouseMove" && !explore) return;
 
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0 || width <= 0 || height <= 0)
@@ -117,16 +129,30 @@ namespace AccessibleTrader.BlazorClient.Services
             if (index != _lastSonifiedIndex)
             {
                 _lastSonifiedIndex = index;
-                if (_sonification != null
-                    && (_settings?.GetSetting(HoverSonificationKey)?.ToObject<bool>() ?? false))
+                bool audible = explore
+                    || (_settings?.GetSetting(HoverSonificationKey)?.ToObject<bool>() ?? false);
+                if (_sonification != null && audible)
                 {
                     double span = state.ViewportRange.Max - state.ViewportRange.Min;
                     double pct = span > 0
                         ? Math.Clamp((bar.Close - state.ViewportRange.Min) / span, 0, 1)
                         : 0.5;
                     double freq = 220 + pct * (880 - 220); // A3..A5 — audible but unobtrusive
-                    _sonification.PlayNote(freq, 0.04, "sine", 0.05f, 0f);
+                    // Explore ticks are a touch louder/longer than hover's whisper —
+                    // they ARE the primary feedback under a finger.
+                    _sonification.PlayNote(freq, explore ? 0.07 : 0.04, "sine",
+                        explore ? 0.12f : 0.05f, 0f);
                 }
+            }
+
+            // Explore speech: one compact utterance per BAR CHANGE — close then date,
+            // value first so a fast sweep still lands the numbers. Manual channel:
+            // this is something the user asked for with their finger (F2 mutes it).
+            if (explore && index != _lastSpokenIndex)
+            {
+                _lastSpokenIndex = index;
+                _speech?.Speak($"{PriceFormatter.FormatPrice(bar.Close)}, {FormatBarDate(bar.Date)}",
+                    interrupt: true);
             }
         }
 
