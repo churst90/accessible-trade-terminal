@@ -88,6 +88,26 @@ builder.Services.AddSingleton(new DemoPolicy(hostMode));
 if (hostMode == HostMode.Full)
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
 
+// Hosted server-side alerts (HostMode.Hosted only): every registered user's
+// saved alerts keep evaluating after their browser closes, delivered through
+// their configured channels. Per-user scopes are seeded with ICurrentUser so
+// the whole per-user stack resolves as if inside that user's circuit; users
+// with a live circuit are skipped (their session owns delivery).
+if (hostMode == HostMode.Hosted)
+{
+    var usersRoot = Path.Combine(
+        string.IsNullOrWhiteSpace(accountsDataRoot)
+            ? new WebHostPathService().AppDataDirectory
+            : accountsDataRoot!,
+        "users");
+    builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
+        new AccessibleTrader.WebHost.Services.HostedAlertMonitor(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<DemoPolicy>(),
+            usersRoot,
+            sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.HostedAlertMonitor>>()));
+}
+
 // Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a
 // prerequisite before public exposure. Two per-client-IP tiers (see AuthRateLimitPolicy):
 // a generous general window over HTTP requests (page loads, SignalR negotiates), and a

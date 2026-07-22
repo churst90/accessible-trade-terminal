@@ -37,6 +37,19 @@ namespace AccessibleTrader.WebHost.Services
         // audio) via standard DI scope disposal.
         private static int _activeCircuits;
 
+        // Per-user circuit counts (keyed by ICurrentUser.DataKey): the hosted
+        // alert monitor suppresses server-side evaluation for users whose OWN
+        // session is connected — their in-session pipeline owns delivery then,
+        // and double-sending every email/Telegram/push is the hosted analogue
+        // of the local monitor's double-speech bug.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _circuitsByUser
+            = new(StringComparer.Ordinal);
+        private string? _userKey;
+
+        /// <summary>Live circuits currently held by this user (0 when offline).</summary>
+        internal static int ActiveCircuitsForUser(string userKey) =>
+            _circuitsByUser.TryGetValue(userKey, out var n) ? n : 0;
+
         /// <summary>Live browser sessions on this process. The local background
         /// monitor pauses while any session is connected (the in-session alert
         /// pipeline owns delivery then — same Orca, would double-speak).</summary>
@@ -73,6 +86,11 @@ namespace AccessibleTrader.WebHost.Services
                     {
                         var state = await authProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
                         current.Set(state.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                        if (current.IsAuthenticated)
+                        {
+                            _userKey = current.DataKey;
+                            _circuitsByUser.AddOrUpdate(_userKey, 1, (_, n) => n + 1);
+                        }
                     }
                 }
             }
@@ -94,6 +112,20 @@ namespace AccessibleTrader.WebHost.Services
         {
             int now = System.Threading.Interlocked.Decrement(ref _activeCircuits);
             _logger.LogInformation("Browser circuit closed ({Active} active).", now);
+
+            if (_userKey != null)
+            {
+                var key = _userKey;
+                _userKey = null;
+                while (_circuitsByUser.TryGetValue(key, out var n))
+                {
+                    if (n <= 1)
+                    {
+                        if (_circuitsByUser.TryRemove(new KeyValuePair<string, int>(key, n))) break;
+                    }
+                    else if (_circuitsByUser.TryUpdate(key, n - 1, n)) break;
+                }
+            }
 
             // Final session snapshot before the circuit's scoped services die —
             // a browser refresh was previously a destructive act that lost every
