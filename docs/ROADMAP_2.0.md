@@ -59,9 +59,13 @@ and broker parity were the gap.
    kline volume-inflation fixed fleet-wide via LiveTickStyle. Remaining on
    top: more exchanges in SubscribeLiveAsync, split view, hosted shared-feed
    pool (item 2's work).
-2. **Hosted server-side alerts + Web Push** — saved alerts evaluated on the
-   server against shared feeds, delivered via existing webhook/Telegram/email
-   plus browser push (VAPID + service worker) with the tab closed.
+2. **Hosted server-side alerts + Web Push** — **DONE 2026-07-22**:
+   HostedAlertMonitor evaluates every registered user's saved alerts on a 60s
+   poll (bars shared across users, per-user scopes seeded with ICurrentUser,
+   users with live circuits skipped), delivering via their configured
+   webhook/Telegram/email channels plus Web Push (instance VAPID keys,
+   service worker, per-user subscriptions, gone-endpoint pruning; opt-in
+   "Browser notifications" in Settings > Alerts on hosted).
 3. Optional on top: split-view rendering; live-streaming background tabs UI.
 
 ## Tier 3 — Parity & polish

@@ -95,17 +95,26 @@ if (hostMode == HostMode.Full)
 // with a live circuit are skipped (their session owns delivery).
 if (hostMode == HostMode.Hosted)
 {
-    var usersRoot = Path.Combine(
-        string.IsNullOrWhiteSpace(accountsDataRoot)
-            ? new WebHostPathService().AppDataDirectory
-            : accountsDataRoot!,
-        "users");
+    var instanceRoot = string.IsNullOrWhiteSpace(accountsDataRoot)
+        ? new WebHostPathService().AppDataDirectory
+        : accountsDataRoot!;
+    var usersRoot = Path.Combine(instanceRoot, "users");
+
+    // Web Push plumbing: instance VAPID keys, per-user subscription files, and
+    // the sender the monitor fans out through.
+    builder.Services.AddSingleton(sp => new AccessibleTrader.WebHost.Services.Push.VapidKeyService(
+        instanceRoot, sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.VapidKeyService>>()));
+    builder.Services.AddSingleton(sp => new AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore(
+        usersRoot, sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore>>()));
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>();
+
     builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
         new AccessibleTrader.WebHost.Services.HostedAlertMonitor(
             sp.GetRequiredService<IServiceScopeFactory>(),
             sp.GetRequiredService<DemoPolicy>(),
             usersRoot,
-            sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.HostedAlertMonitor>>()));
+            sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.HostedAlertMonitor>>(),
+            sp.GetRequiredService<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>()));
 }
 
 // Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a
@@ -284,6 +293,37 @@ if (accountsEnabled)
     // Razor Pages are served separately and stay anonymous.
     blazorApp.RequireAuthorization();
     app.MapRazorPages();
+
+    // ── Web Push endpoints (hosted only, authenticated) ──────────────────────
+    // JSON POSTs from webPush.js ride the same auth cookie as the circuit;
+    // subscriptions are stored per user, keyed by the Identity user id.
+    static string? PushUserId(HttpContext ctx) =>
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+    app.MapGet("/push/vapid-public-key",
+        (AccessibleTrader.WebHost.Services.Push.VapidKeyService vapid) => Results.Text(vapid.PublicKey))
+        .RequireAuthorization();
+
+    app.MapPost("/push/subscribe", async (HttpContext ctx,
+        AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore store) =>
+    {
+        var userId = PushUserId(ctx);
+        if (userId == null) return Results.Unauthorized();
+        var subscription = await ctx.Request.ReadFromJsonAsync<AccessibleTrader.WebHost.Services.Push.StoredPushSubscription>();
+        if (subscription == null || !store.Add(userId, subscription)) return Results.BadRequest();
+        return Results.Ok();
+    }).RequireAuthorization();
+
+    app.MapPost("/push/unsubscribe", async (HttpContext ctx,
+        AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore store) =>
+    {
+        var userId = PushUserId(ctx);
+        if (userId == null) return Results.Unauthorized();
+        var subscription = await ctx.Request.ReadFromJsonAsync<AccessibleTrader.WebHost.Services.Push.StoredPushSubscription>();
+        if (subscription == null || string.IsNullOrWhiteSpace(subscription.Endpoint)) return Results.BadRequest();
+        store.Remove(userId, subscription.Endpoint);
+        return Results.Ok();
+    }).RequireAuthorization();
 }
 
 // Diagnostic endpoint — returns the last N journal entries so we can see

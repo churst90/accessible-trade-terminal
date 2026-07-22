@@ -36,6 +36,7 @@ namespace AccessibleTrader.WebHost.Services
         private readonly IServiceScopeFactory _scopes;
         private readonly Core.Services.DemoPolicy _demo;
         private readonly string _usersRoot;
+        private readonly Push.HostedWebPushSender? _push;
         private readonly ILogger<HostedAlertMonitor> _logger;
 
         // One persistent evaluator per user: crossing-edge state (was-below,
@@ -47,12 +48,14 @@ namespace AccessibleTrader.WebHost.Services
             IServiceScopeFactory scopes,
             Core.Services.DemoPolicy demo,
             string usersRoot,
-            ILogger<HostedAlertMonitor> logger)
+            ILogger<HostedAlertMonitor> logger,
+            Push.HostedWebPushSender? push = null)
         {
             _scopes = scopes;
             _demo = demo;
             _usersRoot = usersRoot;
             _logger = logger;
+            _push = push;
         }
 
         protected override async Task ExecuteAsync(CancellationToken ct)
@@ -157,6 +160,13 @@ namespace AccessibleTrader.WebHost.Services
                     _logger.LogInformation("Hosted alert fired for {User}: {Text}", userKey, f.SpeechText);
                     var channels = scope.ServiceProvider.GetServices<IAlertChannel>();
                     await DeliverToChannelsAsync(channels, f, _logger, ct);
+
+                    if (_push != null)
+                    {
+                        try { await _push.SendToUserAsync(userKey, "Accessible Trader alert", f.SpeechText, ct); }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Web Push fan-out failed for {User}.", userKey); }
+                    }
                 }
             }
         }

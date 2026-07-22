@@ -41,6 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Lib.Net.Http.WebPush" Version="3.3.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
     <!-- Patched SQLite native lib (SQLite 3.50.3) overriding the transitive 2.1.11 flagged by
          NU1903 / GHSA-2m69-gcr7-jv3q. See AccessibleTrader.Core.csproj for the rationale. -->
@@ -111,9 +112,7 @@
     each with SHA-256, writes plugins_trusted.manifest alongside the host
     binary so PluginTrustPolicy accepts them on first run.
   -->
-  <UsingTask TaskName="HashPluginDlls"
-             TaskFactory="RoslynCodeTaskFactory"
-             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+  <UsingTask TaskName="HashPluginDlls" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <PluginsDir ParameterType="System.String" Required="true" />
       <ManifestPath ParameterType="System.String" Required="true" />
@@ -174,12 +173,8 @@
     </Task>
   </UsingTask>
 
-  <Target Name="GeneratePluginTrustManifest"
-          AfterTargets="Build"
-          Condition=" '$(OutDir)' != '' ">
-    <HashPluginDlls
-      PluginsDir="$(OutDir)"
-      ManifestPath="$(OutDir)plugins_trusted.manifest" />
+  <Target Name="GeneratePluginTrustManifest" AfterTargets="Build" Condition=" '$(OutDir)' != '' ">
+    <HashPluginDlls PluginsDir="$(OutDir)" ManifestPath="$(OutDir)plugins_trusted.manifest" />
   </Target>
 
   <!--
@@ -191,12 +186,8 @@
     refuses every plugin → "no data". Hashes the published DLLs, so the digests
     always match what actually ships.
   -->
-  <Target Name="GeneratePluginTrustManifestOnPublish"
-          AfterTargets="Publish"
-          Condition=" '$(PublishDir)' != '' ">
-    <HashPluginDlls
-      PluginsDir="$(PublishDir)"
-      ManifestPath="$(PublishDir)plugins_trusted.manifest" />
+  <Target Name="GeneratePluginTrustManifestOnPublish" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
+    <HashPluginDlls PluginsDir="$(PublishDir)" ManifestPath="$(PublishDir)plugins_trusted.manifest" />
   </Target>
 
 </Project>

@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Hosted server-side alerts + Web Push (2026-07-22)
+
+The last Tier 2 feature. On the hosted terminal, saved alerts no longer die
+with the browser tab: HostedAlertMonitor evaluates every registered user's
+symbol-scoped alerts server-side on a 60-second poll — per-user evaluation
+scopes are seeded with that user's identity so their settings, alert files,
+and channel configs resolve exactly as in their own session; bars are fetched
+once per (provider, symbol, timeframe) and shared across users; users with a
+live session are skipped (their session owns delivery). Fired alerts go
+through the user's configured email/Telegram/webhook channels AND Web Push:
+instance VAPID keys (P-256, persisted so restarts don't orphan
+subscriptions), a service worker showing alerts as OS notifications that
+focus the terminal when activated, per-user subscription files capped at 8
+devices, and automatic pruning of endpoints the push service reports gone.
+Enable per browser via Settings > Alerts > "Browser notifications" (hosted
+only); opt out of server-side evaluation entirely via alerts.serverSide.
+Plus a parallel-test-flake fix: classes sharing the global ApiKeys bridge
+now serialize on one xUnit collection.
+
 ### Multi-live enrollment: Bitstamp, Kraken, MEXC (2026-07-22)
 
 Live background tabs now stream on four exchanges. Bitstamp and Kraken each

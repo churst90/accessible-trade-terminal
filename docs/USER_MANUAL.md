@@ -1176,6 +1176,18 @@ how a Bitcoin alert lands in your #btc Discord channel while a gold alert lands 
 #gold. Alerts are also **scoped to a symbol** now: a new alert defaults to the chart
 it was created on and only evaluates there, so a BTC alert no longer fires against
 whatever chart happens to be on screen (choose "any symbol" if you do want that).
+
+On the **hosted terminal** your alerts do not need you at all: symbol-scoped
+alerts keep evaluating on the server after you close the browser, and anything
+that fires is delivered through your configured email, Telegram, and webhook
+channels. You can also enable **browser notifications** (Settings > Alerts >
+Browser notifications): your alerts then arrive as system notifications on that
+device — spoken by your screen reader like any other notification — even with
+the terminal tab closed, as long as the browser is running. While you are
+actively signed in, your live session handles everything as usual; the server
+takes over the moment your last tab disconnects. Turn server-side evaluation
+off with the "alerts.serverSide" setting if you'd rather alerts only run while
+you are present.
 And if you enable "send setups to alerts" in Settings, confirmed and armed strategy
 setups flow through the same delivery — your Discord channel hears "Long setup —
 gold" with the trade plan, even when you're away from the terminal.
