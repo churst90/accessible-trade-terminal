@@ -1,5 +1,6 @@
 using AccessibleTrader.WebHost.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
@@ -25,6 +26,50 @@ public class WebHostSecurityPolicyTests
         Assert.Equal("strict-origin-when-cross-origin", h["Referrer-Policy"]);
         Assert.Equal(SecurityHeadersPolicy.ContentSecurityPolicy, h["Content-Security-Policy"]);
         Assert.False(string.IsNullOrEmpty(h["Permissions-Policy"]));
+    }
+
+    [Fact]
+    public void Apply_DemoMode_AllowsSameOriginFraming()
+    {
+        // The --demo build is embedded in a same-origin iframe on the marketing site.
+        var services = new ServiceCollection();
+        services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(
+            AccessibleTrader.Core.Services.HostMode.Demo));
+        var ctx = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+
+        SecurityHeadersPolicy.Apply(ctx);
+
+        var h = ctx.Response.Headers;
+        Assert.Equal("SAMEORIGIN", h["X-Frame-Options"]);
+        Assert.Contains("frame-ancestors 'self'", h["Content-Security-Policy"].ToString());
+        Assert.DoesNotContain("frame-ancestors 'none'", h["Content-Security-Policy"].ToString());
+    }
+
+    [Fact]
+    public void DemoCsp_DiffersFromStrictCsp_OnlyInFrameAncestors()
+    {
+        // The demo CSP is a full copy of the strict one with a single directive
+        // changed — this pin stops the copies drifting apart when someone edits
+        // one and forgets the other (new script-src, connect-src, etc.).
+        string strictNormalized = SecurityHeadersPolicy.ContentSecurityPolicy
+            .Replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+        Assert.Equal(strictNormalized, SecurityHeadersPolicy.DemoContentSecurityPolicy);
+    }
+
+    [Fact]
+    public void Apply_HostedAndDesktop_RefuseAllFraming()
+    {
+        // A non-demo context (hosted accounts / desktop) keeps DENY + 'none'.
+        var services = new ServiceCollection();
+        services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(
+            AccessibleTrader.Core.Services.HostMode.Hosted));
+        var ctx = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+
+        SecurityHeadersPolicy.Apply(ctx);
+
+        var h = ctx.Response.Headers;
+        Assert.Equal("DENY", h["X-Frame-Options"]);
+        Assert.Contains("frame-ancestors 'none'", h["Content-Security-Policy"].ToString());
     }
 
     [Fact]

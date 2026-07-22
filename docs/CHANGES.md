@@ -44,6 +44,17 @@ to you).**
 13 new MuteTierTests pin every gate combination. Modal open/close
 announcements (a router bypass into the ARIA live region) now respect F2 too.
 
+### Demo framing headers (Cody's patch, applied 2026-07-21)
+
+The public `--demo` build is embedded in a same-origin iframe on the marketing
+homepage, which the strict `X-Frame-Options: DENY` + `frame-ancestors 'none'`
+headers blocked. Demo mode now sends `SAMEORIGIN` / `frame-ancestors 'self'`;
+the hosted accounts terminal and desktop keep refusing all framing, and a
+context without a service provider falls through to the strict default. Tests
+pin both branches plus a drift guard: the demo CSP must equal the strict CSP
+with ONLY the frame-ancestors directive changed, so the duplicated policy
+strings can never silently diverge.
+
 ### Small-item sweep (2026-07-21)
 
 - **"Use Recommended" button** in the strategy composer's Build Setup tab:

@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.WebHost.Services;
 
@@ -16,8 +17,10 @@ namespace AccessibleTrader.WebHost.Services;
 /// reconnect overlay injects inline styles. <c>connect-src</c> lists ws/wss
 /// explicitly for older browsers where 'self' does not cover scheme upgrades
 /// to the SignalR circuit. <c>frame-ancestors 'none'</c> +
-/// <c>X-Frame-Options DENY</c>: the public builds are reverse-proxied under a
-/// subpath, never iframed — if that ever changes, relax both together.
+/// <c>X-Frame-Options DENY</c> on the hosted accounts terminal and the desktop
+/// build; the public <c>--demo</c> build relaxes both to same-origin
+/// (<c>frame-ancestors 'self'</c> / <c>SAMEORIGIN</c>) because it is embedded in a
+/// same-origin iframe on the marketing homepage.
 /// </para>
 /// </summary>
 public static class SecurityHeadersPolicy
@@ -34,6 +37,22 @@ public static class SecurityHeadersPolicy
         + "form-action 'self'; "
         + "frame-ancestors 'none'";
 
+    /// <summary>Same as <see cref="ContentSecurityPolicy"/> but with
+    /// <c>frame-ancestors 'self'</c>. The public <c>--demo</c> build is embedded
+    /// in a same-origin &lt;iframe&gt; on the marketing homepage, so it must permit
+    /// same-origin framing; no other mode does.</summary>
+    public const string DemoContentSecurityPolicy =
+        "default-src 'self'; "
+        + "script-src 'self'; "
+        + "style-src 'self' 'unsafe-inline'; "
+        + "img-src 'self' data:; "
+        + "font-src 'self'; "
+        + "connect-src 'self' ws: wss:; "
+        + "object-src 'none'; "
+        + "base-uri 'self'; "
+        + "form-action 'self'; "
+        + "frame-ancestors 'self'";
+
     public const string StrictTransportSecurity = "max-age=31536000; includeSubDomains";
 
     /// <summary>
@@ -46,10 +65,27 @@ public static class SecurityHeadersPolicy
     {
         var h = ctx.Response.Headers;
         h["X-Content-Type-Options"] = "nosniff";
-        h["X-Frame-Options"] = "DENY";
         h["Referrer-Policy"] = "strict-origin-when-cross-origin";
         h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
-        h["Content-Security-Policy"] = ContentSecurityPolicy;
+
+        // The public --demo build is DESIGNED to be embedded in a same-origin
+        // <iframe> on the marketing homepage, so it allows same-origin framing.
+        // Every other mode (hosted accounts terminal, local desktop) refuses all
+        // framing. Null-safe: contexts without a service provider (e.g. unit tests
+        // using a bare DefaultHttpContext) fall through to the strict default.
+        bool isDemo = ctx.RequestServices?
+            .GetService<AccessibleTrader.Core.Services.DemoPolicy>()?.IsDemo == true;
+        if (isDemo)
+        {
+            h["X-Frame-Options"] = "SAMEORIGIN";
+            h["Content-Security-Policy"] = DemoContentSecurityPolicy;
+        }
+        else
+        {
+            h["X-Frame-Options"] = "DENY";
+            h["Content-Security-Policy"] = ContentSecurityPolicy;
+        }
+
         if (ctx.Request.IsHttps)
             h["Strict-Transport-Security"] = StrictTransportSecurity;
     }
