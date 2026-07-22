@@ -17,6 +17,13 @@ namespace AccessibleTrader.Tests
     /// on Binance alone. These tests pin the exchange-native bracket payloads
     /// and the fill parsing for every broker that gained them.
     /// </summary>
+    // Same collection as ProviderFetchOhlcvTests: that class installs a fake
+    // into the GLOBAL PluginHostServices.ApiKeys bridge, which preempts the
+    // Configure()-supplied credentials these signed-path tests rely on. xUnit
+    // runs classes in parallel by default; sharing a collection serializes the
+    // two so the bridge can never be swapped mid-test. (Exposed 2026-07-22 as
+    // a rare flake when new test classes shifted the schedule.)
+    [Collection("ProviderCredentialBridge")]
     public class BrokerParityTests
     {
         private static void Swap(object provider, FakeHttpMessageHandler handler)

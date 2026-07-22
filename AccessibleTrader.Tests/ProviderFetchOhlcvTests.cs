@@ -24,7 +24,8 @@ namespace AccessibleTrader.Tests
     /// Each test is shaped: ARRANGE handler → SWAP _httpClient → ACT
     /// FetchOhlcvAsync → ASSERT shape + values + side-effect on error stream.
     /// </summary>
-    public class ProviderFetchOhlcvTests
+    [Collection("ProviderCredentialBridge")] // shares the global ApiKeys bridge — see BrokerParityTests
+public class ProviderFetchOhlcvTests
     {
         // ── Helpers ───────────────────────────────────────────────────────────
 
