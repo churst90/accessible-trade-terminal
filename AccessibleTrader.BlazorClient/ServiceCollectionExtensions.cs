@@ -211,6 +211,7 @@ namespace AccessibleTrader.BlazorClient
 
             // Core data services in dependency order.
             services.AddSingleton<IDataService, DataService>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Feeds.IMarketFeedHub, AccessibleTrader.Core.Services.Feeds.MarketFeedHub>();
             services.AddSingleton<IDataManager, DataManager>();
             services.AddSingleton<IOrderBookHistoryService, OrderBookHistoryService>();
             services.AddSingleton<IDataCacheService, DataCacheService>();

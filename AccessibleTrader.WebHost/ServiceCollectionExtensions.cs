@@ -203,6 +203,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IProfileService, ProfileService>();
 
             services.AddScoped<IDataService, DataService>();
+            services.AddScoped<AccessibleTrader.Core.Services.Feeds.IMarketFeedHub, AccessibleTrader.Core.Services.Feeds.MarketFeedHub>();
             services.AddScoped<IDataManager, DataManager>();
             services.AddScoped<IOrderBookHistoryService, OrderBookHistoryService>();
             services.AddSingleton<IDataCacheService, DataCacheService>();

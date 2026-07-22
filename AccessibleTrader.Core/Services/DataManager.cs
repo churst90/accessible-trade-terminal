@@ -1,13 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Plugins;
-using AccessibleTrader.Sdk.Logging;
+using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -29,89 +24,88 @@ namespace AccessibleTrader.Core.Services
         Task PrependOlderDataAsync();
         Task StartLiveUpdates();
         Task StopLiveUpdatesAsync();
-        Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync();
+        Task<(System.Collections.Generic.List<OrderBookEntry> Bids, System.Collections.Generic.List<OrderBookEntry> Asks)> GetOrderBookAsync();
         event Action? DataUpdated;
         event Action<string>? ErrorOccurred;
     }
 
     /// <summary>
-    /// Manages the chart's OHLCV data lifecycle.
-    /// PHASE 3: Implements strict 200/100/200 pagination and respects provider rate limits.
+    /// The focused-feed binder. Since the keyed-feeds refactor
+    /// (docs/KEYED_FEEDS_DESIGN.md) the buffer lifecycle lives in per-identity
+    /// <see cref="ChartFeed"/>s inside the <see cref="IMarketFeedHub"/>; this class
+    /// binds whichever feed holds FOCUS to the workspace store — dispatching data
+    /// updates, zoom/navigate on initial load, and the LoadingHistorical status
+    /// around scrollback prepends — and keeps the legacy IDataManager surface
+    /// stable for existing consumers. New multi-chart code should take
+    /// IMarketFeedHub or IMarketFeeds, not this interface.
     /// </summary>
     public class DataManager : IDataManager, IDisposable
     {
-        private const int MaxBarsInCache = 5000;
-        private readonly IDataOrchestrator _orchestrator;
+        private readonly IMarketFeedHub _hub;
         private readonly IWorkspaceStore _store;
         private readonly IEventBus _eventBus;
         private readonly ILogger<DataManager> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private TimeSeriesBuffer<Ohlcv> _cache = TimeSeriesBuffer<Ohlcv>.Empty;
-        // Guards every write to _cache against concurrent live-tick and prepend
-        // mutations. TimeSeriesBuffer<Ohlcv> is immutable so reads (reference
-        // assignment from a single field) are atomic on any 64-bit runtime;
-        // only writers contend. Without this, a live tick that interleaves with
-        // PrependOlderDataAsync's mutation could be silently dropped because
-        // both produce a new _cache snapshot from the pre-mutation reference.
-        private readonly object _cacheLock = new();
-        private CancellationTokenSource? _liveCts;
-        // The live-loop task, kept so Stop/Dispose can await a clean exit instead
-        // of racing a half-cancelled loop (2026-07-22 audit: unobserved-exception
-        // risk on aggressive dispose cascades).
-        private Task? _liveLoopTask;
-        private readonly SemaphoreSlim _prependLock = new(1, 1);
 
-        public TimeSeriesBuffer<Ohlcv> Data => _cache;
-        public ChartIdentity Identity { get; set; } = ChartIdentity.Empty;
+        public TimeSeriesBuffer<Ohlcv> Data => _hub.FocusedFeed?.Bars ?? TimeSeriesBuffer<Ohlcv>.Empty;
+
+        public ChartIdentity Identity
+        {
+            get => _hub.FocusedFeed?.Identity ?? ChartIdentity.Empty;
+            set => _hub.SetFocus(value);
+        }
 
         public event Action? DataUpdated;
         public event Action<string>? ErrorOccurred;
 
         public DataManager(
-            IDataOrchestrator orchestrator,
+            IMarketFeedHub hub,
             IWorkspaceStore store,
             IEventBus eventBus,
             ILogger<DataManager> logger,
             IServiceProvider serviceProvider)
         {
-            _orchestrator = orchestrator;
+            _hub = hub;
             _store = store;
             _eventBus = eventBus;
             _logger = logger;
             _serviceProvider = serviceProvider;
+
+            _hub.FocusedFeedUpdated += OnFocusedFeedUpdated;
+        }
+
+        // Live ticks reach the store through this path; the operation methods below
+        // dispatch their own results inline (matching the original pipeline's exact
+        // ordering), so only the live kinds are handled here. DataUpdated is NOT
+        // raised for live ticks — that long-standing gap and its Phase C fix are
+        // documented in docs/KEYED_FEEDS_DESIGN.md.
+        private void OnFocusedFeedUpdated(ChartFeed feed, FeedUpdateKind kind)
+        {
+            if (kind is FeedUpdateKind.LiveAppend or FeedUpdateKind.LiveReplace)
+                _store.Dispatch(new UpdateDataAction(feed.Bars, false));
         }
 
         public async Task RefreshDataAsync(CancellationToken ct = default)
         {
+            var feed = _hub.FocusedFeed;
+            if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
+
             try
             {
-                var identity = Identity;
-                if (string.IsNullOrEmpty(identity.Symbol)) return;
+                if (!await feed.RefreshAsync(ct).ConfigureAwait(false)) return;
 
-                _logger.LogInformation("DataManager: Refreshing data for {Symbol} (Initial Load: 200 bars).", identity.Symbol);
+                _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: true));
+                _store.Dispatch(new ZoomAction(100));
+                _store.Dispatch(new NavigateAction(feed.Bars.Count - 1));
 
-                var newData = await _orchestrator.FetchOhlcvAsync(identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200).ConfigureAwait(false);
+                DataUpdated?.Invoke();
 
-                // Bail out if a newer tab-switch refresh has superseded this one.
-                ct.ThrowIfCancellationRequested();
-
-                if (newData != null && newData.Any())
-                {
-                    lock (_cacheLock) { _cache = new TimeSeriesBuffer<Ohlcv>(newData); }
-
-                    _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: true));
-                    _store.Dispatch(new ZoomAction(100));
-                    _store.Dispatch(new NavigateAction(_cache.Count - 1));
-
-                    NotifyDataUpdate(isInitialLoad: true);
-
-                    SafeFireAndForget.Run(StartLiveUpdates, _logger, "StartLiveUpdates");
-                }
+                SafeFireAndForget.Run(StartLiveUpdates, _logger, "StartLiveUpdates");
             }
             catch (OperationCanceledException) { /* Superseded by a newer tab-switch refresh — no-op */ }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Refresh failed for {Symbol}.", Identity.Symbol);
+                _logger.LogError(ex, "Refresh failed for {Symbol}.", feed.Identity.Symbol);
                 ErrorOccurred?.Invoke(ex.Message);
             }
         }
@@ -124,65 +118,33 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
+            var feed = _hub.FocusedFeed;
+            if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
+
             try
             {
-                var identity = Identity;
-                if (string.IsNullOrEmpty(identity.Symbol)) return;
-
-                _logger.LogInformation("DataManager: Restoring {Count} bars from snapshot for {Symbol}.", snapshotData.Count, identity.Symbol);
+                _logger.LogInformation("DataManager: Restoring {Count} bars from snapshot for {Symbol}.",
+                    snapshotData.Count, feed.Identity.Symbol);
 
                 // Step 1 — Restore snapshot immediately so the store sees the full history
                 // without waiting for a network round-trip. IsInitialLoad=false so the
                 // snapshot-restored cursor/viewport from WorkspaceState is preserved.
-                lock (_cacheLock) { _cache = snapshotData; }
-                _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
-                NotifyDataUpdate(isInitialLoad: false);
+                feed.RestoreSnapshot(snapshotData);
+                _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                DataUpdated?.Invoke();
 
                 ct.ThrowIfCancellationRequested();
 
-                // Step 2 — Gap-fill: fetch recent bars and merge only those newer than
-                // the last bar in the snapshot. This catches up on bars that arrived
-                // while the tab was inactive without touching the preserved scrollback.
-                var lastKnownDate = snapshotData[^1].Date;
-                var recent = await _orchestrator.FetchOhlcvAsync(
-                    identity.Market, identity.Provider, identity.Symbol, identity.Timeframe, limit: 200).ConfigureAwait(false);
-
-                ct.ThrowIfCancellationRequested();
-
-                if (recent != null && recent.Any())
+                // Step 2 — Gap-fill: append only the bars that arrived while the tab
+                // was inactive, without touching the preserved scrollback.
+                if (await feed.GapFillAsync(ct).ConfigureAwait(false))
                 {
-                    var gapBars = recent
-                        .Where(b => b.Date > lastKnownDate)
-                        .OrderBy(b => b.Date)
-                        .ToList();
-
-                    if (gapBars.Any())
-                    {
-                        lock (_cacheLock)
-                        {
-                            foreach (var bar in gapBars)
-                            {
-                                _cache = _cache.Append(bar);
-                                if (_cache.Count > MaxBarsInCache)
-                                    _cache = _cache.RemoveFirst();
-                            }
-                        }
-                        _logger.LogInformation("DataManager: Gap-filled {Count} bars for {Symbol}.", gapBars.Count, identity.Symbol);
-                    }
-                    else
-                    {
-                        // No new bars — but update the live bar in case it changed intra-bar.
-                        var latest = recent.Last();
-                        if (latest.Date == lastKnownDate)
-                            lock (_cacheLock) { _cache = _cache.ReplaceLast(latest); }
-                    }
-
-                    _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
-                    NotifyDataUpdate(isInitialLoad: false);
+                    _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                    DataUpdated?.Invoke();
                 }
 
                 // Step 3 — Force a full indicator recalculation so component arrays reflect
-                // the restored + gap-filled dataset. Uses a sentinal ID since the handler
+                // the restored + gap-filled dataset. Uses a sentinel ID since the handler
                 // ignores the series ID and just triggers forceFull=true.
                 _eventBus.Publish(new IndicatorUpdatedEvent("__catchup__"));
 
@@ -192,146 +154,48 @@ namespace AccessibleTrader.Core.Services
             catch (OperationCanceledException) { /* Superseded by a newer tab-switch — no-op */ }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CatchUp failed for {Symbol}.", Identity.Symbol);
+                _logger.LogError(ex, "CatchUp failed for {Symbol}.", feed.Identity.Symbol);
                 // Fall back to a full refresh so the tab is never left in a broken state.
-                try { await RefreshDataAsync(default).ConfigureAwait(false); } catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
+                try { await RefreshDataAsync(default).ConfigureAwait(false); }
+                catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
             }
         }
 
         public async Task PrependOlderDataAsync()
         {
-            // SCROLLBACK CONCURRENCY — Option 1 (Drop-if-busy):
-            // If a prepend is already in progress, silently discard this request.
-            // The SemaphoreSlim zero-timeout try is the authoritative guard.
-            //
-            // Option 2 (Timer debounce — not implemented):
-            //   Introduce a 250 ms debounce timer at the keyboard/action dispatch layer.
-            //   Each Left/Home keypress resets the timer; one prepend fires when the user pauses.
-            //   Best UX for rapid keyboard scrolling — batches input without dropping intent.
-            //   Implement by wrapping the PrependOlderDataAsync call site with a
-            //   CancellableDebounce<T> helper that cancels the previous pending Task.Delay.
-            //
-            // Option 3 (Replace-queued — not implemented):
-            //   Allow exactly one queued request behind an in-flight prepend.
-            //   A second request while one is running sets a _pendingPrepend flag; subsequent
-            //   requests are dropped (no unbounded queue). When the in-flight prepend completes
-            //   it checks the flag and fires one more prepend before returning.
-            //   Ensures the most-recent scroll intent always executes without pileup.
-            if (string.IsNullOrEmpty(Identity.Symbol)) return;
-            if (!await _prependLock.WaitAsync(0).ConfigureAwait(false)) return;
+            var feed = _hub.FocusedFeed;
+            if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
+
+            bool started = false;
             try
             {
-
-                _store.Dispatch(new SetDataStatusAction(DataStatus.LoadingHistorical));
-
-                if (_cache.Count == 0) return;
-                var firstBar = _cache[0];
-
-                long since = new DateTimeOffset(firstBar.Date).ToUnixTimeMilliseconds();
-                
-                _logger.LogInformation("DataManager: Prepending 200 bars before {Date}.", firstBar.Date);
-                
-                var olderData = await _orchestrator.FetchOhlcvAsync(
-                    Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe,
-                    limit: 200, until: since - 1).ConfigureAwait(false);
-
-                if (olderData != null && olderData.Any())
+                int prepended = await feed.PrependOlderAsync(onStarted: () =>
                 {
-                    var uniqueOlder = olderData.Where(o => o.Date < firstBar.Date).ToList();
-                    if (uniqueOlder.Any())
-                    {
-                        lock (_cacheLock)
-                        {
-                            _cache = _cache.PrependRange(uniqueOlder);
-                            while (_cache.Count > MaxBarsInCache)
-                                _cache = _cache.RemoveLast();
-                        }
-                        _store.Dispatch(new UpdateDataAction(_cache, IsInitialLoad: false));
-                        _logger.LogInformation("Prepended {Count} bars.", uniqueOlder.Count);
-                        NotifyDataUpdate(false);
-                    }
+                    started = true;
+                    _store.Dispatch(new SetDataStatusAction(DataStatus.LoadingHistorical));
+                }).ConfigureAwait(false);
+
+                if (prepended > 0)
+                {
+                    _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                    DataUpdated?.Invoke();
                 }
             }
             finally
             {
-
-                _prependLock.Release();
-                // Always reset status after a backfill attempt (success, empty, or error).
-                if (_store.State.DataStatus == DataStatus.LoadingHistorical)
+                // Always reset status after a backfill attempt (success, empty, or
+                // error) — but only when THIS call flipped it: a drop-if-busy skip
+                // must not clear the status owned by the in-flight prepend.
+                if (started && _store.State.DataStatus == DataStatus.LoadingHistorical)
                     _store.Dispatch(new SetDataStatusAction(DataStatus.Ready));
             }
         }
 
-        private void NotifyDataUpdate(bool isInitialLoad)
-        {
-            DataUpdated?.Invoke();
-        }
+        public Task StartLiveUpdates() => _hub.StartFocusedLiveAsync();
 
-                public async Task StartLiveUpdates()
-        {
-            await StopLiveUpdatesAsync().ConfigureAwait(false);
-            _liveCts = new CancellationTokenSource();
-            var token = _liveCts.Token;
+        public Task StopLiveUpdatesAsync() => _hub.StopFocusedLiveAsync();
 
-            _liveLoopTask = System.Threading.Tasks.Task.Run(async () =>
-            {
-                try
-                {
-                await foreach (var tick in _orchestrator.LiveStream.ReadAllAsync(token))
-                {
-                    // Drop ticks while historical backfill is in progress. The status
-                    // read alone left a window (prepend finishes between the read and
-                    // the lock) — holding the prepend lock for the merge closes it:
-                    // a tick either sees the fully-prepended cache or is dropped.
-                    if (!_prependLock.Wait(0))
-                        continue;
-                    try
-                    {
-                    if (_store.State.DataStatus == DataStatus.LoadingHistorical)
-                        continue;
-
-                    lock (_cacheLock)
-                    {
-                        var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
-                        if (_cache.Count == 0 || tick.Date > lastBar.Date)
-                        {
-                            _cache = _cache.Append(tick);
-                            if (_cache.Count > 2000) _cache = _cache.RemoveFirst();
-                        }
-                        else
-                        {
-                            _cache = _cache.ReplaceLast(tick);
-                        }
-                    }
-                    _store.Dispatch(new UpdateDataAction(_cache, false));
-                    }
-                    finally { _prependLock.Release(); }
-                }
-                }
-                catch (OperationCanceledException) { /* normal stop */ }
-                catch (Exception ex) { _logger.LogWarning(ex, "Live update loop exited on error."); }
-            }, token);
-
-            await _orchestrator.StartLiveStreamAsync(Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe).ConfigureAwait(false);
-        }
-
-        public async Task StopLiveUpdatesAsync()
-        {
-            _liveCts?.Cancel();
-            var loop = _liveLoopTask;
-            if (loop != null)
-            {
-                // Bounded wait: the loop exits promptly on cancellation, but a hung
-                // provider read must not wedge a tab switch forever.
-                await Task.WhenAny(loop, Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
-            }
-            _liveLoopTask = null;
-            _liveCts?.Dispose();
-            _liveCts = null;
-            await _orchestrator.StopLiveStreamAsync().ConfigureAwait(false);
-        }
-
-        public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync()
+        public async Task<(System.Collections.Generic.List<OrderBookEntry> Bids, System.Collections.Generic.List<OrderBookEntry> Asks)> GetOrderBookAsync()
         {
             var dataService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<IDataService>(_serviceProvider);
             if (dataService == null) return (new(), new());
@@ -340,12 +204,7 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
-            _liveCts?.Cancel();
-            try { _liveLoopTask?.Wait(TimeSpan.FromMilliseconds(500)); }
-            catch { /* cancellation surfaces as AggregateException — expected */ }
-            _liveCts?.Dispose();
-            _prependLock.Dispose();
+            _hub.FocusedFeedUpdated -= OnFocusedFeedUpdated;
         }
     }
 }
-
