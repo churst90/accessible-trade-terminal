@@ -468,6 +468,51 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
 
+        /// <summary>Fill history via /orders/historical/fills (History tab parity —
+        /// returned the interface default empty until 2026-07-22). Deliberately no
+        /// query string: the auth header signs the bare path, so filtering and the
+        /// limit are applied client-side on the default page.</summary>
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConfigured) return new();
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    string path = "/api/v3/brokerage/orders/historical/fills";
+                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
+                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
+                    var json = JObject.Parse(response);
+                    var arr = json["fills"] as JArray;
+                    if (arr == null) return new List<TradeFill>();
+
+                    var fills = new List<TradeFill>();
+                    foreach (var f in arr)
+                    {
+                        string sym = f["product_id"]?.ToString() ?? "";
+                        if (symbol != null && !sym.Replace("-", "/").Equals(symbol, StringComparison.OrdinalIgnoreCase)
+                            && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                        fills.Add(new TradeFill(
+                            f["trade_id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                            sym,
+                            (f["side"]?.ToString() ?? "BUY").Equals("SELL", StringComparison.OrdinalIgnoreCase)
+                                ? OrderSide.Sell : OrderSide.Buy,
+                            f["size"]?.Value<double>() ?? 0,
+                            f["price"]?.Value<double>() ?? 0,
+                            f["trade_time"]?.Value<DateTime>() ?? DateTime.MinValue,
+                            f["commission"]?.Value<double>() ?? 0,
+                            f["order_id"]?.ToString()));
+                    }
+                    return fills.OrderByDescending(x => x.FilledAt).Take(limit).ToList();
+                });
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Coinbase GetFillsAsync failed ({ex.GetType().Name})");
+                return new();
+            }
+        }
+
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConfigured) return new();

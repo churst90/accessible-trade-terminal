@@ -70,7 +70,7 @@ namespace AccessibleTrader.Plugins.Tradier
         public override bool SupportsMarginTrading  => false;
         public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
-        public override bool SupportsTakeProfit     => false;
+        public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 1.0;
 
         public bool IsConnected => IsConfigured && !string.IsNullOrEmpty(_accountId);
@@ -660,6 +660,46 @@ namespace AccessibleTrader.Plugins.Tradier
             }
         }
 
+        /// <summary>Fill history via /accounts/{id}/history?type=trade (History tab
+        /// parity — returned the interface default empty list until 2026-07-22).
+        /// Tradier collapses single-element arrays to a bare object; both handled.</summary>
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConnected) return new();
+            try
+            {
+                var response = await _httpClient.GetStringAsync(
+                    $"{_baseUrl}/accounts/{_accountId}/history?type=trade&limit={limit}");
+                var json = JObject.Parse(response);
+                var raw = json["history"]?["event"];
+                if (raw == null || raw.Type == JTokenType.Null) return new();
+                var events = raw is JArray arr ? arr : new JArray(raw);
+
+                var fills = new List<TradeFill>();
+                foreach (var ev in events)
+                {
+                    var trade = ev["trade"];
+                    if (trade == null) continue;
+                    string sym = trade["symbol"]?.ToString() ?? "";
+                    if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                    double qty = trade["quantity"]?.Value<double>() ?? 0;
+                    fills.Add(new TradeFill(
+                        Guid.NewGuid().ToString("N").Substring(0, 12), sym,
+                        qty >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                        Math.Abs(qty),
+                        trade["price"]?.Value<double>() ?? 0,
+                        ev["date"]?.Value<DateTime>() ?? DateTime.MinValue,
+                        Math.Abs(trade["commission"]?.Value<double>() ?? 0)));
+                }
+                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetFillsAsync failed ({ex.GetType().Name})");
+                return new();
+            }
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -668,6 +708,17 @@ namespace AccessibleTrader.Plugins.Tradier
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     bool isOption = string.Equals(signal.SubType, "Options", StringComparison.OrdinalIgnoreCase);
+
+                    // Entry with protective legs → Tradier's native advanced classes
+                    // (exchange-side linking, not attach-after-fill): OTO for entry+one
+                    // leg, OTOCO for entry+both (the exits are an OCO pair). Before
+                    // 2026-07-22 SL/TP on entries were SILENTLY DROPPED here.
+                    if (!isOption
+                        && signal.Type is OrderType.Market or OrderType.Limit
+                        && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
+                    {
+                        return await PlaceBracketAsync(signal);
+                    }
 
                     var postData = new Dictionary<string, string>
                     {
@@ -700,6 +751,13 @@ namespace AccessibleTrader.Plugins.Tradier
                             postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
                             postData["stop"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
                             break;
+                        case OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
+                            when (signal.TriggerPrice ?? signal.TakeProfit ?? signal.Price) is double tpPx:
+                            // Equities have no distinct TP type — a resting limit at the
+                            // target IS the take profit.
+                            postData["type"] = "limit";
+                            postData["price"] = tpPx.ToString(CultureInfo.InvariantCulture);
+                            break;
                         default:
                             return "ORDER_FAILED:Unsupported order type";
                     }
@@ -719,6 +777,58 @@ namespace AccessibleTrader.Plugins.Tradier
                 });
             }
             catch (Exception ex) { _errorStream.OnNext($"Tradier order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
+        }
+
+        /// <summary>
+        /// Entry + protective legs as ONE Tradier advanced order (indexed-leg form:
+        /// type[0]/side[0]/quantity[0] is the entry; legs 1..n are the exits).
+        /// class=oto for a single protective leg, class=otoco when both are given —
+        /// the two exits are then an exchange-linked OCO pair. Exchange-side, so the
+        /// protection exists even if this terminal dies right after submit.
+        /// </summary>
+        private async Task<string> PlaceBracketAsync(TradeSignal signal)
+        {
+            string entrySide = signal.Side == OrderSide.Buy ? "buy" : "sell";
+            string exitSide = signal.Side == OrderSide.Buy ? "sell" : "buy";
+            string qty = ((int)signal.Quantity).ToString();
+            bool both = signal.StopLoss is > 0 && signal.TakeProfit is > 0;
+
+            var p = new Dictionary<string, string>
+            {
+                ["class"] = both ? "otoco" : "oto",
+                ["duration"] = "gtc",
+                ["symbol"] = signal.Symbol,
+                ["side[0]"] = entrySide,
+                ["quantity[0]"] = qty,
+                ["type[0]"] = signal.Type == OrderType.Limit ? "limit" : "market",
+            };
+            if (signal.Type == OrderType.Limit && signal.Price.HasValue)
+                p["price[0]"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
+
+            int leg = 1;
+            if (signal.TakeProfit is > 0)
+            {
+                p[$"side[{leg}]"] = exitSide;
+                p[$"quantity[{leg}]"] = qty;
+                p[$"type[{leg}]"] = "limit";
+                p[$"price[{leg}]"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
+                leg++;
+            }
+            if (signal.StopLoss is > 0)
+            {
+                p[$"side[{leg}]"] = exitSide;
+                p[$"quantity[{leg}]"] = qty;
+                p[$"type[{leg}]"] = "stop";
+                p[$"stop[{leg}]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            var content = new FormUrlEncodedContent(p);
+            var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
+            var respStr = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{respStr}";
+            var json = JObject.Parse(respStr);
+            if (json["errors"] != null) return $"ORDER_FAILED:{json["errors"]}";
+            return json["order"]?["id"]?.ToString() ?? "ORDER_SUBMITTED";
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

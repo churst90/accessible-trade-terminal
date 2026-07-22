@@ -72,6 +72,10 @@ namespace AccessibleTrader.Plugins.Kraken
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 5.0;
 
+
+        // Kraken's close[] slot fits ONE protective order — see AddOrder below.
+        public bool SupportsSimultaneousStopAndTarget => false;
+
         public bool IsConnected => !string.IsNullOrEmpty(_apiKey);
 
         public override List<string> NativelySupportedTimeframes => new List<string>
@@ -591,6 +595,43 @@ namespace AccessibleTrader.Plugins.Kraken
             catch { return new(); }
         }
 
+        /// <summary>Account fill history via TradesHistory (dashboard History tab
+        /// parity — this returned the interface default empty list until 2026-07-22).</summary>
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConnected) return new();
+            try
+            {
+                var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
+                var json = JObject.Parse(result);
+                var trades = json["result"]?["trades"] as JObject;
+                if (trades == null) return new();
+
+                string? want = symbol == null ? null : CleanSymbol(symbol);
+                var fills = new List<TradeFill>();
+                foreach (var kv in trades.Properties())
+                {
+                    var t = kv.Value;
+                    string pair = t["pair"]?.ToString() ?? "";
+                    if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
+                    fills.Add(new TradeFill(
+                        kv.Name, pair,
+                        (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
+                        t["vol"]?.Value<double>() ?? 0,
+                        t["price"]?.Value<double>() ?? 0,
+                        DateTimeOffset.FromUnixTimeSeconds((long)(t["time"]?.Value<double>() ?? 0)).UtcDateTime,
+                        t["fee"]?.Value<double>() ?? 0,
+                        t["ordertxid"]?.ToString()));
+                }
+                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken GetFillsAsync failed ({ex.GetType().Name})");
+                return new();
+            }
+        }
+
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
@@ -662,12 +703,16 @@ namespace AccessibleTrader.Plugins.Kraken
                     if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
                         postData["leverage"] = ((int)Math.Clamp(signal.Leverage.Value, 2, MaxLeverage)).ToString();
 
-                    // Close-on-trigger orders for SL/TP
+                    // Close-on-trigger order for SL/TP. Kraken's close[] slot holds
+                    // exactly ONE order — when both are requested the STOP wins
+                    // (safety over profit) and SupportsSimultaneousStopAndTarget=false
+                    // lets the order service tell the user the TP was not attached.
                     if (signal.StopLoss.HasValue && signal.Type == OrderType.Market)
+                    {
                         postData["close[ordertype]"] = "stop-loss";
-                    if (signal.StopLoss.HasValue && signal.Type == OrderType.Market)
                         postData["close[price]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-                    if (signal.TakeProfit.HasValue && signal.Type == OrderType.Market && !signal.StopLoss.HasValue)
+                    }
+                    else if (signal.TakeProfit.HasValue && signal.Type == OrderType.Market)
                     {
                         postData["close[ordertype]"] = "take-profit";
                         postData["close[price]"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);

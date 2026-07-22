@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased — Tier 1 of the 2.0 plan]
+
+### The rock-solid pass: audit criticals fixed (2026-07-22)
+
+Full-codebase audit → docs/ROADMAP_2.0.md records the grades and the three
+tiers. Tier 1 (correctness) landed in three commits:
+
+**Workspace persistence** — the two worst findings. Active strategies now
+survive save/load: ActiveStrategy carries its SpecId, saves capture
+workspace-level SavedActiveStrategy records (spec, symbol binding, mode,
+paused), and load uses REPLACE semantics re-bound to the SAVED symbol.
+Drawings survive too: anchors persist on SeriesConfig and rehydrate on
+restore, with the indicator orchestrator recomputing arrays when data loads.
+Before this, every drawing and every per-tab strategy vanished on restart.
+
+**Broker parity (the A+ dashboard directive)** — Tradier and Schwab were
+SILENTLY DROPPING stop-loss/take-profit on entries. Both now place
+exchange-NATIVE brackets: Tradier via OTO/OTOCO indexed-leg advanced orders
+(and standalone take-profits, previously "Unsupported", as resting limits);
+Schwab via TRIGGER entries with OCO child trees, GTC so protection outlives
+the session. Kraken's one-protective-slot limit is now DECLARED
+(SupportsSimultaneousStopAndTarget=false) and SPOKEN when both legs are
+requested (the stop wins — safety over profit). Fill history went from
+Binance-only to everywhere: Kraken (TradesHistory), Tradier (account
+history), Alpaca (activities), Coinbase (historical fills), Schwab
+(transactions) — the dashboard History tab is real on every broker.
+NOTE: the new bracket payloads match each broker's current API docs and are
+pinned by request-shape tests, but have not fired against live exchanges —
+first live bracket on Tradier/Schwab should be small.
+
+**Alerts** — evaluation failures speak once per alert instead of vanishing
+into debug logs ("Alert X can't be evaluated and will stay silent…"), with
+the gate resetting when the alert is edited; RepeatIfStillActive/Cooldown now
+work for simple level alerts (previously tree-only); deleted webhook targets
+warn instead of silently dropping delivery.
+
+**Pipeline** — the live-tick/backfill race is properly closed (ticks take
+the prepend lock non-blockingly); the live loop is awaited on stop/dispose;
+the resubscribe double-window is closed; four pieces of dead code removed.
+
+**Speech** — the one mute-tier bypass (Dot Pad connect/disconnect) moved to
+the Event channel.
+
+**Docs & comments** — manual's stale F4 context-summary reference corrected
+to Shift+F1; README plugin/test counts fixed; stale code comments rewritten
+where behavior had moved (Schwab scope, the never-implemented
+ActiveStrategySpecIds promise, resampler guard).
+
 ## [Unreleased]
 
 ### Live OCO (Binance-native) + Windows tray draft (2026-07-22)

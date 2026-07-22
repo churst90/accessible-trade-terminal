@@ -18,4 +18,9 @@
     <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- BuildSchwabOrderForTest: the bracket payload shapes are pinned by tests. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

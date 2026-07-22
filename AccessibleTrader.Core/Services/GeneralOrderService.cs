@@ -282,6 +282,17 @@ namespace AccessibleTrader.Core.Services
                 //    delayed; speaks up only when NOTHING protective can be found.
                 if ((signal.StopLoss.HasValue || signal.TakeProfit.HasValue) && !IsErrorSentinel(result))
                 {
+                    // Brokers with a single protective slot (Kraken) attach the STOP
+                    // when both were requested — say so instead of letting the user
+                    // believe a take profit is resting.
+                    if (signal.StopLoss.HasValue && signal.TakeProfit.HasValue
+                        && !tp.SupportsSimultaneousStopAndTarget)
+                    {
+                        _errorCoordinator.ReportError(
+                            $"{providerName} attaches only one protective order: the STOP LOSS was attached; the take profit was NOT. Place it separately if you want both.",
+                            ErrorSeverity.Medium);
+                    }
+
                     var capturedSignal = signal;
                     SafeFireAndForget.Run(
                         () => VerifyProtectiveOrdersAsync(tp, providerName, capturedSignal),

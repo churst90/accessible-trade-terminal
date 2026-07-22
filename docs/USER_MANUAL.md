@@ -289,7 +289,7 @@ confirm the right profile is active (Alt+K) and that the symbol is one the provi
 actually serves.
 
 At any later moment you can re-hear what is loaded without touching the toolbar:
-press F4 and the terminal announces the current symbol, provider, and timeframe.
+press Shift+F1 and the terminal announces the current symbol, provider, and timeframe.
 This is handy after you have been deep in navigation for a while and want to
 reconfirm the instrument before acting on it.
 

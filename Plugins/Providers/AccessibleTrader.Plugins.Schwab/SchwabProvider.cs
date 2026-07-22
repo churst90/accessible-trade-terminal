@@ -34,9 +34,12 @@ namespace AccessibleTrader.Plugins.Schwab
     ///
     /// Rate limit: 120 requests per minute shared across all endpoints.
     ///
-    /// This provider is v1 — single-leg EQUITY orders (MARKET / LIMIT / STOP /
-    /// STOP_LIMIT) only. Multi-leg option strategies, conditional orders, and
-    /// the WebSocket streamer are explicitly out of scope.
+    /// Scope: EQUITY orders (MARKET / LIMIT / STOP / STOP_LIMIT) plus native
+    /// bracket protection since 2026-07-22 — an entry with SL/TP becomes a
+    /// TRIGGER order whose child is the exit (or an OCO pair of exits), enforced
+    /// by Schwab server-side. Multi-leg OPTION strategies and the WebSocket
+    /// streamer (ACCT_ACTIVITY) remain out of scope; order updates arrive via
+    /// the order-status polling fallback.
     /// </summary>
     public sealed class SchwabProvider : BaseMarketDataProvider, ITradingProvider
     {
@@ -90,7 +93,7 @@ namespace AccessibleTrader.Plugins.Schwab
         public override bool SupportsMarginTrading  => false;
         public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
-        public override bool SupportsTakeProfit     => false;
+        public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 1.0;
 
         public bool IsConnected => IsConfigured && !string.IsNullOrEmpty(_primaryAccountHash);
@@ -466,6 +469,53 @@ namespace AccessibleTrader.Plugins.Schwab
             }
         }
 
+        /// <summary>Fill history via /transactions?types=TRADE, last 30 days
+        /// (History tab parity — returned the interface default empty until
+        /// 2026-07-22). Each TRADE transaction's first priced equity transfer
+        /// item carries the fill; amount sign is the side.</summary>
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConnected) return new();
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    string start = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+                    string end = Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+                    var url = $"{TraderV1}/accounts/{_primaryAccountHash}/transactions?startDate={start}&endDate={end}&types=TRADE";
+                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                    var arr = JArray.Parse(body);
+
+                    var fills = new List<TradeFill>();
+                    foreach (var txn in arr)
+                    {
+                        var item = (txn["transferItems"] as JArray)?
+                            .FirstOrDefault(i => (i["price"]?.Value<double>() ?? 0) > 0);
+                        if (item == null) continue;
+                        string sym = item["instrument"]?["symbol"]?.ToString() ?? "";
+                        if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                        double amount = item["amount"]?.Value<double>() ?? 0;
+                        fills.Add(new TradeFill(
+                            txn["activityId"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                            sym,
+                            amount >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                            Math.Abs(amount),
+                            item["price"]?.Value<double>() ?? 0,
+                            txn["tradeDate"]?.Value<DateTime>() ?? DateTime.MinValue,
+                            Math.Abs((txn["transferItems"] as JArray)?
+                                .Where(i => (i["feeType"]?.ToString() ?? "").Length > 0)
+                                .Sum(i => i["cost"]?.Value<double>() ?? 0) ?? 0)));
+                    }
+                    return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+                });
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Schwab GetFillsAsync failed ({ex.GetType().Name})");
+                return new();
+            }
+        }
+
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
@@ -659,8 +709,21 @@ namespace AccessibleTrader.Plugins.Schwab
 
         // ── Order mapping ───────────────────────────────────────────────────
 
+        /// <summary>Test seam: the bracket/order builder is where SL/TP were once
+        /// silently dropped — BrokerParityTests pins its payload shapes.</summary>
+        internal static SchwabOrderRequest? BuildSchwabOrderForTest(TradeSignal signal) => BuildSchwabOrder(signal);
+
         private static SchwabOrderRequest? BuildSchwabOrder(TradeSignal signal)
         {
+            // Entry + protective legs → Schwab's native conditional tree:
+            // TRIGGER entry whose child is the exit (or an OCO pair when both SL
+            // and TP are given). Exchange-enforced — the protection exists even
+            // if the terminal dies right after submit. Before 2026-07-22 SL/TP
+            // on entries were SILENTLY DROPPED by this builder.
+            if (signal.Type is OrderType.Market or OrderType.Limit
+                && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
+                return BuildBracket(signal);
+
             var leg = new SchwabOrderLeg
             {
                 Instruction = signal.Side == OrderSide.Buy ? "BUY" : "SELL",
@@ -707,6 +770,60 @@ namespace AccessibleTrader.Plugins.Schwab
             }
 
             return order;
+        }
+
+        private static SchwabOrderRequest? BuildBracket(TradeSignal signal)
+        {
+            var entry = BuildSchwabOrder(signal with { StopLoss = null, TakeProfit = null });
+            if (entry == null) return null;
+            entry.OrderStrategyType = "TRIGGER";
+            entry.Duration = "GTC"; // protective legs must outlive the session
+
+            string exitInstruction = signal.Side == OrderSide.Buy ? "SELL" : "BUY";
+            SchwabOrderRequest ExitLeg(string orderType, double price, bool stop)
+            {
+                var leg = new SchwabOrderRequest
+                {
+                    OrderType = orderType,
+                    Session = "NORMAL",
+                    Duration = "GTC",
+                    OrderStrategyType = "SINGLE",
+                    OrderLegCollection = new List<SchwabOrderLeg>
+                    {
+                        new()
+                        {
+                            Instruction = exitInstruction,
+                            Quantity = signal.Quantity,
+                            Instrument = new SchwabOrderInstrument
+                            {
+                                Symbol = signal.Symbol,
+                                AssetType = "EQUITY",
+                            },
+                        },
+                    },
+                };
+                string px = price.ToString("0.##", CultureInfo.InvariantCulture);
+                if (stop) leg.StopPrice = px; else leg.Price = px;
+                return leg;
+            }
+
+            var exits = new List<SchwabOrderRequest>();
+            if (signal.TakeProfit is > 0) exits.Add(ExitLeg("LIMIT", signal.TakeProfit.Value, stop: false));
+            if (signal.StopLoss is > 0) exits.Add(ExitLeg("STOP", signal.StopLoss.Value, stop: true));
+
+            entry.ChildOrderStrategies = exits.Count == 2
+                ? new List<SchwabOrderRequest>
+                {
+                    new()
+                    {
+                        OrderStrategyType = "OCO",
+                        OrderType = null, Session = null, Duration = null,
+                        OrderLegCollection = null, // an OCO node has children, not legs
+                        ChildOrderStrategies = exits,
+                    },
+                }
+                : exits;
+            return entry;
         }
 
         private static OrderType MapSchwabOrderType(string? type) => (type ?? "").ToUpperInvariant() switch

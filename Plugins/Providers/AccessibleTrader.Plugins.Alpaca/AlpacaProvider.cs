@@ -527,6 +527,42 @@ namespace AccessibleTrader.Plugins.Alpaca
             }
         }
 
+        /// <summary>Fill history via /account/activities?activity_types=FILL
+        /// (History tab parity — returned the interface default empty until 2026-07-22).</summary>
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConnected) return new();
+            try
+            {
+                var response = await _httpClient.GetStringAsync(
+                    $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
+                var arr = JArray.Parse(response);
+                var fills = new List<TradeFill>();
+                foreach (var a in arr)
+                {
+                    string sym = a["symbol"]?.ToString() ?? "";
+                    if (symbol != null && !sym.Equals(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase)
+                        && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                    fills.Add(new TradeFill(
+                        a["id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                        sym,
+                        (a["side"]?.ToString() ?? "buy").StartsWith("sell", StringComparison.OrdinalIgnoreCase)
+                            ? OrderSide.Sell : OrderSide.Buy,
+                        a["qty"]?.Value<double>() ?? 0,
+                        a["price"]?.Value<double>() ?? 0,
+                        a["transaction_time"]?.Value<DateTime>() ?? DateTime.MinValue,
+                        0,
+                        a["order_id"]?.ToString()));
+                }
+                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca GetFillsAsync failed ({ex.GetType().Name})");
+                return new();
+            }
+        }
+
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConfigured) return new();

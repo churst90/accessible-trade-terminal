@@ -141,6 +141,14 @@ namespace AccessibleTrader.Sdk.Plugins
         IObservable<OrderUpdate> OrderUpdateStream { get; }
 
         /// <summary>
+        /// False when the broker can attach only ONE protective order to an entry
+        /// (stop loss OR take profit, not both) — Kraken's close[] slot is the
+        /// known case. The order service prefers the STOP (safety over profit)
+        /// and warns the user that the take profit was not attached.
+        /// </summary>
+        bool SupportsSimultaneousStopAndTarget => true;
+
+        /// <summary>
         /// True (the default) when <see cref="OrderUpdateStream"/> is actually fed by a
         /// broker push channel. Providers whose stream is a dead subject (no streaming
         /// implementation — e.g. Schwab/Tradier v1) MUST override this to false so the

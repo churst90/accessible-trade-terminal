@@ -20,8 +20,7 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
     /// app — and with it every feed, resting paper order, and pending alert.
     /// With the tray: the close button hides the window, the process keeps
     /// running (audio, alerts, fills all keep announcing), and the tray menu
-    /// offers Restore / Exit. Exit (or Alt+F4 twice… no: only Exit) actually
-    /// quits.
+    /// offers Restore / Exit — only Exit actually quits.
     /// </summary>
     public static class TrayIconService
     {

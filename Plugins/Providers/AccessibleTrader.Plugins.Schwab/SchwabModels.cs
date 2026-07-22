@@ -88,9 +88,15 @@ namespace AccessibleTrader.Plugins.Schwab
     /// </summary>
     public sealed class SchwabOrderRequest
     {
-        [JsonProperty("orderType")]         public string OrderType         { get; set; } = "MARKET";
-        [JsonProperty("session")]           public string Session           { get; set; } = "NORMAL";
-        [JsonProperty("duration")]          public string Duration          { get; set; } = "DAY";
+        // Nullable + ignore-on-null so an OCO WRAPPER node (which per Schwab's
+        // schema carries only orderStrategyType + childOrderStrategies) can omit
+        // them; plain orders keep the same defaults and identical payloads.
+        [JsonProperty("orderType", NullValueHandling = NullValueHandling.Ignore)]
+        public string? OrderType { get; set; } = "MARKET";
+        [JsonProperty("session", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Session { get; set; } = "NORMAL";
+        [JsonProperty("duration", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Duration { get; set; } = "DAY";
         [JsonProperty("orderStrategyType")] public string OrderStrategyType { get; set; } = "SINGLE";
 
         [JsonProperty("price", NullValueHandling = NullValueHandling.Ignore)]
@@ -99,8 +105,15 @@ namespace AccessibleTrader.Plugins.Schwab
         [JsonProperty("stopPrice", NullValueHandling = NullValueHandling.Ignore)]
         public string? StopPrice { get; set; }
 
-        [JsonProperty("orderLegCollection")]
-        public List<SchwabOrderLeg> OrderLegCollection { get; set; } = new();
+        [JsonProperty("orderLegCollection", NullValueHandling = NullValueHandling.Ignore)]
+        public List<SchwabOrderLeg>? OrderLegCollection { get; set; } = new();
+
+        /// <summary>Schwab conditional-order tree: a TRIGGER entry carries its
+        /// protective exits here (either one SINGLE child, or one OCO node whose
+        /// own children are the stop + take-profit pair). Null for plain orders
+        /// so the serialized payload stays byte-identical to the pre-bracket one.</summary>
+        [JsonProperty("childOrderStrategies", NullValueHandling = NullValueHandling.Ignore)]
+        public List<SchwabOrderRequest>? ChildOrderStrategies { get; set; }
     }
 
     public sealed class SchwabOrderLeg
