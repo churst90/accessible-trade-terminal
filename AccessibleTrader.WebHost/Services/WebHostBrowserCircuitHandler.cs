@@ -37,6 +37,11 @@ namespace AccessibleTrader.WebHost.Services
         // audio) via standard DI scope disposal.
         private static int _activeCircuits;
 
+        /// <summary>Live browser sessions on this process. The local background
+        /// monitor pauses while any session is connected (the in-session alert
+        /// pipeline owns delivery then — same Orca, would double-speak).</summary>
+        internal static int ActiveCircuits => _activeCircuits;
+
         private readonly IShortcutManager _shortcuts;
         private readonly ILogger<WebHostBrowserCircuitHandler> _logger;
         private readonly IServiceProvider _scope;

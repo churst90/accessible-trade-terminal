@@ -174,6 +174,18 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ---
 
+## [2026-07-22] — Local background monitoring core (SHIPPED)
+
+- [x] **LocalBackgroundMonitor** DONE 2026-07-22 — browserless alert evaluation on
+  local WebHosts: watch list derived from Symbol+Provider alerts, 60s polls in a
+  DI scope, persistent evaluator (edge state), pauses while circuits are live,
+  delivers via paplay sound + notify-send + Orca/spd-say. Opt-in
+  monitoring.backgroundLocal. Default beep at sounds/alert.wav until the factory
+  sound bank lands (Cody gathering WAVs).
+- [ ] **Factory sound bank** — Cody's event WAVs as bundled defaults per earcon key
+  + the background monitor's alert.wav; Sound Designer assignment/revert (~0.5d
+  once files arrive).
+
 ## [2026-07-22] — Touch Explore mode (Wave 3 web-touch item SHIPPED)
 
 - [x] **Web touch Explore mode** DONE 2026-07-22 — TouchNavBar Explore toggle

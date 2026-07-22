@@ -80,6 +80,14 @@ var hostMode = accountsEnabled ? HostMode.Hosted
              :                    HostMode.Full;
 builder.Services.AddSingleton(new DemoPolicy(hostMode));
 
+// Local background monitoring (HostMode.Full only): the server process outlives
+// the browser tab, so alerts keep evaluating — heard through Orca/spd-say +
+// notify-send + a notification sound. Registered only for Full because the
+// singleton needs the singleton path service (hosted swaps it per-user), and
+// because on hosted/demo the server has no speakers that reach the user anyway.
+if (hostMode == HostMode.Full)
+    builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
+
 // Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a
 // prerequisite before public exposure. Two per-client-IP tiers (see AuthRateLimitPolicy):
 // a generous general window over HTTP requests (page loads, SignalR negotiates), and a

@@ -196,6 +196,26 @@
                             <button type="button" @onclick="() => Monitoring.AnnounceStatus()"
                                     aria-label="Speak background monitoring status">Speak status</button>
                         </div>
+
+                        @* Local-only (the server outlives the browser here; on the hosted
+                           terminal the server has no speakers that reach the user). *@
+                        @if (Platform.IsBrowserHost && !Demo.IsDemo && !Demo.IsHosted)
+                        {
+                            <div class="modal-row">
+                                <label for="s-bg-local">Keep monitoring when the browser is closed</label>
+                                <input id="s-bg-local" type="checkbox"
+                                       checked="@_bgLocalMonitor"
+                                       @onchange="e => _bgLocalMonitor = e.Value is bool b && b" />
+                            </div>
+                            <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                                Alerts that name a symbol and provider keep evaluating on this
+                                machine with no browser open — spoken through Orca, shown as a
+                                desktop notification, with a sound (replace it at
+                                sounds/alert.wav in the app data folder). Checks once a minute;
+                                pauses whenever a browser session is connected. Advanced
+                                condition-tree alerts stay session-only.
+                            </p>
+                        }
                         <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                             Each background tab keeps its own symbol's alerts and strategies live and
                             announces them by name — earcons and speech only. The chart you are viewing
@@ -853,6 +873,7 @@
         new("Read column headers", "General", "s-read-headers", "table grid"),
         new("Announce new bars", "General", "s-announce-bars", "live candle close"),
         new("Event mutes include order fills", "General", "s-mute-includes-orders", "silence mute stop take profit shift"),
+        new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
         new("Speech output on this device", "General", "s-speech-output", "double speech screen reader browser voice orca tts"),
         new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
@@ -1058,6 +1079,7 @@
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
     private bool _muteIncludesOrderEvents;
+    private bool _bgLocalMonitor;
 
     // Web-head-only speech-output control (double-speech fix). Null on MAUI —
     // resolved optionally so the desktop heads never show it.
@@ -1170,6 +1192,7 @@
         _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;
         _muteIncludesOrderEvents = App.MuteIncludesOrderEvents;
+        _bgLocalMonitor = Settings.GetSetting("monitoring.backgroundLocal")?.ToObject<bool>() ?? false;
 
         // Optional web-head capability (null on MAUI). Seed the dropdown from the
         // live mode so it reflects a first-visit prompt choice made this session.
@@ -1255,6 +1278,7 @@
         App.PaperTradingMode = _paperTradingMode;
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
+        Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
         App.Save();
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
         if (_paperTradingMode != _paperTradingModeInitial)

@@ -6,6 +6,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Local background monitoring: close the browser, keep hearing alerts (2026-07-22)
+
+On a LOCAL WebHost the server outlives the browser tab, and every delivery
+channel is server-side — so monitoring no longer stops when the tab closes.
+New `LocalBackgroundMonitor` (hosted service, HostMode.Full only, opt-in via
+Settings → General → "Keep monitoring when the browser is closed"):
+
+- **The watch list IS your alert list** — zero new configuration. Every
+  active, simple (non-tree) alert that names a Symbol AND Provider is
+  monitored; grouped so each (provider, symbol, timeframe) costs one fetch
+  per 60-second poll. Condition-tree and current-chart alerts stay
+  session-only (they need the full indicator pipeline) — the Settings text
+  and manual say so.
+- **Delivery, browserless**: a notification sound via paplay/pw-play
+  (app-data/sounds/alert.wav — a generated two-tone beep ships until Cody's
+  factory sounds land; drop your own file to replace it), a MATE/GNOME
+  desktop toast via notify-send, and SPEECH through Orca's D-Bus (the user's
+  own voice config) with spd-say fallback — the same ladder the in-session
+  speech manager uses.
+- **Never double-speaks**: the monitor pauses while ANY browser session is
+  connected (the new ActiveCircuits counter) — the in-session pipeline owns
+  delivery then, and both would talk through the same Orca.
+- **One persistent AlertEvaluator** across polls so edge-triggering holds: a
+  level crossed at 03:00 fires once, stays quiet while price sits above, and
+  re-arms only when price falls back — pinned by test.
+- Toggling the setting takes effect on the next poll, no restart. Run the
+  WebHost as a systemd user service and monitoring survives logout too.
+
+4 new tests (watch derivation incl. the exclusion rules, case-insensitive
+grouping, cross-fires-once hysteresis, generated-WAV validity). 1840 → 1844.
+
 ### Touch Explore mode + hosted circuit observability (2026-07-22)
 
 **Explore by touch (Wave 3's web-touch item).** The touch toolbar gains an

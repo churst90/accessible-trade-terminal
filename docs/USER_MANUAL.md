@@ -1053,6 +1053,22 @@ History — and switching to one speaks its name and count, like "Positions, 2".
   realized profit or loss, and fee — the place to review how a session actually went.
 - **Balances** shows your free and locked funds per asset.
 
+### Monitoring with the browser closed
+
+On your own machine (the local web host — not the hosted site), the terminal
+is a server that outlives the browser tab. Settings → General → **"Keep
+monitoring when the browser is closed"** puts that to work: any alert that
+names a symbol and provider keeps evaluating about once a minute with no
+browser open, and when one fires you hear it three ways — a notification
+sound, a desktop notification, and speech through Orca in your own voice. The
+watch list is simply your alert list; there is nothing separate to configure.
+Two honest limits: advanced condition-tree alerts and alerts scoped to "the
+current chart" stay session-only, and the background monitor stands down
+whenever a browser session is open so nothing is announced twice. The sound
+is replaceable — drop your own WAV at sounds/alert.wav in the app data
+folder. Pair it with a systemd user service and the terminal listens from
+login to shutdown.
+
 ### OCO pairs: one cancels the other
 
 In paper mode the dashboard offers an **OCO pair** — two resting orders where
