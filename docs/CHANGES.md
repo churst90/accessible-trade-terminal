@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### While-you-were-away trade reconciliation (2026-07-22)
+
+A stop that fires overnight is no longer silent. Each broker reconciliation
+(first connection per session) now diffs current positions against a
+persisted snapshot from the previous session: a position that vanished while
+the app was off is announced with its closing fill and realized P&L —
+"While you were away on Kraken: BTC/USD position closed. Sold at 92,300.
+Profit 1,150." — using the broker's reported P&L when available and an
+entry-price approximation otherwise; partial closes announce as "reduced to
+N". The snapshot refreshes after every live fill so closes the user already
+heard are never re-reported at the next startup. Built on the GetFillsAsync
+plumbing added in the Tier 1 broker-parity pass.
+
 ### Session autosave + resume (2026-07-22)
 
 Closing the app — or refreshing the WebHost browser tab — without an explicit

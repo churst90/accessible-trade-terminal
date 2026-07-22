@@ -30,7 +30,7 @@ public class TradingReconciliationTests
         IOrderExecutionService Orders,
         IPaperTradingProvider Paper);
 
-    private static Harness Build(bool paperMode)
+    private static Harness Build(bool paperMode, string? dataDir = null)
     {
         var bus = new SpyEventBus();
         var orders = Substitute.For<IOrderExecutionService>();
@@ -41,9 +41,11 @@ public class TradingReconciliationTests
         if (paperMode)
             settings.GetSetting("trading.paperTradingMode").Returns(JToken.FromObject(true));
 
+        var paths = Substitute.For<IPlatformPathService>();
+        paths.AppDataDirectory.Returns(dataDir ?? System.IO.Directory.CreateTempSubdirectory("att-recon-").FullName);
         var coordinator = new TradingReconciliationCoordinator(
             bus, orders, paper, settings,
-            new DemoPolicy(isDemo: false),
+            new DemoPolicy(isDemo: false), paths,
             NullLogger<TradingReconciliationCoordinator>.Instance);
         return new Harness(coordinator, bus, orders, paper);
     }
@@ -170,5 +172,128 @@ public class TradingReconciliationTests
         await Task.Delay(50);
 
         Assert.Empty(Announcements(h.Bus));
+    }
+
+    // ── While you were away (2026-07-22) ─────────────────────────────────────
+
+    private static async Task ConnectAsync(Harness h, string provider)
+    {
+        h.Bus.Publish(new ConnectionStatusEvent(provider, ConnectionState.Connected, "up"));
+        await SettleAsync(() => Announcements(h.Bus).Count > 0 || true);
+        await Task.Delay(80); // let the fire-and-forget reconcile finish
+    }
+
+    [Fact]
+    public async Task Position_closed_while_away_is_reported_with_realized_pnl()
+    {
+        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+
+        // Session 1: long 0.5 BTC on Kraken — snapshot persisted on reconcile.
+        var s1 = Build(paperMode: false, dataDir: dir);
+        s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s1.Orders.GetPositionsAsync("Kraken").Returns(new List<Position>
+        {
+            new("BTC/USD", 0.5, 90000, 45000, 0.0),
+        });
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        await ConnectAsync(s1, "Kraken");
+        s1.Coordinator.Dispose();
+
+        // Session 2: the stop fired overnight — flat account, closing fill on record.
+        var s2 = Build(paperMode: false, dataDir: dir);
+        s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s2.Orders.GetPositionsAsync("Kraken").Returns(new List<Position>());
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(new List<TradeFill>
+        {
+            new("f1", "BTC/USD", OrderSide.Sell, 0.5, 92300, DateTime.UtcNow, OrderId: "o9", RealizedPnL: 1150),
+        });
+        await ConnectAsync(s2, "Kraken");
+
+        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        Assert.NotNull(away);
+        Assert.Contains("BTC/USD position closed", away!.Message);
+        Assert.Contains("Sold at", away.Message);
+        Assert.Contains("Profit", away.Message);
+        s2.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task Pnl_is_approximated_from_entry_when_the_broker_reports_none()
+    {
+        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+
+        var s1 = Build(paperMode: false, dataDir: dir);
+        s1.Orders.SupportsTradingAsync("Tradier").Returns(true);
+        s1.Orders.GetPositionsAsync("Tradier").Returns(new List<Position>
+        {
+            new("AAPL", 10, 200, 2000, 0.0), // long 10 @ 200
+        });
+        s1.Orders.GetOpenOrdersAsync("Tradier").Returns(new List<OpenOrder>());
+        await ConnectAsync(s1, "Tradier");
+        s1.Coordinator.Dispose();
+
+        var s2 = Build(paperMode: false, dataDir: dir);
+        s2.Orders.SupportsTradingAsync("Tradier").Returns(true);
+        s2.Orders.GetPositionsAsync("Tradier").Returns(new List<Position>());
+        s2.Orders.GetOpenOrdersAsync("Tradier").Returns(new List<OpenOrder>());
+        s2.Orders.GetFillsAsync("Tradier", "AAPL", Arg.Any<int>()).Returns(new List<TradeFill>
+        {
+            new("f1", "AAPL", OrderSide.Sell, 10, 190, DateTime.UtcNow), // RealizedPnL 0 → approximate
+        });
+        await ConnectAsync(s2, "Tradier");
+
+        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        Assert.NotNull(away);
+        Assert.Contains("Loss", away!.Message); // (190 − 200) × 10 = −100
+        s2.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task Still_open_positions_produce_no_away_report()
+    {
+        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+        var positions = new List<Position> { new("BTC/USD", 0.5, 90000, 45000, 0.0) };
+
+        var s1 = Build(paperMode: false, dataDir: dir);
+        s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s1.Orders.GetPositionsAsync("Kraken").Returns(positions);
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        await ConnectAsync(s1, "Kraken");
+        s1.Coordinator.Dispose();
+
+        var s2 = Build(paperMode: false, dataDir: dir);
+        s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s2.Orders.GetPositionsAsync("Kraken").Returns(positions); // unchanged
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        await ConnectAsync(s2, "Kraken");
+
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("While you were away"));
+        s2.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task Reduced_position_is_reported_as_reduced()
+    {
+        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+
+        var s1 = Build(paperMode: false, dataDir: dir);
+        s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s1.Orders.GetPositionsAsync("Kraken").Returns(new List<Position> { new("BTC/USD", 1.0, 90000, 90000, 0.0) });
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        await ConnectAsync(s1, "Kraken");
+        s1.Coordinator.Dispose();
+
+        var s2 = Build(paperMode: false, dataDir: dir);
+        s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s2.Orders.GetPositionsAsync("Kraken").Returns(new List<Position> { new("BTC/USD", 0.4, 90000, 36000, 0.0) });
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(new List<TradeFill>());
+        await ConnectAsync(s2, "Kraken");
+
+        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        Assert.NotNull(away);
+        Assert.Contains("reduced to 0.4", away!.Message);
+        s2.Coordinator.Dispose();
     }
 }
