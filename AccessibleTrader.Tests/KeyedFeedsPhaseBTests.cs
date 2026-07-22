@@ -255,6 +255,51 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void Enrolled_providers_declare_multi_live_capability()
+        {
+            // The 2026-07-22 enrollment pass: each gets an independent
+            // per-subscription stream (own socket, or own SDK subscription).
+            Assert.True(((IMarketDataProvider)new AccessibleTrader.Plugins.Bitstamp.BitstampProvider()).SupportsMultipleLiveSubscriptions);
+            Assert.True(((IMarketDataProvider)new AccessibleTrader.Plugins.Kraken.KrakenProvider()).SupportsMultipleLiveSubscriptions);
+            Assert.True(((IMarketDataProvider)new AccessibleTrader.Plugins.Mexc.MexcProvider()).SupportsMultipleLiveSubscriptions);
+            // IB stays single-subscription: its smd stream is price-only quote
+            // ticks (see the classification comment in the provider).
+            Assert.False(((IMarketDataProvider)new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider()).SupportsMultipleLiveSubscriptions);
+        }
+
+        [Fact]
+        public void Bitstamp_trade_parse_reads_price_amount_timestamp()
+        {
+            var json = Newtonsoft.Json.Linq.JObject.Parse(
+                "{\"event\":\"trade\",\"channel\":\"live_trades_btcusd\"," +
+                "\"data\":{\"price\":95123.5,\"amount\":0.25,\"timestamp\":\"1753100000\"}}");
+            Assert.True(AccessibleTrader.Plugins.Bitstamp.BitstampProvider.TryParseTrade(json, out var bar));
+            Assert.Equal(95123.5, bar.Close);
+            Assert.Equal(0.25, bar.Volume);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1753100000).UtcDateTime, bar.Date);
+
+            var zero = Newtonsoft.Json.Linq.JObject.Parse(
+                "{\"event\":\"trade\",\"data\":{\"price\":0,\"amount\":1,\"timestamp\":\"1753100000\"}}");
+            Assert.False(AccessibleTrader.Plugins.Bitstamp.BitstampProvider.TryParseTrade(zero, out _));
+        }
+
+        [Fact]
+        public void Kraken_ohlc_parse_reads_v2_candles()
+        {
+            var item = Newtonsoft.Json.Linq.JObject.Parse(
+                "{\"open\":95000.0,\"high\":95100.0,\"low\":94900.0,\"close\":95050.0,\"volume\":12.5," +
+                "\"timestamp\":\"2026-07-22T10:00:00.000000Z\"}");
+            Assert.True(AccessibleTrader.Plugins.Kraken.KrakenProvider.TryParseOhlcItem(item, out var bar));
+            Assert.Equal(95050.0, bar.Close);
+            Assert.Equal(12.5, bar.Volume);
+            Assert.Equal(new DateTime(2026, 7, 22, 10, 0, 0, DateTimeKind.Utc), bar.Date);
+
+            var empty = Newtonsoft.Json.Linq.JObject.Parse(
+                "{\"open\":0,\"high\":0,\"low\":0,\"close\":0,\"volume\":0}");
+            Assert.False(AccessibleTrader.Plugins.Kraken.KrakenProvider.TryParseOhlcItem(empty, out _));
+        }
+
+        [Fact]
         public void Kline_style_providers_declare_cumulative_ticks()
         {
             // The 2026-07-22 fleet audit: these providers' live streams carry the

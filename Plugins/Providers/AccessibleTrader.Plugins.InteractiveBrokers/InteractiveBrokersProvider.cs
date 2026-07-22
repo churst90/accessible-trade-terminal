@@ -303,6 +303,13 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                 {
                     // Streaming market data update
                     // Field 31=Last, 84=Bid, 85=BidSize, 86=Ask, 88=AskSize
+                    //
+                    // LiveTickStyle classification (2026-07-22 fleet audit): these
+                    // are last-PRICE quote ticks emitted with volume 0, so the
+                    // TradeDeltas default is correct — consolidation accumulates
+                    // zero volume (honest: this stream carries no per-trade size)
+                    // and merges prices by period. Do NOT switch to CumulativeBars
+                    // unless field 87 (day volume) is ever mapped into ticks.
                     double last = double.TryParse(json["31"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double l) ? l : 0;
                     if (last > 0)
                     {

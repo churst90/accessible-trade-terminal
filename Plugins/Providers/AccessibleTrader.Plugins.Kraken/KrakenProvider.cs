@@ -237,19 +237,8 @@ namespace AccessibleTrader.Plugins.Kraken
                     if (data == null) return;
                     foreach (var item in data)
                     {
-                        double open  = item["open"]?.Value<double>() ?? 0;
-                        double high  = item["high"]?.Value<double>() ?? 0;
-                        double low   = item["low"]?.Value<double>() ?? 0;
-                        double close = item["close"]?.Value<double>() ?? 0;
-                        double vol   = item["volume"]?.Value<double>() ?? 0;
-                        if (open == 0 && high == 0 && low == 0 && close == 0) continue;
-
-                        var ts = item["timestamp"]?.ToString();
-                        DateTime date = DateTime.UtcNow;
-                        if (!string.IsNullOrEmpty(ts) && DateTime.TryParse(ts, null, DateTimeStyles.RoundtripKind, out var parsed))
-                            date = parsed.ToUniversalTime();
-
-                        _liveStream.OnNext(new Ohlcv(date, open, high, low, close, vol));
+                        if (TryParseOhlcItem(item, out var bar))
+                            _liveStream.OnNext(bar);
                     }
                 }
                 else if (channel == "book")
@@ -317,6 +306,87 @@ namespace AccessibleTrader.Plugins.Kraken
             {
                 _errorStream.OnNext($"Kraken message parse failed: {ex.GetType().Name}");
             }
+        }
+
+        /// <summary>Parses one v2 ohlc channel candle. The channel re-sends the
+        /// current candle with CUMULATIVE volume-so-far — see LiveTickStyle.
+        /// Internal for direct testing.</summary>
+        internal static bool TryParseOhlcItem(JToken item, out Ohlcv bar)
+        {
+            bar = default;
+            double open  = item["open"]?.Value<double>() ?? 0;
+            double high  = item["high"]?.Value<double>() ?? 0;
+            double low   = item["low"]?.Value<double>() ?? 0;
+            double close = item["close"]?.Value<double>() ?? 0;
+            double vol   = item["volume"]?.Value<double>() ?? 0;
+            if (open == 0 && high == 0 && low == 0 && close == 0) return false;
+
+            // AdjustToUniversal, NOT RoundtripKind + ToUniversalTime: the old
+            // combination round-tripped through the machine's LOCAL zone, so on
+            // any non-UTC box every live Kraken bar landed hours in the future —
+            // breaking period bucketing and buffer merges. (Found by the parse
+            // test the 2026-07-22 multi-live enrollment added.)
+            var ts = item["timestamp"]?.ToString();
+            DateTime date = DateTime.UtcNow;
+            if (!string.IsNullOrEmpty(ts) && DateTime.TryParse(ts, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
+                date = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+
+            bar = new Ohlcv(date, open, high, low, close, vol);
+            return true;
+        }
+
+        // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
+
+        public override bool SupportsMultipleLiveSubscriptions => true;
+
+        /// <summary>
+        /// One dedicated public v2 websocket per subscription with its own ohlc
+        /// channel — independent of the provider's main socket and its book/
+        /// trading channels. ReconnectingWebSocket owns reconnection and
+        /// re-subscribes via OnConnected; disposing the returned socket
+        /// unsubscribes. Every ohlc message on this socket belongs to this one
+        /// subscription, so no symbol demux is needed.
+        /// </summary>
+        public override async Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+        {
+            var pair = FormatPair(symbol);
+            int interval = MapWsInterval(timeframe);
+            var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle.CumulativeBars);
+
+            string subscribeMessage = new JObject
+            {
+                ["method"] = "subscribe",
+                ["params"] = new JObject
+                {
+                    ["channel"] = "ohlc",
+                    ["symbol"] = new JArray { pair },
+                    ["interval"] = interval,
+                },
+            }.ToString(Newtonsoft.Json.Formatting.None);
+
+            var ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Kraken keyed stream ({pair}): {err}"));
+            ws.OnConnected(async w => await w.SendAsync(subscribeMessage))
+              .OnMessage(msg =>
+                {
+                    try
+                    {
+                        var json = JObject.Parse(msg);
+                        if (json["channel"]?.ToString() != "ohlc") return;
+                        if (json["data"] is not JArray data) return;
+                        foreach (var item in data)
+                        {
+                            if (!TryParseOhlcItem(item, out var raw)) continue;
+                            var bar = consolidator.Apply(raw);
+                            if (bar.HasValue) onBar(bar.Value);
+                        }
+                    }
+                    catch { /* malformed frame */ }
+                });
+
+            await ws.ConnectAsync();
+            return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)

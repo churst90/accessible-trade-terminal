@@ -216,6 +216,73 @@ namespace AccessibleTrader.Plugins.Mexc
             }
         }
 
+        // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
+
+        public override bool SupportsMultipleLiveSubscriptions => true;
+
+        /// <summary>
+        /// The JK.Mexc.Net socket client natively supports many concurrent kline
+        /// subscriptions on its managed connections — each SubscribeLiveAsync is
+        /// its own SDK subscription with its own consolidator; disposing the
+        /// handle closes just that subscription. The SDK owns reconnection.
+        /// </summary>
+        public override async Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+        {
+            if (_socketClient == null) await EnsureConnectedAsync();
+            var cleanSymbol = CleanSymbol(symbol);
+            var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle.CumulativeBars);
+            bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
+
+            IDisposable subscription;
+            if (isFutures)
+            {
+                var result = await _socketClient!.FuturesApi.SubscribeToKlineUpdatesAsync(
+                    ToFuturesSymbol(cleanSymbol), MapFuturesInterval(timeframe), data =>
+                    {
+                        var k = data.Data;
+                        var raw = new Ohlcv(k.OpenTime,
+                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice,
+                            (double)k.ClosePrice, (double)k.Volume);
+                        if (IsEmptyBar(raw)) return;
+                        var bar = consolidator.Apply(raw);
+                        if (bar.HasValue) onBar(bar.Value);
+                    });
+                if (!result.Success)
+                    throw new InvalidOperationException($"MEXC futures kline subscription failed: {result.Error?.Message}");
+                subscription = (IDisposable)result.Data;
+            }
+            else
+            {
+                var result = await _socketClient!.SpotApi.SubscribeToKlineUpdatesAsync(
+                    cleanSymbol, MapSpotInterval(timeframe), data =>
+                    {
+                        var k = data.Data;
+                        var raw = new Ohlcv(k.StartTime,
+                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice,
+                            (double)k.ClosePrice, (double)k.Volume);
+                        if (IsEmptyBar(raw)) return;
+                        var bar = consolidator.Apply(raw);
+                        if (bar.HasValue) onBar(bar.Value);
+                    });
+                if (!result.Success)
+                    throw new InvalidOperationException($"MEXC spot kline subscription failed: {result.Error?.Message}");
+                subscription = (IDisposable)result.Data;
+            }
+
+            return new SdkSubscriptionHandle(subscription);
+        }
+
+        private sealed class SdkSubscriptionHandle : IAsyncDisposable
+        {
+            private IDisposable? _subscription;
+            public SdkSubscriptionHandle(IDisposable subscription) { _subscription = subscription; }
+            public ValueTask DisposeAsync()
+            {
+                System.Threading.Interlocked.Exchange(ref _subscription, null)?.Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
+
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
             await EnsureConnectedAsync();

@@ -153,6 +153,69 @@ namespace AccessibleTrader.Plugins.Bitstamp
             }
         }
 
+        /// <summary>Parses a live_trades event into a single-trade Ohlcv tick
+        /// (price on all four legs, the trade's own amount as volume — delta
+        /// semantics). Internal for direct testing.</summary>
+        internal static bool TryParseTrade(JObject json, out Ohlcv bar)
+        {
+            bar = default;
+            var data = json["data"];
+            if (data == null) return false;
+
+            double price  = data["price"]?.Value<double>() ?? 0;
+            double amount = data["amount"]?.Value<double>() ?? 0;
+            long.TryParse(data["timestamp"]?.ToString()?.Split('.')[0], out long timestamp);
+            var barDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
+            if (price <= 0 || barDate < new DateTime(2009, 1, 1, 0, 0, 0, DateTimeKind.Utc)) return false;
+
+            bar = new Ohlcv(barDate, price, price, price, price, amount);
+            return true;
+        }
+
+        // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
+
+        public override bool SupportsMultipleLiveSubscriptions => true;
+
+        /// <summary>
+        /// One dedicated public websocket per subscription, subscribed to its own
+        /// live_trades channel — fully independent of the provider's main socket
+        /// and its order-book/private channels. ReconnectingWebSocket owns
+        /// reconnection (and re-subscribes via OnConnected) for the handle's
+        /// lifetime; disposing the returned socket unsubscribes. No tick throttle
+        /// here: the consolidator collapses trades into period bars and background
+        /// feeds don't render, so there is no UI churn to protect.
+        /// </summary>
+        public override async Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
+        {
+            string channel = $"live_trades_{CleanSymbol(symbol).ToLowerInvariant()}";
+            var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle.TradeDeltas);
+
+            var ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Bitstamp keyed stream ({channel}): {err}"));
+            string subscribeMessage = new JObject
+            {
+                ["event"] = "bts:subscribe",
+                ["data"] = new JObject { ["channel"] = channel },
+            }.ToString(Newtonsoft.Json.Formatting.None);
+            ws.OnConnected(async w => await w.SendAsync(subscribeMessage))
+              .OnMessage(msg =>
+                {
+                    try
+                    {
+                        var json = JObject.Parse(msg);
+                        if (json["event"]?.ToString() != "trade") return;
+                        if (json["channel"]?.ToString() != channel) return;
+                        if (!TryParseTrade(json, out var tick)) return;
+                        var bar = consolidator.Apply(tick);
+                        if (bar.HasValue) onBar(bar.Value);
+                    }
+                    catch { /* malformed frame */ }
+                });
+
+            await ws.ConnectAsync();
+            return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
+        }
+
         private void HandleWebSocketMessage(string msg)
         {
             try
@@ -163,26 +226,13 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
                 if (ev == "trade")
                 {
-                    var data = json["data"];
-                    if (data == null) return;
+                    if (!TryParseTrade(json, out var bar)) return;
 
-                    var price  = data["price"]?.Value<double>() ?? 0;
-                    var amount = data["amount"]?.Value<double>() ?? 0;
-                    var tsToken = data["timestamp"]?.ToString();
-                    long.TryParse(tsToken?.Split('.')[0], out long timestamp);
-
-                    var barDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
-                    if (barDate < new DateTime(2009, 1, 1, 0, 0, 0, DateTimeKind.Utc)) return;
-
-                    if (price > 0)
+                    var now = DateTime.UtcNow;
+                    if (now - _lastTickTime >= _tickThrottle)
                     {
-                        var now = DateTime.UtcNow;
-                        if (now - _lastTickTime >= _tickThrottle)
-                        {
-                            _lastTickTime = now;
-                            var bar = new Ohlcv(barDate, price, price, price, price, amount);
-                            _liveStream.OnNext(bar);
-                        }
+                        _lastTickTime = now;
+                        _liveStream.OnNext(bar);
                     }
                 }
                 else if (ev == "data" && channel != null && channel.StartsWith("diff_order_book_"))

@@ -2,9 +2,12 @@
 
 Tier 2 centerpiece (see ROADMAP_2.0.md). Written 2026-07-22 before
 implementation. **STATUS: Phases A, B, and C ALL LANDED 2026-07-22** (three
-commits; 47 dedicated tests). What remains from this design: enrolling more
-exchanges in SubscribeLiveAsync (Bitstamp/Kraken/MEXC are natural next), the
-hosted shared-feed pool, and split-view rendering on top of the hub.
+commits; 47 dedicated tests), followed the same day by the adversarial
+hardening pass and the multi-live enrollment of Bitstamp (per-subscription
+trade socket), Kraken (per-subscription v2 ohlc socket), and MEXC (SDK
+subscriptions) alongside Binance; IB is classified TradeDeltas (price-only
+quote ticks) and stays single-subscription. What remains from this design:
+the hosted shared-feed pool and split-view rendering on top of the hub.
 
 ## The problem
 

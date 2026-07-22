@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Multi-live enrollment: Bitstamp, Kraken, MEXC (2026-07-22)
+
+Live background tabs now stream on four exchanges. Bitstamp and Kraken each
+open one dedicated public websocket per subscription (live_trades / v2 ohlc,
+reconnection owned by ReconnectingWebSocket); MEXC rides its SDK's native
+concurrent kline subscriptions. Interactive Brokers is explicitly classified
+TradeDeltas (its smd stream is price-only quote ticks) and stays
+single-subscription. Found & FIXED by the new parse tests: Kraken's live bar
+timestamps round-tripped through the machine's LOCAL timezone — on any
+non-UTC box every live Kraken bar landed hours in the future, corrupting
+period bucketing. Shared parse helpers extracted (Bitstamp TryParseTrade,
+Kraken TryParseOhlcItem) so the legacy and keyed paths cannot drift.
+
 ### While-you-were-away trade reconciliation (2026-07-22)
 
 A stop that fires overnight is no longer silent. Each broker reconciliation
