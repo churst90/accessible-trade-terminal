@@ -131,12 +131,18 @@ namespace AccessibleTrader.Core.Services
             if (reconciliation != null)
                 await reconciliation.AnnounceAtStartupAsync().ConfigureAwait(false);
 
-            // 10. Background workspace monitoring — resolve so its tab/settings
+            // 10. Session resume — restore the autosaved last session (opt-out via
+            //     workspace.resumeLastSession) BEFORE the monitors reconcile so the
+            //     restored tabs are covered. Resolving the service also arms the
+            //     periodic autosave sampling.
+            _services.GetService<Workspace.ISessionAutosaveService>()?.TryResumeAtStartup();
+
+            // 11. Background workspace monitoring — resolve so its tab/settings
             //     subscriptions are live, then reconcile once for tabs restored
-            //     from a saved workspace profile.
+            //     from a saved workspace profile or the resumed session.
             _services.GetService<Workspace.IBackgroundMonitoringService>()?.Reconcile();
 
-            // 11. Live background tab feeds (keyed feeds Phase C) — same pattern:
+            // 12. Live background tab feeds (keyed feeds Phase C) — same pattern:
             //     resolving wires the tab/settings subscriptions; one reconcile
             //     covers tabs restored from a saved workspace profile.
             _services.GetService<Feeds.IBackgroundTabFeedService>()?.Reconcile();

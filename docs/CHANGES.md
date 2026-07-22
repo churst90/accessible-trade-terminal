@@ -6,6 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Session autosave + resume (2026-07-22)
+
+Closing the app — or refreshing the WebHost browser tab — without an explicit
+save no longer loses the workspace. The current session is snapshotted to a
+reserved, list-hidden profile every 30 seconds while state changes, plus on
+MAUI page teardown and WebHost circuit close. At startup the terminal restores
+it through the same flow as Load Workspace and announces "Resumed your last
+session: N tabs." Opt-out: Settings > Workspace > "Resume last session at
+startup" (default ON). Demo sessions never autosave; a blank session never
+clobbers the saved one; a corrupt saved session falls back to the blank chart.
+
 ### Order-lifecycle voice completeness (2026-07-22)
 
 No order state change is silent anymore, and no protection is invisible:

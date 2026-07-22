@@ -54,6 +54,7 @@ namespace AccessibleTrader.Core.Services
         public const string BackgroundMonitoring = "workspace.backgroundMonitoring";
         public const string MonitorPollSeconds   = "workspace.monitorPollSeconds";
         public const string LiveBackgroundTabs   = "workspace.liveBackgroundTabs";
+        public const string ResumeLastSession    = "workspace.resumeLastSession";
 
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";

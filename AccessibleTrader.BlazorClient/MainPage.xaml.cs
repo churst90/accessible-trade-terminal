@@ -208,6 +208,14 @@ public partial class MainPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        // Final session snapshot — the periodic autosave samples every 30s, but
+        // work done in the last window before close must not be lost.
+        try
+        {
+            (Handler?.MauiContext?.Services.GetService(typeof(Core.Services.Workspace.ISessionAutosaveService))
+                as Core.Services.Workspace.ISessionAutosaveService)?.SaveNow();
+        }
+        catch { /* teardown-order races must never block close */ }
         blazorWebView.BlazorWebViewInitialized -= OnBlazorWebViewInitialized;
         _stateSub?.Dispose();
         _redrawSub?.Dispose();

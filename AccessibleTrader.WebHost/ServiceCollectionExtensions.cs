@@ -392,6 +392,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IBarDetailService, BarDetailService>();
             services.AddScoped<IAlertEvaluator, AlertEvaluator>();
             services.AddScoped<IAlertOrchestrator, AlertOrchestrator>();
+            services.AddScoped<AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService,
+                AccessibleTrader.Core.Services.Workspace.SessionAutosaveService>();
             services.AddScoped<AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService,
                 AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService>();
             services.AddScoped<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,

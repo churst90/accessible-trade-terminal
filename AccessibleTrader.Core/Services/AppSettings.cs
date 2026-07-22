@@ -64,6 +64,7 @@ namespace AccessibleTrader.Core.Services
         bool BackgroundMonitoring { get; set; }
         int MonitorPollSeconds { get; set; }
         bool LiveBackgroundTabs { get; set; }
+        bool ResumeLastSession { get; set; }
 
         // Alerts — email
         string EmailHost { get; set; }
@@ -206,6 +207,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.LiveBackgroundTabs);
             set => Set(SettingsKeys.LiveBackgroundTabs, value);
+        }
+        public bool ResumeLastSession
+        {
+            get => GetBool(SettingsKeys.ResumeLastSession, def: true);
+            set => Set(SettingsKeys.ResumeLastSession, value);
         }
         public int MonitorPollSeconds
         {

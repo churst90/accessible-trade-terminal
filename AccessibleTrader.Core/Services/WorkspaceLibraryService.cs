@@ -81,7 +81,11 @@ namespace AccessibleTrader.Core.Services
             {
                 return Directory.GetFiles(_libraryDir, "*.json")
                     .Select(Path.GetFileNameWithoutExtension)
-                    .Where(x => x != null && x != "alerts")
+                    .Where(x => x != null && x != "alerts"
+                             // The session-autosave slot is machinery, not a user
+                             // profile — hearing "__last-session__" in the list
+                             // (or deleting it by accident) helps nobody.
+                             && x != Workspace.SessionAutosaveService.LastSessionProfileName)
                     .Cast<string>()
                     .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                     .ToList();

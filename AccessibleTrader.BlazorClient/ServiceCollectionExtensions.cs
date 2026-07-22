@@ -453,6 +453,8 @@ namespace AccessibleTrader.BlazorClient
             // Multi-workspace background monitoring: one polling evaluation loop per
             // non-focused tab (alerts + symbol-bound strategies), desktop-gated by
             // DemoPolicy.AllowBackgroundMonitoring and the settings toggle.
+            services.AddSingleton<AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService,
+                AccessibleTrader.Core.Services.Workspace.SessionAutosaveService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService,
                 AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,

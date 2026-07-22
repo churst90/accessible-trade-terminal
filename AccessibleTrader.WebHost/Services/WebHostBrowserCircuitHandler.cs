@@ -94,6 +94,19 @@ namespace AccessibleTrader.WebHost.Services
         {
             int now = System.Threading.Interlocked.Decrement(ref _activeCircuits);
             _logger.LogInformation("Browser circuit closed ({Active} active).", now);
+
+            // Final session snapshot before the circuit's scoped services die —
+            // a browser refresh was previously a destructive act that lost every
+            // unsaved tab, drawing, and indicator stack.
+            try
+            {
+                (_scope.GetService(typeof(AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService))
+                    as AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService)?.SaveNow();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Session autosave on circuit close failed (scope may already be disposed).");
+            }
             return Task.CompletedTask;
         }
 
