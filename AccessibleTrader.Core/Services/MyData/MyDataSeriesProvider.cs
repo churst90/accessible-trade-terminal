@@ -183,9 +183,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         internal static double[] AlignForwardFill(ParsedDataset parsed, string column, ReadOnlySpan<Ohlcv> bars)
         {
-            var result = new double[bars.Length];
-            Array.Fill(result, double.NaN);
-
             IReadOnlyList<DateTime> dates;
             IReadOnlyList<double> values;
             if (parsed.Shape == MyDataShape.Ohlcv)
@@ -195,10 +192,25 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             else
             {
-                if (!parsed.ColumnData.TryGetValue(column, out var v)) return result;
+                if (!parsed.ColumnData.TryGetValue(column, out var v))
+                {
+                    var empty = new double[bars.Length];
+                    Array.Fill(empty, double.NaN);
+                    return empty;
+                }
                 dates = parsed.Dates;
                 values = v;
             }
+            return AlignForwardFill(dates, values, bars);
+        }
+
+        /// <summary>Raw-series overload — shared by the symbol-compare indicator,
+        /// which feeds it fetched exchange bars instead of an imported dataset.</summary>
+        internal static double[] AlignForwardFill(
+            IReadOnlyList<DateTime> dates, IReadOnlyList<double> values, ReadOnlySpan<Ohlcv> bars)
+        {
+            var result = new double[bars.Length];
+            Array.Fill(result, double.NaN);
             if (dates.Count == 0) return result;
 
             int j = -1;

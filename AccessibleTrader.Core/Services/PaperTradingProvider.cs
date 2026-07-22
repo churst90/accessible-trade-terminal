@@ -195,9 +195,26 @@ namespace AccessibleTrader.Core.Services
                 bool isStop = signal.Type is OrderType.StopMarket or OrderType.StopLimit;
                 bool isTp   = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit;
                 string oid = NewId();
-                _open.Add(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp));
+                _open.Add(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
+                    ocoGroupId: signal.OcoGroupId));
                 Persist();
                 return Task.FromResult(oid);
+            }
+        }
+
+        /// <summary>One-cancels-other: after <paramref name="filled"/> executes (or is
+        /// cancelled), every other open order sharing its OcoGroupId is cancelled with
+        /// its own Cancelled update. Caller holds _lock.</summary>
+        private void CancelOcoSiblings(PaperOrder filled)
+        {
+            if (filled.OcoGroupId == null) return;
+            var siblings = _open
+                .Where(s => s.OcoGroupId == filled.OcoGroupId && s.Id != filled.Id)
+                .ToList();
+            foreach (var s in siblings)
+            {
+                _open.Remove(s);
+                Emit(s.Id, s.Symbol, s.Side, 0, 0, s.Quantity, OrderStatus.Cancelled, false, false);
             }
         }
 
@@ -209,6 +226,7 @@ namespace AccessibleTrader.Core.Services
                 if (o == null) return Task.FromResult(false);
                 _open.Remove(o);
                 Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Cancelled, false, false);
+                CancelOcoSiblings(o); // cancelling one OCO leg cancels the pair
                 Persist();
                 return Task.FromResult(true);
             }
@@ -264,6 +282,7 @@ namespace AccessibleTrader.Core.Services
                     var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
                     Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
                     RecordFill(o.Symbol, o.Side, o.Quantity, px, pnl, o.Id);
+                    CancelOcoSiblings(o);
                 }
                 Persist();
             }
@@ -401,7 +420,7 @@ namespace AccessibleTrader.Core.Services
                         Id = o.Id, Symbol = o.Symbol, Side = o.Side.ToString(), Type = o.Type.ToString(),
                         Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp,
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
-                        Activation = o.Activation, Armed = o.Armed
+                        Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId
                     }).ToList(),
                     History = _history.ToList()
                 };
@@ -427,7 +446,7 @@ namespace AccessibleTrader.Core.Services
                         Enum.TryParse<OrderType>(o.Type, out var t) ? t : OrderType.Market,
                         o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
                         Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
-                        o.Activation, o.Armed));
+                        o.Activation, o.Armed, o.Oco));
                 if (dto.History != null) _history.AddRange(dto.History);
             }
             catch (Exception ex)
@@ -463,16 +482,17 @@ namespace AccessibleTrader.Core.Services
             public double? TrailAnchor { get; set; }     // mutable high/low-water mark
             public double? Activation { get; }           // trailing TP arms when price reaches this
             public bool Armed { get; set; }              // mutable: whether trailing is active yet
+            public string? OcoGroupId { get; }           // one-cancels-other pair membership
 
             public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
                 double? price, double? trigger, bool isStop, bool isTp,
                 TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null,
-                double? activation = null, bool armed = true)
+                double? activation = null, bool armed = true, string? ocoGroupId = null)
             {
                 Id = id; Symbol = symbol; Side = side; Type = type; Quantity = quantity;
                 Price = price; Trigger = trigger; IsStop = isStop; IsTp = isTp;
                 Trail = trail; TrailValue = trailValue; TrailAnchor = trailAnchor;
-                Activation = activation; Armed = armed;
+                Activation = activation; Armed = armed; OcoGroupId = ocoGroupId;
             }
         }
 
@@ -502,6 +522,7 @@ namespace AccessibleTrader.Core.Services
             public double? TrailAnchor { get; set; }
             public double? Activation { get; set; }
             public bool Armed { get; set; } = true;
+            public string? Oco { get; set; }
         }
     }
 }

@@ -238,6 +238,52 @@
                             {
                                 <div class='status-msg @(_orderError ? "error" : "success")'>@_orderStatus</div>
                             }
+
+                            @* ── OCO pair (one cancels the other) ─────────────────
+                               Paper mode only for now: the paper broker enforces the
+                               pair (fill or manual cancel of one leg cancels the
+                               other). Live exchanges declare the OCO capability but
+                               route through exchange-native endpoints we don't call
+                               yet — two UNLINKED live orders would be a false
+                               promise, so the section stays hidden there. *@
+                            @if (_paperMode && _caps.HasFlag(ProviderCapabilities.OCO))
+                            {
+                                <section aria-labelledby="oco-title" style="margin-top:14px; border-top:1px solid #555; padding-top:10px;">
+                                    <h3 id="oco-title">OCO pair — one cancels the other</h3>
+                                    <p style="color:var(--text-muted); font-size:0.9em; margin:4px 0 8px;">
+                                        Two resting orders, same side and quantity: a limit and a stop.
+                                        Whichever executes first cancels the other. Sell above/below to
+                                        bracket an exit; buy above/below to bracket a breakout entry.
+                                    </p>
+                                    <div class="modal-row">
+                                        <label for="oco-side">Side:</label>
+                                        <select id="oco-side" @bind="_ocoSide">
+                                            <option value="Sell">Sell (exit / take profit + stop)</option>
+                                            <option value="Buy">Buy (breakout + pullback entry)</option>
+                                        </select>
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="oco-qty">Quantity:</label>
+                                        <input id="oco-qty" type="number" step="any" min="0" @bind="_ocoQty" />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="oco-limit">Limit price (the favorable side):</label>
+                                        <input id="oco-limit" type="number" step="any" min="0" @bind="_ocoLimitPrice" />
+                                    </div>
+                                    <div class="modal-row">
+                                        <label for="oco-stop">Stop trigger (the protective side):</label>
+                                        <input id="oco-stop" type="number" step="any" min="0" @bind="_ocoStopPrice" />
+                                    </div>
+                                    <button class="submit-btn" disabled="@(!CanSubmitOco)" @onclick="SubmitOcoPair"
+                                            aria-label="Place the OCO pair: limit and stop, one cancels the other">
+                                        Place OCO pair
+                                    </button>
+                                    @if (!string.IsNullOrEmpty(_ocoStatus))
+                                    {
+                                        <div class='status-msg @(_ocoError ? "error" : "success")' role="status">@_ocoStatus</div>
+                                    }
+                                </section>
+                            }
                         </section>
                     </div>
 
@@ -796,6 +842,75 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Sized {PriceFormatter.FormatQuantity(_orderQty)} from {_riskPct} percent risk.", true));
     }
+
+    // ── OCO pair state + submit ─────────────────────────────────────────────
+    private string _ocoSide = "Sell";
+    private double _ocoQty;
+    private double _ocoLimitPrice;
+    private double _ocoStopPrice;
+    private string? _ocoStatus;
+    private bool _ocoError;
+
+    private bool CanSubmitOco =>
+        _ocoQty > 0 && _ocoLimitPrice > 0 && _ocoStopPrice > 0 && _ocoLimitPrice != _ocoStopPrice;
+
+    private async Task SubmitOcoPair()
+    {
+        var provider = Store.State.Identity.Provider;
+        var symbol = Store.State.Identity.Symbol;
+        if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
+
+        var side = _ocoSide == "Buy" ? OrderSide.Buy : OrderSide.Sell;
+        // Sanity: for a SELL pair the limit belongs above the stop (take profit up,
+        // stop below); for a BUY pair the stop trigger sits above the limit
+        // (breakout above, pullback below). Refuse the inverted layout out loud
+        // instead of resting a pair that fills instantly.
+        bool sane = side == OrderSide.Sell ? _ocoLimitPrice > _ocoStopPrice : _ocoStopPrice > _ocoLimitPrice;
+        if (!sane)
+        {
+            _ocoError = true;
+            _ocoStatus = side == OrderSide.Sell
+                ? "For a sell pair, the limit price should be ABOVE the stop trigger."
+                : "For a buy pair, the stop trigger should be ABOVE the limit price.";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
+            return;
+        }
+
+        string group = "oco-" + Guid.NewGuid().ToString("N")[..8];
+        var limitLeg = new TradeSignal(symbol, side, _ocoQty, OrderType.Limit,
+            Price: _ocoLimitPrice, OcoGroupId: group);
+        var stopLeg = new TradeSignal(symbol, side, _ocoQty, OrderType.StopMarket,
+            TriggerPrice: _ocoStopPrice, OcoGroupId: group);
+
+        string r1 = await OrderService.PlaceOrderAsync(provider, limitLeg);
+        if (IsOrderError(r1))
+        {
+            _ocoError = true;
+            _ocoStatus = "OCO limit leg failed — nothing was placed.";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
+            return;
+        }
+        string r2 = await OrderService.PlaceOrderAsync(provider, stopLeg);
+        if (IsOrderError(r2))
+        {
+            // Never leave half a pair resting: pull the first leg back out.
+            await OrderService.CancelOrderAsync(provider, r1, symbol);
+            _ocoError = true;
+            _ocoStatus = "OCO stop leg failed — the limit leg was cancelled, nothing is resting.";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
+            return;
+        }
+
+        _ocoError = false;
+        _ocoStatus = $"OCO pair resting: {_ocoSide} {PriceFormatter.FormatQuantity(_ocoQty)} {symbol} — " +
+                     $"limit {PriceFormatter.FormatPrice(_ocoLimitPrice)}, stop {PriceFormatter.FormatPrice(_ocoStopPrice)}. " +
+                     "Whichever fills first cancels the other.";
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, _ocoStatus, true));
+        await LoadAccountDataAsync();
+    }
+
+    private static bool IsOrderError(string result) =>
+        result.StartsWith("ORDER_") || result.StartsWith("PROVIDER_");
 
     // Close (or reduce-to-flat) a position by submitting an opposing market order.
     private async Task ClosePosition(Position p)

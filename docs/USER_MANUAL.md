@@ -373,6 +373,13 @@ the two lines diverge by relative performance, in pitch as well as pixels.
 For imported OHLCV data, "My Data ratio: X" adds the classic strength read:
 the chart's close divided by yours, rising when the loaded symbol outperforms.
 
+The same comparison works against any exchange symbol without importing
+anything: the indicator dialog's **Overlays** category has "Compare symbol
+(overlay)" and "Compare symbol (ratio)". Type the symbol (and optionally a
+different provider — it defaults to the chart's own), and the second market
+appears rebased on the price pane or as a strength ratio in its own pane,
+always on the chart's timeframe so the bars line up one to one.
+
 ## Reading the Chart
 
 A loaded chart is a structure you move through, not a picture you glance at. This
@@ -1033,6 +1040,19 @@ History — and switching to one speaks its name and count, like "Positions, 2".
 - **History** is your fill log, newest first: time, symbol, side, quantity, price,
   realized profit or loss, and fee — the place to review how a session actually went.
 - **Balances** shows your free and locked funds per asset.
+
+### OCO pairs: one cancels the other
+
+In paper mode the dashboard offers an **OCO pair** — two resting orders where
+whichever executes first cancels the other, announced like any cancel. A sell
+pair brackets an exit: a take-profit limit above and a protective stop below;
+a buy pair brackets a breakout: a stop above and a pullback limit below. The
+form is one side, one quantity, and the two prices, and it refuses an
+inverted layout out loud rather than resting a pair that would fill
+instantly. Cancelling either leg cancels both, and the pairing survives a
+restart. (Live exchanges will get OCO through their native order types later;
+until then the section only appears in paper mode, so a live account can
+never hold two secretly-unlinked orders.)
 
 ### Reading the order book
 

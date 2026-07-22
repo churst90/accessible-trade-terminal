@@ -138,6 +138,10 @@ namespace AccessibleTrader.Core.Services
                         // Providers that don't care simply ignore the key.
                         if (!string.IsNullOrEmpty(state.Identity.Symbol))
                             parameters["__symbol"] = state.Identity.Symbol;
+                        if (!string.IsNullOrEmpty(state.Identity.Provider))
+                            parameters["__provider"] = state.Identity.Provider;
+                        if (!string.IsNullOrEmpty(state.Identity.Timeframe))
+                            parameters["__timeframe"] = state.Identity.Timeframe;
 
                         // ── Adaptive parameter detection ─────────────────────────────────────
                         // IAdaptiveIndicatorProvider (e.g. Cipher S) may inspect the loaded data
@@ -262,6 +266,10 @@ namespace AccessibleTrader.Core.Services
                         var curState = _store.State;
                         if (!string.IsNullOrEmpty(curState.Identity.Symbol))
                             parameters["__symbol"] = curState.Identity.Symbol;
+                        if (!string.IsNullOrEmpty(curState.Identity.Provider))
+                            parameters["__provider"] = curState.Identity.Provider;
+                        if (!string.IsNullOrEmpty(curState.Identity.Timeframe))
+                            parameters["__timeframe"] = curState.Identity.Timeframe;
 
                         var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
 

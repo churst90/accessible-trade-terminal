@@ -188,9 +188,16 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   "My Data ratio: X" (chart÷data, OHLCV only). Forward-fill alignment engine
   (AlignForwardFill) is internal+tested — the symbol-vs-symbol compare item now
   reduces to feeding it fetched second-symbol bars.
-- [ ] **Symbol compare overlay** (rest of the Wave 2 compare item): fetch a second
-  exchange symbol (async, COT-style cross-fetch pattern) and feed the SAME rebase/
-  ratio engine. UI: pick a symbol, get overlay + ratio like a My Data dataset.
+- [x] **Symbol compare overlay** DONE 2026-07-22 — SymbolCompareProvider (COMPARE /
+  COMPARE_RATIO) via ICrossSeriesCache + the shared AlignForwardFill engine;
+  Provider/Market/Symbol string params, __provider/__timeframe hints stamped by the
+  orchestrator. 7 tests.
+- [x] **OCO UI** DONE 2026-07-22 — TradeSignal.OcoGroupId + paper-broker pair
+  enforcement (fill/manual-cancel cancels sibling, persisted) + Trading Dashboard
+  OCO-pair section (paper mode only). 5 tests.
+- [ ] **Live OCO** — map OcoGroupId to exchange-native OCO endpoints (Binance OCO
+  order lists first); until then the dashboard section is paper-gated so live users
+  can never rest an unlinked "pair".
 - [ ] **xlsx import** — future; needs a spreadsheet-parsing dependency. The
   dialog tells users to export CSV from Excel/LibreOffice meanwhile.
 

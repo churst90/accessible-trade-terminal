@@ -298,5 +298,96 @@ namespace AccessibleTrader.Tests
             Assert.Equal("ETH/USDT", open.Symbol);
             Assert.Empty(await paper.GetPositionsAsync());
         }
+        // ── OCO pairs (2026-07-22, the OCO UI feature) ───────────────────────
+
+        private async Task<(PaperTradingProvider Paper, MockWorkspaceStore Store, List<OrderUpdate> Updates,
+            string LimitId, string StopId)> RestingOcoPairAsync()
+        {
+            var paper = Make(out var store);
+            var updates = Collect(paper);
+            // Hold a position so the sell legs mean something; price 100.
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0));
+            updates.Clear();
+
+            string group = "oco-test1";
+            string limitId = await paper.PlaceOrderAsync(new TradeSignal(
+                Btc, OrderSide.Sell, 1.0, OrderType.Limit, Price: 110, OcoGroupId: group));
+            string stopId = await paper.PlaceOrderAsync(new TradeSignal(
+                Btc, OrderSide.Sell, 1.0, OrderType.StopMarket, TriggerPrice: 95, OcoGroupId: group));
+            return (paper, store, updates, limitId, stopId);
+        }
+
+        [Fact]
+        public async Task Oco_fill_of_one_leg_cancels_the_other()
+        {
+            var (paper, store, updates, limitId, stopId) = await RestingOcoPairAsync();
+
+            // Price spikes to the limit: TP leg fills, stop leg must cancel.
+            store.EmitState(StateWith(Btc, 100, 111, 99, 110));
+
+            Assert.Contains(updates, u => u.OrderId == limitId && u.Status == OrderStatus.Filled);
+            Assert.Contains(updates, u => u.OrderId == stopId && u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc)); // nothing left resting
+        }
+
+        [Fact]
+        public async Task Oco_stop_leg_fill_cancels_the_limit_leg()
+        {
+            var (paper, store, updates, limitId, stopId) = await RestingOcoPairAsync();
+
+            store.EmitState(StateWith(Btc, 100, 100, 94, 95)); // drops through the stop
+
+            Assert.Contains(updates, u => u.OrderId == stopId && u.Status == OrderStatus.Filled);
+            Assert.Contains(updates, u => u.OrderId == limitId && u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));
+        }
+
+        [Fact]
+        public async Task Oco_manual_cancel_of_one_leg_cancels_the_pair()
+        {
+            var (paper, _, updates, limitId, stopId) = await RestingOcoPairAsync();
+
+            Assert.True(await paper.CancelOrderAsync(limitId, Btc));
+
+            Assert.Contains(updates, u => u.OrderId == stopId && u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));
+        }
+
+        [Fact]
+        public async Task Oco_group_survives_a_restart()
+        {
+            var (paper, _, _, _, _) = await RestingOcoPairAsync();
+
+            // Reload from disk into a fresh instance: the pair must still be linked.
+            var reloaded = Make(out var store2);
+            var updates2 = Collect(reloaded);
+            store2.EmitState(StateWith(Btc, 100, 111, 99, 110)); // TP fills
+
+            Assert.Contains(updates2, u => u.Status == OrderStatus.Filled);
+            Assert.Contains(updates2, u => u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await reloaded.GetOpenOrdersAsync(Btc));
+        }
+
+        [Fact]
+        public async Task Ungrouped_orders_never_cancel_each_other()
+        {
+            var paper = Make(out var store);
+            var updates = Collect(paper);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0));
+            updates.Clear();
+
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 0.5, OrderType.Limit, Price: 110));
+            var stopId = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 0.5, OrderType.StopMarket, TriggerPrice: 95));
+
+            store.EmitState(StateWith(Btc, 100, 111, 99, 110)); // limit fills
+
+            Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Cancelled);
+            var open = await paper.GetOpenOrdersAsync(Btc);
+            Assert.Single(open);
+            Assert.Equal(stopId, open[0].Id); // the stop still rests
+        }
+
     }
 }

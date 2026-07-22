@@ -51,7 +51,8 @@ namespace AccessibleTrader.Sdk.Plugins
         string?    TimeInForce    = null,     // GTC / IOC / FOK / Day / GTD
         bool       ReduceOnly     = false,    // Futures: order may only reduce a position
         bool       PostOnly       = false,    // Limit orders: maker-only
-        string?    PositionSide   = null      // Hedge mode: "LONG" / "SHORT" / "BOTH"
+        string?    PositionSide   = null,     // Hedge mode: "LONG" / "SHORT" / "BOTH"
+        string?    OcoGroupId     = null      // One-cancels-other: orders sharing a group id cancel each other on fill (paper broker enforces; exchanges with native OCO may map it)
     );
 
     public record Balance(string Asset, double Free, double Locked);

@@ -6,6 +6,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Symbol compare + OCO order pairs (2026-07-22)
+
+The last two Wave 2 items.
+
+**Compare symbol.** Two entries in the indicator dialog under Overlays:
+"Compare symbol (overlay)" draws a second exchange symbol ON the price pane,
+rebased so its first aligned close equals the chart's close there — pure
+relative performance, audible as two lines starting at the same pitch and
+drifting apart. "Compare symbol (ratio)" is chart ÷ comparison in its own
+pane, the classic strength read. Provider/Market/Symbol are typed parameters
+(provider defaults to the chart's own via a new __provider hint; the
+comparison always uses the chart's timeframe via __timeframe, so bars align
+1:1). Fetching rides ICrossSeriesCache (the COT/OI machinery: synchronous
+first fetch, cached after, 5-page walk-back) and the alignment/rebase math is
+the SAME engine My Data shipped yesterday — a failed fetch renders NaN, never
+throws.
+
+**OCO order pairs.** One-cancels-the-other existed only as a capability flag —
+no mechanism anywhere. Now: TradeSignal.OcoGroupId links orders; the paper
+broker enforces the pair (a fill cancels the sibling with its own Cancelled
+update — which the accessibility layer announces; manually cancelling one leg
+cancels the pair, exchange-standard; the link survives restart via the paper
+account file). The Trading Dashboard gains an "OCO pair" section: shared side
+and quantity, a limit price and a stop trigger — sell above/below brackets an
+exit, buy above/below brackets a breakout entry. Inverted price layouts are
+refused out loud before anything rests, and a failed second leg pulls the
+first back out (never half a pair). PAPER MODE ONLY for now, deliberately:
+live exchanges declare the OCO flag but route through native endpoints the
+providers don't call yet — two unlinked live orders would be a false promise.
+Live OCO is filed in TODO.
+
+12 new tests (5 paper OCO incl. restart survival and the ungrouped-orders
+control; 7 compare incl. hint defaults and the NaN-on-failure contract).
+1825 → 1837.
+
 ### My Data v2: your data ON the chart — overlay, ratio, normalize (2026-07-22)
 
 The finishing piece of the CSV feature: imported datasets as series on an
