@@ -104,6 +104,8 @@
     @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }
     @if (Demo.AllowAiAnalyst)        { <AIAnalystModal /> }
     @if (Demo.AllowWorkspaceSaveLoad) { <SaveWorkspaceModal /> <LoadWorkspaceModal /> }
+    @* My Data import — hidden in the shared public demo (no per-visitor persistence). *@
+    @if (!Demo.IsDemo)               { <MyDataModal /> }
 
     @* ARIA LIVE DOUBLE BUFFER:
        Two assertive regions swap on each speech call so that identical strings are

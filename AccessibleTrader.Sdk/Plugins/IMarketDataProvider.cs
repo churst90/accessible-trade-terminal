@@ -32,6 +32,13 @@ namespace AccessibleTrader.Sdk.Plugins
         ProviderDataShape DataShape => ProviderDataShape.Ohlcv;
 
         /// <summary>
+        /// Per-symbol shape override for providers whose datasets vary — the My Data
+        /// provider charts an OHLCV file as candles and a value column as a line.
+        /// Defaults to the provider-level <see cref="DataShape"/>.
+        /// </summary>
+        ProviderDataShape GetDataShapeForSymbol(string symbol) => DataShape;
+
+        /// <summary>
         /// Returns a human-readable label for the given symbol, used as the series
         /// FriendlyName and the primary component's DisplayName when the chart loads.
         /// OHLCV providers generally don't need to override — the symbol itself

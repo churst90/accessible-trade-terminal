@@ -233,6 +233,12 @@ namespace AccessibleTrader.BlazorClient
             // Glue layer: wires DataManager events → IndicatorOrchestrator → Store.
             services.AddSingleton<IDataOrchestrationService, DataOrchestrationService>();
 
+            // My Data: user-imported CSV datasets (desktop: singleton, app-data dir).
+            services.AddSingleton<AccessibleTrader.Core.Services.MyData.IMyDataStore,
+                AccessibleTrader.Core.Services.MyData.MyDataStore>();
+            services.AddSingleton<AccessibleTrader.Core.Services.MyData.IBuiltInDataProvider,
+                AccessibleTrader.Core.Services.MyData.MyDataProvider>();
+
             return services;
         }
 
@@ -242,6 +248,7 @@ namespace AccessibleTrader.BlazorClient
         {
             // IIndicatorProvider implementations — Core, Skender, Profile, and the native suites.
             services.AddSingleton<IIndicatorProvider, CoreIndicatorProvider>();
+            services.AddSingleton<IIndicatorProvider, MyDataEventsProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderZeroCrossProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderBandProvider>();

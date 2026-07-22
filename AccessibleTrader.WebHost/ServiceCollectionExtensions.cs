@@ -219,6 +219,18 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IDataOrchestrator, DataOrchestrator>();
             services.AddScoped<IDataOrchestrationService, DataOrchestrationService>();
 
+            // My Data: user-imported CSV datasets. Per-circuit store (per-user
+            // directory on the hosted terminal via the user-scoped path service);
+            // the provider registers into DataService at startup via the
+            // IBuiltInDataProvider hook. NOT registered in demo mode — the shared
+            // public demo has no per-visitor persistence and no import UI.
+            services.AddScoped<AccessibleTrader.Core.Services.MyData.IMyDataStore,
+                AccessibleTrader.Core.Services.MyData.MyDataStore>();
+            // Demo mode needs no special-case here: DemoPolicy.FilterMarkets hides
+            // the MyData market (allow-list), and the import UI is demo-gated.
+            services.AddScoped<AccessibleTrader.Core.Services.MyData.IBuiltInDataProvider,
+                AccessibleTrader.Core.Services.MyData.MyDataProvider>();
+
             return services;
         }
 
@@ -227,6 +239,7 @@ namespace AccessibleTrader.WebHost
         private static IServiceCollection AddIndicatorPipeline(this IServiceCollection services)
         {
             services.AddScoped<IIndicatorProvider, CoreIndicatorProvider>();
+            services.AddScoped<IIndicatorProvider, MyDataEventsProvider>();
             services.AddScoped<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, SkenderZeroCrossProvider>();
             services.AddScoped<IIndicatorProvider, SkenderBandProvider>();

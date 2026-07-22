@@ -140,6 +140,13 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        public void RegisterProvider(IMarketDataProvider provider)
+        {
+            if (_providers.Any(p => p.Name.Equals(provider.Name, StringComparison.OrdinalIgnoreCase)))
+                return;
+            _providers.Add(provider);
+        }
+
         public Task<List<string>> LoadAvailableMarketsAsync()
         {
             if (!_isInitialized) return Task.FromResult(new List<string>());
@@ -209,16 +216,23 @@ namespace AccessibleTrader.Core.Services
 
             await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
 
+            // My Data symbols change the moment the user imports a file — the
+            // 24h cache below would hide new datasets until tomorrow.
+            bool cacheable = !marketTypeStr.Equals(nameof(MarketType.MyData), StringComparison.OrdinalIgnoreCase);
+
             var cacheKey = $"symbols_{providerName}_{marketInfo}";
-            var cached = await _cacheService.GetAsync<List<string>>(cacheKey).ConfigureAwait(false);
-            if (cached != null) return cached;
+            if (cacheable)
+            {
+                var cached = await _cacheService.GetAsync<List<string>>(cacheKey).ConfigureAwait(false);
+                if (cached != null) return cached;
+            }
 
             try
             {
                 if (Enum.TryParse<MarketType>(marketTypeStr, out var marketType))
                 {
                     var symbols = await provider.GetAvailableSymbolsAsync(marketType, subType).ConfigureAwait(false);
-                    if (symbols != null && symbols.Any())
+                    if (cacheable && symbols != null && symbols.Any())
                     {
                         await _cacheService.SetAsync(cacheKey, symbols, TimeSpan.FromHours(24)).ConfigureAwait(false);
                     }

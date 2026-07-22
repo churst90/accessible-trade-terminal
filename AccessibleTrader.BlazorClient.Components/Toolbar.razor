@@ -134,7 +134,7 @@
                 value="@MarketOrchestrator.SelectedMarket">
             @foreach (var m in MarketOrchestrator.AvailableMarkets)
             {
-                <option value="@m" selected="@(m == MarketOrchestrator.SelectedMarket)">@m</option>
+                <option value="@m" selected="@(m == MarketOrchestrator.SelectedMarket)">@FormatMarketLabel(m)</option>
             }
         </select>
 
@@ -240,6 +240,16 @@
                     }
                 </div>
             }
+        }
+
+        @* My Data: contextual import affordance — appears only when the user's
+           own market is selected (also on Ctrl+Alt+Shift+I from anywhere). *@
+        @if (IsMyDataMarketSelected)
+        {
+            <ToolbarIconButton Icon="load-workspace" Label="Import" Variant="neutral"
+                              Tooltip="Import a CSV data file (Ctrl+Alt+Shift+I)"
+                              AriaLabel="Import data file"
+                              OnClick="() => EventBus.Publish(new OpenMyDataEvent())" />
         }
 
         <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"
@@ -377,6 +387,15 @@
     // including pan-left history backfill and descriptive spoken feedback.
     private void PanLeft()  => Viewport.HandlePan(-1, Store.State.Data.ToList());
     private void PanRight() => Viewport.HandlePan(1,  Store.State.Data.ToList());
+
+    private bool IsMyDataMarketSelected =>
+        string.Equals(MarketOrchestrator.SelectedMarket,
+            AccessibleTrader.Sdk.Enums.MarketType.MyData.ToString(), StringComparison.OrdinalIgnoreCase);
+
+    // Market identity strings stay the raw enum names; only the LABEL is
+    // humanized ("MyData" reads badly in speech and print).
+    private static string FormatMarketLabel(string market) =>
+        market == "MyData" ? "My Data" : market;
     private void ZoomIn()   => Viewport.HandleZoom("IN",  Store.State.Data.ToList());
     private void ZoomOut()  => Viewport.HandleZoom("OUT", Store.State.Data.ToList());
 

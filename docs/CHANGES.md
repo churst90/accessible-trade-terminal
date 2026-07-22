@@ -6,6 +6,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### My Data: import your own CSV files (Wave 2, 2026-07-22)
+
+The Market dropdown gains **My Data** — your own numbers, served through the
+same pipeline as any exchange. Cody's design decisions from the 2026-07-22
+discussion, all implemented:
+
+- **Entry point is the market cascade**, not a new button: Market "My Data" →
+  provider "My Data" → your datasets as symbols → the normal Load button. An
+  "Import data file…" toolbar button appears contextually when My Data is
+  selected; Ctrl+Alt+Shift+I opens the import dialog from anywhere.
+- **Three auto-detected CSV shapes** (header row required, delimiter/date
+  formats tolerated, thousands separators and $/% stripped, unix timestamps
+  accepted): `date,open,high,low,close[,volume]` charts as CANDLES with the
+  full stack (playback, patterns, backtests over your own data);
+  `date` + named number columns — each column loads as its own line chart
+  ("Budget — Income", "Budget — Expenses"); `date,label[,value]` becomes
+  **event markers** — add "My Events: Trades" from the indicator dialog
+  (category My Data) and each event lands on the bar covering its date, with
+  the event's OWN LABEL as its speech ("Bought 0.5 BTC, 42,000") and the
+  event's value as the marker height. The trade-journal-on-the-chart case.
+- **Parser philosophy: a silently-wrong chart is worse than a refused
+  import.** Hard, line-numbered errors for missing headers, unreadable dates,
+  high-below-low; warnings (spoken) for duplicate dates and blank cells
+  (which chart as gaps). The import dialog announces exactly what was
+  detected — shape, columns, row count, date range — before anything loads.
+- **Accessible import paths**: paste-CSV textarea first (no file dialog
+  needed), file picker second, copyable templates for all three shapes in
+  the dialog. xlsx stays future work — export CSV from Excel/LibreOffice.
+- **Per-symbol data shape** is new SDK surface (GetDataShapeForSymbol): one
+  provider serves candles for an OHLCV file and a line for a budget column.
+  Datasets persist under app-data/my-data (per-user on the hosted terminal;
+  5 MB / 200k rows / 50 datasets quotas). Hidden in the public demo. Symbol
+  lists skip the 24h cache for My Data so imports appear immediately.
+
+26 new tests: parser shapes/tolerance/hard-errors, store persistence +
+quotas + name rules, provider symbol/shape/fetch contract, and the events
+indicator's marker placement + label speech. 1796 → 1817.
+
 ### The hosted double-speech fix: explicit speech-output choice (2026-07-22)
 
 Cody's report: on accessibletrader.com in Chrome, everything spoke twice —

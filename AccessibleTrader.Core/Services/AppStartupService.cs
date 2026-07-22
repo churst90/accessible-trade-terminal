@@ -58,6 +58,13 @@ namespace AccessibleTrader.Core.Services
             var pluginLoader = _services.GetRequiredService<IPluginLoaderService>();
             await dataService.InitializeAsync(pluginLoader).ConfigureAwait(false);
 
+            // Built-in (non-plugin) providers — e.g. the My Data CSV provider.
+            // Registered after plugin init so name collisions resolve in favor of
+            // what the user actually installed. Optional: heads that don't
+            // register any IBuiltInDataProvider simply skip this.
+            foreach (var builtIn in _services.GetServices<Core.Services.MyData.IBuiltInDataProvider>())
+                dataService.RegisterProvider(builtIn);
+
             // Configure providers that already have an active stored key, so a
             // key-required provider is usable the moment it is selected. (Provider
             // configuration is otherwise lazy and gated behind the IsConfigured

@@ -336,6 +336,32 @@ which is where the next chapter, on moving through time bar by bar, begins.
 
 ---
 
+### Your own data: the My Data market
+
+The Market dropdown has one entry that isn't a market at all: **My Data** —
+your own CSV files, charted with everything the terminal knows how to do.
+Select it and the Symbol list shows what you've imported; an **Import data
+file** button appears beside the cascade (or press Ctrl+Alt+Shift+I from
+anywhere). The import dialog takes a file or — often easier with a screen
+reader — pasted CSV text, and it tells you exactly what it understood before
+anything loads: "Imported Household Budget: value series, 240 rows, January
+2005 to June 2026."
+
+Three file shapes are recognized from the header row. A file with
+`date,open,high,low,close` (volume optional) charts as full candles — playback,
+pattern announcements, even backtesting your own history. A file with a date
+column plus any named number columns — `date,Income,Expenses,Net` — makes each
+column its own loadable chart ("Budget — Income", "Budget — Expenses"). And a
+file shaped `date,label,value` becomes **event markers**: add "My Events:
+your-dataset" from the indicator dialog (Alt+A, category My Data) and each
+event lands on the bar covering its date, spoken with its own label — put your
+real fills on the chart where they happened and hear "Bought 0.5 BTC, 42,000"
+as you arrow past. Dates read best as 2026-07-22; common spreadsheet formats
+and unix timestamps also work, and the dialog has copyable templates for all
+three shapes. Excel and LibreOffice users: File, Save As, CSV. If a file can't
+be read safely the import is refused with the line number and reason — a
+refused import beats a silently wrong chart.
+
 ## Reading the Chart
 
 A loaded chart is a structure you move through, not a picture you glance at. This

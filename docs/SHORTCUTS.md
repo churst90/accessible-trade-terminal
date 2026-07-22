@@ -189,6 +189,7 @@ When no further event exists in the scan direction, speech announces: "No more [
 | Ctrl+Alt+Shift+W | Save the current workspace (all tabs + layout) |
 | Ctrl+Alt+W | Load a saved workspace |
 | Ctrl+Alt+Shift+L | Load the chart for the toolbar's selected market/provider/symbol (same as the Load button, including the shape-change warning) |
+| Ctrl+Alt+Shift+I | Import / manage My Data CSV datasets (also the Import button on the toolbar when the My Data market is selected) |
 | Ctrl+Alt+Shift+M | Speak background monitoring status (which tabs are watched, data freshness, armed strategies) |
 
 The tab switcher bar (a row of tabs just above the chart) is always visible, even with a single tab open, so the `+` new-tab button is always there. When the bar has focus (via `Ctrl+Alt+Shift+T`, or by clicking it): `←`/`→` (or `↑`/`↓`) switch tabs, `Home`/`End` jump to the first/last tab, the number row `1`–`9` jumps to that tab, `Insert` / `+` opens a new tab, and `Delete` closes the active tab. It is an ARIA tablist — your screen reader announces the newly selected tab as you move.

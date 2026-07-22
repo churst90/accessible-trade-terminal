@@ -11,6 +11,10 @@ namespace AccessibleTrader.Core.Services
     {
         Task InitializeAsync(IPluginLoaderService pluginLoader);
 
+        /// <summary>Registers a built-in (non-plugin) data provider — e.g. the
+        /// My Data CSV provider. Idempotent by provider name.</summary>
+        void RegisterProvider(Sdk.Plugins.IMarketDataProvider provider);
+
         /// <summary>Configure every provider that has an active stored key, directly
         /// from the key store, so key-required providers are usable immediately. Call
         /// after InitializeAsync and after a key is saved. Idempotent.</summary>

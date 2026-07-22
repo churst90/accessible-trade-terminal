@@ -50,6 +50,12 @@ namespace AccessibleTrader.Sdk.Plugins
         public virtual ProviderDataShape DataShape => ProviderDataShape.Ohlcv;
 
         /// <summary>
+        /// Per-symbol shape override (see <see cref="IMarketDataProvider.GetDataShapeForSymbol"/>).
+        /// Anchored virtual here for the same vtable reason as <see cref="DataShape"/>.
+        /// </summary>
+        public virtual ProviderDataShape GetDataShapeForSymbol(string symbol) => DataShape;
+
+        /// <summary>
         /// Human-readable label for the given symbol, used as the Price series
         /// FriendlyName on analytics charts. Defaults to returning the raw symbol;
         /// analytics providers should override with per-symbol mappings like

@@ -198,6 +198,8 @@ namespace AccessibleTrader.Tests
 
         private sealed class SucceedingDataService : IDataService
         {
+            public void RegisterProvider(AccessibleTrader.Sdk.Plugins.IMarketDataProvider provider) { }
+
             private readonly List<Ohlcv> _bars;
             public SucceedingDataService(List<Ohlcv> bars) => _bars = bars;
             public Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r)
@@ -222,6 +224,8 @@ namespace AccessibleTrader.Tests
 
         private sealed class ConditionalDataService : IDataService
         {
+            public void RegisterProvider(AccessibleTrader.Sdk.Plugins.IMarketDataProvider provider) { }
+
             private readonly Func<List<Ohlcv>> _factory;
             public ConditionalDataService(Func<List<Ohlcv>> factory) => _factory = factory;
             public Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r)

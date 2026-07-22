@@ -527,7 +527,7 @@ namespace AccessibleTrader.Core.Services
             // lookup fails (e.g. plugin DLL missing); a stale lookup never crashes the
             // load path.
             var providerForShape = await _dataService.GetProviderAsync(_selectedProvider).ConfigureAwait(false);
-            var dataShape = providerForShape?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+            var dataShape = providerForShape?.GetDataShapeForSymbol(_selectedSymbol) ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
             var symbolDisplayName = providerForShape?.GetSymbolDisplayName(_selectedSymbol) ?? _selectedSymbol;
             // Q3: per-symbol render hints for analytics metrics (range/zones/display/speech).
             // Null = provider declared no hints → Price series renders as plain line. See
@@ -576,7 +576,7 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 var provider = await _dataService.GetProviderAsync(_selectedProvider).ConfigureAwait(false);
-                return provider?.DataShape ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+                return provider?.GetDataShapeForSymbol(_selectedSymbol ?? "") ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
             }
             catch
             {

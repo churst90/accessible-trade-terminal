@@ -247,6 +247,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenSoundDesigner: _eventBus.Publish(new OpenSoundDesignerEvent()); return;
                 case SystemCommand.OpenAIAnalyst: _eventBus.Publish(new OpenAIAnalystEvent()); return;
                 case SystemCommand.OpenJournal: _eventBus.Publish(new OpenJournalEvent()); return;
+                case SystemCommand.OpenMyData: _eventBus.Publish(new OpenMyDataEvent()); return;
 
                 // Application/Menu key + Shift+F10: open the right-click context menu on
                 // the focused drawing — keyboard parity with mouse right-click. Sentinel

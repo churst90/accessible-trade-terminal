@@ -1,0 +1,239 @@
+@*
+    My Data import/manage dialog. Opened from the Toolbar's "Import data file…"
+    button (visible when the My Data market is selected) or Ctrl+Alt+Shift+I.
+
+    Accessible-first import: paste CSV into a textarea (screen-reader-friendliest
+    path — no file dialog required) OR pick a file. Everything the parser detects
+    is announced before anything is committed, and errors come back as the
+    parser's human-readable messages via role=alert.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.MyData
+@using Microsoft.AspNetCore.Components.Forms
+@inject IServiceProvider Services
+@inject IMarketOrchestrator MarketOrchestrator
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="mydata-title" @onclick:stopPropagation="true"
+             style="max-width: 720px;">
+
+            <h2 id="mydata-title" tabindex="-1">My Data — import and manage</h2>
+
+            @if (_store == null)
+            {
+                <p role="alert">My Data isn't available in this mode.</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div role="alert" style="color:#f66; margin:8px 0;">@_error</div>
+                }
+                @if (!string.IsNullOrEmpty(_status))
+                {
+                    <div role="status" aria-live="polite" style="color:#6d6; margin:8px 0;">@_status</div>
+                }
+
+                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Import a CSV file</legend>
+
+                    <div class="modal-row">
+                        <label for="mydata-name">Dataset name:</label>
+                        <input id="mydata-name" type="text" @bind="_name"
+                               placeholder="e.g. Household Budget" style="width:50%;" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="mydata-file">Choose a file:</label>
+                        <InputFile id="mydata-file" OnChange="OnFilePicked" accept=".csv,.tsv,.txt" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="mydata-paste">Or paste the CSV text:</label>
+                    </div>
+                    <textarea id="mydata-paste" rows="6" style="width:100%; font-family:monospace;"
+                              aria-describedby="mydata-format-hint"
+                              @bind="_pasted"></textarea>
+                    <p id="mydata-format-hint" style="color:var(--text-muted); font-size:0.9em; margin:6px 0;">
+                        First line: column names, date first. Recognized shapes:
+                        date,open,high,low,close,volume (candles) ·
+                        date plus named number columns (line charts) ·
+                        date,label,value (event markers). Dates: 2026-07-22 style preferred.
+                        From Excel or LibreOffice: File, Save As, CSV.
+                    </p>
+
+                    <button type="button" @onclick="ImportAsync"
+                            disabled="@(_importing)"
+                            aria-label="Import the pasted or chosen CSV as a new dataset">
+                        @(_importing ? "Importing…" : "Import")
+                    </button>
+                    <button type="button" @onclick="ToggleTemplates"
+                            aria-expanded="@_showTemplates">
+                        @(_showTemplates ? "Hide templates" : "Show templates")
+                    </button>
+                </fieldset>
+
+                @if (_showTemplates)
+                {
+                    <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                        <legend style="font-weight:700; padding:0 6px;">Templates (select, copy, fill in)</legend>
+                        <label for="tpl-ohlcv">Candles (OHLCV):</label>
+                        <textarea id="tpl-ohlcv" rows="3" readonly style="width:100%; font-family:monospace;">@OhlcvTemplate</textarea>
+                        <label for="tpl-series">Value columns:</label>
+                        <textarea id="tpl-series" rows="3" readonly style="width:100%; font-family:monospace;">@SeriesTemplate</textarea>
+                        <label for="tpl-events">Events (chart markers):</label>
+                        <textarea id="tpl-events" rows="3" readonly style="width:100%; font-family:monospace;">@EventsTemplate</textarea>
+                    </fieldset>
+                }
+
+                <fieldset style="border:1px solid #555; padding:10px 14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Imported datasets</legend>
+                    @if (_store.Datasets.Count == 0)
+                    {
+                        <p role="status">Nothing imported yet.</p>
+                    }
+                    else
+                    {
+                        <ul role="list" style="list-style:none; padding:0; margin:0;">
+                            @foreach (var ds in _store.Datasets)
+                            {
+                                <li role="listitem" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #444;">
+                                    <span>
+                                        @ds.Name — @DescribeShape(ds.Shape), @ds.RowCount rows,
+                                        @ds.FirstDate.ToString("yyyy-MM-dd") to @ds.LastDate.ToString("yyyy-MM-dd")
+                                        @if (ds.Shape == MyDataShape.Values && ds.Columns.Count > 1)
+                                        {
+                                            <text> (@ds.Columns.Count columns)</text>
+                                        }
+                                    </span>
+                                    <button aria-label="Delete dataset: @ds.Name"
+                                            @onclick="() => DeleteAsync(ds)">Delete</button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </fieldset>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                    <button @onclick="CloseModal">Close</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    public const string OhlcvTemplate = "date,open,high,low,close,volume\n2026-01-01,100,105,98,103,5000\n2026-01-02,103,108,102,107,6200";
+    public const string SeriesTemplate = "date,Income,Expenses,Net\n2026-01-01,5000,4200,800\n2026-02-01,5100,4400,700";
+    public const string EventsTemplate = "date,label,value\n2026-03-01,Bought 0.5 BTC,42000\n2026-05-10,Sold 0.25 BTC,61000";
+
+    private IMyDataStore? _store;
+    private string _name = "";
+    private string _pasted = "";
+    private string? _fileContent;
+    private string? _error;
+    private string? _status;
+    private bool _importing;
+    private bool _showTemplates;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized(); // arms ModalBase's CloseTopModalEvent (Escape) subscription
+        _store = Services.GetService(typeof(IMyDataStore)) as IMyDataStore;
+        _eventSub = EventBus.Subscribe<OpenMyDataEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _error = null;
+        _status = null;
+        await ShowModalAsync("mydata-title");
+    }
+
+    private async Task OnFilePicked(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        try
+        {
+            using var reader = new System.IO.StreamReader(
+                e.File.OpenReadStream(maxAllowedSize: MyDataStore.MaxContentBytes));
+            _fileContent = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(_name))
+                _name = System.IO.Path.GetFileNameWithoutExtension(e.File.Name);
+            _status = $"File ready: {e.File.Name}. Activate Import to continue.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not read the file: {ex.Message}";
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        if (_store == null) return;
+        _error = null;
+        _status = null;
+        string content = !string.IsNullOrWhiteSpace(_pasted) ? _pasted : _fileContent ?? "";
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            _error = "Choose a file or paste CSV text first.";
+            return;
+        }
+
+        _importing = true;
+        try
+        {
+            var (ds, warnings) = await _store.ImportAsync(_name, content);
+            string summary = $"Imported {ds.Name}: {DescribeShape(ds.Shape)}, {ds.RowCount} rows, " +
+                             $"{ds.FirstDate:yyyy-MM-dd} to {ds.LastDate:yyyy-MM-dd}.";
+            if (ds.Shape == MyDataShape.Values && ds.Columns.Count > 1)
+                summary += $" {ds.Columns.Count} columns — each loads as its own chart.";
+            if (ds.Shape == MyDataShape.Events)
+                summary += " Add it to a chart from the indicator dialog, category My Data.";
+            if (warnings.Count > 0)
+                summary += " Warnings: " + string.Join(" ", warnings.Take(3));
+
+            _status = summary;
+            EventBus.Publish(new AnnouncementEvent(summary, true));
+            _pasted = "";
+            _fileContent = null;
+            _name = "";
+            await MarketOrchestrator.RefreshSymbolsAsync(); // new symbol appears immediately
+        }
+        catch (FormatException ex)
+        {
+            _error = ex.Message;
+            EventBus.Publish(new AnnouncementEvent($"Import failed. {ex.Message}", true));
+        }
+        catch (Exception ex)
+        {
+            _error = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private async Task DeleteAsync(MyDataset ds)
+    {
+        if (_store == null) return;
+        await _store.DeleteAsync(ds.Id);
+        _status = $"Deleted {ds.Name}.";
+        EventBus.Publish(new AnnouncementEvent(_status, true));
+        await MarketOrchestrator.RefreshSymbolsAsync();
+    }
+
+    private void ToggleTemplates() => _showTemplates = !_showTemplates;
+
+    private static string DescribeShape(MyDataShape s) => s switch
+    {
+        MyDataShape.Ohlcv => "candle chart",
+        MyDataShape.Events => "event markers",
+        _ => "value series",
+    };
+}

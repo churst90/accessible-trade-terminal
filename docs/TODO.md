@@ -174,6 +174,20 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 
 ---
 
+## [2026-07-22] — My Data: CSV import (Wave 2 CSV item SHIPPED)
+
+- [x] **CSV/custom data provider** DONE 2026-07-22 per the design discussion:
+  My Data market in the cascade, 3 auto-detected shapes (OHLCV → candles;
+  named value columns → per-column line charts; date,label[,value] → event
+  markers via the indicator dialog with the label as speech), paste-first
+  accessible import dialog (Ctrl+Alt+Shift+I) with templates, per-user
+  persistence + quotas, per-symbol DataShape SDK hook, demo-hidden. 26 tests.
+- [ ] **My Data v2 — overlay path**: imported datasets as series ON an existing
+  chart (own pane or %-normalized main-pane overlay). Shares the alignment +
+  normalization engine with the Wave 2 compare-overlay item — build together.
+- [ ] **xlsx import** — future; needs a spreadsheet-parsing dependency. The
+  dialog tells users to export CSV from Excel/LibreOffice meanwhile.
+
 ## [2026-07-21] — Cody's UX batch (screened, post-1.9.0)
 
 Shipped immediately (same day): Ctrl+Alt+Shift+L LoadChart command (global, spoken
