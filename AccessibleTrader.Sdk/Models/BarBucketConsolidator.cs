@@ -46,9 +46,21 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public Ohlcv? Apply(Ohlcv tick)
         {
+            // Validate the TICK before folding it in — merging first and checking
+            // the merged result after would let a glitch tick poison the bucket's
+            // O/H/L for the rest of the period even though it was "dropped".
+            if (!(tick.Open > 0 && tick.High > 0 && tick.Low > 0 && tick.Close > 0 && tick.Volume >= 0))
+                return null;
+
             lock (_lock)
             {
                 DateTime periodStart = TimeframeUtility.GetPeriodStart(tick.Date, _timeframe);
+
+                // A tick for an OLDER period than the current bucket is a replay
+                // (reconnect) or wildly out-of-order — starting a "new" bucket from
+                // it would throw away the accumulated current period. Drop it.
+                if (_bucket is { } current && periodStart < current.Date)
+                    return null;
 
                 if (_bucket is not { } bucket || bucket.Date != periodStart)
                 {
@@ -63,9 +75,9 @@ namespace AccessibleTrader.Sdk.Models
                         : tick.Volume;
                     _bucket = new Ohlcv(
                         bucket.Date,
-                        bucket.Open == 0 ? tick.Open : bucket.Open,
+                        bucket.Open,
                         Math.Max(bucket.High, tick.High),
-                        bucket.Low == 0 ? tick.Low : Math.Min(bucket.Low, tick.Low),
+                        Math.Min(bucket.Low, tick.Low),
                         tick.Close,
                         bucket.Volume + volumeDelta);
                 }
@@ -76,11 +88,7 @@ namespace AccessibleTrader.Sdk.Models
 
                 _sourceBarDate = tick.Date;
                 _sourceBarVolume = tick.Volume;
-
-                var bar = _bucket.Value;
-                return (bar.Open > 0 && bar.High > 0 && bar.Low > 0 && bar.Close > 0 && bar.Volume >= 0)
-                    ? bar
-                    : (Ohlcv?)null;
+                return _bucket.Value;
             }
         }
     }

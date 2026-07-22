@@ -40,6 +40,8 @@ namespace AccessibleTrader.Core.Services.Feeds
         private readonly ILogger<BackgroundTabFeedService> _logger;
 
         private readonly object _gate = new();
+        // Tail of the serialized stop/start chain — see Reconcile for why order matters.
+        private Task _applyChain = Task.CompletedTask;
         // Leases pin the feeds against hub eviction while we keep them live.
         private readonly Dictionary<ChartIdentity, IDisposable> _leases = new();
         // Providers that answered "can't multiplex" once — retrying on every tab
@@ -64,6 +66,14 @@ namespace AccessibleTrader.Core.Services.Feeds
                 .Select(s => (s.TabSnapshots?.Count ?? 0, s.ActiveTabIndex))
                 .DistinctUntilChanged()
                 .Subscribe(_ => Reconcile()));
+            // Loading a different symbol/timeframe on the CURRENT tab changes the
+            // focused identity without a TabSwitchedEvent — and if the new identity
+            // matches a live background feed, that feed must stop or the legacy
+            // pump and the independent subscription double-feed one buffer.
+            _subs.Add(_store.StateStream
+                .Select(s => s.Identity)
+                .DistinctUntilChanged()
+                .Subscribe(_ => Reconcile()));
         }
 
         public bool IsEnabled => _settings.GetSetting(EnabledKey)?.ToObject<bool>() ?? false;
@@ -78,6 +88,9 @@ namespace AccessibleTrader.Core.Services.Feeds
             var state = _store.State;
             var desired = new Dictionary<ChartIdentity, TimeSeriesBuffer<Ohlcv>>();
 
+            HashSet<string> blacklist;
+            lock (_gate) blacklist = new HashSet<string>(_nonMultiplexProviders, StringComparer.OrdinalIgnoreCase);
+
             if (IsEnabled && state.TabSnapshots != null)
             {
                 int dropped = 0;
@@ -86,7 +99,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                     var identity = snapshot.Identity;
                     if (string.IsNullOrEmpty(identity.Symbol)) continue;
                     if (identity == state.Identity) continue; // focused tab has the legacy live path
-                    if (_nonMultiplexProviders.Contains(identity.Provider)) continue;
+                    if (blacklist.Contains(identity.Provider)) continue;
                     if (desired.ContainsKey(identity)) continue;
                     if (desired.Count >= MaxLiveBackgroundFeeds) { dropped++; continue; }
                     desired[identity] = snapshot.Data;
@@ -111,28 +124,55 @@ namespace AccessibleTrader.Core.Services.Feeds
                 // Reserve synchronously so overlapping reconciles never double-start.
                 foreach (var kv in toStart)
                     _leases[kv.Key] = _hub.AcquireLease(kv.Key);
-            }
 
-            foreach (var identity in toStop)
-            {
-                var id = identity;
-                SafeFireAndForget.Run(() => _hub.StopFeedLiveAsync(id), _logger, "StopBackgroundFeed");
-            }
-            foreach (var kv in toStart)
-            {
-                var id = kv.Key; var snapshot = kv.Value;
-                SafeFireAndForget.Run(() => StartOneAsync(id, snapshot), _logger, "StartBackgroundFeed");
+                // SERIALIZED apply: stops and starts from successive reconciles must
+                // execute in order. Unordered fire-and-forget let a queued stop from
+                // reconcile N dispose the subscription that reconcile N+1's start
+                // had just been told "already live" about — leaving the tab leased
+                // but dead until it left the desired set.
+                var stops = toStop; var starts = toStart;
+                var previous = _applyChain;
+                _applyChain = Task.Run(async () =>
+                {
+                    await previous.ConfigureAwait(false);
+                    foreach (var id in stops)
+                    {
+                        try { await _hub.StopFeedLiveAsync(id).ConfigureAwait(false); }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Stopping background feed {Identity} failed.", id); }
+                    }
+                    foreach (var kv in starts)
+                    {
+                        await StartOneAsync(kv.Key, kv.Value).ConfigureAwait(false);
+                    }
+                });
             }
         }
 
         private async Task StartOneAsync(ChartIdentity identity, TimeSeriesBuffer<Ohlcv> snapshot)
         {
-            bool live = await _hub.TryStartFeedLiveAsync(identity).ConfigureAwait(false);
-            if (!live)
+            FeedLiveStart result;
+            try
             {
-                // Provider can't multiplex (or the demo policy said no). Remember,
-                // release the pin, and leave the tab to the poll paths.
-                _nonMultiplexProviders.Add(identity.Provider);
+                result = await _hub.TryStartFeedLiveAsync(identity).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Starting background feed {Identity} failed; will retry on a later reconcile.", identity);
+                result = FeedLiveStart.Unavailable;
+            }
+
+            if (result is FeedLiveStart.NotSupported or FeedLiveStart.PolicyDenied)
+            {
+                // PERMANENT for the session — don't re-probe on every tab switch.
+                // Transient failures (Unavailable) are deliberately NOT cached so
+                // a plugin that loads late gets retried.
+                lock (_gate) _nonMultiplexProviders.Add(identity.Provider);
+            }
+
+            if (result is not (FeedLiveStart.Started or FeedLiveStart.AlreadyLive))
+            {
+                // Release the pin so the feed is evictable and the identity is
+                // eligible for a retry on the next reconcile.
                 lock (_gate)
                 {
                     if (_leases.Remove(identity, out var lease)) lease.Dispose();

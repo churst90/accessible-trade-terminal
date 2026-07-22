@@ -145,11 +145,12 @@ namespace AccessibleTrader.Core.Services
 
                     ct.ThrowIfCancellationRequested();
 
-                    // A live-subscribed feed is tick-current — skip the gap-fill
-                    // fetch entirely. A warm-but-idle feed still gap-fills to cover
-                    // bars that closed since focus left.
-                    if (!_hub.IsFeedLive(feed.Identity)
-                        && await feed.GapFillAsync(ct).ConfigureAwait(false))
+                    // Gap-fill EVEN when the feed is live-subscribed: the handoff
+                    // from an independent subscription to the focused pump can
+                    // miss a bar close, and a live feed's last bar may be stale
+                    // by one final-close update. One fetch per switch is the
+                    // pre-refactor cost; the instant bind above already happened.
+                    if (await feed.GapFillAsync(ct).ConfigureAwait(false))
                     {
                         _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
                         DataUpdated?.Invoke();
@@ -190,8 +191,10 @@ namespace AccessibleTrader.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CatchUp failed for {Symbol}.", feed.Identity.Symbol);
-                // Fall back to a full refresh so the tab is never left in a broken state.
-                try { await RefreshDataAsync(default).ConfigureAwait(false); }
+                // Fall back to a full refresh so the tab is never left in a broken
+                // state — honoring ct so a SUPERSEDING tab switch can cancel the
+                // fallback instead of having it clobber the next tab's data.
+                try { await RefreshDataAsync(ct).ConfigureAwait(false); }
                 catch (Exception ex2) { _logger.LogWarning(ex2, "CatchUpFromSnapshotAsync fallback refresh failed"); }
             }
         }

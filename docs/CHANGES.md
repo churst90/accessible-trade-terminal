@@ -6,6 +6,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Keyed-feeds hardening: the adversarial pass (2026-07-22, same day)
+
+A second-set-of-eyes review of the fresh refactor, every finding verified and
+fixed with a regression fence (10 new tests):
+
+- Strategy evaluation is now FULLY serialized — the load/tab-switch path could
+  previously run concurrently with a live bar-close evaluation.
+- Buffered ticks of the previous symbol are drained before the focused pump
+  starts — they could merge into the newly focused feed (a pre-refactor flaw
+  the old wholesale refresh had been masking).
+- Feed eviction can no longer dispose a feed whose live subscription is still
+  being opened (the subscribe now holds a lease), the registry never hands
+  out a disposed feed, and late socket callbacks against one are clean no-ops.
+- Background tab-feed reconciles are serialized: rapid tab flapping could
+  interleave stops and starts into a leased-but-dead feed. Failures release
+  the lease; only genuine "provider can't multiplex" answers are cached, so
+  transient errors retry. Changing symbol/timeframe on the CURRENT tab now
+  also reconciles — previously the legacy pump and a matching background
+  subscription could double-feed one buffer indefinitely.
+- Concurrent focused-live starts can no longer leak a tick-stealing pump.
+- The warm-feed tab switch now ALWAYS gap-fills once (a subscription handoff
+  can miss a bar close); the failure fallback honors cancellation so a
+  superseding switch can't be clobbered.
+- The consolidator validates ticks BEFORE folding them in (a glitch tick
+  could poison the bucket's high/low for the rest of the period) and drops
+  old-period replays instead of resetting the bucket.
+- Binance DisconnectAsync tears down keyed-feed sockets; late handle
+  disposal after disconnect is a clean no-op.
+
 ### Keyed feeds: the 2.0 pipeline refactor (2026-07-22)
 
 The centerpiece rebuild (docs/KEYED_FEEDS_DESIGN.md), landed in three phases

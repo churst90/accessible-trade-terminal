@@ -285,10 +285,18 @@ namespace AccessibleTrader.Plugins.Binance
         /// connections / 5 min / IP limit at the hub's feed scale. RunSocketAsync
         /// owns reconnection for the life of the handle.
         /// </summary>
+        // Outstanding keyed-feed subscriptions, so DisconnectAsync can tear down
+        // every socket — without this, background kline sockets kept reconnecting
+        // after a disconnect until the hub disposed their handles.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, CancellationTokenSource> _keyedSubscriptions = new();
+        internal int ActiveKeyedSubscriptionCount => _keyedSubscriptions.Count;
+
         public override Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
         {
             var uri = BuildKlineStreamUri(market, symbol, timeframe);
             var cts = new CancellationTokenSource();
+            var id = Guid.NewGuid();
+            _keyedSubscriptions[id] = cts;
             var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle);
 
             _ = Task.Run(() => RunSocketAsync(uri, root =>
@@ -298,23 +306,46 @@ namespace AccessibleTrader.Plugins.Binance
                 if (bar.HasValue) onBar(bar.Value);
             }, cts.Token));
 
-            return Task.FromResult<IAsyncDisposable>(new LiveSubscriptionHandle(cts));
+            return Task.FromResult<IAsyncDisposable>(new LiveSubscriptionHandle(this, id, cts));
+        }
+
+        private void ReleaseKeyedSubscription(Guid id, CancellationTokenSource cts)
+        {
+            _keyedSubscriptions.TryRemove(id, out _);
+            // DisconnectAsync may have already cancelled+disposed this CTS — a
+            // handle disposed after disconnect must be a clean no-op.
+            try { cts.Cancel(); cts.Dispose(); }
+            catch (ObjectDisposedException) { /* already torn down by DisconnectAsync */ }
         }
 
         private sealed class LiveSubscriptionHandle : IAsyncDisposable
         {
-            private CancellationTokenSource? _cts;
-            public LiveSubscriptionHandle(CancellationTokenSource cts) { _cts = cts; }
+            private BinanceProvider? _owner;
+            private readonly Guid _id;
+            private readonly CancellationTokenSource _cts;
+            public LiveSubscriptionHandle(BinanceProvider owner, Guid id, CancellationTokenSource cts)
+            {
+                _owner = owner; _id = id; _cts = cts;
+            }
             public ValueTask DisposeAsync()
             {
-                var cts = Interlocked.Exchange(ref _cts, null);
-                if (cts != null) { cts.Cancel(); cts.Dispose(); }
+                Interlocked.Exchange(ref _owner, null)?.ReleaseKeyedSubscription(_id, _cts);
                 return ValueTask.CompletedTask;
             }
         }
 
         public override async Task DisconnectAsync()
         {
+            // Keyed-feed sockets (SubscribeLiveAsync) die with the provider too —
+            // their handles remain valid to dispose but become no-ops.
+            foreach (var kv in _keyedSubscriptions.ToArray())
+            {
+                if (_keyedSubscriptions.TryRemove(kv.Key, out var subCts))
+                {
+                    try { subCts.Cancel(); subCts.Dispose(); } catch { /* already torn down */ }
+                }
+            }
+
             _klineCts?.Cancel();      _klineCts?.Dispose();      _klineCts = null;
             _orderBookCts?.Cancel();  _orderBookCts?.Dispose();  _orderBookCts = null;
             _orderBookSymbol = null;

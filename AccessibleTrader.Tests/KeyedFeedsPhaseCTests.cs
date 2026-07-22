@@ -201,16 +201,19 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public async Task Warm_live_feed_binds_with_zero_network()
+        public async Task Warm_live_feed_binds_instantly_and_still_gap_fills_the_handoff()
         {
             var h = new CatchUpHarness();
             h.Hub.FocusedFeed!.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1), Bar(2) }));
-            Assert.True(await h.Hub.TryStartFeedLiveAsync(Id())); // live → tick-current
+            Assert.Equal(FeedLiveStart.Started, await h.Hub.TryStartFeedLiveAsync(Id())); // live background sub
             var snapshot = new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1) });
 
             await h.Manager.CatchUpFromSnapshotAsync(snapshot);
 
-            Assert.Empty(h.Orch.FetchCalls); // no gap-fill, no reload — the feed IS current
+            // Bind was instant (no snapshot restore), but the handoff still
+            // gap-fills ONCE — a subscription handover can miss a bar close.
+            Assert.Single(h.Orch.FetchCalls);
+            Assert.Equal(3, h.Hub.FocusedFeed!.Bars.Count);
         }
 
         [Fact]
@@ -237,7 +240,7 @@ namespace AccessibleTrader.Tests
             using (hub)
             {
                 var identity = Id();
-                await hub.TryStartFeedLiveAsync(identity);
+                Assert.Equal(FeedLiveStart.Started, await hub.TryStartFeedLiveAsync(identity));
                 hub.GetOrCreateFeed(identity).RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1) }));
 
                 var store = Substitute.For<IWorkspaceStore>();

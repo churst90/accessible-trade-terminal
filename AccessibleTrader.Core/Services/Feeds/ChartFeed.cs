@@ -48,6 +48,11 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public ChartIdentity Identity { get; }
         public TimeSeriesBuffer<Ohlcv> Bars => _cache;
+        /// <summary>True once the hub has evicted/disposed this feed. Late callers
+        /// (a live socket delivering its final ticks) get a clean false/no-op
+        /// instead of an ObjectDisposedException from the prepend semaphore.</summary>
+        public bool IsDisposed => _disposed;
+        private volatile bool _disposed;
         /// <summary>UTC time of the last buffer mutation — Phase C uses this to decide
         /// whether a tab switch can bind the feed instantly or must gap-fill first.</summary>
         public DateTime LastUpdateUtc { get; private set; }
@@ -172,8 +177,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// </summary>
         public async Task<int> PrependOlderAsync(Action? onStarted = null)
         {
-            if (string.IsNullOrEmpty(Identity.Symbol)) return -1;
-            if (!await _prependLock.WaitAsync(0).ConfigureAwait(false)) return -1;
+            if (_disposed || string.IsNullOrEmpty(Identity.Symbol)) return -1;
+            try
+            {
+                if (!await _prependLock.WaitAsync(0).ConfigureAwait(false)) return -1;
+            }
+            catch (ObjectDisposedException) { return -1; } // disposed between check and wait
             try
             {
                 onStarted?.Invoke();
@@ -206,7 +215,8 @@ namespace AccessibleTrader.Core.Services.Feeds
             }
             finally
             {
-                _prependLock.Release();
+                try { _prependLock.Release(); }
+                catch (ObjectDisposedException) { /* evicted mid-operation — nothing left to release */ }
             }
         }
 
@@ -222,7 +232,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// </summary>
         public bool ApplyLiveTick(Ohlcv tick)
         {
-            if (!_prependLock.Wait(0)) return false;
+            if (_disposed) return false;
+            try
+            {
+                if (!_prependLock.Wait(0)) return false;
+            }
+            catch (ObjectDisposedException) { return false; } // disposed between check and wait
             try
             {
                 FeedUpdateKind kind;
@@ -255,12 +270,17 @@ namespace AccessibleTrader.Core.Services.Feeds
             }
             finally
             {
-                _prependLock.Release();
+                try { _prependLock.Release(); }
+                catch (ObjectDisposedException) { /* evicted mid-operation — nothing left to release */ }
             }
         }
 
         private void Touch() => LastUpdateUtc = DateTime.UtcNow;
 
-        public void Dispose() => _prependLock.Dispose();
+        public void Dispose()
+        {
+            _disposed = true;
+            _prependLock.Dispose();
+        }
     }
 }

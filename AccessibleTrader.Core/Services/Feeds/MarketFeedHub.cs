@@ -48,13 +48,20 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// <summary>
         /// Tries to open an INDEPENDENT live subscription for this identity's feed
         /// (Phase B): requires a provider that supports multiple concurrent live
-        /// subscriptions and a demo policy that allows live streaming. Returns
-        /// false — leaving the feed poll/refresh-driven — otherwise. Idempotent.
+        /// subscriptions and a demo policy that allows live streaming. The result
+        /// tells the caller WHY it didn't start, so a capability "no" can be
+        /// cached while a transient failure is retried. Idempotent.
         /// </summary>
-        Task<bool> TryStartFeedLiveAsync(ChartIdentity identity);
+        Task<FeedLiveStart> TryStartFeedLiveAsync(ChartIdentity identity);
         Task StopFeedLiveAsync(ChartIdentity identity);
         bool IsFeedLive(ChartIdentity identity);
     }
+
+    /// <summary>Outcome of <see cref="IMarketFeedHub.TryStartFeedLiveAsync"/>.
+    /// NotSupported and PolicyDenied are PERMANENT for the session (cacheable);
+    /// Unavailable is transient (provider missing / load failure) and worth
+    /// retrying on a later reconcile.</summary>
+    public enum FeedLiveStart { Started, AlreadyLive, NotSupported, PolicyDenied, Unavailable }
 
     public sealed class MarketFeedHub : IMarketFeedHub
     {
@@ -78,6 +85,11 @@ namespace AccessibleTrader.Core.Services.Feeds
         private volatile ChartFeed? _focused;
         private CancellationTokenSource? _pumpCts;
         private Task? _pumpTask;
+        // Serializes focused-live start/stop. Both are fired-and-forgot from
+        // refresh + catch-up + tab switches; two unsynchronized starts each saw
+        // the other's not-yet-assigned fields, both started pumps, and the
+        // loser's pump leaked for the process lifetime, stealing ticks.
+        private readonly SemaphoreSlim _pumpGate = new(1, 1);
 
         public ChartFeed? FocusedFeed => _focused;
         public event Action<ChartFeed, FeedUpdateKind>? FocusedFeedUpdated;
@@ -93,10 +105,18 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public ChartFeed GetOrCreateFeed(ChartIdentity identity)
         {
-            if (_feeds.TryGetValue(identity, out var existing)) return existing;
+            // Fast path must re-check disposal: eviction removes-then-disposes
+            // under the lock, and a reader could otherwise grab the instance in
+            // that window and use a dead feed.
+            if (_feeds.TryGetValue(identity, out var existing) && !existing.IsDisposed) return existing;
 
             lock (_evictionLock)
             {
+                if (_feeds.TryGetValue(identity, out var raced))
+                {
+                    if (!raced.IsDisposed) return raced;
+                    _feeds.TryRemove(identity, out _);
+                }
                 return _feeds.GetOrAdd(identity, id =>
                 {
                     EvictIfOverCapacity();
@@ -126,7 +146,16 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         private void ReleaseLease(ChartIdentity identity)
         {
-            _leaseCounts.AddOrUpdate(identity, 0, (_, n) => Math.Max(0, n - 1));
+            // Remove the entry at zero instead of parking a 0 forever — the map
+            // must not grow monotonically with every identity ever leased.
+            while (_leaseCounts.TryGetValue(identity, out var n))
+            {
+                if (n <= 1)
+                {
+                    if (_leaseCounts.TryRemove(new KeyValuePair<ChartIdentity, int>(identity, n))) return;
+                }
+                else if (_leaseCounts.TryUpdate(identity, n - 1, n)) return;
+            }
         }
 
         private void OnFeedUpdated(ChartFeed feed, FeedUpdateKind kind)
@@ -139,17 +168,24 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public bool IsFeedLive(ChartIdentity identity) => _feedSubscriptions.ContainsKey(identity);
 
-        public async Task<bool> TryStartFeedLiveAsync(ChartIdentity identity)
+        public async Task<FeedLiveStart> TryStartFeedLiveAsync(ChartIdentity identity)
         {
-            if (string.IsNullOrEmpty(identity.Symbol)) return false;
-            if (_feedSubscriptions.ContainsKey(identity)) return true;
+            if (string.IsNullOrEmpty(identity.Symbol)) return FeedLiveStart.Unavailable;
+            if (_feedSubscriptions.ContainsKey(identity)) return FeedLiveStart.AlreadyLive;
 
             // Same policy gate as the focused path: providers with no real live
             // feed (demo historical-only tiers) must never be live-subscribed.
-            if (!_demo.AllowsLiveStream(identity.Provider)) return false;
+            if (!_demo.AllowsLiveStream(identity.Provider)) return FeedLiveStart.PolicyDenied;
+
+            // Pin the feed for the duration: the subscription only registers (and
+            // becomes eviction-exempt) AFTER the awaits below, and an unleased,
+            // unfocused feed is otherwise a legal eviction victim mid-subscribe —
+            // the new socket would tick into a disposed feed.
+            using var pin = AcquireLease(identity);
 
             var provider = await _dataService.GetProviderAsync(identity.Provider).ConfigureAwait(false);
-            if (provider == null || !provider.SupportsMultipleLiveSubscriptions) return false;
+            if (provider == null) return FeedLiveStart.Unavailable;
+            if (!provider.SupportsMultipleLiveSubscriptions) return FeedLiveStart.NotSupported;
 
             var feed = GetOrCreateFeed(identity);
             var subscription = await provider.SubscribeLiveAsync(
@@ -165,7 +201,7 @@ namespace AccessibleTrader.Core.Services.Feeds
             {
                 _logger.LogInformation("MarketFeedHub: independent live subscription started for {Identity}.", identity);
             }
-            return true;
+            return FeedLiveStart.Started;
         }
 
         public async Task StopFeedLiveAsync(ChartIdentity identity)
@@ -201,10 +237,31 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public async Task StartFocusedLiveAsync()
         {
-            await StopFocusedLiveAsync().ConfigureAwait(false);
+            await _pumpGate.WaitAsync().ConfigureAwait(false);
+            try { await StartFocusedLiveCoreAsync().ConfigureAwait(false); }
+            finally { _pumpGate.Release(); }
+        }
+
+        public async Task StopFocusedLiveAsync()
+        {
+            await _pumpGate.WaitAsync().ConfigureAwait(false);
+            try { await StopFocusedLiveCoreAsync().ConfigureAwait(false); }
+            finally { _pumpGate.Release(); }
+        }
+
+        private async Task StartFocusedLiveCoreAsync()
+        {
+            await StopFocusedLiveCoreAsync().ConfigureAwait(false);
 
             var feed = _focused;
             if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
+
+            // Drain residue before pumping: the orchestrator's channel may still
+            // hold buffered ticks of the PREVIOUS subscription's symbol, and the
+            // pump routes by current focus — those ticks would merge into the new
+            // feed. (The pre-refactor pipeline had the same misrouting but its
+            // wholesale refresh masked it; the warm-feed fast path does not.)
+            while (_orchestrator.LiveStream.TryRead(out _)) { }
 
             _pumpCts = new CancellationTokenSource();
             var token = _pumpCts.Token;
@@ -229,7 +286,7 @@ namespace AccessibleTrader.Core.Services.Feeds
             await _orchestrator.StartLiveStreamAsync(id.Market, id.Provider, id.Symbol, id.Timeframe).ConfigureAwait(false);
         }
 
-        public async Task StopFocusedLiveAsync()
+        private async Task StopFocusedLiveCoreAsync()
         {
             _pumpCts?.Cancel();
             var pump = _pumpTask;
@@ -265,6 +322,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                 feed.Dispose();
             }
             _feeds.Clear();
+            _pumpGate.Dispose();
         }
 
         private sealed class FeedLease : IDisposable

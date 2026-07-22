@@ -26,16 +26,17 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
         private readonly Feeds.IMarketFeedHub? _feedHub;
-        // Serializes live bar-close evaluations so two rapid closes (e.g. a burst
-        // after a reconnect) never run strategies concurrently.
-        private readonly object _liveBarGate = new();
+        // Serializes ALL strategy evaluation — live bar-closes AND the
+        // DataUpdated-driven load/tab-switch/prepend path. Strategies are
+        // stateful; concurrent OnBar on one instance (and the unlocked signal
+        // dictionaries) is never safe.
+        private readonly object _evalGate = new();
 
         private ImmutableList<ActiveStrategy> _activeStrategies = ImmutableList<ActiveStrategy>.Empty;
         private readonly Dictionary<string, DateTime> _lastSignalTimes = new();
         // Pending signals awaiting user confirmation (Suggestion mode)
         private readonly Dictionary<string, StrategySignal> _pendingSignals = new();
 
-        private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
 
         public IReadOnlyList<ActiveStrategy> ActiveStrategies => _activeStrategies;
 
@@ -80,7 +81,10 @@ namespace AccessibleTrader.Core.Services
             int idx = state.CurrentDataIndex;
             if (idx < 1 || idx >= state.Data.Count) return;
 
-            EvaluateBar(state.Data[idx], state.Data, state);
+            lock (_evalGate)
+            {
+                EvaluateBar(state.Data[idx], state.Data, state);
+            }
         }
 
         private void OnFocusedFeedUpdated(Feeds.ChartFeed feed, Feeds.FeedUpdateKind kind)
@@ -98,7 +102,7 @@ namespace AccessibleTrader.Core.Services
             // live merge path.
             SafeFireAndForget.Run(() =>
             {
-                lock (_liveBarGate)
+                lock (_evalGate)
                 {
                     var closedBar = bars[bars.Count - 2];
                     var history = new PrefixView(bars, bars.Count - 1);
@@ -263,7 +267,6 @@ namespace AccessibleTrader.Core.Services
             _dataManager.DataUpdated -= OnDataUpdated;
             if (_feedHub != null)
                 _feedHub.FocusedFeedUpdated -= OnFocusedFeedUpdated;
-            _subscriptions.Dispose();
 
             foreach (var active in _activeStrategies)
                 active.Strategy.OnStop();

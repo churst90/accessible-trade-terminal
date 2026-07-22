@@ -180,7 +180,7 @@ namespace AccessibleTrader.Tests
             var (hub, provider) = HubWithMultiSub();
             using (hub)
             {
-                Assert.True(await hub.TryStartFeedLiveAsync(Id()));
+                Assert.Equal(FeedLiveStart.Started, await hub.TryStartFeedLiveAsync(Id()));
                 Assert.True(hub.IsFeedLive(Id()));
                 Assert.Equal(("BTC/USD", "1h"), provider.Subscriptions.Single());
 
@@ -190,7 +190,7 @@ namespace AccessibleTrader.Tests
                 Assert.Equal(100, feed.Bars[0].Close);
 
                 // Idempotent: second start is a no-op, not a second socket.
-                Assert.True(await hub.TryStartFeedLiveAsync(Id()));
+                Assert.Equal(FeedLiveStart.AlreadyLive, await hub.TryStartFeedLiveAsync(Id()));
                 Assert.Single(provider.Subscriptions);
             }
         }
@@ -218,7 +218,7 @@ namespace AccessibleTrader.Tests
             using var hub = new MarketFeedHub(Substitute.For<IDataOrchestrator>(), dataService,
                 new DemoPolicy(false), NullLoggerFactory.Instance);
 
-            Assert.False(await hub.TryStartFeedLiveAsync(Id(provider: "SingleProv")));
+            Assert.Equal(FeedLiveStart.NotSupported, await hub.TryStartFeedLiveAsync(Id(provider: "SingleProv")));
             Assert.False(hub.IsFeedLive(Id(provider: "SingleProv")));
         }
 
@@ -229,7 +229,7 @@ namespace AccessibleTrader.Tests
             using var hub = new MarketFeedHub(Substitute.For<IDataOrchestrator>(), dataService,
                 new DemoPolicy(true), NullLoggerFactory.Instance); // demo: only Bitstamp streams
 
-            Assert.False(await hub.TryStartFeedLiveAsync(Id(provider: "MultiProv")));
+            Assert.Equal(FeedLiveStart.PolicyDenied, await hub.TryStartFeedLiveAsync(Id(provider: "MultiProv")));
             await dataService.DidNotReceive().GetProviderAsync(Arg.Any<string>());
         }
 
