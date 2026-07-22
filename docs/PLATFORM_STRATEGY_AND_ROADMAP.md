@@ -138,7 +138,11 @@ the only way foreign code arrives.
 
 ## 3. Braille / tactile display: enable toggle + hot-plug
 
-**Current state (verified).** There is **no enable/disable setting** for the tactile
+**Current state (UPDATED 2026-06-25 — the gap below is closed).** The enable
+toggle shipped: Settings > General > "Enable braille / tactile display output"
+(`accessibility.braille.enabled`), with startup detection, serial hot-plug
+watching, and spoken connect/disconnect announcements. The paragraph below is
+kept for history. ~~There is **no enable/disable setting** for the tactile~~
 display (the "Braille Optimized" item in Settings is a *visual theme*, `ThemeType.Braille`,
 unrelated to the device). The Dot Pad is **always-on when a Windows device is present at
 startup**: `TactileCanvasCoordinator`'s constructor fires `_ = TryConnectAsync()` once;

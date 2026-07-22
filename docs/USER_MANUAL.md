@@ -547,8 +547,8 @@ to the signal line to the histogram, Up back through them, each announced with i
 name and current value. When more panes are open than fit on screen, Alt+Up and
 Alt+Down scroll the pane list.
 
-Two keys re-orient you whenever you lose the thread. F4 announces the current symbol,
-provider, and timeframe; Ctrl+Alt+Shift+C focuses the chart and reads a fuller
+Two keys re-orient you whenever you lose the thread. Shift+F1 announces the current
+symbol, provider, and timeframe; Ctrl+Alt+Shift+C focuses the chart and reads a fuller
 context summary. Reach for them freely — there is no penalty for asking the terminal
 where you are.
 
@@ -975,14 +975,33 @@ dormant until price reaches that level, then arms and trails from there, so it l
 in profit only after a target is reached. In paper mode you can watch both work tick
 by tick.
 
-Two cautions carry over from real exchanges. First, an entry and its protective
-orders are **not placed as one guaranteed bracket**: the terminal submits the entry,
-then the protection, then about two seconds later checks that protection actually
-landed — and if it cannot find it, warns you, interrupting, "Warning: no stop loss
-or take profit found on the exchange for {symbol}. The position may be unprotected —
-verify your open orders." Treat that as a call to action. Second, there is no inline
-editor for a resting order's protective levels; to move a stop you cancel it on the
-Orders tab and place a new one. Set your exits deliberately at entry.
+How the protection actually reaches the exchange differs by broker, and the
+terminal is honest about each:
+
+- **Binance** attaches stop-loss and take-profit natively with the entry (and
+  supports true OCO pairs on spot).
+- **Tradier** places the entry and its exits as ONE exchange-native advanced
+  order (OTO with one protective leg, OTOCO with both) — the linkage lives on
+  Tradier's servers, so your protection exists even if the terminal dies the
+  moment after submission.
+- **Schwab** does the same with an order tree: the entry triggers the exit (or
+  an either-or pair of exits), enforced server-side, good-till-cancelled.
+- **Kraken** can attach only ONE protective order per entry. If you set both a
+  stop and a target, the STOP is attached — safety over profit — and the
+  terminal tells you out loud that the take-profit was not placed.
+- On the remaining brokers the terminal submits the entry, then the
+  protection, then about two seconds later verifies the protection actually
+  landed — and if it cannot find it, warns you, interrupting: "Warning: no
+  stop loss or take profit found on the exchange for {symbol}. The position
+  may be unprotected — verify your open orders." Treat that as a call to
+  action.
+
+Your resting protective legs are visible: on Tradier and Schwab the Orders tab
+lists each leg of a bracket individually — entry, stop, and target, each with
+its real trigger price — so you can hear that your protection is in place.
+One further caution: there is no inline editor for a resting order's
+protective levels; to move a stop you cancel it on the Orders tab and place a
+new one. Set your exits deliberately at entry.
 
 ### The live order review
 
@@ -1113,6 +1132,15 @@ have heard "Stop loss hit. Sold 0.5 BTC/USDT at 42,180. Loss 160.00." — and ei
 way, when you want out early, the **Close** button on the Positions tab flattens you
 with one press.
 
+The History tab is real on every trading broker — Binance, Kraken, Tradier,
+Alpaca, Coinbase, and Schwab all report your recent fills with price, quantity,
+and fees. And the terminal watches your back across restarts: when it reconnects
+to a broker it compares your positions against what you held last session, and
+anything that closed while the app was off is announced — "While you were away
+on Kraken: BTC/USD position closed. Sold at 92,300. Profit 1,150." A stop that
+fires overnight is never a silent surprise. Cancelled orders speak too ("Order
+cancelled for {symbol}") — no order leaves the book without you hearing it.
+
 ---
 
 ## Automation
@@ -1225,6 +1253,15 @@ place, with a floor of 10), its indicators are recomputed, and its symbol-scoped
 alerts and running strategies are evaluated against the fresh bars. It is off by
 default, like every feature that spends your provider's request budget, and it is a
 desktop feature — the hosted web builds stay single-chart by design.
+
+On exchanges whose data feeds support it (Binance today, more as they are
+enrolled), you can go one better: **"Live-stream background tabs"**, in the same
+Settings section, keeps up to eight background tabs on real streaming data
+instead of the 30-second poll. Background alerts and strategies then evaluate on
+tick-fresh bars, and switching to a live background tab is instant — the chart
+binds its already-current data with no network fetch at all. On exchanges that
+cannot stream multiple charts at once, the poll quietly remains — nothing
+breaks, it is simply not as fresh.
 
 What you hear follows one simple rule: **events speak from everywhere, the soundscape
 belongs to the focused chart.** A background tab's alerts and strategy setups reach
@@ -1554,6 +1591,22 @@ workspace and Ctrl+Alt+W loads one back; because those are three-modifier chords
 browser does not reserve them, so they work the same on every platform. Set up the
 charts and indicators you return to every session once, save them, and you are one
 shortcut from that whole layout the next time you sit down.
+
+A workspace save captures every tab's identity (market, provider, symbol,
+timeframe), the indicator stacks with their settings and audio patches, your
+drawings, display toggles like Heikin-Ashi and log scale, pane heights, and the
+strategies that were RUNNING — each remembered with its symbol binding, its
+Suggestion/Auto mode, and whether it was paused, so loading the workspace brings
+them back exactly as they were. Alerts are not part of a workspace; they persist
+on their own the moment you create them. Bar data is refetched fresh on load.
+
+You also do not need to remember to save at all: the terminal **autosaves your
+session** every thirty seconds and again when it closes, and the next start
+simply resumes it — you hear "Resumed your last session: N tabs" and you are
+back where you left off, tabs, drawings, strategies and all. This covers the
+browser-refresh case on the web build too, which previously lost everything
+unsaved. If you prefer a blank start, turn off Settings > Workspace > "Resume
+last session at startup"; explicit named workspaces are untouched either way.
 
 ---
 

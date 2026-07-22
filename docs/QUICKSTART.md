@@ -214,7 +214,7 @@ Speech announces the component name and its value at the current bar when you mo
 
 | Key | Action |
 |-----|--------|
-| F4 | Announce the current symbol, data provider, and timeframe |
+| Shift+F1 | Announce the current symbol, data provider, and timeframe |
 | Ctrl+Alt+Shift+C | Focus the chart area and announce a full context summary |
 
 ---
@@ -448,7 +448,7 @@ This is useful for a thorough understanding of a specific bar before making a de
 
 | Key | Action |
 |-----|--------|
-| F4 | Announce symbol, data provider, and timeframe |
+| Shift+F1 | Announce symbol, data provider, and timeframe |
 | Ctrl+Alt+Shift+C | Focus chart area and announce full context summary |
 
 ### AI Technical Analyst
@@ -678,7 +678,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 |----------|--------|
 | F2 | Toggle speech on/off |
 | F3 | Toggle sonification on/off |
-| F4 | Announce symbol, provider, timeframe |
+| Shift+F1 | Announce symbol, provider, timeframe |
 | F5 | Component volume up |
 | Shift+F5 | Component volume down |
 | F6 | Series volume up |
@@ -782,7 +782,7 @@ By default only the chart on screen is live. To keep the other tabs watched too,
 
 If you are opening Accessible Trader for the first time, here is a recommended sequence to orient yourself:
 
-1. Press F4 to hear what symbol, provider, and timeframe is currently active.
+1. Press Shift+F1 to hear what symbol, provider, and timeframe is currently active.
 2. Press Ctrl+Alt+Shift+C to get a full context summary.
 3. Press Right Arrow a few times and listen to the pitch changes as price moves forward in time.
 4. Press Space to start whole-chart playback and let the chart play for several seconds. Press Space again to stop.
