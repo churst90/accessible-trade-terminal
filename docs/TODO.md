@@ -182,9 +182,15 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   markers via the indicator dialog with the label as speech), paste-first
   accessible import dialog (Ctrl+Alt+Shift+I) with templates, per-user
   persistence + quotas, per-symbol DataShape SDK hook, demo-hidden. 26 tests.
-- [ ] **My Data v2 — overlay path**: imported datasets as series ON an existing
-  chart (own pane or %-normalized main-pane overlay). Shares the alignment +
-  normalization engine with the Wave 2 compare-overlay item — build together.
+- [x] **My Data v2 — overlay path** DONE 2026-07-22 — MyDataSeriesProvider: per-dataset
+  "My Data: X" (own pane, per-column components, Normalize-to-100 param), "My Data
+  overlay: X" (main pane, rebased to chart close at first alignment = %-compare),
+  "My Data ratio: X" (chart÷data, OHLCV only). Forward-fill alignment engine
+  (AlignForwardFill) is internal+tested — the symbol-vs-symbol compare item now
+  reduces to feeding it fetched second-symbol bars.
+- [ ] **Symbol compare overlay** (rest of the Wave 2 compare item): fetch a second
+  exchange symbol (async, COT-style cross-fetch pattern) and feed the SAME rebase/
+  ratio engine. UI: pick a symbol, get overlay + ratio like a My Data dataset.
 - [ ] **xlsx import** — future; needs a spreadsheet-parsing dependency. The
   dialog tells users to export CSV from Excel/LibreOffice meanwhile.
 

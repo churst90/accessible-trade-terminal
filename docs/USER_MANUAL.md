@@ -362,6 +362,17 @@ three shapes. Excel and LibreOffice users: File, Save As, CSV. If a file can't
 be read safely the import is refused with the line number and reason — a
 refused import beats a silently wrong chart.
 
+Imported data doesn't have to live on its own chart. The indicator dialog's
+**My Data** category puts any dataset ON the chart you're viewing, aligned to
+its bars (sparser data holds its value between points, like the weekly COT
+series does on a daily chart). "My Data: X" opens the dataset in its own pane
+with every column navigable, and a Normalize-to-100 setting makes
+different-sized columns comparable by shape. "My Data overlay: X" draws it on
+the price pane itself, rebased so it starts where the chart was — from there
+the two lines diverge by relative performance, in pitch as well as pixels.
+For imported OHLCV data, "My Data ratio: X" adds the classic strength read:
+the chart's close divided by yours, rising when the loaded symbol outperforms.
+
 ## Reading the Chart
 
 A loaded chart is a structure you move through, not a picture you glance at. This

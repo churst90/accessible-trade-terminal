@@ -249,6 +249,7 @@ namespace AccessibleTrader.BlazorClient
             // IIndicatorProvider implementations — Core, Skender, Profile, and the native suites.
             services.AddSingleton<IIndicatorProvider, CoreIndicatorProvider>();
             services.AddSingleton<IIndicatorProvider, MyDataEventsProvider>();
+            services.AddSingleton<IIndicatorProvider, MyDataSeriesProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderZeroCrossProvider>();
             services.AddSingleton<IIndicatorProvider, SkenderBandProvider>();

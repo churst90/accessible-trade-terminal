@@ -6,6 +6,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### My Data v2: your data ON the chart — overlay, ratio, normalize (2026-07-22)
+
+The finishing piece of the CSV feature: imported datasets as series on an
+EXISTING chart, via the indicator dialog (Alt+A, category "My Data"). Three
+families per dataset, all aligned to the chart's bars by forward-fill (the
+COT trick — weekly data holds its value across daily bars; NaN before the
+first data point; blank cells carry the last real value):
+
+- **"My Data: X"** — own pane, raw values, one navigable component per column
+  (Income / Expenses / Net each its own voice under the arrow keys). A
+  "Normalize to 100" parameter rebases every column to 100 at its first value
+  so different-magnitude columns compare by shape.
+- **"My Data overlay: X"** — ON the price pane, every column rebased so its
+  first aligned value equals the chart's close at that bar: relative
+  performance against the loaded symbol. This is the %-compare engine the
+  Wave 2 compare item called for, shipped and tested; what remains of that
+  item is only the exchange-symbol fetch side (compare BTC vs ETH without an
+  import), which now reduces to feeding this same engine.
+- **"My Data ratio: X"** — own pane, chart close ÷ dataset value (OHLCV
+  datasets), the asset-vs-asset strength read.
+
+Values speak through the magnitude-aware price formatter (imported units can
+be anything). Indicator lists and code dispatch are enumerated live, so a
+fresh import appears in Alt+A immediately — no restart. 8 new tests pin the
+forward-fill (weekly→daily, gap carry), the rebase math, the ratio, the
+per-column components, and the normalize parameter. 1817 → 1825.
+
 ### My Data: import your own CSV files (Wave 2, 2026-07-22)
 
 The Market dropdown gains **My Data** — your own numbers, served through the

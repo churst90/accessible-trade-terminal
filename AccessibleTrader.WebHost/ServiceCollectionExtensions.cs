@@ -240,6 +240,7 @@ namespace AccessibleTrader.WebHost
         {
             services.AddScoped<IIndicatorProvider, CoreIndicatorProvider>();
             services.AddScoped<IIndicatorProvider, MyDataEventsProvider>();
+            services.AddScoped<IIndicatorProvider, MyDataSeriesProvider>();
             services.AddScoped<IIndicatorProvider, SkenderBoundedOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, SkenderZeroCrossProvider>();
             services.AddScoped<IIndicatorProvider, SkenderBandProvider>();
