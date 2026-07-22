@@ -14,6 +14,26 @@ namespace AccessibleTrader.Core.Services
         Task<string> PlaceOrderAsync(string provider, TradeSignal signal);
         Task<bool>   CancelOrderAsync(string provider, string orderId, string symbol);
 
+        /// <summary>
+        /// True when a LINKED one-cancels-other pair can actually be placed on the
+        /// effective broker: the paper simulator (terminal-enforced pairing) or an
+        /// exchange implementing <see cref="Sdk.Plugins.IOcoTradingProvider"/>
+        /// (exchange-enforced). Providers that merely declare the OCO capability
+        /// flag without either mechanism return false — the UI must not offer a
+        /// pairing promise nobody keeps.
+        /// </summary>
+        Task<bool> SupportsOcoPairsAsync(string provider);
+
+        /// <summary>
+        /// Places a same-side/same-quantity OCO pair: LIMIT at
+        /// <paramref name="limitPrice"/> + STOP triggered at
+        /// <paramref name="stopTriggerPrice"/>. Native on exchanges that support
+        /// it; terminal-grouped on paper (with rollback if the second leg fails —
+        /// never half a pair). Returns (success, spoken-ready message).
+        /// </summary>
+        Task<(bool Ok, string Message)> PlaceOcoPairAsync(string provider, string symbol,
+            Sdk.Plugins.OrderSide side, double quantity, double limitPrice, double stopTriggerPrice);
+
         // ── Account data (requires ITradingProvider) ───────────────────────────
         /// <summary>Returns all asset balances for the given provider. Empty list if unsupported.</summary>
         Task<List<Balance>>   GetBalancesAsync(string provider);

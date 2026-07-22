@@ -27,7 +27,7 @@ namespace AccessibleTrader.Plugins.Binance
     /// the order book (REST + live), the user-data order stream, and full trading
     /// (balances, positions, open orders, place/cancel, leverage, protective TP/SL).
     /// </summary>
-    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
+    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider
     {
         // ── Endpoints (mainnet / testnet) ─────────────────────────────────────
         private string SpotRest => _isTestnet ? "https://testnet.binance.vision"     : "https://api.binance.com";
@@ -546,6 +546,57 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 _errorStream.OnNext($"Binance GetFillsAsync failed ({ex.GetType().Name}): {ex.Message}");
                 return new();
+            }
+        }
+
+        /// <summary>
+        /// Exchange-native spot OCO via POST /api/v3/orderList/oco (the current
+        /// endpoint; the legacy /api/v3/order/oco was retired). Leg layout per
+        /// Binance's above/below vocabulary: for a SELL pair the LIMIT_MAKER
+        /// (take profit) sits ABOVE and the STOP_LOSS BELOW; a BUY pair is the
+        /// mirror (breakout stop above, pullback limit below). The exchange
+        /// enforces the layout server-side too — an inverted pair is rejected.
+        /// </summary>
+        public async Task<string> PlaceOcoPairAsync(string symbol, OrderSide side, double quantity,
+            double limitPrice, double stopTriggerPrice)
+        {
+            if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var p = new Dictionary<string, string>
+                    {
+                        ["symbol"] = CleanSymbol(symbol),
+                        ["side"] = side == OrderSide.Buy ? "BUY" : "SELL",
+                        ["quantity"] = Fmt(quantity),
+                    };
+                    if (side == OrderSide.Sell)
+                    {
+                        p["aboveType"] = "LIMIT_MAKER";
+                        p["abovePrice"] = Fmt(limitPrice);
+                        p["belowType"] = "STOP_LOSS";
+                        p["belowStopPrice"] = Fmt(stopTriggerPrice);
+                    }
+                    else
+                    {
+                        p["aboveType"] = "STOP_LOSS";
+                        p["aboveStopPrice"] = Fmt(stopTriggerPrice);
+                        p["belowType"] = "LIMIT_MAKER";
+                        p["belowPrice"] = Fmt(limitPrice);
+                    }
+
+                    string body = await SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/orderList/oco", p);
+                    var doc = System.Text.Json.JsonDocument.Parse(body);
+                    return doc.RootElement.TryGetProperty("orderListId", out var id)
+                        ? id.GetRawText()
+                        : "ORDER_FAILED:no orderListId in response";
+                });
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance OCO error: {ex.GetType().Name}");
+                return $"ORDER_FAILED:{ex.Message}";
             }
         }
 

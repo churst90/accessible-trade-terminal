@@ -516,6 +516,69 @@ namespace AccessibleTrader.Core.Services
         private static bool IsTakeProfitType(OrderType t) =>
             t == OrderType.TakeProfitMarket || t == OrderType.TakeProfitLimit;
 
+        public async Task<bool> SupportsOcoPairsAsync(string providerName)
+        {
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            return tp is IPaperTradingProvider or Sdk.Plugins.IOcoTradingProvider;
+        }
+
+        public async Task<(bool Ok, string Message)> PlaceOcoPairAsync(string providerName, string symbol,
+            OrderSide side, double quantity, double limitPrice, double stopTriggerPrice)
+        {
+            // Same sanity clamps as single orders — money path.
+            if (!IsFinitePositive(quantity) || quantity > MaxOrderQuantity
+                || !IsFinitePositive(limitPrice) || !IsFinitePositive(stopTriggerPrice))
+                return (false, "OCO pair rejected: quantity and both prices must be finite positive numbers.");
+            // Layout sanity here too (the dashboard also pre-checks, but the modal
+            // isn't the only possible caller): sell = limit above stop, buy = mirror.
+            bool sane = side == OrderSide.Sell ? limitPrice > stopTriggerPrice : stopTriggerPrice > limitPrice;
+            if (!sane)
+                return (false, side == OrderSide.Sell
+                    ? "OCO pair rejected: for a sell pair the limit price belongs above the stop trigger."
+                    : "OCO pair rejected: for a buy pair the stop trigger belongs above the limit price.");
+
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            if (tp == null || !tp.IsConnected)
+                return (false, $"{providerName} is not connected.");
+
+            // Exchange-native pairing when the provider implements it (paper takes
+            // the grouped path below — its simulator IS the pairing engine).
+            if (tp is Sdk.Plugins.IOcoTradingProvider native && tp is not IPaperTradingProvider)
+            {
+                string result = await native.PlaceOcoPairAsync(symbol, side, quantity, limitPrice, stopTriggerPrice)
+                    .ConfigureAwait(false);
+                if (IsErrorSentinel(result))
+                {
+                    _errorCoordinator.ReportError($"OCO pair failed on {providerName}.", ErrorSeverity.High);
+                    return (false, $"OCO pair failed: {result}");
+                }
+                _errorCoordinator.ReportSuccess($"OCO pair placed on {providerName} (exchange-linked).");
+                return (true, "OCO pair resting, linked by the exchange: whichever fills first cancels the other.");
+            }
+
+            if (tp is IPaperTradingProvider)
+            {
+                string group = "oco-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                var limitLeg = new TradeSignal(symbol, side, quantity, OrderType.Limit,
+                    Price: limitPrice, OcoGroupId: group);
+                var stopLeg = new TradeSignal(symbol, side, quantity, OrderType.StopMarket,
+                    TriggerPrice: stopTriggerPrice, OcoGroupId: group);
+
+                string r1 = await PlaceOrderAsync(providerName, limitLeg).ConfigureAwait(false);
+                if (IsErrorSentinel(r1)) return (false, "OCO limit leg failed — nothing was placed.");
+                string r2 = await PlaceOrderAsync(providerName, stopLeg).ConfigureAwait(false);
+                if (IsErrorSentinel(r2))
+                {
+                    // Never leave half a pair resting.
+                    await CancelOrderAsync(providerName, r1, symbol).ConfigureAwait(false);
+                    return (false, "OCO stop leg failed — the limit leg was cancelled, nothing is resting.");
+                }
+                return (true, "OCO pair resting: whichever fills first cancels the other.");
+            }
+
+            return (false, $"{providerName} cannot place linked OCO pairs from this terminal yet.");
+        }
+
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);

@@ -128,6 +128,22 @@
         <PackageReference Include="System.Reactive" Version="6.1.0" />
     </ItemGroup>
 
+    <!-- ── Windows tray icon (EXPERIMENTAL — opt-in until Windows-verified) ──
+         Cannot be compiled or tested from the Linux dev box (the Windows TFM is
+         excluded there), and release.yml builds the Windows head on every tag —
+         so the whole feature is gated behind -p:EnableWindowsTrayIcon=true.
+         On the next Windows session: build with the flag, verify close-to-tray
+         + restore + exit, then flip the default below to true. -->
+    <PropertyGroup>
+        <EnableWindowsTrayIcon Condition="'$(EnableWindowsTrayIcon)' == ''">false</EnableWindowsTrayIcon>
+    </PropertyGroup>
+    <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) AND '$(EnableWindowsTrayIcon)' == 'true'">
+        <DefineConstants>$(DefineConstants);TRAY_ICON</DefineConstants>
+    </PropertyGroup>
+    <ItemGroup Condition="$(TargetFramework.Contains('-windows')) AND '$(EnableWindowsTrayIcon)' == 'true'">
+        <PackageReference Include="H.NotifyIcon.Maui" Version="2.3.0" />
+    </ItemGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\AccessibleTrader.BlazorClient.Components\AccessibleTrader.BlazorClient.Components.csproj" />
       <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />

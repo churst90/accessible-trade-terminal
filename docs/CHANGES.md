@@ -6,6 +6,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Live OCO (Binance-native) + Windows tray draft (2026-07-22)
+
+**Live OCO.** The pairing promise now extends beyond paper — architected as a
+capability, not a flag: new `IOcoTradingProvider` in the SDK for exchanges
+whose OCO is enforced SERVER-SIDE (the link holds even if the terminal is
+offline when a leg fills). `IOrderExecutionService.PlaceOcoPairAsync` routes:
+native provider → one exchange call; paper → terminal-grouped legs with
+rollback (logic moved out of the dashboard modal into the service, where any
+caller gets the same sanity checks); flag-only providers (IBKR declares OCO
+but implements no linking) → refused with a plain message — two unlinked
+orders never masquerade as a pair, and the dashboard section only appears
+where pairing is real (`SupportsOcoPairsAsync`). Binance spot implements the
+native call via the CURRENT `/api/v3/orderList/oco` endpoint (the legacy
+`/order/oco` was retired) with the above/below leg vocabulary — sell: LIMIT_
+MAKER above + STOP_LOSS below; buy: mirror. 9 new tests pin the routing,
+paper rollback, flag-only refusal, inverted-layout rejection, and the exact
+signed Binance request shape for both sides. Not yet fired against the real
+exchange — the request shape matches current Binance docs; first live use
+should be a tiny pair.
+
+**Windows tray icon (EXPERIMENTAL, opt-in).** Close-to-tray for the MAUI
+Windows head: closing the window hides to the tray (feeds/alerts/audio keep
+running), tray menu Restore / Exit, double-click restores. Written on the
+Linux box where the Windows TFM cannot even compile, so the entire feature —
+package reference included — is gated behind `-p:EnableWindowsTrayIcon=true`
+and CANNOT affect releases until verified. Next Windows session: build with
+the flag, verify, flip the csproj default (steps in TrayIconService.cs).
+
 ### Local background monitoring: close the browser, keep hearing alerts (2026-07-22)
 
 On a LOCAL WebHost the server outlives the browser tab, and every delivery

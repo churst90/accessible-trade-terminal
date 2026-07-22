@@ -96,6 +96,26 @@ namespace AccessibleTrader.Sdk.Plugins
     // ── Interface ─────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Optional capability: exchange-NATIVE one-cancels-other pairs. The
+    /// exchange links the two legs server-side, so the cancellation guarantee
+    /// holds even if this terminal is offline when a leg fills. Providers that
+    /// only declare <see cref="Enums.ProviderCapabilities.OCO"/> without this
+    /// interface can NOT place linked pairs through the terminal (the order
+    /// service refuses rather than resting two secretly-unlinked orders).
+    /// </summary>
+    public interface IOcoTradingProvider
+    {
+        /// <summary>
+        /// Places a same-side, same-quantity pair: a LIMIT at
+        /// <paramref name="limitPrice"/> and a STOP (market) triggered at
+        /// <paramref name="stopTriggerPrice"/>, linked one-cancels-other.
+        /// Returns the exchange's pair/list id, or an "ORDER_FAILED:…" sentinel.
+        /// </summary>
+        Task<string> PlaceOcoPairAsync(string symbol, OrderSide side, double quantity,
+            double limitPrice, double stopTriggerPrice);
+    }
+
+    /// <summary>
     /// Optional capability interface for plugins that support live trading.
     /// Query via <c>plugin.GetCapability&lt;ITradingProvider&gt;()</c>.
     /// </summary>

@@ -240,13 +240,12 @@
                             }
 
                             @* ── OCO pair (one cancels the other) ─────────────────
-                               Paper mode only for now: the paper broker enforces the
-                               pair (fill or manual cancel of one leg cancels the
-                               other). Live exchanges declare the OCO capability but
-                               route through exchange-native endpoints we don't call
-                               yet — two UNLINKED live orders would be a false
-                               promise, so the section stays hidden there. *@
-                            @if (_paperMode && _caps.HasFlag(ProviderCapabilities.OCO))
+                               Shown only when the pair is genuinely LINKED somewhere:
+                               the paper broker (terminal-enforced) or an exchange
+                               with native OCO (Binance spot — exchange-enforced, so
+                               the link holds even with the terminal offline). Flag-
+                               only providers stay hidden: no unlinked "pairs". *@
+                            @if (_supportsOco)
                             {
                                 <section aria-labelledby="oco-title" style="margin-top:14px; border-top:1px solid #555; padding-top:10px;">
                                     <h3 id="oco-title">OCO pair — one cancels the other</h3>
@@ -626,6 +625,7 @@
 
         _supportsMargin = supported && await OrderService.SupportsMarginTradingAsync(provider);
         _caps           = supported ? await OrderService.GetCapabilitiesAsync(provider) : ProviderCapabilities.None;
+        _supportsOco    = supported && await OrderService.SupportsOcoPairsAsync(provider);
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
         _leverage       = _supportsMargin ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
@@ -844,12 +844,16 @@
     }
 
     // ── OCO pair state + submit ─────────────────────────────────────────────
+    // Pairing/rollback/sanity all live in IOrderExecutionService.PlaceOcoPairAsync
+    // (native on supporting exchanges, terminal-grouped on paper); the modal just
+    // collects the four fields and speaks the outcome.
     private string _ocoSide = "Sell";
     private double _ocoQty;
     private double _ocoLimitPrice;
     private double _ocoStopPrice;
     private string? _ocoStatus;
     private bool _ocoError;
+    private bool _supportsOco;
 
     private bool CanSubmitOco =>
         _ocoQty > 0 && _ocoLimitPrice > 0 && _ocoStopPrice > 0 && _ocoLimitPrice != _ocoStopPrice;
@@ -861,56 +865,17 @@
         if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
 
         var side = _ocoSide == "Buy" ? OrderSide.Buy : OrderSide.Sell;
-        // Sanity: for a SELL pair the limit belongs above the stop (take profit up,
-        // stop below); for a BUY pair the stop trigger sits above the limit
-        // (breakout above, pullback below). Refuse the inverted layout out loud
-        // instead of resting a pair that fills instantly.
-        bool sane = side == OrderSide.Sell ? _ocoLimitPrice > _ocoStopPrice : _ocoStopPrice > _ocoLimitPrice;
-        if (!sane)
-        {
-            _ocoError = true;
-            _ocoStatus = side == OrderSide.Sell
-                ? "For a sell pair, the limit price should be ABOVE the stop trigger."
-                : "For a buy pair, the stop trigger should be ABOVE the limit price.";
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
-            return;
-        }
+        var (ok, message) = await OrderService.PlaceOcoPairAsync(
+            provider, symbol, side, _ocoQty, _ocoLimitPrice, _ocoStopPrice);
 
-        string group = "oco-" + Guid.NewGuid().ToString("N")[..8];
-        var limitLeg = new TradeSignal(symbol, side, _ocoQty, OrderType.Limit,
-            Price: _ocoLimitPrice, OcoGroupId: group);
-        var stopLeg = new TradeSignal(symbol, side, _ocoQty, OrderType.StopMarket,
-            TriggerPrice: _ocoStopPrice, OcoGroupId: group);
-
-        string r1 = await OrderService.PlaceOrderAsync(provider, limitLeg);
-        if (IsOrderError(r1))
-        {
-            _ocoError = true;
-            _ocoStatus = "OCO limit leg failed — nothing was placed.";
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
-            return;
-        }
-        string r2 = await OrderService.PlaceOrderAsync(provider, stopLeg);
-        if (IsOrderError(r2))
-        {
-            // Never leave half a pair resting: pull the first leg back out.
-            await OrderService.CancelOrderAsync(provider, r1, symbol);
-            _ocoError = true;
-            _ocoStatus = "OCO stop leg failed — the limit leg was cancelled, nothing is resting.";
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _ocoStatus, true));
-            return;
-        }
-
-        _ocoError = false;
-        _ocoStatus = $"OCO pair resting: {_ocoSide} {PriceFormatter.FormatQuantity(_ocoQty)} {symbol} — " +
-                     $"limit {PriceFormatter.FormatPrice(_ocoLimitPrice)}, stop {PriceFormatter.FormatPrice(_ocoStopPrice)}. " +
-                     "Whichever fills first cancels the other.";
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, _ocoStatus, true));
-        await LoadAccountDataAsync();
+        _ocoError = !ok;
+        _ocoStatus = ok
+            ? $"OCO pair resting: {_ocoSide} {PriceFormatter.FormatQuantity(_ocoQty)} {symbol} — " +
+              $"limit {PriceFormatter.FormatPrice(_ocoLimitPrice)}, stop {PriceFormatter.FormatPrice(_ocoStopPrice)}. {message}"
+            : message;
+        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.Info : FeedbackType.Error, _ocoStatus, true));
+        if (ok) await LoadAccountDataAsync();
     }
-
-    private static bool IsOrderError(string result) =>
-        result.StartsWith("ORDER_") || result.StartsWith("PROVIDER_");
 
     // Close (or reduce-to-flat) a position by submitting an opposing market order.
     private async Task ClosePosition(Position p)

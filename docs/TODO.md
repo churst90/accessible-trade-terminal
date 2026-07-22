@@ -219,9 +219,18 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
 - [x] **OCO UI** DONE 2026-07-22 — TradeSignal.OcoGroupId + paper-broker pair
   enforcement (fill/manual-cancel cancels sibling, persisted) + Trading Dashboard
   OCO-pair section (paper mode only). 5 tests.
-- [ ] **Live OCO** — map OcoGroupId to exchange-native OCO endpoints (Binance OCO
-  order lists first); until then the dashboard section is paper-gated so live users
-  can never rest an unlinked "pair".
+- [x] **Live OCO** DONE 2026-07-22 — IOcoTradingProvider capability + service
+  routing (native/paper-grouped/refused) + Binance /api/v3/orderList/oco with
+  request-shape tests both sides. NOT yet fired against the real exchange; first
+  live use should be a tiny pair. Other exchanges (Kraken, Coinbase) as demand asks.
+- [ ] **Windows tray VERIFY** — code shipped behind -p:EnableWindowsTrayIcon=true
+  (H.NotifyIcon.Maui 2.3.0, close-to-tray + Restore/Exit menu). On the next Windows
+  session: build w/ flag, verify the four steps in TrayIconService.cs, flip the
+  csproj default to true. Package version may need adjusting for net10 MAUI.
+- [ ] **Hosted server-side alerts + Web Push** — evaluate saved alerts server-side
+  against shared feeds (rides the shared-connection-pool item) delivering via the
+  existing webhook/Telegram/email channels; Web Push (VAPID + service worker) for
+  OS notifications with the tab closed. The one remaining "line item" (~3-4d).
 - [ ] **xlsx import** — future; needs a spreadsheet-parsing dependency. The
   dialog tells users to export CSV from Excel/LibreOffice meanwhile.
 

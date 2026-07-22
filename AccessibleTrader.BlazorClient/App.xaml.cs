@@ -16,6 +16,11 @@ public partial class App : Application
         window.Destroying += (s, e) => {
             Application.Current?.Quit();
         };
+#if TRAY_ICON
+        // Windows tray (EXPERIMENTAL, csproj-gated): close hides to the tray and
+        // the terminal keeps running — feeds, alerts, and audio stay live.
+        Platforms.Windows.TrayIconService.Initialize(window);
+#endif
         return window;
 	}
 }
