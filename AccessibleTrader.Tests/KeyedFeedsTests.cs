@@ -34,7 +34,7 @@ namespace AccessibleTrader.Tests
         /// IDataOrchestrator double: scripted fetch responses (with optional gate for
         /// concurrency tests), a writable live channel, and call capture.
         /// </summary>
-        private sealed class FakeOrchestrator : IDataOrchestrator
+        internal sealed class FakeOrchestrator : IDataOrchestrator
         {
             public readonly Queue<List<Ohlcv>> FetchResults = new();
             public readonly List<(string Symbol, int? Limit, long? Until)> FetchCalls = new();

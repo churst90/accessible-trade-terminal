@@ -135,6 +135,8 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
         // SettingsModal injects IBackgroundMonitoringService (background-monitoring fieldset).
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>());
+        // ...and IBackgroundTabFeedService (live background tabs toggle, keyed feeds Phase C).
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService>());
         // SettingsModal injects IRuntimePlatform (braille fieldset is hidden on the
         // browser host). Substitute defaults: all-false → native-desktop-like.
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.IRuntimePlatform>());

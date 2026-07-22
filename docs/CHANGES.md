@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased — Tier 2 of the 2.0 plan]
+
+### Keyed feeds: the 2.0 pipeline refactor (2026-07-22)
+
+The centerpiece rebuild (docs/KEYED_FEEDS_DESIGN.md), landed in three phases
+the same day, all behavior-pinned by 47 new tests:
+
+**Phase A — foundation.** Per-identity ChartFeed buffers + MarketFeedHub
+replace the focused-chart-singleton pipeline; DataManager survives as the
+focused-feed store binder with its exact dispatch contract preserved.
+
+**Phase B — multi-live capability.** Providers can now declare
+SupportsMultipleLiveSubscriptions and serve independent per-feed websockets
+(Binance first). Found and FIXED fleet-wide in the process: kline-style live
+streams (Binance, MEXC, Kraken) re-send the current candle with cumulative
+volume, and the old consolidation re-ADDED that running total every update —
+live-bar volume was inflated until the next REST refresh. Providers now
+declare LiveTickStyle and the style-aware consolidator diffs cumulative
+volumes. Also fixed: TimeSeriesBuffer.Append overflowed on the Empty
+singleton (latent since the class was written).
+
+**Phase C — the payoff.**
+- Strategies now evaluate on live bar CLOSES on the focused chart. The audit
+  missed this one: DataUpdated never fired for live ticks, so focused-chart
+  strategies only ever evaluated on load, tab switch, and scrollback — never
+  on a live bar. Alerts/sonification were unaffected (store-driven). The fix
+  evaluates the closed bar with history excluding the forming bar —
+  backtest-matching semantics.
+- Instant tab switches: if the target tab's feed is still warm (and its
+  scrollback covers the snapshot's), it binds with no network round-trip;
+  live feeds skip even the gap-fill.
+- Live background tabs (opt-in, Settings → Background monitoring →
+  "Live-stream background tabs", default OFF): background tabs on exchanges
+  that support it stream continuously (first 8), warmed from their tab
+  snapshots; background monitors read those tick-fresh buffers through
+  MarketFeeds at zero REST cost. Everything else keeps the 30s poll.
+- Concurrency hardening: gap-fill merges re-check ordering against the
+  current last bar inside the lock; stale ticks are dropped, not merged.
+
 ## [Unreleased — Tier 1 of the 2.0 plan]
 
 ### The rock-solid pass: audit criticals fixed (2026-07-22)

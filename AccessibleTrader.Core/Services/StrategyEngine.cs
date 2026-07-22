@@ -25,6 +25,10 @@ namespace AccessibleTrader.Core.Services
         private readonly IDataManager _dataManager;
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
+        private readonly Feeds.IMarketFeedHub? _feedHub;
+        // Serializes live bar-close evaluations so two rapid closes (e.g. a burst
+        // after a reconnect) never run strategies concurrently.
+        private readonly object _liveBarGate = new();
 
         private ImmutableList<ActiveStrategy> _activeStrategies = ImmutableList<ActiveStrategy>.Empty;
         private readonly Dictionary<string, DateTime> _lastSignalTimes = new();
@@ -42,7 +46,8 @@ namespace AccessibleTrader.Core.Services
             ILogger<StrategyEngine> msLogger,
             IDataManager dataManager,
             IWorkspaceStore store,
-            IStrategyIndicatorCache indicatorCache)
+            IStrategyIndicatorCache indicatorCache,
+            Feeds.IMarketFeedHub? feedHub = null)
         {
             _eventBus       = eventBus;
             _orderService   = orderService;
@@ -53,6 +58,15 @@ namespace AccessibleTrader.Core.Services
             _indicatorCache = indicatorCache;
 
             _dataManager.DataUpdated += OnDataUpdated;
+
+            // The live bar-close driver (2026-07-22 keyed-feeds fix): DataUpdated
+            // has NEVER fired for live ticks, so focused-chart strategies only
+            // evaluated on load/tab-switch/prepend. LiveAppend on the focused feed
+            // means the previous bar just CLOSED — the correct, backtest-matching
+            // moment to evaluate (see docs/KEYED_FEEDS_DESIGN.md).
+            _feedHub = feedHub;
+            if (_feedHub != null)
+                _feedHub.FocusedFeedUpdated += OnFocusedFeedUpdated;
 
             // (StrategyConfirmedEvent subscription removed — event was never published)
         }
@@ -66,9 +80,55 @@ namespace AccessibleTrader.Core.Services
             int idx = state.CurrentDataIndex;
             if (idx < 1 || idx >= state.Data.Count) return;
 
-            var newBar  = state.Data[idx];
-            var history = (IReadOnlyList<Sdk.Models.Ohlcv>)state.Data;
+            EvaluateBar(state.Data[idx], state.Data, state);
+        }
 
+        private void OnFocusedFeedUpdated(Feeds.ChartFeed feed, Feeds.FeedUpdateKind kind)
+        {
+            if (kind != Feeds.FeedUpdateKind.LiveAppend) return;
+            if (_activeStrategies.IsEmpty) return;
+
+            // Snapshot the buffer NOW; the closed bars in it never mutate.
+            var bars = feed.Bars;
+            if (bars.Count < 2) return;
+
+            // Evaluate OFF the pump thread — this event fires while the feed's
+            // prepend lock is held, and strategy evaluation (indicator math,
+            // signal publication, auto-execution dispatch) must never block the
+            // live merge path.
+            SafeFireAndForget.Run(() =>
+            {
+                lock (_liveBarGate)
+                {
+                    var closedBar = bars[bars.Count - 2];
+                    var history = new PrefixView(bars, bars.Count - 1);
+                    _indicatorCache.Invalidate(history.Count);
+                    EvaluateBar(closedBar, history, _store.State);
+                }
+                return System.Threading.Tasks.Task.CompletedTask;
+            }, _msLogger, "LiveBarCloseEvaluation");
+        }
+
+        /// <summary>History view that excludes the still-forming live bar, so the
+        /// bar-close path hands strategies the same shape a backtest replay does:
+        /// the closed bar is the LAST element of its own history.</summary>
+        private sealed class PrefixView : IReadOnlyList<Sdk.Models.Ohlcv>
+        {
+            private readonly TimeSeriesBuffer<Sdk.Models.Ohlcv> _bars;
+            public PrefixView(TimeSeriesBuffer<Sdk.Models.Ohlcv> bars, int count) { _bars = bars; Count = count; }
+            public int Count { get; }
+            public Sdk.Models.Ohlcv this[int index] => index < Count
+                ? _bars[index]
+                : throw new ArgumentOutOfRangeException(nameof(index));
+            public IEnumerator<Sdk.Models.Ohlcv> GetEnumerator()
+            {
+                for (int i = 0; i < Count; i++) yield return _bars[i];
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private void EvaluateBar(Sdk.Models.Ohlcv newBar, IReadOnlyList<Sdk.Models.Ohlcv> history, WorkspaceState state)
+        {
             foreach (var active in _activeStrategies)
             {
                 if (active.IsPaused) continue;
@@ -201,6 +261,8 @@ namespace AccessibleTrader.Core.Services
         public void Dispose()
         {
             _dataManager.DataUpdated -= OnDataUpdated;
+            if (_feedHub != null)
+                _feedHub.FocusedFeedUpdated -= OnFocusedFeedUpdated;
             _subscriptions.Dispose();
 
             foreach (var active in _activeStrategies)

@@ -123,23 +123,36 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             if (gapBars.Any())
             {
+                int appended = 0;
                 lock (_cacheLock)
                 {
                     foreach (var bar in gapBars)
                     {
+                        // Re-check against the CURRENT last bar inside the lock:
+                        // a live subscription may have appended past this fetched
+                        // bar while the fetch was in flight, and appending an
+                        // older bar after a newer one breaks buffer ordering.
+                        if (_cache.Count > 0 && bar.Date <= _cache[_cache.Count - 1].Date) continue;
                         _cache = _cache.Append(bar);
+                        appended++;
                         if (_cache.Count > MaxBarsInCache)
                             _cache = _cache.RemoveFirst();
                     }
                 }
-                _logger.LogInformation("ChartFeed: Gap-filled {Count} bars for {Symbol}.", gapBars.Count, Identity.Symbol);
+                _logger.LogInformation("ChartFeed: Gap-filled {Count} bars for {Symbol}.", appended, Identity.Symbol);
             }
             else
             {
                 // No new bars — but update the live bar in case it changed intra-bar.
+                // Same in-lock guard: only touch the last bar if it is still the
+                // bar this fetch described.
                 var latest = recent.Last();
-                if (latest.Date == lastKnownDate)
-                    lock (_cacheLock) { _cache = _cache.ReplaceLast(latest); }
+                lock (_cacheLock)
+                {
+                    if (latest.Date == lastKnownDate
+                        && _cache.Count > 0 && _cache[_cache.Count - 1].Date == lastKnownDate)
+                        _cache = _cache.ReplaceLast(latest);
+                }
             }
 
             Touch();
@@ -222,10 +235,18 @@ namespace AccessibleTrader.Core.Services.Feeds
                         if (_cache.Count > LiveGrowthCap) _cache = _cache.RemoveFirst();
                         kind = FeedUpdateKind.LiveAppend;
                     }
-                    else
+                    else if (tick.Date == lastBar.Date)
                     {
                         _cache = _cache.ReplaceLast(tick);
                         kind = FeedUpdateKind.LiveReplace;
+                    }
+                    else
+                    {
+                        // A tick OLDER than the last bar (a concurrent gap-fill
+                        // advanced the buffer while this tick was in flight, or a
+                        // provider replayed on reconnect). Replacing the newer
+                        // last bar with it would corrupt the series — drop it.
+                        return false;
                     }
                 }
                 Touch();

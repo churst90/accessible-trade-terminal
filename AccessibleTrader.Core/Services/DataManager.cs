@@ -123,24 +123,59 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                _logger.LogInformation("DataManager: Restoring {Count} bars from snapshot for {Symbol}.",
-                    snapshotData.Count, feed.Identity.Symbol);
+                // Keyed-feeds fast path: the target identity's feed may still be WARM —
+                // it was this tab's buffer when the tab lost focus, and a background
+                // live subscription (or a recent visit) kept it current. Bind it
+                // instantly instead of restoring the older snapshot. Both guards
+                // matter: same-or-fresher at the live edge AND at least the
+                // snapshot's scrollback (a feed live-started from empty has fresh
+                // bars but no history — it must NOT replace the snapshot).
+                var warm = feed.Bars;
+                bool feedIsWarm = warm.Count > 0
+                    && warm[^1].Date >= snapshotData[^1].Date
+                    && warm[0].Date <= snapshotData[0].Date;
 
-                // Step 1 — Restore snapshot immediately so the store sees the full history
-                // without waiting for a network round-trip. IsInitialLoad=false so the
-                // snapshot-restored cursor/viewport from WorkspaceState is preserved.
-                feed.RestoreSnapshot(snapshotData);
-                _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
-                DataUpdated?.Invoke();
-
-                ct.ThrowIfCancellationRequested();
-
-                // Step 2 — Gap-fill: append only the bars that arrived while the tab
-                // was inactive, without touching the preserved scrollback.
-                if (await feed.GapFillAsync(ct).ConfigureAwait(false))
+                if (feedIsWarm)
                 {
+                    _logger.LogInformation(
+                        "DataManager: warm feed hit for {Symbol} — {Count} bars bound with no snapshot restore.",
+                        feed.Identity.Symbol, warm.Count);
+                    _store.Dispatch(new UpdateDataAction(warm, IsInitialLoad: false));
+                    DataUpdated?.Invoke();
+
+                    ct.ThrowIfCancellationRequested();
+
+                    // A live-subscribed feed is tick-current — skip the gap-fill
+                    // fetch entirely. A warm-but-idle feed still gap-fills to cover
+                    // bars that closed since focus left.
+                    if (!_hub.IsFeedLive(feed.Identity)
+                        && await feed.GapFillAsync(ct).ConfigureAwait(false))
+                    {
+                        _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                        DataUpdated?.Invoke();
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("DataManager: Restoring {Count} bars from snapshot for {Symbol}.",
+                        snapshotData.Count, feed.Identity.Symbol);
+
+                    // Step 1 — Restore snapshot immediately so the store sees the full history
+                    // without waiting for a network round-trip. IsInitialLoad=false so the
+                    // snapshot-restored cursor/viewport from WorkspaceState is preserved.
+                    feed.RestoreSnapshot(snapshotData);
                     _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
                     DataUpdated?.Invoke();
+
+                    ct.ThrowIfCancellationRequested();
+
+                    // Step 2 — Gap-fill: append only the bars that arrived while the tab
+                    // was inactive, without touching the preserved scrollback.
+                    if (await feed.GapFillAsync(ct).ConfigureAwait(false))
+                    {
+                        _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                        DataUpdated?.Invoke();
+                    }
                 }
 
                 // Step 3 — Force a full indicator recalculation so component arrays reflect

@@ -49,13 +49,16 @@ and broker parity were the gap.
 
 ## Tier 2 — The big rocks (why 2.0 is 2.0)
 
-1. **Keyed-feeds pipeline refactor** — per-ChartIdentity data buffers + live
-   subscriptions replacing the focused-chart singletons (DataManager,
-   LiveStreamManager, DataOrchestrator, store sync, tab-switch logic; the
-   IMarketFeeds seam is the entry point). Unlocks: live background tabs (not
-   30s polls), split view, tick-level background strategy evaluation, hosted
-   shared-feed scale. Do FIRST inside 2.0 so everything after lands on the
-   new architecture.
+1. **Keyed-feeds pipeline refactor** — **DONE 2026-07-22** (three commits,
+   docs/KEYED_FEEDS_DESIGN.md): per-ChartIdentity ChartFeeds in a
+   MarketFeedHub; DataManager is now the focused-feed store binder; SDK
+   multi-live capability implemented on Binance; opt-in live background tabs
+   (`workspace.liveBackgroundTabs`, 8-feed cap); instant warm-feed tab
+   switches; MarketFeeds serves live hub buffers to background monitors;
+   strategies finally evaluate on live bar closes (long-standing silent gap);
+   kline volume-inflation fixed fleet-wide via LiveTickStyle. Remaining on
+   top: more exchanges in SubscribeLiveAsync, split view, hosted shared-feed
+   pool (item 2's work).
 2. **Hosted server-side alerts + Web Push** — saved alerts evaluated on the
    server against shared feeds, delivered via existing webhook/Telegram/email
    plus browser push (VAPID + service worker) with the tab closed.

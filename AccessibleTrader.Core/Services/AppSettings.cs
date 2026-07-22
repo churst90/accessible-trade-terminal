@@ -63,6 +63,7 @@ namespace AccessibleTrader.Core.Services
         // Workspace
         bool BackgroundMonitoring { get; set; }
         int MonitorPollSeconds { get; set; }
+        bool LiveBackgroundTabs { get; set; }
 
         // Alerts — email
         string EmailHost { get; set; }
@@ -200,6 +201,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.BackgroundMonitoring);
             set => Set(SettingsKeys.BackgroundMonitoring, value);
+        }
+        public bool LiveBackgroundTabs
+        {
+            get => GetBool(SettingsKeys.LiveBackgroundTabs);
+            set => Set(SettingsKeys.LiveBackgroundTabs, value);
         }
         public int MonitorPollSeconds
         {

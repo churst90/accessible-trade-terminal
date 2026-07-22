@@ -1,7 +1,10 @@
 # Keyed feeds — the 2.0 pipeline architecture
 
-Tier 2 centerpiece (see ROADMAP_2.0.md). Written 2026-07-22 before implementation;
-updated as phases land.
+Tier 2 centerpiece (see ROADMAP_2.0.md). Written 2026-07-22 before
+implementation. **STATUS: Phases A, B, and C ALL LANDED 2026-07-22** (three
+commits; 47 dedicated tests). What remains from this design: enrolling more
+exchanges in SubscribeLiveAsync (Bitstamp/Kraken/MEXC are natural next), the
+hosted shared-feed pool, and split-view rendering on top of the hub.
 
 ## The problem
 
@@ -105,9 +108,19 @@ connection limits). Other exchanges enroll later as demand asks.
     background workspace monitors on multi-sub providers evaluate on
     tick-fresh bars with zero extra requests.
   - Live background tabs: opt-in setting (`workspace.liveBackgroundTabs`,
-    default OFF like background monitoring), capped at 8 concurrent
-    background live feeds, only on multi-sub providers; beyond the cap or
-    capability, the existing 30-second poll remains.
+    default OFF like background monitoring; checkbox in Settings under
+    Background monitoring), capped at 8 concurrent background live feeds via
+    BackgroundTabFeedService, only on multi-sub providers; beyond the cap or
+    capability, the existing 30-second poll remains. Background feeds are
+    WARMED from their tab snapshot before going live so the tab-switch fast
+    path has full scrollback.
+  - Strategies evaluate on live bar closes (the Phase A finding, fixed):
+    StrategyEngine subscribes to the focused feed's LiveAppend and evaluates
+    the CLOSED bar with history excluding the still-forming bar —
+    backtest-matching semantics, serialized, off the pump thread.
+  - Concurrency hardening for gap-fill vs live-append: merges re-check
+    against the CURRENT last bar inside the cache lock, and stale ticks
+    older than the last bar are dropped instead of corrupting it.
 
 ### Lifetimes & hosted
 

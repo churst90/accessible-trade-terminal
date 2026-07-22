@@ -41,27 +41,40 @@ namespace AccessibleTrader.Core.Services.Workspace
     {
         private readonly IWorkspaceStore _store;
         private readonly IDataService _dataService;
+        private readonly Services.Feeds.IMarketFeedHub? _hub;
 
-        public MarketFeeds(IWorkspaceStore store, IDataService dataService)
+        public MarketFeeds(IWorkspaceStore store, IDataService dataService,
+            Services.Feeds.IMarketFeedHub? hub = null)
         {
             _store = store;
             _dataService = dataService;
+            _hub = hub;
         }
 
-        public bool IsLive(ChartIdentity identity) => identity == _store.State.Identity;
+        public bool IsLive(ChartIdentity identity)
+            => identity == _store.State.Identity
+               || (_hub?.IsFeedLive(identity) ?? false);
 
         public async Task<IReadOnlyList<Ohlcv>> GetBarsAsync(ChartIdentity identity, int maxBars, CancellationToken ct = default)
         {
             if (maxBars <= 0) return Array.Empty<Ohlcv>();
 
-            if (IsLive(identity))
+            if (identity == _store.State.Identity)
             {
                 var data = _store.State.Data;
                 if (data == null || data.Count == 0) return Array.Empty<Ohlcv>();
-                int take = Math.Min(maxBars, data.Count);
-                var slice = new List<Ohlcv>(take);
-                for (int i = data.Count - take; i < data.Count; i++) slice.Add(data[i]);
-                return slice;
+                return Slice(data, maxBars);
+            }
+
+            // Keyed-feeds fast path: a live-subscribed background feed is
+            // tick-current — serve its buffer and skip the REST round-trip
+            // entirely. Background monitors on multi-sub providers evaluate on
+            // fresh bars at zero request cost.
+            if (_hub != null && _hub.IsFeedLive(identity))
+            {
+                var feed = _hub.TryGetFeed(identity);
+                if (feed != null && feed.Bars.Count > 0)
+                    return Slice(feed.Bars, maxBars);
             }
 
             ct.ThrowIfCancellationRequested();
@@ -70,6 +83,14 @@ namespace AccessibleTrader.Core.Services.Workspace
                 new MarketDataRequest(identity.Market, identity.Symbol, identity.Timeframe, maxBars))
                 .ConfigureAwait(false);
             return (IReadOnlyList<Ohlcv>?)bars ?? Array.Empty<Ohlcv>();
+        }
+
+        private static List<Ohlcv> Slice(TimeSeriesBuffer<Ohlcv> data, int maxBars)
+        {
+            int take = Math.Min(maxBars, data.Count);
+            var slice = new List<Ohlcv>(take);
+            for (int i = data.Count - take; i < data.Count; i++) slice.Add(data[i]);
+            return slice;
         }
     }
 }

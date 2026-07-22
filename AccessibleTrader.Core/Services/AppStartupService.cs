@@ -135,6 +135,11 @@ namespace AccessibleTrader.Core.Services
             //     subscriptions are live, then reconcile once for tabs restored
             //     from a saved workspace profile.
             _services.GetService<Workspace.IBackgroundMonitoringService>()?.Reconcile();
+
+            // 11. Live background tab feeds (keyed feeds Phase C) — same pattern:
+            //     resolving wires the tab/settings subscriptions; one reconcile
+            //     covers tabs restored from a saved workspace profile.
+            _services.GetService<Feeds.IBackgroundTabFeedService>()?.Reconcile();
         }
 
         private void AnnounceQuarantinedFiles()

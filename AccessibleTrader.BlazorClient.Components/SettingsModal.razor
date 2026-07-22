@@ -23,6 +23,7 @@
 @inject IPaperTradingProvider Paper
 @inject IRuntimePlatform Platform
 @inject AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService Monitoring
+@inject AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService TabFeeds
 @implements IDisposable
 
 @if (_isVisible)
@@ -187,6 +188,12 @@
                             <input id="s-bg-poll" type="number" min="10" max="600" step="5"
                                    value="@_bgPollSeconds"
                                    @onchange="OnBgPollChanged" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-bg-live-tabs">Live-stream background tabs (tick-fresh, instant tab switch; exchanges that support it, first @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs)</label>
+                            <input id="s-bg-live-tabs" type="checkbox"
+                                   checked="@_liveBgTabs"
+                                   @onchange="OnLiveBgTabsChanged" />
                         </div>
                         <div class="modal-row">
                             <span style="flex:1; font-size:0.85rem; color:#555;">
@@ -1075,6 +1082,7 @@
     private bool _paperTradingMode;
     private bool _paperTradingModeInitial;
     private bool _bgMonitoring;
+    private bool _liveBgTabs;
     private int  _bgPollSeconds = 30;
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
@@ -1161,6 +1169,18 @@
             _bgMonitoring ? "Background monitoring on." : "Background monitoring off.", true));
     }
 
+    private void OnLiveBgTabsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _liveBgTabs = e.Value is bool b && b;
+        App.LiveBackgroundTabs = _liveBgTabs;
+        App.Save();
+        TabFeeds.Reconcile();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _liveBgTabs
+                ? "Live background tabs on. Tabs on exchanges that support it stream continuously."
+                : "Live background tabs off.", true));
+    }
+
     private void OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
@@ -1188,6 +1208,7 @@
         _paperTradingMode = App.PaperTradingMode;
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
+        _liveBgTabs    = App.LiveBackgroundTabs;
         _paperTradingModeInitial = _paperTradingMode;
         _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;

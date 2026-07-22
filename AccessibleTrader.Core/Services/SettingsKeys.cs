@@ -53,6 +53,7 @@ namespace AccessibleTrader.Core.Services
         // ── Workspace ────────────────────────────────────────────────────────
         public const string BackgroundMonitoring = "workspace.backgroundMonitoring";
         public const string MonitorPollSeconds   = "workspace.monitorPollSeconds";
+        public const string LiveBackgroundTabs   = "workspace.liveBackgroundTabs";
 
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";
