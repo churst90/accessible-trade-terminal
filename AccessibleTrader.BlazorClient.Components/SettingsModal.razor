@@ -17,6 +17,7 @@
 @inject IShortcutManager ShortcutService
 @inject ISettingsManager Settings
 @inject IAppSettings App
+@inject IServiceProvider ServiceProvider
 @inject IEnumerable<IAlertChannel> AlertChannels
 @inject DemoPolicy Demo
 @inject IPaperTradingProvider Paper
@@ -123,6 +124,23 @@
                                checked="@Store.State.AnnounceNewBars"
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
                     </div>
+
+                    @if (_speechOutput is { IsBrowserTtsBackend: true })
+                    {
+                        <div class="modal-row">
+                            <label for="s-speech-output">Speech output on this device</label>
+                            <select id="s-speech-output" value="@_speechOutputMode"
+                                    @onchange="OnSpeechOutputChanged">
+                                <option value="sr">My screen reader does the talking</option>
+                                <option value="tts">Browser voice reads everything</option>
+                                <option value="both">Both together</option>
+                            </select>
+                        </div>
+                        <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                            Remembered per browser, not per account — a screen reader can't be
+                            detected, so tell the terminal which voice should talk here.
+                        </p>
+                    }
 
                     <div class="modal-row">
                         <label for="s-mute-includes-orders">Event mutes also silence order fills and stops</label>
@@ -835,6 +853,7 @@
         new("Read column headers", "General", "s-read-headers", "table grid"),
         new("Announce new bars", "General", "s-announce-bars", "live candle close"),
         new("Event mutes include order fills", "General", "s-mute-includes-orders", "silence mute stop take profit shift"),
+        new("Speech output on this device", "General", "s-speech-output", "double speech screen reader browser voice orca tts"),
         new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
         new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
@@ -1039,6 +1058,27 @@
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
     private bool _muteIncludesOrderEvents;
+
+    // Web-head-only speech-output control (double-speech fix). Null on MAUI —
+    // resolved optionally so the desktop heads never show it.
+    private AccessibleTrader.Core.Services.IBrowserSpeechOutput? _speechOutput;
+    private string _speechOutputMode = "both";
+
+    private async Task OnSpeechOutputChanged(ChangeEventArgs e)
+    {
+        _speechOutputMode = e.Value?.ToString() ?? "both";
+        if (_speechOutput != null)
+        {
+            _speechOutput.Mode = _speechOutputMode switch
+            {
+                "sr" => AccessibleTrader.Core.Services.SpeechOutputMode.ScreenReader,
+                "tts" => AccessibleTrader.Core.Services.SpeechOutputMode.BrowserVoice,
+                _ => AccessibleTrader.Core.Services.SpeechOutputMode.Both,
+            };
+        }
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setSpeechOutputMode", _speechOutputMode); }
+        catch { /* choice applies for this visit even if storage fails */ }
+    }
     private bool _hoverSonification;
     private bool _magnetSnap;
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
@@ -1130,6 +1170,17 @@
         _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;
         _muteIncludesOrderEvents = App.MuteIncludesOrderEvents;
+
+        // Optional web-head capability (null on MAUI). Seed the dropdown from the
+        // live mode so it reflects a first-visit prompt choice made this session.
+        _speechOutput = ServiceProvider.GetService(typeof(AccessibleTrader.Core.Services.IBrowserSpeechOutput))
+            as AccessibleTrader.Core.Services.IBrowserSpeechOutput;
+        _speechOutputMode = _speechOutput?.Mode switch
+        {
+            AccessibleTrader.Core.Services.SpeechOutputMode.ScreenReader => "sr",
+            AccessibleTrader.Core.Services.SpeechOutputMode.BrowserVoice => "tts",
+            _ => "both",
+        };
         _hoverSonification = App.HoverSonification;
         _magnetSnap = App.MagnetSnap;
         _soundTheme = App.SoundTheme;

@@ -6,6 +6,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The hosted double-speech fix: explicit speech-output choice (2026-07-22)
+
+Cody's report: on accessibletrader.com in Chrome, everything spoke twice —
+Orca reading the ARIA live region AND Google TTS via window.speechSynthesis.
+Browsers deliberately do not expose whether a screen reader is running
+(privacy), so detection is impossible; the fix is an explicit, accessible,
+per-browser choice.
+
+- **First-visit prompt** on browser-TTS deploys only (server-side Orca /
+  spd-say backends never see it): a focus-managed card, first in tab order —
+  "How should the terminal speak?" — with three radio options: screen reader
+  does the talking (recommended for SR users; kills the double voice),
+  browser voice reads everything, or both. Until answered the mode stays
+  Both, so nobody gets silence. Choice persists in localStorage — per
+  BROWSER, deliberately, because it describes this device's assistive stack,
+  not the account.
+- **Routing**: "Screen reader" suppresses the BrowserSpeakRequest publish;
+  "Browser voice" empties the ARIA live region (new
+  BlazorSpeechManager.LiveRegionEnabled — journal and NVDA paths untouched,
+  MAUI unaffected) so a screen reader that IS running can't double-speak.
+- **Settings → Speech** gains "Speech output on this device" for changing the
+  choice later — rendered only where the new optional IBrowserSpeechOutput
+  capability is registered and the backend is browser TTS, so desktop heads
+  and Orca-backend local WebHosts never show a meaningless control.
+
+6 tests pin the routing per mode, the Both default, the backend-truthfulness
+of the capability, and the no-stale-replay contract of the live-region gate.
+
 ### Hosted accounts: TOTP two-factor authentication (2026-07-21)
 
 The hosted terminal gains optional authenticator-app 2FA — the "best next auth

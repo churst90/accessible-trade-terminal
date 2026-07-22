@@ -203,14 +203,12 @@ asked for), Shift+F-key = the ambient channel (things that happen to you).**
 
 ### Hosted double-speech (Chrome: Orca + browser TTS both speak) (~1d)
 
-- [ ] **Speech output setting** on the web head: "Screen reader (live region)" /
-  "Browser voice" / "Both", persisted per user. Browsers deliberately do NOT
-  expose whether a screen reader is running (privacy), so detection is
-  impossible — the fix is an explicit choice, not a check. First visit on the
-  hosted site: an accessible one-time prompt ("How should the terminal speak?")
-  defaulting to Screen reader when the user tabs into it (an SR user will hear
-  the live region either way). Local WebHost/desktop unaffected (Orca D-Bus
-  path already exclusive).
+- [x] **Speech output setting** DONE 2026-07-22 — first-visit prompt (browser-TTS
+  backends only) + Settings → Speech dropdown via optional IBrowserSpeechOutput;
+  localStorage per-browser persistence; ScreenReader mode suppresses browser TTS,
+  BrowserVoice mode empties the live region (BlazorSpeechManager.LiveRegionEnabled);
+  Both stays the pre-choice default. 6 tests. Cody should verify on the live demo
+  in Chrome: choose "screen reader" → single voice.
 
 ## [2026-07-10] — Phase E test-debt closure (Finalization plan)
 

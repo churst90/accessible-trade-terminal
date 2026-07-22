@@ -98,6 +98,11 @@ namespace AccessibleTrader.WebHost
                     sp.GetRequiredService<BlazorSpeechManager>(),
                     sp.GetRequiredService<IEventBus>(),
                     sp.GetRequiredService<ILogger<WebHostSpeechManager>>()));
+            // Same instance exposed as the optional speech-output capability so the
+            // first-visit prompt + Settings control can gate browser TTS vs the
+            // ARIA live region (the hosted double-speech fix).
+            services.AddScoped<IBrowserSpeechOutput>(sp =>
+                (WebHostSpeechManager)sp.GetRequiredService<ISpeechManager>());
 
             // Browser WebAudio fallback sink (L3-B). Constructed even when a
             // local PCM sink is present so DI is uniform; HasSubscribers will

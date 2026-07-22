@@ -546,7 +546,16 @@ order fills and stops" switch — read its warning first.) Individual alerts can
 also be marked **Break through mutes** when you create them, for the handful
 that must never be missed. F4 toggles the braille display on platforms that
 support one, and Shift+F4 opens its settings. None of these mutes persist —
-the terminal always starts with everything audible. Volume is adjustable at three depths: F5 and Shift+F5 raise
+the terminal always starts with everything audible.
+
+One extra control exists on the public website versions (the demo and the
+hosted terminal), where the last speech hop is your browser: **Speech output
+on this device**. A browser cannot tell whether a screen reader is running, so
+on your first visit the terminal asks — let your screen reader do the talking,
+have the browser's voice read everything aloud, or both. Answering "screen
+reader" is what stops the doubled voice some Chrome users hear (Orca and the
+browser voice saying everything twice). The choice is remembered per browser,
+and can be changed any time in Settings under Speech. Volume is adjustable at three depths: F5 and Shift+F5 raise
 and lower the focused component, F6 and Shift+F6 the whole focused series, and F7 and
 Shift+F7 the master chart volume — so you can bring one quiet line forward without
 touching the rest. The M key mutes or unmutes the focused series or component without

@@ -18,6 +18,14 @@ namespace AccessibleTrader.BlazorClient.Services
         public bool IsActive => (_isNvdaAvailable == true) || OnSpeak != null;
         public string SpeechMode => (_isNvdaAvailable == true) ? "NVDA Direct" : (OnSpeak != null ? "ARIA Live" : "None");
         public bool IsSpeechEnabled { get; set; } = true;
+
+        /// <summary>
+        /// When false the ARIA live region is skipped (journal + NVDA paths
+        /// unaffected). The WebHost sets this for the "Browser voice" speech
+        /// output mode so a screen reader that IS running won't double-speak;
+        /// MAUI never touches it.
+        /// </summary>
+        public bool LiveRegionEnabled { get; set; } = true;
         
         private Action<string>? _onSpeak;
         public Action<string>? OnSpeak 
@@ -94,6 +102,7 @@ namespace AccessibleTrader.BlazorClient.Services
             }
 
             // Fallback to ARIA Live
+            if (!LiveRegionEnabled) return;
             if (OnSpeak != null)
             {
                 OnSpeak(text);

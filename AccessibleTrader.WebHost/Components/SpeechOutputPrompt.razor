@@ -1,0 +1,111 @@
+@*
+    First-visit speech-output chooser — the hosted double-speech fix.
+
+    On deploys where the browser is the last speech hop (no server-side Orca /
+    speech-dispatcher), speech historically went out BOTH ways: the ARIA live
+    region (which a screen reader announces) AND window.speechSynthesis (the
+    browser voice) — so Orca users heard everything twice. Browsers deliberately
+    do not expose whether a screen reader is running, so the fix is an explicit,
+    accessible choice, remembered per BROWSER in localStorage (the same person's
+    phone and desktop can differ).
+
+    Renders nothing when a stored choice exists, when the backend is server-side
+    speech, or after the visitor answers. While unanswered the mode stays "Both"
+    — nobody gets silence before choosing.
+*@
+@using AccessibleTrader.Core.Services
+@inject IServiceProvider Services
+@inject IJSRuntime JS
+@inject ISpeechManager Speech
+@implements IDisposable
+
+@if (_visible)
+{
+    <section class="speech-prompt" role="region" aria-labelledby="speech-prompt-title">
+        <h2 id="speech-prompt-title" tabindex="-1">How should the terminal speak?</h2>
+        <p>
+            Pick the option that matches this device. You can change it any time in
+            Settings. Until you choose, both outputs stay on.
+        </p>
+        <fieldset>
+            <legend>Speech output</legend>
+            <label>
+                <input type="radio" name="speech-output" value="sr"
+                       checked="@(_choice == "sr")"
+                       @onchange='() => _choice = "sr"' />
+                I use a screen reader (Orca, NVDA, JAWS, VoiceOver) — let it do the
+                talking. Recommended for screen-reader users; stops the doubled voice.
+            </label>
+            <label>
+                <input type="radio" name="speech-output" value="tts"
+                       checked="@(_choice == "tts")"
+                       @onchange='() => _choice = "tts"' />
+                No screen reader — read everything aloud with the browser's voice.
+            </label>
+            <label>
+                <input type="radio" name="speech-output" value="both"
+                       checked="@(_choice == "both")"
+                       @onchange='() => _choice = "both"' />
+                Both (screen reader and browser voice together).
+            </label>
+        </fieldset>
+        <button type="button" @onclick="SaveAsync">Save choice</button>
+        <button type="button" @onclick="Dismiss">Ask me next visit</button>
+    </section>
+}
+
+@code {
+    private bool _visible;
+    private string _choice = "sr";
+    private IBrowserSpeechOutput? _output;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _output = Services.GetService(typeof(IBrowserSpeechOutput)) as IBrowserSpeechOutput;
+        if (_output is not { IsBrowserTtsBackend: true }) return; // server-side speech: nothing to choose
+
+        string stored;
+        try { stored = await JS.InvokeAsync<string>("accessibleTrader.getSpeechOutputMode"); }
+        catch { return; } // JS not ready / circuit closing — keep the Both default
+
+        if (!string.IsNullOrEmpty(stored))
+        {
+            _output.Mode = ParseMode(stored);
+            return;
+        }
+
+        _visible = true;
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("accessibleTrader.focusElement", "speech-prompt-title"); }
+        catch { /* focus is a nicety; the region is first in tab order regardless */ }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_output != null) _output.Mode = ParseMode(_choice);
+        try { await JS.InvokeVoidAsync("accessibleTrader.setSpeechOutputMode", _choice); }
+        catch { /* private browsing — applies for this visit only */ }
+        _visible = false;
+        // Confirmation goes through the NEW mode, so the user hears it exactly
+        // once on whichever channel they just picked.
+        Speech.Speak(_choice switch
+        {
+            "sr" => "Speech output set: your screen reader does the talking.",
+            "tts" => "Speech output set: browser voice.",
+            _ => "Speech output set: screen reader and browser voice together.",
+        }, interrupt: true);
+    }
+
+    private void Dismiss() => _visible = false;
+
+    private static SpeechOutputMode ParseMode(string value) => value switch
+    {
+        "sr" => SpeechOutputMode.ScreenReader,
+        "tts" => SpeechOutputMode.BrowserVoice,
+        _ => SpeechOutputMode.Both,
+    };
+
+    public void Dispose() { }
+}

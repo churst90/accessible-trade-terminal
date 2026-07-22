@@ -32,6 +32,10 @@
 <body>
     <BrowserSpeechBridge @rendermode="RenderMode.InteractiveServer" />
     <BrowserAudioBridge @rendermode="RenderMode.InteractiveServer" />
+    @* First-visit speech-output chooser (double-speech fix). Renders nothing on
+       server-side-speech deploys or once a per-browser choice is stored; while
+       visible it sits before the app in DOM, so it's first in tab order. *@
+    <SpeechOutputPrompt @rendermode="RenderMode.InteractiveServer" />
     @* prerender: false — the app tree (MainLayout/Toolbar/ChartArea) does heavy, stateful,
        per-circuit init in OnInitialized (loads the chart, dispatches to the scoped
        WorkspaceStore). Prerendering ran that in a throwaway SSR scope that is disposed

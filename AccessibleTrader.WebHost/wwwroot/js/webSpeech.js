@@ -5,6 +5,19 @@
 (function () {
     window.accessibleTrader = window.accessibleTrader || {};
 
+    // Speech output mode ("both" | "sr" | "tts") lives in localStorage because
+    // it describes THIS browser's assistive stack (screen reader or not), not
+    // the signed-in account — the same account on a phone may want a different
+    // mode than on the desktop.
+    window.accessibleTrader.getSpeechOutputMode = function () {
+        try { return window.localStorage.getItem('att.speechOutput') || ''; }
+        catch (e) { return ''; }
+    };
+    window.accessibleTrader.setSpeechOutputMode = function (mode) {
+        try { window.localStorage.setItem('att.speechOutput', mode); }
+        catch (e) { /* private browsing — the choice just won't persist */ }
+    };
+
     window.accessibleTrader.speak = function (text, interrupt) {
         if (!('speechSynthesis' in window)) return;
         try {

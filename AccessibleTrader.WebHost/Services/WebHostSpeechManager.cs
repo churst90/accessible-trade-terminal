@@ -33,7 +33,7 @@ namespace AccessibleTrader.WebHost.Services
     /// <summary>Discriminated backend the speech manager picks at startup.</summary>
     public enum SpeechBackend { OrcaDBus, SpdSay, BrowserTts }
 
-    public sealed class WebHostSpeechManager : ISpeechManager
+    public sealed class WebHostSpeechManager : ISpeechManager, IBrowserSpeechOutput
     {
         private const string OrcaBus  = "org.gnome.Orca1.Service";
         private const string OrcaPath = "/org/gnome/Orca1/Service";
@@ -95,6 +95,26 @@ namespace AccessibleTrader.WebHost.Services
 
         internal SpeechBackend Backend => _backend;
 
+        // ── IBrowserSpeechOutput (the double-speech fix) ─────────────────────
+        // Only meaningful when the browser is the last speech hop; with a
+        // server-side backend (Orca/spd-say) the browser never speaks and the
+        // live region is the screen reader's channel as always.
+        public bool IsBrowserTtsBackend => _backend == SpeechBackend.BrowserTts;
+
+        private SpeechOutputMode _outputMode = SpeechOutputMode.Both;
+        public SpeechOutputMode Mode
+        {
+            get => _outputMode;
+            set
+            {
+                _outputMode = value;
+                // "Browser voice" empties the live region so a screen reader
+                // that IS running (despite the user's choice) can't double-speak.
+                if (_inner is AccessibleTrader.BlazorClient.Services.BlazorSpeechManager b)
+                    b.LiveRegionEnabled = value != SpeechOutputMode.BrowserVoice;
+            }
+        }
+
         private void LogBackend()
         {
             switch (_backend)
@@ -142,7 +162,10 @@ namespace AccessibleTrader.WebHost.Services
                     _ = Task.Run(() => SpeakViaSpdSay(text, interrupt));
                     break;
                 case SpeechBackend.BrowserTts:
-                    _eventBus.Publish(new BrowserSpeakRequest(text, interrupt));
+                    // "Screen reader" mode: the live region (written by _inner
+                    // above) is the whole story — no browser voice on top.
+                    if (_outputMode != SpeechOutputMode.ScreenReader)
+                        _eventBus.Publish(new BrowserSpeakRequest(text, interrupt));
                     break;
             }
         }
