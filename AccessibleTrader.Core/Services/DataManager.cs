@@ -17,8 +17,6 @@ namespace AccessibleTrader.Core.Services
     {
         TimeSeriesBuffer<Ohlcv> Data { get; }
         ChartIdentity Identity { get; set; }
-        IObservable<TimeSeriesBuffer<Ohlcv>> DataStream { get; }
-        IObservable<TimeSeriesBuffer<Ohlcv>> InitialLoadStream { get; }
         Task RefreshDataAsync(CancellationToken ct = default);
         /// <summary>
         /// Restores the data cache from a saved tab snapshot and performs an incremental
@@ -56,15 +54,15 @@ namespace AccessibleTrader.Core.Services
         // PrependOlderDataAsync's mutation could be silently dropped because
         // both produce a new _cache snapshot from the pre-mutation reference.
         private readonly object _cacheLock = new();
-        private readonly Subject<TimeSeriesBuffer<Ohlcv>> _dataStream = new();
-        private readonly Subject<TimeSeriesBuffer<Ohlcv>> _initialLoadStream = new();
         private CancellationTokenSource? _liveCts;
+        // The live-loop task, kept so Stop/Dispose can await a clean exit instead
+        // of racing a half-cancelled loop (2026-07-22 audit: unobserved-exception
+        // risk on aggressive dispose cascades).
+        private Task? _liveLoopTask;
         private readonly SemaphoreSlim _prependLock = new(1, 1);
 
         public TimeSeriesBuffer<Ohlcv> Data => _cache;
         public ChartIdentity Identity { get; set; } = ChartIdentity.Empty;
-        public IObservable<TimeSeriesBuffer<Ohlcv>> DataStream => _dataStream.AsObservable();
-        public IObservable<TimeSeriesBuffer<Ohlcv>> InitialLoadStream => _initialLoadStream.AsObservable();
 
         public event Action? DataUpdated;
         public event Action<string>? ErrorOccurred;
@@ -106,7 +104,6 @@ namespace AccessibleTrader.Core.Services
                     _store.Dispatch(new NavigateAction(_cache.Count - 1));
 
                     NotifyDataUpdate(isInitialLoad: true);
-                    _initialLoadStream.OnNext(_cache);
 
                     SafeFireAndForget.Run(StartLiveUpdates, _logger, "StartLiveUpdates");
                 }
@@ -268,7 +265,6 @@ namespace AccessibleTrader.Core.Services
         private void NotifyDataUpdate(bool isInitialLoad)
         {
             DataUpdated?.Invoke();
-            _dataStream.OnNext(Data);
         }
 
                 public async Task StartLiveUpdates()
@@ -277,13 +273,20 @@ namespace AccessibleTrader.Core.Services
             _liveCts = new CancellationTokenSource();
             var token = _liveCts.Token;
 
-            SafeFireAndForget.Run(async () =>
+            _liveLoopTask = System.Threading.Tasks.Task.Run(async () =>
             {
+                try
+                {
                 await foreach (var tick in _orchestrator.LiveStream.ReadAllAsync(token))
                 {
-                    // Drop ticks that arrive while historical backfill is in progress.
-                    // The prepend operation replaces _cache wholesale; merging a live tick
-                    // during that window would corrupt the bar sequence.
+                    // Drop ticks while historical backfill is in progress. The status
+                    // read alone left a window (prepend finishes between the read and
+                    // the lock) — holding the prepend lock for the merge closes it:
+                    // a tick either sees the fully-prepended cache or is dropped.
+                    if (!_prependLock.Wait(0))
+                        continue;
+                    try
+                    {
                     if (_store.State.DataStatus == DataStatus.LoadingHistorical)
                         continue;
 
@@ -301,15 +304,29 @@ namespace AccessibleTrader.Core.Services
                         }
                     }
                     _store.Dispatch(new UpdateDataAction(_cache, false));
+                    }
+                    finally { _prependLock.Release(); }
                 }
-            }, _logger, "LiveUpdatesLoop");
+                }
+                catch (OperationCanceledException) { /* normal stop */ }
+                catch (Exception ex) { _logger.LogWarning(ex, "Live update loop exited on error."); }
+            }, token);
 
             await _orchestrator.StartLiveStreamAsync(Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe).ConfigureAwait(false);
         }
 
         public async Task StopLiveUpdatesAsync()
         {
-            _liveCts?.Cancel(); _liveCts?.Dispose();
+            _liveCts?.Cancel();
+            var loop = _liveLoopTask;
+            if (loop != null)
+            {
+                // Bounded wait: the loop exits promptly on cancellation, but a hung
+                // provider read must not wedge a tab switch forever.
+                await Task.WhenAny(loop, Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
+            }
+            _liveLoopTask = null;
+            _liveCts?.Dispose();
             _liveCts = null;
             await _orchestrator.StopLiveStreamAsync().ConfigureAwait(false);
         }
@@ -323,7 +340,10 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
-            _liveCts?.Cancel(); _liveCts?.Dispose();
+            _liveCts?.Cancel();
+            try { _liveLoopTask?.Wait(TimeSpan.FromMilliseconds(500)); }
+            catch { /* cancellation surfaces as AggregateException — expected */ }
+            _liveCts?.Dispose();
             _prependLock.Dispose();
         }
     }

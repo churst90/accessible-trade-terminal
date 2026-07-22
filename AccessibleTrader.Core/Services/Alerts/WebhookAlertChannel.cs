@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Alerts;
 
+using Microsoft.Extensions.Logging;
 namespace AccessibleTrader.Core.Services.Alerts
 {
     /// <summary>
@@ -50,11 +51,19 @@ namespace AccessibleTrader.Core.Services.Alerts
     {
         private readonly HttpClient _http;
         private readonly Func<WebhookAlertChannelConfig?> _configProvider;
+        // Optional (older construction sites/tests pass neither): missing-target
+        // diagnostics. One spoken warning per missing webhook NAME; every miss logs.
+        private readonly Microsoft.Extensions.Logging.ILogger? _logger;
+        private readonly IEventBus? _eventBus;
+        private readonly HashSet<string> _warnedMissingTargets = new(StringComparer.OrdinalIgnoreCase);
 
-        public WebhookAlertChannel(HttpClient http, Func<WebhookAlertChannelConfig?> configProvider)
+        public WebhookAlertChannel(HttpClient http, Func<WebhookAlertChannelConfig?> configProvider,
+            Microsoft.Extensions.Logging.ILogger? logger = null, IEventBus? eventBus = null)
         {
             _http = http;
             _configProvider = configProvider;
+            _logger = logger;
+            _eventBus = eventBus;
         }
 
         public string Id => "webhook";
@@ -88,7 +97,20 @@ namespace AccessibleTrader.Core.Services.Alerts
 
             var hook = cfg.Webhooks.FirstOrDefault(w =>
                 IsValid(w) && string.Equals(w.Name, target, StringComparison.OrdinalIgnoreCase));
-            if (hook == null) return; // configured target not found / invalid — skip silently
+            if (hook == null)
+            {
+                // The named webhook was deleted/renamed after the alert was created.
+                // Silent skips here meant "my Discord alert stopped working" with no
+                // clue why — log every time, warn the user once per missing name.
+                _logger?.LogWarning(
+                    "Alert '{Alert}' routes to webhook '{Target}', which no longer exists — not delivered.",
+                    alert.Definition.Name, target);
+                if (_warnedMissingTargets.Add(target!))
+                    _eventBus?.Publish(new Models.FeedbackRequestEvent(Models.FeedbackType.Error,
+                        $"Alert webhook '{target}' no longer exists. {alert.Definition.Name} was not delivered — fix it in the Alerts dialog.",
+                        true));
+                return;
+            }
 
             string symbolPrefix = string.IsNullOrWhiteSpace(alert.Symbol) ? "" : $"[{alert.Symbol}] ";
             string message = $"🔔 {symbolPrefix}{alert.Definition.Name}: {alert.SpeechText}";

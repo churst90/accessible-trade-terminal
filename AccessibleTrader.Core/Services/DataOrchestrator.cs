@@ -22,7 +22,6 @@ namespace AccessibleTrader.Core.Services
         /// Fast-path notification for price ticks. Bypasses Rx overhead for maximum performance 
         /// in high-frequency sonification and indicator update loops.
         /// </summary>
-        event Action<Ohlcv>? OnTickReceived;
 
         DataState CurrentState { get; }
         IObservable<DataState> StateChanged { get; }
@@ -70,7 +69,6 @@ namespace AccessibleTrader.Core.Services
         public DataState CurrentState => _stateMachine.CurrentState;
         public IObservable<DataState> StateChanged => _stateMachine.StateChanged;
 
-        public event Action<Ohlcv>? OnTickReceived;
 
         public DataOrchestrator(HistoricalDataFetcher historicalFetcher, LiveStreamManager liveStreamManager, IEventBus eventBus, ILogger<DataOrchestrator> logger, DemoPolicy demo)
         {
@@ -136,7 +134,6 @@ namespace AccessibleTrader.Core.Services
                 await foreach (var tick in _liveStreamManager.LiveStream.ReadAllAsync())
                 {
                     _stateMachine.Fire(DataTrigger.TickReceived);
-                    OnTickReceived?.Invoke(tick);
                     _liveStreamChannel.Writer.TryWrite(tick);
                 }
             }

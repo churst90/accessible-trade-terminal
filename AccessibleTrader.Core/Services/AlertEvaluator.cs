@@ -43,6 +43,11 @@ namespace AccessibleTrader.Core.Services
             _conditionEvaluator = conditionEvaluator;
         }
 
+        /// <summary>Raised when an alert rule throws during evaluation — the
+        /// consumer decides how loudly to surface it (the orchestrator speaks the
+        /// first failure per alert and journals it).</summary>
+        public event Action<AlertDefinition, Exception>? EvaluationFailed;
+
         public IEnumerable<AlertFired> EvaluateAlerts(
             IReadOnlyList<AlertDefinition> alerts,
             WorkspaceState state,
@@ -63,12 +68,14 @@ namespace AccessibleTrader.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    // A broken alert rule (e.g. missing indicator component, divide-by-zero on
-                    // a new data shape) used to silently stop firing, with no way for the user
-                    // to find out. Debug-log the failure keyed on the alert id so a targeted
-                    // repro can find the rule without spamming speech.
+                    // A broken alert rule (missing indicator component, divide-by-zero
+                    // on a new data shape) must not silently stop firing forever with
+                    // no way for the user to find out. The orchestrator subscribes to
+                    // this and announces the FIRST failure per alert (then stays quiet
+                    // — one broken rule must not spam every bar).
                     System.Diagnostics.Debug.WriteLine(
                         $"[AlertEvaluator] Alert '{alert.Id}' evaluation failed: {ex.GetType().Name}: {ex.Message}");
+                    EvaluationFailed?.Invoke(alert, ex);
                 }
             }
 
@@ -178,11 +185,35 @@ namespace AccessibleTrader.Core.Services
                 _                             => false
             };
 
+            // RepeatIfStillActive parity with tree alerts, for LEVEL conditions
+            // only (a crossing has a well-defined "still active" side; patterns
+            // and direction changes are instantaneous events with nothing to
+            // repeat). Not triggered this bar, but the level condition still
+            // holds and the cooldown elapsed → re-fire, exactly like a tree.
+            if (!triggered && alert.RepeatIfStillActive && IsLevelStillActive(alert, currentValue)
+                && _lastSimpleFire.TryGetValue(alert.Id, out var last)
+                && DateTime.UtcNow - last >= alert.Cooldown)
+            {
+                triggered = true;
+            }
+
             if (!triggered) return null;
+            _lastSimpleFire[alert.Id] = DateTime.UtcNow;
 
             string speechText = $"{alert.Name}: {DescribeCondition(alert, currentValue)}. Current value {currentValue:F6}";
             return new AlertFired(alert, currentValue, double.IsNaN(prevValue) ? null : prevValue, speechText);
         }
+
+        // Last fire time per simple alert — powers RepeatIfStillActive/Cooldown.
+        private readonly Dictionary<string, DateTime> _lastSimpleFire = new();
+
+        private static bool IsLevelStillActive(AlertDefinition alert, double currentValue) =>
+            alert.Condition switch
+            {
+                AlertCondition.CrossesAbove => currentValue >= (alert.Threshold ?? 0),
+                AlertCondition.CrossesBelow => currentValue <= (alert.Threshold ?? 0),
+                _ => false,
+            };
 
         private bool EvaluatePattern(AlertDefinition alert, Ohlcv current, Ohlcv previous, WorkspaceState state)
         {

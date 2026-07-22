@@ -90,13 +90,19 @@ namespace AccessibleTrader.Core.Services
 
             _logger.LogInformation("LiveStreamManager: Requesting live stream for {Symbol} @ {Timeframe}.", symbol, timeframe);
 
+            // Dispose the outgoing subscription BEFORE the awaits below — the old
+            // ordering kept it alive through GetProviderAsync + EnsureConnectedAsync,
+            // a window where two subscriptions could tick the pipeline at once.
+            _currentProviderSubscription?.Dispose();
+            _currentProviderSubscription = null;
+            _currentErrorSubscription?.Dispose();
+            _currentErrorSubscription = null;
+
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider == null) return;
 
             await provider.EnsureConnectedAsync().ConfigureAwait(false);
 
-            _currentProviderSubscription?.Dispose();
-            _currentErrorSubscription?.Dispose();
             _currentBucketCandle = null;
             _currentLiveTimeframe = timeframe;
             _currentLiveProvider = provider;
@@ -264,11 +270,6 @@ namespace AccessibleTrader.Core.Services
                 ErrorSeverity.Low, ErrorCategory.Informational);
         }
 
-        private void StopFallbackPolling()
-        {
-            // The watchdog uses _lastTickAtMs and _reconnectAttempts to self-throttle.
-            // No explicit stop needed — successful ticks reset the counters.
-        }
 
         public virtual async Task StopLiveStreamAsync()
         {

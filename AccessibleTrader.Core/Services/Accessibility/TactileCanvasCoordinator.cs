@@ -366,6 +366,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             try
             {
                 _speech.Speak(e.Connected ? $"{e.DeviceName} connected." : $"{e.DeviceName} disconnected.",
+                channel: SpeechChannel.Event,
                     interrupt: false);
                 // Paint the current chart onto a freshly-connected display right away.
                 if (e.Connected) SafelyRenderGraphic();

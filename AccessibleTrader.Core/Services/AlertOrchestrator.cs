@@ -40,7 +40,24 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
             // Restore previously-saved alerts so they survive app restart.
             _alerts = _library.LoadAlerts();
+
+            // Broken alert rules must be HEARD once, not buried in debug logs:
+            // first failure per alert id speaks + journals; repeats stay silent
+            // until the alert is edited (which resets the gate via Add/Remove).
+            if (_evaluator is AlertEvaluator concrete)
+            {
+                concrete.EvaluationFailed += (alert, ex) =>
+                {
+                    if (!_announcedFailures.Add(alert.Id)) return;
+                    _logger.LogWarning(ex, "Alert '{Name}' ({Id}) failed to evaluate.", alert.Name, alert.Id);
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                        $"Alert '{alert.Name}' can't be evaluated and will stay silent: {ex.Message}. Edit or delete it in the Alerts dialog.",
+                        true));
+                };
+            }
         }
+
+        private readonly HashSet<string> _announcedFailures = new();
 
         public void Start()
         {
@@ -57,12 +74,16 @@ namespace AccessibleTrader.Core.Services
 
         public void AddAlert(AlertDefinition alert)
         {
+            _announcedFailures.Remove(alert.Id); // edited alert gets a fresh failure announcement
+
             _alerts.Add(alert);
             _library.SaveAlerts(_alerts);
         }
 
         public void RemoveAlert(string id)
         {
+            _announcedFailures.Remove(id);
+
             _alerts.RemoveAll(a => a.Id == id);
             _library.SaveAlerts(_alerts);
         }

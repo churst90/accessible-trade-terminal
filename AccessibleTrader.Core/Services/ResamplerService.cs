@@ -18,7 +18,8 @@ namespace AccessibleTrader.Core.Services
             if (bars == null || bars.Count == 0) return new List<Ohlcv>();
             
             long periodMs = TimeframeUtility.ToMilliseconds(targetTimeframe);
-            if (periodMs <= 60000 && targetTimeframe == "1m") return new List<Ohlcv>(bars);
+            // 1m bars are already 1m-bucketed — nothing to aggregate.
+            if (targetTimeframe == "1m") return new List<Ohlcv>(bars);
 
             // PERFORMANCE OPTIMIZATION: Use a SortedDictionary to avoid post-aggregation sorting.
             // This reduces GC pressure significantly during high-frequency resampling.
