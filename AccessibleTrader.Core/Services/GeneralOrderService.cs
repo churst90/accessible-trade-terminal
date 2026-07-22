@@ -142,6 +142,7 @@ namespace AccessibleTrader.Core.Services
                     break;
                 case OrderStatus.Cancelled:
                     _logger.LogInformation("Order {OrderId} cancelled", update.OrderId);
+                    _eventBus.Publish(new OrderCancelledEvent(update));
                     break;
             }
         }

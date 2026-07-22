@@ -120,6 +120,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
                 _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.", interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
+            // Cancels were the one order state change that vanished silently
+            // (2026-07-22 audit). Not an error earcon — user-initiated cancels are
+            // routine — but always spoken on the order channel.
+            _subscriptions.Add(_eventBus.Subscribe<OrderCancelledEvent>(e =>
+            {
+                _audioRouter.PlayEarcon(FeedbackType.StateChange, ErrorSeverity.Low);
+                _speechRouter.Speak($"Order cancelled for {e.Order.Symbol}.", interrupt: false, channel: SpeechChannel.OrderEvent);
+            }));
         }
 
         // ── Order speech formatting ────────────────────────────────────────────

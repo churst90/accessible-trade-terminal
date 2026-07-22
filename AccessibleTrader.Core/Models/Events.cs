@@ -191,6 +191,10 @@ namespace AccessibleTrader.Core.Models
     public record StopHitEvent(OrderUpdate Order);
     public record TakeProfitHitEvent(OrderUpdate Order);
     public record OrderRejectedEvent(OrderUpdate Order, string Reason);
+    /// <summary>An order left the book without filling — cancelled by the user,
+    /// expired, or (on polled brokers, where the two are indistinguishable)
+    /// rejected upstream. Announced so no order ever disappears silently.</summary>
+    public record OrderCancelledEvent(OrderUpdate Order);
     public record MarginWarningEvent(string Symbol, double MarginLevel, string Message);
 
     /// <summary>Raised when the user toggles paper trading mode in settings.</summary>

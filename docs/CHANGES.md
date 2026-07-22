@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Order-lifecycle voice completeness (2026-07-22)
+
+No order state change is silent anymore, and no protection is invisible:
+
+- CANCELLED orders are announced ("Order cancelled for {symbol}") with a
+  state-change earcon — they were the one lifecycle event that vanished
+  silently (logged only). This also covers the polling fallback's
+  no-fill-found resolution on stream-less brokers, which synthesizes a
+  cancel.
+- Tradier open orders now surface OTO/OTOCO protective LEGS as their own
+  entries, and resting stops read their stop_price — previously the legs
+  were invisible in the Orders tab and stops displayed (and spoke) as 0.
+- Schwab open orders walk the full bracket TREE (TRIGGER children, OCO
+  wrappers, PENDING_ACTIVATION exits) with the same stopPrice fix, via an
+  internal ParseOpenOrders testable without OAuth.
+- Verified already-covered (no change needed): the polling watch that gives
+  up after repeated errors DOES speak ("Could not verify the status of your
+  {symbol} order"), and streamed rejections announce.
+
 ### Keyed-feeds hardening: the adversarial pass (2026-07-22, same day)
 
 A second-set-of-eyes review of the fresh refactor, every finding verified and

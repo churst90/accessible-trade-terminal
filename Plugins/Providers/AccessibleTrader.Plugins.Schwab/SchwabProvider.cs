@@ -525,34 +525,7 @@ namespace AccessibleTrader.Plugins.Schwab
                 {
                     var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders?status=WORKING";
                     var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    var arr  = JArray.Parse(body);
-
-                    var list = new List<OpenOrder>();
-                    foreach (var o in arr)
-                    {
-                        var legs = o["orderLegCollection"] as JArray;
-                        if (legs == null || legs.Count == 0) continue;
-                        var leg = legs[0];
-
-                        var sym   = leg["instrument"]?["symbol"]?.ToString() ?? "";
-                        if (symbol != null && !string.Equals(sym, symbol, StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        var instr = leg["instruction"]?.ToString() ?? "BUY";
-                        var side  = instr.StartsWith("SELL", StringComparison.OrdinalIgnoreCase) ? OrderSide.Sell : OrderSide.Buy;
-                        var type  = MapSchwabOrderType(o["orderType"]?.ToString());
-
-                        list.Add(new OpenOrder(
-                            o["orderId"]?.ToString() ?? "",
-                            sym,
-                            side,
-                            type,
-                            leg["quantity"]?.Value<double>() ?? 0,
-                            o["price"]?.Value<double>() ?? 0,
-                            o["status"]?.ToString() ?? ""
-                        ));
-                    }
-                    return list;
+                    return ParseOpenOrders(JArray.Parse(body), symbol);
                 }).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -560,6 +533,49 @@ namespace AccessibleTrader.Plugins.Schwab
                 _errorStream.OnNext($"Schwab orders error: {ex.Message}");
                 return new();
             }
+        }
+
+        /// <summary>
+        /// Bracket orders are TREES: a TRIGGER entry whose children are the
+        /// protective exits (possibly wrapped in a leg-less OCO node). Walks the
+        /// whole tree so resting/pending protection is visible in the Orders tab,
+        /// not just the entry. Internal for direct testing — the transport needs
+        /// OAuth. Stops carry stopPrice, not price; without the fallback every
+        /// resting stop displayed (and spoke) as 0.
+        /// </summary>
+        internal static List<OpenOrder> ParseOpenOrders(JArray orders, string? symbol)
+        {
+            var list = new List<OpenOrder>();
+
+            void Walk(JToken node)
+            {
+                var status = node["status"]?.ToString() ?? "";
+                var legs = node["orderLegCollection"] as JArray;
+                if (legs != null && legs.Count > 0
+                    && status is "WORKING" or "PENDING_ACTIVATION" or "QUEUED" or "ACCEPTED")
+                {
+                    var leg = legs[0];
+                    var sym = leg["instrument"]?["symbol"]?.ToString() ?? "";
+                    if (symbol == null || string.Equals(sym, symbol, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var instr = leg["instruction"]?.ToString() ?? "BUY";
+                        var side = instr.StartsWith("SELL", StringComparison.OrdinalIgnoreCase) ? OrderSide.Sell : OrderSide.Buy;
+                        double price = node["price"]?.Value<double>() ?? node["stopPrice"]?.Value<double>() ?? 0;
+                        list.Add(new OpenOrder(
+                            node["orderId"]?.ToString() ?? "",
+                            sym, side,
+                            MapSchwabOrderType(node["orderType"]?.ToString()),
+                            leg["quantity"]?.Value<double>() ?? 0,
+                            price,
+                            status));
+                    }
+                }
+                if (node["childOrderStrategies"] is JArray children)
+                    foreach (var child in children) Walk(child);
+            }
+
+            foreach (var o in orders) Walk(o);
+            return list;
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)

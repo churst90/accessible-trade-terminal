@@ -124,6 +124,21 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void OrderCancelled_IsSpokenNotSilent()
+        {
+            // 2026-07-22 audit: cancels were the ONE order state change that
+            // vanished silently — logged, never announced.
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderCancelledEvent(
+                Update(qty: 0, price: 0, status: OrderStatus.Cancelled)));
+
+            Assert.Contains("Order cancelled", speech.LastSpokenText);
+            Assert.Contains("BTCUSD", speech.LastSpokenText);
+            Assert.DoesNotContain("ord-123", speech.LastSpokenText);
+        }
+
+        [Fact]
         public void FillWithoutPrice_OmitsAtClause()
         {
             string msg = AccessibilityFeedbackCoordinator.FormatFill(

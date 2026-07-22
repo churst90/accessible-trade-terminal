@@ -639,18 +639,41 @@ namespace AccessibleTrader.Plugins.Tradier
                     if (orders == null) return new List<OpenOrder>();
 
                     JArray items = orders is JArray arr ? arr : new JArray { orders };
-                    return items
-                        .Where(o => o["status"]?.ToString() == "open" || o["status"]?.ToString() == "pending" || o["status"]?.ToString() == "partially_filled")
-                        .Where(o => symbol == null || o["symbol"]?.ToString() == symbol)
-                        .Select(o => new OpenOrder(
-                            o["id"]?.ToString() ?? "",
-                            o["symbol"]?.ToString() ?? "",
-                            o["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                            MapTradierOrderType(o["type"]?.ToString() ?? "market"),
-                            o["quantity"]?.Value<double>() ?? 0,
-                            o["price"]?.Value<double>() ?? 0,
-                            o["status"]?.ToString() ?? ""
-                        )).ToList();
+                    var result = new List<OpenOrder>();
+
+                    static bool IsOpenStatus(string? st) => st is "open" or "pending" or "partially_filled";
+                    void AddIfOpen(JToken node)
+                    {
+                        var status = node["status"]?.ToString() ?? "";
+                        if (!IsOpenStatus(status)) return;
+                        var sym = node["symbol"]?.ToString() ?? "";
+                        if (symbol != null && sym != symbol) return;
+                        // Stop orders carry stop_price, not price — without the
+                        // fallback every resting stop displayed (and spoke) as 0.
+                        double price = node["price"]?.Value<double>()
+                                       ?? node["stop_price"]?.Value<double>() ?? 0;
+                        result.Add(new OpenOrder(
+                            node["id"]?.ToString() ?? "",
+                            sym,
+                            node["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                            MapTradierOrderType(node["type"]?.ToString() ?? "market"),
+                            node["quantity"]?.Value<double>() ?? 0,
+                            price,
+                            status));
+                    }
+
+                    foreach (var o in items)
+                    {
+                        AddIfOpen(o);
+                        // Advanced-class (oto/otoco) orders nest their protective
+                        // legs in "leg" — surface them so resting SL/TP are audible
+                        // in the Orders tab instead of invisibly attached.
+                        if (o["leg"] is JArray legArr)
+                            foreach (var leg in legArr) AddIfOpen(leg);
+                        else if (o["leg"] is JObject legObj)
+                            AddIfOpen(legObj); // Tradier collapses single-element arrays
+                    }
+                    return result;
                 });
             }
             catch (Exception ex)

@@ -93,6 +93,33 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Tradier_open_orders_surface_otoco_legs_and_stop_prices()
+        {
+            // The 2026-07-22 voice-completeness pass: protective legs used to be
+            // invisible in the Orders tab, and resting stops displayed price 0.
+            var h = new FakeHttpMessageHandler().Get(@"/accounts/ACC1/orders", """
+                {"orders":{"order":{
+                    "id":100,"symbol":"AAPL","side":"buy","type":"market","quantity":10,
+                    "status":"open","class":"otoco",
+                    "leg":[
+                        {"id":101,"symbol":"AAPL","side":"sell","type":"limit","quantity":10,"price":220.0,"status":"open"},
+                        {"id":102,"symbol":"AAPL","side":"sell","type":"stop","quantity":10,"stop_price":180.0,"status":"open"},
+                        {"id":103,"symbol":"AAPL","side":"sell","type":"stop","quantity":10,"stop_price":170.0,"status":"canceled"}
+                    ]}}}
+                """);
+            var p = Tradier(h);
+
+            var orders = await p.GetOpenOrdersAsync();
+
+            Assert.Equal(3, orders.Count); // entry + TP leg + SL leg; cancelled leg excluded
+            Assert.Equal("101", orders[1].Id);
+            Assert.Equal(220.0, orders[1].Price);
+            Assert.Equal("102", orders[2].Id);
+            Assert.Equal(180.0, orders[2].Price); // stop_price fallback
+            Assert.Equal(OrderSide.Sell, orders[2].Side);
+        }
+
+        [Fact]
         public async Task Tradier_fills_parse_history_events_including_the_single_object_form()
         {
             var h = new FakeHttpMessageHandler().Get(@"/accounts/ACC1/history", """
@@ -159,6 +186,33 @@ namespace AccessibleTrader.Tests
             Assert.Equal("SINGLE", order.OrderStrategyType);
             Assert.Equal("MARKET", order.OrderType);
             Assert.Null(order.ChildOrderStrategies); // absent, not empty — payload identical to pre-bracket
+        }
+
+        [Fact]
+        public void Schwab_open_orders_walk_bracket_trees_including_pending_children()
+        {
+            var tree = Newtonsoft.Json.Linq.JArray.Parse("""
+                [{"orderId":1,"orderType":"LIMIT","price":200.0,"status":"WORKING",
+                  "orderStrategyType":"TRIGGER",
+                  "orderLegCollection":[{"instruction":"BUY","quantity":10,"instrument":{"symbol":"AAPL"}}],
+                  "childOrderStrategies":[
+                    {"orderStrategyType":"OCO","status":"PENDING_ACTIVATION",
+                     "childOrderStrategies":[
+                       {"orderId":2,"orderType":"LIMIT","price":220.0,"status":"PENDING_ACTIVATION",
+                        "orderLegCollection":[{"instruction":"SELL","quantity":10,"instrument":{"symbol":"AAPL"}}]},
+                       {"orderId":3,"orderType":"STOP","stopPrice":180.0,"status":"PENDING_ACTIVATION",
+                        "orderLegCollection":[{"instruction":"SELL","quantity":10,"instrument":{"symbol":"AAPL"}}]}
+                     ]}]}]
+                """);
+
+            var orders = AccessibleTrader.Plugins.Schwab.SchwabProvider.ParseOpenOrders(tree, symbol: null);
+
+            Assert.Equal(3, orders.Count); // entry + both protective children (OCO wrapper itself has no legs)
+            Assert.Equal("2", orders[1].Id);
+            Assert.Equal(220.0, orders[1].Price);
+            Assert.Equal("3", orders[2].Id);
+            Assert.Equal(180.0, orders[2].Price); // stopPrice fallback
+            Assert.Equal("PENDING_ACTIVATION", orders[2].Status);
         }
 
         // ── Kraken: one protective slot, stop wins ───────────────────────────
