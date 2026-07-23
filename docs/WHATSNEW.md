@@ -8,6 +8,30 @@ changelog see [`CHANGES.md`](CHANGES.md).
 
 ---
 
+## Safer, better-wired, more of it spoken (2.0-readiness pass)
+
+A deep audit tightened a batch of loose ends — the ones you'd actually notice:
+
+- **Scroll-wheel zoom works.** It had quietly stopped doing anything; the wheel
+  now zooms the chart around the cursor again.
+- **Liquidation warnings.** If a leveraged position drifts close to its
+  liquidation price, you now hear a spoken warning (with an alert earcon)
+  instead of finding out the hard way.
+- **A real-money order can't slip out thinking it's paper.** If you flip paper
+  mode off in Settings with the Trading Dashboard open, the next order still
+  gets its live confirmation — no unconfirmed live send.
+- **Failed alert webhooks tell you.** If a Discord/Slack/custom webhook is
+  broken or renamed, you now hear that the alert didn't deliver, once per
+  endpoint, instead of it failing silently.
+- **Your custom earcons are honored.** Patches you assign in the Sound Designer
+  for errors, success, retry, and connect/disconnect now actually play.
+- **Dialogs announce in browser-voice mode.** If you use the browser's own
+  voice instead of a screen reader, opening and closing dialogs now speaks.
+- **Your chart zoom comes back.** Reopening or resuming a workspace restores the
+  zoom level you were using.
+- **A corrupted workspace or alerts file no longer vanishes silently** — it's
+  set aside (recoverable) and you're told, rather than starting blank.
+
 ## Your live fills now speak
 
 - An audit found that order announcements — "Order filled…", "Stop loss hit…" —

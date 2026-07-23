@@ -1021,7 +1021,16 @@ the order; the terminal informs, you decide. (Paper fills speak the sector note
 too, so the habit forms where the money is pretend.) Nothing reaches the
 exchange until you activate Confirm; Cancel backs out with "Order canceled before
 submit." It is the deliberate pause that a real-money order deserves, and it is on
-automatically whenever you are live.
+automatically whenever you are live. (The live-versus-paper decision is re-checked at
+the moment you submit, so flipping paper mode off in Settings with the dashboard open
+never lets a real-money order skip its review.)
+
+Beyond that one-time check at submit, the terminal keeps watching every open leveraged
+position. If the market drifts close to a position's liquidation price while you hold
+it, you hear an interrupting spoken warning with an alert earcon — once per approach,
+naming the symbol and how far it is from liquidation — so a slow slide toward a forced
+close announces itself instead of surprising you. Positions with no liquidation price
+(spot holdings) are not monitored.
 
 ### Hearing your fills
 

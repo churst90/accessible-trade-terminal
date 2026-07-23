@@ -6,6 +6,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### 2.0-readiness audit: close the wiring, safety, and audio-first blockers (2026-07-23)
+
+A deep multi-agent audit of the whole app hunted for the Shift+F2/F3 bug class
+(a feature complete on both ends but missing the middle routing/wiring link)
+plus any other loose ends. Ten blockers were found and closed with genuine
+tests (suite 1977 green, 0 skipped):
+
+- **Mouse-wheel zoom was dead.** `WheelZoomAction` was dispatched by the wheel
+  handler and had a reducer case, but was missing from `WorkspaceStore`'s
+  routing switch — every wheel-zoom silently no-op'd (identical to the F2/F3
+  dead-action bug). Routed; the regression tests were rewritten because the old
+  ones passed *on a no-op*.
+- **Margin/liquidation warnings, wired end to end.** `MarginWarningEvent` was
+  declared but had no publisher or subscriber. A leveraged position drifting
+  within 15% of its liquidation price is now detected in
+  `TradingReconciliationCoordinator` (on connect, after fills, and on a 30s
+  poll) and announced by voice + error earcon, debounced per provider+symbol.
+- **No unconfirmed live orders from a stale gate.** The Trading Dashboard read
+  paper-vs-live once when it opened; toggling paper mode off in Settings while
+  it stayed open could send a real-money order with no confirmation while the
+  badge still said "Paper". Submit now re-reads the live setting first.
+- **Paper OCO wide-bar double-fill fixed.** A single bar crossing both legs of
+  an OCO pair filled both (wrong net position + a spurious cancel). The fill
+  loop now skips an order a prior leg's fill already cancelled.
+- **Honest capabilities.** Interactive Brokers dropped OCO / Brackets /
+  TrailingStop flags it never implemented (single-leg stop/TP still supported);
+  MEXC dropped its spot Brackets flag. A new cross-provider invariant test pins
+  "declaring OCO requires implementing `IOcoTradingProvider`".
+- **Webhook failures are heard, not swallowed.** The missing-target and delivery
+  warnings were unreachable because the logger/event-bus were never injected;
+  both are now wired, and HTTP delivery failures speak once per target before
+  the existing log/security-event path runs.
+- **Sound Designer earcon slots for Error / Success / Retry / Connected /
+  Disconnected** were saved but never read — a custom patch was silently
+  ignored. They now honor the assignment (and the Alert slot was added).
+- **Modal open/close now announces for browser-voice users.** The announcement
+  bypassed the speech-sink policy (live-region only), so browser-voice-only
+  users heard nothing; it now routes through `SpeechManager.Speak`.
+- **StrategyEngine thread-safety.** `RemoveStrategy` (and Dispose's stop loop)
+  mutated the eval-locked signal dictionaries and called `OnStop` off-lock;
+  both now run under `_evalGate`.
+- **Corrupt workspace/alerts files are recovered, not lost.** They are now moved
+  aside via `CorruptFileQuarantine` (with a spoken heads-up) instead of being
+  silently swallowed and then clobbered by the next save. The saved chart
+  **zoom width** is also restored on load (the fragile absolute scroll index is
+  intentionally not — it points at the wrong bar once history grows).
+
+Verified false positive: TwelveData's live WS timestamp is Unix **seconds**
+(confirmed against their docs), not milliseconds — left correct, with
+magnitude-normalization added so the question can't recur. Still open for a live
+pass: the MEXC static-spot-chart report (its capability/connection flags were
+made honest here, but the underlying spot-kline delivery needs a live MEXC test).
+
 ### Live-test fixes: double speech, dead Shift+F2/F3, monitoring clarity (2026-07-23)
 
 Cody's first live pass on the local WebHost in Chrome + Orca surfaced four
