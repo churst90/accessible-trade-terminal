@@ -47,6 +47,21 @@ public sealed class WheelZoomAnchorTests
     }
 
     [Fact]
+    public void WheelZoom_in_actually_shrinks_the_viewport()
+    {
+        // Regression fence for the dead-action bug (2026-07-23): WheelZoomAction was
+        // missing from WorkspaceStore's routing switch, so dispatching it was a no-op.
+        // The anchor-invariant assertions below are trivially satisfied by a no-op
+        // (before == after), so we MUST first prove the viewport actually changed.
+        var store = NewStoreWithBars();
+        var before = store.State;
+        store.Dispatch(new WheelZoomAction(Direction: +1, AnchorFraction: 0.5));
+        var after = store.State;
+        Assert.True(after.ViewportLength < before.ViewportLength,
+            "wheel zoom-in must reduce the viewport length — a no-op means the action isn't routed");
+    }
+
+    [Fact]
     public void WheelZoom_in_keeps_cursor_bar_fixed_on_screen()
     {
         // Cursor at 50% of viewport → zoom in → the bar under the cursor before and
@@ -56,7 +71,22 @@ public sealed class WheelZoomAnchorTests
         var before = store.State;
         store.Dispatch(new WheelZoomAction(Direction: +1, AnchorFraction: 0.5));
         var after = store.State;
+        Assert.NotEqual(before.ViewportLength, after.ViewportLength); // guard against no-op
         AssertAnchorPreserved(before, after, 0.5);
+    }
+
+    [Fact]
+    public void WheelZoom_out_actually_grows_the_viewport()
+    {
+        // Zoom out from a mid-history position must lengthen the viewport. Pinned as a
+        // no-op guard alongside the anchor invariant (see zoom-in regression note).
+        var store = NewStoreWithBars();
+        store.Dispatch(new PanAction(-400)); // leave the live edge so there's room to grow
+        var before = store.State;
+        store.Dispatch(new WheelZoomAction(Direction: -1, AnchorFraction: 0.95));
+        var after = store.State;
+        Assert.True(after.ViewportLength > before.ViewportLength,
+            "wheel zoom-out must grow the viewport length — a no-op means the action isn't routed");
     }
 
     [Fact]
@@ -68,6 +98,7 @@ public sealed class WheelZoomAnchorTests
         var before = store.State;
         store.Dispatch(new WheelZoomAction(Direction: -1, AnchorFraction: 0.95));
         var after = store.State;
+        Assert.NotEqual(before.ViewportLength, after.ViewportLength); // guard against no-op
         AssertAnchorPreserved(before, after, 0.95, tolerance: 2.0);
     }
 

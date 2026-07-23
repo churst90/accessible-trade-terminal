@@ -272,6 +272,71 @@ public class TradingReconciliationTests
         s2.Coordinator.Dispose();
     }
 
+    // ── Margin / liquidation-proximity warnings ──────────────────────────────
+
+    private static List<MarginWarningEvent> MarginWarnings(SpyEventBus bus) =>
+        bus.Log.OfType<MarginWarningEvent>().ToList();
+
+    [Fact]
+    public async Task Position_near_liquidation_raises_a_margin_warning()
+    {
+        var h = Build(paperMode: false);
+        h.Orders.SupportsTradingAsync("Binance").Returns(true);
+        // Long 1 BTC, mark 100 (MarketValue/Quantity), liquidation at 92 → 8% away (< 15%).
+        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position>
+        {
+            new("BTC/USD", 1.0, 100.0, 100.0, 0.0, Leverage: 10.0, LiquidationPrice: 92.0),
+        });
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+
+        h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
+        await SettleAsync(() => MarginWarnings(h.Bus).Count > 0);
+
+        var warn = Assert.Single(MarginWarnings(h.Bus));
+        Assert.Equal("BTC/USD", warn.Symbol);
+        Assert.Contains("Margin warning", warn.Message);
+        Assert.Contains("liquidation price", warn.Message);
+        h.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task Position_comfortably_clear_of_liquidation_stays_silent()
+    {
+        var h = Build(paperMode: false);
+        h.Orders.SupportsTradingAsync("Binance").Returns(true);
+        // Mark 100, liquidation at 50 → 50% away, well outside the 15% band.
+        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position>
+        {
+            new("BTC/USD", 1.0, 100.0, 100.0, 0.0, Leverage: 2.0, LiquidationPrice: 50.0),
+        });
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+
+        h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
+        await SettleAsync(() => Announcements(h.Bus).Count > 0);
+
+        Assert.Empty(MarginWarnings(h.Bus));
+        h.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task Spot_position_without_a_liquidation_price_never_warns()
+    {
+        var h = Build(paperMode: false);
+        h.Orders.SupportsTradingAsync("Coinbase").Returns(true);
+        // Spot holding: LiquidationPrice defaults to 0 → not a margin position.
+        h.Orders.GetPositionsAsync("Coinbase").Returns(new List<Position>
+        {
+            new("BTC/USD", 1.0, 100.0, 100.0, 0.0),
+        });
+        h.Orders.GetOpenOrdersAsync("Coinbase").Returns(new List<OpenOrder>());
+
+        h.Bus.Publish(new ConnectionStatusEvent("Coinbase", ConnectionState.Connected, "up"));
+        await SettleAsync(() => Announcements(h.Bus).Count > 0);
+
+        Assert.Empty(MarginWarnings(h.Bus));
+        h.Coordinator.Dispose();
+    }
+
     [Fact]
     public async Task Reduced_position_is_reported_as_reduced()
     {

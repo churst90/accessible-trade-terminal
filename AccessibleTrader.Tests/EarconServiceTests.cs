@@ -1,6 +1,8 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 using NSubstitute;
 using Xunit;
 
@@ -62,5 +64,69 @@ public class EarconServiceTests
         new EarconService(sonify, lib).PlayNewBar();
 
         sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
+    }
+
+    // ── Regression: keys the Sound Designer saved but the engine ignored ──────
+    // Error / Success / Retry / Connected / Disconnected previously played hardcoded
+    // notes, silently discarding an assigned patch. Each must now honor its patch.
+
+    [Fact]
+    public void PlayError_WithAssignedPatch_RoutesThroughPlayPatch()
+    {
+        var patch = new SoundPatch { Name = "err" };
+        var overrides = new EarconSettings();
+        overrides.EarconPatchIds["Error"] = patch.Id;
+        var (sonify, lib) = Deps(overrides);
+        lib.GetPatch(patch.Id).Returns(patch);
+
+        new EarconService(sonify, lib).PlayError(ErrorSeverity.High);
+
+        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
+        sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void PlaySuccess_WithAssignedPatch_RoutesThroughPlayPatch()
+    {
+        var patch = new SoundPatch { Name = "ok" };
+        var overrides = new EarconSettings();
+        overrides.EarconPatchIds["Success"] = patch.Id;
+        var (sonify, lib) = Deps(overrides);
+        lib.GetPatch(patch.Id).Returns(patch);
+
+        new EarconService(sonify, lib).PlaySuccess();
+
+        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
+        sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void PlayConnectionState_Connected_WithAssignedPatch_RoutesThroughPlayPatch()
+    {
+        var patch = new SoundPatch { Name = "conn" };
+        var overrides = new EarconSettings();
+        overrides.EarconPatchIds["Connected"] = patch.Id;
+        var (sonify, lib) = Deps(overrides);
+        lib.GetPatch(patch.Id).Returns(patch);
+
+        new EarconService(sonify, lib).PlayConnectionState(ConnectionState.Connected);
+
+        sonify.Received(1).PlayPatch(patch, Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
+        sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void PlayError_NoAssignment_FallsBackToPlayNote()
+    {
+        var (sonify, lib) = Deps(new EarconSettings());
+
+        new EarconService(sonify, lib).PlayError(ErrorSeverity.High);
+
+        sonify.Received().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+        sonify.DidNotReceive().PlayPatch(Arg.Any<SoundPatch>(), Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
     }
 }

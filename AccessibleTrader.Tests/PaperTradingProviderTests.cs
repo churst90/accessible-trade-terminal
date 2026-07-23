@@ -355,6 +355,26 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Oco_wide_bar_crossing_both_legs_fills_only_one()
+        {
+            // Regression fence: a single wide/gapping bar whose range spans BOTH the sell-limit
+            // (110) and the sell-stop (95) must fill exactly ONE leg and cancel the other — not
+            // fill both. Before the fix the snapshot loop filled both legs (long 1.0 → net short
+            // 1.0, double fee) and emitted a spurious cancel on an already-filled order.
+            var (paper, store, updates, limitId, stopId) = await RestingOcoPairAsync();
+
+            store.EmitState(StateWith(Btc, 100, 111, 94, 100)); // high≥110 AND low≤95
+
+            int filled = updates.Count(u => (u.OrderId == limitId || u.OrderId == stopId) && u.Status == OrderStatus.Filled);
+            int cancelled = updates.Count(u => (u.OrderId == limitId || u.OrderId == stopId) && u.Status == OrderStatus.Cancelled);
+            Assert.Equal(1, filled);
+            Assert.Equal(1, cancelled);
+            // The long 1.0 was closed by exactly one sell 1.0 → flat, NOT net short.
+            Assert.Empty(await paper.GetPositionsAsync());
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));
+        }
+
+        [Fact]
         public async Task Oco_group_survives_a_restart()
         {
             var (paper, _, _, _, _) = await RestingOcoPairAsync();

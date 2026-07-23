@@ -69,9 +69,13 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
+        // Only capabilities PlaceOrderAsync can actually honor. OCO (no IOcoTradingProvider),
+        // TrailingStop (no TRAIL order body), and Brackets (no parent/child leg array) were
+        // declared but never implemented — the UI offered controls that silently placed a
+        // bare order with no linked/protective legs. Single stop-loss and take-profit orders
+        // ARE supported and stay advertised via SupportsStopLoss / SupportsTakeProfit below.
         public override ProviderCapabilities Capabilities =>
-            ProviderCapabilities.L2 | ProviderCapabilities.Shorting | ProviderCapabilities.OCO |
-            ProviderCapabilities.TrailingStop | ProviderCapabilities.Leverage | ProviderCapabilities.Brackets;
+            ProviderCapabilities.L2 | ProviderCapabilities.Shorting | ProviderCapabilities.Leverage;
 
         public override bool SupportsMarginTrading  => true;
         public override bool SupportsFuturesTrading => true;

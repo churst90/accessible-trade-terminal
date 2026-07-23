@@ -56,6 +56,9 @@ namespace AccessibleTrader.Core.Services.Alerts
         private readonly Microsoft.Extensions.Logging.ILogger? _logger;
         private readonly IEventBus? _eventBus;
         private readonly HashSet<string> _warnedMissingTargets = new(StringComparer.OrdinalIgnoreCase);
+        // Targets we've already spoken a delivery-failure warning for; cleared on the next
+        // success so a recovered-then-broken endpoint warns again.
+        private readonly HashSet<string> _warnedFailingTargets = new(StringComparer.OrdinalIgnoreCase);
 
         public WebhookAlertChannel(HttpClient http, Func<WebhookAlertChannelConfig?> configProvider,
             Microsoft.Extensions.Logging.ILogger? logger = null, IEventBus? eventBus = null)
@@ -135,8 +138,30 @@ namespace AccessibleTrader.Core.Services.Alerts
             if (!string.IsNullOrWhiteSpace(hook.AuthHeader))
                 req.Headers.TryAddWithoutValidation("Authorization", hook.AuthHeader);
 
-            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+                resp.EnsureSuccessStatusCode();
+                // A previously-failing target that now succeeds should be able to warn
+                // again if it breaks later.
+                lock (_warnedFailingTargets) _warnedFailingTargets.Remove(hook.Name);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                // Delivery failure (network, 4xx/5xx, timeout). Previously this only threw
+                // up to AlertDeliveryService, which logs + records a SecurityEvent — neither
+                // of which a blind user ever hears. Speak it once per target until it recovers,
+                // then rethrow so the existing log/SecurityEvent path still runs.
+                _logger?.LogWarning(ex,
+                    "Alert '{Alert}' webhook '{Target}' delivery failed.", alert.Definition.Name, hook.Name);
+                bool firstFailure;
+                lock (_warnedFailingTargets) firstFailure = _warnedFailingTargets.Add(hook.Name);
+                if (firstFailure)
+                    _eventBus?.Publish(new Models.FeedbackRequestEvent(Models.FeedbackType.Error,
+                        $"Alert webhook '{hook.Name}' is failing to deliver. {alert.Definition.Name} did not send — check the endpoint in the Alerts dialog.",
+                        true));
+                throw;
+            }
         }
     }
 }

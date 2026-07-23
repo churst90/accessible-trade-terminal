@@ -451,6 +451,9 @@ namespace AccessibleTrader.Core.Services
             // Restore pane height ratios
             RestorePaneHeightRatios(activeTab.PaneHeightRatios);
 
+            // Restore the saved zoom width (before data loads — see RestoreViewportLength).
+            RestoreViewportLength(activeTab.ViewportLength);
+
             // Now add the remaining tabs as snapshots.
             for (int i = 0; i < config.Tabs.Count; i++)
             {
@@ -483,6 +486,9 @@ namespace AccessibleTrader.Core.Services
 
                 // Restore pane ratios
                 RestorePaneHeightRatios(tab.PaneHeightRatios);
+
+                // Restore this tab's saved zoom width before its snapshot is taken.
+                RestoreViewportLength(tab.ViewportLength);
             }
 
             // Switch back to the originally active tab.
@@ -511,6 +517,7 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 RestorePaneHeightRatios(config.PaneHeightRatios);
+                RestoreViewportLength(config.ViewportLength);
             }
 
             SetPrimaryAndFocusFromRestore();
@@ -563,6 +570,22 @@ namespace AccessibleTrader.Core.Services
                 ratios[key] = Math.Max(ratios[key], MinRatioFloor);
 
             _store.Dispatch(new SetPaneHeightRatiosAction(ratios.ToImmutableDictionary()));
+        }
+
+        /// <summary>
+        /// Restores a tab's saved ZOOM WIDTH (viewport bar count). Dispatched while the tab's
+        /// data is still empty, so the subsequent initial load computes its live-edge window
+        /// from this length instead of the default — previously the saved viewport was written
+        /// to disk but never re-applied, so every load/resume snapped to the default zoom.
+        ///
+        /// The saved absolute scroll INDEX is deliberately not restored: after a reload the
+        /// history depth and live edge differ, so a stored index would point at the wrong bar.
+        /// Opening at the live edge with the user's zoom width is the correct, stable behavior.
+        /// </summary>
+        private void RestoreViewportLength(int savedLength)
+        {
+            if (savedLength > 0)
+                _store.Dispatch(new ZoomAction(savedLength)); // reducer clamps to a valid range
         }
 
         /// <summary>

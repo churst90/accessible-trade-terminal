@@ -655,10 +655,25 @@
         _openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
         _fills      = await OrderService.GetFillsAsync(provider);
 
-        var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
-        _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
+        RefreshTradingEnvironment();
 
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Recomputes <c>_paperMode</c> and <c>_isLiveEnvironment</c> from the LIVE paper-trading
+    /// setting. Both are otherwise cached when the modal opens; if the user toggled paper mode
+    /// OFF in Settings (F12 / Settings modal) while this dashboard stayed open, the stale cache
+    /// would skip the live-order confirmation at submit while GeneralOrderService — which reads
+    /// the setting live — routed the order to the REAL broker. Always call this before the live
+    /// gate so a real-money order can never go out unconfirmed with the badge still showing Paper.
+    /// </summary>
+    private void RefreshTradingEnvironment()
+    {
+        _paperMode = !Demo.AllowLiveTrading
+            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+        var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
+        _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
     }
 
     private async Task RefreshBookAsync()
@@ -723,6 +738,12 @@
     private async Task SubmitOrder()
     {
         if (!CanSubmit) return;
+        // Never trust the open-time paper/live cache for the confirmation gate — the user may
+        // have toggled paper mode off in Settings while this modal stayed open (see
+        // RefreshTradingEnvironment). Recompute from the live setting first.
+        bool wasPaper = _paperMode;
+        RefreshTradingEnvironment();
+        if (wasPaper != _paperMode) StateHasChanged(); // keep the Env badge honest too
         // Live orders get a spoken review + explicit confirm; paper submits directly.
         if (_isLiveEnvironment && !_paperMode && !_reviewArmed)
         {

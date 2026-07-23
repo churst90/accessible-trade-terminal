@@ -193,6 +193,12 @@ namespace AccessibleTrader.Core.Services
                 or NavigateAction or NavigateRelativeAction
                 or SetCursorAction
                 or PanAction or ZoomAction
+                // WheelZoomAction has a reducer case in ViewportReducer and is
+                // dispatched by GlobalInputService.OnWheel, but was MISSING from
+                // this routing list — every mouse-wheel zoom fell through to the
+                // "unhandled" arm and silently did nothing (found 2026-07-23,
+                // same class as the Shift+F2/F3 dead-action bug).
+                or WheelZoomAction
                 or WorkspacePanEvent or WorkspaceZoomEvent
                 or JumpToLatestAction
                 or AdjustGranularityAction

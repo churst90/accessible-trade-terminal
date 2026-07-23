@@ -37,6 +37,21 @@ namespace AccessibleTrader.Tests
         private static WebhookAlertChannel Build(FakeHttpMessageHandler handler, WebhookAlertChannelConfig? cfg)
             => new(new HttpClient(handler), () => cfg);
 
+        private static WebhookAlertChannel Build(FakeHttpMessageHandler handler, WebhookAlertChannelConfig? cfg,
+            AccessibleTrader.Tests.Mocks.SpyEventBus bus)
+            => new(new HttpClient(handler), () => cfg, logger: null, eventBus: bus);
+
+        private static List<AccessibleTrader.Core.Models.FeedbackRequestEvent> Warnings(
+            AccessibleTrader.Tests.Mocks.SpyEventBus bus)
+        {
+            var list = new List<AccessibleTrader.Core.Models.FeedbackRequestEvent>();
+            foreach (var e in bus.Log)
+                if (e is AccessibleTrader.Core.Models.FeedbackRequestEvent f
+                    && f.Type == AccessibleTrader.Core.Models.FeedbackType.Error)
+                    list.Add(f);
+            return list;
+        }
+
         private static WebhookAlertChannelConfig Cfg(params NamedWebhook[] hooks)
             => new() { Webhooks = hooks };
 
@@ -143,6 +158,48 @@ namespace AccessibleTrader.Tests
             }));
 
             await Assert.ThrowsAsync<HttpRequestException>(() => channel.SendAsync(SampleAlert()));
+        }
+
+        [Fact]
+        public async Task SendAsync_UnknownTarget_SpeaksAWarning_OncePerTarget()
+        {
+            // Regression fence for the dead-diagnostics bug: the missing-target warning
+            // was unreachable because the event bus was never injected. With a bus wired,
+            // a renamed/deleted target must speak exactly one Error feedback — and only
+            // once even across repeated fires — so a blind user learns their alert broke.
+            var bus = new AccessibleTrader.Tests.Mocks.SpyEventBus();
+            var handler = new FakeHttpMessageHandler().Add(HttpMethod.Post, @".*",
+                _ => new HttpResponseMessage(HttpStatusCode.OK));
+            var channel = Build(handler,
+                Cfg(new NamedWebhook { Name = "BTC channel", Url = "https://hooks.example.com/btc" }), bus);
+
+            await channel.SendAsync(SampleAlert(webhookTarget: "was-renamed"));
+            await channel.SendAsync(SampleAlert(webhookTarget: "was-renamed"));
+
+            var warn = Assert.Single(Warnings(bus));
+            Assert.Contains("was-renamed", warn.Message);
+        }
+
+        [Fact]
+        public async Task SendAsync_HttpFailure_SpeaksAWarning_AndStillThrows()
+        {
+            // The delivery failure must both (a) reach the user's speech as an Error and
+            // (b) still throw, so AlertDeliveryService's existing log + SecurityEvent path
+            // runs unchanged.
+            var bus = new AccessibleTrader.Tests.Mocks.SpyEventBus();
+            var handler = new FakeHttpMessageHandler()
+                .Post(@"discord\.com", "rate limited", HttpStatusCode.TooManyRequests);
+            var channel = Build(handler, Cfg(new NamedWebhook
+            {
+                Name = "Default",
+                Url = "https://discord.com/api/webhooks/1/abc",
+            }), bus);
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => channel.SendAsync(SampleAlert()));
+
+            var warn = Assert.Single(Warnings(bus));
+            Assert.Contains("Default", warn.Message);
+            Assert.Contains("failing to deliver", warn.Message);
         }
 
         // ── Migration: legacy single alerts.webhook.url → {Name:"Default"} ──────────

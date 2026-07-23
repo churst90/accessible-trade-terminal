@@ -348,7 +348,11 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
                     BuildAlertChannelHttpClient(),
-                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>()),
+                    // Wire diagnostics so missing-target and delivery failures reach the
+                    // log and (when a circuit is open) the user's speech — null before.
+                    sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
             // Part C — strategy-setup → AlertFiredEvent bridge (default-off; see SetupAlertBridge).
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.SetupAlertBridge>();

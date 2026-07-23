@@ -165,8 +165,17 @@ namespace AccessibleTrader.Plugins.TwelveData
                     double price = json["price"]?.Value<double>() ?? 0;
                     if (price <= 0) return;
 
-                    long tsMs = json["timestamp"]?.Value<long>() ?? 0;
-                    var now = tsMs > 0 ? DateTimeOffset.FromUnixTimeSeconds(tsMs).UtcDateTime : DateTime.UtcNow;
+                    // TwelveData's WS price event sends a Unix timestamp in SECONDS
+                    // (e.g. 1600595462 = 2020-09-13; confirmed against their docs). We
+                    // normalize by magnitude anyway so a future switch to milliseconds can
+                    // never silently throw the candle ~50,000 years into the future: a
+                    // seconds value is ~1.7e9, a milliseconds value ~1.7e12.
+                    long ts = json["timestamp"]?.Value<long>() ?? 0;
+                    var now = ts <= 0
+                        ? DateTime.UtcNow
+                        : (ts >= 100_000_000_000L
+                            ? DateTimeOffset.FromUnixTimeMilliseconds(ts).UtcDateTime
+                            : DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime);
 
                     if (_lastCandle.HasValue && _lastCandleStart.HasValue)
                     {

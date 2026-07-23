@@ -54,9 +54,13 @@ namespace AccessibleTrader.Plugins.Mexc
         public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 500;
+        // Brackets removed: spot PlaceSpotOrderAsync rejects everything but Market/Limit, and
+        // futures attaches SL/TP as single fields, not a linked bracket — the flag advertised
+        // a protective-order layout MEXC cannot place. Leverage stays (futures only, gated by
+        // SupportsFuturesTrading / MaxLeverage).
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
-            ProviderCapabilities.Leverage | ProviderCapabilities.Brackets;
+            ProviderCapabilities.Leverage;
 
         public override bool SupportsMarginTrading  => false;
         public override bool SupportsFuturesTrading => true;
@@ -64,7 +68,12 @@ namespace AccessibleTrader.Plugins.Mexc
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 200.0;
 
-        public bool IsConnected => !string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null;
+        // Reflects an actually-created socket client AND available credentials, not just
+        // credential presence — the old check reported "connected" before the socket existed,
+        // masking the static-chart failure. (A live socket that connects but never delivers
+        // spot kline frames is surfaced by the LiveStreamManager quiet-stream watchdog.)
+        public bool IsConnected =>
+            _socketClient != null && (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null);
 
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
@@ -253,6 +262,14 @@ namespace AccessibleTrader.Plugins.Mexc
             }
             else
             {
+                // KNOWN ISSUE (static spot chart): MEXC migrated its spot public WebSocket
+                // (including kline) to a Protobuf-only protocol. If the JK.Mexc.Net build in
+                // use does not decode the current spot kline frames, this subscription reports
+                // Success yet the callback below never fires — the chart draws its REST history
+                // once and then sits static. Futures uses a separate (working) channel. A real
+                // fix needs a live MEXC spot test and likely an SDK bump or a direct-API spot
+                // kline path (the treatment Binance already got). Until then the quiet-stream
+                // watchdog announces the connected-but-silent feed instead of failing mutely.
                 var result = await _socketClient!.SpotApi.SubscribeToKlineUpdatesAsync(
                     cleanSymbol, MapSpotInterval(timeframe), data =>
                     {

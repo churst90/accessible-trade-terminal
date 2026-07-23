@@ -141,6 +141,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _sonificationManager.PlayNote(defaultFreq, defaultDuration, defaultWave, defaultVol, pan, force: true);
         }
 
+        /// <summary>
+        /// Plays the user-assigned patch for <paramref name="earconKey"/> if one is set and
+        /// resolvable, returning true. Callers whose default is a multi-note chord (Error,
+        /// Success, Retry, connection cues) use this to honor a Sound Designer assignment
+        /// before falling back to their built-in sequence — previously these keys were saved
+        /// by the designer but never read, so a custom patch was silently ignored.
+        /// </summary>
+        private bool TryPlayPatch(string earconKey, float pan = 0f)
+        {
+            if (_patchLibrary.EarconOverrides.EarconPatchIds.TryGetValue(earconKey, out var patchId))
+            {
+                var patch = _patchLibrary.GetPatch(patchId);
+                if (patch != null)
+                {
+                    _sonificationManager.PlayPatch(patch, 1f, pan, force: true);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void PlayAlert(bool breakThroughMutes = false)
         {
             if (!breakThroughMutes && !AmbientEarconsAudible()) return;
@@ -175,6 +196,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!CanPlay("error")) return;
             SignalVisual($"Error ({severity})", "alert");
 
+            if (TryPlayPatch("Error")) return;
+
             switch (severity)
             {
                 case ErrorSeverity.Low:
@@ -196,6 +219,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!AmbientEarconsAudible()) return;
             if (!CanPlay("success")) return;
             SignalVisual("Success", "positive");
+            if (TryPlayPatch("Success")) return;
             _sonificationManager.PlayNote(440, 0.1, "sine", 0.1f, 0, force: true);
             _sonificationManager.PlayNote(880, 0.1, "sine", 0.1f, 0, force: true);
         }
@@ -205,6 +229,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!AmbientEarconsAudible()) return;
             if (!CanPlay("retry")) return;
             SignalVisual("Retrying", "neutral");
+            if (TryPlayPatch("Retry")) return;
             _sonificationManager.PlayNote(330, 0.1, "sine", 0.1f, 0, force: true);
             _sonificationManager.PlayNote(220, 0.1, "sine", 0.1f, 0, force: true);
         }
@@ -371,15 +396,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             SignalVisual($"Connection: {state}",
                 state == ConnectionState.Error || state == ConnectionState.Disconnected ? "alert" : "neutral");
 
+            // The Sound Designer exposes "Connected" and "Disconnected" patch slots; honor
+            // them before the built-in cues. Connecting/Error have no designer slot.
             switch (state)
             {
                 case ConnectionState.Connecting:
                     _sonificationManager.PlayNote(440, 0.05, "sine", 0.05f, 0, force: true);
                     break;
                 case ConnectionState.Connected:
+                    if (TryPlayPatch("Connected")) return;
                     _sonificationManager.PlayNote(800, 0.2, "sine", 0.1f, 0, force: true);
                     break;
                 case ConnectionState.Disconnected:
+                    if (TryPlayPatch("Disconnected")) return;
                     _sonificationManager.PlayNote(150, 0.3, "square", 0.1f, 0, force: true);
                     break;
                 case ConnectionState.Error:

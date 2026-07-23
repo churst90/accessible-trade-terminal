@@ -128,6 +128,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _audioRouter.PlayEarcon(FeedbackType.StateChange, ErrorSeverity.Low);
                 _speechRouter.Speak($"Order cancelled for {e.Order.Symbol}.", interrupt: false, channel: SpeechChannel.OrderEvent);
             }));
+            // Margin/liquidation proximity — a leveraged position drifting toward its
+            // liquidation price is a High-severity safety event: error earcon plus an
+            // interrupting spoken warning on the order channel. Detection (and per-symbol
+            // debouncing) lives in TradingReconciliationCoordinator, which publishes
+            // MarginWarningEvent; this is purely the voice/earcon presentation.
+            _subscriptions.Add(_eventBus.Subscribe<MarginWarningEvent>(e =>
+            {
+                _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
+                _speechRouter.Speak(e.Message, interrupt: true, channel: SpeechChannel.OrderEvent);
+            }));
         }
 
         // ── Order speech formatting ────────────────────────────────────────────

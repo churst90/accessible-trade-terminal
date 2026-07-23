@@ -207,16 +207,15 @@
                 }
 
                 if (string.IsNullOrEmpty(evt.ModalName)) return;
-                // Manual-channel speech: this live-region write bypasses the speech
-                // router, so it must respect the F2 mute itself (2026-07-21 F2 leak fix).
+                // Respect the F2 speech mute (workspace flag), then route through
+                // SpeechManager.Speak instead of writing the live region directly. The
+                // direct write reached ONLY the live region — which the sink policy disables
+                // for browser-voice-only users, so they heard nothing on modal open/close.
+                // Speak() applies ShouldEnableLiveRegion: browser voice → browser TTS,
+                // server backends → their sink, browser-hop → the live region (exactly one).
                 if (!Store.State.IsSpeechEnabled) return;
                 var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
-                InvokeAsync(() =>
-                {
-                    _latestSpeech = phrase;
-                    _activeBuffer = _activeBuffer == 1 ? 2 : 1;
-                    StateHasChanged();
-                });
+                SpeechManager.Speak(phrase);
             });
 
         await base.OnInitializedAsync();

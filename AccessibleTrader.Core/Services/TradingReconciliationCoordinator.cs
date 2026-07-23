@@ -54,6 +54,17 @@ namespace AccessibleTrader.Core.Services
         private readonly List<IDisposable> _fillSubs = new();
         private int _snapshotRefreshQueued;
 
+        // Symbols already warned about margin this session. A symbol is removed when its
+        // position recovers or closes, so a position that dips into danger, recovers, then
+        // dips again warns each time — without spamming a warning on every 30s poll while
+        // it sits in the danger zone.
+        private readonly HashSet<string> _marginWarned = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _marginLock = new();
+        private readonly System.Threading.CancellationTokenSource _monitorCts = new();
+
+        // Warn when the live mark price is within this fraction of the liquidation price.
+        private const double MarginWarnFraction = 0.15;
+
         internal sealed class SnapshotPosition
         {
             public string Symbol { get; set; } = "";
@@ -95,6 +106,11 @@ namespace AccessibleTrader.Core.Services
             _fillSubs.Add(eventBus.Subscribe<OrderFilledEvent>(_ => QueueSnapshotRefresh()));
             _fillSubs.Add(eventBus.Subscribe<StopHitEvent>(_ => QueueSnapshotRefresh()));
             _fillSubs.Add(eventBus.Subscribe<TakeProfitHitEvent>(_ => QueueSnapshotRefresh()));
+
+            // Poll open positions for liquidation proximity. Margin risk grows from price
+            // moves, not just fills, so it must be checked on a timer — connect/fill checks
+            // alone would miss a position sliding toward liquidation on a quiet chart.
+            _ = MonitorMarginAsync(_monitorCts.Token);
         }
 
         // Mirrors GeneralOrderService.IsPaperMode: hosted/demo builds force paper
@@ -137,6 +153,7 @@ namespace AccessibleTrader.Core.Services
                 var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
                 var orders = await _orders.GetOpenOrdersAsync(provider).ConfigureAwait(false);
                 Announce(provider, positions.Count, orders.Count);
+                CheckMargin(provider, positions);
 
                 await ReportClosedWhileAwayAsync(provider, positions).ConfigureAwait(false);
                 SaveSnapshotFor(provider, positions);
@@ -258,6 +275,7 @@ namespace AccessibleTrader.Core.Services
                         {
                             var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
                             SaveSnapshotFor(provider, positions);
+                            CheckMargin(provider, positions);
                         }
                         catch (Exception ex)
                         {
@@ -271,6 +289,107 @@ namespace AccessibleTrader.Core.Services
                 }
             });
         }
+
+        // ── Margin / liquidation-proximity monitor ───────────────────────────
+
+        private async Task MonitorMarginAsync(System.Threading.CancellationToken ct)
+        {
+            // 30s cadence balances early warning against position-endpoint rate limits;
+            // connect and post-fill checks cover the moments in between.
+            using var timer = new System.Threading.PeriodicTimer(TimeSpan.FromSeconds(30));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+                {
+                    try
+                    {
+                        if (IsPaperMode)
+                        {
+                            var positions = await _paper.GetPositionsAsync().ConfigureAwait(false);
+                            CheckMargin("Paper account", positions);
+                        }
+                        else
+                        {
+                            List<string> providers;
+                            lock (_reconciledLock) providers = new List<string>(_reconciled);
+                            foreach (var provider in providers)
+                            {
+                                var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
+                                CheckMargin(provider, positions);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Margin monitor tick failed.");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown.
+            }
+        }
+
+        /// <summary>
+        /// Publishes a <see cref="MarginWarningEvent"/> for any leveraged position whose
+        /// live mark price is within <see cref="MarginWarnFraction"/> of its broker-supplied
+        /// liquidation price. Debounced per provider+symbol (see <c>_marginWarned</c>) so the
+        /// warning is spoken once per approach, not on every 30s poll. Spot holdings and
+        /// providers that report no liquidation price are skipped.
+        /// </summary>
+        private void CheckMargin(string provider, IReadOnlyList<Position> positions)
+        {
+            // Keys (provider|symbol) still in the danger zone on THIS provider after this
+            // pass. Anything previously warned for this provider but absent here — a position
+            // that recovered or closed and dropped off the list entirely — has its debounce
+            // flag cleared below so a fresh approach later warns again.
+            var stillEndangered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var p in positions)
+            {
+                if (p.LiquidationPrice <= 0 || Math.Abs(p.Quantity) < 1e-9)
+                    continue; // spot / no liquidation price — not a margin position
+
+                // Recover the current mark from the position itself: MarketValue = qty × price.
+                // Sign of either factor is irrelevant to the distance, hence Math.Abs. A
+                // provider that leaves MarketValue at 0 yields price 0 and is skipped.
+                double currentPrice = Math.Abs(p.MarketValue / p.Quantity);
+                if (currentPrice <= 0) continue;
+
+                double distanceFraction = Math.Abs(currentPrice - p.LiquidationPrice) / currentPrice;
+                if (distanceFraction > MarginWarnFraction)
+                    continue; // comfortably clear — reconcile step below re-arms it
+
+                string key = MarginKey(provider, p.Symbol);
+                stillEndangered.Add(key);
+                bool firstTime;
+                lock (_marginLock) firstTime = _marginWarned.Add(key);
+                if (!firstTime) continue; // already announced; don't repeat every poll
+
+                double pct = distanceFraction * 100.0;
+                string side = p.Quantity > 0 ? "long" : "short";
+                string message =
+                    $"Margin warning: {p.Symbol} {side} on {provider} is within {pct:0.#} percent of its liquidation price " +
+                    $"{Accessibility.SpeechPriceFormatter.FormatPrice(p.LiquidationPrice)}. " +
+                    $"Current price {Accessibility.SpeechPriceFormatter.FormatPrice(currentPrice)}. " +
+                    $"Reduce the position or add margin.";
+                _logger.LogWarning("Margin warning: {Message}", message);
+                _eventBus.Publish(new MarginWarningEvent(p.Symbol, distanceFraction, message));
+            }
+
+            // Re-arm: drop this provider's debounce flags for symbols no longer endangered
+            // (recovered in place OR closed and gone from the list). Scoped by provider prefix
+            // so one provider's pass never clears another provider's warnings.
+            string providerPrefix = provider + '\u0001';
+            lock (_marginLock)
+            {
+                _marginWarned.RemoveWhere(k =>
+                    k.StartsWith(providerPrefix, StringComparison.Ordinal) && !stillEndangered.Contains(k));
+            }
+        }
+
+        private static string MarginKey(string provider, string symbol) => provider + '\u0001' + symbol;
 
         private void Announce(string account, int positionCount, int orderCount)
         {
@@ -291,6 +410,8 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
+            _monitorCts.Cancel();
+            _monitorCts.Dispose();
             _connectionSub.Dispose();
             foreach (var sub in _fillSubs) sub.Dispose();
         }

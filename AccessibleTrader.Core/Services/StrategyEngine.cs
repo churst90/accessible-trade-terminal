@@ -239,13 +239,20 @@ namespace AccessibleTrader.Core.Services
 
         public void RemoveStrategy(string instanceId)
         {
-            var active = _activeStrategies.FirstOrDefault(a => a.InstanceId == instanceId);
-            if (active == null) return;
+            // Under _evalGate: OnStop must not run concurrently with OnBar on the same
+            // instance (strategies are stateful), and the signal dictionaries are only safe
+            // to mutate while the live bar-close evaluation — which runs on a threadpool
+            // thread and also writes them — is not in flight.
+            lock (_evalGate)
+            {
+                var active = _activeStrategies.FirstOrDefault(a => a.InstanceId == instanceId);
+                if (active == null) return;
 
-            active.Strategy.OnStop();
-            _activeStrategies = _activeStrategies.RemoveAll(a => a.InstanceId == instanceId);
-            _pendingSignals.Remove(instanceId);
-            _lastSignalTimes.Remove(instanceId);
+                active.Strategy.OnStop();
+                _activeStrategies = _activeStrategies.RemoveAll(a => a.InstanceId == instanceId);
+                _pendingSignals.Remove(instanceId);
+                _lastSignalTimes.Remove(instanceId);
+            }
         }
 
         public void PauseStrategy(string instanceId, bool paused)
@@ -268,8 +275,14 @@ namespace AccessibleTrader.Core.Services
             if (_feedHub != null)
                 _feedHub.FocusedFeedUpdated -= OnFocusedFeedUpdated;
 
-            foreach (var active in _activeStrategies)
-                active.Strategy.OnStop();
+            // Unsubscribing above stops new evaluations being dispatched, but one may still
+            // be running on a threadpool thread; take _evalGate so OnStop waits for it rather
+            // than racing OnBar on the same (stateful) strategy instance.
+            lock (_evalGate)
+            {
+                foreach (var active in _activeStrategies)
+                    active.Strategy.OnStop();
+            }
         }
     }
 }

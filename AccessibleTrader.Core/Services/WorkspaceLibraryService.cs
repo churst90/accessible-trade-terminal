@@ -229,9 +229,9 @@ namespace AccessibleTrader.Core.Services
         {
             var safe = SanitizeProfileName(name);
             if (safe == null) return null;
+            string path = Path.Combine(_libraryDir, $"{safe}.json");
             try
             {
-                string path = Path.Combine(_libraryDir, $"{safe}.json");
                 if (!File.Exists(path)) return null;
 
                 string json = File.ReadAllText(path);
@@ -240,6 +240,12 @@ namespace AccessibleTrader.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load workspace profile {Name}.", safe);
+                // Genuine corruption (not a transient IO error): quarantine like every other
+                // store so the next SaveProfile can't silently overwrite the recoverable
+                // original, and AppStartupService announces it instead of the blind user
+                // getting an unexplained blank workspace.
+                if (ex is JsonException)
+                    CorruptFileQuarantine.MoveAside(path, ex);
                 return null;
             }
         }
@@ -284,9 +290,9 @@ namespace AccessibleTrader.Core.Services
 
         public List<AlertDefinition> LoadAlerts()
         {
+            string path = Path.Combine(_libraryDir, "alerts.json");
             try
             {
-                string path = Path.Combine(_libraryDir, "alerts.json");
                 if (!File.Exists(path)) return new List<AlertDefinition>();
                 string json = File.ReadAllText(path);
                 return JsonConvert.DeserializeObject<List<AlertDefinition>>(json, AlertJsonSettings) ?? new List<AlertDefinition>();
@@ -294,6 +300,10 @@ namespace AccessibleTrader.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load alerts.");
+                // Corrupt alerts.json quarantined (not silently swallowed) so the user is told
+                // their alerts didn't load and a save can't clobber the original.
+                if (ex is JsonException)
+                    CorruptFileQuarantine.MoveAside(path, ex);
                 return new List<AlertDefinition>();
             }
         }

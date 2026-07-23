@@ -277,8 +277,13 @@ namespace AccessibleTrader.Core.Services
                 }
                 foreach (var o in fills)
                 {
+                    // A wide/gapping bar can cross both legs of an OCO pair in one tick. When
+                    // the first leg fills it cancels its sibling (CancelOcoSiblings removes it
+                    // from _open), so skip any order a prior iteration already removed —
+                    // otherwise the sibling would ALSO fill (double position + fee) and then
+                    // get a spurious Cancelled. _open.Remove returns false when already gone.
+                    if (!_open.Remove(o)) continue;
                     double px = o.Trigger ?? o.Price ?? bar.Close;
-                    _open.Remove(o);
                     var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
                     Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
                     RecordFill(o.Symbol, o.Side, o.Quantity, px, pnl, o.Id);

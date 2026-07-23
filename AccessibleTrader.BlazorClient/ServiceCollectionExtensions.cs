@@ -384,7 +384,12 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
                     BuildAlertChannelHttpClient(),
-                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+                    () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>()),
+                    // Wire the diagnostics dependencies so missing-target and delivery
+                    // failures actually reach the log and the user's speech (both were
+                    // silently null before — the warning feature never fired).
+                    sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
             // Part C — bridges strategy setup events into AlertFiredEvent (default-off,
             // gated by the "alerts.setups.enabled" setting) so setups can reach webhooks.

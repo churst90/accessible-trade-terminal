@@ -25,6 +25,42 @@ namespace AccessibleTrader.Tests
         private readonly string _dir = Directory.CreateTempSubdirectory("att-wsgap-").FullName;
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { } }
 
+        // ── Corrupt-file quarantine (was silently swallowed) ─────────────────
+
+        [Fact]
+        public void LoadProfile_quarantines_a_corrupt_file_instead_of_swallowing_it()
+        {
+            // A corrupt workspace file must be moved aside (recoverable) and recorded so the
+            // user is told — not silently returned as null, which left a blind user with an
+            // unexplained blank workspace and let the next save clobber the original.
+            CorruptFileQuarantine.ClearSessionReports();
+            File.WriteAllText(Path.Combine(_dir, "broken.json"), "{ this is not valid json ");
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+                { LibraryDirectoryOverride = _dir };
+
+            var result = lib.LoadProfile("broken");
+
+            Assert.Null(result);
+            Assert.False(File.Exists(Path.Combine(_dir, "broken.json")));      // moved aside
+            Assert.NotEmpty(Directory.GetFiles(_dir, "broken.json.corrupt-*")); // preserved
+            Assert.Contains(CorruptFileQuarantine.SessionReports, r => r.Contains("broken.json"));
+        }
+
+        [Fact]
+        public void LoadAlerts_quarantines_a_corrupt_file_instead_of_swallowing_it()
+        {
+            CorruptFileQuarantine.ClearSessionReports();
+            File.WriteAllText(Path.Combine(_dir, "alerts.json"), "not json at all");
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+                { LibraryDirectoryOverride = _dir };
+
+            var result = lib.LoadAlerts();
+
+            Assert.Empty(result);
+            Assert.NotEmpty(Directory.GetFiles(_dir, "alerts.json.corrupt-*"));
+            Assert.Contains(CorruptFileQuarantine.SessionReports, r => r.Contains("alerts.json"));
+        }
+
         // ── Active strategies round-trip ─────────────────────────────────────
 
         private static IStrategyEngine EngineWith(params ActiveStrategy[] active)
