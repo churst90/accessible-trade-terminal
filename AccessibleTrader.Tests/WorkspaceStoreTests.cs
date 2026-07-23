@@ -113,6 +113,23 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void ToggleEventSpeech_and_ToggleEarcons_actually_reach_their_reducer()
+        {
+            // 2026-07-23 live finding: the reducer cases and spoken confirmations
+            // for Shift+F2 / Shift+F3 existed, but the actions were missing from
+            // the store's routing switch — both shortcuts silently did nothing.
+            using var store = NewStore(out _);
+
+            bool eventsBefore = store.State.IsEventSpeechEnabled;
+            store.Dispatch(new ToggleEventSpeechAction());
+            Assert.Equal(!eventsBefore, store.State.IsEventSpeechEnabled);
+
+            bool earconsBefore = store.State.IsEarconsEnabled;
+            store.Dispatch(new ToggleEarconsAction());
+            Assert.Equal(!earconsBefore, store.State.IsEarconsEnabled);
+        }
+
+        [Fact]
         public void ToggleHeikinAshiAction_FlipsFlag()
         {
             using var store = NewStore(out _);

@@ -81,4 +81,32 @@ public class WebHostSpeechManagerBackendSelectionTests
             orcaAvailable: true);
         Assert.Equal(SpeechBackend.BrowserTts, without);
     }
+
+    // ── Live-region policy (the 2026-07-23 double-speech fix) ────────────────
+    // Exactly ONE sink may vocalize a Speak call. With a server-side backend
+    // (Orca D-Bus / spd-say) the server is the voice and the ARIA live region
+    // must stay EMPTY — Chrome announces live regions reliably, so Orca read
+    // the region while the server also spoke through it: everything doubled.
+
+    [Fact]
+    public void ServerSideBackends_DisableTheLiveRegion_RegardlessOfMode()
+    {
+        foreach (var backend in new[] { SpeechBackend.OrcaDBus, SpeechBackend.SpdSay })
+        foreach (AccessibleTrader.Core.Services.SpeechOutputMode mode in
+                 System.Enum.GetValues<AccessibleTrader.Core.Services.SpeechOutputMode>())
+        {
+            Assert.False(WebHostSpeechManager.ShouldEnableLiveRegion(backend, mode));
+        }
+    }
+
+    [Fact]
+    public void BrowserBackend_KeepsTheLiveRegion_ExceptInBrowserVoiceMode()
+    {
+        Assert.True(WebHostSpeechManager.ShouldEnableLiveRegion(
+            SpeechBackend.BrowserTts, AccessibleTrader.Core.Services.SpeechOutputMode.ScreenReader));
+        Assert.True(WebHostSpeechManager.ShouldEnableLiveRegion(
+            SpeechBackend.BrowserTts, AccessibleTrader.Core.Services.SpeechOutputMode.Both));
+        Assert.False(WebHostSpeechManager.ShouldEnableLiveRegion(
+            SpeechBackend.BrowserTts, AccessibleTrader.Core.Services.SpeechOutputMode.BrowserVoice));
+    }
 }

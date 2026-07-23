@@ -211,6 +211,11 @@ namespace AccessibleTrader.Core.Services
             AdjustPlaybackSpeedAction
                 or SetPlaybackAction or TogglePauseAction
                 or ToggleSpeechAction or ToggleSonificationAction
+                // Shift+F2 / Shift+F3: the reducer cases and their spoken
+                // confirmations existed but the actions were MISSING from this
+                // routing list — they fell through to "unhandled" and the
+                // shortcuts silently did nothing (found live 2026-07-23).
+                or ToggleEventSpeechAction or ToggleEarconsAction
                 or ToggleHeikinAshiAction or ToggleLogScaleAction
                 => PlaybackReducer.Reduce(state, action),
 

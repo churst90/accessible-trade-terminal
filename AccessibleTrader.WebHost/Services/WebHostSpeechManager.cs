@@ -58,6 +58,7 @@ namespace AccessibleTrader.WebHost.Services
         {
             _orcaAvailable = _gdbusPath != null && ProbeOrca(_gdbusPath, _logger);
             _backend = SelectBackend(_gdbusPath, _spdSayPath, _orcaAvailable);
+            ApplyLiveRegionPolicy();
             LogBackend();
         }
 
@@ -79,6 +80,7 @@ namespace AccessibleTrader.WebHost.Services
             _gdbusPath = gdbusPath;
             _orcaAvailable = orcaAvailable;
             _backend = SelectBackend(_gdbusPath, _spdSayPath, _orcaAvailable);
+            ApplyLiveRegionPolicy();
         }
 
         /// <summary>
@@ -108,11 +110,30 @@ namespace AccessibleTrader.WebHost.Services
             set
             {
                 _outputMode = value;
-                // "Browser voice" empties the live region so a screen reader
-                // that IS running (despite the user's choice) can't double-speak.
-                if (_inner is AccessibleTrader.BlazorClient.Services.BlazorSpeechManager b)
-                    b.LiveRegionEnabled = value != SpeechOutputMode.BrowserVoice;
+                ApplyLiveRegionPolicy();
             }
+        }
+
+        /// <summary>
+        /// Exactly ONE sink may vocalize a Speak call. With a server-side backend
+        /// (Orca D-Bus / spd-say) the server IS the voice — the ARIA live region
+        /// must stay empty, or a browser-side screen reader reads it while the
+        /// server speaks the same text and the user hears everything twice
+        /// (found live 2026-07-23: local WebHost in Chrome + Orca — Chrome
+        /// announces live regions reliably where Firefox often didn't, which is
+        /// why the double never showed before). With the browser as the last
+        /// hop, the live region serves "screen reader" mode and is emptied only
+        /// for "browser voice" mode, as before. Remote-browser access to a Full
+        /// host that has a local Orca is out of scope — Full mode is local-use
+        /// by design (same assumption as the local background monitor).
+        /// </summary>
+        internal static bool ShouldEnableLiveRegion(SpeechBackend backend, SpeechOutputMode mode)
+            => backend == SpeechBackend.BrowserTts && mode != SpeechOutputMode.BrowserVoice;
+
+        private void ApplyLiveRegionPolicy()
+        {
+            if (_inner is AccessibleTrader.BlazorClient.Services.BlazorSpeechManager b)
+                b.LiveRegionEnabled = ShouldEnableLiveRegion(_backend, _outputMode);
         }
 
         private void LogBackend()

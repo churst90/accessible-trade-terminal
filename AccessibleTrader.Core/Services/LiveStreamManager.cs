@@ -189,6 +189,13 @@ namespace AccessibleTrader.Core.Services
                             _logger.LogInformation(
                                 "Live stream for {Provider} is connected but quiet ({Seconds}s); leaving it as historical/sparse rather than reconnecting.",
                                 provider, SilenceThreshold.TotalSeconds);
+                            // Say it ONCE too — a blind user staring at a chart
+                            // that never ticks had no way to know whether the
+                            // feed was quiet, dead, or simply not wired (found
+                            // live 2026-07-23: MEXC chart silently static).
+                            _errorCoordinator.ReportError(
+                                $"{provider} live stream is connected but has sent nothing for a minute. The chart may only update on refresh.",
+                                ErrorSeverity.Low, ErrorCategory.Informational);
                             _fallbackAnnounced = true;
                         }
                         continue;

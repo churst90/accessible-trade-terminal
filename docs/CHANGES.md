@@ -6,6 +6,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Live-test fixes: double speech, dead Shift+F2/F3, monitoring clarity (2026-07-23)
+
+Cody's first live pass on the local WebHost in Chrome + Orca surfaced four
+real defects, all fixed same-day:
+
+- **Everything spoke twice.** The server had picked the Orca D-Bus speech
+  backend (correct — it honors Orca's voice config) but ALSO kept writing
+  every phrase into the ARIA live region; Chrome announces live regions
+  reliably where Firefox often didn't, so Orca read the region while the
+  server spoke the same words through Orca directly. Policy now: exactly ONE
+  sink vocalizes — server-side backends empty the live region entirely; the
+  region remains the channel only when the browser is the last speech hop.
+- **Shift+F2 and Shift+F3 did nothing.** Their reducer cases and spoken
+  confirmations ("Alerts and events muted" / "Earcons muted") existed but the
+  ACTIONS were missing from the store's routing switch — they fell through
+  unhandled. Both shortcuts now flip and announce.
+- **Background monitoring status was misleading.** "TAO/USDT, current" read
+  as "TAO/USDT is the current tab"; it meant "data is fresh". The status now
+  says what monitoring IS ("watching N background workspaces for alerts and
+  strategy signals"), gives data AGE ("checked under a minute ago"), counts
+  each workspace's armed alerts and strategies, and — when nothing is armed —
+  says so and tells you how to hear from that workspace. (Monitoring
+  evaluates alerts and strategies only; bar-by-bar announcements belong to
+  the focused chart by design.)
+- **A live stream that connects but never sends data was silent.** Now spoken
+  once: "{provider} live stream is connected but has sent nothing for a
+  minute" — a static chart now explains itself instead of leaving you to
+  wonder (this is also the breadcrumb for the MEXC quiet-chart report).
+- Settings text no longer references Orca by name — generic screen-reader
+  wording.
+
 ### Hosted server-side alerts + Web Push (2026-07-22)
 
 The last Tier 2 feature. On the hosted terminal, saved alerts no longer die

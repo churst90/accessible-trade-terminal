@@ -201,26 +201,37 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             var sb = new StringBuilder();
             var focused = _store.State.SymbolDisplayName;
-            sb.Append($"Monitoring {monitors.Count} background " +
-                      $"{(monitors.Count == 1 ? "workspace" : "workspaces")}");
-            sb.Append(string.IsNullOrWhiteSpace(focused) ? ". " : $", plus {focused} live on screen. ");
+            sb.Append($"Watching {monitors.Count} background " +
+                      $"{(monitors.Count == 1 ? "workspace" : "workspaces")} for alerts and strategy signals");
+            sb.Append(string.IsNullOrWhiteSpace(focused) ? ". " : $"; {focused} is the focused chart. ");
 
             foreach (var m in monitors.OrderBy(m => m.SymbolDisplayName))
             {
                 sb.Append(m.SymbolDisplayName);
+                // "current" read as "the current tab" in live testing — say the
+                // data's AGE instead, which is what this always meant.
                 if (m.LastError != null) sb.Append(", data error");
                 else if (m.LastEvaluatedUtc is DateTime t)
                 {
                     var age = DateTime.UtcNow - t;
                     sb.Append(age.TotalSeconds < 90
-                        ? ", current"
-                        : $", last checked {(int)age.TotalMinutes} minutes ago");
+                        ? ", checked under a minute ago"
+                        : $", checked {(int)age.TotalMinutes} minute{((int)age.TotalMinutes == 1 ? "" : "s")} ago");
                 }
                 else sb.Append(", starting");
 
-                int armed = _strategyEngine.ActiveStrategies.Count(a =>
+                int armedStrategies = _strategyEngine.ActiveStrategies.Count(a =>
                     !a.IsPaused && string.Equals(a.Symbol, m.SymbolDisplayName, StringComparison.OrdinalIgnoreCase));
-                if (armed > 0) sb.Append($", {armed} strateg{(armed == 1 ? "y" : "ies")}");
+                int armedAlerts = _alerts.GetAlerts().Count(a =>
+                    a.IsActive && string.Equals(a.Symbol, m.SymbolDisplayName, StringComparison.OrdinalIgnoreCase));
+
+                if (armedAlerts > 0) sb.Append($", {armedAlerts} alert{(armedAlerts == 1 ? "" : "s")}");
+                if (armedStrategies > 0) sb.Append($", {armedStrategies} strateg{(armedStrategies == 1 ? "y" : "ies")}");
+                // The teaching line: a monitored workspace with NOTHING armed is
+                // silent by design — bar-by-bar announcements belong to the
+                // focused chart. Say so, or the silence reads as a bug.
+                if (armedAlerts == 0 && armedStrategies == 0)
+                    sb.Append(", nothing armed — add an alert or strategy for this symbol to hear from it");
                 sb.Append(". ");
             }
 
