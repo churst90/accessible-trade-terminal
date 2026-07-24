@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -43,6 +44,14 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
+
+        // Last-known remaining amount per live order id, captured from the
+        // private-my_orders_ stream's order_created / order_changed events so we
+        // can report the incremental fill quantity (Bitstamp only sends the
+        // order's *remaining* amount, never the filled delta) and tell a fully-
+        // filled order_deleted (remaining 0) apart from a user cancel (remaining
+        // > 0). Bounded implicitly by the number of concurrently-open orders.
+        private readonly ConcurrentDictionary<string, double> _orderRemaining = new();
 
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
 
@@ -172,6 +181,23 @@ namespace AccessibleTrader.Plugins.Bitstamp
             return true;
         }
 
+        /// <summary>
+        /// Canonical Bitstamp market key (e.g. "btcusd") for a UI symbol. Strips
+        /// separators, lower-cases, and routes a Tether-quoted symbol to the USD
+        /// book (Bitstamp quotes USD; the app's canonical symbols use USDT). ALL
+        /// data, live, order-book and private-channel paths must go through this
+        /// so historical and live feeds always target the same market — a live
+        /// path that skipped the usdt→usd remap subscribed to a dead channel.
+        /// Only the trailing quote is remapped, never a base that merely contains
+        /// "usdt".
+        /// </summary>
+        internal static string ToBitstampPair(string symbol)
+        {
+            var s = symbol.Replace("/", "").Replace("-", "").ToLowerInvariant();
+            if (s.EndsWith("usdt")) s = string.Concat(s.AsSpan(0, s.Length - 4), "usd");
+            return s;
+        }
+
         // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
 
         public override bool SupportsMultipleLiveSubscriptions => true;
@@ -187,7 +213,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
         /// </summary>
         public override async Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
         {
-            string channel = $"live_trades_{CleanSymbol(symbol).ToLowerInvariant()}";
+            string channel = $"live_trades_{ToBitstampPair(symbol)}";
             var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle.TradeDeltas);
 
             var ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
@@ -216,7 +242,10 @@ namespace AccessibleTrader.Plugins.Bitstamp
             return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
         }
 
-        private void HandleWebSocketMessage(string msg)
+        /// <summary>Routes a raw websocket frame to the trade / order-book /
+        /// private-order handlers. Internal so tests can drive the private-order
+        /// mapping through the real channel-matching path.</summary>
+        internal void HandleWebSocketMessage(string msg)
         {
             try
             {
@@ -246,31 +275,10 @@ namespace AccessibleTrader.Plugins.Bitstamp
                         _orderBookSubject.OnNext(new OrderBookUpdate(symbol, bids, asks, 0, DateTime.UtcNow));
                     }
                 }
-                else if ((ev == "order_changed" || ev == "order_deleted") &&
-                         channel != null && channel.StartsWith("private-my_orders-"))
+                else if ((ev == "order_created" || ev == "order_changed" || ev == "order_deleted") &&
+                         channel != null && channel.StartsWith("private-my_orders_"))
                 {
-                    var data = json["data"];
-                    if (data != null)
-                    {
-                        string orderId    = data["id"]?.ToString() ?? "";
-                        string pair       = channel.Replace("private-my_orders-", "").ToUpperInvariant();
-                        double filledQty  = data["amount"]?.Value<double>() ?? 0;
-                        double remaining  = data["amount_remaining"]?.Value<double>() ?? 0;
-                        double price      = data["price"]?.Value<double>() ?? 0;
-                        int    sideInt    = data["order_type"]?.Value<int>() ?? 0;
-
-                        OrderStatus status;
-                        if (ev == "order_deleted")
-                            status = remaining > 0.0000001 ? OrderStatus.Cancelled : OrderStatus.Filled;
-                        else
-                            status = remaining > 0.0000001 ? OrderStatus.PartialFill : OrderStatus.Filled;
-
-                        _orderUpdateSubject.OnNext(new OrderUpdate(
-                            orderId, pair,
-                            sideInt == 0 ? OrderSide.Buy : OrderSide.Sell,
-                            filledQty, price, remaining, status,
-                            false, false, DateTime.UtcNow));
-                    }
+                    HandlePrivateOrderEvent(ev!, channel, json["data"] as JObject);
                 }
                 else if (ev == "bts:subscription_succeeded")
                 {
@@ -285,11 +293,76 @@ namespace AccessibleTrader.Plugins.Bitstamp
             catch (Exception ex) { _errorStream.OnNext($"WebSocket message error: {ex.Message}"); }
         }
 
+        /// <summary>
+        /// Maps a Bitstamp private-my_orders_ order event to an OrderUpdate.
+        /// Bitstamp only reports the order's REMAINING amount ("amount"), never a
+        /// filled delta, and its order_deleted covers both "fully filled" and
+        /// "cancelled" — so we track the last-known remaining per order id to (a)
+        /// report the incremental fill quantity and (b) distinguish a completed
+        /// fill (remaining ≈ 0) from a user cancel (remaining &gt; 0). order_created
+        /// only registers the baseline; it isn't announced (no working-order
+        /// status exists in the enum). order_type is 0 = buy, 1 = sell.
+        /// </summary>
+        private void HandlePrivateOrderEvent(string ev, string channel, JObject? data)
+        {
+            if (data == null) return;
+
+            const double eps = 1e-9;
+            string orderId = data["id"]?.ToString() ?? data["id_str"]?.ToString() ?? "";
+            string pair    = channel.Replace("private-my_orders_", "").ToUpperInvariant();
+            double amount  = data["amount"]?.Value<double>() ?? 0;   // remaining on the order
+            double price   = data["price"]?.Value<double>() ?? 0;
+            var    side    = (data["order_type"]?.Value<int>() ?? 0) == 0 ? OrderSide.Buy : OrderSide.Sell;
+            var    ts      = ParseOrderEventTime(data);
+
+            if (ev == "order_created")
+            {
+                if (!string.IsNullOrEmpty(orderId)) _orderRemaining[orderId] = amount;
+                return; // baseline only — nothing to announce yet
+            }
+
+            double prevRemaining = (!string.IsNullOrEmpty(orderId) && _orderRemaining.TryGetValue(orderId, out var p))
+                ? p : amount;
+            double filledDelta = Math.Max(0, prevRemaining - amount);
+
+            OrderStatus status;
+            if (ev == "order_deleted")
+            {
+                status = amount > eps ? OrderStatus.Cancelled : OrderStatus.Filled;
+                if (!string.IsNullOrEmpty(orderId)) _orderRemaining.TryRemove(orderId, out _);
+            }
+            else // order_changed — a partial fill reduced the remaining amount
+            {
+                status = amount > eps ? OrderStatus.PartialFill : OrderStatus.Filled;
+                if (!string.IsNullOrEmpty(orderId))
+                {
+                    if (status == OrderStatus.Filled) _orderRemaining.TryRemove(orderId, out _);
+                    else                              _orderRemaining[orderId] = amount;
+                }
+            }
+
+            _orderUpdateSubject.OnNext(new OrderUpdate(
+                orderId, pair, side,
+                filledDelta, price, amount, status,
+                false, false, ts));
+        }
+
+        /// <summary>Event time from Bitstamp's microtimestamp (µs) or datetime (s),
+        /// falling back to now.</summary>
+        private static DateTime ParseOrderEventTime(JObject data)
+        {
+            if (long.TryParse(data["microtimestamp"]?.ToString(), out var micros) && micros > 0)
+                return DateTimeOffset.FromUnixTimeMilliseconds(micros / 1000).UtcDateTime;
+            if (long.TryParse(data["datetime"]?.ToString()?.Split('.')[0], out var secs) && secs > 0)
+                return DateTimeOffset.FromUnixTimeSeconds(secs).UtcDateTime;
+            return DateTime.UtcNow;
+        }
+
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
             await EnsureConnectedAsync();
 
-            var cleanSymbol = symbol.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            var cleanSymbol = ToBitstampPair(symbol);
             string newChannel = $"live_trades_{cleanSymbol}";
             string newBookChannel = $"diff_order_book_{cleanSymbol}";
 
@@ -314,7 +387,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
                 if (IsTradeConfigured)
                 {
-                    _privateOrderChannel = $"private-my_orders-{cleanSymbol}";
+                    _privateOrderChannel = $"private-my_orders_{cleanSymbol}";
                     await SubscribePrivateChannelInternalAsync(_ws, _privateOrderChannel);
                 }
             }
@@ -405,7 +478,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
-            var cleanSymbol = request.Symbol.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            var cleanSymbol = ToBitstampPair(request.Symbol);
             // Regex-based parser handles every N<unit> combination; returns 0 on an
             // unrecognised timeframe, which the guard below maps to the same empty-
             // result shape the legacy ToSeconds returned for -1.
@@ -422,12 +495,22 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     var response = await _httpClient.GetAsync(url);
-                    if (!response.IsSuccessStatusCode) return (new List<Ohlcv>(), new List<(long, double)>());
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _errorStream.OnNext($"Bitstamp data unavailable for {request.Symbol} ({(int)response.StatusCode} {response.StatusCode}).");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     var jsonStr = await response.Content.ReadAsStringAsync();
                     var json    = JObject.Parse(jsonStr);
                     var ohlcArray = json["data"]?["ohlc"] as JArray;
-                    if (ohlcArray == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    if (ohlcArray == null)
+                    {
+                        var reason = json["reason"]?.ToString() ?? json["error"]?.ToString();
+                        if (!string.IsNullOrEmpty(reason))
+                            _errorStream.OnNext($"Bitstamp data error for {request.Symbol}: {reason}");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     var ohlcvList = ohlcArray.Select(item => new Ohlcv(
                         DateTimeOffset.FromUnixTimeSeconds(long.Parse(item["timestamp"]?.ToString() ?? "0")).UtcDateTime,
@@ -441,12 +524,16 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
         }
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
         {
-            var cleanSymbol = symbol.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            var cleanSymbol = ToBitstampPair(symbol);
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
@@ -458,7 +545,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     return (bids, asks);
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new(), new());
+            }
         }
 
         async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)

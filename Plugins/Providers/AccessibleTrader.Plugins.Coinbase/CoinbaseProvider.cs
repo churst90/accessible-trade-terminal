@@ -104,8 +104,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             try
             {
                 string path = "/api/v3/brokerage/accounts";
-                await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                var response = await _httpClient.GetAsync($"https://api.coinbase.com{path}");
+                using var response = await SendSignedAsync(HttpMethod.Get, $"https://api.coinbase.com{path}", path).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
                 var body = await response.Content.ReadAsStringAsync();
@@ -346,8 +345,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync(url);
+                    var response = await GetSignedStringAsync(url, path).ConfigureAwait(false);
                     var json     = JObject.Parse(response);
                     var candles  = json["candles"] as JArray;
                     if (candles == null) return (new List<Ohlcv>(), new List<(long, double)>());
@@ -385,8 +383,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/products";
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
                     var json     = JObject.Parse(response);
                     var products = json["products"] as JArray;
                     return products?.Select(p => p["product_id"]?.ToString() ?? "")
@@ -412,8 +409,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 {
                     var cleanSymbol = ToProductId(symbol);
                     string path = "/api/v3/brokerage/product_book";
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}?product_id={cleanSymbol}&limit={limit}");
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}?product_id={cleanSymbol}&limit={limit}", path).ConfigureAwait(false);
                     var book = JObject.Parse(response)["pricebook"];
                     var bids = (book?["bids"] as JArray)?.Select(b => new OrderBookEntry(
                         double.Parse(b["price"]?.ToString() ?? "0"),
@@ -447,8 +443,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/accounts";
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
                     var json     = JObject.Parse(response);
                     var accounts = json["accounts"] as JArray;
                     if (accounts == null) return new List<Balance>();
@@ -480,8 +475,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/orders/historical/fills";
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}");
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
                     var json = JObject.Parse(response);
                     var arr = json["fills"] as JArray;
                     if (arr == null) return new List<TradeFill>();
@@ -525,8 +519,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     if (!string.IsNullOrEmpty(symbol))
                         query += $"&product_id={ToProductId(symbol)}";
 
-                    await AddAuthHeadersAsync("GET", path).ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"https://api.coinbase.com{path}{query}");
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}{query}", path).ConfigureAwait(false);
                     var json     = JObject.Parse(response);
                     var orders   = json["orders"] as JArray;
                     if (orders == null) return new List<OpenOrder>();
@@ -612,9 +605,8 @@ namespace AccessibleTrader.Plugins.Coinbase
                     };
 
                     string path = "/api/v3/brokerage/orders";
-                    await AddAuthHeadersAsync("POST", path).ConfigureAwait(false);
                     var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
-                    var response = await _httpClient.PostAsync($"https://api.coinbase.com{path}", content);
+                    using var response = await SendSignedAsync(HttpMethod.Post, $"https://api.coinbase.com{path}", path, content).ConfigureAwait(false);
                     var respStr  = await response.Content.ReadAsStringAsync();
                     if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{respStr}";
                     var json = JObject.Parse(respStr);
@@ -631,9 +623,8 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 var body     = new JObject { ["order_ids"] = new JArray { orderId } };
                 string path = "/api/v3/brokerage/orders/batch_cancel";
-                await AddAuthHeadersAsync("POST", path).ConfigureAwait(false);
                 var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync($"https://api.coinbase.com{path}", content);
+                using var response = await SendSignedAsync(HttpMethod.Post, $"https://api.coinbase.com{path}", path, content).ConfigureAwait(false);
                 return response.IsSuccessStatusCode;
             }
             catch { return false; }
@@ -662,21 +653,35 @@ namespace AccessibleTrader.Plugins.Coinbase
             return (_apiKey!, _apiSecret!);
         }
 
-        private async Task AddAuthHeadersAsync(string method, string requestPath)
+        // Per-request signed send. Building a fresh HttpRequestMessage with its OWN
+        // Authorization header avoids the race the old shared-DefaultRequestHeaders
+        // approach had: two concurrent signed calls (the rate limiter permits
+        // concurrency) could overwrite each other's path-bound JWT, so one request
+        // went out signed for the OTHER's path and Coinbase rejected it.
+        private async Task<HttpResponseMessage> SendSignedAsync(
+            HttpMethod method, string url, string requestPath, HttpContent? content = null)
         {
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            var request = new HttpRequestMessage(method, url);
+            if (content != null) request.Content = content;
             try
             {
                 var (apiKey, apiSecret) = await CheckoutCoinbaseCredentialsAsync().ConfigureAwait(false);
-                var jwt = GenerateJwt(apiKey, apiSecret, method, requestPath);
-                _httpClient.DefaultRequestHeaders.Authorization =
+                var jwt = GenerateJwt(apiKey, apiSecret, method.Method, requestPath);
+                request.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwt);
             }
             catch
             {
-                // Leave the Authorization header absent; the subsequent request
-                // will fail and propagate the error through its own catch.
+                // Leave the request unauthenticated; it fails and surfaces via the
+                // caller's own error handling rather than racing a shared header.
             }
+            return await _httpClient.SendAsync(request).ConfigureAwait(false);
+        }
+
+        private async Task<string> GetSignedStringAsync(string url, string requestPath)
+        {
+            using var resp = await SendSignedAsync(HttpMethod.Get, url, requestPath).ConfigureAwait(false);
+            return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
 
         private string GenerateJwt(string apiKey, string apiSecret, string method, string requestPath)

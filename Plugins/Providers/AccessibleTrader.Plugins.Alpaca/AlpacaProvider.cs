@@ -184,7 +184,8 @@ namespace AccessibleTrader.Plugins.Alpaca
                 ? "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
                 : "wss://stream.data.alpaca.markets/v2/stocks";
 
-            var cleanSymbol = CleanSymbol(symbol);
+            // Crypto streams key bars by the slashed pair (BTC/USD), same as REST.
+            var cleanSymbol = isCrypto ? ToAlpacaCryptoSymbol(symbol) : CleanSymbol(symbol);
 
             _dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
@@ -341,13 +342,17 @@ namespace AccessibleTrader.Plugins.Alpaca
         {
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
             bool isCrypto = request.Market.Contains("Crypto", StringComparison.OrdinalIgnoreCase);
-            var symbol = CleanSymbol(request.Symbol);
+            // Alpaca crypto v1beta3 requires the SLASHED pair (BTC/USD) in BOTH the
+            // request and the response key; stocks use the bare ticker. Stripping the
+            // slash (CleanSymbol) silently returned an empty crypto chart.
+            var stockSym  = CleanSymbol(request.Symbol);
+            var cryptoSym = ToAlpacaCryptoSymbol(request.Symbol);
             var timeframe = MapTimeframe(request.Timeframe);
-            int limit = Math.Min(request.Limit, 1000);
+            int limit = Math.Min(request.Limit, MaxBarsPerRequest);
 
             string url = isCrypto
-                ? $"{CryptoDataUrl}/us/bars?symbols={symbol}&timeframe={timeframe}"
-                : $"{StockDataUrl}/stocks/{symbol}/bars?timeframe={timeframe}";
+                ? $"{CryptoDataUrl}/us/bars?symbols={Uri.EscapeDataString(cryptoSym)}&timeframe={timeframe}"
+                : $"{StockDataUrl}/stocks/{stockSym}/bars?timeframe={timeframe}";
             url += $"&limit={limit}";
             if (request.Since.HasValue) url += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
             if (request.Until.HasValue) url += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
@@ -359,8 +364,14 @@ namespace AccessibleTrader.Plugins.Alpaca
                     await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
-                    JArray? bars = isCrypto ? json["bars"]?[symbol] as JArray : json["bars"] as JArray;
-                    if (bars == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    JArray? bars = isCrypto ? json["bars"]?[cryptoSym] as JArray : json["bars"] as JArray;
+                    if (bars == null)
+                    {
+                        var msg = json["message"]?.ToString();
+                        if (!string.IsNullOrEmpty(msg))
+                            _errorStream.OnNext($"Alpaca data error for {request.Symbol}: {msg}");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     var ohlcvList = bars.Select(b => new Ohlcv(
                         b["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.MinValue,
@@ -372,7 +383,24 @@ namespace AccessibleTrader.Plugins.Alpaca
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Alpaca FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+        }
+
+        /// <summary>Alpaca crypto pair in the SLASHED form the v1beta3 API needs
+        /// (BTC/USD). Re-inserts the quote separator the app's canonical symbols and
+        /// CleanSymbol strip. Stocks never use this.</summary>
+        internal static string ToAlpacaCryptoSymbol(string symbol)
+        {
+            var s = symbol.Replace("-", "/").ToUpperInvariant();
+            if (s.Contains('/')) return s;                       // already BASE/QUOTE
+            foreach (var q in new[] { "USDT", "USDC", "USD", "BTC", "ETH" })
+                if (s.EndsWith(q) && s.Length > q.Length)
+                    return string.Concat(s.AsSpan(0, s.Length - q.Length), "/", q);
+            return s;
         }
 
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")

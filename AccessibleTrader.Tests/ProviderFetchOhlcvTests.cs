@@ -1081,10 +1081,12 @@ public class ProviderFetchOhlcvTests
             [Fact]
             public async Task CryptoHappyPath_ReadsFromSymbolKey()
             {
-                // Crypto bars come back as {"bars":{"BTCUSD":[...]}}, indexed by symbol.
+                // Alpaca crypto v1beta3 keys bars by the SLASHED pair ("BTC/USD"),
+                // both in the request and the response — the provider must not strip
+                // the slash (doing so returned an empty crypto chart).
                 using var _ = new Fakes.FakeApiKeyCheckout().Install();
                 var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*us/bars", """
-                    {"bars":{"BTCUSD":[
+                    {"bars":{"BTC/USD":[
                       {"t":"2026-01-01T00:00:00Z","o":50000,"h":50100,"l":49900,"c":50050,"v":2.5}
                     ]}}
                     """);

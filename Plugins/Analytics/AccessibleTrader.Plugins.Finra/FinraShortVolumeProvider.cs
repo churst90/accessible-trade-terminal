@@ -253,9 +253,14 @@ namespace AccessibleTrader.Plugins.Finra
                 var parsed = await _rateLimiter.ExecuteAsync(() => FetchDayAsync(day));
                 _dayCache[day] = parsed;
             }
-            catch
+            catch (Exception ex)
             {
-                // Transient failure: leave uncached so a later request can retry.
+                // Leave uncached so a later request retries. A 404 just means FINRA
+                // hasn't published that day yet (expected for recent/non-trading
+                // days); surface anything else so a broken endpoint isn't silent.
+                if (ex is not System.Net.Http.HttpRequestException hre
+                    || hre.StatusCode != System.Net.HttpStatusCode.NotFound)
+                    _errorStream.OnNext($"FINRA short-volume fetch failed for {day:yyyy-MM-dd} ({ex.GetType().Name}).");
             }
             finally
             {

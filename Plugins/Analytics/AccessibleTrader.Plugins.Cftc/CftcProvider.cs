@@ -155,7 +155,10 @@ namespace AccessibleTrader.Plugins.Cftc
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             if (!Contracts.TryGetValue(request.Symbol ?? string.Empty, out var contract))
+            {
+                _errorStream.OnNext($"CFTC: no positioning dataset for '{request.Symbol}'.");
                 return (new List<Ohlcv>(), new List<(long, double)>());
+            }
 
             string dataset = contract.IsTff ? TffDataset : DisaggDataset;
             string longField  = contract.IsTff ? "lev_money_positions_long"  : "m_money_positions_long_all";
@@ -180,8 +183,11 @@ namespace AccessibleTrader.Plugins.Cftc
                     var bars = new List<Ohlcv>(rows.Count);
                     foreach (var row in rows)
                     {
+                        // Bare "yyyy-MM-dd" — AssumeUniversal so it isn't read as
+                        // Local then shifted (a ±1-day drift on non-UTC boxes).
                         if (!DateTime.TryParse(row["report_date_as_yyyy_mm_dd"]?.ToString(),
-                                CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var reportDate))
+                                CultureInfo.InvariantCulture,
+                                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var reportDate))
                             continue;
                         if (!TryNum(row[longField], out double longPos)) continue;
                         if (!TryNum(row[shortField], out double shortPos)) continue;

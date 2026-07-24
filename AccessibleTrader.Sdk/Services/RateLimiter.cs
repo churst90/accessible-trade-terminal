@@ -98,12 +98,38 @@ namespace AccessibleTrader.Sdk.Services
                     ReportSuccess();
                     return result;
                 }
-                catch when (attempt < maxRetries)
+                catch (Exception ex) when (attempt < maxRetries && ShouldRetry(ex, ct))
                 {
                     var backoff = ReportFailure();
                     await Task.Delay(backoff, ct).ConfigureAwait(false);
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether a failed attempt is worth retrying. Client errors (4xx) are NOT
+        /// retried — a 400/401/403/404 just hammers the endpoint and delays the real
+        /// error reaching the user — EXCEPT 429 (Too Many Requests) and 408 (Request
+        /// Timeout), which are transient. Caller cancellation propagates immediately;
+        /// an HttpClient timeout (OperationCanceledException with no cancellation
+        /// requested) is retried. Network errors and 5xx are retried.
+        /// (Retry-After can't be honoured here — the limiter runs an opaque action
+        /// with no access to the response headers; providers that need it must read
+        /// it at the call site.)
+        /// </summary>
+        private static bool ShouldRetry(Exception ex, CancellationToken ct)
+        {
+            if (ex is OperationCanceledException)
+                return !ct.IsCancellationRequested;
+
+            if (ex is System.Net.Http.HttpRequestException hre && hre.StatusCode is { } sc)
+            {
+                int code = (int)sc;
+                if (code >= 400 && code < 500)
+                    return sc is System.Net.HttpStatusCode.TooManyRequests
+                              or System.Net.HttpStatusCode.RequestTimeout;
+            }
+            return true;
         }
 
         /// <summary>

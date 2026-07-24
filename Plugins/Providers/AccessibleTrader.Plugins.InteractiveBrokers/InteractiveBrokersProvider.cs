@@ -332,24 +332,32 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                             var symbol = order["ticker"]?.ToString() ?? "";
                             var side = order["side"]?.ToString() ?? "";
                             var statusStr = order["status"]?.ToString() ?? "";
+                            double filledQty    = order["filledQuantity"]?.Value<double>() ?? 0;
+                            double remainingQty = order["remainingQuantity"]?.Value<double>() ?? 0;
 
-                            var status = statusStr switch
+                            // Map ONLY announceable states; unknown / still-pending
+                            // statuses (PendingSubmit, PendingCancel, ApiPending, …)
+                            // must stay silent rather than default to a spurious
+                            // "partial fill". A working order with a partial fill IS
+                            // a partial fill; a working order with none is "triggered".
+                            OrderStatus? status = statusStr switch
                             {
-                                "Filled"          => OrderStatus.Filled,
-                                "PreSubmitted"    => OrderStatus.Triggered,
-                                "Submitted"       => OrderStatus.Triggered,
-                                "Cancelled"       => OrderStatus.Cancelled,
-                                "Inactive"        => OrderStatus.Rejected,
-                                _                 => OrderStatus.PartialFill
+                                "Filled"                       => OrderStatus.Filled,
+                                "Cancelled" or "ApiCancelled"  => OrderStatus.Cancelled,
+                                "Inactive"  or "Rejected"      => OrderStatus.Rejected,
+                                "Submitted" or "PreSubmitted"  => filledQty > 0 && remainingQty > 0
+                                    ? OrderStatus.PartialFill : OrderStatus.Triggered,
+                                _                              => null,
                             };
+                            if (status == null) continue;
 
                             _orderUpdateSubject.OnNext(new OrderUpdate(
                                 orderId, symbol,
                                 side.StartsWith("B", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
-                                order["filledQuantity"]?.Value<double>() ?? 0,
+                                filledQty,
                                 order["avgPrice"]?.Value<double>() ?? 0,
-                                order["remainingQuantity"]?.Value<double>() ?? 0,
-                                status, false, false, DateTime.UtcNow));
+                                remainingQty,
+                                status.Value, false, false, DateTime.UtcNow));
                         }
                     }
                 }
@@ -510,7 +518,11 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     return result;
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"IBKR GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -531,7 +543,11 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"IBKR GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -560,7 +576,11 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                         )).ToList();
                 });
             }
-            catch { return new(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"IBKR GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new();
+            }
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
@@ -595,6 +615,19 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                         orderBody["auxPrice"] = signal.StopLoss.Value;
                     }
 
+                    // If-touched orders (MIT/LIT) need the TRIGGER in auxPrice, and
+                    // LIT additionally needs the limit price — without them IBKR
+                    // rejects or mis-triggers the take-profit.
+                    if (signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit)
+                    {
+                        double? trigger = signal.TriggerPrice ?? signal.TakeProfit;
+                        if (trigger is not double t)
+                            return "ORDER_FAILED:Take-profit order needs a trigger price";
+                        orderBody["auxPrice"] = t;
+                        if (signal.Type == OrderType.TakeProfitLimit)
+                            orderBody["price"] = signal.Price ?? t;
+                    }
+
                     if (!string.IsNullOrEmpty(signal.ClientOid))
                         orderBody["cOID"] = signal.ClientOid;
 
@@ -609,18 +642,28 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     var arr = JArray.Parse(respStr);
                     var first = arr.FirstOrDefault();
 
-                    // IBKR may return a confirmation prompt
-                    var msgId = first?["id"]?.ToString();
-                    if (first?["message"] != null && !string.IsNullOrEmpty(msgId))
+                    // IBKR returns a CHAIN of confirmation prompts (each with a new
+                    // id) for suppressible warnings — outside-RTH, size/price caps,
+                    // algo disclosures. The old code handled only the first and
+                    // confirmed it silently. Now we walk the whole chain, ANNOUNCE
+                    // each warning so a blind trader hears what is being confirmed on
+                    // a real-money account, and cap the loop so a misbehaving gateway
+                    // can't spin forever.
+                    int guard = 0;
+                    while (first?["message"] != null && !string.IsNullOrEmpty(first["id"]?.ToString()) && guard++ < 8)
                     {
-                        // Auto-confirm the order
+                        var msgText = first["message"] is JArray ma
+                            ? string.Join(" ", ma.Select(m => m.ToString()))
+                            : first["message"]!.ToString();
+                        _errorStream.OnNext($"IBKR order notice (auto-confirmed): {msgText}");
+
+                        var msgId = first["id"]!.ToString();
                         var confirmBody = new JObject { ["confirmed"] = true };
                         var confirmContent = new StringContent(confirmBody.ToString(), Encoding.UTF8, "application/json");
                         var confirmResp = await _httpClient.PostAsync($"{_gatewayUrl}/iserver/reply/{msgId}", confirmContent);
                         var confirmStr = await confirmResp.Content.ReadAsStringAsync();
-                        var confirmArr = JArray.Parse(confirmStr);
-                        var orderId = confirmArr.FirstOrDefault()?["order_id"]?.ToString();
-                        return orderId ?? "ORDER_SUBMITTED";
+                        if (!confirmResp.IsSuccessStatusCode) return $"ORDER_FAILED:{confirmStr}";
+                        first = JArray.Parse(confirmStr).FirstOrDefault();
                     }
 
                     return first?["order_id"]?.ToString() ?? "ORDER_SUBMITTED";

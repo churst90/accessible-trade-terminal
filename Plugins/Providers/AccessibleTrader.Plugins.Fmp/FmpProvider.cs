@@ -224,8 +224,9 @@ namespace AccessibleTrader.Plugins.Fmp
                     return (bars, volume);
                 }).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex)
             {
+                _errorStream.OnNext($"FMP FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
                 return (new(), new());
             }
         }
@@ -325,10 +326,12 @@ namespace AccessibleTrader.Plugins.Fmp
             {
                 var dateStr = t["date"]?.ToString();
                 if (string.IsNullOrEmpty(dateStr)) return null;
-                // Intraday format: "2021-10-08 16:00:00"
-                var date = DateTime.Parse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
+                // Intraday "date" is US-Eastern wall-clock ("2021-10-08 16:00:00").
+                // The old AssumeUniversal+ToUniversalTime treated it as UTC, so every
+                // intraday bar was 4-5h off (silently WRONG data, not a blank chart).
+                var wall = DateTime.Parse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.None);
                 return new Ohlcv(
-                    date.ToUniversalTime(),
+                    AccessibleTrader.Sdk.Models.ExchangeTime.EasternWallClockToUtc(wall),
                     t["open"]?.Value<double>() ?? 0,
                     t["high"]?.Value<double>() ?? 0,
                     t["low"]?.Value<double>() ?? 0,

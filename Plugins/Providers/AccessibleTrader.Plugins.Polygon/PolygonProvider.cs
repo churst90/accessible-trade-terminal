@@ -229,7 +229,10 @@ namespace AccessibleTrader.Plugins.Polygon
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
             var symbol = request.Symbol.ToUpper();
             var (multiplier, timespan) = MapTimeframe(request.Timeframe);
-            int limit = Math.Min(request.Limit, 1000);
+            // Polygon's aggregates endpoint returns up to 50000 bars in ONE response
+            // (its own limit param) — matching the advertised MaxBarsPerRequest. The
+            // old 1000 cap silently truncated any larger request.
+            int limit = Math.Min(request.Limit, MaxBarsPerRequest);
             long fromMs = request.Since ?? (DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds());
             long toMs = request.Until ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -242,7 +245,13 @@ namespace AccessibleTrader.Plugins.Polygon
                     var response = await GetAuthorizedStringAsync(url);
                     var json = JObject.Parse(response);
                     var results = json["results"] as JArray;
-                    if (results == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    if (results == null)
+                    {
+                        var err = json["error"]?.ToString();
+                        if (!string.IsNullOrEmpty(err))
+                            _errorStream.OnNext($"Polygon data error for {symbol}: {err}");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     var ohlcvList = results.Select(r => new Ohlcv(
                         DateTimeOffset.FromUnixTimeMilliseconds(r["t"]?.Value<long>() ?? 0).UtcDateTime,

@@ -454,6 +454,53 @@ namespace AccessibleTrader.Core.Services
 
                 if (!tp.IsConnected) return; // reconnect starts a fresh session; stale watch ends here
 
+                // Preferred path: an authoritative broker order-by-id lookup. Used
+                // for brokers whose fill records don't carry the placed order id
+                // (Tradier/Schwab), where the open-list + fills heuristic below
+                // would mis-resolve a filled order as "cancelled".
+                if (tp.SupportsOrderStatusQuery)
+                {
+                    OrderStatusSnapshot? snap;
+                    try
+                    {
+                        snap = await tp.GetOrderStatusAsync(orderId, signal.Symbol).ConfigureAwait(false);
+                        errors = 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (++errors >= OrderPollMaxConsecutiveErrors)
+                        {
+                            _logger.LogWarning(ex,
+                                "Order-status lookup gave up for {OrderId} on {Provider} after {Errors} consecutive failures.",
+                                orderId, providerName, errors);
+                            _errorCoordinator.ReportError(
+                                $"Could not verify the status of your {signal.Symbol} order — check your open orders.",
+                                ErrorSeverity.Medium);
+                            return;
+                        }
+                        continue;
+                    }
+
+                    if (snap == null) continue;                       // transient — retry next tick
+                    if (snap.State is PolledOrderState.Working
+                                   or PolledOrderState.PartiallyFilled) continue; // still resolving
+
+                    var status = snap.State switch
+                    {
+                        PolledOrderState.Filled    => OrderStatus.Filled,
+                        PolledOrderState.Cancelled => OrderStatus.Cancelled,
+                        _                          => OrderStatus.Rejected,
+                    };
+                    PublishOrderEvent(new OrderUpdate(
+                        orderId, snap.Symbol, snap.Side,
+                        snap.FilledQuantity, snap.FilledPrice,
+                        RemainingQuantity: snap.RemainingQuantity, status,
+                        StopTriggered: snap.StopTriggered || (status == OrderStatus.Filled && IsStopType(signal.Type)),
+                        TakeProfitTriggered: snap.TakeProfitTriggered || (status == OrderStatus.Filled && IsTakeProfitType(signal.Type)),
+                        Timestamp: DateTime.UtcNow));
+                    return;
+                }
+
                 List<OpenOrder> open;
                 try
                 {

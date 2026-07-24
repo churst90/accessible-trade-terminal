@@ -472,7 +472,11 @@ namespace AccessibleTrader.Plugins.Kraken
                         .ToList();
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken GetAvailableSymbolsAsync failed ({ex.GetType().Name}): {ex.Message}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedTimeframesAsync() =>
@@ -494,7 +498,13 @@ namespace AccessibleTrader.Plugins.Kraken
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
                     var result = json["result"] as JObject;
-                    if (result == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    if (result == null)
+                    {
+                        var err = (json["error"] as JArray)?.FirstOrDefault()?.ToString();
+                        if (!string.IsNullOrEmpty(err))
+                            _errorStream.OnNext($"Kraken data error for {request.Symbol}: {err}");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     // The result contains the pair data under a key that varies (e.g., "XXBTZUSD")
                     // plus a "last" key. Find the data array.
@@ -531,7 +541,11 @@ namespace AccessibleTrader.Plugins.Kraken
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
         }
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
@@ -573,7 +587,11 @@ namespace AccessibleTrader.Plugins.Kraken
                     return (bids, asks);
                 });
             }
-            catch { return (new List<OrderBookEntry>(), new List<OrderBookEntry>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
         }
 
         // ── IOrderBookProvider ──────────────────────────────────────────────
@@ -675,28 +693,34 @@ namespace AccessibleTrader.Plugins.Kraken
             if (!IsConnected) return new();
             try
             {
-                var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
-                var json = JObject.Parse(result);
-                var trades = json["result"]?["trades"] as JObject;
-                if (trades == null) return new();
-
-                string? want = symbol == null ? null : CleanSymbol(symbol);
-                var fills = new List<TradeFill>();
-                foreach (var kv in trades.Properties())
+                // Signed history call — must share the private rate limiter with
+                // Balances/Positions/OpenOrders or a History-tab refresh can burst
+                // past Kraken's private nonce/rate window and get rejected.
+                return await _privateRateLimiter.ExecuteAsync(async () =>
                 {
-                    var t = kv.Value;
-                    string pair = t["pair"]?.ToString() ?? "";
-                    if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
-                    fills.Add(new TradeFill(
-                        kv.Name, pair,
-                        (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
-                        t["vol"]?.Value<double>() ?? 0,
-                        t["price"]?.Value<double>() ?? 0,
-                        DateTimeOffset.FromUnixTimeSeconds((long)(t["time"]?.Value<double>() ?? 0)).UtcDateTime,
-                        t["fee"]?.Value<double>() ?? 0,
-                        t["ordertxid"]?.ToString()));
-                }
-                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+                    var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
+                    var json = JObject.Parse(result);
+                    var trades = json["result"]?["trades"] as JObject;
+                    if (trades == null) return new List<TradeFill>();
+
+                    string? want = symbol == null ? null : CleanSymbol(symbol);
+                    var fills = new List<TradeFill>();
+                    foreach (var kv in trades.Properties())
+                    {
+                        var t = kv.Value;
+                        string pair = t["pair"]?.ToString() ?? "";
+                        if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
+                        fills.Add(new TradeFill(
+                            kv.Name, pair,
+                            (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
+                            t["vol"]?.Value<double>() ?? 0,
+                            t["price"]?.Value<double>() ?? 0,
+                            DateTimeOffset.FromUnixTimeSeconds((long)(t["time"]?.Value<double>() ?? 0)).UtcDateTime,
+                            t["fee"]?.Value<double>() ?? 0,
+                            t["ordertxid"]?.ToString()));
+                    }
+                    return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+                });
             }
             catch (Exception ex)
             {

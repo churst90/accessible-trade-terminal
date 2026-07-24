@@ -6,6 +6,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Provider quality & robustness pass (2026-07-24)
+
+Acted on the read-only provider audit: correctness fixes across the exchange and
+broker providers, plus shared hardening. All fills, cancels, and failures a blind
+trader relies on now reach the speech layer. Suite: 2036 tests, all green.
+
+- **Bitstamp (primary exchange).** The private order stream was subscribing to
+  `private-my_orders-{pair}` (hyphen) where Bitstamp requires an underscore, so no
+  order event ever arrived. Fixed, and rewrote the parse: Bitstamp reports only the
+  order's *remaining* amount (no `amount_remaining` field), so we track per-order
+  amounts to report the real incremental fill and to tell a completed fill (remaining
+  ≈ 0) from a user cancel. Live/keyed feeds now route through one `ToBitstampPair`
+  normalizer, closing the USDT→USD dead-channel gap where background feeds silently
+  showed no bars.
+- **Broker fill resolution (Tradier/Schwab).** Their fill records don't carry the
+  placed order id, so the poller matched nothing and announced *filled* orders as
+  **"cancelled."** Added an authoritative `GetOrderStatusAsync` (order-by-id) gated by
+  `SupportsOrderStatusQuery`; the poller now resolves via the broker's own status.
+- **Tradier data/orders.** Intraday timestamps parsed from the epoch-seconds
+  `timestamp` (was `DateTime.TryParse` → `0001-01-01` on every intraday bar);
+  timesales request window sent in US-Eastern (was UTC); market orders no longer send
+  the `gtc` duration Tradier rejects.
+- **InteractiveBrokers (real money).** Order confirmation now walks the full reply
+  chain and **announces** each auto-confirmed warning instead of silently confirming
+  one; take-profit MIT/LIT orders now carry their trigger price; unknown order
+  statuses stay silent instead of announcing a spurious partial fill; balance/position
+  fetch failures are surfaced.
+- **Alpaca.** Crypto used the stripped symbol, but v1beta3 needs the slashed pair
+  (`BTC/USD`) in both request and response key — the whole crypto path returned empty.
+  Added `ToAlpacaCryptoSymbol` for REST + WebSocket.
+- **Coinbase.** Signed REST calls build a per-request `HttpRequestMessage` instead of
+  mutating a shared `Authorization` header, removing the race that sent one request
+  with another's path-bound JWT (spurious auth failures).
+- **Oanda.** Disconnect now scrubs the live-money Bearer token; range fetches no longer
+  send `count` together with both `from` and `to` (Oanda 400s on that); empty candle
+  responses surface the error.
+- **Data providers.** FMP intraday timestamps converted from US-Eastern (were treated
+  as UTC → every bar 4–5h off); Polygon honors its advertised bar limit instead of
+  silently capping at 1000; Finnhub declares cumulative live bars and surfaces the
+  now-premium candle endpoint; Kraken/MEXC and others surface fetch failures.
+- **Shared.** New `ExchangeTime` (cross-platform US-Eastern conversion) and reuse of
+  `TimestampParser` for epoch handling; `RateLimiter` no longer retries 4xx client
+  errors (except 429/408) or caller cancellation; Kraken `GetFillsAsync` joined the
+  private rate limiter; CFTC/FINRA analytics stopped swallowing failures.
+
 ### Desktop system-tray applet for the local WebHost (2026-07-23)
 
 The local (Full-mode) WebHost server outlives the browser tab, so it now shows a

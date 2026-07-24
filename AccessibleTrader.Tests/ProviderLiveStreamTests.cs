@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Trading;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -140,6 +141,105 @@ namespace AccessibleTrader.Tests
                 var emittedLive = Capture(p.LiveStream,
                     () => DispatchFrame(p, """{"event":"heartbeat","data":{}}"""));
                 Assert.Empty(emittedLive);
+            }
+
+            // ── Private order events (private-my_orders_{pair}) ─────────────────
+            // Regression guard: the channel is joined to the pair with an UNDERSCORE
+            // (private-my_orders_btcusd). The old code used a hyphen, so the private
+            // order stream never matched and no fill was ever announced.
+
+            private const string Created =
+                """{"event":"order_created","channel":"private-my_orders_btcusd","data":{"id":42,"amount":"0.50","price":"50000","order_type":0,"microtimestamp":"1700000000000000"}}""";
+
+            [Fact]
+            public void OrderCreated_RegistersBaseline_ButDoesNotAnnounce()
+            {
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                var seen = Capture(p.OrderUpdateStream, () => DispatchFrame(p, Created));
+                Assert.Empty(seen); // no "working" status in the enum → silent baseline
+            }
+
+            [Fact]
+            public void PartialFill_ReportsFilledDelta_RemainingAndSide()
+            {
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                // remaining drops 0.50 → 0.30 → a 0.20 partial fill.
+                const string changed =
+                    """{"event":"order_changed","channel":"private-my_orders_btcusd","data":{"id":42,"amount":"0.30","price":"50000","order_type":0,"microtimestamp":"1700000000000000"}}""";
+
+                var seen = Capture(p.OrderUpdateStream, () =>
+                {
+                    DispatchFrame(p, Created);
+                    DispatchFrame(p, changed);
+                });
+
+                var u = Assert.Single(seen);
+                Assert.Equal("42", u.OrderId);
+                Assert.Equal("BTCUSD", u.Symbol);
+                Assert.Equal(OrderSide.Buy, u.Side);
+                Assert.Equal(OrderStatus.PartialFill, u.Status);
+                Assert.Equal(0.20, u.FilledQuantity, 8);   // this fill, not the running total
+                Assert.Equal(0.30, u.RemainingQuantity, 8);
+            }
+
+            [Fact]
+            public void OrderDeleted_WithZeroRemaining_IsFilled()
+            {
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                const string deleted =
+                    """{"event":"order_deleted","channel":"private-my_orders_btcusd","data":{"id":42,"amount":"0","price":"50000","order_type":0,"microtimestamp":"1700000000000000"}}""";
+
+                var seen = Capture(p.OrderUpdateStream, () =>
+                {
+                    DispatchFrame(p, Created);
+                    DispatchFrame(p, deleted);
+                });
+
+                var u = Assert.Single(seen);
+                Assert.Equal(OrderStatus.Filled, u.Status);
+                Assert.Equal(0.50, u.FilledQuantity, 8);
+                Assert.Equal(0.0, u.RemainingQuantity, 8);
+            }
+
+            [Fact]
+            public void OrderDeleted_WithRemaining_IsCancelled_NotFilled()
+            {
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                // A user cancel leaves an unfilled remainder — must NOT announce Filled.
+                const string deleted =
+                    """{"event":"order_deleted","channel":"private-my_orders_btcusd","data":{"id":42,"amount":"0.50","price":"50000","order_type":0,"microtimestamp":"1700000000000000"}}""";
+
+                var seen = Capture(p.OrderUpdateStream, () =>
+                {
+                    DispatchFrame(p, Created);
+                    DispatchFrame(p, deleted);
+                });
+
+                Assert.Equal(OrderStatus.Cancelled, Assert.Single(seen).Status);
+            }
+
+            [Fact]
+            public void SellOrder_MapsSideFromOrderType1()
+            {
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                const string sellDeleted =
+                    """{"event":"order_deleted","channel":"private-my_orders_btcusd","data":{"id":7,"amount":"0","price":"50000","order_type":1,"microtimestamp":"1700000000000000"}}""";
+
+                var seen = Capture(p.OrderUpdateStream, () => DispatchFrame(p, sellDeleted));
+                Assert.Equal(OrderSide.Sell, Assert.Single(seen).Side);
+            }
+
+            [Fact]
+            public void HyphenChannel_DoesNotMatch_NoEmission()
+            {
+                // Pins the exact bug: private-my_orders-btcusd (hyphen) is NOT a real
+                // Bitstamp channel and must never be treated as an order event.
+                var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+                const string hyphen =
+                    """{"event":"order_deleted","channel":"private-my_orders-btcusd","data":{"id":1,"amount":"0","price":"50000","order_type":0}}""";
+
+                var seen = Capture(p.OrderUpdateStream, () => DispatchFrame(p, hyphen));
+                Assert.Empty(seen);
             }
         }
 

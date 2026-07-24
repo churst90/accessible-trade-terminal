@@ -47,6 +47,12 @@ namespace AccessibleTrader.Plugins.Finnhub
         public override bool RequiresApiKey => true;
         public override bool IsConfigured => !string.IsNullOrEmpty(_apiKey);
         public override bool SupportsLiveUpdates => true;
+        // The live path builds a candle client-side and re-emits the SAME bar each
+        // trade with cumulative volume (see the trade handler / UpdateWith) —
+        // cumulative, not per-tick deltas. Without this the consumer's consolidator
+        // re-accumulates volume and inflates it (same fix as Kraken/MEXC).
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle =>
+            AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
 
@@ -219,8 +225,16 @@ namespace AccessibleTrader.Plugins.Finnhub
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
 
-                    if (json["s"]?.ToString() != "ok")
+                    // Finnhub moved /stock/candle behind a paid plan — free keys now
+                    // get s!="ok" (or 403). Surface it so a permanently-blank chart
+                    // isn't silent; "no_data" is a legitimate empty range, not an error.
+                    var s = json["s"]?.ToString();
+                    if (s != "ok")
+                    {
+                        if (s != "no_data")
+                            _errorStream.OnNext($"Finnhub candles unavailable for {request.Symbol} (status '{s}') — the candle endpoint may require a paid plan.");
                         return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     // Finnhub returns parallel arrays that must be zipped
                     var opens   = json["o"] as JArray;

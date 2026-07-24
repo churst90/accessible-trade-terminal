@@ -52,6 +52,11 @@ namespace AccessibleTrader.Plugins.Tradier
         // it falls back to status polling so fills still announce either way.
         public bool SupportsOrderEventStreaming => _accountStreamUp && (_accountWs?.IsConnected ?? false);
 
+        // The order-service poller (used whenever the account stream is down)
+        // resolves via the authoritative /orders/{id} lookup below rather than the
+        // fills heuristic — Tradier history events don't carry the placed order id.
+        public bool SupportsOrderStatusQuery => true;
+
         // Account-event websocket (order status push).
         private ReconnectingWebSocket? _accountWs;
         private volatile bool _accountStreamUp;
@@ -427,12 +432,17 @@ namespace AccessibleTrader.Plugins.Tradier
                 _     => "5min"
             };
 
-            string start = request.Since.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm")
-                : DateTime.UtcNow.AddDays(-5).ToString("yyyy-MM-dd HH:mm");
-            string end = request.Until.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm")
-                : DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
+            // Tradier's timesales start/end are interpreted in US-Eastern, so the
+            // UTC request window must be rendered as Eastern wall-clock — otherwise
+            // the window is shifted ~4-5h and the newest bars can be missed.
+            string start = AccessibleTrader.Sdk.Models.ExchangeTime.ToEasternString(
+                request.Since.HasValue
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime
+                    : DateTime.UtcNow.AddDays(-5), "yyyy-MM-dd HH:mm");
+            string end = AccessibleTrader.Sdk.Models.ExchangeTime.ToEasternString(
+                request.Until.HasValue
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime
+                    : DateTime.UtcNow, "yyyy-MM-dd HH:mm");
 
             string url = $"{_baseUrl}/markets/timesales?symbol={Uri.EscapeDataString(request.Symbol)}&interval={interval}&start={start}&end={end}";
             var response = await _httpClient.GetStringAsync(url);
@@ -446,7 +456,10 @@ namespace AccessibleTrader.Plugins.Tradier
 
             var ohlcvList = items.Select(item =>
             {
-                DateTime.TryParse(item["timestamp"]?.ToString(), null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date);
+                // timesales "timestamp" is Unix epoch SECONDS (e.g. 1557408600) —
+                // DateTime.TryParse can't read that and yielded 0001-01-01 for every
+                // intraday bar. TimestampParser handles the epoch → UTC conversion.
+                var date = AccessibleTrader.Sdk.Models.TimestampParser.Parse(item["timestamp"]);
                 return new Ohlcv(
                     date,
                     item["open"]?.Value<double>() ?? 0,
@@ -454,7 +467,8 @@ namespace AccessibleTrader.Plugins.Tradier
                     item["low"]?.Value<double>() ?? 0,
                     item["close"]?.Value<double>() ?? 0,
                     item["volume"]?.Value<double>() ?? 0);
-            }).OrderBy(x => x.Date).ToList();
+            }).Where(x => x.Date > new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+              .OrderBy(x => x.Date).ToList();
 
             return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
         }
@@ -723,6 +737,55 @@ namespace AccessibleTrader.Plugins.Tradier
             }
         }
 
+        /// <summary>Authoritative single-order status via GET /accounts/{id}/orders/{id}.
+        /// Returns null on a transient failure (the poller retries).</summary>
+        public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
+        {
+            if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;
+            try
+            {
+                var response = await _httpClient.GetStringAsync(
+                    $"{_baseUrl}/accounts/{_accountId}/orders/{orderId}");
+                var order = JObject.Parse(response)["order"] as JObject;
+                if (order == null) return null;
+                return MapOrderToSnapshot(order);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Tradier GetOrderStatusAsync failed for {orderId} ({ex.GetType().Name})");
+                return null;
+            }
+        }
+
+        /// <summary>Maps a Tradier order object (account event OR /orders/{id}) to a
+        /// status snapshot. Handles both field spellings the two endpoints use
+        /// (executed_quantity vs exec_quantity).</summary>
+        internal static OrderStatusSnapshot MapOrderToSnapshot(JObject order)
+        {
+            string status = order["status"]?.ToString() ?? "";
+            var state = status switch
+            {
+                "filled"                                => PolledOrderState.Filled,
+                "partially_filled"                      => PolledOrderState.PartiallyFilled,
+                "canceled" or "cancelled" or "expired"  => PolledOrderState.Cancelled,
+                "rejected"                              => PolledOrderState.Rejected,
+                _                                       => PolledOrderState.Working,
+            };
+            string type = order["type"]?.ToString() ?? "";
+            string side = order["side"]?.ToString() ?? "";
+            double exec = order["exec_quantity"]?.Value<double>()
+                          ?? order["executed_quantity"]?.Value<double>() ?? 0;
+            return new OrderStatusSnapshot(
+                state,
+                side.StartsWith("buy", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
+                order["symbol"]?.ToString() ?? "",
+                FilledQuantity: exec,
+                FilledPrice: order["avg_fill_price"]?.Value<double>() ?? 0,
+                RemainingQuantity: order["remaining_quantity"]?.Value<double>() ?? 0,
+                StopTriggered: state == PolledOrderState.Filled
+                    && type.Contains("stop", StringComparison.OrdinalIgnoreCase));
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -746,7 +809,10 @@ namespace AccessibleTrader.Plugins.Tradier
                     var postData = new Dictionary<string, string>
                     {
                         ["class"] = isOption ? "option" : "equity",
-                        ["duration"] = "gtc",
+                        // Tradier REJECTS gtc on market orders (only day/pre/post are
+                        // valid there); resting limit/stop orders keep gtc so they
+                        // don't expire at the session close.
+                        ["duration"] = signal.Type == OrderType.Market ? "day" : "gtc",
                         ["side"] = signal.Side == OrderSide.Buy ? "buy" : "sell",
                         ["quantity"] = ((int)signal.Quantity).ToString()
                     };

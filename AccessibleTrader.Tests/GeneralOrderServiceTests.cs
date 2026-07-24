@@ -177,6 +177,78 @@ namespace AccessibleTrader.Tests
             Assert.Equal("paper-1", seen!.Order.OrderId);
         }
 
+        // ── Poll fallback: authoritative order-status resolution ─────────────
+        // Regression for "a filled order announced as CANCELLED": brokers whose
+        // fills don't carry the placed order id (Tradier/Schwab) resolve via the
+        // GetOrderStatusAsync lookup, gated by SupportsOrderStatusQuery.
+
+        [Fact]
+        public async Task Poll_statusQuery_filled_publishes_Filled_not_Cancelled()
+        {
+            var h = Build();
+            h.Svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(5);
+            h.LiveTp.SupportsOrderStatusQuery.Returns(true);
+            h.LiveTp.GetOrderStatusAsync("ORD1", Arg.Any<string?>()).Returns(
+                Task.FromResult<OrderStatusSnapshot?>(new OrderStatusSnapshot(
+                    PolledOrderState.Filled, OrderSide.Buy, "BTC/USD", 0.5, 50000, 0)));
+
+            OrderFilledEvent? filled = null;
+            OrderCancelledEvent? cancelled = null;
+            using var s1 = h.Bus.Subscribe<OrderFilledEvent>(e => filled = e);
+            using var s2 = h.Bus.Subscribe<OrderCancelledEvent>(e => cancelled = e);
+
+            await h.Svc.PollOrderUntilResolvedAsync(h.LiveTp, "Tradier", SaneSignal, "ORD1");
+
+            Assert.NotNull(filled);
+            Assert.Null(cancelled);
+            Assert.Equal(0.5, filled!.Order.FilledQuantity);
+            Assert.Equal(50000, filled.Order.FilledPrice);
+        }
+
+        [Fact]
+        public async Task Poll_statusQuery_cancelled_publishes_Cancelled()
+        {
+            var h = Build();
+            h.Svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(5);
+            h.LiveTp.SupportsOrderStatusQuery.Returns(true);
+            h.LiveTp.GetOrderStatusAsync("ORD2", Arg.Any<string?>()).Returns(
+                Task.FromResult<OrderStatusSnapshot?>(new OrderStatusSnapshot(
+                    PolledOrderState.Cancelled, OrderSide.Buy, "BTC/USD", 0, 0, 0.5)));
+
+            OrderFilledEvent? filled = null;
+            OrderCancelledEvent? cancelled = null;
+            using var s1 = h.Bus.Subscribe<OrderFilledEvent>(e => filled = e);
+            using var s2 = h.Bus.Subscribe<OrderCancelledEvent>(e => cancelled = e);
+
+            await h.Svc.PollOrderUntilResolvedAsync(h.LiveTp, "Schwab", SaneSignal, "ORD2");
+
+            Assert.NotNull(cancelled);
+            Assert.Null(filled);
+        }
+
+        [Fact]
+        public async Task Poll_heuristic_fill_matched_by_OrderId_publishes_Filled()
+        {
+            // Providers that DO carry the order id on fills (Kraken/Binance) keep
+            // using the open-list + fills heuristic; it must still resolve a fill.
+            var h = Build();
+            h.Svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(5);
+            h.LiveTp.SupportsOrderStatusQuery.Returns(false);
+            h.LiveTp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(new List<OpenOrder>());
+            h.LiveTp.GetFillsAsync(Arg.Any<string?>(), Arg.Any<int>()).Returns(new List<TradeFill>
+            {
+                new("fill-1", "BTC/USD", OrderSide.Buy, 0.5, 49000, DateTime.UtcNow, 0.0, OrderId: "ORD3"),
+            });
+
+            OrderFilledEvent? filled = null;
+            using var s1 = h.Bus.Subscribe<OrderFilledEvent>(e => filled = e);
+
+            await h.Svc.PollOrderUntilResolvedAsync(h.LiveTp, "Kraken", SaneSignal, "ORD3");
+
+            Assert.NotNull(filled);
+            Assert.Equal(49000, filled!.Order.FilledPrice);
+        }
+
         [Fact]
         public void Paper_stop_update_publishes_StopHitEvent()
         {

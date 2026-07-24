@@ -80,6 +80,27 @@ namespace AccessibleTrader.Sdk.Plugins
         double?   TakeProfit = null
     );
 
+    /// <summary>Resolution state of a single order, from an authoritative
+    /// per-order status lookup (see <see cref="ITradingProvider.GetOrderStatusAsync"/>).</summary>
+    public enum PolledOrderState { Working, Filled, PartiallyFilled, Cancelled, Rejected }
+
+    /// <summary>
+    /// Authoritative snapshot of one order's status, used by the order-service
+    /// poller to resolve a placed order when live streaming is unavailable. This
+    /// exists because some brokers' fill records don't carry the placed order id
+    /// (Tradier/Schwab), so matching fills-to-order fails and a filled order was
+    /// mis-announced as "cancelled". A direct order-by-id lookup avoids the guess.
+    /// </summary>
+    public record OrderStatusSnapshot(
+        PolledOrderState State,
+        OrderSide Side,
+        string Symbol,
+        double FilledQuantity,
+        double FilledPrice,
+        double RemainingQuantity,
+        bool StopTriggered = false,
+        bool TakeProfitTriggered = false);
+
     /// <summary>A completed (filled) trade record.</summary>
     public record TradeFill(
         string    Id,
@@ -156,6 +177,25 @@ namespace AccessibleTrader.Sdk.Plugins
         /// would never announce.
         /// </summary>
         bool SupportsOrderEventStreaming => true;
+
+        /// <summary>
+        /// True when the provider implements <see cref="GetOrderStatusAsync"/> with
+        /// an authoritative broker order-by-id lookup. When true, the order-service
+        /// poller resolves a placed order via that lookup INSTEAD of the
+        /// open-orders + fills heuristic — required for brokers whose fill records
+        /// don't carry the placed order id (Tradier/Schwab), where the heuristic
+        /// would mis-announce a filled order as cancelled.
+        /// </summary>
+        bool SupportsOrderStatusQuery => false;
+
+        /// <summary>
+        /// Returns an authoritative status snapshot for a single order by id, or
+        /// null when the provider can't resolve it right now (transient failure)
+        /// or doesn't support the lookup. Only meaningful when
+        /// <see cref="SupportsOrderStatusQuery"/> is true.
+        /// </summary>
+        Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
+            => Task.FromResult<OrderStatusSnapshot?>(null);
 
         // Account queries
 

@@ -368,6 +368,16 @@ namespace AccessibleTrader.Plugins.Oanda
             _currentTimeframe = null;
             _lastCandle = null;
             _lastCandleStart = null;
+
+            // Drop the live-money Bearer token from both HTTP clients and the fields
+            // so a crash dump after disconnect can't recover it (every other provider
+            // scrubs; Oanda previously left the token resident).
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+            _streamClient.DefaultRequestHeaders.Authorization = null;
+            ScrubCredentials(
+                () => _accessToken = null,
+                () => _accountId = null);
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -381,12 +391,22 @@ namespace AccessibleTrader.Plugins.Oanda
             string granularity = MapGranularity(request.Timeframe);
             int count = Math.Min(request.Limit, 5000);
 
-            string url = $"{_restUrl}/instruments/{instrument}/candles?granularity={granularity}&count={count}&price=M";
+            // Oanda REJECTS (HTTP 400) count together with BOTH from and to. Send the
+            // range alone when both bounds are set; otherwise count plus the single
+            // bound (if any). The old code always appended count → range fetches 400'd.
+            bool hasFrom = request.Since.HasValue, hasTo = request.Until.HasValue;
+            string from = hasFrom ? $"{DateTimeOffset.FromUnixTimeMilliseconds(request.Since!.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}" : "";
+            string to   = hasTo   ? $"{DateTimeOffset.FromUnixTimeMilliseconds(request.Until!.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}" : "";
 
-            if (request.Since.HasValue)
-                url += $"&from={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}";
-            if (request.Until.HasValue)
-                url += $"&to={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}";
+            string url = $"{_restUrl}/instruments/{instrument}/candles?granularity={granularity}&price=M";
+            if (hasFrom && hasTo)
+                url += $"&from={from}&to={to}";
+            else
+            {
+                url += $"&count={count}";
+                if (hasFrom)     url += $"&from={from}";
+                else if (hasTo)  url += $"&to={to}";
+            }
 
             try
             {
@@ -395,7 +415,13 @@ namespace AccessibleTrader.Plugins.Oanda
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
                     var candles = json["candles"] as JArray;
-                    if (candles == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                    if (candles == null)
+                    {
+                        var err = json["errorMessage"]?.ToString();
+                        if (!string.IsNullOrEmpty(err))
+                            _errorStream.OnNext($"Oanda data error for {request.Symbol}: {err}");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
 
                     var ohlcvList = candles
                         .Where(c => c["complete"]?.Value<bool>() != false || candles.Last == c)

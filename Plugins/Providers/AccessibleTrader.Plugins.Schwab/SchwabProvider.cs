@@ -70,6 +70,11 @@ namespace AccessibleTrader.Plugins.Schwab
         // announce. Flip to true when the real event stream lands.
         public bool SupportsOrderEventStreaming => false;
 
+        // Schwab ALWAYS polls (no stream), and its transaction records don't carry
+        // the placed order id, so the poller must resolve via the authoritative
+        // GET /orders/{id} lookup — otherwise a filled order announces as cancelled.
+        public bool SupportsOrderStatusQuery => true;
+
         // Polling state for live OHLCV updates. The Schwab WebSocket streamer
         // is intentionally deferred: we poll the last candle on an interval so
         // the existing LiveStream contract is still honoured.
@@ -452,9 +457,17 @@ namespace AccessibleTrader.Plugins.Schwab
                             double qty   = longQ - shortQ;
                             if (Math.Abs(qty) < 1e-9) continue;
 
-                            double avgPrice   = p["averagePrice"]?.Value<double>()        ?? 0;
-                            double marketVal  = p["marketValue"]?.Value<double>()         ?? 0;
-                            double unrealized = p["currentDayProfitLoss"]?.Value<double>() ?? 0;
+                            double avgPrice   = p["averagePrice"]?.Value<double>() ?? 0;
+                            double marketVal  = p["marketValue"]?.Value<double>()  ?? 0;
+                            // Unrealized P&L is the OPEN P&L for the held position, not
+                            // the day P&L — a position held >1 day would otherwise report
+                            // the wrong number. Long/short open P&L are mutually exclusive
+                            // per position; fall back to day P&L only if neither is present.
+                            double openPnl = (p["longOpenProfitLoss"]?.Value<double>() ?? 0)
+                                           + (p["shortOpenProfitLoss"]?.Value<double>() ?? 0);
+                            double unrealized = openPnl != 0
+                                ? openPnl
+                                : (p["currentDayProfitLoss"]?.Value<double>() ?? 0);
 
                             positions.Add(new Position(symbol, Math.Abs(qty), avgPrice, marketVal, unrealized));
                         }
@@ -514,6 +527,66 @@ namespace AccessibleTrader.Plugins.Schwab
                 _errorStream.OnNext($"Schwab GetFillsAsync failed ({ex.GetType().Name})");
                 return new();
             }
+        }
+
+        /// <summary>Authoritative single-order status via GET /accounts/{hash}/orders/{id}.
+        /// Returns null on a transient failure (the poller retries).</summary>
+        public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
+        {
+            if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;
+            try
+            {
+                return await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders/{orderId}";
+                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                    return MapOrderToSnapshot(JObject.Parse(body));
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Schwab GetOrderStatusAsync failed for {orderId} ({ex.GetType().Name})");
+                return null;
+            }
+        }
+
+        /// <summary>Maps a Schwab order object to a status snapshot. A WORKING order
+        /// with some filled quantity is reported as PartiallyFilled; fill price is
+        /// the quantity-weighted average across execution legs. Internal for testing
+        /// (the transport needs OAuth).</summary>
+        internal static OrderStatusSnapshot MapOrderToSnapshot(JObject order)
+        {
+            string status = order["status"]?.ToString() ?? "";
+            var state = status switch
+            {
+                "FILLED"                                          => PolledOrderState.Filled,
+                "CANCELED" or "CANCELLED" or "EXPIRED" or "REPLACED" => PolledOrderState.Cancelled,
+                "REJECTED"                                        => PolledOrderState.Rejected,
+                _                                                 => PolledOrderState.Working,
+            };
+
+            var leg   = (order["orderLegCollection"] as JArray)?.FirstOrDefault();
+            string instr = leg?["instruction"]?.ToString() ?? "BUY";
+            var side  = instr.StartsWith("SELL", StringComparison.OrdinalIgnoreCase) ? OrderSide.Sell : OrderSide.Buy;
+            string sym = leg?["instrument"]?["symbol"]?.ToString() ?? "";
+
+            double filled    = order["filledQuantity"]?.Value<double>()    ?? 0;
+            double remaining = order["remainingQuantity"]?.Value<double>() ?? 0;
+
+            double weighted = 0, qtySum = 0;
+            foreach (var act in (order["orderActivityCollection"] as JArray) ?? new JArray())
+                foreach (var ex in (act["executionLegs"] as JArray) ?? new JArray())
+                {
+                    double q = ex["quantity"]?.Value<double>() ?? 0;
+                    double p = ex["price"]?.Value<double>() ?? 0;
+                    weighted += p * q; qtySum += q;
+                }
+            double avgFill = qtySum > 0 ? weighted / qtySum : 0;
+
+            if (state == PolledOrderState.Working && filled > 0)
+                state = PolledOrderState.PartiallyFilled;
+
+            return new OrderStatusSnapshot(state, side, sym, filled, avgFill, remaining);
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)

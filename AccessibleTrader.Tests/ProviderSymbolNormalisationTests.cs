@@ -112,14 +112,15 @@ namespace AccessibleTrader.Tests
         [InlineData("btc-usdt", "btcusd")]
         [InlineData("ETHUSDT",  "ethusd")]
         [InlineData("XRP/USD",  "xrpusd")]
-        public void Bitstamp_InlineTransform_LowercasesAndMapsUsdtToUsd(string input, string expected)
+        [InlineData("usdt/usd", "usdtusd")] // trailing-quote-only remap: base "usdt" is left intact
+        public void Bitstamp_ToBitstampPair_LowercasesAndMapsUsdtToUsd(string input, string expected)
         {
             // Bitstamp REST paths are lowercase and list pairs in /usd form only.
-            // The provider's FetchOhlcvAsync + GetOrderBookAsync inline the same
-            // "strip-separator, lowercase, usdt→usd" transform. This test mirrors
-            // it so a future refactor that hoists the transform into a helper
-            // lands on the same behaviour.
-            string actual = input.Replace("/", "").Replace("-", "").ToLower().Replace("usdt", "usd");
+            // ALL Bitstamp paths (fetch, order-book, live subscribe, private
+            // channel) now route through this one helper, so historical and live
+            // feeds can never target different markets — the bug that left the
+            // keyed live feed on a dead usdt channel.
+            string actual = AccessibleTrader.Plugins.Bitstamp.BitstampProvider.ToBitstampPair(input);
             Assert.Equal(expected, actual);
         }
 
@@ -175,6 +176,22 @@ namespace AccessibleTrader.Tests
             // gets caught by the failure.
             var provider = new StubProvider();
             string actual = provider.InvokeCleanSymbol(input);
+            Assert.Equal(expected, actual);
+        }
+
+        // ── Alpaca crypto: the SLASHED form v1beta3 needs (BTC/USD) ──────────
+
+        [Theory]
+        [InlineData("BTC/USD",  "BTC/USD")]
+        [InlineData("BTCUSD",   "BTC/USD")]
+        [InlineData("btc-usd",  "BTC/USD")]
+        [InlineData("ETHUSDT",  "ETH/USDT")]
+        [InlineData("SOLUSDC",  "SOL/USDC")]
+        public void Alpaca_Crypto_UsesSlashedPair(string input, string expected)
+        {
+            // Regression: stripping the slash returned an empty crypto chart, because
+            // the v1beta3 request AND the response key both need "BASE/QUOTE".
+            string actual = AccessibleTrader.Plugins.Alpaca.AlpacaProvider.ToAlpacaCryptoSymbol(input);
             Assert.Equal(expected, actual);
         }
 

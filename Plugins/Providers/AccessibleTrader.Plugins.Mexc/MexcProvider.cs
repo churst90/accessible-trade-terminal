@@ -472,7 +472,11 @@ namespace AccessibleTrader.Plugins.Mexc
                         var futuresSymbol = ToFuturesSymbol(cleanSymbol);
                         var r = await _client.FuturesApi.ExchangeData.GetKlinesAsync(
                             futuresSymbol, MapFuturesInterval(request.Timeframe), startTime, endTime);
-                        if (!r.Success || r.Data == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                        if (!r.Success || r.Data == null)
+                        {
+                            _errorStream.OnNext($"MEXC futures data unavailable for {request.Symbol}: {r.Error?.Message ?? "no data"}");
+                            return (new List<Ohlcv>(), new List<(long, double)>());
+                        }
                         var ohlcv = r.Data.Select(k => new Ohlcv(
                             k.OpenTime.ToUniversalTime(),
                             (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice,
@@ -483,7 +487,11 @@ namespace AccessibleTrader.Plugins.Mexc
                     {
                         var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(
                             cleanSymbol, MapSpotInterval(request.Timeframe), startTime, endTime, limit);
-                        if (!r.Success || r.Data == null) return (new List<Ohlcv>(), new List<(long, double)>());
+                        if (!r.Success || r.Data == null)
+                        {
+                            _errorStream.OnNext($"MEXC data unavailable for {request.Symbol}: {r.Error?.Message ?? "no data"}");
+                            return (new List<Ohlcv>(), new List<(long, double)>());
+                        }
                         var ohlcv = r.Data.Select(k => new Ohlcv(
                             k.OpenTime.ToUniversalTime(),
                             (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice,
@@ -492,7 +500,11 @@ namespace AccessibleTrader.Plugins.Mexc
                     }
                 });
             }
-            catch { return (new List<Ohlcv>(), new List<(long, double)>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"MEXC FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
         }
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
