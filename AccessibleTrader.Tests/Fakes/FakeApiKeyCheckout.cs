@@ -18,7 +18,11 @@ namespace AccessibleTrader.Tests.Fakes
     {
         public bool HasCredentials { get; init; } = true;
         public string Key { get; init; } = "test-key";
-        public string Secret { get; init; } = "test-secret";
+        // Valid Base64 ("test-secret" encoded): some providers (Kraken) Base64-decode the
+        // secret to derive the HMAC key. A non-Base64 secret makes that decode THROW, the
+        // request is never signed/sent, and any test that shares this bridge (via xUnit
+        // scheduling) sees zero HTTP calls — a rare, order-dependent flake. Keep it Base64.
+        public string Secret { get; init; } = "dGVzdC1zZWNyZXQ=";
         public string Passphrase { get; init; } = "";
 
         public Task<ApiKeyCheckoutResult> CheckoutAsync(string providerId, string marketType = "Spot", CancellationToken ct = default)

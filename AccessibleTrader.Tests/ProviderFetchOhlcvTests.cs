@@ -1023,6 +1023,12 @@ public class ProviderFetchOhlcvTests
 
         // ── Alpaca — auth via PluginHostServices.ApiKeys checkout ────────────
 
+        // MUST carry its own collection tag: nested test classes do NOT inherit the outer
+        // class's [Collection], so without this Alpaca ran in parallel with BrokerParityTests
+        // and its FakeApiKeyCheckout.Install() (incl. a no-credentials install) mutated the
+        // global PluginHostServices.ApiKeys mid-request → Kraken's request-time checkout saw
+        // None and skipped the signed call → the intermittent BrokerParityTests.Kraken flake.
+        [Collection("ProviderCredentialBridge")]
         public class Alpaca
         {
             // Alpaca pulls credentials from PluginHostServices.ApiKeys at every

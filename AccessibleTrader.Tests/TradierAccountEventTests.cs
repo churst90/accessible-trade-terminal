@@ -14,6 +14,10 @@ namespace AccessibleTrader.Tests
     /// status → announcement pairing is pinned, as is the silence on
     /// non-announceable statuses (open/pending) and on malformed payloads.
     /// </summary>
+    // Constructs a real TradierProvider, so it shares the same global provider state
+    // (PluginHostServices.ApiKeys bridge / signing) as the signed-path tests — join their
+    // collection to stay serialized, or it races BrokerParityTests on xUnit schedule shifts.
+    [Collection("ProviderCredentialBridge")]
     public class TradierAccountEventTests
     {
         private static (TradierProvider provider, List<OrderUpdate> seen) Build()
