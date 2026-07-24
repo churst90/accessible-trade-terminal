@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JK.Mexc.Net" Version="5.0.1" />
+    <PackageReference Include="JK.Mexc.Net" Version="6.2.0" />
   </ItemGroup>
 
   <ItemGroup>

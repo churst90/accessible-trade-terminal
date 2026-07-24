@@ -262,14 +262,11 @@ namespace AccessibleTrader.Plugins.Mexc
             }
             else
             {
-                // KNOWN ISSUE (static spot chart): MEXC migrated its spot public WebSocket
-                // (including kline) to a Protobuf-only protocol. If the JK.Mexc.Net build in
-                // use does not decode the current spot kline frames, this subscription reports
-                // Success yet the callback below never fires — the chart draws its REST history
-                // once and then sits static. Futures uses a separate (working) channel. A real
-                // fix needs a live MEXC spot test and likely an SDK bump or a direct-API spot
-                // kline path (the treatment Binance already got). Until then the quiet-stream
-                // watchdog announces the connected-but-silent feed instead of failing mutely.
+                // Spot public WS was static under JK.Mexc.Net 5.0.1: MEXC migrated spot public
+                // streams (kline + trades) to a Protobuf protocol that 5.0.1 could not receive,
+                // so this subscription reported Success yet the callback never fired. FIXED by
+                // the JK.Mexc.Net 6.x bump (6.2.0) — verified live: KASUSDT 1d kline callbacks
+                // fire and the current bar's close updates in realtime. Do NOT downgrade below 6.x.
                 var result = await _socketClient!.SpotApi.SubscribeToKlineUpdatesAsync(
                     cleanSymbol, MapSpotInterval(timeframe), data =>
                     {
