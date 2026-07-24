@@ -86,7 +86,20 @@ builder.Services.AddSingleton(new DemoPolicy(hostMode));
 // singleton needs the singleton path service (hosted swaps it per-user), and
 // because on hosted/demo the server has no speakers that reach the user anyway.
 if (hostMode == HostMode.Full)
+{
+    // Shared recent-alerts list (unread/read/dismissed) feeding the tray's label and page,
+    // plus the alert-snooze flag the tray sets and the monitor honours.
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.RecentAlertsBuffer>();
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Tray.AlertSnooze>();
+    // Per-circuit bridge: records browser-open alerts into the shared buffer too (the
+    // monitor only covers browser-closed). Instantiated per circuit by the circuit handler.
+    builder.Services.AddScoped<AccessibleTrader.WebHost.Services.InSessionAlertRecorder>();
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
+    // Cross-platform panel tray (Linux verified; Windows/macOS best-effort). Gives a control
+    // surface — reopen the UI, review alerts, silence, status, copy address, toggle
+    // monitoring, quit — with the browser closed. Never registered on the hosted server.
+    builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.Tray.DesktopTrayService>();
+}
 
 // Hosted server-side alerts (HostMode.Hosted only): every registered user's
 // saved alerts keep evaluating after their browser closes, delivered through
@@ -356,6 +369,57 @@ if (args.Contains("--enable-diag") || app.Environment.IsDevelopment())
 // those Scoped services from the root provider here would throw under ValidateScopes.
 // Only genuinely app-once work (e.g. seeding the shared Twelve Data key below) remains
 // at app start.
+
+// Recent-alerts review page (HostMode.Full, local desktop). The tray's "Show recent
+// alerts" opens this; each alert carries Mark-read / Dismiss buttons. Plain server-rendered
+// HTML — no Blazor circuit — so it's reachable even in a freshly (re)opened browser after a
+// crash. Antiforgery is disabled on the POSTs: local, single-user, same-origin only.
+if (hostMode == HostMode.Full)
+{
+    static string RenderAlertsPage(AccessibleTrader.WebHost.Services.RecentAlertsBuffer buffer)
+    {
+        var enc = System.Text.Encodings.Web.HtmlEncoder.Default;
+        var items = buffer.Snapshot();
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">");
+        sb.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        sb.Append("<title>Recent alerts — Accessible Trade Terminal</title></head><body>");
+        sb.Append("<h1>Recent alerts</h1>");
+        if (items.Count == 0)
+        {
+            sb.Append("<p>No recent alerts.</p>");
+        }
+        else
+        {
+            sb.Append("<form method=\"post\" action=\"/alerts/recent/read-all\"><button type=\"submit\">Mark all read</button></form><ul>");
+            foreach (var a in items)
+            {
+                string when = a.FiredAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+                string sym = a.Symbol != null ? enc.Encode(a.Symbol) + ": " : "";
+                bool unread = a.State == AccessibleTrader.WebHost.Services.RecentAlertState.Unread;
+                sb.Append("<li><p><strong>").Append(sym).Append("</strong>").Append(enc.Encode(a.Text));
+                sb.Append(" <span>(").Append(when).Append(", ").Append(unread ? "unread" : "read").Append(")</span></p>");
+                if (unread)
+                    sb.Append("<form method=\"post\" action=\"/alerts/recent/").Append(a.Id)
+                      .Append("/read\"><button type=\"submit\">Mark as read</button></form>");
+                sb.Append("<form method=\"post\" action=\"/alerts/recent/").Append(a.Id)
+                  .Append("/dismiss\"><button type=\"submit\">Dismiss</button></form></li>");
+            }
+            sb.Append("</ul>");
+        }
+        sb.Append("</body></html>");
+        return sb.ToString();
+    }
+
+    app.MapGet("/alerts/recent", (AccessibleTrader.WebHost.Services.RecentAlertsBuffer buffer) =>
+        Results.Content(RenderAlertsPage(buffer), "text/html"));
+    app.MapPost("/alerts/recent/read-all", (AccessibleTrader.WebHost.Services.RecentAlertsBuffer buffer) =>
+        { buffer.MarkAllRead(); return Results.Redirect("/alerts/recent"); }).DisableAntiforgery();
+    app.MapPost("/alerts/recent/{id}/read", (string id, AccessibleTrader.WebHost.Services.RecentAlertsBuffer buffer) =>
+        { buffer.MarkRead(id); return Results.Redirect("/alerts/recent"); }).DisableAntiforgery();
+    app.MapPost("/alerts/recent/{id}/dismiss", (string id, AccessibleTrader.WebHost.Services.RecentAlertsBuffer buffer) =>
+        { buffer.Dismiss(id); return Results.Redirect("/alerts/recent"); }).DisableAntiforgery();
+}
 
 if (autoLaunch)
 {

@@ -14,6 +14,10 @@ namespace AccessibleTrader.Tests
     /// declarations and the general OCO-implies-IOcoTradingProvider invariant so the class
     /// of bug can't reappear.
     /// </summary>
+    // Constructs real provider instances (Kraken/Tradier/etc.), which touch the same global
+    // provider state (PluginHostServices.ApiKeys bridge) as the signed-path tests — so it must
+    // share their collection to stay serialized, or it races BrokerParityTests and flakes them.
+    [Collection("ProviderCredentialBridge")]
     public class ProviderCapabilityHonestyTests
     {
         // Trading-capable providers with parameterless constructors (Capabilities is a pure

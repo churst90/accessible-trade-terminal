@@ -74,6 +74,7 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 | **Audio Output** | ✅ (WASAPI) | ✅ (`AudioTrack`) | ✅ (`AVAudioEngine`) | ✅ (`AVAudioEngine`) | ✅ pw-cat (PipeWire) → pacat (PulseAudio) → aplay (ALSA), picked by file-existence probe at startup |
 | **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) | ✅ (`bwrap` — L5; falls back to process-only if `bubblewrap` not installed) |
 | **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) | ✅ (ASP.NET Core DataProtection, encrypted-at-rest in `{XDG_DATA_HOME}/AccessibleTrader/secrets/`) |
+| **System-tray applet / background alerts** | ✅ MAUI close-to-tray (default on, pending Windows verify); WebHost `Shell_NotifyIcon` | ❌ n/a | ⚠️ WebHost menu actions only — native icon is a future MAUI Mac feature | ❌ n/a | ✅ WebHost StatusNotifier / DBusMenu (Orca-navigable, verified); local Full mode only |
 | **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ | ❌ (vendor Linux SDK is text-only / 20-cell — see §7) |
 
 *(✅ = Fully Supported, 🏗️ = In Development / Stubbed, ⏸ = Intentionally Deferred, ❌ = Not Yet Implemented)*

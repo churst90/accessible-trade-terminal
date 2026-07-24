@@ -42,6 +42,15 @@ namespace AccessibleTrader.Core.Services
         Task LoadChartAsync();
 
         /// <summary>
+        /// Loads the workspace's ACTIVE tab from its restored identity — used after a session
+        /// resume or workspace load, which restore tab config (identity/series) but not data.
+        /// Without this the tab shows no live price until the user clicks Load Chart. Syncs the
+        /// orchestrator's selection to the restored identity and runs the same snapshot
+        /// catch-up the tab-switch path uses (a full fetch when the snapshot is empty).
+        /// </summary>
+        Task LoadRestoredActiveTabAsync();
+
+        /// <summary>
         /// Peeks at the currently-selected provider's declared <see cref="Sdk.Plugins.ProviderDataShape"/>
         /// without triggering a data fetch. Used by the toolbar to pre-flight whether
         /// clicking Load Chart would cause a shape-change strip, so the user can be
@@ -512,6 +521,24 @@ namespace AccessibleTrader.Core.Services
             }
 
             _pipelineUpdated.OnNext(Unit.Default);
+        }
+
+        public async Task LoadRestoredActiveTabAsync()
+        {
+            var identity = _store.State.Identity;
+            if (string.IsNullOrEmpty(identity.Symbol)) return;
+
+            // Mirror the tab-switch handler: sync the private selection to the restored
+            // identity (bypassing the cascade that the public setters trigger), point the
+            // data manager at it, and run the snapshot catch-up. A resumed tab's snapshot is
+            // empty, so CatchUpFromSnapshotAsync falls through to a full RefreshDataAsync —
+            // which fetches history, marks the tab Ready, and starts the live subscription
+            // that drives the browser-title price.
+            _selectedProvider  = identity.Provider;
+            _selectedSymbol    = identity.Symbol;
+            _selectedTimeframe = identity.Timeframe;
+            _dataManager.Identity = identity;
+            await _dataManager.CatchUpFromSnapshotAsync(_store.State.Data).ConfigureAwait(false);
         }
 
         public async Task LoadChartAsync()

@@ -43,6 +43,8 @@ namespace AccessibleTrader.WebHost.Services
 
         private readonly IServiceScopeFactory _scopes;
         private readonly DemoPolicy _demo;
+        private readonly RecentAlertsBuffer _recent;
+        private readonly Tray.AlertSnooze _snooze;
         private readonly ILogger<LocalBackgroundMonitor> _logger;
         private readonly string _soundPath;
         private readonly string? _notifySend;
@@ -60,10 +62,14 @@ namespace AccessibleTrader.WebHost.Services
             IServiceScopeFactory scopes,
             DemoPolicy demo,
             IPlatformPathService paths,
+            RecentAlertsBuffer recent,
+            Tray.AlertSnooze snooze,
             ILogger<LocalBackgroundMonitor> logger)
         {
             _scopes = scopes;
             _demo = demo;
+            _recent = recent;
+            _snooze = snooze;
             _logger = logger;
 
             _notifySend = WebHostSpeechManager.FindOnPath("notify-send", File.Exists);
@@ -114,6 +120,9 @@ namespace AccessibleTrader.WebHost.Services
             // and the circuit speak through the same local Orca, and doubling
             // every announcement is exactly the bug the speech-output work killed.
             if (WebHostBrowserCircuitHandler.ActiveCircuits > 0) return;
+
+            // The user silenced alerts from the tray — skip delivery until it expires.
+            if (_snooze.IsActive) return;
 
             using var scope = _scopes.CreateScope();
             var settings = scope.ServiceProvider.GetRequiredService<ISettingsManager>();
@@ -200,6 +209,9 @@ namespace AccessibleTrader.WebHost.Services
         {
             string text = fired.SpeechText;
             _logger.LogInformation("Background alert fired: {Text}", text);
+
+            // Record it so the tray's recent-alerts list and unread-count label can show it.
+            _recent.Add(text, fired.Symbol);
 
             if (_player != null && File.Exists(_soundPath))
                 Run(_player, _soundPath);

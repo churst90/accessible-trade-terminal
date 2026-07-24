@@ -16,6 +16,12 @@ The same binary serves three modes, selected by flags/config:
 `--demo` and `--accounts` are mutually exclusive deployments (run two services, or one).
 Outside both flags it's the plain single-user local app — unchanged.
 
+**Local mode only:** the plain (no-flag) local app also registers a **desktop
+system-tray applet** and background-alert monitoring so the server is usable with
+the browser closed (see the User Manual). Both are gated to `HostMode.Full` and
+are **never** active under `--demo` or `--accounts` — a hosted/demo server has no
+local user at the box and stays headless.
+
 ## Prerequisites
 
 - **.NET 10 runtime** (or publish self-contained, below — then no runtime needed).

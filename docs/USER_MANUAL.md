@@ -1097,6 +1097,39 @@ is replaceable — drop your own WAV at sounds/alert.wav in the app data
 folder. Pair it with a systemd user service and the terminal listens from
 login to shutdown.
 
+### The system-tray applet
+
+On a local machine the terminal also puts an icon in your system tray (the
+notification area) — the control surface for that always-running server, so
+you can drive it without a browser open. Its accessible name carries the live
+unread-alert count ("Accessible Trade Terminal — 3 new alerts"), and its menu,
+which your screen reader navigates like any menu, has seven items:
+
+- **Restore workspaces to browser** — reopens the terminal in your browser; the
+  last session resumes itself.
+- **Show recent alerts** — speaks how many alerts are waiting and opens a plain,
+  navigable **Recent alerts** page where each alert has *Mark as read* and
+  *Dismiss* buttons (plus *Mark all read*). Alerts that fired while the browser
+  was open show up here too, not only the ones caught with it closed.
+- **Silence alerts for 30 minutes** — pauses the background announcements; the
+  item then reads "Resume alerts" with the minutes remaining, so a second
+  activation lifts the silence early.
+- **Connection status** — speaks a quick summary: whether monitoring is on, how
+  many alerts are armed, and how many are unread.
+- **Copy terminal address** — copies the local URL to the clipboard, for opening
+  the terminal from another browser or device.
+- **Turn background monitoring on / off** — the same setting as the Settings
+  checkbox above, reachable from the tray.
+- **Exit terminal** — shuts the server down cleanly.
+
+This is a local-machine feature only; the hosted multi-user site never shows a
+tray. On Linux it uses the freedesktop StatusNotifier protocol (its menu is
+exposed to your screen reader over AT-SPI); on Windows it uses the standard
+notification-area icon; on macOS the WebHost provides the menu *actions* but not
+the icon itself — the native Mac desktop app is the right home for a Mac tray.
+If your desktop can't host a tray icon, the terminal simply runs without one —
+the background monitoring above still works either way.
+
 ### OCO pairs: one cancels the other
 
 In paper mode the dashboard offers an **OCO pair** — two resting orders where

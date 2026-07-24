@@ -128,14 +128,14 @@
         <PackageReference Include="System.Reactive" Version="6.1.0" />
     </ItemGroup>
 
-    <!-- ── Windows tray icon (EXPERIMENTAL — opt-in until Windows-verified) ──
-         Cannot be compiled or tested from the Linux dev box (the Windows TFM is
-         excluded there), and release.yml builds the Windows head on every tag —
-         so the whole feature is gated behind -p:EnableWindowsTrayIcon=true.
-         On the next Windows session: build with the flag, verify close-to-tray
-         + restore + exit, then flip the default below to true. -->
+    <!-- ── Windows tray icon (ON by default; opt-out with -p:EnableWindowsTrayIcon=false) ──
+         The Windows head (built by release.yml on every tag, and any Windows dev
+         session) now compiles the close-to-tray applet by default. Inert on the
+         Linux dev box, where the Windows TFM is excluded. Still verify close-to-
+         tray + restore + exit on a real Windows session; opt out with the flag if
+         a Windows build needs to skip it. -->
     <PropertyGroup>
-        <EnableWindowsTrayIcon Condition="'$(EnableWindowsTrayIcon)' == ''">false</EnableWindowsTrayIcon>
+        <EnableWindowsTrayIcon Condition="'$(EnableWindowsTrayIcon)' == ''">true</EnableWindowsTrayIcon>
     </PropertyGroup>
     <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) AND '$(EnableWindowsTrayIcon)' == 'true'">
         <DefineConstants>$(DefineConstants);TRAY_ICON</DefineConstants>

@@ -87,9 +87,19 @@ namespace AccessibleTrader.Tests
         {
             // The contract behind the makeup gains: NoiseAmount means roughly the
             // same energy whether white, pink, or brown. Allow a factor of 3.
-            double white = AddedNoiseRms("white", 0.3f);
-            double pink  = AddedNoiseRms("pink", 0.3f);
-            double brown = AddedNoiseRms("brown", 0.3f);
+            // Average several realizations — a single brown-noise buffer (a random walk)
+            // has enough RMS variance to occasionally clip the 3x band on its own; the
+            // mean over realizations tests the makeup-gain contract, not one draw's luck.
+            static double AvgRms(string type)
+            {
+                const int realizations = 8;
+                double sum = 0;
+                for (int i = 0; i < realizations; i++) sum += AddedNoiseRms(type, 0.3f);
+                return sum / realizations;
+            }
+            double white = AvgRms("white");
+            double pink  = AvgRms("pink");
+            double brown = AvgRms("brown");
             Assert.True(pink > white / 3 && pink < white * 3,
                 $"pink {pink:F4} vs white {white:F4} — outside 3x band.");
             Assert.True(brown > white / 3 && brown < white * 3,

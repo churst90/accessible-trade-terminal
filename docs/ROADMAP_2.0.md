@@ -70,8 +70,12 @@ and broker parity were the gap.
 
 ## Tier 3 — Parity & polish
 
-- Windows tray VERIFY on a Windows session (code gated behind
-  -p:EnableWindowsTrayIcon=true), then enable by default.
+- Windows tray: now defaults ON (`EnableWindowsTrayIcon` flipped to true); still
+  needs a real Windows-session verification of close-to-tray / restore / exit.
+- WebHost desktop tray (local Full mode) SHIPPED 2026-07-23 — cross-platform
+  StatusNotifier / Shell_NotifyIcon applet + `/alerts/recent` page (Linux
+  verified; Windows pending smoke test; macOS actions-only, native tray is the
+  MAUI head's job).
 - Live-OCO first-fire verification on real Binance (tiny pair); extend native
   OCO to other exchanges as demand asks.
 - Schwab ACCT_ACTIVITY streamer (needs Cody's developer app + real account).

@@ -8,6 +8,22 @@ changelog see [`CHANGES.md`](CHANGES.md).
 
 ---
 
+## Your terminal keeps watching when the browser is closed
+
+On your own machine the terminal is a server that outlives the browser, and it
+now has a **system-tray icon** to prove it — the control surface for that
+running process, usable with no browser open. Its name carries the live count of
+unread alerts, and its menu (which your screen reader reads like any menu) lets
+you reopen the terminal in your browser, hear and review recent alerts (with
+per-alert *Mark as read* and *Dismiss* on a simple page), silence alerts for 30
+minutes, hear a quick status, copy the terminal's address, toggle background
+monitoring, or exit cleanly. Turn on **Settings → General → "Keep monitoring
+when the browser is closed"** and saved alerts keep firing — spoken through Orca,
+with a sound and a desktop notification — whether the browser is open or shut.
+(Local machines only; the hosted site doesn't show a tray. On Linux the menu is
+fully screen-reader navigable; Windows works the same way; on macOS the desktop
+app is the place for a native tray.)
+
 ## Safer, better-wired, more of it spoken (2.0-readiness pass)
 
 A deep audit tightened a batch of loose ends — the ones you'd actually notice:

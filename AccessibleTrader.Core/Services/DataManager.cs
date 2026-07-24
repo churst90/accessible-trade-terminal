@@ -82,7 +82,18 @@ namespace AccessibleTrader.Core.Services
         private void OnFocusedFeedUpdated(ChartFeed feed, FeedUpdateKind kind)
         {
             if (kind is FeedUpdateKind.LiveAppend or FeedUpdateKind.LiveReplace)
-                _store.Dispatch(new UpdateDataAction(feed.Bars, false));
+            {
+                var bars = feed.Bars;
+                // Diagnostic (Debug) for "the title price sometimes stops updating": these lines
+                // mean the FOCUSED feed IS pushing live closes to the store. If they keep coming
+                // while the browser title stays stale, the gap is downstream (render/title); if
+                // they STOP while price still moves, the focused live subscription stalled or a
+                // tab handoff routed ticks to the background path instead of the focused one.
+                if (bars.Count > 0)
+                    _logger.LogDebug("DataManager: focused {Kind} {Symbol} close {Close}.",
+                        kind, feed.Identity.Symbol, bars[bars.Count - 1].Close);
+                _store.Dispatch(new UpdateDataAction(bars, false));
+            }
         }
 
         public async Task RefreshDataAsync(CancellationToken ct = default)

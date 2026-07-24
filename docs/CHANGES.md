@@ -6,6 +6,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Desktop system-tray applet for the local WebHost (2026-07-23)
+
+The local (Full-mode) WebHost server outlives the browser tab, so it now shows a
+**system-tray applet** — the control surface for that always-running process,
+usable with no browser open. Never registered on the hosted multi-user server.
+
+- **Cross-platform behind `ITrayPlatform`.** `LinuxTrayPlatform` uses the
+  freedesktop StatusNotifier + DBusMenu protocols (via Tmds.DBus, no GUI
+  toolkit) — its menu is exposed to AT-SPI so Orca navigates it; verified on
+  MATE. `WindowsTrayPlatform` uses `Shell_NotifyIcon` on a message-pump thread
+  (native menu, read by NVDA/JAWS) — compiles, pending a Windows smoke test.
+  `MacTrayPlatform` provides the menu actions (`say`/`open`/`pbcopy`) but not the
+  icon: an NSStatusItem needs AppKit's main-thread run loop, which the server
+  can't host safely, so the native Mac tray belongs in the MAUI Mac head.
+- **Menu (7 items):** Restore workspaces to browser (reopen + session resume),
+  Show recent alerts (speaks a count, opens `/alerts/recent`), Silence alerts 30
+  min (⇄ Resume with minutes left), Connection status (monitoring + armed +
+  unread), Copy terminal address, Toggle background monitoring, Exit terminal.
+- **Recent-alerts surface:** a shared `RecentAlertsBuffer` (unread → read →
+  dismissed) drives the icon's live accessible label (via `NewTitle`/`NewToolTip`
+  D-Bus signals) and a plain-HTML `/alerts/recent` page with Mark-read / Dismiss
+  / Mark-all-read buttons. Fed by BOTH the background monitor (browser-closed
+  alerts) and a per-circuit `InSessionAlertRecorder` (browser-open alerts), so
+  the list is unified; the two feeders never double-count.
+- Platform-agnostic behaviour (`TrayController`, `AlertSnooze`) is unit-tested
+  (19 tests); a platform that can't create an icon degrades to headless.
+
+### MAUI Windows tray on by default (2026-07-23)
+
+`EnableWindowsTrayIcon` now defaults to `true`, so the Windows MAUI head compiles
+its close-to-tray applet by default (opt out with `-p:EnableWindowsTrayIcon=false`).
+Still wants a Windows-session verification of close-to-tray / restore / exit.
+
 ### 2.0-readiness audit: close the wiring, safety, and audio-first blockers (2026-07-23)
 
 A deep multi-agent audit of the whole app hunted for the Shift+F2/F3 bug class

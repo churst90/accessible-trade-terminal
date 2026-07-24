@@ -56,6 +56,9 @@
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
+    <!-- StatusNotifierItem + DBusMenu tray icon for the LOCAL Linux desktop (HostMode.Full).
+         Pure D-Bus client, no GUI toolkit; never registered on the hosted server. -->
+    <PackageReference Include="Tmds.DBus" Version="0.21.2" />
     <!-- SkiaSharp native runtime. Core's Rendering/* uses SKPaint/SKCanvas; the
          MAUI head gets the native .so transitively via SkiaSharp.Views.Maui.Controls,
          but the WebHost has no MAUI dep so we need the per-OS native asset

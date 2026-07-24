@@ -225,10 +225,20 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   routing (native/paper-grouped/refused) + Binance /api/v3/orderList/oco with
   request-shape tests both sides. NOT yet fired against the real exchange; first
   live use should be a tiny pair. Other exchanges (Kraken, Coinbase) as demand asks.
-- [ ] **Windows tray VERIFY** — code shipped behind -p:EnableWindowsTrayIcon=true
-  (H.NotifyIcon.Maui 2.3.0, close-to-tray + Restore/Exit menu). On the next Windows
-  session: build w/ flag, verify the four steps in TrayIconService.cs, flip the
-  csproj default to true. Package version may need adjusting for net10 MAUI.
+- [ ] **Windows tray VERIFY** — MAUI head close-to-tray (H.NotifyIcon.Maui 2.3.0,
+  Restore/Exit menu). The csproj default is now flipped to true
+  (`EnableWindowsTrayIcon`), so it builds by default. Remaining: on the next
+  Windows session, verify the four steps in TrayIconService.cs (opt out with
+  `-p:EnableWindowsTrayIcon=false` if a build must skip it). Package version may
+  need adjusting for net10 MAUI.
+- [x] **WebHost desktop tray applet** (SHIPPED 2026-07-23) — cross-platform tray
+  for the LOCAL Full-mode WebHost: `DesktopTrayService` + `ITrayPlatform`
+  (LinuxTrayPlatform StatusNotifier/D-Bus verified; WindowsTrayPlatform
+  Shell_NotifyIcon pending a Windows smoke test; MacTrayPlatform actions-only).
+  7-item menu, live unread-count label (NewTitle/NewToolTip signals),
+  `/alerts/recent` HTML page (Mark-read/Dismiss), `RecentAlertsBuffer` fed by the
+  background monitor + per-circuit `InSessionAlertRecorder`, `AlertSnooze`. 19
+  unit tests on the platform-agnostic core. Never on the hosted server.
 - [ ] **Hosted server-side alerts + Web Push** — evaluate saved alerts server-side
   against shared feeds (rides the shared-connection-pool item) delivering via the
   existing webhook/Telegram/email channels; Web Push (VAPID + service worker) for

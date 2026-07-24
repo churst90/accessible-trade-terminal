@@ -135,7 +135,25 @@ namespace AccessibleTrader.Core.Services
             //     workspace.resumeLastSession) BEFORE the monitors reconcile so the
             //     restored tabs are covered. Resolving the service also arms the
             //     periodic autosave sampling.
-            _services.GetService<Workspace.ISessionAutosaveService>()?.TryResumeAtStartup();
+            bool resumed = _services.GetService<Workspace.ISessionAutosaveService>()?.TryResumeAtStartup() ?? false;
+
+            // Resume/RestoreWorkspace restores tab CONFIG only (identity, series, layout), not
+            // data — so a resumed tab shows the hollow "△" title with no live price until a
+            // manual Load Chart. Load the active tab now so its price/title populate on resume;
+            // the other tabs load on first switch (the tab-switch catch-up path handles them).
+            if (resumed)
+            {
+                try
+                {
+                    var orchestrator = _services.GetService<IMarketOrchestrator>();
+                    if (orchestrator != null)
+                        await orchestrator.LoadRestoredActiveTabAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Loading the resumed active tab failed; the chart can still be loaded manually.");
+                }
+            }
 
             // 11. Background workspace monitoring — resolve so its tab/settings
             //     subscriptions are live, then reconcile once for tabs restored

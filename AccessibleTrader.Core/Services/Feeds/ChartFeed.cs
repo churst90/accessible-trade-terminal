@@ -235,7 +235,15 @@ namespace AccessibleTrader.Core.Services.Feeds
             if (_disposed) return false;
             try
             {
-                if (!_prependLock.Wait(0)) return false;
+                if (!_prependLock.Wait(0))
+                {
+                    // Feed is mid prepend/gap-fill — this tick is dropped, so the title won't
+                    // refresh for it. Logged (Debug) for diagnosing "the price sometimes stops
+                    // updating" — a burst of these lines against a stale title points here.
+                    _logger.LogDebug("ChartFeed: live tick dropped for {Symbol} (busy with prepend/gap-fill).",
+                        Identity.Symbol);
+                    return false;
+                }
             }
             catch (ObjectDisposedException) { return false; } // disposed between check and wait
             try
@@ -261,6 +269,8 @@ namespace AccessibleTrader.Core.Services.Feeds
                         // advanced the buffer while this tick was in flight, or a
                         // provider replayed on reconnect). Replacing the newer
                         // last bar with it would corrupt the series — drop it.
+                        _logger.LogDebug("ChartFeed: live tick {TickDate:o} older than last bar {LastDate:o} for {Symbol} — dropped.",
+                            tick.Date, lastBar.Date, Identity.Symbol);
                         return false;
                     }
                 }

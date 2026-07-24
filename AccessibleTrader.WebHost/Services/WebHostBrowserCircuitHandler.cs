@@ -107,6 +107,12 @@ namespace AccessibleTrader.WebHost.Services
             {
                 _logger.LogWarning(ex, "Per-circuit browser shortcut remap failed.");
             }
+
+            // Force-create the in-session alert recorder so it subscribes to THIS circuit's
+            // event bus for its lifetime (local Full mode only — null otherwise). The scope
+            // holds it, so its subscription lives until the circuit closes.
+            try { _scope.GetService<InSessionAlertRecorder>(); }
+            catch (Exception ex) { _logger.LogDebug(ex, "In-session alert recorder init skipped."); }
         }
         public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
         {
