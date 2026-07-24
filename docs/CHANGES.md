@@ -51,6 +51,29 @@ trader relies on now reach the speech layer. Suite: 2036 tests, all green.
   errors (except 429/408) or caller cancellation; Kraken `GetFillsAsync` joined the
   private rate limiter; CFTC/FINRA analytics stopped swallowing failures.
 
+**Follow-up (2026-07-24): background-feed watchdog, remaining gaps, structural debt.**
+
+- **Multi-live watchdog.** `MarketFeedHub` (the background/keyed feeds) now has the
+  same safety net the focused feed has via `LiveStreamManager`: it detects a feed
+  that has gone silent, announces it once, restarts the subscription a bounded number
+  of times, then gives up — and it surfaces the provider's `ErrorStream` for keyed
+  sockets. Background monitoring can no longer die silently.
+- **Alpaca.** Protective legs only wrap market/limit entries (a bracket parented by a
+  stop is rejected by Alpaca), and a single leg now uses `oto` instead of a one-leg
+  `bracket`; `GetFillsAsync` routes through the rate limiter + auth headers (it 401'd
+  on a fresh provider before).
+- **MEXC.** `GetOpenOrdersAsync` now also lists open FUTURES contract orders (best
+  effort; a spot-only key's permission failure stays silent) — they were previously
+  invisible.
+- **Capability model consistency.** New invariants pin the flags to the behaviour they
+  imply (OCO flag ⇔ `IOcoTradingProvider`, Leverage flag ⇔ margin-or-futures with real
+  >1× leverage, Brackets ⇒ a protective leg) so a flag can't drift from what the UI
+  gates on. This caught and corrected the MEXC Leverage/futures relationship.
+- **Plugin dependency isolation guard.** A new test scans every plugin's restore graph
+  and fails if two plugins resolve the same third-party assembly at different versions
+  — the `CryptoExchange.Net` flattening hazard now trips CI the moment it recurs
+  instead of failing silently at plugin load.
+
 ### Desktop system-tray applet for the local WebHost (2026-07-23)
 
 The local (Full-mode) WebHost server outlives the browser tab, so it now shows a

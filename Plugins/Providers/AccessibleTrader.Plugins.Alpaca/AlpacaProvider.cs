@@ -565,8 +565,15 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConnected) return new();
             try
             {
-                var response = await _httpClient.GetStringAsync(
-                    $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
+                // Must go through the rate limiter AND set auth headers (both mutate the
+                // shared HttpClient) — the old direct GetStringAsync had no credentials
+                // on a fresh provider and 401'd, and raced other signed calls.
+                var response = await _rateLimiter.ExecuteAsync(async () =>
+                {
+                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                    return await _httpClient.GetStringAsync(
+                        $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
+                }).ConfigureAwait(false);
                 var arr = JArray.Parse(response);
                 var fills = new List<TradeFill>();
                 foreach (var a in arr)
@@ -663,10 +670,16 @@ namespace AccessibleTrader.Plugins.Alpaca
                         body["type"] = "market";
                     }
 
-                    // Bracket orders with SL/TP
-                    if (signal.StopLoss.HasValue || signal.TakeProfit.HasValue)
+                    // Protective legs — ONLY valid when the entry is market/limit. A
+                    // stop/stop-limit entry is itself a protective order; Alpaca rejects
+                    // a bracket parented by a stop, and signal.StopLoss there is the
+                    // ENTRY trigger, not a child. Alpaca also needs `bracket` for both
+                    // legs and `oto` for a single leg (a one-leg `bracket` is rejected).
+                    bool entryIsMarketOrLimit = signal.Type is OrderType.Market or OrderType.Limit;
+                    if (entryIsMarketOrLimit && (signal.StopLoss.HasValue || signal.TakeProfit.HasValue))
                     {
-                        body["order_class"] = "bracket";
+                        bool both = signal.StopLoss.HasValue && signal.TakeProfit.HasValue;
+                        body["order_class"] = both ? "bracket" : "oto";
                         if (signal.StopLoss.HasValue)
                             body["stop_loss"] = new JObject { ["stop_price"] = signal.StopLoss.Value };
                         if (signal.TakeProfit.HasValue)

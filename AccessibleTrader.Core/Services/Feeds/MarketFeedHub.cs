@@ -4,7 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Feeds
@@ -75,12 +78,45 @@ namespace AccessibleTrader.Core.Services.Feeds
         private readonly DemoPolicy _demo;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<MarketFeedHub> _logger;
+        // Null in unit tests that don't exercise the watchdog; the focused path
+        // (LiveStreamManager) always has one, so background feeds should too.
+        private readonly IGlobalErrorCoordinator? _errorCoordinator;
         private readonly ConcurrentDictionary<ChartIdentity, ChartFeed> _feeds = new();
         private readonly ConcurrentDictionary<ChartIdentity, int> _leaseCounts = new();
         // Per-feed independent live subscriptions (Phase B) — provider handles that
         // own their own socket + reconnection; disposing unsubscribes.
         private readonly ConcurrentDictionary<ChartIdentity, IAsyncDisposable> _feedSubscriptions = new();
         private readonly object _evictionLock = new();
+
+        // ── Multi-live watchdog ──────────────────────────────────────────────
+        // The keyed/background feeds' sockets self-reconnect (ReconnectingWebSocket),
+        // but a feed that goes SILENT (socket up but no bars, or a wedged
+        // reconnect) was never detected or announced — a blind trader relying on
+        // background monitoring had no way to hear it. This mirrors
+        // LiveStreamManager's watchdog for the focused feed. TickCount64 is
+        // monotonic (immune to NTP/VM clock jumps).
+        private sealed class LiveFeedWatch
+        {
+            public long LastTickMs = Environment.TickCount64;
+            public bool QuietAnnounced;
+            public int  RestartAttempts;
+            public bool GaveUp;
+        }
+        internal enum WatchdogAction { None, AnnounceQuiet, Restart, GiveUp }
+        private readonly ConcurrentDictionary<ChartIdentity, LiveFeedWatch> _watch = new();
+        // Provider ErrorStream subscriptions, refcounted per provider so keyed
+        // socket errors surface audibly without double-subscribing.
+        private sealed class ProviderErrorSub { public IDisposable Sub = default!; public int RefCount; }
+        private readonly ConcurrentDictionary<string, ProviderErrorSub> _providerErrorSubs = new();
+        private readonly object _providerErrorLock = new();
+        private CancellationTokenSource? _watchdogCts;
+        private Task? _watchdogTask;
+        private readonly object _watchdogLock = new();
+        // Tunable (internal) so tests can drive the sweep without real waits.
+        internal TimeSpan WatchdogInterval = TimeSpan.FromSeconds(30);
+        internal long QuietThresholdMs   = 90_000;   // announce "quiet" once
+        internal long RestartThresholdMs = 240_000;  // full resubscribe as a last resort
+        internal int  MaxRestarts        = 3;
 
         private volatile ChartFeed? _focused;
         private CancellationTokenSource? _pumpCts;
@@ -94,13 +130,15 @@ namespace AccessibleTrader.Core.Services.Feeds
         public ChartFeed? FocusedFeed => _focused;
         public event Action<ChartFeed, FeedUpdateKind>? FocusedFeedUpdated;
 
-        public MarketFeedHub(IDataOrchestrator orchestrator, IDataService dataService, DemoPolicy demo, ILoggerFactory loggerFactory)
+        public MarketFeedHub(IDataOrchestrator orchestrator, IDataService dataService, DemoPolicy demo,
+            ILoggerFactory loggerFactory, IGlobalErrorCoordinator? errorCoordinator = null)
         {
             _orchestrator = orchestrator;
             _dataService = dataService;
             _demo = demo;
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<MarketFeedHub>();
+            _errorCoordinator = errorCoordinator;
         }
 
         public ChartFeed GetOrCreateFeed(ChartIdentity identity)
@@ -188,9 +226,14 @@ namespace AccessibleTrader.Core.Services.Feeds
             if (!provider.SupportsMultipleLiveSubscriptions) return FeedLiveStart.NotSupported;
 
             var feed = GetOrCreateFeed(identity);
+            // GetOrAdd (not assignment) so a watchdog RESTART preserves the running
+            // restart counter — a fresh start after StopFeedLiveAsync removed the
+            // entry gets a clean one.
+            var watch = _watch.GetOrAdd(identity, _ => new LiveFeedWatch());
+            watch.LastTickMs = Environment.TickCount64;
             var subscription = await provider.SubscribeLiveAsync(
                 identity.Market, identity.Symbol, identity.Timeframe,
-                bar => feed.ApplyLiveTick(bar)).ConfigureAwait(false);
+                bar => { StampTick(identity); feed.ApplyLiveTick(bar); }).ConfigureAwait(false);
 
             if (!_feedSubscriptions.TryAdd(identity, subscription))
             {
@@ -199,6 +242,8 @@ namespace AccessibleTrader.Core.Services.Feeds
             }
             else
             {
+                AddProviderErrorSubscription(identity.Provider, provider);
+                EnsureWatchdogRunning();
                 _logger.LogInformation("MarketFeedHub: independent live subscription started for {Identity}.", identity);
             }
             return FeedLiveStart.Started;
@@ -208,8 +253,153 @@ namespace AccessibleTrader.Core.Services.Feeds
         {
             if (_feedSubscriptions.TryRemove(identity, out var subscription))
             {
+                _watch.TryRemove(identity, out _);
+                ReleaseProviderErrorSubscription(identity.Provider);
                 await subscription.DisposeAsync().ConfigureAwait(false);
                 _logger.LogInformation("MarketFeedHub: independent live subscription stopped for {Identity}.", identity);
+            }
+        }
+
+        // ── Watchdog implementation ──────────────────────────────────────────
+
+        /// <summary>Test seam: pretend a live feed's last bar arrived <paramref name="msAgo"/>
+        /// milliseconds ago, so a watchdog sweep can be exercised without real waits.</summary>
+        internal void BackdateFeedForTest(ChartIdentity identity, long msAgo)
+        {
+            if (_watch.TryGetValue(identity, out var w))
+                w.LastTickMs = Environment.TickCount64 - msAgo;
+        }
+
+        private void StampTick(ChartIdentity identity)
+        {
+            if (_watch.TryGetValue(identity, out var w))
+            {
+                w.LastTickMs = Environment.TickCount64;
+                w.QuietAnnounced = false;
+                w.RestartAttempts = 0;
+                w.GaveUp = false;
+            }
+        }
+
+        /// <summary>Pure silence-to-action decision — unit-tested directly.</summary>
+        internal WatchdogAction EvaluateSilence(long silentMs, bool quietAnnounced, int restartAttempts, bool gaveUp)
+        {
+            if (silentMs < QuietThresholdMs) return WatchdogAction.None;
+            if (silentMs >= RestartThresholdMs)
+            {
+                if (gaveUp) return WatchdogAction.None;
+                return restartAttempts >= MaxRestarts ? WatchdogAction.GiveUp : WatchdogAction.Restart;
+            }
+            return quietAnnounced ? WatchdogAction.None : WatchdogAction.AnnounceQuiet;
+        }
+
+        private void EnsureWatchdogRunning()
+        {
+            lock (_watchdogLock)
+            {
+                if (_watchdogTask is { IsCompleted: false }) return;
+                _watchdogCts = new CancellationTokenSource();
+                var token = _watchdogCts.Token;
+                _watchdogTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        while (!token.IsCancellationRequested)
+                        {
+                            await Task.Delay(WatchdogInterval, token).ConfigureAwait(false);
+                            await RunWatchdogSweepAsync().ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException) { /* normal stop */ }
+                    catch (Exception ex) { _logger.LogWarning(ex, "MarketFeedHub watchdog exited on error."); }
+                }, token);
+            }
+        }
+
+        /// <summary>One pass over the live feeds: announce prolonged quiet once,
+        /// restart on extended silence (bounded), give up after that. Internal so a
+        /// test can drive it deterministically. A tick resets a feed's state.</summary>
+        internal async Task RunWatchdogSweepAsync()
+        {
+            long now = Environment.TickCount64;
+            foreach (var kv in _watch)
+            {
+                var identity = kv.Key;
+                var w = kv.Value;
+                if (!_feedSubscriptions.ContainsKey(identity)) continue; // stopped mid-sweep
+
+                switch (EvaluateSilence(now - w.LastTickMs, w.QuietAnnounced, w.RestartAttempts, w.GaveUp))
+                {
+                    case WatchdogAction.AnnounceQuiet:
+                        w.QuietAnnounced = true;
+                        _logger.LogInformation("MarketFeedHub: background feed {Identity} quiet.", identity);
+                        _errorCoordinator?.ReportError(
+                            $"Background feed for {identity.Symbol} on {identity.Provider} has gone quiet; it may only update on refresh.",
+                            ErrorSeverity.Low, ErrorCategory.Informational);
+                        break;
+
+                    case WatchdogAction.Restart:
+                        w.RestartAttempts++;
+                        _logger.LogWarning("MarketFeedHub: restarting silent background feed {Identity} (attempt {Attempt}/{Max}).",
+                            identity, w.RestartAttempts, MaxRestarts);
+                        _errorCoordinator?.ReportError(
+                            $"Background feed for {identity.Symbol} on {identity.Provider} went silent; reconnecting ({w.RestartAttempts}/{MaxRestarts}).",
+                            ErrorSeverity.Low, ErrorCategory.Informational);
+                        await RestartFeedAsync(identity).ConfigureAwait(false);
+                        break;
+
+                    case WatchdogAction.GiveUp:
+                        w.GaveUp = true;
+                        _logger.LogError("MarketFeedHub: background feed {Identity} gave up after {Max} restarts.", identity, MaxRestarts);
+                        _errorCoordinator?.ReportError(
+                            $"Background feed for {identity.Symbol} on {identity.Provider} stopped updating after {MaxRestarts} reconnect attempts.",
+                            ErrorSeverity.Medium, ErrorCategory.Provider);
+                        break;
+                }
+            }
+        }
+
+        private async Task RestartFeedAsync(ChartIdentity identity)
+        {
+            // Reset the clock first so the restart isn't immediately re-triggered by
+            // the same sweep window; the preserved RestartAttempts counter still
+            // advances toward GiveUp if ticks never resume.
+            if (_watch.TryGetValue(identity, out var w)) w.LastTickMs = Environment.TickCount64;
+            if (_feedSubscriptions.TryRemove(identity, out var old))
+            {
+                ReleaseProviderErrorSubscription(identity.Provider);
+                try { await old.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogDebug(ex, "Old subscription dispose threw during restart (non-fatal)."); }
+            }
+            try { await TryStartFeedLiveAsync(identity).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Feed restart failed for {Identity}.", identity); }
+        }
+
+        private void AddProviderErrorSubscription(string providerName, IMarketDataProvider provider)
+        {
+            lock (_providerErrorLock)
+            {
+                if (_providerErrorSubs.TryGetValue(providerName, out var existing))
+                {
+                    existing.RefCount++;
+                    return;
+                }
+                var sub = provider.ErrorStream.Subscribe(err =>
+                    _errorCoordinator?.ReportError(err, ErrorSeverity.Medium, ErrorCategory.Provider));
+                _providerErrorSubs[providerName] = new ProviderErrorSub { Sub = sub, RefCount = 1 };
+            }
+        }
+
+        private void ReleaseProviderErrorSubscription(string providerName)
+        {
+            lock (_providerErrorLock)
+            {
+                if (!_providerErrorSubs.TryGetValue(providerName, out var e)) return;
+                if (--e.RefCount <= 0)
+                {
+                    e.Sub.Dispose();
+                    _providerErrorSubs.TryRemove(providerName, out _);
+                }
             }
         }
 
@@ -304,6 +494,16 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public void Dispose()
         {
+            _watchdogCts?.Cancel();
+            try { _watchdogTask?.Wait(TimeSpan.FromMilliseconds(500)); }
+            catch { /* cancellation surfaces as AggregateException — expected */ }
+            _watchdogCts?.Dispose();
+            lock (_providerErrorLock)
+            {
+                foreach (var e in _providerErrorSubs.Values) e.Sub.Dispose();
+                _providerErrorSubs.Clear();
+            }
+
             _pumpCts?.Cancel();
             try { _pumpTask?.Wait(TimeSpan.FromMilliseconds(500)); }
             catch { /* cancellation surfaces as AggregateException — expected */ }

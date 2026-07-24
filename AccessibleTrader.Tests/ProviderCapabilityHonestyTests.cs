@@ -75,5 +75,47 @@ namespace AccessibleTrader.Tests
             Assert.True(binance.Capabilities.HasFlag(ProviderCapabilities.OCO));
             Assert.True(binance is IOcoTradingProvider);
         }
+
+        // ── Capability model consistency (single source of truth) ────────────
+        // The model is dual-sourced: some UI gates read the ProviderCapabilities
+        // FLAGS, others read the SupportsX BOOLS. These invariants keep the two in
+        // agreement so a flag can't disagree with the behaviour it implies.
+
+        [Fact]
+        public void Implementing_IOcoTradingProvider_requires_declaring_the_OCO_flag()
+        {
+            foreach (var p in TradingProviders())
+                if (p is IOcoTradingProvider)
+                    Assert.True(p.Capabilities.HasFlag(ProviderCapabilities.OCO),
+                        $"{p.GetType().Name} implements IOcoTradingProvider but does not declare the OCO flag.");
+        }
+
+        [Fact]
+        public void Leverage_flag_agrees_with_margin_or_futures_trading()
+        {
+            // Leverage is available when EITHER spot margin OR futures is supported
+            // (MEXC's leverage is futures-only; Kraken's is spot margin). The flag and
+            // the bools gate the same feature from different call sites, so they must
+            // agree, and leverage must actually exceed 1x where declared.
+            foreach (var p in TradingProviders())
+            {
+                bool flag = p.Capabilities.HasFlag(ProviderCapabilities.Leverage);
+                bool leveraged = p.SupportsMarginTrading || p.SupportsFuturesTrading;
+                Assert.True(flag == leveraged,
+                    $"{p.GetType().Name}: Leverage flag ({flag}) disagrees with margin-or-futures ({leveraged}).");
+                if (flag)
+                    Assert.True(p.MaxLeverage > 1.0,
+                        $"{p.GetType().Name} declares Leverage but MaxLeverage is {p.MaxLeverage}.");
+            }
+        }
+
+        [Fact]
+        public void Brackets_flag_requires_a_protective_leg()
+        {
+            foreach (var p in TradingProviders())
+                if (p.Capabilities.HasFlag(ProviderCapabilities.Brackets))
+                    Assert.True(p.SupportsStopLoss || p.SupportsTakeProfit,
+                        $"{p.GetType().Name} declares Brackets but supports neither stop-loss nor take-profit.");
+        }
     }
 }

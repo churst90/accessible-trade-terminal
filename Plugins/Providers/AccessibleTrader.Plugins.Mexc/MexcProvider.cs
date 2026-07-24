@@ -618,28 +618,65 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            var orders = new List<OpenOrder>();
+
+            // Spot (requires a plain symbol; MEXC spot open-orders can't list all).
+            if (!string.IsNullOrEmpty(symbol) && !symbol.Contains('_'))
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                try
                 {
                     await EnsureTradingClientAsync();
-                    // MEXC spot GetOpenOrdersAsync requires a symbol — callers must supply one.
-                    if (string.IsNullOrEmpty(symbol)) return new List<OpenOrder>();
-
-                    var result = await TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol));
-                    if (!result.Success || result.Data == null) return new List<OpenOrder>();
-                    return result.Data.Select(o => new OpenOrder(
-                        o.OrderId,
-                        o.Symbol,
-                        o.Side == global::Mexc.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                        MapOrderType(o.OrderType),
-                        (double)o.Quantity,
-                        (double)o.Price,
-                        o.Status.ToString()
-                    )).ToList();
-                });
+                    var result = await _rateLimiter.ExecuteAsync(() =>
+                        TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol)));
+                    if (result.Success && result.Data != null)
+                        orders.AddRange(result.Data.Select(o => new OpenOrder(
+                            o.OrderId, o.Symbol,
+                            o.Side == global::Mexc.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                            MapOrderType(o.OrderType),
+                            (double)o.Quantity, (double)o.Price, o.Status.ToString())));
+                    else if (result.Error != null)
+                        _errorStream.OnNext($"MEXC open orders unavailable for {symbol}: {result.Error.Message}");
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name}).");
+                }
             }
-            catch { return new(); }
+
+            // Futures — the futures endpoint lists ALL open contract orders (no symbol
+            // required), so futures orders were previously invisible. Best-effort:
+            // only when the symbol is a futures pair (BTC_USDT) or unspecified, and a
+            // no-permission result is skipped silently rather than announced.
+            if (string.IsNullOrEmpty(symbol) || symbol.Contains('_'))
+            {
+                try
+                {
+                    await EnsureTradingClientAsync();
+                    var fut = await _rateLimiter.ExecuteAsync(() =>
+                        TradingClient.FuturesApi.Trading.GetOpenOrdersAsync());
+                    if (fut.Success && fut.Data != null)
+                    {
+                        string? want = string.IsNullOrEmpty(symbol) ? null : ToFuturesSymbol(CleanSymbol(symbol));
+                        orders.AddRange(fut.Data
+                            .Where(o => want == null || string.Equals(o.Symbol, want, StringComparison.OrdinalIgnoreCase))
+                            .Select(o => new OpenOrder(
+                                o.OrderId.ToString(), o.Symbol,
+                                o.OrderSide is global::Mexc.Net.Enums.FuturesOrderSide.OpenLong
+                                             or global::Mexc.Net.Enums.FuturesOrderSide.CloseShort
+                                    ? OrderSide.Buy : OrderSide.Sell,
+                                o.OrderType == global::Mexc.Net.Enums.FuturesOrderType.Market ? OrderType.Market : OrderType.Limit,
+                                (double)o.Quantity, (double)(o.Price ?? 0), o.Status.ToString())));
+                    }
+                }
+                catch
+                {
+                    // Best-effort: a spot-only API key has no futures access. Stay
+                    // silent rather than announce an expected permission failure on
+                    // every open-orders refresh.
+                }
+            }
+
+            return orders;
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
