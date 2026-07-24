@@ -57,8 +57,10 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
     <!-- StatusNotifierItem + DBusMenu tray icon for the LOCAL Linux desktop (HostMode.Full).
-         Pure D-Bus client, no GUI toolkit; never registered on the hosted server. -->
-    <PackageReference Include="Tmds.DBus" Version="0.21.2" />
+         Pure D-Bus client, no GUI toolkit; never registered on the hosted server.
+         Keep >= 0.92.0: earlier versions are flagged NU1903 / GHSA-xrw6-gwf8-vvr9 (High —
+         session-bus signal spoofing / FD-exhaustion DoS). Do NOT downgrade. -->
+    <PackageReference Include="Tmds.DBus" Version="0.92.0" />
     <!-- SkiaSharp native runtime. Core's Rendering/* uses SKPaint/SKCanvas; the
          MAUI head gets the native .so transitively via SkiaSharp.Views.Maui.Controls,
          but the WebHost has no MAUI dep so we need the per-OS native asset
