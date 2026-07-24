@@ -228,11 +228,25 @@ namespace AccessibleTrader.Core.Services
                             _selectedTimeframe = capturedIdentity.Timeframe;
                             _dataManager.Identity = capturedIdentity;
 
+                            // Browser-title readiness: this catch-up path (like the resume path)
+                            // sets DataStatus=Ready but historically NOT InitStatus, so the
+                            // switched-to tab showed no price (InitStatus stuck at Booting) — or,
+                            // for a previously-loaded tab, the STALE restored snapshot shown as
+                            // Ready. Mark Loading now (title shows "loading", not a stale price),
+                            // then Ready once the catch-up lands with fresh data.
+                            _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
+
                             // Use gap-fill instead of a full 200-bar re-fetch.
                             // CatchUpFromSnapshotAsync restores the snapshot then appends
                             // only the bars that arrived while the tab was inactive.
                             await _dataManager.CatchUpFromSnapshotAsync(capturedSnapshotData, cts.Token).ConfigureAwait(false);
+
+                            // Only mark Ready if this switch still owns the active tab — a newer
+                            // switch (which cancels our cts) will drive its own status.
+                            if (_store.State.ActiveTabIndex == switchedToIndex)
+                                _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Ready));
                         }
+                        catch (OperationCanceledException) { /* superseded by a newer switch — it owns the status */ }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Tab catch-up failed: {ex.Message}"); }
                     });
                 }
@@ -530,15 +544,27 @@ namespace AccessibleTrader.Core.Services
 
             // Mirror the tab-switch handler: sync the private selection to the restored
             // identity (bypassing the cascade that the public setters trigger), point the
-            // data manager at it, and run the snapshot catch-up. A resumed tab's snapshot is
-            // empty, so CatchUpFromSnapshotAsync falls through to a full RefreshDataAsync —
-            // which fetches history, marks the tab Ready, and starts the live subscription
-            // that drives the browser-title price.
+            // data manager at it, and run the snapshot catch-up (a resumed tab's snapshot is
+            // empty, so it falls through to a full RefreshDataAsync). CRUCIAL: also drive
+            // InitStatus Loading→Ready as LoadChartAsync does — RefreshDataAsync only sets
+            // DataStatus=Ready, and the browser title needs InitStatus==Ready too, so without
+            // this the resumed tab loads its data but shows no price until a manual Load Chart.
             _selectedProvider  = identity.Provider;
             _selectedSymbol    = identity.Symbol;
             _selectedTimeframe = identity.Timeframe;
             _dataManager.Identity = identity;
-            await _dataManager.CatchUpFromSnapshotAsync(_store.State.Data).ConfigureAwait(false);
+
+            _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
+            try
+            {
+                await _dataManager.CatchUpFromSnapshotAsync(_store.State.Data).ConfigureAwait(false);
+                _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Ready));
+            }
+            catch
+            {
+                _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Error));
+                throw;
+            }
         }
 
         public async Task LoadChartAsync()
