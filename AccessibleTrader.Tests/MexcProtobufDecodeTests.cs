@@ -1,5 +1,7 @@
 using System;
 using AccessibleTrader.Plugins.Mexc;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Trading;
 using Google.Protobuf;
 using Xunit;
 
@@ -66,6 +68,45 @@ namespace AccessibleTrader.Tests
             var wrapper = MexcProtobuf.TryParse(frame);
             Assert.NotNull(wrapper);
             Assert.False(MexcProtobuf.TryReadKline(wrapper!, out _));
+        }
+
+        // ── Private order stream (fill/cancel announcements) ─────────────────
+
+        [Theory]
+        [InlineData(2, PolledOrderStateNone.Filled)]        // filled
+        [InlineData(3, PolledOrderStateNone.PartialFill)]   // partially filled
+        [InlineData(4, PolledOrderStateNone.Cancelled)]     // canceled
+        [InlineData(5, PolledOrderStateNone.Cancelled)]     // partially canceled
+        public void PrivateOrder_status_maps_to_announcement(int wireStatus, PolledOrderStateNone expected)
+        {
+            var order = new PrivateOrdersV3Api
+            {
+                Id = "OID-1", Status = wireStatus, TradeType = 2, // sell
+                Price = "100", AvgPrice = "101", CumulativeQuantity = "3", RemainQuantity = "2",
+            };
+            var u = MexcProtobuf.MapPrivateOrder(order, "BTCUSDT");
+            Assert.NotNull(u);
+            Assert.Equal("BTCUSDT", u!.Symbol);
+            Assert.Equal(OrderSide.Sell, u.Side);            // tradeType 2 → sell
+            Assert.Equal(101, u.FilledPrice);                // avg price preferred over order price
+            Assert.Equal(3, u.FilledQuantity);
+            Assert.Equal((OrderStatus)(int)expected, u.Status);
+        }
+
+        [Fact]
+        public void PrivateOrder_new_status_is_not_announced()
+        {
+            var order = new PrivateOrdersV3Api { Id = "OID-2", Status = 1, TradeType = 1, Price = "100" };
+            Assert.Null(MexcProtobuf.MapPrivateOrder(order, "BTCUSDT")); // status 1 (new) → silent
+        }
+
+        // Mirrors OrderStatus values so the theory reads clearly without exposing the
+        // full enum in InlineData positions.
+        public enum PolledOrderStateNone
+        {
+            PartialFill = OrderStatus.PartialFill,
+            Filled = OrderStatus.Filled,
+            Cancelled = OrderStatus.Cancelled,
         }
     }
 }

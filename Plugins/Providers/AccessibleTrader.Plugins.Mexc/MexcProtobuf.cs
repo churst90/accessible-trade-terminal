@@ -1,6 +1,8 @@
 using System;
 using System.Globalization;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Trading;
 
 namespace AccessibleTrader.Plugins.Mexc
 {
@@ -40,6 +42,30 @@ namespace AccessibleTrader.Plugins.Mexc
 
             bar = new Ohlcv(date, open, high, low, close, vol);
             return true;
+        }
+
+        /// <summary>Projects a private-order push into an <see cref="OrderUpdate"/>, or
+        /// null for non-announceable states. MEXC spot order status: 1 new, 2 filled,
+        /// 3 partially filled, 4 canceled, 5 partially canceled; tradeType 1 buy, 2 sell.</summary>
+        public static OrderUpdate? MapPrivateOrder(global::PrivateOrdersV3Api o, string symbol)
+        {
+            OrderStatus? status = o.Status switch
+            {
+                2 => OrderStatus.Filled,
+                3 => OrderStatus.PartialFill,
+                4 or 5 => OrderStatus.Cancelled,
+                _ => null,
+            };
+            if (status == null) return null;
+
+            double filled = ParseD(o.CumulativeQuantity);
+            double avg    = ParseD(o.AvgPrice);
+            double price  = avg > 0 ? avg : ParseD(o.Price);
+            return new OrderUpdate(
+                o.Id ?? string.Empty, symbol,
+                o.TradeType == 1 ? OrderSide.Buy : OrderSide.Sell,
+                filled, price, ParseD(o.RemainQuantity), status.Value,
+                false, false, DateTime.UtcNow);
         }
 
         private static double ParseD(string? s) =>
