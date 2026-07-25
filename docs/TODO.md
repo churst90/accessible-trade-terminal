@@ -6,6 +6,41 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Provider system — quality pass (2026-07-24 → 07-25)
+
+Read-only audit of all providers turned into fixes; then the direct-API/SDK work.
+
+- [x] **Provider correctness sweep.** Bitstamp private order stream + fill parse;
+  broker `GetOrderStatusAsync` (Tradier/Schwab no longer announce filled orders as
+  cancelled); Tradier intraday timestamps + Eastern window; IB order-safety;
+  Alpaca crypto symbol + bracket; Coinbase per-request auth; Oanda scrub + range
+  fetch; FMP/Polygon/Finnhub data fixes; `RateLimiter` 4xx/cancellation; Kraken
+  fills rate-limit; consistent read-path error surfacing.
+- [x] **MarketFeedHub multi-live watchdog** — background feeds detect silence,
+  announce once, restart (bounded), and surface the provider ErrorStream.
+- [x] **MEXC direct-API rewrite** — `CryptoExchange.Net`/`JK.Mexc.Net` removed;
+  Protobuf spot WS via build-time codegen; live-verified (charts + title price).
+- [x] **SDK sharing** — `RestSigning` (HMAC/query), `SymbolFormat` (pair shaping),
+  `ProviderError` + `SurfaceError` (typed error surfacing), plus the
+  `PluginDependencyIsolationTests` clash guard, capability-consistency invariants,
+  and a `ProviderConformanceTests` universal-contract gate.
+- [ ] **Coinbase live candle volume.** Live candles are synthesized from the
+  `ticker` channel with volume = 0. The fix is the Advanced-Trade `candles` WS
+  channel + `LiveTickStyle.CumulativeBars`, but it's an unverifiable behavior change
+  to a working live path (no Coinbase account to test) — deferred as an accepted
+  limitation rather than shipped blind.
+- [ ] **Migrate the other crypto providers onto the shared REST base.** MEXC uses
+  `RestSigning`/`SymbolFormat`; Kraken/Bitstamp/Binance/Coinbase still hand-roll
+  their signing + symbol shaping. Migrate opportunistically (each is
+  live-verified, so don't retrofit blindly).
+- [ ] **`SupportsOrderEventStreaming` honesty for Coinbase.** MEXC/Binance now flip
+  it on real private-stream state; Bitstamp deliberately stays `true` (no
+  `GetFillsAsync`, so polling would mis-resolve). Coinbase needs the user-channel
+  subscription ack tracked (its single socket multiplexes) — plus a Bitstamp
+  `GetFillsAsync` if we ever flip it.
+
+---
+
 ## Structural debt register (2026-07-16 whole-app assessment)
 
 From the full-codebase quality assessment (agreed with Cody). Ordered by
@@ -910,9 +945,14 @@ boundary hits) work on Linux. Two candidate backends, both viable:
   MEXC plugin's `JK.Mexc.Net` (CryptoExchange.Net 11.x) in the shared plugin
   output dir, which displaced Binance's 7.2.0. Binance was rewritten to call the
   REST/WebSocket API directly (no `Binance.Net` / `CryptoExchange.Net`), removing
-  the conflict. NOTE: plugins still share one output dir, so two plugins needing
-  different versions of the same package can still clash — the general fix is
-  per-plugin dependency folders + load-context resolution.
+  the conflict. **UPDATE 2026-07-25: MEXC was also rewritten to a direct API (spot WS
+  is Protobuf, decoded from build-time codegen of the official
+  `mexcdevelop/websocket-proto` files), so `CryptoExchange.Net` / `Binance.Net` /
+  `JK.Mexc.Net` are now GONE from the tree entirely.** A CI guard
+  (`PluginDependencyIsolationTests`) fails the build if any two plugins ever resolve
+  the same third-party assembly at different versions. Plugins still share one output
+  dir, so the general robustness fix (per-plugin dependency folders + load-context
+  resolution) remains open — but there is currently nothing to clash.
 - [ ] **Drawing-tool mouse interactions in browser.** With the chart
   `<img>` at `pointer-events: none`, clicks fall through to the
   `chart-interact-zone` div which receives the mouse. Confirm

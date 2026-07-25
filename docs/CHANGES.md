@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### Provider-system sharing + honesty (2026-07-25)
+
+Follow-on to the MEXC direct-API rewrite — the SDK now carries the pieces every
+provider was hand-rolling, and order-event streaming is honest about its state.
+
+- **Shared SDK primitives.** `RestSigning` (HMAC-SHA256 hex, URL-encoded query
+  building), `SymbolFormat` (base/quote split, concatenated/slashed/underscored pair
+  shaping), and `ProviderError` + `BaseMarketDataProvider.SurfaceError` (structured
+  errors — severity/category/symbol — emitted alongside the legacy string
+  `ErrorStream`). MEXC adopts them; the others can migrate opportunistically.
+- **`SupportsOrderEventStreaming` honesty.** MEXC and Binance now report it from the
+  real private-stream state (private WS up / user-data socket running), so when the
+  stream is down the order service polls and fills still announce. Bitstamp stays
+  `true` by design (no `GetFillsAsync` — polling there would mis-resolve).
+- **Conformance gate.** `ProviderConformanceTests` asserts the universal contracts
+  (name/description set, positive bar limit, recognised timeframes, market-data face)
+  across all 14 trading providers, so the audit findings can't silently regress.
+- **`ReconnectingWebSocket`** gained binary-frame support (`OnBinary`) and a
+  configurable heartbeat payload (`WithHeartbeatMessage`) — additive, used by MEXC's
+  Protobuf spot stream.
+
 ### MEXC direct-API rewrite — CryptoExchange.Net removed (branch `feat/mexc-direct-api`, 2026-07-25)
 
 MEXC now talks to the exchange **directly** — the `JK.Mexc.Net` SDK and its

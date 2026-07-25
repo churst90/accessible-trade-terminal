@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Services;
 
 namespace AccessibleTrader.Plugins.Mexc
 {
@@ -33,7 +33,7 @@ namespace AccessibleTrader.Plugins.Mexc
         // ── Spot: public ─────────────────────────────────────────────────────
 
         public Task<string> SpotGetAsync(string path, IReadOnlyDictionary<string, string>? query = null)
-            => _http.GetStringAsync(SpotBase + path + BuildQuery(query));
+            => _http.GetStringAsync(SpotBase + path + RestSigning.QueryPrefixed(query));
 
         // ── Spot: signed ─────────────────────────────────────────────────────
 
@@ -50,8 +50,8 @@ namespace AccessibleTrader.Plugins.Mexc
             pairs.Add(new("timestamp", NowMs().ToString(CultureInfo.InvariantCulture)));
             pairs.Add(new("recvWindow", "5000"));
 
-            string queryString = string.Join("&", pairs.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
-            string signature = HmacSha256Hex(apiSecret, queryString);
+            string queryString = RestSigning.BuildQuery(pairs);
+            string signature = RestSigning.HmacSha256Hex(apiSecret, queryString);
             string url = $"{SpotBase}{path}?{queryString}&signature={signature}";
 
             using var request = new HttpRequestMessage(method, url);
@@ -63,7 +63,7 @@ namespace AccessibleTrader.Plugins.Mexc
         // ── Futures ──────────────────────────────────────────────────────────
 
         public Task<string> FuturesGetAsync(string path, IReadOnlyDictionary<string, string>? query = null)
-            => _http.GetStringAsync(FuturesBase + path + BuildQuery(query));
+            => _http.GetStringAsync(FuturesBase + path + RestSigning.QueryPrefixed(query));
 
         /// <summary>
         /// Signs and sends a futures request. Signature = HMAC-SHA256(apiKey + reqTime +
@@ -78,9 +78,9 @@ namespace AccessibleTrader.Plugins.Mexc
                 ?? (query != null && query.Count > 0
                     ? string.Join("&", query.OrderBy(k => k.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
                     : string.Empty);
-            string signature = HmacSha256Hex(apiSecret, apiKey + reqTime + paramString);
+            string signature = RestSigning.HmacSha256Hex(apiSecret, apiKey + reqTime + paramString);
 
-            string url = FuturesBase + path + (jsonBody == null ? BuildQuery(query) : string.Empty);
+            string url = FuturesBase + path + (jsonBody == null ? RestSigning.QueryPrefixed(query) : string.Empty);
             using var request = new HttpRequestMessage(method, url);
             request.Headers.Add("ApiKey", apiKey);
             request.Headers.Add("Request-Time", reqTime);
@@ -92,25 +92,7 @@ namespace AccessibleTrader.Plugins.Mexc
             return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
 
-        // ── Helpers ──────────────────────────────────────────────────────────
-
-        internal static string BuildQuery(IReadOnlyDictionary<string, string>? query)
-        {
-            if (query == null || query.Count == 0) return string.Empty;
-            return "?" + string.Join("&", query.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
-        }
-
-        internal static string HmacSha256Hex(string secret, string message)
-        {
-            byte[] keyBytes = Encoding.UTF8.GetBytes(secret);
-            using var hmac = new HMACSHA256(keyBytes);
-            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
-            Array.Clear(keyBytes, 0, keyBytes.Length);
-            // MEXC expects lowercase hex.
-            var sb = new StringBuilder(hash.Length * 2);
-            foreach (var b in hash) sb.Append(b.ToString("x2", CultureInfo.InvariantCulture));
-            return sb.ToString();
-        }
+        // ── Interval tokens ──────────────────────────────────────────────────
 
         /// <summary>Spot REST kline interval token (1m, 5m, 15m, 30m, 60m, 4h, 1d, 1W, 1M).</summary>
         internal static string SpotRestInterval(string timeframe) => timeframe switch

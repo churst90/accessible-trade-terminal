@@ -265,8 +265,20 @@ public override Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> Get
 ```
 
 Push live bars by calling `_liveStream.OnNext(bar)`; surface a recoverable problem
-with `_errorStream.OnNext("message")`; report connection changes through
-`_connectionStateStream`. See `PROVIDER_AUTHORING.md` for the full walkthrough,
+with `SurfaceError("message", severity, category, symbol)` (which feeds both the typed
+`ProviderErrors` stream and the legacy string `ErrorStream`) — always surface a failed
+fetch rather than returning an empty result silently, so a blind trader hears it;
+report connection changes through `_connectionStateStream`.
+
+**Shared plumbing (use these instead of hand-rolling).** `RestSigning` provides
+`HmacSha256Hex`, `BuildQuery`, and `QueryPrefixed`; `SymbolFormat` provides
+`SplitBaseQuote` / `Concatenated` / `Slashed` / `Underscored` for exchange-specific
+pair shapes; `ReconnectingWebSocket` handles reconnection, heartbeat (`WithHeartbeatMessage`
+for a custom keepalive), text (`OnMessage`) and binary (`OnBinary`) frames. Prefer a
+direct HTTP/WebSocket integration over a heavy exchange SDK — a shared SDK pins common
+libraries and clashes in the flattened plugin output dir (a CI guard fails the build if
+two plugins resolve the same assembly at different versions). See `PROVIDER_AUTHORING.md`
+for the full walkthrough,
 including analytics providers (set `DataShape => ProviderDataShape.SingleValueLine`
 and use `GetSymbolRenderHints` to declare range, reference levels, and speech). A
 complete worked analytics provider is in §8 below.

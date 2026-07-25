@@ -87,6 +87,10 @@ namespace AccessibleTrader.Plugins.Binance
         // host credential-checkout bridge to pull an active key at sign time.
         public bool IsConnected => !string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null;
 
+        // Order events only stream while the user-data listen-key socket is running;
+        // otherwise the order service polls (GetFillsAsync) so fills still announce.
+        public bool SupportsOrderEventStreaming => _userDataCts != null && !string.IsNullOrEmpty(_listenKey);
+
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
             StandardTimeframes.OneMinute, StandardTimeframes.ThreeMinutes, StandardTimeframes.FiveMinutes,

@@ -80,6 +80,11 @@ namespace AccessibleTrader.Plugins.Mexc
         public bool IsConnected =>
             _connected && (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null);
 
+        // Honest: order events only stream while the private WS is actually up. When
+        // it isn't (no creds, auth rejected, dropped), the order service falls back to
+        // polling so fills still announce.
+        public bool SupportsOrderEventStreaming => _privateWs?.IsConnected ?? false;
+
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
             StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes,
@@ -176,7 +181,7 @@ namespace AccessibleTrader.Plugins.Mexc
                         await ws.SendAsync(SubscribeMsg("spot@private.deals.v3.api.pb")).ConfigureAwait(false);
                     })
                     .OnBinary(HandlePrivateFrame)
-                    .OnError(err => _errorStream.OnNext($"MEXC user-data stream: {err}"));
+                    .OnError(err => SurfaceError($"MEXC user-data stream: {err}"));
                 await _privateWs.ConnectAsync().ConfigureAwait(false);
 
                 // listenKey TTL is 60 min; refresh at 30.
@@ -189,13 +194,13 @@ namespace AccessibleTrader.Plugins.Mexc
                         await _rest.SpotSignedAsync(HttpMethod.Put, "/api/v3/userDataStream", k, s,
                             new Dictionary<string, string> { ["listenKey"] = _listenKey! }).ConfigureAwait(false);
                     }
-                    catch (Exception ex) { _errorStream.OnNext($"MEXC user-data keep-alive failed: {ex.GetType().Name}"); }
+                    catch (Exception ex) { SurfaceError($"MEXC user-data keep-alive failed: {ex.GetType().Name}"); }
                 };
                 _keepAliveTimer.Start();
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"MEXC user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
+                SurfaceError($"MEXC user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
             }
         }
 
@@ -243,7 +248,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     if (w != null && MexcProtobuf.TryReadKline(w, out var bar)) emit(bar);
                 })
                 .OnMessage(text => SurfaceSubscribeError(text, "spot kline"))
-                .OnError(err => _errorStream.OnNext($"MEXC spot kline stream ({cleanSymbol}): {err}"));
+                .OnError(err => SurfaceError($"MEXC spot kline stream ({cleanSymbol}): {err}"));
         }
 
         private ReconnectingWebSocket BuildFuturesKlineSocket(string futuresSymbol, string timeframe, Action<Ohlcv> emit)
@@ -274,7 +279,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     }
                     catch { /* malformed frame */ }
                 })
-                .OnError(err => _errorStream.OnNext($"MEXC futures kline stream ({futuresSymbol}): {err}"));
+                .OnError(err => SurfaceError($"MEXC futures kline stream ({futuresSymbol}): {err}"));
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
@@ -361,7 +366,7 @@ namespace AccessibleTrader.Plugins.Mexc
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"MEXC GetAvailableSymbolsAsync failed ({ex.GetType().Name}).");
+                SurfaceError($"MEXC GetAvailableSymbolsAsync failed ({ex.GetType().Name}).");
                 return new List<string>();
             }
         }
@@ -383,7 +388,7 @@ namespace AccessibleTrader.Plugins.Mexc
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"MEXC FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                SurfaceError($"MEXC FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }
@@ -403,7 +408,7 @@ namespace AccessibleTrader.Plugins.Mexc
             var token = JToken.Parse(body);
             if (token is not JArray arr)
             {
-                _errorStream.OnNext($"MEXC data unavailable for {request.Symbol}: {token["msg"]?.ToString() ?? "no data"}");
+                SurfaceError($"MEXC data unavailable for {request.Symbol}: {token["msg"]?.ToString() ?? "no data"}");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
             // [openTime(ms), open, high, low, close, volume, closeTime, quoteVolume]
@@ -428,7 +433,7 @@ namespace AccessibleTrader.Plugins.Mexc
             var times = data?["time"] as JArray;
             if (times == null || times.Count == 0)
             {
-                _errorStream.OnNext($"MEXC futures data unavailable for {request.Symbol}.");
+                SurfaceError($"MEXC futures data unavailable for {request.Symbol}.");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
             // Columnar: data.time/open/close/high/low/vol (seconds).
@@ -463,7 +468,7 @@ namespace AccessibleTrader.Plugins.Mexc
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"MEXC GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}).");
+                SurfaceError($"MEXC GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}).");
                 return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
             }
         }
@@ -500,7 +505,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     _orderBookSubject.OnNext(new OrderBookUpdate(cleanSymbol, bids, asks, 0, DateTime.UtcNow));
                 })
                 .OnMessage(text => SurfaceSubscribeError(text, "order book"))
-                .OnError(err => _errorStream.OnNext($"MEXC order book stream ({cleanSymbol}): {err}"));
+                .OnError(err => SurfaceError($"MEXC order book stream ({cleanSymbol}): {err}"));
             _ = _orderBookWs.ConnectAsync();
             return _orderBookSubject.AsObservable();
         }
@@ -523,7 +528,7 @@ namespace AccessibleTrader.Plugins.Mexc
                         .Where(b => b.Free > 0 || b.Locked > 0).ToList();
                 }).ConfigureAwait(false);
             }
-            catch (Exception ex) { _errorStream.OnNext($"MEXC GetBalancesAsync failed ({ex.GetType().Name})."); return new(); }
+            catch (Exception ex) { SurfaceError($"MEXC GetBalancesAsync failed ({ex.GetType().Name})."); return new(); }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -571,9 +576,9 @@ namespace AccessibleTrader.Plugins.Mexc
                             MapSpotType(o["type"]?.ToString()),
                             ParseD(o["origQty"]?.ToString()), ParseD(o["price"]?.ToString()), o["status"]?.ToString() ?? "")));
                     else if (JObject.Parse(body)["code"]?.Value<int>() is int c && c != 0)
-                        _errorStream.OnNext($"MEXC open orders unavailable for {symbol}: {JObject.Parse(body)["msg"]}");
+                        SurfaceError($"MEXC open orders unavailable for {symbol}: {JObject.Parse(body)["msg"]}");
                 }
-                catch (Exception ex) { _errorStream.OnNext($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name})."); }
+                catch (Exception ex) { SurfaceError($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name})."); }
             }
 
             if (string.IsNullOrEmpty(symbol) || symbol.Contains('_'))
@@ -606,7 +611,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     isFutures ? await PlaceFuturesOrderAsync(signal).ConfigureAwait(false)
                               : await PlaceSpotOrderAsync(signal).ConfigureAwait(false)).ConfigureAwait(false);
             }
-            catch (Exception ex) { _errorStream.OnNext($"MEXC order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
+            catch (Exception ex) { SurfaceError($"MEXC order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         private async Task<string> PlaceSpotOrderAsync(TradeSignal signal)
@@ -675,7 +680,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     jsonBody: new JArray { orderId }.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
                 return JObject.Parse(fut)["success"]?.Value<bool>() == true;
             }
-            catch (Exception ex) { _errorStream.OnNext($"MEXC CancelOrderAsync failed for {orderId} ({ex.GetType().Name})."); return false; }
+            catch (Exception ex) { SurfaceError($"MEXC CancelOrderAsync failed for {orderId} ({ex.GetType().Name})."); return false; }
         }
 
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
@@ -695,7 +700,7 @@ namespace AccessibleTrader.Plugins.Mexc
                         ParseD(t["commission"]?.ToString()), t["orderId"]?.ToString()))
                     .OrderByDescending(f => f.FilledAt).Take(limit).ToList();
             }
-            catch (Exception ex) { _errorStream.OnNext($"MEXC GetFillsAsync failed ({ex.GetType().Name})."); return new(); }
+            catch (Exception ex) { SurfaceError($"MEXC GetFillsAsync failed ({ex.GetType().Name})."); return new(); }
         }
 
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
@@ -724,7 +729,7 @@ namespace AccessibleTrader.Plugins.Mexc
             {
                 var json = JObject.Parse(text);
                 if (json["code"] != null && json["code"]!.Value<int>() != 0)
-                    _errorStream.OnNext($"MEXC {what} subscription rejected: {json["msg"]}");
+                    SurfaceError($"MEXC {what} subscription rejected: {json["msg"]}");
             }
             catch { /* not a JSON control frame */ }
         }
@@ -739,15 +744,8 @@ namespace AccessibleTrader.Plugins.Mexc
             bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
             && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime);
 
-        // MEXC futures uses underscore-separated pairs (BTC_USDT); spot is concatenated (BTCUSDT).
-        internal static string ToFuturesSymbol(string spotSymbol)
-        {
-            if (spotSymbol.Contains('_')) return spotSymbol;
-            foreach (var quote in new[] { "USDT", "USDC", "USD", "BTC", "ETH" })
-                if (spotSymbol.EndsWith(quote, StringComparison.OrdinalIgnoreCase) && spotSymbol.Length > quote.Length)
-                    return $"{spotSymbol[..^quote.Length]}_{quote}";
-            return spotSymbol;
-        }
+        // MEXC futures uses underscore-separated pairs (BTC_USDT); spot is concatenated.
+        internal static string ToFuturesSymbol(string spotSymbol) => SymbolFormat.Underscored(spotSymbol);
 
         private static OrderType MapSpotType(string? type) => type?.ToUpperInvariant() switch
         {

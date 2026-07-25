@@ -16,6 +16,23 @@ namespace AccessibleTrader.Sdk.Plugins
         protected readonly Subject<string> _errorStream = new();
         public IObservable<string> ErrorStream => _errorStream;
 
+        protected readonly Subject<ProviderError> _providerErrors = new();
+        /// <summary>Structured errors (severity/category/symbol). Emitted alongside the
+        /// legacy <see cref="ErrorStream"/> string by <see cref="SurfaceError"/>.</summary>
+        public IObservable<ProviderError> ProviderErrors => _providerErrors;
+
+        /// <summary>Surface a provider error to BOTH the typed and legacy streams.
+        /// Prefer this over raw <c>_errorStream.OnNext</c> so consumers can react on
+        /// severity/category and a blind trader always hears read-path failures.</summary>
+        protected void SurfaceError(string message,
+            Enums.ErrorSeverity severity = Enums.ErrorSeverity.Medium,
+            Enums.ErrorCategory category = Enums.ErrorCategory.Provider,
+            string? symbol = null)
+        {
+            _errorStream.OnNext(message);
+            _providerErrors.OnNext(new ProviderError(Name, message, severity, category, symbol));
+        }
+
         protected readonly BehaviorSubject<ConnectionState> _connectionStateStream = new(ConnectionState.Disconnected);
         public IObservable<ConnectionState> ConnectionStateStream => _connectionStateStream;
 
@@ -182,6 +199,8 @@ namespace AccessibleTrader.Sdk.Plugins
                 _liveStream.Dispose();
                 _errorStream.OnCompleted();
                 _errorStream.Dispose();
+                _providerErrors.OnCompleted();
+                _providerErrors.Dispose();
                 _connectionStateStream.OnCompleted();
                 _connectionStateStream.Dispose();
             }
