@@ -29,6 +29,14 @@ Read-only audit of all providers turned into fixes; then the direct-API/SDK work
   channel + `LiveTickStyle.CumulativeBars`, but it's an unverifiable behavior change
   to a working live path (no Coinbase account to test) — deferred as an accepted
   limitation rather than shipped blind.
+- [ ] **MEXC live-price responsiveness on thin markets.** The live title price is
+  driven by MEXC's spot kline WS, which pushes the forming candle as periodic
+  snapshots (sparse for illiquid pairs like TAOUSDT), so after a dip the title can
+  sit at that snapshot's close (the lower wick) until the next push. Decode +
+  consolidation are correct; the responsive fix is to drive the current bar's close
+  from the deals (trades) channel (`spot@public.aggre.deals.v3.api.pb`) like
+  Bitstamp does. Accepted limitation for now (Cody, 2026-07-25) — doesn't affect the
+  bar structure or order placement.
 - [ ] **Migrate the other crypto providers onto the shared REST base.** MEXC uses
   `RestSigning`/`SymbolFormat`; Kraken/Bitstamp/Binance/Coinbase still hand-roll
   their signing + symbol shaping. Migrate opportunistically (each is
