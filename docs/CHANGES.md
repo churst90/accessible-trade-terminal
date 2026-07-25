@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased — Tier 2 of the 2.0 plan]
+## [2.0.0] — 2026-07-25
+
+The 2.0 release. Everything below (Tier 2 → Tier 1 → foundations) is the 2.0 line,
+newest first. Non-breaking: 1.x workspaces, strategies, alerts, and API keys load
+unchanged.
 
 ### Provider-system sharing + honesty (2026-07-25)
 
@@ -377,7 +381,7 @@ singleton (latent since the class was written).
 - Concurrency hardening: gap-fill merges re-check ordering against the
   current last bar inside the lock; stale ticks are dropped, not merged.
 
-## [Unreleased — Tier 1 of the 2.0 plan]
+## [2.0.0 line — Tier 1 of the 2.0 plan]
 
 ### The rock-solid pass: audit criticals fixed (2026-07-22)
 
@@ -425,7 +429,7 @@ to Shift+F1; README plugin/test counts fixed; stale code comments rewritten
 where behavior had moved (Schwab scope, the never-implemented
 ActiveStrategySpecIds promise, resampler guard).
 
-## [Unreleased]
+## [2.0.0 line — foundations]
 
 ### Live OCO (Binance-native) + Windows tray draft (2026-07-22)
 

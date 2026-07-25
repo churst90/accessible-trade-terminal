@@ -11,7 +11,7 @@ Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, t
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v1.5.0**; the main branch is the in-progress 2.0 line — see `ROADMAP_2.0.md`). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.0.0** — the milestone that made the trading core rock-solid, brought every provider to a reliable standard, and moved every exchange onto a direct API; see [`WHATSNEW.md`](WHATSNEW.md) and `ROADMAP_2.0.md`). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -96,9 +96,12 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 - `Alt+C` — Toggle Heikin-Ashi candles. `Alt+L` — Toggle log scale.
 - `Ctrl+Alt+Shift+J` — Open the Journal modal (review/copy every spoken phrase, alert, strategy setup, error from this session).
 
-## Current Status (2026-07-22)
+## Current Status (2026-07-25)
 
-**The 2.0 hardening line.** Since v1.5.0, main has landed: Tier 1 correctness
+**2.0.0 shipped.** The 2.0 hardening line reached release: every provider brought to a
+reliable standard, every exchange moved to a direct API (no shared exchange SDK left in
+the tree), background monitoring that never fails silently, and the broker/order path
+made trustworthy. Since v1.5.0, main has landed: Tier 1 correctness
 (workspace persistence for active strategies + drawings, exchange-native
 brackets on Tradier/Schwab with per-broker honesty on Kraken, fill history on
 all six trading brokers, alert-failure surfacing, pipeline race fixes), the
