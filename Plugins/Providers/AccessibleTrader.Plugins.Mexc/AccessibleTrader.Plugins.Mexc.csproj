@@ -8,7 +8,26 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Direct MEXC integration: REST is plain JSON/HMAC; the spot WebSocket is
+         Protobuf (MEXC discontinued the JSON spot WS on 2025-08-04). Google.Protobuf
+         is used by no other plugin, so it can't clash in the flattened plugin dir the
+         way the shared CryptoExchange.Net could. Grpc.Tools is build-time only.
+         JK.Mexc.Net is still referenced during the migration and removed once the
+         direct implementation is complete. -->
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Grpc.Tools" Version="2.68.1" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="JK.Mexc.Net" Version="6.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Official MEXC WS message definitions (github.com/mexcdevelop/websocket-proto),
+         compiled to C# at build time. -->
+    <Protobuf Include="Proto\**\*.proto" ProtoRoot="Proto" GrpcServices="None" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
   </ItemGroup>
 
   <ItemGroup>
