@@ -107,3 +107,7 @@ accessible trade terminal business plan/
 
 # Patch handoff inbox — applied patches live in git history, not here.
 patches/
+
+# Local release build output
+publish/
+dist/

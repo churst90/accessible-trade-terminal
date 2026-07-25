@@ -1,15 +1,11 @@
 #if TRAY_ICON
-// EXPERIMENTAL — compiled only with -p:EnableWindowsTrayIcon=true (see csproj).
-// Written on the Linux box where the Windows TFM cannot build; verify on a
-// Windows session before enabling by default:
-//   1. dotnet build AccessibleTrader.BlazorClient -f net10.0-windows10.0.19041.0 -p:EnableWindowsTrayIcon=true
-//   2. Run; close the window → app should HIDE to the tray, audio/alerts keep running.
-//   3. Tray icon double-click / "Restore" → window returns. "Exit" → really quits.
-//   4. Flip <EnableWindowsTrayIcon> default to true in the csproj.
+// Windows tray icon (on by default; compiled with -p:EnableWindowsTrayIcon=true).
+// Needs a real Windows-session smoke test: close the window → app hides to the tray
+// (audio/alerts keep running); double-click / "Restore" → window returns; "Exit"
+// really quits.
 
 using System;
 using H.NotifyIcon;
-using H.NotifyIcon.Core;
 using Microsoft.Maui.Controls;
 using Microsoft.UI.Windowing;
 
@@ -60,11 +56,15 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
             _tray.LeftClickCommand = new Command(Restore);
             _tray.DoubleClickCommand = new Command(Restore);
 
-            var menu = new PopupMenu();
-            menu.Items.Add(new PopupMenuItem("Restore", (_, _) => Restore()));
-            menu.Items.Add(new PopupMenuSeparator());
-            menu.Items.Add(new PopupMenuItem("Exit", (_, _) => Exit()));
-            _tray.ContextMenu = menu;
+            // H.NotifyIcon.Maui takes a MAUI MenuFlyout via FlyoutBase.ContextFlyout
+            // (not the WinUI ContextMenu/PopupMenu API).
+            var menu = new MenuFlyout
+            {
+                new MenuFlyoutItem { Text = "Restore", Command = new Command(Restore) },
+                new MenuFlyoutSeparator(),
+                new MenuFlyoutItem { Text = "Exit", Command = new Command(Exit) },
+            };
+            FlyoutBase.SetContextFlyout(_tray, menu);
 
             _tray.ForceCreate();
         }
