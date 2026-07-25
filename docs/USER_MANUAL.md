@@ -1668,9 +1668,12 @@ last session at startup"; explicit named workspaces are untouched either way.
 
 Alongside speech and sound, Accessible Trader can drive a **refreshable tactile
 graphics display** — a pad of pins that rise and fall so you can read the shape of the
-chart with your fingers. The supported device is the **Dot Pad (second generation)**: a
-grid of thirty by ten graphic cells — sixty by forty individual pins — with a separate
-twenty-cell braille text strip beneath it. Tactile output does not replace the speech
+chart with your fingers. **All Dot Pad models are supported** — including the **Dot Pad
+X** (the newest model) and the **second generation** — because they share the same
+graphics SDK, so the driver works across the family. Each is a grid of thirty by ten
+graphic cells — sixty by forty individual pins — with a separate twenty-cell braille
+text strip beneath it. (On-device testing so far has been on the second generation; the
+Dot Pad X uses the same SDK and is supported.) Tactile output does not replace the speech
 and the soundscape; it is a third layer you read at the same time, and it is the one
 that gives you the chart's *form* directly under your hand rather than as pitch over
 time.

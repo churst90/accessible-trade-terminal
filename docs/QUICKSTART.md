@@ -63,6 +63,8 @@ Accessible Trader uses what is called the Hybrid Voice model. This is the core d
 
 Neither system replaces the other. When you play back a chart, you hear both simultaneously: your screen reader announces each bar's values while the audio engine plays that bar's sonic shape.
 
+**Optional third layer — refreshable tactile graphics.** If you have a Dot Pad, the terminal can also render the chart's shape under your fingers. **All Dot Pad models are supported** — the **Dot Pad X** (newest) and the **second generation** — because they share the same graphics SDK. This is a Windows-only feature and needs a one-time SDK install; see the "Tactile Display" chapter of the User Manual and [PLATFORMS.md §7](PLATFORMS.md#7-tactile-display-support) for setup.
+
 ---
 
 ## 3. Understanding the Soundscape

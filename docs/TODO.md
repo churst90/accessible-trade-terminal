@@ -1091,9 +1091,9 @@ pass; 1004/1004 in the full suite, 0 regressions.
 - [ ] Body+wick+gap structure is tactile-distinguishable at 4 dot rows
   per cell vs at the full 40-row canvas. Adjust gap-width rule if the
   body+wick separation isn't reading.
-- [ ] **Dot Pad X compatibility.** Driver code-path is identical (same
-  DotPadSDK-3.0.0 ABI), but it has never been tested on a physical
-  Dot Pad X. If the device reports different cell dimensions via
+- [ ] **Dot Pad X on-device verification.** The Dot Pad X is supported (same
+  DotPadSDK-3.0.0 ABI as the 2nd-gen, binds without code changes), but the
+  on-device confirmation so far is on the 2nd-gen. If the device reports different cell dimensions via
   `DOT_PAD_GET_DISPLAY_INFO`, the rasterisation math falls out
   automatically. If the bit layout differs at all (e.g. different
   generation firmware), the calibrator tool flags it via the

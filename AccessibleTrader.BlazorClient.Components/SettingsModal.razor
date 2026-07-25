@@ -259,10 +259,11 @@
                                @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        When on, the app looks for a supported tactile display (Dot Pad) at startup
-                        and while running, and announces it as it connects or disconnects. Turning it
-                        off skips device detection entirely. Tactile graphics require Windows and a
-                        connected display.
+                        When on, the app looks for a supported tactile display at startup and while
+                        running, and announces it as it connects or disconnects. All Dot Pad models
+                        are supported (the Dot Pad X and the second generation). Turning it off skips
+                        device detection entirely. Tactile graphics require Windows and a connected
+                        display.
                     </p>
                 </fieldset>
                 }

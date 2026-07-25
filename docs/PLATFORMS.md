@@ -75,7 +75,7 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 | **Script Sandbox (OS-enforced)** | ✅ (AppContainer) | ✅ (isolatedProcess) | ✅ (sandbox-exec) | ⏸ (deferred) | ✅ (`bwrap` — L5; falls back to process-only if `bubblewrap` not installed) |
 | **Secure Storage** | ✅ (DPAPI) | ✅ (KeyStore) | ✅ (Keychain) | ✅ (Keychain) | ✅ (ASP.NET Core DataProtection, encrypted-at-rest in `{XDG_DATA_HOME}/AccessibleTrader/secrets/`) |
 | **System-tray applet / background alerts** | ✅ MAUI close-to-tray (default on, pending Windows verify); WebHost `Shell_NotifyIcon` | ❌ n/a | ⚠️ WebHost menu actions only — native icon is a future MAUI Mac feature | ❌ n/a | ✅ WebHost StatusNotifier / DBusMenu (Orca-navigable, verified); local Full mode only |
-| **Tactile Display** | ✅ (Dot Pad 2nd-gen — see §7) | ❌ | ❌ | ❌ | ❌ (vendor Linux SDK is text-only / 20-cell — see §7) |
+| **Tactile Display** | ✅ (all Dot Pad models — X + 2nd-gen — see §7) | ❌ | ❌ | ❌ | ❌ (vendor Linux SDK is text-only / 20-cell — see §7) |
 
 *(✅ = Fully Supported, 🏗️ = In Development / Stubbed, ⏸ = Intentionally Deferred, ❌ = Not Yet Implemented)*
 
@@ -106,12 +106,14 @@ Behaviour under MAUI is bit-for-bit unchanged. The WebHost runs locally
 
 ## 7. Tactile Display Support
 
-One refreshable tactile graphics display is officially supported:
+**All Dot Pad models are supported** — the Dot Pad X (newest) and the second generation —
+because they share the same `DotPadSDK-3.0.0` native graphics ABI, so one driver binds
+across the family:
 
 | Device | Status | Notes |
 | :--- | :---: | :--- |
-| **Dot Pad 2nd-gen** (30 × 10 graphic cells + 20-cell strip) | ✅ Tested | Primary target. Connection via USB-Serial; SDK uses `DOT_PAD_CONNECT_SERIAL`. |
-| **Dot Pad X** (same SDK family) | ⚠️ Untested but expected to work | Uses the same DotPadSDK-3.0.0 native ABI, so the driver should bind without code changes. Verified driver code-path, but no on-device confirmation yet. |
+| **Dot Pad X** (30 × 10 graphic cells + 20-cell strip, newest model) | ✅ Supported | Same DotPadSDK-3.0.0 ABI as the 2nd-gen; binds without code changes. Connection via USB-Serial. On-device confirmation pending (see 2nd-gen). |
+| **Dot Pad 2nd-gen** (30 × 10 graphic cells + 20-cell strip) | ✅ Tested on-device | Connection via USB-Serial; SDK uses `DOT_PAD_CONNECT_SERIAL`. |
 | APH Monarch | ❌ Not implemented | Requires a different SDK (Dot Inc proprietary, vendor-restricted). |
 | **Linux (any device)** | ❌ Vendor SDK gap | Verified 2026-05-16 against `dotincorp/dotpad-sdk-guide` and `dotincorp/dotpad-sample-code`: the official Linux SDK is **v1.0.0**, ships only a text-strip API (`displayTextData` / `setBrailleLanguage`), supports 20-cell devices only, and exposes **no graphic display API at all**. Sample app confirms `/dev/ttyUSB0` text-only. Per the all-or-nothing tactile rule, Linux uses `NullDotPadNative` until Dot Inc publishes a Linux 3.0.0 SDK with graphic parity. Track upstream at the dotincorp repos. |
 

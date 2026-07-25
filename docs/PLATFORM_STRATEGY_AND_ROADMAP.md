@@ -379,7 +379,8 @@ here so the strategic picture is in one place. Not prioritised beyond the groupi
 - ~~Enable toggle + hot-plug detect + connect/disconnect announcements (§3)~~ —
   **done 2026-06-25**.
 - On-device empirical checks still pending (PgDn/PgUp pairing, F4-resume, pan-key ownership,
-  strip timeout feel, body+wick legibility); Dot Pad X untested; 3-pane mode deferred.
+  strip timeout feel, body+wick legibility). All Dot Pad models are supported via the shared
+  SDK (Dot Pad X + 2nd-gen); on-device testing so far is on the 2nd-gen. 3-pane mode deferred.
 
 **WebHost**
 - HiDPI chart density (server renders 1280×720, fuzzy on HiDPI — read `devicePixelRatio`).
