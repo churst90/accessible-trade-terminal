@@ -43,8 +43,13 @@ namespace AccessibleTrader.Sdk.Services
         // Callbacks
         private Func<ReconnectingWebSocket, Task>? _onConnected;
         private Action<string>? _onMessage;
+        private Action<byte[]>? _onBinary;
         private Action<string>? _onError;
         private Action? _onDisconnected;
+        // Heartbeat payload. Defaults to "ping"; exchanges with a specific keepalive
+        // format (MEXC spot: {"method":"PING"}) override it so idle sockets aren't
+        // dropped for sending an unrecognised frame.
+        private string _heartbeatMessage = "ping";
 
         /// <summary>Current connection state.</summary>
         public bool IsConnected => _ws?.State == WebSocketState.Open;
@@ -73,6 +78,13 @@ namespace AccessibleTrader.Sdk.Services
 
         /// <summary>Register a callback for each received text message.</summary>
         public ReconnectingWebSocket OnMessage(Action<string> handler) { _onMessage = handler; return this; }
+
+        /// <summary>Register a callback for each received BINARY message (e.g. MEXC's
+        /// Protobuf spot push frames). Text frames still route to <see cref="OnMessage"/>.</summary>
+        public ReconnectingWebSocket OnBinary(Action<byte[]> handler) { _onBinary = handler; return this; }
+
+        /// <summary>Overrides the heartbeat keepalive payload (default "ping").</summary>
+        public ReconnectingWebSocket WithHeartbeatMessage(string message) { _heartbeatMessage = message; return this; }
 
         /// <summary>Register a callback for errors.</summary>
         public ReconnectingWebSocket OnError(Action<string> handler) { _onError = handler; return this; }
@@ -206,11 +218,19 @@ namespace AccessibleTrader.Sdk.Services
                         continue; // will trigger reconnect
                     }
 
-                    var message = Encoding.UTF8.GetString(ms.ToArray());
-                    ms.Dispose();
-
-                    if (!string.IsNullOrWhiteSpace(message))
-                        _onMessage?.Invoke(message);
+                    if (result.MessageType == WebSocketMessageType.Binary)
+                    {
+                        var payload = ms.ToArray();
+                        ms.Dispose();
+                        if (payload.Length > 0) _onBinary?.Invoke(payload);
+                    }
+                    else
+                    {
+                        var message = Encoding.UTF8.GetString(ms.ToArray());
+                        ms.Dispose();
+                        if (!string.IsNullOrWhiteSpace(message))
+                            _onMessage?.Invoke(message);
+                    }
                 }
                 catch (OperationCanceledException) { break; }
                 catch (ObjectDisposedException) when (_disposed) { break; }
@@ -248,7 +268,7 @@ namespace AccessibleTrader.Sdk.Services
                         // Send a WebSocket ping frame with a real payload. Using count=0 here
                         // (an earlier bug) produced an empty frame that some exchanges treat
                         // as a no-op; idle sockets would then time out and force a reconnect.
-                        var pingBytes = Encoding.UTF8.GetBytes("ping");
+                        var pingBytes = Encoding.UTF8.GetBytes(_heartbeatMessage);
                         await _ws.SendAsync(new ArraySegment<byte>(pingBytes, 0, pingBytes.Length), WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
                         consecutiveFailures = 0;
                     }

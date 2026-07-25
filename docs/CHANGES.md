@@ -6,6 +6,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased — Tier 2 of the 2.0 plan]
 
+### MEXC direct-API rewrite — CryptoExchange.Net removed (branch `feat/mexc-direct-api`, 2026-07-25)
+
+MEXC now talks to the exchange **directly** — the `JK.Mexc.Net` SDK and its
+`CryptoExchange.Net` dependency are gone, eliminating the last shared exchange
+library and the flattening-clash hazard it carried (the same move already done for
+Binance).
+
+- **REST** via a new `MexcRestApi`: spot (`api.mexc.com`, Binance-style HMAC over the
+  query string, `X-MEXC-APIKEY`) and futures (`contract.mexc.com`, `ApiKey`/
+  `Request-Time`/`Signature` headers). Klines, depth, symbols, balances, positions,
+  open orders (spot + futures), place/cancel, fills, leverage, and the user-data
+  listen key.
+- **WebSocket:** the spot stream is **Protobuf** (MEXC discontinued the JSON spot WS
+  on 2025-08-04) — decoded via C# generated at build time from the official
+  `mexcdevelop/websocket-proto` files (`Google.Protobuf` + `Grpc.Tools`, used by no
+  other plugin so they can't clash). Futures WS stays JSON. `ReconnectingWebSocket`
+  gained binary-frame support (`OnBinary`) and a configurable heartbeat payload so
+  MEXC's `{"method":"PING"}` keepalive is sent.
+- **Tests:** round-trip a spot-kline frame and a private-order frame through the real
+  generated parser (offline validation of the decode/announcement paths). Suite 2053.
+- **On a branch pending live verification:** the WS interval naming and the
+  private-channel listenKey flow can only be confirmed against the live exchange, so
+  main keeps the working SDK version until the chart is verified ticking.
+
 ### Provider quality & robustness pass (2026-07-24)
 
 Acted on the read-only provider audit: correctness fixes across the exchange and

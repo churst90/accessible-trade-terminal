@@ -1,42 +1,54 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Threading;
 using System.Threading.Tasks;
-using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Plugins;
-using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Services;
-using Mexc.Net;
-using Mexc.Net.Clients;
+using AccessibleTrader.Sdk.Trading;
+using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Mexc
 {
+    /// <summary>
+    /// MEXC provider — DIRECT REST + WebSocket, no JK.Mexc.Net / CryptoExchange.Net.
+    /// Spot REST is Binance-style (HMAC query-string, X-MEXC-APIKEY); the spot WS is
+    /// Protobuf (MEXC discontinued the JSON spot WS on 2025-08-04) decoded via the
+    /// generated <see cref="MexcProtobuf"/> helper. Futures REST/WS are JSON.
+    /// </summary>
     public class MexcProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
     {
-        private readonly MexcRestClient _client;
-        private MexcRestClient? _tradingClient;
-        private MexcSocketClient? _socketClient;
-        private IDisposable? _currentSubscription;
+        private const string SpotWsUrl    = "wss://wbs-api.mexc.com/ws";
+        private const string FuturesWsUrl = "wss://contract.mexc.com/edge";
+        private const string SpotPing     = "{\"method\":\"PING\"}";
+        private const string FuturesPing  = "{\"method\":\"ping\"}";
+
+        private readonly HttpClient _http;
+        private readonly MexcRestApi _rest;
+
+        private ReconnectingWebSocket? _focusedWs;   // legacy focused-chart live stream
+        private ReconnectingWebSocket? _orderBookWs;
+        private ReconnectingWebSocket? _privateWs;    // user-data (order updates)
         private string? _currentSymbol;
         private string? _currentTimeframe;
+        private bool _connected;
 
         private string? _apiKey;
         private string? _apiSecret;
 
-        // MEXC spot: 500 requests / 10 seconds per IP. Futures: 20 req/2s per UID.
-        // Stay conservative with 1000/min — aligns with other providers and leaves headroom.
+        // MEXC spot: 500 requests / 10s per IP. Conservative 1000/min leaves headroom.
         private readonly RateLimiter _rateLimiter = new(1000, TimeSpan.FromMinutes(1));
 
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
-        private IDisposable? _orderBookSubscription;
         private string? _orderBookSymbol;
 
         private string? _listenKey;
@@ -54,13 +66,8 @@ namespace AccessibleTrader.Plugins.Mexc
         public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 500;
-        // Brackets removed: spot PlaceSpotOrderAsync rejects everything but Market/Limit, and
-        // futures attaches SL/TP as single fields, not a linked bracket — the flag advertised
-        // a protective-order layout MEXC cannot place. Leverage stays (futures only, gated by
-        // SupportsFuturesTrading / MaxLeverage).
         public override ProviderCapabilities Capabilities =>
-            ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
-            ProviderCapabilities.Leverage;
+            ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth | ProviderCapabilities.Leverage;
 
         public override bool SupportsMarginTrading  => false;
         public override bool SupportsFuturesTrading => true;
@@ -68,29 +75,24 @@ namespace AccessibleTrader.Plugins.Mexc
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 200.0;
 
-        // Reflects an actually-created socket client AND available credentials, not just
-        // credential presence — the old check reported "connected" before the socket existed,
-        // masking the static-chart failure. (A live socket that connects but never delivers
-        // spot kline frames is surfaced by the LiveStreamManager quiet-stream watchdog.)
+        // Reflects a live connection AND available credentials — not mere credential
+        // presence. A connected-but-silent socket is surfaced by the quiet-stream watchdog.
         public bool IsConnected =>
-            _socketClient != null && (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null);
+            _connected && (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null);
 
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
-            StandardTimeframes.OneMinute,
-            StandardTimeframes.FiveMinutes,
-            StandardTimeframes.FifteenMinutes,
-            StandardTimeframes.ThirtyMinutes,
-            StandardTimeframes.OneHour,
-            StandardTimeframes.FourHours,
-            StandardTimeframes.OneDay,
-            StandardTimeframes.OneWeek,
-            StandardTimeframes.OneMonth
+            StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes,
+            StandardTimeframes.ThirtyMinutes, StandardTimeframes.OneHour, StandardTimeframes.FourHours,
+            StandardTimeframes.OneDay, StandardTimeframes.OneWeek, StandardTimeframes.OneMonth
         };
 
         public MexcProvider()
         {
-            _client = new MexcRestClient();
+            _http = PluginHostServices.CreateHttpClient(
+                providerId:   "MEXC",
+                allowedHosts: new[] { "api.mexc.com", "contract.mexc.com" });
+            _rest = new MexcRestApi(_http);
         }
 
         public override T? GetCapability<T>() where T : class
@@ -107,8 +109,6 @@ namespace AccessibleTrader.Plugins.Mexc
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
         }
 
-        // Sign-time credential checkout. Prefers the PluginHostServices.ApiKeys bridge
-        // (phase 4 Track B); falls back to Configure-populated fields for CLI / tests.
         private async Task<(string Key, string Secret)> CheckoutMexcCredentialsAsync()
         {
             var host = PluginHostServices.ApiKeys;
@@ -119,58 +119,40 @@ namespace AccessibleTrader.Plugins.Mexc
                     throw new InvalidOperationException("MEXC: no active API key configured.");
                 return (checkout.Key, checkout.Secret);
             }
-
             if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_apiSecret))
                 throw new InvalidOperationException("MEXC: no API credentials configured.");
             return (_apiKey!, _apiSecret!);
         }
 
-        private async Task EnsureTradingClientAsync()
-        {
-            if (_tradingClient != null) return;
-            var (apiKey, apiSecret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-            _tradingClient = new MexcRestClient(opts =>
-            {
-                opts.ApiCredentials = new MexcCredentials(apiKey, apiSecret);
-            });
-        }
-
-        private MexcRestClient TradingClient => _tradingClient ?? _client;
+        private bool HasCredentials => !string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null;
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
         {
-            if (string.IsNullOrEmpty(_apiKey) && PluginHostServices.ApiKeys == null)
-                return (true, "No API key provided (public data only)");
+            if (!HasCredentials) return (true, "No API key provided (public data only)");
             try
             {
-                await EnsureTradingClientAsync();
-                var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
-                return result.Success
-                    ? (true, "API key validated successfully")
-                    : (false, $"Key validation failed: {result.Error?.Message}");
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/account", key, secret).ConfigureAwait(false);
+                var json = JObject.Parse(body);
+                if (json["code"] != null && json["code"]!.Value<int>() != 0)
+                    return (false, $"Key validation failed: {json["msg"]}");
+                return (true, "API key validated successfully");
             }
             catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
         }
 
-        // --- Connection & Subscription Management ---
+        // ── Connection & user-data stream ────────────────────────────────────
 
         public override async Task EnsureConnectedAsync()
         {
-            if (_socketClient != null) return;
-            _socketClient = new MexcSocketClient();
+            if (_connected) return;
+            _connected = true;
             _connectionStateStream.OnNext(ConnectionState.Connected);
 
-            if (!string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null)
+            if (HasCredentials)
             {
-                try
-                {
-                    await EnsureTradingClientAsync();
-                    await StartUserDataStreamAsync();
-                }
-                catch
-                {
-                    // No creds available — public-data-only mode.
-                }
+                try { await StartUserDataStreamAsync().ConfigureAwait(false); }
+                catch { /* public-data-only mode */ }
             }
         }
 
@@ -178,45 +160,37 @@ namespace AccessibleTrader.Plugins.Mexc
         {
             try
             {
-                var keyResult = await TradingClient.SpotApi.Account.StartUserStreamAsync();
-                if (!keyResult.Success || string.IsNullOrEmpty(keyResult.Data)) return;
-                _listenKey = keyResult.Data;
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rest.SpotSignedAsync(HttpMethod.Post, "/api/v3/userDataStream", key, secret).ConfigureAwait(false);
+                _listenKey = JObject.Parse(body)["listenKey"]?.ToString();
+                if (string.IsNullOrEmpty(_listenKey)) return;
 
-                await _socketClient!.SpotApi.SubscribeToOrderUpdatesAsync(_listenKey, data =>
-                {
-                    var o = data.Data;
-                    var status = o.Status switch
+                // Private push frames are Protobuf on the same spot WS host; the listenKey
+                // authenticates the connection (passed on the URL). Subscribe to the
+                // order + deal private channels.
+                _privateWs = new ReconnectingWebSocket($"{SpotWsUrl}?listenKey={_listenKey}")
+                    .WithHeartbeatMessage(SpotPing)
+                    .OnConnected(async ws =>
                     {
-                        global::Mexc.Net.Enums.OrderStatus.PartiallyFilled => OrderStatus.PartialFill,
-                        global::Mexc.Net.Enums.OrderStatus.Filled          => OrderStatus.Filled,
-                        global::Mexc.Net.Enums.OrderStatus.Canceled        => OrderStatus.Cancelled,
-                        global::Mexc.Net.Enums.OrderStatus.PartiallyCanceled => OrderStatus.Cancelled,
-                        _                                                   => OrderStatus.Triggered
-                    };
-                    _orderUpdateSubject.OnNext(new OrderUpdate(
-                        o.OrderId ?? string.Empty,
-                        _currentSymbol ?? string.Empty,
-                        o.Side == global::Mexc.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                        (double)(o.CumulativeQuantity ?? 0m),
-                        (double)((o.AveragePrice ?? 0m) == 0m ? o.Price : (o.AveragePrice ?? 0m)),
-                        (double)o.QuantityRemaining,
-                        status,
-                        StopTriggered: false,
-                        TakeProfitTriggered: false,
-                        DateTime.UtcNow));
-                });
+                        await ws.SendAsync(SubscribeMsg("spot@private.orders.v3.api.pb")).ConfigureAwait(false);
+                        await ws.SendAsync(SubscribeMsg("spot@private.deals.v3.api.pb")).ConfigureAwait(false);
+                    })
+                    .OnBinary(HandlePrivateFrame)
+                    .OnError(err => _errorStream.OnNext($"MEXC user-data stream: {err}"));
+                await _privateWs.ConnectAsync().ConfigureAwait(false);
 
-                // MEXC listen key TTL is 60 minutes; refresh every 30 min.
-                _keepAliveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30).TotalMilliseconds);
+                // listenKey TTL is 60 min; refresh at 30.
+                _keepAliveTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30).TotalMilliseconds) { AutoReset = true };
                 _keepAliveTimer.Elapsed += async (_, _) =>
                 {
-                    try { await TradingClient.SpotApi.Account.KeepAliveUserStreamAsync(_listenKey!); }
-                    catch (Exception ex)
+                    try
                     {
-                        _errorStream.OnNext($"MEXC user-data keep-alive failed: {ex.GetType().Name}");
+                        var (k, s) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                        await _rest.SpotSignedAsync(HttpMethod.Put, "/api/v3/userDataStream", k, s,
+                            new Dictionary<string, string> { ["listenKey"] = _listenKey! }).ConfigureAwait(false);
                     }
+                    catch (Exception ex) { _errorStream.OnNext($"MEXC user-data keep-alive failed: {ex.GetType().Name}"); }
                 };
-                _keepAliveTimer.AutoReset = true;
                 _keepAliveTimer.Start();
             }
             catch (Exception ex)
@@ -225,146 +199,101 @@ namespace AccessibleTrader.Plugins.Mexc
             }
         }
 
-        // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
+        private void HandlePrivateFrame(byte[] data)
+        {
+            var wrapper = MexcProtobuf.TryParse(data);
+            if (wrapper == null || wrapper.BodyCase != global::PushDataV3ApiWrapper.BodyOneofCase.PrivateOrders) return;
+            var update = MexcProtobuf.MapPrivateOrder(wrapper.PrivateOrders, wrapper.Symbol ?? _currentSymbol ?? string.Empty);
+            if (update != null) _orderUpdateSubject.OnNext(update);
+        }
+
+        // ── Keyed-feed subscriptions (multi-live) ────────────────────────────
 
         public override bool SupportsMultipleLiveSubscriptions => true;
 
-        /// <summary>
-        /// The JK.Mexc.Net socket client natively supports many concurrent kline
-        /// subscriptions on its managed connections — each SubscribeLiveAsync is
-        /// its own SDK subscription with its own consolidator; disposing the
-        /// handle closes just that subscription. The SDK owns reconnection.
-        /// </summary>
         public override async Task<IAsyncDisposable> SubscribeLiveAsync(string market, string symbol, string timeframe, Action<Ohlcv> onBar)
         {
-            if (_socketClient == null) await EnsureConnectedAsync();
             var cleanSymbol = CleanSymbol(symbol);
             var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle.CumulativeBars);
             bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
 
-            IDisposable subscription;
-            if (isFutures)
+            void Emit(Ohlcv raw)
             {
-                var result = await _socketClient!.FuturesApi.SubscribeToKlineUpdatesAsync(
-                    ToFuturesSymbol(cleanSymbol), MapFuturesInterval(timeframe), data =>
-                    {
-                        var k = data.Data;
-                        var raw = new Ohlcv(k.OpenTime,
-                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice,
-                            (double)k.ClosePrice, (double)k.Volume);
-                        if (IsEmptyBar(raw)) return;
-                        var bar = consolidator.Apply(raw);
-                        if (bar.HasValue) onBar(bar.Value);
-                    });
-                if (!result.Success)
-                    throw new InvalidOperationException($"MEXC futures kline subscription failed: {result.Error?.Message}");
-                subscription = (IDisposable)result.Data;
-            }
-            else
-            {
-                // Spot public WS was static under JK.Mexc.Net 5.0.1: MEXC migrated spot public
-                // streams (kline + trades) to a Protobuf protocol that 5.0.1 could not receive,
-                // so this subscription reported Success yet the callback never fired. FIXED by
-                // the JK.Mexc.Net 6.x bump (6.2.0) — verified live: KASUSDT 1d kline callbacks
-                // fire and the current bar's close updates in realtime. Do NOT downgrade below 6.x.
-                var result = await _socketClient!.SpotApi.SubscribeToKlineUpdatesAsync(
-                    cleanSymbol, MapSpotInterval(timeframe), data =>
-                    {
-                        var k = data.Data;
-                        var raw = new Ohlcv(k.StartTime,
-                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice,
-                            (double)k.ClosePrice, (double)k.Volume);
-                        if (IsEmptyBar(raw)) return;
-                        var bar = consolidator.Apply(raw);
-                        if (bar.HasValue) onBar(bar.Value);
-                    });
-                if (!result.Success)
-                    throw new InvalidOperationException($"MEXC spot kline subscription failed: {result.Error?.Message}");
-                subscription = (IDisposable)result.Data;
+                if (IsEmptyBar(raw)) return;
+                var bar = consolidator.Apply(raw);
+                if (bar.HasValue) onBar(bar.Value);
             }
 
-            return new SdkSubscriptionHandle(subscription);
+            ReconnectingWebSocket ws = isFutures
+                ? BuildFuturesKlineSocket(ToFuturesSymbol(cleanSymbol), timeframe, Emit)
+                : BuildSpotKlineSocket(cleanSymbol, timeframe, Emit);
+            await ws.ConnectAsync().ConfigureAwait(false);
+            return ws;
         }
 
-        private sealed class SdkSubscriptionHandle : IAsyncDisposable
+        private ReconnectingWebSocket BuildSpotKlineSocket(string cleanSymbol, string timeframe, Action<Ohlcv> emit)
         {
-            private IDisposable? _subscription;
-            public SdkSubscriptionHandle(IDisposable subscription) { _subscription = subscription; }
-            public ValueTask DisposeAsync()
+            string channel = $"spot@public.kline.v3.api.pb@{cleanSymbol}@{MexcRestApi.SpotWsInterval(timeframe)}";
+            return new ReconnectingWebSocket(SpotWsUrl)
+                .WithHeartbeatMessage(SpotPing)
+                .OnConnected(async ws => await ws.SendAsync(SubscribeMsg(channel)).ConfigureAwait(false))
+                .OnBinary(data =>
+                {
+                    var w = MexcProtobuf.TryParse(data);
+                    if (w != null && MexcProtobuf.TryReadKline(w, out var bar)) emit(bar);
+                })
+                .OnMessage(text => SurfaceSubscribeError(text, "spot kline"))
+                .OnError(err => _errorStream.OnNext($"MEXC spot kline stream ({cleanSymbol}): {err}"));
+        }
+
+        private ReconnectingWebSocket BuildFuturesKlineSocket(string futuresSymbol, string timeframe, Action<Ohlcv> emit)
+        {
+            string sub = new JObject
             {
-                System.Threading.Interlocked.Exchange(ref _subscription, null)?.Dispose();
-                return ValueTask.CompletedTask;
-            }
+                ["method"] = "sub.kline",
+                ["param"] = new JObject { ["symbol"] = futuresSymbol, ["interval"] = MexcRestApi.FuturesInterval(timeframe) },
+            }.ToString(Newtonsoft.Json.Formatting.None);
+
+            return new ReconnectingWebSocket(FuturesWsUrl)
+                .WithHeartbeatMessage(FuturesPing)
+                .OnConnected(async ws => await ws.SendAsync(sub).ConfigureAwait(false))
+                .OnMessage(text =>
+                {
+                    try
+                    {
+                        var json = JObject.Parse(text);
+                        if (json["channel"]?.ToString() != "push.kline") return;
+                        var d = json["data"];
+                        if (d == null) return;
+                        var raw = new Ohlcv(
+                            DateTimeOffset.FromUnixTimeSeconds(d["t"]?.Value<long>() ?? 0).UtcDateTime,
+                            d["o"]?.Value<double>() ?? 0, d["h"]?.Value<double>() ?? 0,
+                            d["l"]?.Value<double>() ?? 0, d["c"]?.Value<double>() ?? 0,
+                            d["q"]?.Value<double>() ?? 0);
+                        emit(raw);
+                    }
+                    catch { /* malformed frame */ }
+                })
+                .OnError(err => _errorStream.OnNext($"MEXC futures kline stream ({futuresSymbol}): {err}"));
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
-            await EnsureConnectedAsync();
-
+            await EnsureConnectedAsync().ConfigureAwait(false);
             var cleanSymbol = CleanSymbol(symbol);
-            if (_currentSymbol == cleanSymbol && _currentTimeframe == timeframe && _currentSubscription != null) return;
+            if (_currentSymbol == cleanSymbol && _currentTimeframe == timeframe && _focusedWs != null) return;
 
-            if (_currentSubscription != null)
-            {
-                _currentSubscription.Dispose();
-                _currentSubscription = null;
-            }
+            if (_focusedWs != null) { await _focusedWs.DisconnectAsync().ConfigureAwait(false); _focusedWs.Dispose(); _focusedWs = null; }
 
             _currentSymbol = cleanSymbol;
             _currentTimeframe = timeframe;
             bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
 
-            if (isFutures)
-            {
-                var futuresSymbol = ToFuturesSymbol(cleanSymbol);
-                var subResult = await _socketClient!.FuturesApi.SubscribeToKlineUpdatesAsync(
-                    futuresSymbol, MapFuturesInterval(timeframe), data =>
-                    {
-                        var k = data.Data;
-                        var bar = new Ohlcv(
-                            k.OpenTime,
-                            (double)k.OpenPrice,
-                            (double)k.HighPrice,
-                            (double)k.LowPrice,
-                            (double)k.ClosePrice,
-                            (double)k.Volume);
-                        if (IsEmptyBar(bar)) return;
-                        _liveStream.OnNext(bar);
-                    });
-
-                if (subResult.Success)
-                    _currentSubscription = (IDisposable)subResult.Data;
-                else
-                {
-                    _errorStream.OnNext($"MEXC Futures subscription failed: {subResult.Error?.Message}");
-                    _connectionStateStream.OnNext(ConnectionState.Error);
-                }
-            }
-            else
-            {
-                var subResult = await _socketClient!.SpotApi.SubscribeToKlineUpdatesAsync(
-                    cleanSymbol, MapSpotInterval(timeframe), data =>
-                    {
-                        var k = data.Data;
-                        var bar = new Ohlcv(
-                            k.StartTime,
-                            (double)k.OpenPrice,
-                            (double)k.HighPrice,
-                            (double)k.LowPrice,
-                            (double)k.ClosePrice,
-                            (double)k.Volume);
-                        if (IsEmptyBar(bar)) return;
-                        _liveStream.OnNext(bar);
-                    });
-
-                if (subResult.Success)
-                    _currentSubscription = (IDisposable)subResult.Data;
-                else
-                {
-                    _errorStream.OnNext($"MEXC Spot subscription failed: {subResult.Error?.Message}");
-                    _connectionStateStream.OnNext(ConnectionState.Error);
-                }
-            }
+            // Focused path pushes RAW bars; LiveStreamManager consolidates with LiveTickStyle.
+            _focusedWs = isFutures
+                ? BuildFuturesKlineSocket(ToFuturesSymbol(cleanSymbol), timeframe, raw => { if (!IsEmptyBar(raw)) _liveStream.OnNext(raw); })
+                : BuildSpotKlineSocket(cleanSymbol, timeframe, raw => { if (!IsEmptyBar(raw)) _liveStream.OnNext(raw); });
+            await _focusedWs.ConnectAsync().ConfigureAwait(false);
         }
 
         public override async Task DisconnectAsync()
@@ -373,41 +302,37 @@ namespace AccessibleTrader.Plugins.Mexc
             _keepAliveTimer?.Dispose();
             _keepAliveTimer = null;
 
-            _orderBookSubscription?.Dispose();
-            _orderBookSubscription = null;
-            _orderBookSymbol = null;
+            await SafeCloseAsync(_focusedWs).ConfigureAwait(false);   _focusedWs = null;
+            await SafeCloseAsync(_orderBookWs).ConfigureAwait(false); _orderBookWs = null; _orderBookSymbol = null;
+            await SafeCloseAsync(_privateWs).ConfigureAwait(false);   _privateWs = null;
 
-            _currentSubscription?.Dispose();
-            _currentSubscription = null;
-
-            if (_socketClient != null)
+            if (!string.IsNullOrEmpty(_listenKey))
             {
-                await _socketClient.UnsubscribeAllAsync();
-                _socketClient.Dispose();
-                _socketClient = null;
-            }
-
-            if (!string.IsNullOrEmpty(_listenKey) && _tradingClient != null)
-            {
-                try { await _tradingClient.SpotApi.Account.StopUserStreamAsync(_listenKey); }
+                try
+                {
+                    var (k, s) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                    await _rest.SpotSignedAsync(HttpMethod.Delete, "/api/v3/userDataStream", k, s,
+                        new Dictionary<string, string> { ["listenKey"] = _listenKey! }).ConfigureAwait(false);
+                }
                 catch { /* best-effort */ }
             }
             _listenKey = null;
-
-            _tradingClient?.Dispose();
-            _tradingClient = null;
-
+            _connected = false;
             _currentSymbol = null;
             _currentTimeframe = null;
 
-            ScrubCredentials(
-                () => _apiKey = null,
-                () => _apiSecret = null);
-
+            ScrubCredentials(() => _apiKey = null, () => _apiSecret = null);
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
-        // --- Data Discovery & Fetching ---
+        private static async Task SafeCloseAsync(ReconnectingWebSocket? ws)
+        {
+            if (ws == null) return;
+            try { await ws.DisconnectAsync().ConfigureAwait(false); } catch { /* best-effort */ }
+            ws.Dispose();
+        }
+
+        // ── Data discovery & fetching ────────────────────────────────────────
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>
             Task.FromResult(new List<string> { "Spot", "Futures" });
@@ -420,19 +345,25 @@ namespace AccessibleTrader.Plugins.Mexc
                 {
                     if (subType.Equals("Futures", StringComparison.OrdinalIgnoreCase))
                     {
-                        var result = await _client.FuturesApi.ExchangeData.GetSymbolsAsync();
-                        if (!result.Success || result.Data == null) return new List<string>();
-                        return result.Data.Select(s => s.Symbol).OrderBy(s => s).ToList();
+                        var body = await _rest.FuturesGetAsync("/api/v1/contract/detail").ConfigureAwait(false);
+                        var arr = JObject.Parse(body)["data"] as JArray;
+                        return arr?.Select(s => s["symbol"]?.ToString() ?? "").Where(s => s.Length > 0).OrderBy(s => s).ToList()
+                               ?? new List<string>();
                     }
                     else
                     {
-                        var result = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync(null);
-                        if (!result.Success || result.Data == null) return new List<string>();
-                        return result.Data.Symbols.Select(s => s.Name).OrderBy(s => s).ToList();
+                        var body = await _rest.SpotGetAsync("/api/v3/exchangeInfo").ConfigureAwait(false);
+                        var arr = JObject.Parse(body)["symbols"] as JArray;
+                        return arr?.Select(s => s["symbol"]?.ToString() ?? "").Where(s => s.Length > 0).OrderBy(s => s).ToList()
+                               ?? new List<string>();
                     }
-                });
+                }).ConfigureAwait(false);
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"MEXC GetAvailableSymbolsAsync failed ({ex.GetType().Name}).");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedTimeframesAsync() =>
@@ -443,68 +374,78 @@ namespace AccessibleTrader.Plugins.Mexc
             var cleanSymbol = CleanSymbol(request.Symbol);
             bool isFutures = request.Market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
             int limit = Math.Min(request.Limit, 500);
-
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    DateTime? startTime = request.Since != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime : null;
-                    DateTime? endTime   = request.Until != null ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime : null;
-
-                    // MEXC spot klines ignore a single time bound — if only startTime
-                    // or only endTime is set, the endpoint silently returns "latest N"
-                    // instead of a historical window. Compute the missing bound from
-                    // the known bound + limit * bar-duration so paginated backfill
-                    // calls actually walk backwards in time.
-                    var barDuration = TimeframeDuration(request.Timeframe);
-                    if (startTime.HasValue && !endTime.HasValue)
-                    {
-                        var computed = startTime.Value.Add(TimeSpan.FromTicks(barDuration.Ticks * limit));
-                        endTime = computed > DateTime.UtcNow ? DateTime.UtcNow : computed;
-                    }
-                    else if (!startTime.HasValue && endTime.HasValue)
-                    {
-                        startTime = endTime.Value.Subtract(TimeSpan.FromTicks(barDuration.Ticks * limit));
-                    }
-
-                    if (isFutures)
-                    {
-                        var futuresSymbol = ToFuturesSymbol(cleanSymbol);
-                        var r = await _client.FuturesApi.ExchangeData.GetKlinesAsync(
-                            futuresSymbol, MapFuturesInterval(request.Timeframe), startTime, endTime);
-                        if (!r.Success || r.Data == null)
-                        {
-                            _errorStream.OnNext($"MEXC futures data unavailable for {request.Symbol}: {r.Error?.Message ?? "no data"}");
-                            return (new List<Ohlcv>(), new List<(long, double)>());
-                        }
-                        var ohlcv = r.Data.Select(k => new Ohlcv(
-                            k.OpenTime.ToUniversalTime(),
-                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice,
-                            (double)k.Volume)).ToList();
-                        return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
-                    }
-                    else
-                    {
-                        var r = await _client.SpotApi.ExchangeData.GetKlinesAsync(
-                            cleanSymbol, MapSpotInterval(request.Timeframe), startTime, endTime, limit);
-                        if (!r.Success || r.Data == null)
-                        {
-                            _errorStream.OnNext($"MEXC data unavailable for {request.Symbol}: {r.Error?.Message ?? "no data"}");
-                            return (new List<Ohlcv>(), new List<(long, double)>());
-                        }
-                        var ohlcv = r.Data.Select(k => new Ohlcv(
-                            k.OpenTime.ToUniversalTime(),
-                            (double)k.OpenPrice, (double)k.HighPrice, (double)k.LowPrice, (double)k.ClosePrice,
-                            (double)k.Volume)).ToList();
-                        return (ohlcv, ohlcv.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
-                    }
-                });
+                    isFutures
+                        ? await FetchFuturesKlinesAsync(cleanSymbol, request, limit).ConfigureAwait(false)
+                        : await FetchSpotKlinesAsync(cleanSymbol, request, limit).ConfigureAwait(false)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _errorStream.OnNext($"MEXC FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
+        }
+
+        private async Task<(List<Ohlcv>, List<(long, double)>)> FetchSpotKlinesAsync(string symbol, MarketDataRequest request, int limit)
+        {
+            var q = new Dictionary<string, string>
+            {
+                ["symbol"] = symbol,
+                ["interval"] = MexcRestApi.SpotRestInterval(request.Timeframe),
+                ["limit"] = limit.ToString(CultureInfo.InvariantCulture),
+            };
+            if (request.Since.HasValue) q["startTime"] = request.Since.Value.ToString(CultureInfo.InvariantCulture);
+            if (request.Until.HasValue) q["endTime"]   = request.Until.Value.ToString(CultureInfo.InvariantCulture);
+
+            var body = await _rest.SpotGetAsync("/api/v3/klines", q).ConfigureAwait(false);
+            var token = JToken.Parse(body);
+            if (token is not JArray arr)
+            {
+                _errorStream.OnNext($"MEXC data unavailable for {request.Symbol}: {token["msg"]?.ToString() ?? "no data"}");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+            // [openTime(ms), open, high, low, close, volume, closeTime, quoteVolume]
+            var bars = arr.Select(k => new Ohlcv(
+                DateTimeOffset.FromUnixTimeMilliseconds(k[0]!.Value<long>()).UtcDateTime,
+                ParseD(k[1]?.ToString()), ParseD(k[2]?.ToString()), ParseD(k[3]?.ToString()),
+                ParseD(k[4]?.ToString()), ParseD(k[5]?.ToString())))
+                .Where(x => x.Open > 0 && x.High > 0 && x.Low > 0 && x.Close > 0)
+                .OrderBy(x => x.Date).ToList();
+            return (bars, bars.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
+        }
+
+        private async Task<(List<Ohlcv>, List<(long, double)>)> FetchFuturesKlinesAsync(string spotSymbol, MarketDataRequest request, int limit)
+        {
+            var futuresSymbol = ToFuturesSymbol(spotSymbol);
+            var q = new Dictionary<string, string> { ["interval"] = MexcRestApi.FuturesInterval(request.Timeframe) };
+            if (request.Since.HasValue) q["start"] = (request.Since.Value / 1000).ToString(CultureInfo.InvariantCulture);
+            if (request.Until.HasValue) q["end"]   = (request.Until.Value / 1000).ToString(CultureInfo.InvariantCulture);
+
+            var body = await _rest.FuturesGetAsync($"/api/v1/contract/kline/{futuresSymbol}", q).ConfigureAwait(false);
+            var data = JObject.Parse(body)["data"];
+            var times = data?["time"] as JArray;
+            if (times == null || times.Count == 0)
+            {
+                _errorStream.OnNext($"MEXC futures data unavailable for {request.Symbol}.");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+            // Columnar: data.time/open/close/high/low/vol (seconds).
+            var open = data!["open"] as JArray; var close = data["close"] as JArray;
+            var high = data["high"] as JArray;  var low = data["low"] as JArray;
+            var vol  = data["vol"] as JArray;
+            var bars = new List<Ohlcv>(times.Count);
+            for (int i = 0; i < times.Count; i++)
+            {
+                bars.Add(new Ohlcv(
+                    DateTimeOffset.FromUnixTimeSeconds(times[i]!.Value<long>()).UtcDateTime,
+                    open?[i]?.Value<double>() ?? 0, high?[i]?.Value<double>() ?? 0,
+                    low?[i]?.Value<double>() ?? 0, close?[i]?.Value<double>() ?? 0,
+                    vol?[i]?.Value<double>() ?? 0));
+            }
+            bars = bars.Where(x => x.Open > 0).OrderBy(x => x.Date).ToList();
+            return (bars, bars.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
         }
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
@@ -514,18 +455,22 @@ namespace AccessibleTrader.Plugins.Mexc
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(cleanSymbol, limit);
-                    if (!result.Success || result.Data == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
-                    return (
-                        result.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList(),
-                        result.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList()
-                    );
-                });
+                    var body = await _rest.SpotGetAsync("/api/v3/depth",
+                        new Dictionary<string, string> { ["symbol"] = cleanSymbol, ["limit"] = limit.ToString(CultureInfo.InvariantCulture) }).ConfigureAwait(false);
+                    var json = JObject.Parse(body);
+                    return (ParseLevels(json["bids"] as JArray, limit), ParseLevels(json["asks"] as JArray, limit));
+                }).ConfigureAwait(false);
             }
-            catch { return (new List<OrderBookEntry>(), new List<OrderBookEntry>()); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"MEXC GetOrderBookAsync failed for {symbol} ({ex.GetType().Name}).");
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
         }
 
-        // ── IOrderBookProvider ─────────────────────────────────────────────────
+        private static List<OrderBookEntry> ParseLevels(JArray? levels, int limit) =>
+            levels?.Take(limit).Select(l => new OrderBookEntry(ParseD(l[0]?.ToString()), ParseD(l[1]?.ToString()))).ToList()
+            ?? new List<OrderBookEntry>();
 
         async Task<OrderBookSnapshot> IOrderBookProvider.GetOrderBookAsync(string symbol, int depth)
         {
@@ -536,33 +481,27 @@ namespace AccessibleTrader.Plugins.Mexc
         public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol)
         {
             var cleanSymbol = CleanSymbol(symbol);
-            if (_orderBookSymbol == cleanSymbol && _orderBookSubscription != null)
-                return _orderBookSubject.AsObservable();
+            if (_orderBookSymbol == cleanSymbol && _orderBookWs != null) return _orderBookSubject.AsObservable();
 
-            _orderBookSubscription?.Dispose();
+            _ = SafeCloseAsync(_orderBookWs);
             _orderBookSymbol = cleanSymbol;
+            string channel = $"spot@public.limit.depth.v3.api.pb@{cleanSymbol}@20";
 
-            _ = Task.Run(async () =>
-            {
-                try
+            _orderBookWs = new ReconnectingWebSocket(SpotWsUrl)
+                .WithHeartbeatMessage(SpotPing)
+                .OnConnected(async ws => await ws.SendAsync(SubscribeMsg(channel)).ConfigureAwait(false))
+                .OnBinary(data =>
                 {
-                    if (_socketClient == null) await EnsureConnectedAsync();
-                    var subResult = await _socketClient!.SpotApi.SubscribeToPartialOrderBookUpdatesAsync(
-                        cleanSymbol, 20, data =>
-                        {
-                            var bids = data.Data.Bids.Select(b => new OrderBookEntry((double)b.Price, (double)b.Quantity)).ToList();
-                            var asks = data.Data.Asks.Select(a => new OrderBookEntry((double)a.Price, (double)a.Quantity)).ToList();
-                            _orderBookSubject.OnNext(new OrderBookUpdate(cleanSymbol, bids, asks, 0, DateTime.UtcNow));
-                        });
-
-                    if (subResult.Success)
-                        _orderBookSubscription = (IDisposable)subResult.Data;
-                    else
-                        _errorStream.OnNext($"MEXC order book subscription failed: {subResult.Error?.Message}");
-                }
-                catch (Exception ex) { _errorStream.OnNext($"MEXC order book error: {ex.Message}"); }
-            });
-
+                    var w = MexcProtobuf.TryParse(data);
+                    if (w == null || w.BodyCase != global::PushDataV3ApiWrapper.BodyOneofCase.PublicLimitDepths) return;
+                    var d = w.PublicLimitDepths;
+                    var bids = d.Bids.Select(b => new OrderBookEntry(ParseD(b.Price), ParseD(b.Quantity))).ToList();
+                    var asks = d.Asks.Select(a => new OrderBookEntry(ParseD(a.Price), ParseD(a.Quantity))).ToList();
+                    _orderBookSubject.OnNext(new OrderBookUpdate(cleanSymbol, bids, asks, 0, DateTime.UtcNow));
+                })
+                .OnMessage(text => SurfaceSubscribeError(text, "order book"))
+                .OnError(err => _errorStream.OnNext($"MEXC order book stream ({cleanSymbol}): {err}"));
+            _ = _orderBookWs.ConnectAsync();
             return _orderBookSubject.AsObservable();
         }
 
@@ -575,16 +514,16 @@ namespace AccessibleTrader.Plugins.Mexc
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    var result = await TradingClient.SpotApi.Account.GetAccountInfoAsync();
-                    if (!result.Success || result.Data == null) return new List<Balance>();
-                    return result.Data.Balances
-                        .Where(b => b.Available > 0 || b.Locked > 0)
-                        .Select(b => new Balance(b.Asset, (double)b.Available, (double)b.Locked))
-                        .ToList();
-                });
+                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                    var body = await _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/account", key, secret).ConfigureAwait(false);
+                    var balances = JObject.Parse(body)["balances"] as JArray;
+                    if (balances == null) return new List<Balance>();
+                    return balances.Select(b => new Balance(
+                            b["asset"]?.ToString() ?? "", ParseD(b["free"]?.ToString()), ParseD(b["locked"]?.ToString())))
+                        .Where(b => b.Free > 0 || b.Locked > 0).ToList();
+                }).ConfigureAwait(false);
             }
-            catch { return new(); }
+            catch (Exception ex) { _errorStream.OnNext($"MEXC GetBalancesAsync failed ({ex.GetType().Name})."); return new(); }
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -594,23 +533,21 @@ namespace AccessibleTrader.Plugins.Mexc
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await EnsureTradingClientAsync();
-                    var result = await TradingClient.FuturesApi.Trading.GetPositionsAsync(null);
-                    if (!result.Success || result.Data == null) return new List<Position>();
-                    return result.Data
-                        .Where(p => p.PositionSize != 0)
-                        .Select(p =>
-                        {
-                            double qty  = (double)p.PositionSize;
-                            double avg  = (double)p.HoldAveragePrice;
-                            double pnl  = (double)(p.Pnl ?? 0m);
-                            double liq  = (double)p.LiquidationPrice;
-                            double lev  = (double)p.Leverage;
-                            double mv   = Math.Abs(qty) * avg;
-                            return new Position(p.Symbol, qty, avg, mv, pnl, lev, liq);
-                        })
-                        .ToList();
-                });
+                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                    var body = await _rest.FuturesSignedAsync(HttpMethod.Get, "/api/v1/private/position/open_positions", key, secret).ConfigureAwait(false);
+                    var arr = JObject.Parse(body)["data"] as JArray;
+                    if (arr == null) return new List<Position>();
+                    return arr.Where(p => (p["holdVol"]?.Value<double>() ?? 0) != 0).Select(p =>
+                    {
+                        // positionType: 1 long, 2 short.
+                        double qty = (p["holdVol"]?.Value<double>() ?? 0) * ((p["positionType"]?.Value<int>() ?? 1) == 2 ? -1 : 1);
+                        double avg = p["holdAvgPrice"]?.Value<double>() ?? 0;
+                        double pnl = p["unrealised"]?.Value<double>() ?? p["realised"]?.Value<double>() ?? 0;
+                        double liq = p["liquidatePrice"]?.Value<double>() ?? 0;
+                        double lev = p["leverage"]?.Value<double>() ?? 1;
+                        return new Position(p["symbol"]?.ToString() ?? "", qty, avg, Math.Abs(qty) * avg, pnl, lev, liq);
+                    }).ToList();
+                }).ConfigureAwait(false);
             }
             catch { return new(); }
         }
@@ -620,62 +557,42 @@ namespace AccessibleTrader.Plugins.Mexc
             if (!IsConnected) return new();
             var orders = new List<OpenOrder>();
 
-            // Spot (requires a plain symbol; MEXC spot open-orders can't list all).
             if (!string.IsNullOrEmpty(symbol) && !symbol.Contains('_'))
             {
                 try
                 {
-                    await EnsureTradingClientAsync();
-                    var result = await _rateLimiter.ExecuteAsync(() =>
-                        TradingClient.SpotApi.Trading.GetOpenOrdersAsync(CleanSymbol(symbol)));
-                    if (result.Success && result.Data != null)
-                        orders.AddRange(result.Data.Select(o => new OpenOrder(
-                            o.OrderId, o.Symbol,
-                            o.Side == global::Mexc.Net.Enums.OrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
-                            MapOrderType(o.OrderType),
-                            (double)o.Quantity, (double)o.Price, o.Status.ToString())));
-                    else if (result.Error != null)
-                        _errorStream.OnNext($"MEXC open orders unavailable for {symbol}: {result.Error.Message}");
+                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                    var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/openOrders", key, secret,
+                        new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol) })).ConfigureAwait(false);
+                    if (JToken.Parse(body) is JArray arr)
+                        orders.AddRange(arr.Select(o => new OpenOrder(
+                            o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
+                            (o["side"]?.ToString() ?? "BUY").Equals("BUY", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
+                            MapSpotType(o["type"]?.ToString()),
+                            ParseD(o["origQty"]?.ToString()), ParseD(o["price"]?.ToString()), o["status"]?.ToString() ?? "")));
+                    else if (JObject.Parse(body)["code"]?.Value<int>() is int c && c != 0)
+                        _errorStream.OnNext($"MEXC open orders unavailable for {symbol}: {JObject.Parse(body)["msg"]}");
                 }
-                catch (Exception ex)
-                {
-                    _errorStream.OnNext($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name}).");
-                }
+                catch (Exception ex) { _errorStream.OnNext($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name})."); }
             }
 
-            // Futures — the futures endpoint lists ALL open contract orders (no symbol
-            // required), so futures orders were previously invisible. Best-effort:
-            // only when the symbol is a futures pair (BTC_USDT) or unspecified, and a
-            // no-permission result is skipped silently rather than announced.
             if (string.IsNullOrEmpty(symbol) || symbol.Contains('_'))
             {
                 try
                 {
-                    await EnsureTradingClientAsync();
-                    var fut = await _rateLimiter.ExecuteAsync(() =>
-                        TradingClient.FuturesApi.Trading.GetOpenOrdersAsync());
-                    if (fut.Success && fut.Data != null)
-                    {
-                        string? want = string.IsNullOrEmpty(symbol) ? null : ToFuturesSymbol(CleanSymbol(symbol));
-                        orders.AddRange(fut.Data
-                            .Where(o => want == null || string.Equals(o.Symbol, want, StringComparison.OrdinalIgnoreCase))
-                            .Select(o => new OpenOrder(
-                                o.OrderId.ToString(), o.Symbol,
-                                o.OrderSide is global::Mexc.Net.Enums.FuturesOrderSide.OpenLong
-                                             or global::Mexc.Net.Enums.FuturesOrderSide.CloseShort
-                                    ? OrderSide.Buy : OrderSide.Sell,
-                                o.OrderType == global::Mexc.Net.Enums.FuturesOrderType.Market ? OrderType.Market : OrderType.Limit,
-                                (double)o.Quantity, (double)(o.Price ?? 0), o.Status.ToString())));
-                    }
+                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                    string want = string.IsNullOrEmpty(symbol) ? "" : ToFuturesSymbol(CleanSymbol(symbol));
+                    var path = string.IsNullOrEmpty(want) ? "/api/v1/private/order/list/open_orders" : $"/api/v1/private/order/list/open_orders/{want}";
+                    var body = await _rateLimiter.ExecuteAsync(() => _rest.FuturesSignedAsync(HttpMethod.Get, path, key, secret)).ConfigureAwait(false);
+                    if (JObject.Parse(body)["data"] is JArray arr)
+                        orders.AddRange(arr.Select(o => new OpenOrder(
+                            o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
+                            (o["side"]?.Value<int>() ?? 1) is 1 or 4 ? OrderSide.Buy : OrderSide.Sell, // 1 openLong/4 closeShort
+                            (o["orderType"]?.Value<int>() ?? 5) == 5 ? OrderType.Market : OrderType.Limit,
+                            o["vol"]?.Value<double>() ?? 0, o["price"]?.Value<double>() ?? 0, o["state"]?.ToString() ?? "")));
                 }
-                catch
-                {
-                    // Best-effort: a spot-only API key has no futures access. Stay
-                    // silent rather than announce an expected permission failure on
-                    // every open-orders refresh.
-                }
+                catch { /* spot-only key: no futures access — silent */ }
             }
-
             return orders;
         }
 
@@ -686,100 +603,59 @@ namespace AccessibleTrader.Plugins.Mexc
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    await EnsureTradingClientAsync();
-
-                    if (isFutures)
-                        return await PlaceFuturesOrderAsync(signal);
-
-                    return await PlaceSpotOrderAsync(signal);
-                });
+                    isFutures ? await PlaceFuturesOrderAsync(signal).ConfigureAwait(false)
+                              : await PlaceSpotOrderAsync(signal).ConfigureAwait(false)).ConfigureAwait(false);
             }
             catch (Exception ex) { _errorStream.OnNext($"MEXC order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
         private async Task<string> PlaceSpotOrderAsync(TradeSignal signal)
         {
-            var symbol = CleanSymbol(signal.Symbol);
-            var side   = signal.Side == OrderSide.Buy
-                ? global::Mexc.Net.Enums.OrderSide.Buy
-                : global::Mexc.Net.Enums.OrderSide.Sell;
-
-            // MEXC spot REST only exposes Market / Limit / LimitMaker / IOC / FOK.
-            // Stop / take-profit on spot is not wrapped by this library — reject those.
-            var type = signal.Type switch
-            {
-                OrderType.Market => global::Mexc.Net.Enums.OrderType.Market,
-                OrderType.Limit  => global::Mexc.Net.Enums.OrderType.Limit,
-                _                => (global::Mexc.Net.Enums.OrderType?)null
-            };
-            if (type == null)
-                return "ORDER_FAILED:MEXC spot only supports Market/Limit via this plugin (use Futures for stop/TP).";
-
-            if (type == global::Mexc.Net.Enums.OrderType.Limit && !signal.Price.HasValue)
+            if (signal.Type is not (OrderType.Market or OrderType.Limit))
+                return "ORDER_FAILED:MEXC spot only supports Market/Limit (use Futures for stop/TP).";
+            if (signal.Type == OrderType.Limit && !signal.Price.HasValue)
                 return "ORDER_FAILED:Limit order requires Price.";
 
-            var r = await TradingClient.SpotApi.Trading.PlaceOrderAsync(
-                symbol,
-                side,
-                type.Value,
-                quantity: (decimal)signal.Quantity,
-                quoteQuantity: null,
-                price: signal.Price.HasValue ? (decimal?)signal.Price.Value : null,
-                clientOrderId: signal.ClientOid);
+            var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+            var p = new Dictionary<string, string>
+            {
+                ["symbol"] = CleanSymbol(signal.Symbol),
+                ["side"]   = signal.Side == OrderSide.Buy ? "BUY" : "SELL",
+                ["type"]   = signal.Type == OrderType.Market ? "MARKET" : "LIMIT",
+                ["quantity"] = signal.Quantity.ToString(CultureInfo.InvariantCulture),
+            };
+            if (signal.Type == OrderType.Limit) p["price"] = signal.Price!.Value.ToString(CultureInfo.InvariantCulture);
+            if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid;
 
-            return r.Success ? r.Data.OrderId : $"ORDER_FAILED:{r.Error?.Message}";
+            var body = await _rest.SpotSignedAsync(HttpMethod.Post, "/api/v3/order", key, secret, p).ConfigureAwait(false);
+            var json = JObject.Parse(body);
+            if (json["code"] != null && json["code"]!.Value<int>() != 0) return $"ORDER_FAILED:{json["msg"]}";
+            return json["orderId"]?.ToString() ?? "ORDER_SUBMITTED";
         }
 
         private async Task<string> PlaceFuturesOrderAsync(TradeSignal signal)
         {
-            var futuresSymbol = ToFuturesSymbol(CleanSymbol(signal.Symbol));
-
-            // FuturesOrderSide encodes open/close + long/short in a single enum.
-            // Default: Buy → OpenLong, Sell → OpenShort (new position).
-            var futSide = signal.Side == OrderSide.Buy
-                ? global::Mexc.Net.Enums.FuturesOrderSide.OpenLong
-                : global::Mexc.Net.Enums.FuturesOrderSide.OpenShort;
-
-            var futType = signal.Type switch
+            var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+            // side: 1 open long, 3 open short. type: 1 limit, 5 market. openType: 1 iso, 2 cross.
+            var order = new JObject
             {
-                OrderType.Limit            => global::Mexc.Net.Enums.FuturesOrderType.Limit,
-                OrderType.Market           => global::Mexc.Net.Enums.FuturesOrderType.Market,
-                OrderType.StopMarket       => global::Mexc.Net.Enums.FuturesOrderType.Market,
-                OrderType.StopLimit        => global::Mexc.Net.Enums.FuturesOrderType.Limit,
-                OrderType.TakeProfitMarket => global::Mexc.Net.Enums.FuturesOrderType.Market,
-                OrderType.TakeProfitLimit  => global::Mexc.Net.Enums.FuturesOrderType.Limit,
-                _                          => global::Mexc.Net.Enums.FuturesOrderType.Market
+                ["symbol"] = ToFuturesSymbol(CleanSymbol(signal.Symbol)),
+                ["side"]   = signal.Side == OrderSide.Buy ? 1 : 3,
+                ["type"]   = signal.Type == OrderType.Limit || signal.Type == OrderType.StopLimit || signal.Type == OrderType.TakeProfitLimit ? 1 : 5,
+                ["vol"]    = signal.Quantity,
+                ["openType"] = string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase) ? 2 : 1,
             };
+            if (signal.Price.HasValue) order["price"] = signal.Price.Value;
+            if (signal.Leverage is > 1) order["leverage"] = (int)Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
+            if (signal.StopLoss.HasValue) order["stopLossPrice"] = signal.StopLoss.Value;
+            if (signal.TakeProfit.HasValue) order["takeProfitPrice"] = signal.TakeProfit.Value;
+            if (!string.IsNullOrEmpty(signal.ClientOid)) order["externalOid"] = signal.ClientOid;
 
-            int? leverage = signal.Leverage.HasValue && signal.Leverage.Value > 1
-                ? (int)Math.Clamp(signal.Leverage.Value, 1, MaxLeverage)
-                : (int?)null;
-
-            // MEXC requires a MarginType when leverage is specified on an isolated position.
-            // Default to Isolated unless the caller explicitly asked for Cross.
-            global::Mexc.Net.Enums.MarginType? marginType = null;
-            if (leverage.HasValue)
-            {
-                marginType = string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase)
-                    ? global::Mexc.Net.Enums.MarginType.Cross
-                    : global::Mexc.Net.Enums.MarginType.Isolated;
-            }
-
-            var r = await TradingClient.FuturesApi.Trading.PlaceOrderAsync(
-                futuresSymbol,
-                futSide,
-                futType,
-                quantity: (decimal)signal.Quantity,
-                price: signal.Price.HasValue ? (decimal?)signal.Price.Value : null,
-                leverage: leverage,
-                marginType: marginType,
-                clientOrderId: signal.ClientOid ?? string.Empty,
-                positionId: null,
-                takeProfitPrice: signal.TakeProfit.HasValue ? (decimal?)signal.TakeProfit.Value : null,
-                stopLossPrice:   signal.StopLoss.HasValue   ? (decimal?)signal.StopLoss.Value   : null);
-
-            return r.Success ? r.Data.OrderId.ToString() : $"ORDER_FAILED:{r.Error?.Message}";
+            var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/order/submit", key, secret,
+                jsonBody: order.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
+            var json = JObject.Parse(body);
+            if (json["success"]?.Value<bool>() == true) return json["data"]?.ToString() ?? "ORDER_SUBMITTED";
+            return $"ORDER_FAILED:{json["message"] ?? json["msg"] ?? "futures order rejected"}";
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)
@@ -787,25 +663,39 @@ namespace AccessibleTrader.Plugins.Mexc
             if (!IsConnected) return false;
             try
             {
-                var r = await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    await EnsureTradingClientAsync();
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                // Spot first.
+                var spot = await _rest.SpotSignedAsync(HttpMethod.Delete, "/api/v3/order", key, secret,
+                    new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["orderId"] = orderId }).ConfigureAwait(false);
+                var sj = JObject.Parse(spot);
+                if (sj["code"] == null || sj["code"]!.Value<int>() == 0) return true;
 
-                    // Try spot first; if it fails and the orderId parses as a futures long ID, try futures.
-                    var spot = await TradingClient.SpotApi.Trading.CancelOrderAsync(
-                        CleanSymbol(symbol), orderId, string.Empty, string.Empty);
-                    if (spot.Success) return true;
-
-                    if (long.TryParse(orderId, out var futOrderId))
-                    {
-                        var fut = await TradingClient.FuturesApi.Trading.CancelOrdersAsync(new[] { futOrderId });
-                        return fut.Success;
-                    }
-                    return false;
-                });
-                return r;
+                // Fall back to futures cancel (JSON array of ids).
+                var fut = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/order/cancel", key, secret,
+                    jsonBody: new JArray { orderId }.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
+                return JObject.Parse(fut)["success"]?.Value<bool>() == true;
             }
-            catch { return false; }
+            catch (Exception ex) { _errorStream.OnNext($"MEXC CancelOrderAsync failed for {orderId} ({ex.GetType().Name})."); return false; }
+        }
+
+        public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
+        {
+            if (!IsConnected || string.IsNullOrEmpty(symbol)) return new();
+            try
+            {
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/myTrades", key, secret,
+                    new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["limit"] = Math.Clamp(limit, 1, 1000).ToString(CultureInfo.InvariantCulture) })).ConfigureAwait(false);
+                if (JToken.Parse(body) is not JArray arr) return new();
+                return arr.Select(t => new TradeFill(
+                        t["id"]?.ToString() ?? "", t["symbol"]?.ToString() ?? "",
+                        (t["isBuyer"]?.Value<bool>() ?? true) ? OrderSide.Buy : OrderSide.Sell,
+                        ParseD(t["qty"]?.ToString()), ParseD(t["price"]?.ToString()),
+                        DateTimeOffset.FromUnixTimeMilliseconds(t["time"]?.Value<long>() ?? 0).UtcDateTime,
+                        ParseD(t["commission"]?.ToString()), t["orderId"]?.ToString()))
+                    .OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            }
+            catch (Exception ex) { _errorStream.OnNext($"MEXC GetFillsAsync failed ({ex.GetType().Name})."); return new(); }
         }
 
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
@@ -813,91 +703,75 @@ namespace AccessibleTrader.Plugins.Mexc
             if (!IsConnected) return 1.0;
             try
             {
-                await EnsureTradingClientAsync();
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
                 int lev = (int)Math.Clamp(leverage, 1, MaxLeverage);
-                var r = await TradingClient.FuturesApi.Account.SetLeverageAsync(
-                    leverage: lev,
-                    positionId: null,
-                    marginType: global::Mexc.Net.Enums.MarginType.Isolated,
-                    symbol: ToFuturesSymbol(CleanSymbol(symbol)),
-                    positionSide: null);
-                return r.Success ? lev : 1.0;
+                var b = new JObject { ["symbol"] = ToFuturesSymbol(CleanSymbol(symbol)), ["leverage"] = lev, ["openType"] = 1 };
+                var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/position/change_leverage", key, secret,
+                    jsonBody: b.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
+                return JObject.Parse(body)["success"]?.Value<bool>() == true ? lev : 1.0;
             }
             catch { return 1.0; }
         }
 
-        // ── Private helpers ─────────────────────────────────────────────────
+        // ── Helpers ──────────────────────────────────────────────────────────
 
-        private static TimeSpan TimeframeDuration(string tf) => tf switch
+        private static string SubscribeMsg(string channel) =>
+            new JObject { ["method"] = "SUBSCRIPTION", ["params"] = new JArray { channel } }.ToString(Newtonsoft.Json.Formatting.None);
+
+        private void SurfaceSubscribeError(string text, string what)
         {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "30m" => TimeSpan.FromMinutes(30),
-            "1h"  => TimeSpan.FromHours(1),
-            "4h"  => TimeSpan.FromHours(4),
-            "8h"  => TimeSpan.FromHours(8),
-            "1d"  => TimeSpan.FromDays(1),
-            "1w"  => TimeSpan.FromDays(7),
-            "1M"  => TimeSpan.FromDays(30),
-            _     => TimeSpan.FromHours(1)
-        };
+            try
+            {
+                var json = JObject.Parse(text);
+                if (json["code"] != null && json["code"]!.Value<int>() != 0)
+                    _errorStream.OnNext($"MEXC {what} subscription rejected: {json["msg"]}");
+            }
+            catch { /* not a JSON control frame */ }
+        }
 
+        internal static double ParseD(string? s) =>
+            double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+
+        // Only the all-zero SENTINEL bar (zeros + a zero/epoch timestamp) is "empty";
+        // all-zero legs at a real timestamp are left for the >0 filters to drop, not
+        // silently swallowed here.
         private static bool IsEmptyBar(Ohlcv bar) =>
             bar.Open == 0 && bar.High == 0 && bar.Low == 0 && bar.Close == 0 && bar.Volume == 0
             && (bar.Date == DateTime.MinValue || bar.Date == DateTimeOffset.FromUnixTimeMilliseconds(0).UtcDateTime);
 
-        // MEXC futures uses underscore-separated pairs (e.g. BTC_USDT). Spot uses concatenated (BTCUSDT).
-        // CleanSymbol produces the spot shape; this helper converts to the futures shape.
-        private static string ToFuturesSymbol(string spotSymbol)
+        // MEXC futures uses underscore-separated pairs (BTC_USDT); spot is concatenated (BTCUSDT).
+        internal static string ToFuturesSymbol(string spotSymbol)
         {
             if (spotSymbol.Contains('_')) return spotSymbol;
             foreach (var quote in new[] { "USDT", "USDC", "USD", "BTC", "ETH" })
-            {
                 if (spotSymbol.EndsWith(quote, StringComparison.OrdinalIgnoreCase) && spotSymbol.Length > quote.Length)
                     return $"{spotSymbol[..^quote.Length]}_{quote}";
-            }
             return spotSymbol;
         }
 
-        private static OrderType MapOrderType(global::Mexc.Net.Enums.OrderType type) => type switch
+        private static OrderType MapSpotType(string? type) => type?.ToUpperInvariant() switch
         {
-            global::Mexc.Net.Enums.OrderType.Limit             => OrderType.Limit,
-            global::Mexc.Net.Enums.OrderType.Market            => OrderType.Market,
-            global::Mexc.Net.Enums.OrderType.LimitMaker        => OrderType.Limit,
-            global::Mexc.Net.Enums.OrderType.ImmediateOrCancel => OrderType.Limit,
-            global::Mexc.Net.Enums.OrderType.FillOrKill        => OrderType.Limit,
-            global::Mexc.Net.Enums.OrderType.TpSlOrder         => OrderType.StopMarket,
-            _ => OrderType.Market
+            "LIMIT" => OrderType.Limit,
+            "MARKET" => OrderType.Market,
+            "LIMIT_MAKER" => OrderType.Limit,
+            "IMMEDIATE_OR_CANCEL" => OrderType.Limit,
+            "FILL_OR_KILL" => OrderType.Limit,
+            _ => OrderType.Market,
         };
 
-        private static global::Mexc.Net.Enums.KlineInterval MapSpotInterval(string tf) => tf switch
+        protected override void Dispose(bool disposing)
         {
-            "1m"  => global::Mexc.Net.Enums.KlineInterval.OneMinute,
-            "5m"  => global::Mexc.Net.Enums.KlineInterval.FiveMinutes,
-            "15m" => global::Mexc.Net.Enums.KlineInterval.FifteenMinutes,
-            "30m" => global::Mexc.Net.Enums.KlineInterval.ThirtyMinutes,
-            "1h"  => global::Mexc.Net.Enums.KlineInterval.OneHour,
-            "4h"  => global::Mexc.Net.Enums.KlineInterval.FourHours,
-            "1d"  => global::Mexc.Net.Enums.KlineInterval.OneDay,
-            "1w"  => global::Mexc.Net.Enums.KlineInterval.OneWeek,
-            "1M"  => global::Mexc.Net.Enums.KlineInterval.OneMonth,
-            _     => global::Mexc.Net.Enums.KlineInterval.OneHour
-        };
-
-        private static global::Mexc.Net.Enums.FuturesKlineInterval MapFuturesInterval(string tf) => tf switch
-        {
-            "1m"  => global::Mexc.Net.Enums.FuturesKlineInterval.OneMinute,
-            "5m"  => global::Mexc.Net.Enums.FuturesKlineInterval.FiveMinutes,
-            "15m" => global::Mexc.Net.Enums.FuturesKlineInterval.FifteenMinutes,
-            "30m" => global::Mexc.Net.Enums.FuturesKlineInterval.ThirtyMinutes,
-            "1h"  => global::Mexc.Net.Enums.FuturesKlineInterval.OneHour,
-            "4h"  => global::Mexc.Net.Enums.FuturesKlineInterval.FourHours,
-            "8h"  => global::Mexc.Net.Enums.FuturesKlineInterval.EightHours,
-            "1d"  => global::Mexc.Net.Enums.FuturesKlineInterval.OneDay,
-            "1w"  => global::Mexc.Net.Enums.FuturesKlineInterval.OneWeek,
-            "1M"  => global::Mexc.Net.Enums.FuturesKlineInterval.OneMonth,
-            _     => global::Mexc.Net.Enums.FuturesKlineInterval.OneHour
-        };
+            if (disposing)
+            {
+                _keepAliveTimer?.Dispose();
+                _focusedWs?.Dispose();
+                _orderBookWs?.Dispose();
+                _privateWs?.Dispose();
+                _orderUpdateSubject?.Dispose();
+                _orderBookSubject?.Dispose();
+                _http?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }
