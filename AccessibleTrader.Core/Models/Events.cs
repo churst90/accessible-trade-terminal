@@ -157,6 +157,12 @@ namespace AccessibleTrader.Core.Models
     /// rule every other keyboard-driven feature follows.
     /// </summary>
     public record ReplayCommandEvent(ReplayCommand Command);
+
+    /// <summary>Split-view verbs.</summary>
+    public enum SplitViewCommand { Toggle, CycleSecondary, ToggleOrientation }
+
+    /// <summary>One-shot split-view command, routed like the replay transport verbs.</summary>
+    public record SplitViewCommandEvent(SplitViewCommand Command);
     /// <summary>Keyboard-driven "Load chart" (Ctrl+Alt+Shift+L) — the Toolbar owns the
     /// selection state and pre-flight warning, so the dispatcher just asks it to load.</summary>
     public record LoadChartRequestedEvent();

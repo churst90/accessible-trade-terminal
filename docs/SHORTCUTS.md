@@ -106,6 +106,24 @@ restored when you stop.
 
 ---
 
+## Split View
+
+Renders a second tab beside (or below) the active chart. The second pane is a **read-only
+reference view** — keyboard navigation, speech, sonification and trading all continue to
+address the active tab. Falls back to a single full-size chart when there is no second tab
+or the window is too narrow to divide.
+
+Known limitation: mouse hit-testing still maps against the full canvas, so pointer
+interaction is inaccurate while split view is on. Keyboard operation is unaffected.
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+S | Split view on / off |
+| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
+| Ctrl+Alt+Shift+O | Side-by-side / stacked |
+
+---
+
 ## Playback
 
 | Key | Action | Notes |

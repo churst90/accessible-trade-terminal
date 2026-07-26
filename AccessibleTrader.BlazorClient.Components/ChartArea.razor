@@ -22,6 +22,7 @@
 @inject IRuntimePlatform RuntimePlatform
 @inject IAppSettings App
 @inject ChartRenderer Renderer
+@inject ISplitViewCoordinator SplitView
 @inject ChartHoverTracker HoverTracker
 @implements IDisposable
 
@@ -593,23 +594,10 @@
                 var canvas = surface.Canvas;
                 canvas.Clear(SKColors.Black);
 
-                Renderer.Render(
-                    canvas,
-                    renderWidth,
-                    renderHeight,
-                    state.Data,
-                    state.ActiveSeries,
-                    state.CurrentDataIndex,
-                    state.ViewportStartIndex,
-                    state.ViewportLength,
-                    state.ViewportRange,
-                    state.PaneRanges,
-                    state.IsHeikinAshi,
-                    state.IsLogScale,
-                    density: renderDensity,
-                    state.PaneHeightRatios,
-                    state.IndicatorPaneScrollIndex,
-                    state.RightMarginBars);
+                // SplitView owns the Render call: when split is off it draws one full-size
+                // chart (identical to the previous direct call), and when it is on it clips
+                // the canvas and draws the active chart plus a read-only second tab.
+                SplitView.Render(canvas, renderWidth, renderHeight, state, renderDensity);
 
                 canvas.Flush();
                 using var image = surface.Snapshot();

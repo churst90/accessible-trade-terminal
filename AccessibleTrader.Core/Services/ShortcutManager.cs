@@ -360,6 +360,11 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.ReplayStepForward, "F9"));                                     // F9
             s.Add(new(SystemCommand.ReplayStepBack,    "F9", Shift: true));                        // Shift+F9
             s.Add(new(SystemCommand.ReplayPlayPause,   "F8"));                                     // F8
+
+            // Split view — a second tab rendered beside the active one (reference view).
+            s.Add(new(SystemCommand.SplitViewToggle,      "S", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+S
+            s.Add(new(SystemCommand.SplitViewCycle,       "E", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+E
+            s.Add(new(SystemCommand.SplitViewOrientation, "O", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+O
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 

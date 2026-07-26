@@ -129,13 +129,23 @@ public class ChartAreaBrowserCanvasBranchTests
         // BlazorTestHarness constructs one as `new ThemeService(SettingsManager)`
         // but exposes it via the IThemeService property; we build a fresh one here.
         var concreteTheme = new ThemeService(harness.SettingsManager);
-        harness.Ctx.Services.AddSingleton(new ChartRenderer(
+        var renderer = new ChartRenderer(
             concreteTheme,
             Substitute.For<IStylingService>(),
             Substitute.For<IProfileService>(),
             pane,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ChartRenderer>.Instance,
-            Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>()));
+            Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>());
+        harness.Ctx.Services.AddSingleton(renderer);
+
+        // SplitViewCoordinator — ChartArea routes its Render call through this. Same
+        // reasoning as ChartRenderer above: DI just needs a resolvable instance, and with
+        // split view off it draws exactly one full-size chart. Built from the local
+        // `renderer` rather than resolved, because bUnit forbids further registrations once
+        // anything has been pulled out of the provider.
+        harness.Ctx.Services.AddSingleton<AccessibleTrader.Core.Services.Rendering.ISplitViewCoordinator>(
+            new AccessibleTrader.Core.Services.Rendering.SplitViewCoordinator(
+                renderer, harness.EventBus, harness.WorkspaceStore));
 
         // ChartArea calls JS interop on first render — shim the calls so
         // bUnit doesn't throw "JSInterop calls cannot be issued at this time".

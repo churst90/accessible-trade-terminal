@@ -26,6 +26,9 @@ namespace AccessibleTrader.Core.Models
         ReplayStepForward,  // F9: reveal the next bar
         ReplayStepBack,     // Shift+F9: hide the last revealed bar
         ReplayPlayPause,    // F8: auto-advance on/off
+        SplitViewToggle,    // Ctrl+Alt+Shift+S: show a second tab beside this one
+        SplitViewCycle,     // Ctrl+Alt+Shift+E: move the second pane to the next tab
+        SplitViewOrientation, // Ctrl+Alt+Shift+O: side-by-side <-> stacked
         ContextSummary,
         MonitoringStatus,   // Ctrl+Alt+Shift+M: speak the background-workspace monitoring summary
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
