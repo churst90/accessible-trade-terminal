@@ -69,9 +69,12 @@ namespace AccessibleTrader.Core.Services.Analysis
                 ["1h"] = new[] { "4h", "1d" },
                 ["2h"] = new[] { "4h", "1d" },
                 ["4h"] = new[] { "1d", "1w" },
-                ["1d"] = new[] { "2d", "1w" },
-                ["2d"] = new[] { "1w" },
-                ["1w"] = Array.Empty<string>(),
+                // Monthly is included for daily/2-day charts because it is a level traders
+                // actually cite by name ("the monthly 10 EMA"), and the whole point of this
+                // ranker is to test such claims rather than assume them either way.
+                ["1d"] = new[] { "2d", "1w", "1M" },
+                ["2d"] = new[] { "1w", "1M" },
+                ["1w"] = new[] { "1M" },
             };
 
         private readonly ILevelRespectAnalyzer _analyzer;
