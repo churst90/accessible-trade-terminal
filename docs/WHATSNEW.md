@@ -1,4 +1,42 @@
-# What's New in 2.0.0
+# What's New
+
+## 2.0.1 — accessibility polish + crypto-options data (2026-07-26)
+
+A small point release on top of 2.0.0. A handful of accessibility fixes that came
+straight out of live use, plus one new keyless data provider. Nothing breaks — every
+2.0.0 note below still applies.
+
+- **Finish a drawing with touch alone.** On a phone or tablet you could *start* a trend
+  line or channel from the touch bar but couldn't set the later points without a
+  keyboard. The touch toolbar now has a **Place drawing point** button: arm a tool from
+  Drawing Tools, move the cursor, and tap it once per point — multi-point drawings
+  complete entirely by touch. It tells you if no tool is armed yet.
+- **Move between series on touch.** New **Previous series / Next series** buttons on the
+  touch bar (the Page Up/Down equivalents), so you're no longer limited to bars and
+  components without a keyboard.
+- **Sparse indicators announce a count, not "no data".** On indicators whose signals
+  are rare — Cipher B's dots, for example — landing on a bar with no marker used to say
+  "no data", which sounded like the whole series was broken even though Ctrl+Left/Right
+  still jumps between the signals that are there. It now says **"3 signals in view"** (or
+  "no signals in view"). Only a genuinely empty series still says "no data".
+- **Optional gradient chart background.** Settings → Appearance → Colors gains a
+  **Gradient background** switch and a second "bottom" colour, fading the chart pane
+  vertically between two colours. Purely cosmetic and **off by default** — audio-first
+  users can ignore it. (Cloud fills also no longer leave a hairline gap where two lines
+  cross.)
+- **New provider — Deribit crypto-options volatility (no API key).** Chart the **Deribit
+  Volatility Index (DVOL)** — crypto's "VIX", the options market's forward implied
+  volatility — plus realised volatility, for BTC and ETH. Load it from the market
+  dropdown under **Derivatives → Deribit** (`BTC_DVOL`, `ETH_DVOL`, `BTC_HISTVOL`,
+  `ETH_HISTVOL`). DVOL sitting well above realised volatility means options are pricing
+  fear — a useful mean-reversion tell, and the terminal's first window onto the crypto
+  *options* side.
+
+For the full engineering changelog see [`CHANGES.md`](CHANGES.md).
+
+---
+
+## What's New in 2.0.0
 
 Version 2.0 is the milestone the whole "2.0 line" was building toward: a rock-solid
 trading core, every provider brought up to a reliable standard, and background
@@ -96,7 +134,7 @@ If you're coming from an older release, these are the tent-poles of the 2.0 line
 The provider system got a shared foundation so quality stays put: shared signing and
 symbol-formatting helpers, structured error reporting, a **conformance test gate** every
 provider must pass, and a **build guard** that fails if two plugins ever pull conflicting
-library versions. The full test suite stands at **2,072 tests, all green**.
+library versions. The full test suite stands at **2,105 tests, all green**.
 
 ---
 

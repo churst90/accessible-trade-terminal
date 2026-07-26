@@ -4,11 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [2.0.0] — 2026-07-25
+## [2.0.1] — 2026-07-26
 
-The 2.0 release. Everything below (Tier 2 → Tier 1 → foundations) is the 2.0 line,
-newest first. Non-breaking: 1.x workspaces, strategies, alerts, and API keys load
-unchanged.
+A point release on top of 2.0.0: accessibility fixes surfaced in live use, plus a
+new keyless analytics provider. Non-breaking.
 
 ### Touch drawing, gradient background, sparse-signal speech, Deribit vol (2026-07-26)
 
@@ -42,6 +41,14 @@ new keyless analytics provider.
   extra trading brokers (Tastytrade / Bybit / Kraken Futures / Databento) are
   deliberately deferred — their APIs are key-gated or on the money path and can't be
   verified read-only.
+
+---
+
+## [2.0.0] — 2026-07-25
+
+The 2.0 release. Everything below (Tier 2 → Tier 1 → foundations) is the 2.0 line,
+newest first. Non-breaking: 1.x workspaces, strategies, alerts, and API keys load
+unchanged.
 
 ### Provider-system sharing + honesty (2026-07-25)
 
