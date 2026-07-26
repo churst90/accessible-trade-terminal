@@ -58,6 +58,17 @@ try
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var oo) ? oo : 40,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--fit"), out var ff) ? ff : 0.6),
+        "micro" => await MicroRicochetCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--csv") ?? "bnv1m",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "4h",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var pm) ? pm : 5000,
+            DateTime.TryParse(GetFlag(args.Skip(1).ToArray(), "--from"), out var fr) ? fr : null,
+            DateTime.TryParse(GetFlag(args.Skip(1).ToArray(), "--to"), out var tt) ? tt : null),
+        "channel-prog" => await ChannelProgressionCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var cp) ? cp : 40),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
