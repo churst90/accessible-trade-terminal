@@ -12,6 +12,7 @@ using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
+using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Core.Models;
@@ -337,6 +338,12 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IStrategyLibraryFacade, StrategyLibraryFacade>();
             services.AddScoped<IStrategyModalCoordinator, StrategyModalCoordinator>();
             services.AddScoped<SetupSonifier>();
+
+            // Screening — see the MAUI head's registration block for the rationale.
+            services.AddScoped<IOfflineWorkspaceBuilder, OfflineWorkspaceBuilder>();
+            services.AddScoped<IWatchlistLibrary, JsonWatchlistLibrary>();
+            services.AddScoped<IScreenerLibrary, JsonScreenerLibrary>();
+            services.AddScoped<IScreenerService, ScreenerService>();
 
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(

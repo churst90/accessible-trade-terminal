@@ -1,0 +1,464 @@
+@*
+    Market watch (Alt+M) — watchlist management plus the screener.
+
+    Accessibility notes:
+      • Results are a real <table> with scope="col"/"row" headers, so a screen reader
+        can navigate cell-by-cell and hear the column name with each value. This is the
+        single most screen-reader-native surface in the app and it is deliberately not
+        a div grid.
+      • Every run announces its outcome via AnnouncementEvent, including how many
+        symbols failed — "3 matched" is a lie if 40 never fetched.
+      • Row order is the watchlist's own order, never re-sorted behind the user's back;
+        sorting is an explicit action.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Screening
+@using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.Sdk.Screening
+@inject IWatchlistLibrary Watchlists
+@inject IScreenerLibrary Screeners
+@inject IScreenerService Screener
+@inject IDataService Data
+@inject IMarketOrchestrator MarketOrchestrator
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="watchlist-title" @onclick:stopPropagation="true"
+             style="max-width: 900px;">
+
+            <h2 id="watchlist-title" tabindex="-1">Market watch — watchlists and screener</h2>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div role="alert" style="color:#f66; margin:8px 0;">@_error</div>
+            }
+            @if (!string.IsNullOrEmpty(_status))
+            {
+                <div role="status" aria-live="polite" style="color:#6d6; margin:8px 0;">@_status</div>
+            }
+
+            <div role="tablist" aria-label="Market watch sections" style="margin-bottom:12px;">
+                <button role="tab" id="watchlist-tab-lists"
+                        aria-selected="@(_tab == Tab.Lists)" aria-controls="watchlist-panel"
+                        @onclick="() => _tab = Tab.Lists">Watchlists</button>
+                <button role="tab" id="watchlist-tab-screen"
+                        aria-selected="@(_tab == Tab.Screen)" aria-controls="watchlist-panel"
+                        @onclick="() => _tab = Tab.Screen">Screener</button>
+            </div>
+
+            <div id="watchlist-panel" role="tabpanel"
+                 aria-labelledby="@(_tab == Tab.Lists ? "watchlist-tab-lists" : "watchlist-tab-screen")">
+
+            @if (_tab == Tab.Lists)
+            {
+                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Lists</legend>
+
+                    <div class="modal-row">
+                        <label for="wl-select">Watchlist:</label>
+                        <select id="wl-select" @bind="_selectedListId" @bind:after="OnListChanged">
+                            <option value="">— none —</option>
+                            @foreach (var list in Watchlists.All)
+                            {
+                                <option value="@list.Id">@list.Name (@list.Entries.Count)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="wl-new-name">New list name:</label>
+                        <input id="wl-new-name" type="text" @bind="_newListName" style="width:40%;" />
+                        <button type="button" @onclick="CreateList">Create list</button>
+                        <button type="button" @onclick="DeleteList"
+                                disabled="@(string.IsNullOrEmpty(_selectedListId))"
+                                aria-label="Delete the selected watchlist">Delete list</button>
+                    </div>
+                </fieldset>
+
+                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Add a symbol</legend>
+                    <div class="modal-row">
+                        <label for="wl-provider">Provider:</label>
+                        <select id="wl-provider" @bind="_addProvider">
+                            @foreach (var p in _providers)
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
+
+                        <label for="wl-symbol">Symbol:</label>
+                        <input id="wl-symbol" type="text" @bind="_addSymbol"
+                               placeholder="BTC/USDT" style="width:20%;" />
+
+                        <label for="wl-subtype">Sub-type:</label>
+                        <input id="wl-subtype" type="text" @bind="_addSubType" style="width:10%;" />
+
+                        <button type="button" @onclick="AddEntry"
+                                disabled="@(string.IsNullOrEmpty(_selectedListId))">Add</button>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:0.9em; margin:6px 0;">
+                        Tip: the current chart's symbol is pre-filled when you open this dialog.
+                    </p>
+                </fieldset>
+
+                <fieldset style="border:1px solid #555; padding:10px 14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Symbols on this list</legend>
+                    @if (_selectedList == null || _selectedList.Entries.Count == 0)
+                    {
+                        <p role="status">No symbols on this list yet.</p>
+                    }
+                    else
+                    {
+                        <ul role="list" style="list-style:none; padding:0; margin:0;">
+                            @foreach (var entry in _selectedList.Entries)
+                            {
+                                <li role="listitem" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #444;">
+                                    <span>@entry.Symbol — @entry.Provider, @entry.SubType</span>
+                                    <span>
+                                        <button aria-label="Load @entry.Symbol on the chart"
+                                                @onclick="() => LoadEntryAsync(entry)">Load</button>
+                                        <button aria-label="Move @entry.Symbol up"
+                                                @onclick="() => MoveEntry(entry, -1)">Up</button>
+                                        <button aria-label="Move @entry.Symbol down"
+                                                @onclick="() => MoveEntry(entry, 1)">Down</button>
+                                        <button aria-label="Remove @entry.Symbol from the list"
+                                                @onclick="() => RemoveEntry(entry)">Remove</button>
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </fieldset>
+            }
+            else
+            {
+                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Run a screen</legend>
+
+                    <div class="modal-row">
+                        <label for="scr-select">Saved screen:</label>
+                        <select id="scr-select" @bind="_selectedScreenId">
+                            <option value="">— every symbol (quote screen) —</option>
+                            @foreach (var s in Screeners.All)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </select>
+
+                        <label for="scr-list">Against watchlist:</label>
+                        <select id="scr-list" @bind="_selectedListId" @bind:after="OnListChanged">
+                            @foreach (var list in Watchlists.All)
+                            {
+                                <option value="@list.Id">@list.Name (@list.Entries.Count)</option>
+                            }
+                        </select>
+
+                        <label for="scr-tf">Timeframe:</label>
+                        <input id="scr-tf" type="text" @bind="_timeframe" style="width:8%;" />
+                    </div>
+
+                    <div class="modal-row">
+                        <button type="button" @onclick="RunScreenAsync" disabled="@_running">
+                            @(_running ? "Running…" : "Run screen")
+                        </button>
+                        <button type="button" @onclick="CancelRun" disabled="@(!_running)">Cancel</button>
+                        <label>
+                            <input type="checkbox" @bind="_matchesOnly" /> Show matches only
+                        </label>
+                    </div>
+
+                    @if (_running)
+                    {
+                        <p role="status" aria-live="polite">
+                            Screened @_progressDone of @_progressTotal — @_progressSymbol
+                        </p>
+                    }
+                </fieldset>
+
+                @if (_result != null)
+                {
+                    <fieldset style="border:1px solid #555; padding:10px 14px;">
+                        <legend style="font-weight:700; padding:0 6px;">
+                            Results — @_result.MatchCount matched of @_result.EvaluatedCount evaluated@(_result.FailedCount > 0 ? $", {_result.FailedCount} could not be evaluated" : "")
+                        </legend>
+
+                        <table style="width:100%; border-collapse:collapse;">
+                            <caption class="visually-hidden">
+                                Screen results for @_result.SpecName, run at @_result.RunAt.ToString("HH:mm")
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Symbol</th>
+                                    <th scope="col">Provider</th>
+                                    <th scope="col">Match</th>
+                                    <th scope="col">Score</th>
+                                    <th scope="col">Close</th>
+                                    <th scope="col">Change %</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in VisibleRows())
+                                {
+                                    <tr>
+                                        <th scope="row">@row.Entry.Symbol</th>
+                                        <td>@row.Entry.Provider</td>
+                                        <td>@(row.Status == ScreenerRowStatus.Evaluated ? (row.Matched ? "yes" : "no") : "—")</td>
+                                        <td>@FormatScore(row)</td>
+                                        <td>@FormatNumber(row.LastClose)</td>
+                                        <td>@FormatNumber(row.PercentChange)</td>
+                                        <td>@DescribeStatus(row)</td>
+                                        <td>
+                                            <button aria-label="Load @row.Entry.Symbol on the chart"
+                                                    @onclick="() => LoadEntryAsync(row.Entry)">Load</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </fieldset>
+                }
+            }
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Tab { Lists, Screen }
+
+    private Tab _tab = Tab.Lists;
+    private string? _error;
+    private string? _status;
+
+    private string _selectedListId = "";
+    private string _newListName = "";
+    private Watchlist? _selectedList;
+
+    private List<string> _providers = new();
+    private string _addProvider = "";
+    private string _addSymbol = "";
+    private string _addSubType = "Spot";
+
+    private string _selectedScreenId = "";
+    private string _timeframe = "1d";
+    private bool _matchesOnly = true;
+    private bool _running;
+    private ScreenerRunResult? _result;
+    private CancellationTokenSource? _cts;
+
+    private int _progressDone;
+    private int _progressTotal;
+    private string _progressSymbol = "";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenWatchlistEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _error = null;
+        _status = null;
+
+        try { _providers = await Data.LoadProvidersAsync(); }
+        catch (Exception ex) { _error = $"Could not list providers: {ex.Message}"; }
+
+        // Pre-fill from the chart the user is looking at — the overwhelmingly common case
+        // for "add this to a list" is the symbol already on screen.
+        if (string.IsNullOrEmpty(_addSymbol)) _addSymbol = MarketOrchestrator.SelectedSymbol ?? "";
+        if (string.IsNullOrEmpty(_addProvider)) _addProvider = MarketOrchestrator.SelectedProvider ?? "";
+        if (!string.IsNullOrEmpty(MarketOrchestrator.SelectedSubType)) _addSubType = MarketOrchestrator.SelectedSubType;
+        if (!string.IsNullOrEmpty(MarketOrchestrator.SelectedTimeframe)) _timeframe = MarketOrchestrator.SelectedTimeframe;
+        if (string.IsNullOrEmpty(_addProvider) && _providers.Count > 0) _addProvider = _providers[0];
+
+        if (string.IsNullOrEmpty(_selectedListId) && Watchlists.All.Count > 0)
+            _selectedListId = Watchlists.All[0].Id;
+        OnListChanged();
+
+        await ShowModalAsync("watchlist-title");
+    }
+
+    private void OnListChanged() =>
+        _selectedList = string.IsNullOrEmpty(_selectedListId) ? null : Watchlists.GetById(_selectedListId);
+
+    private void CreateList()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_newListName)) { _error = "Give the list a name first."; return; }
+
+        var list = Watchlist.Create(_newListName.Trim());
+        Watchlists.Upsert(list);
+        _selectedListId = list.Id;
+        _newListName = "";
+        OnListChanged();
+        Announce($"Created watchlist {list.Name}.");
+    }
+
+    private void DeleteList()
+    {
+        if (_selectedList == null) return;
+        string name = _selectedList.Name;
+        Watchlists.Remove(_selectedList.Id);
+        _selectedListId = Watchlists.All.Count > 0 ? Watchlists.All[0].Id : "";
+        OnListChanged();
+        Announce($"Deleted watchlist {name}.");
+    }
+
+    private void AddEntry()
+    {
+        _error = null;
+        if (_selectedList == null) { _error = "Select or create a watchlist first."; return; }
+        if (string.IsNullOrWhiteSpace(_addSymbol)) { _error = "Enter a symbol."; return; }
+
+        var entry = new WatchlistEntry(_addProvider, _addSymbol.Trim(), MarketType.Crypto,
+            string.IsNullOrWhiteSpace(_addSubType) ? "Spot" : _addSubType.Trim());
+
+        if (Watchlists.AddEntry(_selectedList.Id, entry))
+        {
+            OnListChanged();
+            Announce($"Added {entry.Symbol} to {_selectedList!.Name}.");
+        }
+        else
+        {
+            _error = $"{entry.Symbol} is already on this list.";
+        }
+    }
+
+    private void RemoveEntry(WatchlistEntry entry)
+    {
+        if (_selectedList == null) return;
+        Watchlists.RemoveEntry(_selectedList.Id, entry.Key);
+        OnListChanged();
+        Announce($"Removed {entry.Symbol}.");
+    }
+
+    private void MoveEntry(WatchlistEntry entry, int delta)
+    {
+        if (_selectedList == null) return;
+        int newIndex = Watchlists.MoveEntry(_selectedList.Id, entry.Key, delta);
+        OnListChanged();
+        if (newIndex >= 0) Announce($"{entry.Symbol} moved to position {newIndex + 1}.");
+    }
+
+    private async Task LoadEntryAsync(WatchlistEntry entry)
+    {
+        try
+        {
+            // Drive the same selection state the toolbar drives, then run the toolbar's own
+            // load path — so a watchlist load is indistinguishable from a manual one and picks
+            // up every guard (curated-data restrictions, shape-change handling) for free.
+            MarketOrchestrator.SelectedProvider = entry.Provider;
+            MarketOrchestrator.SelectedSubType = entry.SubType;
+            MarketOrchestrator.SelectedSymbol = entry.Symbol;
+            if (!string.IsNullOrWhiteSpace(_timeframe)) MarketOrchestrator.SelectedTimeframe = _timeframe;
+            await MarketOrchestrator.LoadChartAsync();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load {entry.Symbol}: {ex.Message}";
+        }
+    }
+
+    private async Task RunScreenAsync()
+    {
+        _error = null;
+        _result = null;
+
+        var list = Watchlists.GetById(_selectedListId);
+        if (list == null || list.Entries.Count == 0)
+        {
+            _error = "Pick a watchlist with at least one symbol.";
+            return;
+        }
+
+        var spec = string.IsNullOrEmpty(_selectedScreenId)
+            ? ScreenerSpec.Create("Quote screen", list.Id) with { Timeframe = _timeframe }
+            : Screeners.GetById(_selectedScreenId)! with { Timeframe = _timeframe };
+
+        _running = true;
+        _progressDone = 0;
+        _progressTotal = list.Entries.Count;
+        _progressSymbol = "";
+        _cts = new CancellationTokenSource();
+
+        var progress = new Progress<ScreenerProgress>(p =>
+        {
+            _progressDone = p.Completed;
+            _progressTotal = p.Total;
+            _progressSymbol = p.Symbol;
+            StateHasChanged();
+        });
+
+        try
+        {
+            _result = await Screener.RunAsync(spec, list.Entries, progress, _cts.Token);
+            string summary = $"{spec.Name}: {_result.MatchCount} matched of {_result.EvaluatedCount} evaluated";
+            if (_result.FailedCount > 0) summary += $", {_result.FailedCount} could not be evaluated";
+            _status = summary + ".";
+            Announce(_status);
+        }
+        catch (OperationCanceledException)
+        {
+            _status = "Screen cancelled.";
+            Announce(_status);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Screen failed: {ex.Message}";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void CancelRun() => _cts?.Cancel();
+
+    private IEnumerable<ScreenerRow> VisibleRows()
+    {
+        if (_result == null) return Array.Empty<ScreenerRow>();
+        if (!_matchesOnly) return _result.Rows;
+        // Failed rows always stay visible even in matches-only mode: hiding them would turn
+        // "we could not check 12 symbols" into a silent zero.
+        return _result.Rows.Where(r => r.Matched || r.Status != ScreenerRowStatus.Evaluated);
+    }
+
+    private static string FormatNumber(double v) =>
+        double.IsNaN(v) ? "—" : v.ToString("0.####");
+
+    private static string FormatScore(ScreenerRow row) =>
+        row.MaxScore > 0 ? $"{row.Score:0.##} of {row.MaxScore:0.##}" : "—";
+
+    private static string DescribeStatus(ScreenerRow row) => row.Status switch
+    {
+        ScreenerRowStatus.Evaluated => string.IsNullOrEmpty(row.Detail) ? "ok" : row.Detail!,
+        ScreenerRowStatus.InsufficientHistory => "not enough history",
+        _ => row.Detail ?? "failed",
+    };
+
+    private void Announce(string message)
+    {
+        _status = message;
+        EventBus.Publish(new AnnouncementEvent(message, true));
+    }
+
+    public override void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        base.Dispose();
+    }
+}

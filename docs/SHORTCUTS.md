@@ -252,6 +252,7 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
+| Alt+M | Market watch — watchlists and the screener |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
 | Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |
 

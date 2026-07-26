@@ -106,6 +106,10 @@
     @if (Demo.AllowWorkspaceSaveLoad) { <SaveWorkspaceModal /> <LoadWorkspaceModal /> }
     @* My Data import — hidden in the shared public demo (no per-visitor persistence). *@
     @if (!Demo.IsDemo)               { <MyDataModal /> }
+    @* Market watch (Alt+M) — watchlists + screener. Hidden in the shared public demo for
+       the same reason My Data is: no per-visitor persistence, and screens fan REST requests
+       out across the server's shared keys. *@
+    @if (!Demo.IsDemo)               { <WatchlistModal /> }
 
     @* ARIA LIVE DOUBLE BUFFER:
        Two assertive regions swap on each speech call so that identical strings are
