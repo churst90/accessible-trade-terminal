@@ -24,11 +24,17 @@ new keyless analytics provider.
   `NAV_SERIES_PREV` / `NAV_SERIES_NEXT`) so touch users can move between series, not
   just bars and components. Touch bar now wraps to a second row when needed.
 - **Sparse-signal components announce a count, not "no data".** Components like Cipher
-  B are almost all NaN between signals; landing on an empty cell said "no data", which
-  read as "this series is broken" even though Ctrl+←/→ still jumped between the lit
-  dots. Now: "N signals in view" (or "no signals in view"), counted across the
-  viewport. Only a genuinely absent/empty array still says "no data". Cipher B's own
-  markers are unchanged.
+  A/B/C are almost all NaN between signals; landing on an empty cell said "no data",
+  which read as "this series is broken" even though Ctrl+←/→ still jumped between the
+  lit dots. Now, an UP/DOWN landing leads with the name and how many signals are in the
+  visible window — "Buy Signal. 2 signals in view. …" — then the value at the bar you
+  actually landed on (the expanded template when a signal fired there, "no data" when it
+  didn't). LEFT/RIGHT scanning stays value-only so jumping between the lit dots reads
+  cleanly. The count is surfaced through a shared `SignalsInViewPhrase` helper regardless
+  of whether the value comes from `MarkerSignalStrategy` or a provider's own
+  `GetComponentSpeech` — the latter (Cipher A/B/C) short-circuited to "no data" on NaN
+  bars and so never spoke the count before. Only a genuinely absent/empty array still
+  says "no data".
 - **Gradient chart background (opt-in, default OFF).** Next to the solid background
   colour, Settings → Colors gains a "Gradient background" checkbox + a second
   ("bottom") colour; the chart fills top→bottom with a linear gradient. Audio-first

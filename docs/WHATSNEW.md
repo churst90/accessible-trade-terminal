@@ -134,7 +134,7 @@ If you're coming from an older release, these are the tent-poles of the 2.0 line
 The provider system got a shared foundation so quality stays put: shared signing and
 symbol-formatting helpers, structured error reporting, a **conformance test gate** every
 provider must pass, and a **build guard** that fails if two plugins ever pull conflicting
-library versions. The full test suite stands at **2,105 tests, all green**.
+library versions. The full test suite stands at **2,109 tests, all green**.
 
 ---
 
