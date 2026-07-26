@@ -82,7 +82,7 @@ namespace AccessibleTrader.Tests
             // previously announced as "Buy Signal at 0" because {price} routed
             // through F0. Now it carries real precision.
             string msg = FormatSignal(template: "{name} at {price}", value: 0.00003);
-            Assert.Equal("Buy Signal at 0.0000300", msg);
+            Assert.Equal("Buy Signal: Buy Signal at 0.0000300", msg);
         }
 
         [Fact]
@@ -91,7 +91,7 @@ namespace AccessibleTrader.Tests
             // Regression guard against over-correcting — BTC-class assets must
             // still say "50000.00", not "50000" or "50000.00000".
             string msg = FormatSignal(template: "{name} at {price}", value: 50_000.00);
-            Assert.Equal("Buy Signal at 50000.00", msg);
+            Assert.Equal("Buy Signal: Buy Signal at 50000.00", msg);
         }
 
         [Fact]
@@ -101,7 +101,7 @@ namespace AccessibleTrader.Tests
             // from $0.125 — the user can't trade a 2-tick difference if speech
             // rounds both to "0.12".
             string msg = FormatSignal(template: "{name} at {price}", value: 0.123);
-            Assert.Equal("Buy Signal at 0.123", msg);
+            Assert.Equal("Buy Signal: Buy Signal at 0.123", msg);
         }
 
         // ── StandardTemplate {value:price} token ─────────────────────────────
@@ -171,7 +171,7 @@ namespace AccessibleTrader.Tests
             buf.ComponentData["signal"] = new[] { value };
             var series = new ChartSeries(cfg, buf);
 
-            return FormatThroughSpeechFormatter(series);
+            return FormatThroughSpeechFormatter(series, isYMove: false);
         }
 
         private static string FormatStandardLine(string template, double value, bool isPriceSeries)
@@ -201,7 +201,11 @@ namespace AccessibleTrader.Tests
             return FormatThroughSpeechFormatter(series);
         }
 
-        private static string FormatThroughSpeechFormatter(ChartSeries series)
+        // Marker-signal tests scan (isYMove:false) so the output isolates the value at
+        // the bar — "DisplayName: <value>" — without the UP/DOWN landing count prefix,
+        // keeping the assertion focused on the {price} token. StandardTemplate (Line)
+        // tests use the default landing path; a Line component speaks no count either way.
+        private static string FormatThroughSpeechFormatter(ChartSeries series, bool isYMove = true)
         {
             var formatter = new SpeechFormatter();
             var pt = new Ohlcv(
@@ -221,7 +225,7 @@ namespace AccessibleTrader.Tests
                 LastInteractionContext = InteractionContext.Component,
             };
 
-            return formatter.FormatPointFeedback(state, isXMove: false, isYMove: true, series, pt, prefixMessage: "");
+            return formatter.FormatPointFeedback(state, isXMove: !isYMove, isYMove: isYMove, series, pt, prefixMessage: "");
         }
     }
 }

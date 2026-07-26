@@ -471,11 +471,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // so the user hears what they landed on; LEFT/RIGHT scans speak value only.
             if (!ctx.IsYMove) return speech;
 
-            string typeLabel = ComponentTypeLabel(ctx.Comp);
             string stateLabel = !ctx.Comp.IsVisible ? "Hidden. "
                               : ctx.Comp.IsMuted    ? "Muted. "
                               : "";
             string namePart = ctx.Comp.DisplayName ?? ctx.Comp.Name;
+
+            // Sparse signal-marker (Cipher dots etc.): on landing, lead with the name
+            // and HOW MANY signals are in the visible window, then the value at the bar
+            // you actually landed on (the provider says "no data" when this bar has no
+            // signal). The count stands in for the generic "Signal" type label, and
+            // Ctrl+Left/Right afterwards scans between the lit dots (value-only, above).
+            if (ctx.Comp.SignalSpeechTemplate != null
+                && AudioConstants.MarkerDisplayTypes.Contains(ctx.Comp.DisplayType))
+            {
+                string countPhrase = MarkerSignalStrategy.SignalsInViewPhrase(
+                    ctx.Series.GetComponentData(ctx.Comp.Name), ctx.ViewportStart, ctx.ViewportLength);
+                return string.IsNullOrEmpty(countPhrase)
+                    ? $"{namePart}. {stateLabel}{speech}"
+                    : $"{namePart}. {stateLabel}{countPhrase}. {speech}";
+            }
+
+            string typeLabel = ComponentTypeLabel(ctx.Comp);
             return string.IsNullOrEmpty(typeLabel)
                 ? $"{namePart}. {stateLabel}{speech}"
                 : $"{namePart}. {typeLabel}. {stateLabel}{speech}";
@@ -573,8 +589,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
     /// <summary>
     /// Marker components (Dot, Diamond, Cross, Arrow, Triangle*, Square) with a
-    /// configured <see cref="ComponentConfig.SignalSpeechTemplate"/>. Expands the
-    /// template when the signal fires; announces "no data" when it does not.
+    /// configured <see cref="ComponentConfig.SignalSpeechTemplate"/>. On UP/DOWN
+    /// landing, leads with how many signals are in the visible window; then, and on
+    /// LEFT/RIGHT scanning, speaks the value at the bar you actually landed on — the
+    /// template when a signal fired there, "no data" when it did not.
     /// </summary>
     internal sealed class MarkerSignalStrategy : IComponentSpeechStrategy
     {
@@ -584,28 +602,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public string Format(ComponentFormatContext ctx)
         {
-            if (double.IsNaN(ctx.Value))
-            {
-                // Sparse marker components (e.g. Cipher B dots) are NaN at most bars.
-                // "No data" is misleading when there ARE signals to jump to with
-                // Ctrl+Left/Right — report how many are in view instead.
-                int n = CountMarkersInView(ctx);
-                if (n < 0)  return $"{ctx.Comp.DisplayName}: no data";
-                if (n == 0) return $"{ctx.Comp.DisplayName}: no signals in view";
-                return $"{ctx.Comp.DisplayName}: {n} signal{(n == 1 ? "" : "s")} in view";
-            }
+            // Value AT the landed bar. Sparse markers are NaN at most bars → "no data"
+            // there is correct (this bar has no signal); a fired bar expands the template.
             // Magnitude-aware formatting — sub-cent assets (SHIB, PEPE, KAS) would collapse
-            // to "0" under F0. SpeechPriceFormatter picks precision from the value's scale
-            // and always carries ~3 significant digits.
-            string priceStr = SpeechPriceFormatter.FormatPrice(ctx.Value);
-            return ctx.Comp.SignalSpeechTemplate!
-                .Replace("{price}", priceStr)
-                .Replace("{name}", ctx.Comp.DisplayName);
+            // to "0" under F0. SpeechPriceFormatter carries ~3 significant digits.
+            string value = double.IsNaN(ctx.Value)
+                ? "no data"
+                : ctx.Comp.SignalSpeechTemplate!
+                    .Replace("{price}", SpeechPriceFormatter.FormatPrice(ctx.Value))
+                    .Replace("{name}", ctx.Comp.DisplayName);
+
+            // LEFT/RIGHT scan: just the value at this bar. UP/DOWN landing: lead with the
+            // name + "N signals in view" so the user knows there ARE signals to jump to
+            // with Ctrl+Left/Right, then the value at the bar they actually landed on.
+            if (!ctx.IsYMove)
+                return $"{ctx.Comp.DisplayName}: {value}";
+
+            string countPhrase = SignalsInViewPhrase(
+                ctx.Series.GetComponentData(ctx.Comp.Name), ctx.ViewportStart, ctx.ViewportLength);
+            return string.IsNullOrEmpty(countPhrase)
+                ? $"{ctx.Comp.DisplayName}: {value}"
+                : $"{ctx.Comp.DisplayName}. {countPhrase}. {value}";
         }
 
         /// <summary>Counts non-NaN marker points within the visible viewport (whole
         /// array when the viewport is unknown). Returns -1 when the component has no
-        /// data at all, so the caller can fall back to "no data".</summary>
+        /// data at all.</summary>
         internal static int CountMarkersInView(double[]? data, int viewportStart, int viewportLength)
         {
             if (data == null || data.Length == 0) return -1;
@@ -617,8 +639,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return count;
         }
 
-        private static int CountMarkersInView(ComponentFormatContext ctx) =>
-            CountMarkersInView(ctx.Series.GetComponentData(ctx.Comp.Name), ctx.ViewportStart, ctx.ViewportLength);
+        /// <summary>"N signals in view" / "no signals in view" for the landing
+        /// announcement, or "" when the component has no data at all (so the caller
+        /// just speaks the value). Viewport unknown → counts the whole array.</summary>
+        internal static string SignalsInViewPhrase(double[]? data, int viewportStart, int viewportLength)
+        {
+            int n = CountMarkersInView(data, viewportStart, viewportLength);
+            if (n < 0)  return "";
+            if (n == 0) return "no signals in view";
+            return $"{n} signal{(n == 1 ? "" : "s")} in view";
+        }
     }
 
     /// <summary>

@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -151,45 +155,60 @@ namespace AccessibleTrader.Tests
         // ── Strategy 4: MarkerSignalStrategy ──────────────────────────────────
 
         [Fact]
-        public void Dispatch_MarkerWithSignalTemplate_ExpandsTokens()
+        public void Dispatch_MarkerWithSignalTemplate_XScan_SpeaksValueOnly()
         {
-            // DisplayType=Dot + SignalSpeechTemplate set → template wins over the generic
-            // SpeechTemplate. {name} = DisplayName; {price} routes through
-            // SpeechPriceFormatter so sub-cent assets don't collapse to "0". At 12345.67
-            // the formatter keeps 2 decimals (dollar-scale magnitude).
+            // LEFT/RIGHT scan (isYMove:false) onto a FIRED bar → the value at this bar,
+            // no count. {price} routes through SpeechPriceFormatter so sub-cent assets
+            // don't collapse to "0"; at 12345.67 it keeps 2 decimals.
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "buy";
                 c.DisplayName = "Buy Signal";
                 c.DisplayType = ComponentDisplayType.Dot;
                 c.IsVisible = true;
-                c.SignalSpeechTemplate = "{name} at {price}";
+                c.SignalSpeechTemplate = "cross up at {price}";
             }, values: new[] { 12345.67 });
 
-            var msg = Format(series, focusedCompIndex: 0);
-            Assert.Equal("Buy Signal at 12345.67", msg);
+            var msg = Format(series, focusedCompIndex: 0, isYMove: false);
+            Assert.Equal("Buy Signal: cross up at 12345.67", msg);
         }
 
         [Fact]
-        public void Dispatch_MarkerWithSignalTemplate_NaNValue_ReturnsNoSignalsInView()
+        public void Dispatch_MarkerWithSignalTemplate_Landing_LeadsWithSignalsInView_ThenLandedValue()
         {
-            // Marker sitting on a bar with no signal, but the component HAS data
-            // (the array exists, this cell is just NaN) → "no signals in view", not
-            // "no data". Sparse-signal components like Cipher B are almost all NaN;
-            // "no data" wrongly told the user the series was empty when Ctrl+←/→ can
-            // still jump between the few lit dots. Only a truly absent/empty array
-            // says "no data" now.
+            // UP/DOWN landing on the component: name + "N signals in view" (so the user
+            // knows there ARE dots to jump to with Ctrl+←/→), then the value at the bar
+            // actually landed on. Here five bars hold two lit signals and the cursor is on
+            // a NaN (empty) bar → "Buy Signal. 2 signals in view. no data."
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "buy";
                 c.DisplayName = "Buy Signal";
                 c.DisplayType = ComponentDisplayType.Dot;
                 c.IsVisible = true;
-                c.SignalSpeechTemplate = "{name} at {price}";
-            }, values: new[] { double.NaN });
+                c.SignalSpeechTemplate = "cross up at {price}";
+            }, values: new[] { double.NaN, 100.0, double.NaN, double.NaN, 200.0 });
 
-            var msg = Format(series, focusedCompIndex: 0);
-            Assert.Equal("Buy Signal: no signals in view", msg);
+            var msg = Format(series, focusedCompIndex: 0, isYMove: true, viewportStart: 0, viewportLength: 5);
+            Assert.Equal("Buy Signal. 2 signals in view. no data", msg);
+        }
+
+        [Fact]
+        public void Dispatch_MarkerWithSignalTemplate_Landing_OnFiredBar_LeadsWithCount_ThenSignal()
+        {
+            // Same landing, but the cursor is ON one of the two lit bars → the value part
+            // is the expanded template, not "no data".
+            var series = SingleComponent(out var comp, c =>
+            {
+                c.Name = "buy";
+                c.DisplayName = "Buy Signal";
+                c.DisplayType = ComponentDisplayType.Dot;
+                c.IsVisible = true;
+                c.SignalSpeechTemplate = "cross up at {price}";
+            }, values: new[] { 100.0, double.NaN, 200.0 });
+
+            var msg = Format(series, focusedCompIndex: 0, isYMove: true, viewportStart: 0, viewportLength: 3);
+            Assert.Equal("Buy Signal. 2 signals in view. cross up at 100.00", msg);
         }
 
         [Fact]
@@ -276,7 +295,116 @@ namespace AccessibleTrader.Tests
         /// FormatTemplateValue. Disables timestamps so the assertion compares only the
         /// strategy's output.
         /// </summary>
-        private static string Format(ChartSeries series, int focusedCompIndex, Ohlcv? point = null, string speechOrder = "HeaderValue")
+        // ── Regression: provider-backed sparse markers (Cipher A/B/C) ─────────
+        //
+        // The real bug Cody hit on the web demo: Cipher A/B/C implement their own
+        // GetComponentSpeech that returns "no data" on a NaN bar. That runs as
+        // ProviderSpeechStrategy (#1), ahead of MarkerSignalStrategy (#5), so the
+        // count was never spoken for an actual indicator. The desired behaviour:
+        // UP/DOWN landing → "Name. N signals in view. <value at the landed bar>";
+        // LEFT/RIGHT scan → just the value at that bar (no count).
+
+        [Fact]
+        public void Dispatch_ProviderBackedMarker_Landing_OnEmptyBar_LeadsWithCount_ThenNoData()
+        {
+            // A Cipher-like provider that (like the real ones) says "no data" on NaN.
+            var provider = Substitute.For<IIndicatorProvider>();
+            provider.GetComponentSpeech(Arg.Any<string>(), Arg.Any<double>(), Arg.Any<Ohlcv>(),
+                    Arg.Any<IReadOnlyDictionary<string, double[]>>(), Arg.Any<int>())
+                .Returns("no data");
+            var engine = Substitute.For<IIndicatorEngine>();
+            engine.GetProvider(Arg.Any<string>()).Returns(provider);
+
+            // A sparse signal dot: two lit signals across five bars, cursor on a NaN bar.
+            var series = CipherLikeMarker(new[] { double.NaN, 12.0, double.NaN, double.NaN, 40.0 });
+
+            var msg = FormatWithEngine(series, engine, currentIndex: 0, viewportStart: 0, viewportLength: 5, barCount: 5, isYMove: true);
+
+            // Count of what's in view, then the value at the (empty) landed bar.
+            Assert.Equal("Oversold Crossover. 2 signals in view. no data", msg);
+        }
+
+        [Fact]
+        public void Dispatch_ProviderBackedMarker_Landing_OnFiredBar_LeadsWithCount_ThenSignal()
+        {
+            // Landing directly on a lit bar → count, then the provider's rich narrative.
+            var provider = Substitute.For<IIndicatorProvider>();
+            provider.GetComponentSpeech(Arg.Any<string>(), Arg.Any<double>(), Arg.Any<Ohlcv>(),
+                    Arg.Any<IReadOnlyDictionary<string, double[]>>(), Arg.Any<int>())
+                .Returns("Oversold crossover at -62.3, price 84,500");
+            var engine = Substitute.For<IIndicatorEngine>();
+            engine.GetProvider(Arg.Any<string>()).Returns(provider);
+
+            var series = CipherLikeMarker(new[] { 12.0, double.NaN });
+
+            var msg = FormatWithEngine(series, engine, currentIndex: 0, viewportStart: 0, viewportLength: 2, barCount: 2, isYMove: true);
+
+            Assert.Equal("Oversold Crossover. 1 signal in view. Oversold crossover at -62.3, price 84,500", msg);
+        }
+
+        [Fact]
+        public void Dispatch_ProviderBackedMarker_XScan_SpeaksValueOnly_NoCount()
+        {
+            // LEFT/RIGHT scanning between the dots → just the value at each bar, no count
+            // (the count is a landing-only announcement).
+            var provider = Substitute.For<IIndicatorProvider>();
+            provider.GetComponentSpeech(Arg.Any<string>(), Arg.Any<double>(), Arg.Any<Ohlcv>(),
+                    Arg.Any<IReadOnlyDictionary<string, double[]>>(), Arg.Any<int>())
+                .Returns("no data");
+            var engine = Substitute.For<IIndicatorEngine>();
+            engine.GetProvider(Arg.Any<string>()).Returns(provider);
+
+            var series = CipherLikeMarker(new[] { double.NaN, 12.0, double.NaN, double.NaN, 40.0 });
+
+            var msg = FormatWithEngine(series, engine, currentIndex: 2, viewportStart: 0, viewportLength: 5, barCount: 5, isYMove: false);
+
+            Assert.Equal("no data", msg);
+        }
+
+        private static ChartSeries CipherLikeMarker(double[] markerData)
+        {
+            var cfg = new SeriesConfig { Id = "cipherb", Name = "Cipher B", IndicatorCode = "CIPHERB", Pane = "Sub" };
+            cfg.Components.Add(new ComponentConfig
+            {
+                Name = "Oversold Crossover",
+                DisplayName = "Oversold Crossover",
+                DisplayType = ComponentDisplayType.Dot,
+                IsVisible = true,
+                SignalSpeechTemplate = "Oversold crossover, long signal",
+            });
+            var buf = new SeriesDataBuffer { SeriesId = "cipherb" };
+            buf.ComponentData["Oversold Crossover"] = markerData;
+            return new ChartSeries(cfg, buf);
+        }
+
+        private static string FormatWithEngine(ChartSeries series, IIndicatorEngine engine,
+            int currentIndex, int viewportStart, int viewportLength, int barCount, bool isYMove = true)
+        {
+            var formatter = new SpeechFormatter(NullLogger<SpeechFormatter>.Instance, engine);
+            var bars = new List<Ohlcv>();
+            for (int i = 0; i < barCount; i++) bars.Add(OhlcvAt(i, close: 100 + i));
+            var pt = bars[Math.Clamp(currentIndex, 0, barCount - 1)];
+
+            var state = WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(bars),
+                CurrentDataIndex = currentIndex,
+                ActiveSeries = ImmutableList.Create(series),
+                FocusedSeriesId = series.Id,
+                FocusedComponentIndex = 0,
+                ReadColumnHeaders = true,
+                SpeechOrder = "HeaderValue",
+                SpeakTimestamps = false,
+                LastInteractionContext = InteractionContext.Component,
+                ViewportStartIndex = viewportStart,
+                ViewportLength = viewportLength,
+            };
+
+            return formatter.FormatPointFeedback(state, isXMove: !isYMove, isYMove: isYMove, series, pt, prefixMessage: "");
+        }
+
+        private static string Format(ChartSeries series, int focusedCompIndex, Ohlcv? point = null,
+            string speechOrder = "HeaderValue", bool isYMove = true, int viewportStart = 0, int viewportLength = 0)
         {
             var formatter = new SpeechFormatter();
             var pt = point ?? OhlcvAt(0, close: 100);
@@ -292,9 +420,11 @@ namespace AccessibleTrader.Tests
                 SpeechOrder = speechOrder,
                 SpeakTimestamps = false,
                 LastInteractionContext = InteractionContext.Component,
+                ViewportStartIndex = viewportStart,
+                ViewportLength = viewportLength,
             };
 
-            return formatter.FormatPointFeedback(state, isXMove: false, isYMove: true, series, pt, prefixMessage: "");
+            return formatter.FormatPointFeedback(state, isXMove: !isYMove, isYMove: isYMove, series, pt, prefixMessage: "");
         }
 
         private static ChartSeries SingleComponent(out ComponentConfig comp, Action<ComponentConfig> configure, double[] values)
