@@ -66,13 +66,40 @@ namespace AccessibleTrader.Core.Services.Analysis
         public static RespectOptions Default { get; } = new();
     }
 
+    /// <summary>
+    /// How price interacted with a line on one touch. The three-way split — rather than a plain
+    /// held/broke bool — is the "monodirectional interaction" taxonomy Cosasverdes teaches, and
+    /// it is worth keeping distinct because the middle case is the one everybody's mental model
+    /// gets wrong: a wick through a level followed by a reclaim is the level WORKING.
+    /// </summary>
+    public enum InteractionKind
+    {
+        /// <summary>Passed straight through with no meaningful reaction. Worth 0.</summary>
+        Through,
+        /// <summary>Penetrated the line, then reclaimed it and reacted away — a sweep. Worth 1.</summary>
+        Reclaim,
+        /// <summary>Came to the line and rejected without penetrating it at all. Worth 2.</summary>
+        Ricochet
+    }
+
     /// <summary>One counted interaction between price and a line.</summary>
     /// <param name="BarIndex">Bar at which the touch was detected.</param>
     /// <param name="Time">That bar's timestamp.</param>
     /// <param name="FromAbove">True when price approached the line from above (testing it as support).</param>
     /// <param name="Held">True when price reacted away without closing decisively through.</param>
     /// <param name="ReactionAtr">Maximum move away from the line within the window, in ATR.</param>
-    public record LineTouch(int BarIndex, DateTime Time, bool FromAbove, bool Held, double ReactionAtr);
+    /// <param name="Kind">Ricochet / reclaim / through.</param>
+    public record LineTouch(int BarIndex, DateTime Time, bool FromAbove, bool Held, double ReactionAtr,
+        InteractionKind Kind = InteractionKind.Through)
+    {
+        /// <summary>Ricochet 2, reclaim 1, through 0.</summary>
+        public int Points => Kind switch
+        {
+            InteractionKind.Ricochet => 2,
+            InteractionKind.Reclaim => 1,
+            _ => 0
+        };
+    }
 
     /// <summary>
     /// How well one line was respected over the measured history.
@@ -105,6 +132,27 @@ namespace AccessibleTrader.Core.Services.Analysis
         double DistanceAtr,
         IReadOnlyList<LineTouch> TouchDetail)
     {
+        /// <summary>Clean rejections that never penetrated the line (2 points each).</summary>
+        public int Ricochets { get { int n = 0; foreach (var t in TouchDetail) if (t.Kind == InteractionKind.Ricochet) n++; return n; } }
+
+        /// <summary>Penetrate-then-reclaim sweeps (1 point each).</summary>
+        public int Reclaims { get { int n = 0; foreach (var t in TouchDetail) if (t.Kind == InteractionKind.Reclaim) n++; return n; } }
+
+        /// <summary>
+        /// Mean interaction points per touch, 0..2. A line price merely drifts through scores near
+        /// 0; one price genuinely defends scores near 2. NaN with no touches.
+        /// </summary>
+        public double MeanPoints
+        {
+            get
+            {
+                if (TouchDetail.Count == 0) return double.NaN;
+                int total = 0;
+                foreach (var t in TouchDetail) total += t.Points;
+                return (double)total / TouchDetail.Count;
+            }
+        }
+
         /// <summary>
         /// True when the sample is large enough for the hold rate to mean anything. A 100% hold
         /// rate on two touches is noise, and presenting it beside a 71% rate on 34 touches would

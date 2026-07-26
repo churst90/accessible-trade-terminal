@@ -136,6 +136,51 @@ namespace AccessibleTrader.Tests
             Assert.Equal(-1, stats.BarsSinceLastTouch);
         }
 
+        // ── Interaction taxonomy (Cosasverdes 2/1/0) ──────────────────────────
+
+        [Fact]
+        public void CleanRejectionWithoutPenetration_IsARicochet_Worth2()
+        {
+            var bars = Filler(30, 110);
+            // Low stops AT 100.2 — inside the touch tolerance but never through the line.
+            bars.Add(Bar(30, 110, 111, 100.2, 110));
+            for (int i = 31; i < 40; i++) bars.Add(Bar(i, 112, 118, 111, 117));
+
+            var stats = Single(bars, Flat(100, bars.Count));
+
+            Assert.Equal(1, stats.Ricochets);
+            Assert.Equal(0, stats.Reclaims);
+            Assert.Equal(2.0, stats.MeanPoints);
+        }
+
+        [Fact]
+        public void PenetrateThenReclaim_IsAReclaim_Worth1()
+        {
+            var bars = Filler(30, 110);
+            bars.Add(Bar(30, 110, 111, 99, 110));   // wick pierces 100, close rejects
+            for (int i = 31; i < 40; i++) bars.Add(Bar(i, 112, 118, 111, 117));
+
+            var stats = Single(bars, Flat(100, bars.Count));
+
+            Assert.Equal(0, stats.Ricochets);
+            Assert.Equal(1, stats.Reclaims);
+            Assert.Equal(1.0, stats.MeanPoints);
+        }
+
+        [Fact]
+        public void PassingStraightThrough_ScoresZero()
+        {
+            var bars = Filler(30, 110);
+            bars.Add(Bar(30, 110, 111, 99, 100));
+            for (int i = 31; i < 40; i++) bars.Add(Bar(i, 95, 96, 88, 90));
+
+            var stats = Single(bars, Flat(100, bars.Count));
+
+            Assert.Equal(0, stats.Ricochets);
+            Assert.Equal(0, stats.Reclaims);
+            Assert.Equal(0.0, stats.MeanPoints);
+        }
+
         // ── Reporting ─────────────────────────────────────────────────────────
 
         [Fact]

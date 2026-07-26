@@ -42,6 +42,22 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
+        "respect" => await RespectCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var sg) ? sg : 30),
+        "origin" => await OriginLineCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var og) ? og : 30),
+        "origin-oos" => await OriginLineCommand.RunHoldoutAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var oo) ? oo : 40,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--fit"), out var ff) ? ff : 0.6),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

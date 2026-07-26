@@ -83,7 +83,17 @@ namespace AccessibleTrader.Core.Services.Analysis
                 bool fromAbove = prevClose > line;
 
                 var (held, reactionAtr) = ResolveOutcome(bars, atr, candidate.Values, i, fromAbove, opts);
-                touches.Add(new LineTouch(i, bar.Date, fromAbove, held, reactionAtr));
+
+                // Cosasverdes' three-way taxonomy. Penetration is judged on the WICK: whether the
+                // bar traded through the line at all, regardless of where it closed. A touch that
+                // never penetrated and still rejected is the clean ricochet (2); one that
+                // penetrated and was reclaimed is the sweep (1); anything that broke is 0.
+                bool penetrated = fromAbove ? bar.Low < line : bar.High > line;
+                var kind = !held ? InteractionKind.Through
+                    : penetrated ? InteractionKind.Reclaim
+                    : InteractionKind.Ricochet;
+
+                touches.Add(new LineTouch(i, bar.Date, fromAbove, held, reactionAtr, kind));
                 lastCountedBar = i;
             }
 
