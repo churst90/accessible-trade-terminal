@@ -179,7 +179,15 @@ namespace AccessibleTrader.Sdk.Models
         /// the user hears "Fear and Greed Index, 47" instead of "Price, 47".
         /// Empty string until the first load completes.
         /// </summary>
-        string SymbolDisplayName = ""
+        string SymbolDisplayName = "",
+        /// <summary>
+        /// True while bar replay is revealing history one bar at a time. Live data dispatches
+        /// are suppressed for the duration — otherwise the next incoming tick would overwrite
+        /// the replay prefix with the full series and end the exercise without warning.
+        /// Distinct from <see cref="IsBacktesting"/>: replay is an interactive user mode with
+        /// full speech and sonification, not an offline strategy loop.
+        /// </summary>
+        bool IsReplaying = false
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -309,6 +317,8 @@ namespace AccessibleTrader.Sdk.Models
     public record UpdateSettingsAction(Func<WorkspaceState, WorkspaceState> Updater) : WorkspaceAction;
     public record RequestInitializationStatusAction(InitializationStatus Status) : WorkspaceAction;
     public record SetDataStatusAction(DataStatus Status) : WorkspaceAction;
+    /// <summary>Enters or leaves bar-replay mode. See <see cref="WorkspaceState.IsReplaying"/>.</summary>
+    public record SetReplayModeAction(bool Active) : WorkspaceAction;
     /// <summary>Adjusts the chart-level (master) sonification volume by <paramref name="Delta"/>.</summary>
     public record AdjustChartVolumeAction(string Target, float Delta) : WorkspaceAction;
     public record AdjustVolumeAction(string? SeriesId, string? ComponentName, float Delta) : WorkspaceAction;

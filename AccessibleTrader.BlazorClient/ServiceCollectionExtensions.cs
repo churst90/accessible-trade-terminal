@@ -387,6 +387,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
             services.AddSingleton<IMaRespectRanker, MaRespectRanker>();
             services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
+            services.AddSingleton<IReplayService, ReplayService>();
 
             // Alert delivery channels — SMTP + Telegram external dispatchers. The
             // AlertDeliveryService subscribes to AlertFiredEvent and fans out to every

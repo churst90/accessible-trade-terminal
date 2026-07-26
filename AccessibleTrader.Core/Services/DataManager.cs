@@ -83,6 +83,11 @@ namespace AccessibleTrader.Core.Services
         {
             if (kind is FeedUpdateKind.LiveAppend or FeedUpdateKind.LiveReplace)
             {
+                // Bar replay owns the store's data buffer while it runs. Pushing a live tick
+                // here would replace the revealed prefix with the full series and silently end
+                // the exercise — the feed keeps buffering, and StopAsync restores from it.
+                if (_store.State.IsReplaying) return;
+
                 var bars = feed.Bars;
                 // Diagnostic (Debug) for "the title price sometimes stops updating": these lines
                 // mean the FOCUSED feed IS pushing live closes to the store. If they keep coming

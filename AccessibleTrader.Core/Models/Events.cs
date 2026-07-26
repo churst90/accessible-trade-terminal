@@ -147,6 +147,16 @@ namespace AccessibleTrader.Core.Models
     public record OpenWatchlistEvent();
     /// <summary>Alt+R — open the respect report (ranked levels and moving averages).</summary>
     public record OpenLevelReportEvent();
+
+    /// <summary>Bar-replay transport verbs.</summary>
+    public enum ReplayCommand { Toggle, StepForward, StepBack, PlayPause }
+
+    /// <summary>
+    /// One-shot replay transport command. Goes over the EventBus rather than a direct call so
+    /// <c>CommandDispatcher</c> keeps no dependency on the replay service — the same routing
+    /// rule every other keyboard-driven feature follows.
+    /// </summary>
+    public record ReplayCommandEvent(ReplayCommand Command);
     /// <summary>Keyboard-driven "Load chart" (Ctrl+Alt+Shift+L) — the Toolbar owns the
     /// selection state and pre-flight warning, so the dispatcher just asks it to load.</summary>
     public record LoadChartRequestedEvent();

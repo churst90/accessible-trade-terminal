@@ -96,6 +96,11 @@ namespace AccessibleTrader.Core.Services
             _services.GetRequiredService<IHistoryBufferCoordinator>();
             _services.GetRequiredService<IAccessibilityFeedbackCoordinator>();
 
+            // Bar replay listens for its transport keys on the EventBus, so it must be
+            // constructed at startup — nothing else resolves it until the user presses a key,
+            // and by then the subscription would not exist to handle that very key.
+            _services.GetService<Analysis.IReplayService>();
+
             // 5. Workspace Initializer — resolve so it's available for chart load and
             //    workspace restore, but do NOT seed default series on boot.
             //    The app launches with a blank workspace; series are created when the

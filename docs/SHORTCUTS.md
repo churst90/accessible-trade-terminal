@@ -91,6 +91,21 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 ---
 
+## Bar Replay
+
+Reveals loaded history one bar at a time so you can practise reading a market forward,
+without hindsight. Live updates are suspended while replay runs and the full series is
+restored when you stop.
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+P | Start replay at the cursor bar / stop replay and restore full history |
+| F9 | Reveal the next bar |
+| Shift+F9 | Hide the last revealed bar |
+| F8 | Play / pause auto-advance |
+
+---
+
 ## Playback
 
 | Key | Action | Notes |

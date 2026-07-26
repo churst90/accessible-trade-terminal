@@ -350,6 +350,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
             services.AddScoped<IMaRespectRanker, MaRespectRanker>();
             services.AddScoped<ILevelProvenanceService, LevelProvenanceService>();
+            services.AddScoped<IReplayService, ReplayService>();
 
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(

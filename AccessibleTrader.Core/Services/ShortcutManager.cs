@@ -354,6 +354,12 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenSoundDesigner, "W",     Alt: true)); // Alt+W
             s.Add(new(SystemCommand.OpenWatchlist,     "M",     Alt: true)); // Alt+M: market watch (watchlists + screener)
             s.Add(new(SystemCommand.OpenLevelReport,   "R",     Alt: true)); // Alt+R: respect report (ranked levels + MAs)
+
+            // Bar replay — practise reading a market forward without hindsight.
+            s.Add(new(SystemCommand.ReplayToggle,      "P",  Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+P
+            s.Add(new(SystemCommand.ReplayStepForward, "F9"));                                     // F9
+            s.Add(new(SystemCommand.ReplayStepBack,    "F9", Shift: true));                        // Shift+F9
+            s.Add(new(SystemCommand.ReplayPlayPause,   "F8"));                                     // F8
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
