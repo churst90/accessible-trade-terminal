@@ -6,6 +6,26 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Post-2.0 polish batch (2026-07-26)
+
+Accessibility fixes surfaced in live use, plus one new provider.
+
+- [x] **Accessible mobile drawing.** Touch-only users can now complete multi-point
+  drawings: `PlaceDrawingAnchorEvent` → `DrawingInteractionManager.PlaceAnchorAtCursor`
+  drops an anchor at the cursor, driven by a new "Place drawing point" touch button.
+- [x] **Touch bar: previous/next series** buttons (Page Up/Down equivalents).
+- [x] **Sparse-signal speech.** Marker components with a NaN cell but real data now say
+  "N signals in view" / "no signals in view" instead of "no data" (which read as a
+  broken series). Truly empty/absent arrays still say "no data". Cipher B unchanged.
+- [x] **Gradient chart background** (opt-in, default OFF) in Settings → Colors: second
+  bottom colour + `SKShader` linear fill. Plus a cloud-fill crossover gap fix (shared
+  interpolated apex at each bull/bear flip).
+- [x] **Deribit analytics provider** (keyless): DVOL volatility index (crypto VIX,
+  OHLC) + realised volatility for BTC/ETH — the terminal's first crypto-options window.
+- [ ] **CoinGlass + extra trading brokers (Tastytrade / Bybit / Kraken Futures /
+  Databento).** Deferred — key-gated or money-path APIs that can't be verified
+  read-only; revisit when accounts/keys are available to test against.
+
 ## Provider system — quality pass (2026-07-24 → 07-25)
 
 Read-only audit of all providers turned into fixes; then the direct-API/SDK work.

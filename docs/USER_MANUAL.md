@@ -506,9 +506,14 @@ same place the keyboard navigates, announced through the same speech pipeline:
 
 On touch devices a **navigation toolbar** also appears below the chart with large,
 plainly-labelled buttons — Previous bar, Next bar, Previous component, Next component,
-Play, and Chart menu. If a gesture ever misbehaves, the buttons always work, and they
-are the most reliable way to drive the chart with VoiceOver or TalkBack running (swipe
-to the button, double-tap to press).
+Previous series, Next series, Place drawing point, Play, and Chart menu. If a gesture
+ever misbehaves, the buttons always work, and they are the most reliable way to drive
+the chart with VoiceOver or TalkBack running (swipe to the button, double-tap to
+press). Previous/Next series are the touch equivalents of Page Up/Down, so you can move
+between loaded series without a keyboard. **Place drawing point** is what makes drawing
+tools usable by touch alone: arm a tool from the chart menu's Drawing Tools, move the
+cursor with the bar buttons or a tap, then press Place drawing point to drop each
+anchor — no keyboard shortcut needed. It speaks a hint if no tool is armed.
 
 **With a mobile screen reader**, the screen reader owns the touchscreen, so the chart
 also offers a **bar navigator** — announced as "Bar navigator" just before the chart.
@@ -705,6 +710,13 @@ press it once more, and the line completes: "Trend line placed from {price} to
 Risk/Reward — simply take a third press. Single-anchor tools — a horizontal price
 line, a vertical time marker, a text label, an anchored VWAP — finish on the first
 press, placing immediately at the cursor.
+
+On a **touchscreen with no keyboard**, arm the tool from the chart menu's Drawing
+Tools, then use the touch toolbar's **Place drawing point** button in place of the
+shortcut: move the cursor with the bar buttons (or tap a bar) and press Place drawing
+point once per anchor. Re-pressing it advances through the same tool's anchors exactly
+as re-pressing the shortcut would, so a trend line, channel, or any multi-anchor tool
+completes entirely by touch.
 
 > **Linux web host:** every `Ctrl+Shift+<letter>` drawing chord becomes
 > `Alt+Shift+<letter>` in the browser, because the browser reserves the Ctrl+Shift
@@ -1537,6 +1549,12 @@ and saves the moment you toggle it:
   overrides any per-indicator direction colours so one switch covers the whole chart.
 - **Hollow up-candles** draws rising candles as outlines and falling candles filled,
   making direction readable by shape alone, with any colours.
+
+The Colors group also lets you set the chart's **background colour**, and — new — turn
+on a **Gradient background**: tick it and a second ("bottom") colour picker appears, so
+the chart pane fills top-to-bottom with a smooth blend between the two colours instead
+of a flat fill. Like everything else here it is a purely cosmetic, opt-in preference —
+off by default, and it never touches speech or sonification.
 
 The same group holds a **Text size** selector (85% to 175%) that scales the
 interface text throughout the terminal — browser zoom still works on top of it. And

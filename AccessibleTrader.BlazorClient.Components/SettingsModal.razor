@@ -445,16 +445,38 @@
                     <legend style="font-weight:700; color:#111; padding:0 6px;">Colors</legend>
 
                     <div class="modal-row">
-                        <label for="s-bg-color">Background color</label>
+                        <label for="s-bg-color">Background color@(_backgroundGradient ? " (top)" : "")</label>
                         <input id="s-bg-color" type="color"
                                value="@_backgroundColor"
                                @onchange="OnBackgroundColorChanged"
-                               aria-label="Chart background color" />
+                               aria-label="Chart background color@(_backgroundGradient ? " (top of gradient)" : "")" />
                         <button @onclick="ResetBackgroundColor"
                                 aria-label="Reset background color to theme default">
                             Reset to theme default
                         </button>
                     </div>
+
+                    <div class="modal-row">
+                        <label for="s-bg-gradient">Gradient background</label>
+                        <input id="s-bg-gradient" type="checkbox"
+                               checked="@_backgroundGradient"
+                               @onchange="OnBackgroundGradientChanged"
+                               aria-label="Use a gradient background instead of a solid color" />
+                    </div>
+                    @if (_backgroundGradient)
+                    {
+                        <div class="modal-row">
+                            <label for="s-bg-color2">Background color (bottom)</label>
+                            <input id="s-bg-color2" type="color"
+                                   value="@_backgroundColor2"
+                                   @onchange="OnBackgroundColor2Changed"
+                                   aria-label="Chart background gradient bottom color" />
+                        </div>
+                    }
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Cosmetic (audio-first users can ignore it). When gradient is on, the
+                        background fades vertically from the top color to the bottom color.
+                    </p>
 
                 </fieldset>
 
@@ -964,6 +986,8 @@
     private bool _hollowUpCandles;
     private int _uiScale = 100;
     private string _backgroundColor = "#000000";
+    private bool   _backgroundGradient;
+    private string _backgroundColor2 = "#1a1a2e";
     private string _candleUpColor   = "#00cc44";
     private string _candleDownColor = "#cc2200";
     private string _selectedTheme   = "HighContrastDark";
@@ -1086,6 +1110,29 @@
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             "Chart background color changed.", true));
+    }
+
+    private void OnBackgroundGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _backgroundGradient = e.Value is bool b ? b : _backgroundGradient;
+        Settings.SetSetting(Core.Services.SettingsKeys.BackgroundGradient, _backgroundGradient);
+        // Seed a bottom color the first time so the effect is visible immediately.
+        if (_backgroundGradient && Settings.GetSetting(Core.Services.SettingsKeys.BackgroundColor2) == null)
+            Settings.SetSetting(Core.Services.SettingsKeys.BackgroundColor2, _backgroundColor2);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _backgroundGradient ? "Gradient background on." : "Gradient background off.", true));
+    }
+
+    private void OnBackgroundColor2Changed(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _backgroundColor2 = e.Value?.ToString() ?? _backgroundColor2;
+        Settings.SetSetting(Core.Services.SettingsKeys.BackgroundColor2, _backgroundColor2);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
     }
 
     private void ResetBackgroundColor()
@@ -1306,6 +1353,8 @@
         _hollowUpCandles = App.HollowUpCandles;
         _uiScale         = App.UiScale;
         _backgroundColor = SkColorToHex(ThemeService.Current.Background);
+        _backgroundGradient = Settings.GetSetting(Core.Services.SettingsKeys.BackgroundGradient)?.ToObject<bool>() ?? false;
+        _backgroundColor2 = Settings.GetSetting(Core.Services.SettingsKeys.BackgroundColor2)?.ToString() ?? _backgroundColor2;
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
         _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
         _selectedTheme   = ThemeService.Current.ThemeType.ToString();

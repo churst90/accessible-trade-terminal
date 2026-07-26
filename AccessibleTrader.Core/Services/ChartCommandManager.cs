@@ -241,6 +241,16 @@ namespace AccessibleTrader.Core.Services
                     _logger?.LogError(ex, "[ChartCommandManager] AddDrawingEvent error");
                 }
             }));
+            _subscriptions.Add(_eventBus.Subscribe<PlaceDrawingAnchorEvent>(_ => {
+                try
+                {
+                    _drawingManager.PlaceAnchorAtCursor(_dataManager.Data);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "[ChartCommandManager] PlaceDrawingAnchorEvent error");
+                }
+            }));
         }
 
         public void Dispose() => _subscriptions.Dispose();

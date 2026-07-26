@@ -10,6 +10,39 @@ The 2.0 release. Everything below (Tier 2 → Tier 1 → foundations) is the 2.0
 newest first. Non-breaking: 1.x workspaces, strategies, alerts, and API keys load
 unchanged.
 
+### Touch drawing, gradient background, sparse-signal speech, Deribit vol (2026-07-26)
+
+A post-2.0 polish batch — mostly accessibility fixes surfaced in live use, plus a
+new keyless analytics provider.
+
+- **Accessible mobile drawing.** A touch-only screen-reader user could *start* a
+  trend line / channel from the touch bar but had no way to place the second point
+  (that needed a keyboard shortcut). New "Place drawing point" (✚) touch button drops
+  an anchor at the chart cursor via `PlaceDrawingAnchorEvent` →
+  `DrawingInteractionManager.PlaceAnchorAtCursor`, so multi-point drawings complete
+  without a mouse or keyboard. Speaks a hint if no tool is armed.
+- **Touch bar: previous/next series.** Added ◁ / ▷ buttons (Page Up/Down equivalents,
+  `NAV_SERIES_PREV` / `NAV_SERIES_NEXT`) so touch users can move between series, not
+  just bars and components. Touch bar now wraps to a second row when needed.
+- **Sparse-signal components announce a count, not "no data".** Components like Cipher
+  B are almost all NaN between signals; landing on an empty cell said "no data", which
+  read as "this series is broken" even though Ctrl+←/→ still jumped between the lit
+  dots. Now: "N signals in view" (or "no signals in view"), counted across the
+  viewport. Only a genuinely absent/empty array still says "no data". Cipher B's own
+  markers are unchanged.
+- **Gradient chart background (opt-in, default OFF).** Next to the solid background
+  colour, Settings → Colors gains a "Gradient background" checkbox + a second
+  ("bottom") colour; the chart fills top→bottom with a linear gradient. Audio-first
+  default is unchanged — off unless asked. A crossover flip in cloud fills no longer
+  leaves a one-pixel gap: the two component lines now share an interpolated apex.
+- **Deribit analytics provider (keyless).** Crypto-options volatility the terminal was
+  missing: `BTC_DVOL` / `ETH_DVOL` (the Deribit Volatility Index — crypto's "VIX", as
+  OHLC) and `BTC_HISTVOL` / `ETH_HISTVOL` (realised volatility). Public v2 endpoints,
+  no API key, `Derivatives` / single-value-line / historical-only. CoinGlass and the
+  extra trading brokers (Tastytrade / Bybit / Kraken Futures / Databento) are
+  deliberately deferred — their APIs are key-gated or on the money path and can't be
+  verified read-only.
+
 ### Provider-system sharing + honesty (2026-07-25)
 
 Follow-on to the MEXC direct-API rewrite — the SDK now carries the pieces every

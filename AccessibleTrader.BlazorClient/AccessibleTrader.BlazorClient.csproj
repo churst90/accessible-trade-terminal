@@ -194,6 +194,7 @@
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Deribit\AccessibleTrader.Plugins.Deribit.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Etherscan\AccessibleTrader.Plugins.Etherscan.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Fred\AccessibleTrader.Plugins.Fred.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Glassnode\AccessibleTrader.Plugins.Glassnode.csproj" />

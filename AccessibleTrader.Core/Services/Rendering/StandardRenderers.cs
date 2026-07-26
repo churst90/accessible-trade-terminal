@@ -928,6 +928,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             int  runStart = -1;
             bool lastBull = false;
+            SKPoint? startCross = null; // shared apex where the previous run crossed into this one
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -936,34 +937,63 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double u = upperData[dataIdx], l = lowerData[dataIdx];
                 if (double.IsNaN(u) || double.IsNaN(l))
                 {
-                    if (runStart >= 0) FlushCloudRun(ctx, upperData, lowerData, runStart, i - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint);
-                    runStart = -1; continue;
+                    if (runStart >= 0) FlushCloudRun(ctx, upperData, lowerData, runStart, i - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint, startCross, null);
+                    runStart = -1; startCross = null; continue;
                 }
                 bool bull = u >= l;
-                if (runStart < 0) { runStart = i; lastBull = bull; }
+                if (runStart < 0) { runStart = i; lastBull = bull; startCross = null; }
                 else if (bull != lastBull)
                 {
-                    FlushCloudRun(ctx, upperData, lowerData, runStart, i - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint);
-                    runStart = i; lastBull = bull;
+                    // The two lines cross between bar i-1 and i. Both the run that ends
+                    // here and the run that starts here share that exact crossover point
+                    // as an apex, so the fill is continuous instead of leaving a gap.
+                    var cross = CloudCrossoverPoint(ctx, upperData, lowerData, i - 1, i, barWidth, halfBar);
+                    FlushCloudRun(ctx, upperData, lowerData, runStart, i - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint, startCross, cross);
+                    runStart = i; lastBull = bull; startCross = cross;
                 }
             }
             if (runStart >= 0)
-                FlushCloudRun(ctx, upperData, lowerData, runStart, ctx.ViewportLength - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint);
+                FlushCloudRun(ctx, upperData, lowerData, runStart, ctx.ViewportLength - 1, lastBull, barWidth, halfBar, bullPaint, bearPaint, startCross, null);
+        }
+
+        /// <summary>Fraction along [left,right] where the upper and lower lines cross
+        /// (upper==lower). Pure so it's unit-testable. Clamped to [0,1].</summary>
+        internal static double CloudCrossoverT(double u1, double l1, double u2, double l2)
+        {
+            double d1 = u1 - l1, d2 = u2 - l2, denom = d1 - d2;
+            double t = Math.Abs(denom) < 1e-12 ? 0.5 : d1 / denom;
+            return Math.Clamp(t, 0.0, 1.0);
+        }
+
+        private static SKPoint CloudCrossoverPoint(RenderContext ctx, double[] upper, double[] lower,
+            int iLeft, int iRight, float barWidth, float halfBar)
+        {
+            int dL = ctx.ViewportStart + iLeft, dR = ctx.ViewportStart + iRight;
+            double u1 = upper[dL], l1 = lower[dL], u2 = upper[dR], l2 = lower[dR];
+            double t = CloudCrossoverT(u1, l1, u2, l2);
+            double val = u1 + t * (u2 - u1); // == l at the crossover
+            float x = ((iLeft + (float)t) * barWidth) + halfBar;
+            float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            return new SKPoint(x, y);
         }
 
         private static void FlushCloudRun(RenderContext ctx,
             double[] upperData, double[] lowerData, int from, int to, bool bull,
-            float barWidth, float halfBar, SKPaint bullFill, SKPaint bearFill)
+            float barWidth, float halfBar, SKPaint bullFill, SKPaint bearFill,
+            SKPoint? startCross, SKPoint? endCross)
         {
             using var path = new SKPath();
+            bool started = false;
+            if (startCross is { } sc) { path.MoveTo(sc.X, sc.Y); started = true; }
             for (int i = from; i <= to; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
                 if (dataIdx >= upperData.Length) break;
                 float x = (i * barWidth) + halfBar;
                 float y = ChartMath.MapY(upperData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                if (i == from) path.MoveTo(x, y); else path.LineTo(x, y);
+                if (!started) { path.MoveTo(x, y); started = true; } else path.LineTo(x, y);
             }
+            if (endCross is { } ec) path.LineTo(ec.X, ec.Y);
             for (int i = to; i >= from; i--)
             {
                 int dataIdx = ctx.ViewportStart + i;

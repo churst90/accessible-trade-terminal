@@ -87,6 +87,7 @@
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinGecko\AccessibleTrader.Plugins.CoinGecko.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Mempool\AccessibleTrader.Plugins.Mempool.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.DefiLlama\AccessibleTrader.Plugins.DefiLlama.csproj" />
+    <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Deribit\AccessibleTrader.Plugins.Deribit.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.CoinMetrics\AccessibleTrader.Plugins.CoinMetrics.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.Glassnode\AccessibleTrader.Plugins.Glassnode.csproj" />

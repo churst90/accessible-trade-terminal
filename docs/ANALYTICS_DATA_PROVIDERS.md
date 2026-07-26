@@ -73,6 +73,19 @@ All 12 analytics providers cap their outbound `HttpClient` at
   prefer `BinanceVision`.
 - **Rate limit:** 300 req/min (well under OKX's public ceiling).
 
+### Derivatives — *Deribit* (NEW, no key)
+- **Auth:** none — Deribit public v2 REST endpoints (`www.deribit.com/api/v2`).
+- **Symbols:** `BTC_DVOL`, `ETH_DVOL` (the **Deribit Volatility Index** — crypto's
+  "VIX", the options market's 30-day forward implied volatility, delivered as real
+  OHLC) and `BTC_HISTVOL`, `ETH_HISTVOL` (**realised/historical** annualised
+  volatility, a single value per timestamp rendered as a flat line).
+- **Resolution:** DVOL at 1h / 12h / 1d; historical volatility is a rolling series.
+- **Units:** annualised volatility in **percent** (e.g. `55.0` = 55% annualised).
+- **History:** live REST, ~1000 bars per request.
+- **Why this matters:** DVOL sitting well above realised vol means options are pricing
+  fear — a mean-reversion tell; a DVOL spike alongside a price flush often marks
+  capitulation. This is the terminal's first window onto the crypto **options** side.
+
 ### Sentiment — *AlternativeMe* (NEW, no key)
 - **Auth:** none
 - **Symbol:** `FNG_INDEX` (the only one — Crypto Fear & Greed)

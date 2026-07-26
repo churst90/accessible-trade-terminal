@@ -44,6 +44,18 @@
                 @onclick="@(() => Nav.ProcessNavigation("NAV_COMP_DOWN"))">
             <span aria-hidden="true">▼</span>
         </button>
+        <button class="touch-nav-btn" aria-label="Previous series"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_SERIES_PREV"))">
+            <span aria-hidden="true">◁</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Next series"
+                @onclick="@(() => Nav.ProcessNavigation("NAV_SERIES_NEXT"))">
+            <span aria-hidden="true">▷</span>
+        </button>
+        <button class="touch-nav-btn" aria-label="Place drawing point"
+                @onclick="PlaceDrawingPoint">
+            <span aria-hidden="true">✚</span>
+        </button>
         <button class="touch-nav-btn" aria-label="@(IsPlaying ? "Stop playback" : "Play chart")"
                 aria-pressed="@(IsPlaying ? "true" : "false")"
                 @onclick="TogglePlayback">
@@ -81,6 +93,12 @@
     }
 
     private bool IsPlaying => Store.State.IsPlaying || Store.State.IsPaused;
+
+    /// <summary>Places the next anchor of the in-progress drawing at the current cursor
+    /// bar — the touch-only equivalent of re-pressing the tool shortcut, so a mobile
+    /// screen-reader user can complete a trend line or channel. Announces a hint if no
+    /// drawing is active.</summary>
+    private void PlaceDrawingPoint() => EventBus.Publish(new PlaceDrawingAnchorEvent());
 
     protected override void OnInitialized()
     {

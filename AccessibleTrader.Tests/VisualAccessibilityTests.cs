@@ -92,7 +92,7 @@ public class VisualAccessibilityTests
     // ── Theme accessibility overrides ────────────────────────────────────────
 
     private static ISettingsManager SettingsWith(bool colorVision = false, bool hollow = false,
-        string? background = null)
+        string? background = null, bool gradient = false, string? backgroundEnd = null)
     {
         var settings = Substitute.For<ISettingsManager>();
         settings.GetSetting(ThemeService.ColorVisionSafeKey, Arg.Any<JToken?>())
@@ -101,7 +101,28 @@ public class VisualAccessibilityTests
             .Returns(hollow ? new JValue(true) : null);
         settings.GetSetting(ThemeService.BackgroundOverrideKey, Arg.Any<JToken?>())
             .Returns(background != null ? new JValue(background) : null);
+        settings.GetSetting(SettingsKeys.BackgroundGradient, Arg.Any<JToken?>())
+            .Returns(gradient ? new JValue(true) : null);
+        settings.GetSetting(SettingsKeys.BackgroundColor2, Arg.Any<JToken?>())
+            .Returns(backgroundEnd != null ? new JValue(backgroundEnd) : null);
         return settings;
+    }
+
+    [Fact]
+    public void Background_gradient_is_off_by_default()
+    {
+        Assert.Null(new ThemeService(SettingsWith()).Current.BackgroundGradientEnd);
+    }
+
+    [Fact]
+    public void Background_gradient_end_applies_only_when_enabled()
+    {
+        // Color set but gradient toggle off → still flat (no end color).
+        Assert.Null(new ThemeService(SettingsWith(gradient: false, backgroundEnd: "#112233")).Current.BackgroundGradientEnd);
+
+        // Toggle on + a color → the theme carries the gradient end.
+        var svc = new ThemeService(SettingsWith(gradient: true, backgroundEnd: "#112233"));
+        Assert.Equal(SKColor.Parse("#112233"), svc.Current.BackgroundGradientEnd);
     }
 
     [Fact]

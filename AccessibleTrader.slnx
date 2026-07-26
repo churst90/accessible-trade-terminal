@@ -24,6 +24,7 @@
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.CoinGecko/AccessibleTrader.Plugins.CoinGecko.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.CoinMetrics/AccessibleTrader.Plugins.CoinMetrics.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.DefiLlama/AccessibleTrader.Plugins.DefiLlama.csproj" />
+    <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.Deribit/AccessibleTrader.Plugins.Deribit.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.Etherscan/AccessibleTrader.Plugins.Etherscan.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.Finra/AccessibleTrader.Plugins.Finra.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.Fred/AccessibleTrader.Plugins.Fred.csproj" />

@@ -18,9 +18,24 @@ namespace AccessibleTrader.Core.Services.Rendering
         {
             // Explicitly fill the pane with the theme background so each pane is opaque.
             // This prevents any white compositor bleed-through from the WebView overlay
-            // and ensures each pane resets cleanly on every frame.
-            using var bgPaint = new SKPaint { Color = _theme.Background, Style = SKPaintStyle.Fill };
+            // and ensures each pane resets cleanly on every frame. When a gradient end
+            // color is set (opt-in), fill with a vertical Background→end linear gradient.
+            using var bgPaint = new SKPaint { Style = SKPaintStyle.Fill };
+            var gradientEnd = _theme.BackgroundGradientEnd;
+            if (gradientEnd is { } end)
+            {
+                bgPaint.Shader = SKShader.CreateLinearGradient(
+                    new SKPoint(ctx.PaneRect.Left, ctx.PaneRect.Top),
+                    new SKPoint(ctx.PaneRect.Left, ctx.PaneRect.Bottom),
+                    new[] { _theme.Background, end },
+                    null, SKShaderTileMode.Clamp);
+            }
+            else
+            {
+                bgPaint.Color = _theme.Background;
+            }
             ctx.Canvas.DrawRect(ctx.PaneRect, bgPaint);
+            bgPaint.Shader?.Dispose();
 
             // Minor + major gridlines at "nice number" intervals. Every 5th line is
             // drawn brighter so the eye finds round-number anchors ($25k, $50k, etc.)

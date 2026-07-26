@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AccessibleTrader.BlazorClient.Services;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
@@ -204,5 +205,41 @@ public sealed class DrawingInteractionManagerMouseDispatchTests
         h.Input.ProcessMouse(x: 700, y: 360, type: "MouseMove", width: 1280, height: 720);
 
         Assert.Equal(startBefore, h.Store.State.ViewportStartIndex);
+    }
+
+    // ── Touch-only accessible drawing (no mouse, no keyboard chord) ───────────
+
+    [Fact]
+    public void Touch_place_anchor_completes_a_two_point_drawing_without_the_mouse()
+    {
+        // The mobile flow: pick the tool (anchor 1 at cursor), move the cursor with the
+        // touch bar's ◀▶, then tap "Place drawing point" for anchor 2 — no keyboard.
+        var h = new TestHarness();
+        Assert.False(h.Manager.HasPendingDrawing);
+
+        int c1 = h.Store.State.CurrentDataIndex;
+        h.Manager.HandleAddDrawing("TrendLine", h.Bars);   // anchor 1
+        Assert.True(h.Manager.HasPendingDrawing);
+
+        h.Store.Dispatch(new SetCursorAction(c1 - 20));     // move to a different bar
+        h.Manager.PlaceAnchorAtCursor(h.Bars);              // anchor 2 → completes
+
+        var drawing = h.Store.State.ActiveSeries
+            .FirstOrDefault(s => s.IsDrawing && s.Drawing?.Type == DrawingType.TrendLine);
+        Assert.NotNull(drawing);
+        Assert.False(h.Manager.HasPendingDrawing);
+    }
+
+    [Fact]
+    public void Place_anchor_with_no_pending_drawing_speaks_a_hint_and_adds_nothing()
+    {
+        var h = new TestHarness();
+        int seriesBefore = h.Store.State.ActiveSeries.Count;
+
+        h.Manager.PlaceAnchorAtCursor(h.Bars);
+
+        Assert.False(h.Manager.HasPendingDrawing);
+        Assert.Equal(seriesBefore, h.Store.State.ActiveSeries.Count);
+        Assert.Contains(h.Bus.Log, e => e is AnnouncementEvent a && a.Message.Contains("No drawing in progress"));
     }
 }

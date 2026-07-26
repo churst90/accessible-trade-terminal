@@ -10,6 +10,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         void HandleAddDrawing(string type, IReadOnlyList<Ohlcv> chartData);
         void HandleMouseEvent(double x, double y, string type, double width, double height);
+
+        /// <summary>True while a multi-point drawing is awaiting more anchors.</summary>
+        bool HasPendingDrawing { get; }
+
+        /// <summary>Places the next anchor of the in-progress drawing at the current
+        /// cursor bar — the keyboard-free equivalent of re-pressing the tool shortcut,
+        /// so a touch-only user can complete a trend line / channel. No-op (with a
+        /// spoken hint) when no drawing is pending.</summary>
+        void PlaceAnchorAtCursor(IReadOnlyList<Ohlcv> chartData);
     }
 
     /// <summary>
@@ -969,6 +978,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 HandleDrawingStep(pt.Date, pt.Close);
             }
+        }
+
+        public bool HasPendingDrawing => _pendingDrawingType != DrawingType.None;
+
+        public void PlaceAnchorAtCursor(IReadOnlyList<Ohlcv> chartData)
+        {
+            if (_pendingDrawingType == DrawingType.None)
+            {
+                _eventBus.Publish(new AnnouncementEvent(
+                    "No drawing in progress. Choose a tool from Drawing Tools first, then place each point.", true));
+                return;
+            }
+            if (chartData == null || chartData.Count == 0) return;
+            var pt = chartData[Math.Clamp(_store.State.CurrentDataIndex, 0, chartData.Count - 1)];
+            HandleDrawingStep(pt.Date, pt.Close);
         }
 
         private static string FriendlyName(DrawingType t) => t switch

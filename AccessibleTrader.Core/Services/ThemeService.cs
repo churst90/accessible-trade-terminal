@@ -18,6 +18,7 @@ namespace AccessibleTrader.Core.Services
         // ── Legacy properties (used by existing ChartRenderer/BackgroundLayer code) ──────────────
         // These delegate to Current so there is a single source of truth.
         public SKColor Background => Current.Background;
+        public SKColor? BackgroundGradientEnd => Current.BackgroundGradientEnd;
         public SKColor GridLines   => Current.GridLine;
         public SKColor Text        => Current.AxisText;
         public SKColor Cursor      => Current.Crosshair;
@@ -85,6 +86,12 @@ namespace AccessibleTrader.Core.Services
             var bgOverride = _settings.GetSetting(BackgroundOverrideKey)?.ToString();
             if (!string.IsNullOrWhiteSpace(bgOverride) && SKColor.TryParse(bgOverride, out var bg))
                 theme = theme with { Background = bg };
+
+            // Optional gradient: Background (top) → BackgroundColor2 (bottom). Opt-in.
+            bool gradient = _settings.GetSetting(SettingsKeys.BackgroundGradient)?.Value<bool?>() ?? false;
+            var bg2Override = _settings.GetSetting(SettingsKeys.BackgroundColor2)?.ToString();
+            if (gradient && !string.IsNullOrWhiteSpace(bg2Override) && SKColor.TryParse(bg2Override, out var bg2))
+                theme = theme with { BackgroundGradientEnd = bg2 };
 
             return theme;
         }

@@ -23,6 +23,8 @@ namespace AccessibleTrader.Core.Services
 
         // ── Appearance ───────────────────────────────────────────────────────
         public const string BackgroundColor    = "appearance.backgroundColor";
+        public const string BackgroundGradient = "appearance.backgroundGradient";   // bool: gradient vs solid
+        public const string BackgroundColor2   = "appearance.backgroundColor2";     // gradient end (bottom) color
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
         public const string UiScale            = "appearance.uiScale";

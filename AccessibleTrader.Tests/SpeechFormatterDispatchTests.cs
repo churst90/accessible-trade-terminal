@@ -171,10 +171,14 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Dispatch_MarkerWithSignalTemplate_NaNValue_ReturnsNoData()
+        public void Dispatch_MarkerWithSignalTemplate_NaNValue_ReturnsNoSignalsInView()
         {
-            // Marker signal not firing → "{DisplayName}: no data". The silent-failure
-            // rule — the user must know nothing is there, not nothing at all.
+            // Marker sitting on a bar with no signal, but the component HAS data
+            // (the array exists, this cell is just NaN) → "no signals in view", not
+            // "no data". Sparse-signal components like Cipher B are almost all NaN;
+            // "no data" wrongly told the user the series was empty when Ctrl+←/→ can
+            // still jump between the few lit dots. Only a truly absent/empty array
+            // says "no data" now.
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "buy";
@@ -185,7 +189,7 @@ namespace AccessibleTrader.Tests
             }, values: new[] { double.NaN });
 
             var msg = Format(series, focusedCompIndex: 0);
-            Assert.Equal("Buy Signal: no data", msg);
+            Assert.Equal("Buy Signal: no signals in view", msg);
         }
 
         [Fact]

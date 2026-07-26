@@ -548,6 +548,7 @@ label {
     background: var(--bg-primary, #121212);
     border-top: 1px solid #333;
     justify-content: center;
+    flex-wrap: wrap; /* narrow phones wrap the button row instead of overflowing */
 }
 @media (pointer: coarse) {
     .touch-nav { display: flex; }

@@ -99,7 +99,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 var values = series.Components
                     .Where(c => c.IsVisible && !c.IsMuted)
-                    .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder));
+                    .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
+                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength));
 
                 msg = string.Join(". ", values);
             }
@@ -118,7 +119,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     ? (double?)state.Data[^1].Close
                     : null;
                 msg = FormatTemplateValue(series, comp, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
-                    isYMove: isYMove, liveClose: liveClose, provider: provider);
+                    isYMove: isYMove, liveClose: liveClose, provider: provider,
+                    viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength);
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -250,13 +252,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // ── Dispatcher ───────────────────────────────────────────────────────────
 
         private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
-            bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null)
+            bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null,
+            int viewportStart = -1, int viewportLength = -1)
         {
             try
             {
                 double val = GetPointValue(series, pt, comp.Name, dataIndex);
                 var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val,
-                    IsYMove: isYMove, LiveClose: liveClose, Provider: provider);
+                    IsYMove: isYMove, LiveClose: liveClose, Provider: provider,
+                    ViewportStart: viewportStart, ViewportLength: viewportLength);
 
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
@@ -412,7 +416,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Provider-speech inputs (null/false outside Component-context navigation).
         bool IsYMove = false,
         double? LiveClose = null,
-        AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? Provider = null);
+        AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? Provider = null,
+        // Visible window, so sparse marker components can report "N signals in view"
+        // instead of "no data" at a bar with no marker. -1 = unknown (whole-array fallback).
+        int ViewportStart = -1,
+        int ViewportLength = -1);
 
     /// <summary>
     /// Strategy #1: the indicator provider's own contextual speech
@@ -577,7 +585,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public string Format(ComponentFormatContext ctx)
         {
             if (double.IsNaN(ctx.Value))
-                return $"{ctx.Comp.DisplayName}: no data";  // user needs to know where they are
+            {
+                // Sparse marker components (e.g. Cipher B dots) are NaN at most bars.
+                // "No data" is misleading when there ARE signals to jump to with
+                // Ctrl+Left/Right — report how many are in view instead.
+                int n = CountMarkersInView(ctx);
+                if (n < 0)  return $"{ctx.Comp.DisplayName}: no data";
+                if (n == 0) return $"{ctx.Comp.DisplayName}: no signals in view";
+                return $"{ctx.Comp.DisplayName}: {n} signal{(n == 1 ? "" : "s")} in view";
+            }
             // Magnitude-aware formatting — sub-cent assets (SHIB, PEPE, KAS) would collapse
             // to "0" under F0. SpeechPriceFormatter picks precision from the value's scale
             // and always carries ~3 significant digits.
@@ -586,6 +602,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Replace("{price}", priceStr)
                 .Replace("{name}", ctx.Comp.DisplayName);
         }
+
+        /// <summary>Counts non-NaN marker points within the visible viewport (whole
+        /// array when the viewport is unknown). Returns -1 when the component has no
+        /// data at all, so the caller can fall back to "no data".</summary>
+        internal static int CountMarkersInView(double[]? data, int viewportStart, int viewportLength)
+        {
+            if (data == null || data.Length == 0) return -1;
+            int start = viewportStart < 0 || viewportLength <= 0 ? 0 : Math.Max(0, viewportStart);
+            int end   = viewportStart < 0 || viewportLength <= 0 ? data.Length : Math.Min(data.Length, viewportStart + viewportLength);
+            int count = 0;
+            for (int i = start; i < end; i++)
+                if (!double.IsNaN(data[i])) count++;
+            return count;
+        }
+
+        private static int CountMarkersInView(ComponentFormatContext ctx) =>
+            CountMarkersInView(ctx.Series.GetComponentData(ctx.Comp.Name), ctx.ViewportStart, ctx.ViewportLength);
     }
 
     /// <summary>

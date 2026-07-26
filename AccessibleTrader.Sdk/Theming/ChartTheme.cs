@@ -44,6 +44,14 @@ public record ChartTheme
     /// of any palette.
     /// </summary>
     public bool HollowUpCandles { get; init; } = false;
+
+    /// <summary>
+    /// When non-null, the pane background is a vertical linear gradient from
+    /// <see cref="Background"/> (top) to this color (bottom) instead of a flat fill.
+    /// Purely cosmetic and opt-in (default null = flat); set by ThemeService from the
+    /// appearance settings for sighted/low-vision users and screenshots.
+    /// </summary>
+    public SKColor? BackgroundGradientEnd { get; init; } = null;
     // Profile
     public required SKColor ProfilePOC { get; init; }
     public required SKColor ProfileValueArea { get; init; }

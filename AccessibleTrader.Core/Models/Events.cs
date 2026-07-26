@@ -79,6 +79,9 @@ namespace AccessibleTrader.Core.Models
     public record DeleteSeriesEvent(string? SeriesId = null);
     public record AddDrawingEvent(string DrawingType);
     public record CancelDrawingEvent();
+    /// <summary>Place the next anchor of the in-progress drawing at the current cursor
+    /// bar — lets a touch-only user complete a multi-point drawing without a keyboard.</summary>
+    public record PlaceDrawingAnchorEvent();
     /// <summary>
     /// Fired by <see cref="Accessibility.DrawingInteractionManager"/> when a right-click lands
     /// on an existing drawing's anchor handle. <see cref="BlazorClient.Components.DrawingContextMenu"/>
