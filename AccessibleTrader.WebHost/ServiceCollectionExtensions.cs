@@ -12,6 +12,7 @@ using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
@@ -344,6 +345,11 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IWatchlistLibrary, JsonWatchlistLibrary>();
             services.AddScoped<IScreenerLibrary, JsonScreenerLibrary>();
             services.AddScoped<IScreenerService, ScreenerService>();
+
+            // Respect analysis — see the MAUI head's registration block for the rationale.
+            services.AddScoped<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
+            services.AddScoped<IMaRespectRanker, MaRespectRanker>();
+            services.AddScoped<ILevelProvenanceService, LevelProvenanceService>();
 
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(

@@ -145,6 +145,8 @@ namespace AccessibleTrader.Core.Models
     public record OpenMyDataEvent();
     /// <summary>Alt+M — open the market-watch modal (watchlist management + screener).</summary>
     public record OpenWatchlistEvent();
+    /// <summary>Alt+R — open the respect report (ranked levels and moving averages).</summary>
+    public record OpenLevelReportEvent();
     /// <summary>Keyboard-driven "Load chart" (Ctrl+Alt+Shift+L) — the Toolbar owns the
     /// selection state and pre-flight warning, so the dispatcher just asks it to load.</summary>
     public record LoadChartRequestedEvent();

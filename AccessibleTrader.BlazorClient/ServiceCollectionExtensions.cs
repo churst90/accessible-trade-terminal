@@ -11,6 +11,7 @@ using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
@@ -379,6 +380,13 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IWatchlistLibrary, JsonWatchlistLibrary>();
             services.AddSingleton<IScreenerLibrary, JsonScreenerLibrary>();
             services.AddSingleton<IScreenerService, ScreenerService>();
+
+            // Respect analysis — measures how often price actually honoured a line, so "that
+            // level looks important" becomes a number. Every candidate (horizontal, moving
+            // average, multi-timeframe average, sloped line) is scored by the same analyzer.
+            services.AddSingleton<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
+            services.AddSingleton<IMaRespectRanker, MaRespectRanker>();
+            services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
 
             // Alert delivery channels — SMTP + Telegram external dispatchers. The
             // AlertDeliveryService subscribes to AlertFiredEvent and fans out to every

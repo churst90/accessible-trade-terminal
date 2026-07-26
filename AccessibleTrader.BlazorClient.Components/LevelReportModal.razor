@@ -1,0 +1,217 @@
+@*
+    Respect report (Alt+R) — which lines this market actually honours.
+
+    Two views over the same measurement engine:
+      • Levels near price — every candidate (moving averages, provider levels, prior-period
+        highs and lows, round numbers) scored by how often price touched and held it.
+      • Moving-average ranking — the same scoring restricted to moving averages, including
+        multi-timeframe ones, which is how the "a higher-timeframe average is respected more
+        than its same-span same-timeframe equivalent" claim gets tested rather than argued.
+
+    The spoken summary is announced on open because that is the answer most of the time; the
+    tables are there for when the user wants the evidence behind it.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Sdk.Models
+@inject IWorkspaceStore Store
+@inject ILevelProvenanceService Provenance
+@inject IMaRespectRanker MaRanker
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="levelreport-title" @onclick:stopPropagation="true"
+             style="max-width: 900px;">
+
+            <h2 id="levelreport-title" tabindex="-1">Respect report — @_symbol @_timeframe</h2>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div role="alert" style="color:#f66; margin:8px 0;">@_error</div>
+            }
+
+            <div role="status" aria-live="polite" style="margin:8px 0;">
+                @(_busy ? "Measuring…" : _summary)
+            </div>
+
+            <div role="tablist" aria-label="Respect report sections" style="margin-bottom:12px;">
+                <button role="tab" id="lr-tab-levels"
+                        aria-selected="@(_tab == Tab.Levels)" aria-controls="lr-panel"
+                        @onclick="() => _tab = Tab.Levels">Levels near price</button>
+                <button role="tab" id="lr-tab-mas"
+                        aria-selected="@(_tab == Tab.MovingAverages)" aria-controls="lr-panel"
+                        @onclick="() => _tab = Tab.MovingAverages">Moving-average ranking</button>
+                <button type="button" @onclick="RefreshAsync" disabled="@_busy">Re-measure</button>
+                <label>
+                    <input type="checkbox" @bind="_reliableOnly" />
+                    Only lines with at least @_options.MinTouches touches
+                </label>
+            </div>
+
+            <div id="lr-panel" role="tabpanel"
+                 aria-labelledby="@(_tab == Tab.Levels ? "lr-tab-levels" : "lr-tab-mas")">
+
+                @{
+                    var rows = _tab == Tab.Levels ? _levels : _mas;
+                    rows = _reliableOnly ? rows.Where(r => r.IsReliable(_options)).ToList() : rows;
+                }
+
+                @if (rows.Count == 0)
+                {
+                    <p role="status">
+                        Nothing to report yet.
+                        @if (_reliableOnly)
+                        {
+                            <text>
+                                No line reached @_options.MinTouches counted touches over the loaded
+                                history. Load more bars, or clear the checkbox to see the thin-sample
+                                candidates.
+                            </text>
+                        }
+                    </p>
+                }
+                else
+                {
+                    <table style="width:100%; border-collapse:collapse;">
+                        <caption class="visually-hidden">
+                            @(_tab == Tab.Levels ? "Levels near price" : "Moving averages"),
+                            ranked by how often price held them
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Line</th>
+                                <th scope="col">Price</th>
+                                <th scope="col">Hold rate</th>
+                                <th scope="col">Touches</th>
+                                <th scope="col">Median reaction (ATR)</th>
+                                <th scope="col">As support</th>
+                                <th scope="col">As resistance</th>
+                                <th scope="col">Last touch</th>
+                                <th scope="col">Distance (ATR)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in rows.Take(40))
+                            {
+                                <tr>
+                                    <th scope="row">@r.Label@(r.IsReliable(_options) ? "" : " (thin sample)")</th>
+                                    <td>@Num(r.CurrentValue)</td>
+                                    <td>@Pct(r.HoldRate)</td>
+                                    <td>@r.Touches</td>
+                                    <td>@Num(r.MedianReactionAtr)</td>
+                                    <td>@r.SupportHolds</td>
+                                    <td>@r.ResistanceHolds</td>
+                                    <td>@(r.LastTouchTime?.ToString("yyyy-MM-dd") ?? "never")</td>
+                                    <td>@Num(r.DistanceAtr)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <p style="color:var(--text-muted); font-size:0.9em; margin:8px 0;">
+                        A touch is counted when the bar's range reaches within
+                        @_options.TouchToleranceAtr ATR of the line, at least
+                        @_options.MinSeparationBars bars after the previous counted touch. It HELD if
+                        price then moved at least @_options.MinReactionAtr ATR away within
+                        @_options.ReactionWindowBars bars without closing more than
+                        @_options.BreakCloseAtr ATR through. Wicks through and back count as holds —
+                        that is a sweep, which is the level working, not failing.
+                    </p>
+                }
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button @onclick="SpeakSummary">Speak summary</button>
+                <button @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Tab { Levels, MovingAverages }
+
+    private Tab _tab = Tab.Levels;
+    private bool _busy;
+    private bool _reliableOnly = true;
+    private string? _error;
+    private string _summary = "";
+    private string _symbol = "";
+    private string _timeframe = "";
+
+    private readonly RespectOptions _options = RespectOptions.Default;
+    private List<RespectStats> _levels = new();
+    private List<RespectStats> _mas = new();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenLevelReportEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _error = null;
+        await ShowModalAsync("levelreport-title");
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _error = null;
+        _busy = true;
+        StateHasChanged();
+
+        try
+        {
+            var state = Store.State;
+            var bars = state.Data?.ToList() ?? new List<Ohlcv>();
+            _symbol = state.Identity.Symbol ?? "";
+            _timeframe = state.Identity.Timeframe ?? "";
+
+            if (bars.Count < 60)
+            {
+                _summary = $"Only {bars.Count} bars loaded — not enough history to measure anything. " +
+                           "Load more bars and re-measure.";
+                _levels = new();
+                _mas = new();
+                return;
+            }
+
+            // The measurement walks every candidate across every bar, so keep it off the UI thread.
+            var (levels, mas, summary) = await Task.Run(() =>
+            {
+                var lv = Provenance.Analyze(bars, _timeframe, state, _options).ToList();
+                var ma = MaRanker.Rank(bars, _timeframe, options: _options).ToList();
+                var text = Provenance.Narrate(lv, bars, _options);
+                return (lv, ma, text);
+            });
+
+            _levels = levels;
+            _mas = mas;
+            _summary = summary;
+            EventBus.Publish(new AnnouncementEvent(_summary, true));
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not measure: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SpeakSummary()
+    {
+        if (!string.IsNullOrEmpty(_summary))
+            EventBus.Publish(new AnnouncementEvent(_summary, true));
+    }
+
+    private static string Num(double v) => double.IsNaN(v) ? "—" : v.ToString("0.####");
+    private static string Pct(double v) => double.IsNaN(v) ? "—" : $"{v * 100:0}%";
+}

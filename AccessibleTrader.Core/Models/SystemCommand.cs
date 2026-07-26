@@ -21,6 +21,7 @@ namespace AccessibleTrader.Core.Models
         OpenJournal,        // Ctrl+Alt+Shift+J: open the alert / speech journal modal
         OpenMyData,         // Ctrl+Alt+Shift+I: import/manage My Data CSV datasets
         OpenWatchlist,      // Alt+M: market watch — watchlists + the screener
+        OpenLevelReport,    // Alt+R: respect report — which lines this market actually honours
         ContextSummary,
         MonitoringStatus,   // Ctrl+Alt+Shift+M: speak the background-workspace monitoring summary
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary

@@ -113,6 +113,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.OpenJournal)]
         [InlineData(SystemCommand.OpenAIAnalyst)]
         [InlineData(SystemCommand.OpenWatchlist)]
+        [InlineData(SystemCommand.OpenLevelReport)]
         // Accessibility toggles (F2, F3)
         [InlineData(SystemCommand.ToggleSpeech)]
         [InlineData(SystemCommand.ToggleSonification)]
@@ -216,7 +217,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.FocusTabBar,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
-                SystemCommand.OpenWatchlist,
+                SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.ToggleBraille, SystemCommand.OpenBrailleSettings,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
