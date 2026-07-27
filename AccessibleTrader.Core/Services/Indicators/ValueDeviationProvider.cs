@@ -35,11 +35,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Sell marks are therefore framed as scale-OUT of an existing long, never as short entries.</item>
     /// <item>The effect is SHORT-horizon: strong at five bars, fading by twenty, gone by sixty.
     /// It is not a multi-month position thesis.</item>
-    /// <item>It INVERTS on BITCOIN, which showed the opposite sign — momentum, not reversion —
-    /// so <see cref="ParamInvert"/> flips the semantics and speech says which way it is reading.
-    /// Bitcoin was the ONLY crypto with a significant per-asset reading (rho +0.112, p = 0.001);
-    /// nine other coins showed nothing either way, so the invert switch is validated for BTC
-    /// specifically and NOT for crypto as a category.</item>
+    /// <item>The evidence covers EQUITIES ONLY. No crypto setting is validated: Bitcoin looked
+    /// like momentum on daily (rho +0.112, p = 0.001) but did not replicate on its own 4-hour
+    /// chart with four times the samples (rho +0.014, p = 0.39), and nine other coins showed
+    /// nothing either way. <see cref="ParamInvert"/> exists so a user who has MEASURED their
+    /// asset can flip it — not as an assertion that crypto is a momentum regime.</item>
     /// </list>
     ///
     /// <para>
@@ -89,8 +89,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamWindow, DisplayName = "Profile window (bars)", DataType = typeof(int),
-                            DefaultValue = 480.0, MinValue = 60.0, MaxValue = 2000.0,
-                            Description = "Bars in the rolling volume profile. The slow anchor tested best; ~480 daily bars is about two years." },
+                            DefaultValue = 240.0, MinValue = 40.0, MaxValue = 2000.0,
+                            Description = "Bars in the rolling volume profile. A SLOWER window anchored better in testing, so raise this when the chart has plenty of history. " +
+                                          "It is automatically capped at half the loaded bars, so setting it high is safe — with only 200 bars loaded a 480 setting quietly becomes 100." },
                     new() { Name = ParamTiers, DisplayName = "Tiers per side", DataType = typeof(int),
                             DefaultValue = 5.0, MinValue = 2.0, MaxValue = 6.0,
                             Description = "Five stayed monotonic in testing; six collapsed the two innermost tiers together." },
@@ -101,10 +102,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "ON (default): a mark only prints when the built-in WaveTrend oscillator is also turning that way — fewer, cleaner marks. OFF: prints on the reversal bar alone." },
                     new() { Name = ParamInvert, DisplayName = "Momentum market — flip the buy side", DataType = typeof(bool),
                             DefaultValue = false,
-                            Description = "OFF (default) = MEAN-REVERTING market: buys print BELOW value, trims above. Measured across 38 stocks, sectors, metals and bonds. " +
-                                          "ON = MOMENTUM market: buys print ABOVE value, trims below. Measured on BITCOIN only. " +
-                                          "Tested per coin, BTC was the ONLY crypto with a significant reading (p=0.001); ETH, XRP, LTC, BCH, ADA, SOL, DOGE, KAS and TAO all showed nothing either way. " +
-                                          "So: leave OFF for equities, turn ON for BTC, and for other crypto treat this as UNKNOWN rather than assuming BTC's behaviour carries over." },
+                            Description = "OFF (default) = MEAN-REVERTING: buys print BELOW value, trims above. This is the EVIDENCE-BACKED setting — measured across 38 stocks, sectors, metals and bonds, 348,000 daily bars, with edge rising monotonically by tier. " +
+                                          "ON = MOMENTUM: buys print ABOVE value, trims below. NO CRYPTO SETTING IS CURRENTLY VALIDATED. Bitcoin looked like momentum on the daily chart (p=0.001) but that did NOT replicate on its own 4-hour chart with four times the samples (p=0.39), and nine other coins showed nothing either way. " +
+                                          "Leave OFF for equities. For crypto, run the lab's poc-dev command on your specific asset and timeframe before trusting either setting — or use the indicator purely as an orientation meter and ignore the buy/trim marks." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -183,12 +183,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             if (n < 30) return;
 
-            int window = (int)GetParam(parameters, ParamWindow, 480);
+            int window = (int)GetParam(parameters, ParamWindow, 240);
             int tiers = Math.Clamp((int)GetParam(parameters, ParamTiers, 5), 2, 6);
             double maxTier = GetParam(parameters, ParamMaxTier, 2.0);
             bool invert = GetParam(parameters, ParamInvert, 0) != 0;
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
-            window = Math.Clamp(window, 60, Math.Max(60, n - 10));
+            // ADAPT THE WINDOW TO WHAT IS ACTUALLY LOADED. The default was picked from the
+            // research dataset, but a fresh chart fetches about 200 bars — so a 480-bar profile
+            // left every component NaN and the whole indicator read "no data". Never consume more
+            // than half the series, so there is always a usable stretch of output after warmup.
+            int maxUsable = Math.Max(40, n / 2);
+            window = Math.Clamp(Math.Min(window, maxUsable), 40, Math.Max(40, n - 10));
 
             var bars = new Ohlcv[n];
             for (int i = 0; i < n; i++) bars[i] = data[i];
@@ -248,7 +253,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             => Calculate(code, data, parameters, buffer);
 
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters) =>
-            (int)GetParam(parameters, ParamWindow, 480) + 20;
+            (int)GetParam(parameters, ParamWindow, 240) + 20;
 
         public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data,
             IReadOnlyDictionary<string, double[]> calculatedResults, int index,
@@ -363,20 +368,43 @@ namespace AccessibleTrader.Core.Services.Indicators
             return Ema(ci, average);
         }
 
+        /// <summary>
+        /// EMA that tolerates a NaN warmup region in its INPUT.
+        ///
+        /// <para>
+        /// This is load-bearing, not defensive padding. WaveTrend chains three EMAs: the second
+        /// runs over |ap - esa|, and esa's own first nine values are NaN. Seeding from index 0
+        /// therefore produced a NaN seed, and because the recurrence is e = src*k + e*(1-k), that
+        /// single NaN propagated to every later value. The whole oscillator came out NaN, the
+        /// momentum filter rejected every bar, and the indicator printed ZERO marks on any chart
+        /// while still looking healthy — the POC and value lines were fine, so nothing pointed at
+        /// the cause.
+        /// </para>
+        /// </summary>
         private static double[] Ema(double[] src, int period)
         {
             int n = src.Length;
             var outv = new double[n];
             Array.Fill(outv, double.NaN);
-            if (n < period) return outv;
+            if (n < period || period < 1) return outv;
+
+            int start = 0;
+            while (start < n && double.IsNaN(src[start])) start++;
+            if (start + period > n) return outv;
 
             double k = 2.0 / (period + 1);
             double sum = 0;
-            for (int i = 0; i < period; i++) sum += src[i];
-            double e = sum / period;
-            outv[period - 1] = e;
-            for (int i = period; i < n; i++)
+            for (int i = start; i < start + period; i++)
             {
+                if (double.IsNaN(src[i])) return outv;   // a NaN hole inside the seed window
+                sum += src[i];
+            }
+
+            double e = sum / period;
+            outv[start + period - 1] = e;
+            for (int i = start + period; i < n; i++)
+            {
+                if (double.IsNaN(src[i])) { outv[i] = e; continue; }  // hold through gaps
                 e = src[i] * k + e * (1 - k);
                 outv[i] = e;
             }

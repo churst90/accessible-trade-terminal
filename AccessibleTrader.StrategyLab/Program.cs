@@ -100,6 +100,10 @@ try
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--tiers"), out var tt) ? tt : 3,
             GetFlag(args.Skip(1).ToArray(), "--anchor") ?? "va",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--slowmult"), out var sm3) ? sm3 : 4),
+        "probe" => await IndicatorProbeCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshot") ?? "../strategy-lab-data/bitstamp_BTC_USDT_1d.json",
+            GetFlag(args.Skip(1).ToArray(), "--code") ?? "VALUE_DEVIATION",
+            GetFlag(args.Skip(1).ToArray(), "--params")),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

@@ -102,8 +102,11 @@ namespace AccessibleTrader.Tests
             // Bitcoin was the only crypto that actually measured significant, so the description
             // must name it specifically rather than implying the setting is validated for crypto
             // as a category — nine other coins showed nothing either way.
-            Assert.Contains("BITCOIN", invert.Description, System.StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("UNKNOWN", invert.Description, System.StringComparison.OrdinalIgnoreCase);
+            // Bitcoin's daily momentum reading did not replicate on its own 4h chart, so the
+            // description must NOT present any crypto setting as validated.
+            Assert.Contains("NO CRYPTO SETTING IS CURRENTLY VALIDATED", invert.Description,
+                System.StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("EVIDENCE-BACKED", invert.Description, System.StringComparison.OrdinalIgnoreCase);
         }
     }
 }

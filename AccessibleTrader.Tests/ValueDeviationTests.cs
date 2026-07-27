@@ -271,6 +271,112 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Inverted", fact, StringComparison.OrdinalIgnoreCase);
         }
 
+        // ── Regression: the indicator was silent on every real chart ──────────
+
+        /// <summary>
+        /// Trending series with realistic two-sided noise — the shape a live chart actually has,
+        /// as opposed to the synthetic fixtures above.
+        /// </summary>
+        private static List<Ohlcv> Realistic(int count, int seed = 99)
+        {
+            var rng = new Random(seed);
+            var bars = new List<Ohlcv>(count);
+            double price = 100;
+            for (int i = 0; i < count; i++)
+            {
+                price *= 1 + (rng.NextDouble() - 0.48) * 0.05;
+                if (price < 1) price = 1;
+                double range = price * (0.01 + rng.NextDouble() * 0.03);
+                double open = price + (rng.NextDouble() - 0.5) * range;
+                double close = price + (rng.NextDouble() - 0.5) * range;
+                bars.Add(new Ohlcv(Start.AddDays(i), open,
+                    Math.Max(open, close) + rng.NextDouble() * range * 0.5,
+                    Math.Min(open, close) - rng.NextDouble() * range * 0.5,
+                    close, 1000 + rng.Next(0, 4000)));
+            }
+            return bars;
+        }
+
+        private static Buf CalcDefaults(List<Ohlcv> bars)
+        {
+            var buf = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object>(), buf);
+            return buf;
+        }
+
+        [Theory]
+        [InlineData(200)]
+        [InlineData(300)]
+        [InlineData(600)]
+        public void Provider_ProducesOutputAtBarCountsARealChartActuallyLoads(int barCount)
+        {
+            // The first release defaulted the profile window to 480 while a fresh chart fetches
+            // about 200 bars, so every component came back entirely NaN and read "no data".
+            var buf = CalcDefaults(Realistic(barCount));
+
+            int poc = buf.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v));
+            Assert.True(poc > 0, $"no POC values at {barCount} bars — the window is larger than the data");
+        }
+
+        [Fact]
+        public void Provider_ActuallyPrintsMarksWithDefaultSettings()
+        {
+            // The real defect this guards: WaveTrend chained three EMAs, the second seeded from a
+            // NaN warmup region, and the NaN propagated through the whole oscillator. The momentum
+            // filter then rejected EVERY bar and the indicator printed nothing at all — while the
+            // POC and value lines still looked perfectly healthy, so nothing pointed at the cause.
+            var buf = CalcDefaults(Realistic(800));
+
+            int marks = new[]
+            {
+                ValueDeviationProvider.CompBuyShallow, ValueDeviationProvider.CompBuyMid,
+                ValueDeviationProvider.CompBuyDeep, ValueDeviationProvider.CompSellShallow,
+                ValueDeviationProvider.CompSellMid, ValueDeviationProvider.CompSellDeep,
+            }.Sum(k => buf.Data[k].Count(v => !double.IsNaN(v)));
+
+            Assert.True(marks > 0, "indicator printed no marks at all on 800 realistic bars");
+        }
+
+        [Fact]
+        public void Provider_MomentumFilterRemovesSomeMarksButNotAllOfThem()
+        {
+            // Pins the filter as a filter. All-or-nothing in either direction is the bug signature:
+            // nothing removed means it is not wired in, everything removed is the NaN failure.
+            var bars = Realistic(800);
+
+            var on = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object> { ["RequireMomentumTurn"] = 1 }, on);
+
+            var off = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object> { ["RequireMomentumTurn"] = 0 }, off);
+
+            int Count(Buf b) => new[]
+            {
+                ValueDeviationProvider.CompBuyShallow, ValueDeviationProvider.CompBuyMid,
+                ValueDeviationProvider.CompBuyDeep, ValueDeviationProvider.CompSellShallow,
+                ValueDeviationProvider.CompSellMid, ValueDeviationProvider.CompSellDeep,
+            }.Sum(k => b.Data[k].Count(v => !double.IsNaN(v)));
+
+            int withFilter = Count(on), withoutFilter = Count(off);
+            Assert.True(withFilter > 0, "momentum filter removed every mark");
+            Assert.True(withFilter < withoutFilter, "momentum filter removed nothing — is it wired in?");
+        }
+
+        [Fact]
+        public void Provider_OversizedWindowIsCappedRatherThanSilencingEverything()
+        {
+            // Asking for far more history than exists must degrade, not go quiet.
+            var bars = Realistic(300);
+            var buf = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object> { ["Window"] = 2000 }, buf);
+
+            Assert.True(buf.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v)) > 0);
+        }
+
         [Fact]
         public void Provider_TrimSpeechFramesItAsScalingOutNotShorting()
         {
