@@ -356,10 +356,15 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenLevelReport,   "R",     Alt: true)); // Alt+R: respect report (ranked levels + MAs)
 
             // Bar replay — practise reading a market forward without hindsight.
-            s.Add(new(SystemCommand.ReplayToggle,      "P",  Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+P
+            // Grouped on F9-F11 so the transport keys sit together under one hand.
             s.Add(new(SystemCommand.ReplayStepForward, "F9"));                                     // F9
             s.Add(new(SystemCommand.ReplayStepBack,    "F9", Shift: true));                        // Shift+F9
-            s.Add(new(SystemCommand.ReplayPlayPause,   "F8"));                                     // F8
+            s.Add(new(SystemCommand.ReplayPlayPause,   "F10"));                                    // F10
+            // F11 is the natural third key, but browsers own it for fullscreen and page-level
+            // preventDefault on it is unreliable — so the three-modifier chord is kept as the
+            // binding that always works, and F11 is offered alongside it for the desktop heads.
+            s.Add(new(SystemCommand.ReplayToggle,      "F11"));                                    // F11 (desktop)
+            s.Add(new(SystemCommand.ReplayToggle,      "P",  Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+P
 
             // Split view — a second tab rendered beside the active one (reference view).
             s.Add(new(SystemCommand.SplitViewToggle,      "S", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+S

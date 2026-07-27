@@ -99,10 +99,13 @@ restored when you stop.
 
 | Key | Action |
 |-----|--------|
-| Ctrl+Alt+Shift+P | Start replay at the cursor bar / stop replay and restore full history |
+| F11 or Ctrl+Alt+Shift+P | Start replay at the cursor bar / stop replay and restore full history |
 | F9 | Reveal the next bar |
 | Shift+F9 | Hide the last revealed bar |
-| F8 | Play / pause auto-advance |
+| F10 | Play / pause auto-advance |
+
+On the WebHost, use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for fullscreen
+and page-level `preventDefault` on it is not reliable.
 
 ---
 
@@ -203,7 +206,7 @@ interaction is inaccurate while split view is on. Keyboard operation is unaffect
 
 The Market Structure overlay (HH/HL/LH/LL) is added to new OHLCV charts by default. Turn it
 off in Settings, or delete the series from the Object Tree (Alt+O) to drop it for the session.
-Navigate to its Structure State component and press F4 for the full structural read: current
+Navigate to its Structure State component and press Shift+F1 (context summary) for the full structural read: current
 state, last swing high and low, and where price sits between them.
 
 ---

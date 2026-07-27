@@ -81,7 +81,8 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
-            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var fv) ? fv : 5000),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var fv) ? fv : 5000,
+            GetFlag(args.Skip(1).ToArray(), "--mode") ?? "price"),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

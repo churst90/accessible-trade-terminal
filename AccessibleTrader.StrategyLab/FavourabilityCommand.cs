@@ -34,7 +34,11 @@ public static class FavourabilityCommand
 
     private sealed record Sample(double Score, double ForwardAtr, int BarIndex, string Asset);
 
-    public static Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations)
+    /// <summary>Which inputs feed the score. "price" = the original structure/position/stretch
+    /// mix; "sentiment" = Fear &amp; Greed contrarian; "funding" = perpetual funding contrarian;
+    /// "oi" = open-interest change; "all" = every available input averaged.</summary>
+    public static Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations,
+        string mode = "price")
     {
         var files = Directory.GetFiles(snapshotDir, $"*_{tf}.json")
             .Where(f => !Path.GetFileName(f).StartsWith("xs_", StringComparison.OrdinalIgnoreCase))
@@ -54,12 +58,16 @@ public static class FavourabilityCommand
             var structure = analyzer.Analyze(bars, new SwingOptions(Span: 5, MinSwingAtr: 1.0));
             var atr = AccessibleTrader.Sdk.Indicators.IndicatorMath.Atr(bars.ToArray(), 14);
 
+            var fng = LoadSeries(snapshotDir, "xs_alternativeme_fng_index_1d.json");
+            var funding = LoadSeries(snapshotDir, $"xs_binancevision_{Base(snap.Symbol)}usdt_funding_8h.json");
+            var oi = LoadSeries(snapshotDir, $"xs_binancevision_{Base(snap.Symbol)}usdt_oi_1d.json");
+
             for (int i = 60; i < bars.Count - ForwardBars; i++)
             {
                 double a = atr[i];
                 if (double.IsNaN(a) || a <= 0) continue;
 
-                double score = LongFavourability(bars, structure, i);
+                double score = BuildScore(mode, bars, structure, i, fng, funding, oi);
                 if (double.IsNaN(score)) continue;
 
                 // Forward move normalised by ATR so assets and eras are comparable.
@@ -68,8 +76,83 @@ public static class FavourabilityCommand
             }
         }
 
-        Report(samples, tf, permutations);
+        Report(samples, tf, permutations, mode);
         return Task.FromResult(0);
+    }
+
+    /// <summary>
+    /// Combines the requested inputs into one 0..1 long-favourability score. Every input is
+    /// oriented the same way: higher = more favourable for a long. Inputs that have no data at
+    /// this bar are simply skipped rather than defaulted, so an asset without funding history
+    /// contributes its price terms honestly instead of a fabricated 0.5.
+    /// </summary>
+    private static double BuildScore(string mode, IReadOnlyList<Ohlcv> bars, SwingStructure s, int i,
+        List<(long Ts, double V)>? fng, List<(long Ts, double V)>? funding, List<(long Ts, double V)>? oi)
+    {
+        var parts = new List<double>();
+        long ts = new DateTimeOffset(DateTime.SpecifyKind(bars[i].Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
+        if (mode is "price" or "all") parts.Add(LongFavourability(bars, s, i));
+
+        // Sentiment is CONTRARIAN: Fear & Greed near 0 (extreme fear) is the favourable end.
+        if (mode is "sentiment" or "all")
+        {
+            double v = At(fng, ts);
+            if (!double.IsNaN(v)) parts.Add(1.0 - Math.Clamp(v / 100.0, 0, 1));
+        }
+
+        // Funding is CONTRARIAN too: deeply positive funding means crowded longs paying to stay
+        // in, which is the unfavourable end for a fresh long.
+        if (mode is "funding" or "all")
+        {
+            double v = At(funding, ts);
+            if (!double.IsNaN(v)) parts.Add(1.0 - Math.Clamp((v + 0.05) / 0.10, 0, 1));
+        }
+
+        // Open interest: falling OI after a decline = positions flushed = more favourable.
+        if (mode is "oi" or "all")
+        {
+            double now = At(oi, ts);
+            double then = At(oi, ts - 7L * 86400_000L);
+            if (!double.IsNaN(now) && !double.IsNaN(then) && then > 0)
+                parts.Add(1.0 - Math.Clamp((now / then - 0.9) / 0.4, 0, 1));
+        }
+
+        return parts.Count == 0 ? double.NaN : parts.Average();
+    }
+
+    /// <summary>Most recent series value at or before <paramref name="ts"/>, or NaN.</summary>
+    private static double At(List<(long Ts, double V)>? series, long ts)
+    {
+        if (series == null || series.Count == 0) return double.NaN;
+        int lo = 0, hi = series.Count - 1, best = -1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) / 2;
+            if (series[mid].Ts <= ts) { best = mid; lo = mid + 1; }
+            else hi = mid - 1;
+        }
+        return best < 0 ? double.NaN : series[best].V;
+    }
+
+    private static string Base(string symbol) =>
+        symbol.Split('/')[0].ToLowerInvariant();
+
+    private static List<(long Ts, double V)>? LoadSeries(string dir, string fileName)
+    {
+        string path = Path.Combine(dir, fileName);
+        if (!File.Exists(path)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            if (!doc.RootElement.TryGetProperty("Points", out var pts)) return null;
+            var list = new List<(long, double)>(pts.GetArrayLength());
+            foreach (var p in pts.EnumerateArray())
+                list.Add((p.GetProperty("Ts").GetInt64(), p.GetProperty("Value").GetDouble()));
+            list.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+            return list;
+        }
+        catch { return null; }
     }
 
     /// <summary>
@@ -109,10 +192,10 @@ public static class FavourabilityCommand
         return (posScore + stateScore + stretchScore) / 3.0;
     }
 
-    private static void Report(List<Sample> samples, string tf, int permutations)
+    private static void Report(List<Sample> samples, string tf, int permutations, string mode)
     {
         Console.WriteLine();
-        Console.WriteLine($"===== FAVOURABILITY GRADIENT ({tf}) — {samples.Count:N0} bars =====");
+        Console.WriteLine($"===== FAVOURABILITY GRADIENT ({tf}, mode={mode}) — {samples.Count:N0} bars =====");
         Console.WriteLine($"Score 0..1 (higher = more favourable for a long). Forward return measured");
         Console.WriteLine($"{ForwardBars} bars ahead in ATR units. A scaling plan needs this to be MONOTONIC.");
         Console.WriteLine();
