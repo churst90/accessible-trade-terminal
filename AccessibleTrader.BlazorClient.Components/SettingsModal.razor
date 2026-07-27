@@ -177,7 +177,7 @@
                     }
 
                     <div class="modal-row">
-                        <label for="s-mute-includes-orders">Event mutes also silence order fills and stops</label>
+                        <label for="s-mute-includes-orders">Mute order outcomes too</label>
                         <input id="s-mute-includes-orders" type="checkbox"
                                checked="@_muteIncludesOrderEvents"
                                @onchange="e => _muteIncludesOrderEvents = e.Value is bool b ? b : _muteIncludesOrderEvents" />
@@ -193,11 +193,13 @@
                     @if (Demo.AllowLiveTrading)
                     {
                         <div class="modal-row">
-                            <label for="s-paper-trading">Paper trading mode (simulated orders)</label>
+                            <label for="s-paper-trading">Paper trading</label>
                             <input id="s-paper-trading" type="checkbox"
                                    checked="@_paperTradingMode"
                                    @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
                         </div>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. Nothing reaches a broker and no money moves.</p>
+
                     }
                     <div class="modal-row">
                         <label for="s-paper-reset">Paper account</label>
@@ -209,11 +211,13 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Workspace</legend>
                     <div class="modal-row">
-                        <label for="s-resume-session">Resume last session at startup (autosaves every 30 seconds and on close)</label>
+                        <label for="s-resume-session">Resume last session at startup</label>
                         <input id="s-resume-session" type="checkbox"
                                checked="@_resumeSession"
                                @onchange="OnResumeSessionChanged" />
                     </div>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Autosaves every 30 seconds and when you close the app, then reopens the same charts, tabs and indicators.</p>
+
                 </fieldset>
 
                 @if (Demo.AllowBackgroundMonitoring)
@@ -222,23 +226,33 @@
                     <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                         <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Background monitoring</legend>
                         <div class="modal-row">
-                            <label for="s-bg-monitor">Watch non-focused tabs (alerts and strategies keep evaluating)</label>
+                            <label for="s-bg-monitor">Keep watching other tabs</label>
                             <input id="s-bg-monitor" type="checkbox"
                                    checked="@_bgMonitoring"
                                    @onchange="OnBgMonitoringChanged" />
                         </div>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts and strategies keep evaluating on tabs you are not looking at.</p>
+
                         <div class="modal-row">
-                            <label for="s-bg-poll">Check interval (seconds, minimum 10)</label>
+                            <label for="s-bg-poll">Check every</label>
                             <input id="s-bg-poll" type="number" min="10" max="600" step="5"
                                    value="@_bgPollSeconds"
                                    @onchange="OnBgPollChanged" />
+                            <span style="color:var(--text-muted);">seconds</span>
                         </div>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">How often the tabs you are not looking at are re-checked. Minimum 10 seconds.</p>
+
                         <div class="modal-row">
-                            <label for="s-bg-live-tabs">Live-stream background tabs (tick-fresh, instant tab switch; exchanges that support it, first @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs)</label>
+                            <label for="s-bg-live-tabs">Live-stream other tabs</label>
                             <input id="s-bg-live-tabs" type="checkbox"
                                    checked="@_liveBgTabs"
                                    @onchange="OnLiveBgTabsChanged" />
                         </div>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                            Keeps other tabs tick-fresh so switching to one is instant. Only on
+                            exchanges that support it, and only the first
+                            @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs.
+                        </p>
                         <div class="modal-row">
                             <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
                                 Speaks which workspaces are watched and how fresh each is
@@ -286,7 +300,7 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Braille / Tactile Display</legend>
                     <div class="modal-row">
-                        <label for="s-braille-enabled">Enable braille / tactile display output</label>
+                        <label for="s-braille-enabled">Braille display</label>
                         <input id="s-braille-enabled" type="checkbox"
                                checked="@_brailleEnabled"
                                @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
@@ -320,14 +334,14 @@
                     </div>
 
                     <div class="modal-row">
-                        <label for="s-hover-sonif">Hover sonification (soft pitch tick under the mouse)</label>
+                        <label for="s-hover-sonif">Sound under the mouse</label>
                         <input id="s-hover-sonif" type="checkbox"
                                checked="@_hoverSonification"
                                @onchange="OnHoverSonificationChanged" />
                     </div>
 
                     <div class="modal-row">
-                        <label for="s-sound-theme">Sound theme (per-indicator instrument voices)</label>
+                        <label for="s-sound-theme">Sound theme</label>
                         <select id="s-sound-theme"
                                 value="@_soundTheme"
                                 @onchange="OnSoundThemeChanged"
@@ -337,6 +351,7 @@
                                 <option value="@t.Id">@t.Name</option>
                             }
                         </select>
+                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">Which family of instrument voices the indicators use.</p>
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         A theme gives each indicator family its own instrument so you can tell
@@ -350,7 +365,7 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
                     <div class="modal-row">
-                        <label for="s-touch-nav">Show the large-button touch toolbar</label>
+                        <label for="s-touch-nav">Touch toolbar</label>
                         <select id="s-touch-nav"
                                 value="@_touchNavMode"
                                 @onchange="OnTouchNavModeChanged"
@@ -359,6 +374,7 @@
                             <option value="show">Always show</option>
                             <option value="hide">Never show</option>
                         </select>
+                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for navigating by touch.</p>
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         Automatic detection can misfire on some desktop input setups — if the
@@ -387,11 +403,13 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Drawing</legend>
                     <div class="modal-row">
-                        <label for="s-magnet-snap">Magnet snap (drawing anchors snap to nearest open/high/low/close)</label>
+                        <label for="s-magnet-snap">Magnet snap</label>
                         <input id="s-magnet-snap" type="checkbox"
                                checked="@_magnetSnap"
                                @onchange="OnMagnetSnapChanged" />
                     </div>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing anchors snap to the nearest open, high, low or close instead of landing anywhere.</p>
+
                 </fieldset>
 
                 @* ── Viewport ────────────────────────────────────────────────── *@
@@ -979,13 +997,13 @@
                         even when you're away from the terminal.
                     </p>
                     <div class="modal-row">
-                        <label for="s-setup-alerts">Send strategy setups to alert channels</label>
+                        <label for="s-setup-alerts">Send setups to alerts</label>
                         <input id="s-setup-alerts" type="checkbox"
                                checked="@_setupAlertsEnabled"
                                @onchange="e => _setupAlertsEnabled = e.Value is bool b && b" />
                     </div>
                     <div class="modal-row">
-                        <label for="s-setup-webhook">Webhook for setups (fallback when no per-symbol route)</label>
+                        <label for="s-setup-webhook">Setup webhook</label>
                         <select id="s-setup-webhook"
                                 value="@_setupWebhookTarget"
                                 @onchange="e => _setupWebhookTarget = e.Value?.ToString() ?? string.Empty"
@@ -999,6 +1017,7 @@
                                 }
                             }
                         </select>
+                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">Where strategy setups are sent when a symbol has no route of its own.</p>
                     </div>
                 </fieldset>
             </div>

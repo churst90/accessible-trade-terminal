@@ -22,10 +22,20 @@
 
             <h2 id="modal-title" tabindex="-1">Add Indicator</h2>
 
-            <div style="margin-top: 20px;">
-                <label for="indicator-category">Category:</label>
+            @* Search first, because it is how anyone who knows what they want will find it.
+               There are around a hundred indicators; a category filter plus an alphabetical
+               list means finding one requires knowing both its exact name and which category
+               somebody else filed it under. *@
+            <div class="modal-row" style="margin-top: 16px;">
+                <label for="indicator-search">Search</label>
+                <input id="indicator-search" type="text" value="@_search"
+                       placeholder="name, or what it measures"
+                       aria-describedby="indicator-count"
+                       @oninput="OnSearchChanged" style="flex:1; min-width:14em;" />
+
+                <label for="indicator-category">Category</label>
                 <select id="indicator-category" @onchange="OnCategoryChanged">
-                    <option value="">All Categories</option>
+                    <option value="">All categories</option>
                     @foreach (var cat in _categories)
                     {
                         <option value="@cat">@cat</option>
@@ -33,17 +43,39 @@
                 </select>
             </div>
 
-            <div style="margin-top: 15px;">
-                <label for="indicator-name">Indicator:</label>
-                <select id="indicator-name"
+            <div class="modal-row">
+                <label for="indicator-name">Indicator</label>
+                <select id="indicator-name" size="8"
                         value="@_selectedIndicatorCode"
-                        @onchange="OnIndicatorChanged">
+                        aria-describedby="indicator-description"
+                        @onchange="OnIndicatorChanged" style="flex:1; min-width:18em;">
                     @foreach (var ind in _filteredIndicators)
                     {
                         <option value="@ind.Code">@ind.Name</option>
                     }
                 </select>
             </div>
+
+            <p id="indicator-count" role="status" aria-live="polite"
+               style="margin:-8px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                @MatchSummary
+            </p>
+
+            @* What the thing you just selected actually does. Every indicator carries a
+               description in its metadata and none of it reached the one dialog where a user
+               is deciding whether they want it. *@
+            @if (_selectedMeta is { } meta)
+            {
+                <div id="indicator-description"
+                     style="border-left:3px solid var(--accent-color); padding:6px 0 6px 12px; margin-bottom:12px;">
+                    <strong>@meta.Name</strong>
+                    <span style="color:var(--text-muted);"> — @meta.Category@(string.IsNullOrEmpty(meta.DefaultPane) ? "" : $", {meta.DefaultPane} pane")</span>
+                    @if (!string.IsNullOrWhiteSpace(meta.Description))
+                    {
+                        <p style="margin:4px 0 0;">@meta.Description</p>
+                    }
+                </div>
+            }
 
             @* Parameters for selected indicator. The input type branches on DataType:
                string parameters render as text inputs (provider names, symbol selections);
@@ -102,6 +134,7 @@
     private bool _isVisible;
     private ElementReference _dialogRef;
     private string _selectedCategory = "";
+    private string _search = "";
     private string _selectedIndicatorCode = "";
     private List<string> _categories = new();
     private List<IndicatorMetadata> _allIndicators = new();
@@ -174,13 +207,58 @@
     private void OnCategoryChanged(ChangeEventArgs e)
     {
         _selectedCategory = e.Value?.ToString() ?? "";
-        _filteredIndicators = string.IsNullOrEmpty(_selectedCategory)
-            ? _allIndicators
-            : _allIndicators.Where(i => i.Category == _selectedCategory).ToList();
+        ApplyFilter();
+    }
 
-        _selectedIndicatorCode = _filteredIndicators.FirstOrDefault()?.Code ?? "";
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// Narrows by category and by free text. The text matches the NAME and the DESCRIPTION, so
+    /// "volatility" finds ATR and Bollinger Bands without the user having to know either name —
+    /// which is the case the search exists for. Matching the name alone would only help people
+    /// who already knew what to type.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        IEnumerable<IndicatorMetadata> q = _allIndicators;
+
+        if (!string.IsNullOrEmpty(_selectedCategory))
+            q = q.Where(i => i.Category == _selectedCategory);
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            string needle = _search.Trim();
+            q = q.Where(i =>
+                i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || i.Code.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || (i.Description?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        _filteredIndicators = q.ToList();
+
+        // Keep the selection if it survived the filter, so typing another character does not
+        // yank the description out from under someone reading it.
+        if (!_filteredIndicators.Any(i => i.Code == _selectedIndicatorCode))
+            _selectedIndicatorCode = _filteredIndicators.FirstOrDefault()?.Code ?? "";
+
         UpdateSelectedMeta();
     }
+
+    /// <summary>
+    /// Spoken as a live region on every keystroke, so a screen-reader user hears the list
+    /// shrinking instead of typing into silence and discovering the result only on Tab.
+    /// </summary>
+    private string MatchSummary => _filteredIndicators.Count switch
+    {
+        0 => "No indicators match. Clear the search or pick another category.",
+        1 => "1 indicator matches.",
+        var n when n == _allIndicators.Count => $"{n} indicators.",
+        var n => $"{n} of {_allIndicators.Count} indicators match.",
+    };
 
     private void OnIndicatorChanged(ChangeEventArgs e)
     {

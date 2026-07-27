@@ -251,9 +251,26 @@ button[disabled] {
 button:focus-visible,
 select:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
 [tabindex]:focus-visible {
     outline: var(--focus-outline);
     outline-offset: 2px;
+}
+
+/* Dialog titles are focused PROGRAMMATICALLY when a dialog opens, so a screen reader
+   announces it. Chrome carries :focus-visible through a programmatic focus when the
+   previous focus was itself keyboard-visible — which it always is here, since dialogs
+   open from a keystroke — so the heading was drawing the full yellow ring and reading
+   as an error box around a title.
+
+   It still needs to show that focus moved into the dialog, so this is a quieter marker
+   rather than none: an accent rule down the leading edge. */
+.modal-content h2[tabindex="-1"]:focus,
+.modal-content h2[tabindex="-1"]:focus-visible {
+    outline: none;
+    border-left: 3px solid var(--accent-color);
+    padding-left: 10px;
+    margin-left: -13px;
 }
 
 /* ── Form Elements ─────────────────────────────────────────────────────────────
@@ -458,6 +475,21 @@ label {
     align-items: center;
     gap: 10px;
     margin-bottom: 14px;
+    /* Wrap rather than overflow. Without this a row of label + select + two buttons is
+       wider than the dialog on a narrow window and the whole dialog scrolls sideways. */
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.modal-content {
+    /* Long provider names, symbols and URLs are unbreakable strings; without this one of
+       them sets the dialog's width. */
+    overflow-wrap: anywhere;
+}
+
+.modal-content fieldset {
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .modal-content .modal-row label {

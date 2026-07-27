@@ -33,6 +33,53 @@ surprise is a poor way to meet a release.
    nearly identical in greyscale, so the pair stopped carrying direction under
    red-green deficiency. Each is lifted just enough to separate by brightness.
 
+### Dialog language, Add Indicator, and four screenshot defects (2026-07-27)
+
+**A language pass over Settings.** The rule applied throughout: *the label says what the setting
+does; the hint says why you would want it or what it costs.* Never both in the label. Roughly a
+third of settings put the explanation in the label, and for a screen-reader user that is not a
+label — it is a paragraph in the way of the next control, read again on every pass down the
+dialog. A sighted user skims a parenthetical; a listener cannot.
+
+Thirteen labels shortened, with what they dropped moved into hints below the control rather than
+deleted — a terser label that loses the meaning is not an improvement, it just moves the cost from
+reading to guessing. "Live-stream background tabs (tick-fresh, instant tab switch; exchanges that
+support it, first 4 tabs)" became "Live-stream other tabs" with three sentences underneath.
+`SettingsLanguageTests` holds a 42-character budget, checks the hints did not simply vanish,
+checks every control still has a bound label, and bans "(s)" — which a screen reader reads as
+"open paren s close paren".
+
+**Add Indicator rebuilt.** It was a category dropdown and an alphabetical list of about a hundred
+entries, so finding an indicator required knowing both its exact name and which category someone
+else filed it under. Now there is a search box that matches the **description** as well as the
+name and code — "volatility" finds ATR and Bollinger Bands for someone who knows what they want
+but not what it is called, which is the case a search exists for. The match count is a live region
+so a screen-reader user hears the list narrowing instead of typing into silence, an empty result
+says which of the two filters to relax, and the selection survives further typing rather than
+snapping back to the first result. And the selected indicator is now **described** — every
+indicator carries a description in its metadata, and none of it reached the one dialog where a
+user decides whether they want the thing.
+
+**Four defects from the screenshots.**
+
+- **Dialog titles drew the full keyboard focus ring.** They are focused programmatically so a
+  screen reader announces the dialog, but Chrome carries `:focus-visible` through a programmatic
+  focus when the previous focus was keyboard-visible — which it always is, since dialogs open from
+  a keystroke. So every dialog opened with a heavy yellow rectangle around its heading, reading as
+  an error. Replaced with an accent rule down the leading edge: still shows focus moved into the
+  dialog, no longer looks like a warning.
+- **Settings scrolled sideways.** Fixed-width controls in a non-wrapping row are wider than the
+  dialog on a narrow window. Rows wrap now, and long unbreakable strings (provider names, URLs)
+  can no longer set the dialog's width.
+- **The unselected order side read as disabled.** SELL sat at half opacity on a neutral grey disc
+  next to a solid green BUY. On an order form that is a dangerous thing to imply — a user is one
+  glance from concluding they cannot close a position. Both sides now carry their own colour, and
+  the selected one is distinguished by being FILLED rather than merely brighter.
+- **"Env: None"** was accurate and meaningless. It is what shows when no API keys are configured,
+  which is something the user can act on and "None" does not tell them. Now "Mode: No API key".
+
+Suite 2507 → 2517.
+
 ### The theme editor: every colour reachable, themes savable and shareable (2026-07-27)
 
 `ChartTheme` carried 33 colours and Settings exposed six. The other 27 — gridlines, crosshair,
