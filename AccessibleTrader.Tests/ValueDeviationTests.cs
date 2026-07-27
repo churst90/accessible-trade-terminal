@@ -191,31 +191,33 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Provider_PrintsABuyMarkOnTheReversalBarBelowValue()
+        public void Provider_PrintsASupportZoneOnTheReversalBarBelowValue()
         {
             var (buf, bars) = RunProvider();
             int last = bars.Count - 1;
 
-            double shallow = buf.Data[ValueDeviationProvider.CompBuyShallow][last];
-            double mid = buf.Data[ValueDeviationProvider.CompBuyMid][last];
-            double deep = buf.Data[ValueDeviationProvider.CompBuyDeep][last];
+            double shallow = buf.Data[ValueDeviationProvider.CompSupportShallow][last];
+            double mid = buf.Data[ValueDeviationProvider.CompSupportMid][last];
+            double deep = buf.Data[ValueDeviationProvider.CompSupportDeep][last];
 
             Assert.True(!double.IsNaN(shallow) || !double.IsNaN(mid) || !double.IsNaN(deep),
-                "expected a buy mark on the reversal bar");
+                "expected a support-zone mark on the reversal bar");
         }
 
         [Fact]
-        public void Provider_PlacesBuyMarksBelowTheBarSoTheyDoNotObscureIt()
+        public void Provider_SupportZoneValueIsTheBarLowItMarks()
         {
             var (buf, bars) = RunProvider();
             for (int i = 0; i < bars.Count; i++)
             {
-                foreach (var key in new[] { ValueDeviationProvider.CompBuyShallow,
-                                            ValueDeviationProvider.CompBuyMid,
-                                            ValueDeviationProvider.CompBuyDeep })
+                foreach (var key in new[] { ValueDeviationProvider.CompSupportShallow,
+                                            ValueDeviationProvider.CompSupportMid,
+                                            ValueDeviationProvider.CompSupportDeep })
                 {
                     double v = buf.Data[key][i];
-                    if (!double.IsNaN(v)) Assert.True(v < bars[i].Low, $"{key} at {i} was not below the bar");
+                    // The VALUE is the support price itself (the bar's low). Where the shape is
+                    // drawn is MarkerAnchor's job, so the value stays a real, quotable price.
+                    if (!double.IsNaN(v)) Assert.Equal(bars[i].Low, v, 6);
                 }
             }
         }
@@ -226,9 +228,9 @@ namespace AccessibleTrader.Tests
             var (buf, bars) = RunProvider();
             for (int i = 1; i < bars.Count; i++)
             {
-                bool marked = new[] { ValueDeviationProvider.CompBuyShallow,
-                                      ValueDeviationProvider.CompBuyMid,
-                                      ValueDeviationProvider.CompBuyDeep }
+                bool marked = new[] { ValueDeviationProvider.CompSupportShallow,
+                                      ValueDeviationProvider.CompSupportMid,
+                                      ValueDeviationProvider.CompSupportDeep }
                     .Any(k => !double.IsNaN(buf.Data[k][i]));
                 if (!marked) continue;
 
@@ -258,17 +260,6 @@ namespace AccessibleTrader.Tests
             Assert.Contains("value", fact, StringComparison.OrdinalIgnoreCase);
             // It reports what was measured historically, never a forecast.
             Assert.DoesNotContain("will ", fact, StringComparison.OrdinalIgnoreCase);
-        }
-
-        [Fact]
-        public void Provider_InvertedModeSaysSoInSpeech()
-        {
-            var (buf, bars) = RunProvider();
-            string fact = new ValueDeviationProvider().GetDetailFact(ValueDeviationProvider.Code,
-                bars.ToArray(), buf.Data, bars.Count - 1,
-                new Dictionary<string, object> { ["InvertForMomentum"] = 1 });
-
-            Assert.Contains("Inverted", fact, StringComparison.OrdinalIgnoreCase);
         }
 
         // ── Regression: the indicator was silent on every real chart ──────────
@@ -330,9 +321,9 @@ namespace AccessibleTrader.Tests
 
             int marks = new[]
             {
-                ValueDeviationProvider.CompBuyShallow, ValueDeviationProvider.CompBuyMid,
-                ValueDeviationProvider.CompBuyDeep, ValueDeviationProvider.CompSellShallow,
-                ValueDeviationProvider.CompSellMid, ValueDeviationProvider.CompSellDeep,
+                ValueDeviationProvider.CompSupportShallow, ValueDeviationProvider.CompSupportMid,
+                ValueDeviationProvider.CompSupportDeep, ValueDeviationProvider.CompResistShallow,
+                ValueDeviationProvider.CompResistMid, ValueDeviationProvider.CompResistDeep,
             }.Sum(k => buf.Data[k].Count(v => !double.IsNaN(v)));
 
             Assert.True(marks > 0, "indicator printed no marks at all on 800 realistic bars");
@@ -355,9 +346,9 @@ namespace AccessibleTrader.Tests
 
             int Count(Buf b) => new[]
             {
-                ValueDeviationProvider.CompBuyShallow, ValueDeviationProvider.CompBuyMid,
-                ValueDeviationProvider.CompBuyDeep, ValueDeviationProvider.CompSellShallow,
-                ValueDeviationProvider.CompSellMid, ValueDeviationProvider.CompSellDeep,
+                ValueDeviationProvider.CompSupportShallow, ValueDeviationProvider.CompSupportMid,
+                ValueDeviationProvider.CompSupportDeep, ValueDeviationProvider.CompResistShallow,
+                ValueDeviationProvider.CompResistMid, ValueDeviationProvider.CompResistDeep,
             }.Sum(k => b.Data[k].Count(v => !double.IsNaN(v)));
 
             int withFilter = Count(on), withoutFilter = Count(off);
@@ -378,15 +369,17 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Provider_TrimSpeechFramesItAsScalingOutNotShorting()
+        public void Provider_ResistanceSpeechDescribesAZoneNotATrade()
         {
             string? speech = new ValueDeviationProvider().GetComponentSpeech(
-                "Trim tier 4-5", 100, new Ohlcv(Start, 1, 1, 1, 1, 1),
+                "Resistance tier 4-5", 100, new Ohlcv(Start, 1, 1, 1, 1, 1),
                 new Dictionary<string, double[]>(), 0);
 
             Assert.NotNull(speech);
-            Assert.Contains("Trim", speech, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("resistance zone", speech, StringComparison.OrdinalIgnoreCase);
+            // It describes a zone. It must never read as a trade instruction in either direction.
             Assert.DoesNotContain("short", speech!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("sell", speech!, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

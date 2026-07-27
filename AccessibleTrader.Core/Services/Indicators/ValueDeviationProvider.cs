@@ -28,19 +28,20 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   tier 3  +0.47%
     /// </code>
     /// <para>
-    /// Three caveats are baked into the design rather than left to the user to remember:
+    /// IT IS NOT A BUY/SELL INDICATOR. It answers "where is value, and where did price turn
+    /// relative to it". A reversal below value marks a SUPPORT zone; a reversal above value marks
+    /// a RESISTANCE zone; the tier says how far from value that zone formed. The figures above are
+    /// what followed those zones historically on equities — context for reading the mark, not an
+    /// instruction. An earlier draft had an "invert for momentum" mode, which only made sense
+    /// while the marks were framed as entries: under a support/resistance reading there is nothing
+    /// to invert, because a reversal is a reversal whichever way the asset trends.
     /// </para>
-    /// <list type="number">
-    /// <item>The SELL side does not work on equities — every short tier was negative after costs.
-    /// Sell marks are therefore framed as scale-OUT of an existing long, never as short entries.</item>
-    /// <item>The effect is SHORT-horizon: strong at five bars, fading by twenty, gone by sixty.
-    /// It is not a multi-month position thesis.</item>
-    /// <item>The evidence covers EQUITIES ONLY. No crypto setting is validated: Bitcoin looked
-    /// like momentum on daily (rho +0.112, p = 0.001) but did not replicate on its own 4-hour
-    /// chart with four times the samples (rho +0.014, p = 0.39), and nine other coins showed
-    /// nothing either way. <see cref="ParamInvert"/> exists so a user who has MEASURED their
-    /// asset can flip it — not as an assertion that crypto is a momentum regime.</item>
-    /// </list>
+    ///
+    /// <para>
+    /// Two limits worth keeping in mind. The measured follow-through is SHORT-horizon — strong at
+    /// five bars, fading by twenty, gone by sixty — and it was measured on EQUITIES; no crypto
+    /// reading is validated in either direction, so on crypto treat the marks as pure orientation.
+    /// </para>
     ///
     /// <para>
     /// Shapes carry tier and hue carries direction, deliberately kept orthogonal: three shapes map
@@ -52,12 +53,12 @@ namespace AccessibleTrader.Core.Services.Indicators
     {
         public const string Code = "VALUE_DEVIATION";
 
-        public const string CompBuyShallow = "BuyShallow";
-        public const string CompBuyMid     = "BuyMid";
-        public const string CompBuyDeep    = "BuyDeep";
-        public const string CompSellShallow = "TrimShallow";
-        public const string CompSellMid     = "TrimMid";
-        public const string CompSellDeep    = "TrimDeep";
+        public const string CompSupportShallow = "SupportShallow";
+        public const string CompSupportMid     = "SupportMid";
+        public const string CompSupportDeep    = "SupportDeep";
+        public const string CompResistShallow = "ResistanceShallow";
+        public const string CompResistMid     = "ResistanceMid";
+        public const string CompResistDeep    = "ResistanceDeep";
         public const string CompPoc        = "ValuePoc";
         public const string CompValueHigh  = "ValueHigh";
         public const string CompValueLow   = "ValueLow";
@@ -66,7 +67,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         private const string ParamWindow = "Window";
         private const string ParamTiers = "Tiers";
         private const string ParamMaxTier = "MaxTierVa";
-        internal const string ParamInvert = "InvertForMomentum";
         private const string ParamRequireMomentum = "RequireMomentumTurn";
 
         private readonly IValueDeviationAnalyzer _analyzer = new ValueDeviationAnalyzer();
@@ -78,20 +78,20 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
-                Name = "Value Deviation (scale-in tiers)",
+                Name = "Value Deviation (support / resistance zones)",
                 Category = "Overlays",
                 DefaultPane = "Main",
                 RequiresFullRecalcOnTick = true,
                 Description =
-                    "Graded scale-in / scale-out marks by distance from a rolling volume-profile POC, " +
-                    "printed on reversal bars. Measured edge rises with tier depth on equities over 5 bars; " +
-                    "the sell side is scale-out only, and crypto inverts.",
+                    "Marks where price REVERSED relative to value. A rolling volume-profile POC defines value; " +
+                    "a reversal below it marks a support zone, above it a resistance zone, and the tier says how far " +
+                    "from value the zone formed. Descriptive, not a buy/sell signal.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamWindow, DisplayName = "Profile window (bars)", DataType = typeof(int),
                             DefaultValue = 240.0, MinValue = 40.0, MaxValue = 2000.0,
-                            Description = "Bars in the rolling volume profile. A SLOWER window anchored better in testing, so raise this when the chart has plenty of history. " +
-                                          "It is automatically capped at half the loaded bars, so setting it high is safe — with only 200 bars loaded a 480 setting quietly becomes 100." },
+                            Description = "Bars in the rolling volume profile that defines value. A SLOWER window anchored better in testing, so raise this when the chart has plenty of history. " +
+                                          "It is automatically capped at a third of the loaded bars, so setting it high is safe — it shortens rather than going silent." },
                     new() { Name = ParamTiers, DisplayName = "Tiers per side", DataType = typeof(int),
                             DefaultValue = 5.0, MinValue = 2.0, MaxValue = 6.0,
                             Description = "Five stayed monotonic in testing; six collapsed the two innermost tiers together." },
@@ -99,21 +99,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultValue = 2.0, MinValue = 0.5, MaxValue = 6.0 },
                     new() { Name = ParamRequireMomentum, DisplayName = "Require a momentum turn as well", DataType = typeof(bool),
                             DefaultValue = true,
-                            Description = "ON (default): a mark only prints when the built-in WaveTrend oscillator is also turning that way — fewer, cleaner marks. OFF: prints on the reversal bar alone." },
-                    new() { Name = ParamInvert, DisplayName = "Momentum market — flip the buy side", DataType = typeof(bool),
-                            DefaultValue = false,
-                            Description = "OFF (default) = MEAN-REVERTING: buys print BELOW value, trims above. This is the EVIDENCE-BACKED setting — measured across 38 stocks, sectors, metals and bonds, 348,000 daily bars, with edge rising monotonically by tier. " +
-                                          "ON = MOMENTUM: buys print ABOVE value, trims below. NO CRYPTO SETTING IS CURRENTLY VALIDATED. Bitcoin looked like momentum on the daily chart (p=0.001) but that did NOT replicate on its own 4-hour chart with four times the samples (p=0.39), and nine other coins showed nothing either way. " +
-                                          "Leave OFF for equities. For crypto, run the lab's poc-dev command on your specific asset and timeframe before trusting either setting — or use the indicator purely as an orientation meter and ignore the buy/trim marks." },
+                            Description = "ON (default): a zone is only marked when the built-in WaveTrend oscillator is also turning that way — fewer, better-confirmed zones. OFF: marks on the reversal bar alone, giving more zones with more noise." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    Mark(CompBuyShallow, "Buy tier 1-2", ComponentDisplayType.TriangleUp, "#66BB6A", 7f, 320),
-                    Mark(CompBuyMid,     "Buy tier 3",   ComponentDisplayType.Dot,        "#2E9E4F", 8f, 260),
-                    Mark(CompBuyDeep,    "Buy tier 4-5", ComponentDisplayType.Diamond,    "#00E676", 10f, 200),
-                    Mark(CompSellShallow, "Trim tier 1-2", ComponentDisplayType.TriangleDown, "#EF9A9A", 7f, 640),
-                    Mark(CompSellMid,     "Trim tier 3",   ComponentDisplayType.Dot,          "#E53935", 8f, 780),
-                    Mark(CompSellDeep,    "Trim tier 4-5", ComponentDisplayType.Diamond,      "#FF1744", 10f, 920),
+                    Mark(CompSupportShallow, "Support tier 1-2", ComponentDisplayType.TriangleUp, "#66BB6A", 7f, 320, MarkerAnchor.BelowBar),
+                    Mark(CompSupportMid,     "Support tier 3",   ComponentDisplayType.Dot,     "#2E9E4F", 8f, 260, MarkerAnchor.BelowBar),
+                    Mark(CompSupportDeep,    "Support tier 4-5", ComponentDisplayType.Diamond, "#00E676", 10f, 200, MarkerAnchor.BelowBar),
+                    Mark(CompResistShallow, "Resistance tier 1-2", ComponentDisplayType.TriangleDown, "#EF9A9A", 7f, 640, MarkerAnchor.AboveBar),
+                    Mark(CompResistMid,     "Resistance tier 3",   ComponentDisplayType.Dot,    "#E53935", 8f, 780, MarkerAnchor.AboveBar),
+                    Mark(CompResistDeep,    "Resistance tier 4-5", ComponentDisplayType.Diamond, "#FF1744", 10f, 920, MarkerAnchor.AboveBar),
                     new()
                     {
                         Name = CompPoc, DisplayName = "Value POC",
@@ -142,7 +137,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     },
                     new()
                     {
-                        // Signed tier: negative below value (buy side), positive above.
+                        // Signed tier: negative below value (support side), positive above.
                         Name = CompTier, DisplayName = "Deviation Tier",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Signal,
                         IsVisible = false, DefaultColorHex = "#B0BEC5", DefaultThickness = 1f,
@@ -155,8 +150,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         };
 
         private static IndicatorComponentMetadata Mark(string name, string display,
-            ComponentDisplayType shape, string colour, float size, double freq) => new()
+            ComponentDisplayType shape, string colour, float size, double freq, MarkerAnchor anchor) => new()
         {
+            DefaultMarkerAnchor = anchor,
             Name = name,
             DisplayName = display,
             DisplayType = shape,
@@ -174,8 +170,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             int n = data.Length;
             // Span<double> cannot live in a Dictionary (ref struct), so clear each one inline.
-            foreach (var key in new[] { CompBuyShallow, CompBuyMid, CompBuyDeep,
-                                        CompSellShallow, CompSellMid, CompSellDeep,
+            foreach (var key in new[] { CompSupportShallow, CompSupportMid, CompSupportDeep,
+                                        CompResistShallow, CompResistMid, CompResistDeep,
                                         CompPoc, CompValueHigh, CompValueLow, CompTier })
             {
                 var s = buffer.GetComponentSpan(key);
@@ -186,7 +182,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             int window = (int)GetParam(parameters, ParamWindow, 240);
             int tiers = Math.Clamp((int)GetParam(parameters, ParamTiers, 5), 2, 6);
             double maxTier = GetParam(parameters, ParamMaxTier, 2.0);
-            bool invert = GetParam(parameters, ParamInvert, 0) != 0;
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
             // ADAPT THE WINDOW TO WHAT IS ACTUALLY LOADED. The default was picked from the
             // research dataset, but a fresh chart fetches about 200 bars — so a 480-bar profile
@@ -213,12 +208,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             var loSpan = buffer.GetComponentSpan(CompValueLow);
             var tierSpan = buffer.GetComponentSpan(CompTier);
 
-            var buyShallow = buffer.GetComponentSpan(CompBuyShallow);
-            var buyMid = buffer.GetComponentSpan(CompBuyMid);
-            var buyDeep = buffer.GetComponentSpan(CompBuyDeep);
-            var sellShallow = buffer.GetComponentSpan(CompSellShallow);
-            var sellMid = buffer.GetComponentSpan(CompSellMid);
-            var sellDeep = buffer.GetComponentSpan(CompSellDeep);
+            var supportShallow = buffer.GetComponentSpan(CompSupportShallow);
+            var supportMid = buffer.GetComponentSpan(CompSupportMid);
+            var supportDeep = buffer.GetComponentSpan(CompSupportDeep);
+            var resistShallow = buffer.GetComponentSpan(CompResistShallow);
+            var resistMid = buffer.GetComponentSpan(CompResistMid);
+            var resistDeep = buffer.GetComponentSpan(CompResistDeep);
 
             for (int i = 1; i < n; i++)
             {
@@ -230,25 +225,29 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (d.Tier <= 0) continue;
                 tierSpan[i] = d.BelowValue ? -d.Tier : d.Tier;
 
-                // Which side of the trade this deviation implies. Normally stretched-below is the
-                // buy; on an inverted (momentum) asset it is stretched-ABOVE that is bought.
-                bool buySide = invert ? !d.BelowValue : d.BelowValue;
+                // A reversal BELOW value marks a support zone; a reversal ABOVE value marks a
+                // resistance zone. That is the whole claim — it is a description of where price
+                // turned relative to value, not an instruction to trade in either direction.
+                bool belowValue = d.BelowValue;
 
-                bool turned = buySide ? IsBullishReversalBar(bars, i) : IsBearishReversalBar(bars, i);
+                bool turned = belowValue ? IsBullishReversalBar(bars, i) : IsBearishReversalBar(bars, i);
                 if (!turned) continue;
 
-                if (requireMomentum && !MomentumTurned(wt, i, buySide)) continue;
+                if (requireMomentum && !MomentumTurned(wt, i, belowValue)) continue;
 
-                // Marks sit just outside the bar so they never obscure the candle body.
-                double pad = (bars[i].High - bars[i].Low) * 0.35;
-                double y = buySide ? bars[i].Low - pad : bars[i].High + pad;
+                // The stored VALUE is the bar extreme the zone sits at — the actual support or
+                // resistance price, which is what speech should quote and what a strategy leaf
+                // should compare against. Where the shape is DRAWN is a separate concern handled
+                // by MarkerAnchor, so the marker follows the displayed candle even under
+                // Heikin-Ashi without this value drifting away from a real, quotable price.
+                double zone = belowValue ? bars[i].Low : bars[i].High;
 
                 var target = d.Tier >= 4
-                    ? (buySide ? buyDeep : sellDeep)
+                    ? (belowValue ? supportDeep : resistDeep)
                     : d.Tier == 3
-                        ? (buySide ? buyMid : sellMid)
-                        : (buySide ? buyShallow : sellShallow);
-                target[i] = y;
+                        ? (belowValue ? supportMid : resistMid)
+                        : (belowValue ? supportShallow : resistShallow);
+                target[i] = zone;
             }
         }
 
@@ -266,7 +265,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             Dictionary<string, object> parameters)
         {
             if (index < 0 || data.Length == 0) return "";
-            bool invert = GetParam(parameters, ParamInvert, 0) != 0;
 
             double tier = At(calculatedResults, CompTier, index);
             double poc = At(calculatedResults, CompPoc, index);
@@ -283,15 +281,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 sb.Append($" Value P O C {Price(poc)}, price {Math.Abs(gap):0.0}% {(gap >= 0 ? "above" : "below")} it.");
             }
 
-            // The honest part: say what was measured, and never imply it is a prediction.
+            // State what was MEASURED, and never phrase it as a forecast.
             if (!double.IsNaN(tier) && tier != 0)
             {
-                bool buySide = invert ? tier > 0 : tier < 0;
-                sb.Append(buySide
-                    ? $" On equities, tier {Math.Abs(tier):0} below value historically returned more over the next five bars the deeper it went."
-                    : " Trim side: on equities the short side did not pay after costs, so treat this as scaling out, not shorting.");
+                sb.Append(tier < 0
+                    ? $" A reversal here would mark a support zone. On equities, zones this far below value were followed by larger five-bar gains the deeper the tier."
+                    : " A reversal here would mark a resistance zone. On equities the upside was not symmetric — treat this as where supply showed up, not as a short.");
             }
-            if (invert) sb.Append(" Inverted mode: this asset is being read as momentum, not mean reversion.");
 
             return sb.ToString();
         }
@@ -302,12 +298,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (double.IsNaN(value)) return null;
             return componentName switch
             {
-                "Buy tier 1-2" => "Shallow buy. Price just outside value.",
-                "Buy tier 3" => "Medium buy. Price well below value.",
-                "Buy tier 4-5" => "Deep buy. Price far below value — the strongest tier measured.",
-                "Trim tier 1-2" => "Shallow trim.",
-                "Trim tier 3" => "Medium trim.",
-                "Trim tier 4-5" => "Deep trim. Price far above value.",
+                "Support tier 1-2" => $"Shallow support zone at {Price(value)}, just outside value.",
+                "Support tier 3" => $"Support zone at {Price(value)}, well below value.",
+                "Support tier 4-5" => $"Deep support zone at {Price(value)}, far below value — the furthest tier.",
+                "Resistance tier 1-2" => $"Shallow resistance zone at {Price(value)}, just outside value.",
+                "Resistance tier 3" => $"Resistance zone at {Price(value)}, well above value.",
+                "Resistance tier 4-5" => $"Deep resistance zone at {Price(value)}, far above value — the furthest tier.",
                 "Deviation Tier" => value == 0 ? "Inside value."
                     : $"Tier {Math.Abs(value):0} {(value < 0 ? "below" : "above")} value.",
                 _ => null

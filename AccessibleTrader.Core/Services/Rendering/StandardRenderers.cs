@@ -213,7 +213,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     if (double.IsNaN(val)) { prevX = null; prevY = null; continue; }
 
                     float x = (i * barWidth) + halfBar;
-                    float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ResolveMarkerY(ctx, comp, i, val);
 
                     if (prevX.HasValue)
                     {
@@ -244,7 +244,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) { first = true; continue; }
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
                 lastY = y;
 
                 if (first) { path.MoveTo(x, y); first = false; }
@@ -277,7 +277,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     double val = lineData[dataIdx];
                     if (double.IsNaN(val)) { first = true; continue; }
                     float x = (i * barWidth) + halfBar;
-                    float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ResolveMarkerY(ctx, comp, i, val);
                     if (first) { linePath.MoveTo(x, y); first = false; } else linePath.LineTo(x, y);
                 }
                 ctx.Canvas.DrawPath(linePath, linePaint);
@@ -488,7 +488,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double val = data[dataIdx];
                 if (double.IsNaN(val)) { lineFirst = true; continue; }
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
                 if (lineFirst) { linePath.MoveTo(x, y); lineFirst = false; } else linePath.LineTo(x, y);
             }
             ctx.Canvas.DrawPath(linePath, linePaint);
@@ -574,7 +574,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 SKColor col;
                 if (hasGradient && dataIdx < colorData!.Length && !double.IsNaN(colorData[dataIdx]))
@@ -653,7 +653,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
                 bool isUp = val >= 0;
 
                 using var path = new SKPath();
@@ -705,7 +705,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) { first = true; continue; }
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 if (first) { path.MoveTo(x, y); first = false; }
                 else
@@ -724,6 +724,35 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// regardless of value sign — use when the indicator pre-determines bullish direction.
         /// Size = comp.Thickness * 3 (same as Arrow).
         /// </summary>
+
+        /// <summary>
+        /// Y position for a marker at visible index <paramref name="i"/>.
+        ///
+        /// <para>
+        /// With <see cref="MarkerAnchor.Value"/> the component's own value is mapped through the
+        /// price axis, which is right for anything whose value IS a price. With BelowBar/AboveBar
+        /// the marker is pinned to the DISPLAYED bar instead. That distinction matters because
+        /// indicators compute on raw OHLCV while the main pane may be drawing Heikin-Ashi candles
+        /// with different highs and lows — a price-anchored marker then floats away from the very
+        /// candle it describes, and disagrees with the speech and audio layers, which already
+        /// follow the transform.
+        /// </para>
+        /// </summary>
+        private static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
+        {
+            if (comp.MarkerAnchor == MarkerAnchor.Value || i < 0 || i >= ctx.Data.Count)
+                return ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+
+            var bar = ctx.Data[i];
+            double range = bar.High - bar.Low;
+            // Pad by a share of the bar's own range so the gap looks consistent at any zoom, with
+            // a floor for doji bars whose range is ~0.
+            double pad = range > 0 ? range * 0.35 : Math.Abs(bar.Close) * 0.002;
+
+            double anchor = comp.MarkerAnchor == MarkerAnchor.BelowBar ? bar.Low - pad : bar.High + pad;
+            return ChartMath.MapY(anchor, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+        }
+
         public static void RenderTriangleUp(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
             var data = series.GetComponentData(comp.Name);
@@ -741,7 +770,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 using var path = new SKPath();
                 path.MoveTo(x,                    y - arrowSize);
@@ -779,7 +808,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 using var path = new SKPath();
                 path.MoveTo(x,                    y + arrowSize);
@@ -816,7 +845,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 using var path = new SKPath();
                 path.MoveTo(x,        y - half);   // top
@@ -854,7 +883,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 using var lease = SKPaintPool.Rent();
@@ -885,7 +914,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ResolveMarkerY(ctx, comp, i, val);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 using var crossLease = SKPaintPool.Rent();

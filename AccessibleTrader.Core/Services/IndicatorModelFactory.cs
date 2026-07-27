@@ -292,6 +292,7 @@ namespace AccessibleTrader.Core.Services
                 ColorHexSecondary  = meta.DefaultColorHexSecondary ?? _stylingService.GetSecondaryColor(indicatorCode, meta.Name, type),
                 ColorBaseline      = meta.ColorBaseline       ?? _stylingService.GetColorBaseline(indicatorCode, meta.Name),
                 DashStyle          = meta.DefaultDashStyle    ?? DashStyle.Solid,
+                MarkerAnchor       = meta.DefaultMarkerAnchor ?? MarkerAnchor.Value,
 
                 // Visual size.
                 Thickness = meta.DefaultThickness ?? _stylingService.GetDefaultThickness(type),

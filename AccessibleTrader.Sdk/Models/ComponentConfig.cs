@@ -30,6 +30,8 @@ namespace AccessibleTrader.Sdk.Models
         public string DisplayName { get; set; } = ""; 
         
         [ObservableProperty] private ComponentDisplayType _displayType = ComponentDisplayType.Line;
+        /// <summary>Vertical anchoring for marker shapes. See <see cref="MarkerAnchor"/>.</summary>
+        [ObservableProperty] private MarkerAnchor _markerAnchor = MarkerAnchor.Value;
         [ObservableProperty] private ComponentRole _role = ComponentRole.None;
         [ObservableProperty] private AmplitudeMapping _amplitudeMapping = AmplitudeMapping.None;
         [ObservableProperty] private PitchMapping _pitchMapping = PitchMapping.Value;

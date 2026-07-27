@@ -75,38 +75,29 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void ValueDeviationDeclaresItsSwitchesAsBooleans()
+        public void ValueDeviationDeclaresItsSwitchAsABoolean()
         {
-            // If these ever revert to numeric, the UI silently goes back to a 0/1 spinner.
+            // If this ever reverts to numeric, the UI silently goes back to a 0/1 spinner.
             var meta = new ValueDeviationProvider().GetIndicators().Single();
-            var switches = meta.Parameters
-                .Where(p => p.Name is "InvertForMomentum" or "RequireMomentumTurn")
-                .ToList();
+            var toggle = meta.Parameters.Single(p => p.Name == "RequireMomentumTurn");
 
-            Assert.Equal(2, switches.Count);
-            Assert.All(switches, p => Assert.Equal(typeof(bool), p.DataType));
-            // Every switch must explain what each state MEANS — a bare "invert" tells the user
-            // nothing about which way round it is.
-            Assert.All(switches, p => Assert.False(string.IsNullOrWhiteSpace(p.Description)));
+            Assert.Equal(typeof(bool), toggle.DataType);
+            // A checkbox gives no clue which way round it is, so the description must say what
+            // BOTH states mean.
+            Assert.Contains("ON", toggle.Description);
+            Assert.Contains("OFF", toggle.Description);
         }
 
         [Fact]
-        public void InvertSwitchNamesBothMarketTypesSoTheStateIsUnambiguous()
+        public void ValueDeviationHasNoInvertMode()
         {
+            // The invert switch only made sense while the marks were framed as buy/sell entries.
+            // The indicator describes support and resistance ZONES, and a reversal is a reversal
+            // whichever way the asset trends — so there is nothing to invert. It was also never
+            // validated: no crypto reading held up in either direction.
             var meta = new ValueDeviationProvider().GetIndicators().Single();
-            var invert = meta.Parameters.Single(p => p.Name == "InvertForMomentum");
-
-            Assert.Contains("OFF", invert.Description);
-            Assert.Contains("ON", invert.Description);
-            Assert.Contains("equit", invert.Description, System.StringComparison.OrdinalIgnoreCase);
-            // Bitcoin was the only crypto that actually measured significant, so the description
-            // must name it specifically rather than implying the setting is validated for crypto
-            // as a category — nine other coins showed nothing either way.
-            // Bitcoin's daily momentum reading did not replicate on its own 4h chart, so the
-            // description must NOT present any crypto setting as validated.
-            Assert.Contains("NO CRYPTO SETTING IS CURRENTLY VALIDATED", invert.Description,
-                System.StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("EVIDENCE-BACKED", invert.Description, System.StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(meta.Parameters, p =>
+                p.Name.Contains("Invert", System.StringComparison.OrdinalIgnoreCase));
         }
     }
 }

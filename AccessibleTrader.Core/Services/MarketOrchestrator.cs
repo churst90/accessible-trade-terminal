@@ -222,11 +222,27 @@ namespace AccessibleTrader.Core.Services
                         {
                             if (_store.State.ActiveTabIndex != switchedToIndex) return;
 
-                            // Sync local selection state with the restored tab's identity.
+                            // Sync local selection state with the restored tab's identity, then
+                            // TELL THE TOOLBAR. Writing the private fields alone left the
+                            // dropdowns showing whatever the previously-active tab had selected —
+                            // so a TAOUSDT/MEXC tab could display "Stock / Tradier / API key
+                            // required", and pressing Load would have loaded that instead of the
+                            // symbol on screen. The lists are refreshed too, because a stale
+                            // options list cannot render the new symbol even once the value is
+                            // right. Failures here are swallowed: a cosmetic desync must never
+                            // take down the tab's data catch-up.
                             _selectedProvider  = capturedIdentity.Provider;
                             _selectedSymbol    = capturedIdentity.Symbol;
                             _selectedTimeframe = capturedIdentity.Timeframe;
+                            if (!string.IsNullOrEmpty(capturedIdentity.Market))
+                                _selectedSubType = capturedIdentity.Market;
                             _dataManager.Identity = capturedIdentity;
+
+                            // Immediate, cheap correction so the toolbar stops lying right away.
+                            _pipelineUpdated.OnNext(Unit.Default);
+
+                            try { await SyncMarketToProviderAsync(capturedIdentity).ConfigureAwait(false); }
+                            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Toolbar sync failed: {ex.Message}"); }
 
                             // Browser-title readiness: this catch-up path (like the resume path)
                             // sets DataStatus=Ready but historically NOT InitStatus, so the
@@ -251,6 +267,43 @@ namespace AccessibleTrader.Core.Services
                     });
                 }
             });
+        }
+
+
+        /// <summary>
+        /// Aligns the top-level market and the dependent option lists with a tab's identity.
+        ///
+        /// <para>
+        /// <see cref="ChartIdentity"/> carries the provider, symbol, timeframe and sub-type, but
+        /// NOT the top-level market ("Crypto" / "Stock" / …) — so that one has to be recovered
+        /// from the provider. The current market is kept when the provider supports it, which
+        /// avoids yanking the user between Crypto and Futures when both would be valid; otherwise
+        /// the provider's first supported market wins.
+        /// </para>
+        /// </summary>
+        private async Task SyncMarketToProviderAsync(ChartIdentity identity)
+        {
+            if (string.IsNullOrEmpty(identity.Provider)) return;
+
+            var markets = await _dataService.GetSupportedMarketsForProviderAsync(identity.Provider)
+                                            .ConfigureAwait(false);
+            if (markets == null || markets.Count == 0) return;
+
+            var names = markets.Select(m => m.ToString()).ToList();
+            if (!names.Any(m => string.Equals(m, _selectedMarket, StringComparison.OrdinalIgnoreCase)))
+                _selectedMarket = names[0];
+
+            // Repopulate the option lists so the dropdowns can actually display the new values.
+            await RefreshProvidersAsync().ConfigureAwait(false);
+            await RefreshSymbolsAsync().ConfigureAwait(false);
+
+            // RefreshSymbols may have reset the selection to a list default; restore the tab's own.
+            _selectedProvider  = identity.Provider;
+            _selectedSymbol    = identity.Symbol;
+            _selectedTimeframe = identity.Timeframe;
+            if (!string.IsNullOrEmpty(identity.Market)) _selectedSubType = identity.Market;
+
+            _pipelineUpdated.OnNext(Unit.Default);
         }
 
         /// <summary>
