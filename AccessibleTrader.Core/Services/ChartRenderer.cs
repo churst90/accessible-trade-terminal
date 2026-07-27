@@ -182,7 +182,11 @@ namespace AccessibleTrader.Core.Services
 
                 var mainPaneRect = new SKRect(0, currentY, width - _axisWidth, currentY + mainPaneHeight);
                 var mainAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + mainPaneHeight);
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density);
+                // The whole stacked-pane area, so a background gradient fades once across the
+                // chart rather than restarting in every pane.
+                var chartRect = new SKRect(0, mainPaneRect.Top, width - _axisWidth, height - _axisHeight);
+
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect);
                 RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
                 // Legend for main-pane indicator overlays (e.g. Cipher A, Cipher SR).
                 // Exclude core series (candles, price line, volume) AND any volume-profile
@@ -228,7 +232,7 @@ namespace AccessibleTrader.Core.Services
                     // reflects real open/close direction, not the HA-transformed direction.
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
                     var indAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight);
-                    RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges);
+                    RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect);
                     RenderYAxis(canvas, indAxisRect, min, max, false, density);
                     RenderPaneLegend(canvas, paneRect, paneSeriesList, density);
                     RenderYAxisSwatches(canvas, indAxisRect, paneSeriesList, min, max, false, density);
@@ -257,7 +261,7 @@ namespace AccessibleTrader.Core.Services
         private static bool IsHeatmapSeries(ChartSeries s) =>
             s.Components.Any(c => c.DisplayType == ComponentDisplayType.Heatmap);
 
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null, SKRect? chartRect = null)
         {
             if (viewportLength <= 0) return;
 
@@ -284,7 +288,7 @@ namespace AccessibleTrader.Core.Services
             // ── Main area pass ────────────────────────────────────────────────
             var mainRect         = new SKRect(rect.Left, rect.Top, rect.Right, rect.Top + mainAreaHeight);
             var adjustedMainRect = new SKRect(rect.Left, mainRect.Top, rect.Right, mainRect.Bottom);
-            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current);
+            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect);
 
             canvas.Save(); canvas.ClipRect(mainRect);
             for (int li = 0; li < _layers.Count; li++)
@@ -320,7 +324,7 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 var spCtx = new RenderContext(canvas, adjustedSpRect, visibleData, viewportStart, viewportLength,
-                    spMin, spMax, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, spName);
+                    spMin, spMax, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, spName, chartRect);
 
                 canvas.Save(); canvas.ClipRect(spRect);
                 // Subtle horizontal separator line at the top of the sub-pane strip

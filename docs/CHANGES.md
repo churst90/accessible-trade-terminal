@@ -10,6 +10,56 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Themes now cover the whole window, and Steel Gray is the default (2026-07-27)
+
+A theme used to stop at the canvas edge. The chart is Skia and honoured `ChartTheme`;
+every toolbar, tab, dialog and label around it is HTML reading a fixed `:root` block in
+`app.css`. Switching to the light theme therefore produced a white chart inside a
+near-black frame, and nothing done inside the renderer could have fixed it.
+
+- **`ChartTheme` gained an application-chrome palette** — `SurfaceRaised`,
+  `SurfaceSunken`, `TextPrimary`, `TextMuted`, `ChromeBorder`, `Accent`,
+  `ButtonNeutral`. Optional with defaults, so a theme that has not been dressed keeps
+  working rather than rendering untinted.
+- **`ThemeCssBridge` publishes that palette as CSS custom properties** at first render
+  and on every theme change, via a one-line JS shim. `app.css` keeps a full `:root`
+  fallback so a JS-interop failure degrades to the default palette instead of unstyled
+  HTML — and a test asserts the fallback declares every variable the bridge sets.
+- **The focus ring now follows the theme.** It was a fixed `#ffff00`: excellent on
+  black, close to invisible on the light theme's near-white toolbar. It is picked from
+  the chrome's luminance instead, because a focus ring you cannot see is the same as no
+  keyboard navigation at all for a low-vision user.
+- **The background gradient spans the whole chart, not each pane.** Anchoring it to
+  `PaneRect` restarted the fade in every pane, so a chart with a volume pane showed a
+  hard seam where the light end began again. It is now computed against the full
+  stacked-pane rect and merely clipped per pane.
+- **New default theme: Steel Gray.** Cool neutral greys, chrome a shade lighter than the
+  chart so the toolbars sit above the canvas rather than framing it in something darker,
+  and a chart that fades upward into the tab bar — which itself gradients from the
+  toolbar surface into the chart's top colour, so the three regions read as one surface.
+  The fade is deliberately shallow: a wide swing washes out candles at the top of the
+  pane, which is exactly where price at the top of its range sits.
+  Candles and volume are `#77FF77` / `#DD0000`. Beyond the look, that pair separates by
+  BRIGHTNESS as well as hue, so it still carries direction under red-green deficiency —
+  a test pins the luminance gap.
+  The high-contrast themes are unchanged and one setting away; they are accessibility
+  tools, and shipping "black background, white candles" as a first impression made a
+  finished application read as a debug harness.
+
+`ThemeCoverageTests` holds the parts that rot silently: every theme dresses its chrome,
+every theme's chrome text stays legible on its own toolbar, every theme gets a visible
+focus ring, the stylesheet fallback matches the bridge, and Steel Gray's candles stay
+readable at both ends of its gradient. Suite 2340 → 2371.
+
+**One correction worth recording:** the candle-contrast test first measured luminance
+alone and failed `#DD0000` against the `#383C42` top — the two are within 0.05 in
+brightness. But a saturated red on a neutral blue-grey is plainly visible; what
+separates them is chroma, which luminance cannot see. Luminance is the right measure
+for grey-on-grey (the doji, chrome text) and the wrong one for anything saturated. The
+same test also failed the grid line for being correctly quiet — grid lines are the one
+thing that SHOULD sit close to the background, and they now get a band check (present,
+but subordinate) instead of a contrast floor.
+
 ### The API-key sentinel stops rearranging the toolbar (2026-07-27)
 
 Selecting a provider without a configured key put

@@ -71,4 +71,41 @@ public record ChartTheme
     public required float AxisHeight { get; init; }
     public required float ProfileWidthFraction { get; init; }
     public required float ProfileSeparatorWidth { get; init; }
+
+    // ── Application chrome ──────────────────────────────────────────────────
+    //
+    // Everything OUTSIDE the Skia canvas: the toolbars above the chart, the indicator
+    // bar below it, dialogs, text and buttons. These are published to CSS custom
+    // properties at startup and on every theme change, so a theme covers the whole
+    // window instead of stopping at the canvas edge — the seam between a themed chart
+    // and a fixed dark-grey toolbar is the single most "unfinished" thing about the
+    // app's appearance.
+    //
+    // Optional with defaults rather than required: an existing theme that has not been
+    // given a chrome palette keeps working and simply renders the previous dark chrome.
+
+    /// <summary>Toolbars, the indicator bar, dialog headers — the raised surfaces.</summary>
+    public SKColor SurfaceRaised { get; init; } = new(30, 30, 30);
+
+    /// <summary>Dialog bodies and panels — the recessed surface behind content.</summary>
+    public SKColor SurfaceSunken { get; init; } = new(18, 18, 18);
+
+    /// <summary>Body text on chrome surfaces.</summary>
+    public SKColor TextPrimary { get; init; } = new(255, 255, 255);
+
+    /// <summary>Secondary text: hints, units, disabled captions.</summary>
+    public SKColor TextMuted { get; init; } = new(170, 170, 170);
+
+    /// <summary>Hairlines and dividers between chrome regions.</summary>
+    public SKColor ChromeBorder { get; init; } = new(68, 68, 68);
+
+    /// <summary>Primary action colour — focus rings, selected tabs, the Load button.</summary>
+    public SKColor Accent { get; init; } = new(0, 120, 212);
+
+    /// <summary>
+    /// Default tint for toolbar icon buttons that do not carry a semantic variant.
+    /// Variants (data / action / warning) stay fixed so muscle memory survives a theme
+    /// change — only this neutral base follows the theme.
+    /// </summary>
+    public SKColor ButtonNeutral { get; init; } = new(180, 180, 200);
 }

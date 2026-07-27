@@ -24,9 +24,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             var gradientEnd = _theme.BackgroundGradientEnd;
             if (gradientEnd is { } end)
             {
+                // Anchored to the WHOLE chart and clipped to this pane by the DrawRect below.
+                // Per-pane anchoring restarted the fade in every pane, so a chart with a volume
+                // pane showed a hard seam where the light end began again.
+                var span = ctx.GradientRect;
                 bgPaint.Shader = SKShader.CreateLinearGradient(
-                    new SKPoint(ctx.PaneRect.Left, ctx.PaneRect.Top),
-                    new SKPoint(ctx.PaneRect.Left, ctx.PaneRect.Bottom),
+                    new SKPoint(span.Left, span.Top),
+                    new SKPoint(span.Left, span.Bottom),
                     new[] { _theme.Background, end },
                     null, SKShaderTileMode.Clamp);
             }

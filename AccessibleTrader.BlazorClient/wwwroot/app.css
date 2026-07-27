@@ -19,14 +19,27 @@ html, body {
 }
 
 :root {
-    --bg-primary:    #121212;
-    --bg-toolbar:    #1e1e1e;
-    --bg-header:     #111111;
-    --text-primary:  #ffffff;
-    --text-muted:    #aaaaaa;
-    --border-color:  #444444;
-    --accent-color:  #0078d4;
-    --focus-outline: 2px solid #ffff00;
+    /* ── Theme fallback ────────────────────────────────────────────────────
+       ThemeCssBridge overwrites every one of these on documentElement at startup
+       and on each theme change, so a theme covers the chrome as well as the chart.
+       These values are the Steel Gray default and exist so a JS-interop failure
+       degrades to a sane palette rather than to unstyled HTML. Any variable added
+       to ThemeCssBridge.VariableNames must also appear here — a test enforces it. */
+    --bg-primary:    #1a1c20;
+    --bg-toolbar:    #42474e;
+    --bg-header:     #42474e;
+    --bg-surface:    #2c2f35;
+    --text-primary:  #eceff4;
+    --text-muted:    #a6adb8;
+    --border-color:  #585e68;
+    --accent-color:  #60a5fa;
+    --btn-neutral:   #c6ceda;
+    --chart-fade-top: #383c42;
+    --focus-outline-color: #ffff00;
+    --bullish-color: #77ff77;
+    --bearish-color: #dd0000;
+
+    --focus-outline: 2px solid var(--focus-outline-color);
 }
 
 .app-container {
@@ -84,8 +97,12 @@ html, body {
 /* ── Tab bar ──────────────────────────────────────────────────────────────── */
 
 .tab-bar {
-    background-color: #0d0d0d;
-    border-bottom: 1px solid var(--border-color);
+    /* Directly above the canvas, so it fades from the toolbar's surface into the chart's own
+       top colour. This is the seam the "fluid" look lives or dies on: a flat strip of a third
+       colour between the toolbar and the chart is what made the window read as three stacked
+       boxes rather than one surface. */
+    background: linear-gradient(to bottom, var(--bg-toolbar), var(--chart-fade-top));
+    border-bottom: none;
     display: flex;
     flex-direction: row;
     gap: 2px;
@@ -95,9 +112,9 @@ html, body {
 }
 
 .tab-button {
-    background: #1a1a1a;
+    background: var(--bg-surface);
     color: var(--text-muted);
-    border: 1px solid #333;
+    border: 1px solid var(--border-color);
     border-bottom: none;
     border-radius: 4px 4px 0 0;
     padding: 3px 10px 3px 10px;
@@ -111,7 +128,7 @@ html, body {
 }
 
 .tab-button:hover {
-    background: #252525;
+    background: var(--bg-surface);
     color: var(--text-primary);
 }
 
@@ -148,7 +165,7 @@ html, body {
 }
 
 .tab-new:hover {
-    background: #252525;
+    background: var(--bg-surface);
     color: var(--text-primary);
 }
 
@@ -170,7 +187,7 @@ button:hover {
 }
 
 button:active {
-    background-color: #1a1a1a;
+    background-color: var(--bg-surface);
 }
 
 /* aria-pressed="true" — visually indicates the pressed/active state */
@@ -209,7 +226,7 @@ input:focus-visible,
 /* ── Form Elements ─────────────────────────────────────────────────────────── */
 
 select, input[type="text"] {
-    background-color: #111;
+    background-color: var(--bg-header);
     color: var(--text-primary);
     border: 1px solid #555;
     padding: 3px 6px;
@@ -308,7 +325,7 @@ label {
 }
 
 .modal-content button.primary {
-    background: #0078d4;
+    background: var(--accent-color);
     color: #fff;
     border-color: #005a9e;
 }
@@ -348,7 +365,7 @@ label {
 }
 
 .object-tree-item:focus {
-    outline: 2px solid #0078d4;
+    outline: 2px solid var(--accent-color);
     outline-offset: -2px;
     background: #e0eeff;
 }
@@ -433,7 +450,7 @@ label {
     cursor: pointer;
     min-width: 52px;
 
-    --btn-color: rgb(180, 180, 200);
+    --btn-color: var(--btn-neutral);
     color: var(--btn-color);
     font-size: 0.7rem;
     line-height: 1;
@@ -482,7 +499,7 @@ label {
 }
 
 .icon-btn-label {
-    color: #dcdce2;
+    color: var(--text-primary);
     letter-spacing: 0.01em;
 }
 
@@ -521,7 +538,7 @@ label {
 .icon-btn-action   { --btn-color: rgb(0, 180, 255); }   /* cyan: execute */
 .icon-btn-warning  { --btn-color: rgb(255, 180, 0); }   /* amber: alerts, flags */
 .icon-btn-danger   { --btn-color: rgb(255, 80, 80); }   /* red: destructive */
-.icon-btn-neutral  { --btn-color: rgb(180, 180, 200); } /* slate: meta / help */
+.icon-btn-neutral  { --btn-color: var(--btn-neutral); }  /* follows the theme */
 .icon-btn-thought  { --btn-color: rgb(180, 100, 255); } /* violet: strategy / AI */
 
 /* Toolbar group containers: visually separate semantic clusters with an
@@ -569,7 +586,7 @@ label {
     outline-offset: 2px;
 }
 .touch-nav-btn:active {
-    background: #0078d4;
+    background: var(--accent-color);
 }
 
 /* ── Reduced motion (Phase D) ─────────────────────────────────────────────

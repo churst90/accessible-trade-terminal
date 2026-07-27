@@ -49,7 +49,7 @@ namespace AccessibleTrader.Core.Services
             _settings = settings;
             // Restore previously-saved theme; fall back to HighContrastDark if not set.
             var saved = _settings.GetSetting(ThemeSettingKey)?.ToString();
-            var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.HighContrastDark;
+            var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.SteelGray;
             Current = WithAccessibilityOverrides(BuildTheme(type));
         }
 
@@ -98,12 +98,81 @@ namespace AccessibleTrader.Core.Services
 
         private static ChartTheme BuildTheme(ThemeType type) => type switch
         {
+            ThemeType.SteelGray         => SteelGray(),
             ThemeType.HighContrastDark  => HighContrastDark(),
             ThemeType.HighContrastLight => HighContrastLight(),
             ThemeType.SoftDark          => SoftDark(),
             ThemeType.Solarized         => Solarized(),
             ThemeType.Braille           => BrailleOptimized(),
-            _                           => HighContrastDark()
+            _                           => SteelGray()
+        };
+
+        /// <summary>
+        /// The default. Cool neutral greys with a chart that fades UPWARD into the toolbar, so the
+        /// window reads as one surface rather than a canvas dropped into a frame.
+        ///
+        /// <para>
+        /// The gradient runs light at the top to dark at the bottom, and the top end is matched to
+        /// <see cref="ChartTheme.SurfaceRaised"/> so the seam between chart and toolbar disappears.
+        /// It is deliberately shallow — a wide swing would wash out candles at the top of the pane,
+        /// and price at the top of the range is exactly where the eye is.
+        /// </para>
+        ///
+        /// <para>
+        /// Candles are #77FF77 / #DD0000 rather than the usual muted teal-and-salmon. The bright
+        /// green carries against grey where a mid-tone green does not, and the deep red stays
+        /// distinguishable for the common red-green deficiencies by being much darker than the
+        /// green rather than merely a different hue. Volume uses the same pair at partial alpha so
+        /// the two panes agree about what "up" looks like.
+        /// </para>
+        /// </summary>
+        private static ChartTheme SteelGray() => new()
+        {
+            ThemeType            = ThemeType.SteelGray,
+            // Chart canvas: light at the top, fading into the toolbar above it.
+            Background           = new SKColor(56, 60, 66),
+            BackgroundGradientEnd = new SKColor(26, 28, 32),
+            GridLine             = new SKColor(88, 94, 104),
+            GridLineMinor        = new SKColor(66, 71, 79),
+            AxisText             = new SKColor(214, 218, 226),
+            AxisLine             = new SKColor(104, 111, 122),
+            Crosshair            = new SKColor(255, 214, 92),
+            CandleBullishBody    = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishBody    = new SKColor(0xDD, 0x00, 0x00),
+            CandleBullishWick    = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishWick    = new SKColor(0xEE, 0x33, 0x33),
+            CandleDojiBody       = new SKColor(188, 194, 204),
+            VolumeBullish        = new SKColor(0x77, 0xFF, 0x77, 120),
+            VolumeBearish        = new SKColor(0xDD, 0x00, 0x00, 120),
+            IndicatorPalette     = ImmutableList.Create(
+                new SKColor(226, 232, 240), new SKColor(255, 138, 190), new SKColor(255, 176, 74),
+                new SKColor(112, 214, 255), new SKColor(255, 226, 112), new SKColor(206, 148, 255),
+                new SKColor(126, 190, 255), new SKColor(255, 158, 110), new SKColor(150, 232, 174),
+                new SKColor(255, 122, 122), new SKColor(160, 205, 236), new SKColor(232, 230, 186)),
+            ProfilePOC           = new SKColor(255, 196, 84),
+            ProfileValueArea     = new SKColor(255, 196, 84, 64),
+            ProfileSinglePrint   = new SKColor(126, 158, 255, 110),
+            ProfileNormal        = new SKColor(140, 148, 162, 92),
+            ProfileSeparator     = new SKColor(84, 90, 100),
+            DrawingLine          = new SKColor(255, 214, 92),
+            DrawingHandle        = new SKColor(240, 244, 250),
+            SelectionHighlight   = new SKColor(255, 214, 92, 56),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+            // Chrome: a shade lighter than the top of the chart gradient, so the toolbars sit
+            // ABOVE the canvas visually instead of framing it in a darker border.
+            SurfaceRaised        = new SKColor(66, 71, 78),
+            SurfaceSunken        = new SKColor(44, 47, 53),
+            TextPrimary          = new SKColor(236, 239, 244),
+            TextMuted            = new SKColor(166, 173, 184),
+            ChromeBorder         = new SKColor(88, 94, 104),
+            Accent               = new SKColor(96, 165, 250),
+            ButtonNeutral        = new SKColor(198, 206, 218),
         };
 
         private static ChartTheme HighContrastDark() => new()
@@ -142,6 +211,13 @@ namespace AccessibleTrader.Core.Services
             AxisHeight           = 40f,
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
+            SurfaceRaised        = new SKColor(20, 20, 20),
+            SurfaceSunken        = SKColors.Black,
+            TextPrimary          = SKColors.White,
+            TextMuted            = new SKColor(190, 190, 190),
+            ChromeBorder         = new SKColor(110, 110, 110),
+            Accent               = new SKColor(255, 255, 0),
+            ButtonNeutral        = SKColors.White,
         };
 
         private static ChartTheme HighContrastLight() => new()
@@ -180,6 +256,13 @@ namespace AccessibleTrader.Core.Services
             AxisHeight           = 40f,
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
+            SurfaceRaised        = new SKColor(238, 238, 238),
+            SurfaceSunken        = SKColors.White,
+            TextPrimary          = SKColors.Black,
+            TextMuted            = new SKColor(70, 70, 70),
+            ChromeBorder         = new SKColor(120, 120, 120),
+            Accent               = new SKColor(0, 0, 200),
+            ButtonNeutral        = new SKColor(30, 30, 30),
         };
 
         private static ChartTheme SoftDark() => new()
@@ -218,6 +301,13 @@ namespace AccessibleTrader.Core.Services
             AxisHeight           = 40f,
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
+            SurfaceRaised        = new SKColor(30, 33, 44),
+            SurfaceSunken        = new SKColor(22, 24, 33),
+            TextPrimary          = new SKColor(226, 230, 240),
+            TextMuted            = new SKColor(150, 156, 172),
+            ChromeBorder         = new SKColor(58, 63, 80),
+            Accent               = new SKColor(96, 165, 250),
+            ButtonNeutral        = new SKColor(186, 194, 212),
         };
 
         private static ChartTheme Solarized() => new()

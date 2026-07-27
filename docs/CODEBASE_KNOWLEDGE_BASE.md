@@ -626,3 +626,32 @@ verbose entry reflows the whole toolbar and moves controls out from under a Tab-
 text lives in `ApiKeyRequiredHelp` and reaches the user through the tooltip, an inline action
 button, and a spoken announcement. The symbol dropdown is additionally width-capped, because
 long real tickers (options contracts) cause the same reflow.
+
+## 16. Theming covers the whole window (2026-07-27)
+
+The chart is Skia and reads `ChartTheme`; every toolbar, tab, dialog and label around it is
+HTML. Until this landed the HTML half read a fixed `:root` block, so a theme stopped at the
+canvas edge and the light theme produced a white chart in a near-black frame.
+
+- **`ChartTheme` carries an application-chrome palette** (`SurfaceRaised`, `SurfaceSunken`,
+  `TextPrimary`, `TextMuted`, `ChromeBorder`, `Accent`, `ButtonNeutral`) alongside the chart
+  colours. Optional with defaults, so an un-dressed theme still renders.
+- **`ThemeCssBridge` (Core/Services/Theming) is the mapping**, pure and static so it is
+  testable without a DOM. `MainLayout` applies it on first render and on `ThemeChanged` via
+  `accessibleTrader.applyThemeVariables`. **Any variable added to
+  `ThemeCssBridge.VariableNames` must also be declared in BOTH `app.css` `:root` blocks** —
+  the fallback is what keeps the app styled if JS interop fails, and a test enforces the match.
+- **Never hard-code a chrome colour in CSS.** Use the variables. The reason the seam existed
+  for so long is that each new dialog reached for `#1e1e1e` because that is what the file
+  already did.
+- **The focus ring is derived, not fixed.** `FocusRingFor` picks from the chrome's luminance;
+  the old fixed `#ffff00` was invisible on the light theme, and an invisible focus ring is the
+  same as no keyboard navigation for a low-vision user.
+- **Background gradients span `RenderContext.GradientRect`** (the whole stacked-pane area),
+  not `PaneRect`. Per-pane anchoring restarted the fade in every pane and put a hard seam
+  above the volume pane.
+- **Contrast checks: use luminance for neutrals, RGB distance for anything saturated.** A
+  luminance-only check failed `#DD0000` on a `#383C42` background — within 0.05 in brightness
+  yet obviously distinct, because the separation is chroma. Grid lines get a BAND check
+  (visible but subordinate) rather than a contrast floor; they are supposed to sit close to
+  the background.

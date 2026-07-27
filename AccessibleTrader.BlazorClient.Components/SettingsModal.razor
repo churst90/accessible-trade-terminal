@@ -506,6 +506,7 @@
                                 value="@_selectedTheme"
                                 @onchange="OnThemeChanged"
                                 aria-label="Application theme">
+                            <option value="SteelGray">Steel Gray (default)</option>
                             <option value="HighContrastDark">High Contrast Dark</option>
                             <option value="HighContrastLight">High Contrast Light</option>
                             <option value="SoftDark">Soft Dark</option>
@@ -513,6 +514,12 @@
                             <option value="Braille">Braille Optimized</option>
                         </select>
                     </div>
+                    <p style="margin:6px 0 0; color:#444; font-size:0.9em;">
+                        A theme covers the whole window — the toolbars and dialogs as well as the
+                        chart — so the application never ends up as a themed chart inside a
+                        differently-coloured frame. The colour and gradient settings above are
+                        layered on top of whichever theme is selected.
+                    </p>
 
                 </fieldset>
 
