@@ -211,8 +211,14 @@
         }
 
         <label for="symbol-select">Symbol:</label>
+        @* max-width so a long ticker — an options contract, or the API-key sentinel — cannot
+           widen the control enough to reflow the toolbar rows. The full value is still in the
+           tooltip and in what the screen reader reads. *@
         <select id="symbol-select"
                 aria-label="Select symbol"
+                aria-describedby="@(NeedsApiKey ? "symbol-key-help" : null)"
+                title="@(NeedsApiKey ? AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp : MarketOrchestrator.SelectedSymbol)"
+                style="max-width: 22ch;"
                 @onchange="OnSymbolChanged"
                 value="@MarketOrchestrator.SelectedSymbol">
             @foreach (var s in MarketOrchestrator.AvailableSymbols)
@@ -220,6 +226,15 @@
                 <option value="@s" selected="@(s == MarketOrchestrator.SelectedSymbol)">@s</option>
             }
         </select>
+        @if (NeedsApiKey)
+        {
+            @* Visible next to the disabled Load button rather than crammed into the dropdown,
+               and a live region so the reason is announced when the provider switch causes it. *@
+            <button type="button" class="warning" id="symbol-key-help"
+                    title="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
+                    aria-label="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
+                    @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">Add key</button>
+        }
 
         <div class="toolbar-separator" aria-hidden="true"></div>
 
@@ -426,6 +441,12 @@
     // services emit, which a direct call would bypass.
     private void ToggleSplit()  => EventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle));
     private void ToggleReplay() => EventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle));
+
+    // True when the selected provider needs a key it hasn't got, so the symbol list is the
+    // sentinel rather than real symbols.
+    private bool NeedsApiKey =>
+        MarketOrchestrator.SelectedSymbol
+            == AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
 
     private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
 

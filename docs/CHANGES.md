@@ -10,6 +10,31 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### The API-key sentinel stops rearranging the toolbar (2026-07-27)
+
+Selecting a provider without a configured key put
+"⚠ API key required — open API Keys (Alt+K)" into the symbol dropdown. A `<select>`
+sizes itself to its widest option, so that one string widened the control enough to
+reflow the whole toolbar — Pan and Zoom jumped up into the row above. Nothing was
+broken; the layout simply moved under the user, which for someone navigating by Tab
+order is worse than it looks.
+
+- **The sentinel is now "API key required"** — short enough to ride inside the control
+  rather than drive its width, and still enough to name the problem on its own, since
+  it is what a screen reader reads off the dropdown.
+- **`MarketOrchestrator.ApiKeyRequiredHelp` carries the full explanation**, and it now
+  appears in three better places than a dropdown option: the control's tooltip, an
+  **Add key** button that opens the API Keys dialog from where the user already is, and
+  a spoken announcement fired the moment the provider switch causes it. Speaking the
+  reason beats making someone go and read a dropdown to find out why Load is disabled.
+- **The symbol dropdown is width-capped** at 22ch. The sentinel was not the only long
+  value — a Polygon options contract (`O:SPY251219C00650000`) reflows the row exactly
+  the same way — so the cap fixes the class, not just the instance.
+
+`ToolbarLayoutStabilityTests` pins all of it, including a character budget on the
+sentinel, because writing a friendlier one is precisely how this comes back.
+Suite 2334 → 2340.
+
 ### Legend keys that look like the chart, and a marker-extent correction (2026-07-27)
 
 - **Every legend row drew the same coloured square.** A dashed resistance line, a

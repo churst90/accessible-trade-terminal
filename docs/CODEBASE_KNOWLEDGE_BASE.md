@@ -619,3 +619,10 @@ variable: a triangle's `arrowSize` is the whole height; a square's `half`, a dia
 a cross's `arm` and a dot's `radius` are half of it. Half-extent callers must use
 `ClampMarkerHalfExtent` — passing a half-extent to the full-extent clamp draws at twice the cap,
 which is exactly what happened on the first pass and why the squares still looked heavy.
+
+**Nothing long goes in a toolbar `<select>`.** A select sizes to its widest option, so one
+verbose entry reflows the whole toolbar and moves controls out from under a Tab-order user.
+`MarketOrchestrator.ApiKeyRequiredSentinel` is deliberately terse and budget-tested; the full
+text lives in `ApiKeyRequiredHelp` and reaches the user through the tooltip, an inline action
+button, and a spoken announcement. The symbol dropdown is additionally width-capped, because
+long real tickers (options contracts) cause the same reflow.
