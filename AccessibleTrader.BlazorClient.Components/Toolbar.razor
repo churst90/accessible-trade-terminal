@@ -411,6 +411,7 @@
 @code {
     private IDisposable? _pipelineSub;
     private IDisposable? _loadChartSub;
+    private IDisposable? _stateSub;
     private IDisposable? _splitSub;
     private IDisposable? _replaySub;
     private string? _loadError;
@@ -483,6 +484,15 @@
         // Re-render whenever market/provider/symbol/timeframe lists change.
         _pipelineSub = MarketOrchestrator.PipelineUpdated
             .Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        // And whenever the WORKSPACE changes, because several controls read their state straight
+        // out of the store: Pan and Zoom disable on Store.State.Data.Count, and Heatmap, Heikin
+        // and Log show pressed state from the store's own flags. Without this the toolbar only
+        // repainted when something unrelated happened to fire, so pan and zoom could sit greyed
+        // out over a chart full of data, and toggling Heikin from the keyboard left the button
+        // showing the opposite of the truth. A control that lies about its own state is worse
+        // than one that is missing.
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
 
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
@@ -747,6 +757,7 @@
     public void Dispose() {
         _pipelineSub?.Dispose();
         _loadChartSub?.Dispose();
+        _stateSub?.Dispose();
         _splitSub?.Dispose();
         _replaySub?.Dispose();
     }

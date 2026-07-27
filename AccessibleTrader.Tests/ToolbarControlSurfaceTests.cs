@@ -171,6 +171,35 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void TheToolbar_watchesTheStateItDisplays()
+        {
+            // Pan and Zoom disable on Store.State.Data.Count; Heatmap, Heikin and Log show pressed
+            // state from the store's own flags. The toolbar read all of that without subscribing
+            // to the store, so it only repainted when something unrelated happened to fire — pan
+            // and zoom could sit greyed out over a chart full of data, and toggling Heikin from
+            // the keyboard left the button showing the opposite of the truth. A control that lies
+            // about its own state is worse than one that is missing.
+            string toolbar = Toolbar();
+
+            Assert.Contains("Store.StateStream.Subscribe", toolbar);
+            Assert.Contains("_stateSub?.Dispose();", toolbar);
+        }
+
+        [Fact]
+        public void EveryStoreBackedToolbarFlag_hasSomethingToRefreshIt()
+        {
+            // The specific flags that made this a bug, named so a future one is added with its
+            // refresh path in mind rather than discovered in a screenshot.
+            string toolbar = Toolbar();
+
+            foreach (var flag in new[] { "HasChartData", "IsHeatmapVisible",
+                                         "Store.State.IsHeikinAshi", "Store.State.IsLogScale" })
+                Assert.True(toolbar.Contains(flag), $"{flag} is no longer present — update this test with what replaced it.");
+
+            Assert.Contains("StateStream", toolbar);
+        }
+
+        [Fact]
         public void IconSprite_hasNoDuplicateSymbolIds()
         {
             // Two <symbol> elements with the same id makes the second unreachable — the button

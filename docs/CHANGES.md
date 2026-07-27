@@ -54,7 +54,15 @@ Only a custom pair can collide, and Settings now shows a live warning next to th
 deliberately does not auto-correct: silently overriding someone's chosen colour is worse than
 letting them see the problem and decide.
 
-Suite 2384 → 2409.
+- **The toolbar never watched the state it displays.** Pan and Zoom disable on
+  `Store.State.Data.Count`, and Heatmap, Heikin and Log show pressed state from the store's own
+  flags — but `Toolbar.razor` read all of that without subscribing to `StateStream`. It only
+  repainted when something unrelated happened to fire, so pan and zoom could sit greyed out over
+  a chart full of data, and toggling Heikin from the keyboard left the button showing the
+  opposite of the truth. A control that lies about its own state is worse than one that is
+  missing. Found by looking at a screenshot, not by any test — so there is now a test.
+
+Suite 2384 → 2411.
 
 ### Three independent theme bands, themed dialogs, up/down as an app preference (2026-07-27)
 
