@@ -33,6 +33,13 @@ namespace AccessibleTrader.Core.Services
         // deliberate high-contrast choices.
         public const string BullishColor       = "appearance.bullishColor";
         public const string BearishColor       = "appearance.bearishColor";
+
+        // Treat the toolbar band, the chart and the footer band as slices of ONE top-to-bottom
+        // fade instead of three independently coloured regions. Off by default: a theme decides
+        // its own look, and this overrides all three at once.
+        public const string UnifiedGradient       = "appearance.unifiedGradient";
+        public const string UnifiedGradientTop    = "appearance.unifiedGradientTop";
+        public const string UnifiedGradientBottom = "appearance.unifiedGradientBottom";
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
         /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>

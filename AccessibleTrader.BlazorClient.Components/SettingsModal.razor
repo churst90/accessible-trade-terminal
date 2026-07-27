@@ -498,6 +498,41 @@
                 </fieldset>
 
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Window gradient</legend>
+
+                    <div class="modal-row">
+                        <label for="s-unified-gradient">
+                            Blend the toolbars, chart and footer into one gradient
+                        </label>
+                        <input id="s-unified-gradient" type="checkbox"
+                               checked="@_unifiedGradient"
+                               @onchange="OnUnifiedGradientChanged" />
+                    </div>
+
+                    @if (_unifiedGradient)
+                    {
+                        <div class="modal-row">
+                            <label for="s-unified-top">Top of window</label>
+                            <input id="s-unified-top" type="color" value="@_unifiedTop"
+                                   @onchange="OnUnifiedTopChanged"
+                                   aria-label="Color at the very top of the window" />
+
+                            <label for="s-unified-bottom">Bottom of window</label>
+                            <input id="s-unified-bottom" type="color" value="@_unifiedBottom"
+                                   @onchange="OnUnifiedBottomChanged"
+                                   aria-label="Color at the very bottom of the window" />
+                        </div>
+                    }
+
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Off by default — each theme colors its three regions itself. Turn this on
+                        and the toolbars, the chart and the footer each take the color the fade has
+                        reached where they sit, so the whole window reads as one surface. Leaving
+                        the two colors alone smooths whatever the current theme already had.
+                    </p>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Up and down colors</legend>
 
                     <div class="modal-row">
@@ -1239,6 +1274,9 @@
     private bool _hoverSonification;
     private bool _magnetSnap;
     private bool _marketStructureDefault;
+    private bool _unifiedGradient;
+    private string _unifiedTop = "#676e79";
+    private string _unifiedBottom = "#17191d";
     private string _bullishColor = "#77ff77";
     private string _bearishColor = "#dd0000";
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
@@ -1276,6 +1314,46 @@
         App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
+    }
+
+    private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _unifiedGradient = e.Value is bool b && b;
+        Settings.SetSetting(Core.Services.SettingsKeys.UnifiedGradient, _unifiedGradient);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        SyncUnifiedEndsFromTheme();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _unifiedGradient
+                ? "The window is one gradient from top to bottom."
+                : "Each region uses the theme's own color again.", true));
+    }
+
+    private void OnUnifiedTopChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientTop, e.Value?.ToString(), isTop: true);
+
+    private void OnUnifiedBottomChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientBottom, e.Value?.ToString(), isTop: false);
+
+    private void SetUnifiedEnd(string key, string? hex, bool isTop)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        if (isTop) _unifiedTop = hex; else _unifiedBottom = hex;
+
+        Settings.SetSetting(key, hex);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
+    }
+
+    // Seed the pickers from whatever the theme resolved to, so switching the toggle on shows the
+    // colors actually in use rather than a pair the user never chose.
+    private void SyncUnifiedEndsFromTheme()
+    {
+        _unifiedTop = SkColorToHex(ThemeService.Current.SurfaceRaised);
+        _unifiedBottom = SkColorToHex(
+            ThemeService.Current.ChromeBottomEnd ?? ThemeService.Current.ChromeBottom);
     }
 
     private void OnBullishColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)

@@ -83,6 +83,25 @@ namespace AccessibleTrader.Core.Services
             if (colorVision || hollow)
                 theme = theme with { ColorVisionSafe = colorVision, HollowUpCandles = hollow };
 
+            // One fade across the whole window, if asked for. Applied BEFORE the individual
+            // background overrides below so a user who has also set a specific chart background
+            // still wins on that one band — the more specific preference beats the broader one.
+            bool unified = _settings.GetSetting(SettingsKeys.UnifiedGradient)?.Value<bool?>() ?? false;
+            if (unified)
+            {
+                var topRaw = _settings.GetSetting(SettingsKeys.UnifiedGradientTop)?.ToString();
+                var botRaw = _settings.GetSetting(SettingsKeys.UnifiedGradientBottom)?.ToString();
+
+                // Absent ends default to the theme's own extremes, so ticking the box alone
+                // smooths whatever the theme already had rather than demanding two colours first.
+                var top = !string.IsNullOrWhiteSpace(topRaw) && SKColor.TryParse(topRaw, out var t1)
+                    ? t1 : theme.SurfaceRaised;
+                var bottom = !string.IsNullOrWhiteSpace(botRaw) && SKColor.TryParse(botRaw, out var b1)
+                    ? b1 : (theme.ChromeBottomEnd ?? theme.ChromeBottom);
+
+                theme = Theming.UnifiedGradient.Apply(theme, top, bottom);
+            }
+
             var bgOverride = _settings.GetSetting(BackgroundOverrideKey)?.ToString();
             if (!string.IsNullOrWhiteSpace(bgOverride) && SKColor.TryParse(bgOverride, out var bg))
                 theme = theme with { Background = bg };

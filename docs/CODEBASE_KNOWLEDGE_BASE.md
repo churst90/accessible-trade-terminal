@@ -668,3 +668,17 @@ follow the candle palette; a MACD histogram is not price direction.
 bar are transparent and ride on it; the Skia canvas paints the middle slice via
 `ChartTheme.Background` → `BackgroundGradientEnd`. Giving any chrome region its own opaque
 fill puts the stacked-boxes seam back.
+
+**Three theme bands, and the switch that unifies them.** `ChartTheme` colours the toolbar band
+(`SurfaceRaised` → `ChromeTopEnd`), the canvas (`Background` → `BackgroundGradientEnd`) and the
+footer band (`ChromeBottom` → `ChromeBottomEnd`) independently — a walnut header over a
+near-black chart is expressible. A theme achieves one continuous window fade by sharing the
+boundary values; `UnifiedGradient.Apply` does that arithmetic for the user-facing switch. Its
+stops are NOMINAL proportions, not measurements: band colours are decided before layout, and
+Skia and CSS each paint their half without knowing the other's height. Adjacent bands always
+share their boundary value, which is the property that actually removes a seam.
+
+**Up/down colour is an app preference, not a theme property.** `SettingsKeys.BullishColor` /
+`BearishColor` layer over whatever theme is active. Which colour means "up" is a habit carried
+between themes; absent values leave each theme's own pair, which is how High Contrast Dark
+keeps its deliberate white-on-red.

@@ -39,7 +39,17 @@ what each of them claims — most of which was a null result, deliberately kept.
   were both too light — candles sat on a background close enough in tone to mute them — and
   too shallow to read as a gradient at all.
 
-Suite 2373 → 2378, including tests that a theme CAN make the three bands disagree, that a band
+- **"Blend the toolbars, chart and footer into one gradient" is now a switch.** Lining the
+  seams up by hand is what a theme author does; it is not something a user editing two colour
+  pickers should have to get right. Settings → Appearance → Window gradient takes the colour at
+  the very top and the colour at the very bottom, and each band takes the value the fade has
+  reached where it sits. Leaving the two colours alone smooths whatever the current theme
+  already had. The stops in `UnifiedGradient` are nominal proportions rather than measurements —
+  band colours are decided before layout, and Skia and CSS each paint their half without
+  knowing the other's height — but adjacent bands always share their boundary value, which is
+  the property that removes the seam.
+
+Suite 2373 → 2384, including tests that a theme CAN make the three bands disagree, that a band
 with no end colour stays flat rather than growing a gradient it never asked for, and that the
 up/down preference outranks every theme while its absence leaves each theme's own pair alone.
 

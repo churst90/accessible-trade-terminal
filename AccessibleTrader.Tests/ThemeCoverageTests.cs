@@ -447,5 +447,97 @@ namespace AccessibleTrader.Tests
             Assert.True(d < 900,
                 $"The {what} painted {actual} but the theme asked for {expected} (distance {d}).");
         }
+        // ── The unified-gradient option ──────────────────────────────────
+
+        [Fact]
+        public void UnifiedGradient_leavesNoSeamBetweenAdjacentBands()
+        {
+            // The property that matters. A hand-tuned palette usually gets one of these two
+            // boundaries slightly wrong, which shows up as a visible line across the window.
+            var theme = UnifiedGradient.Apply(Build(ThemeType.SteelGray),
+                new SKColor(0x90, 0x90, 0x90), new SKColor(0x10, 0x10, 0x10));
+
+            Assert.Equal(theme.Background, theme.ChromeTopEnd);
+            Assert.Equal(theme.BackgroundGradientEnd, theme.ChromeBottom);
+        }
+
+        [Fact]
+        public void UnifiedGradient_runsFromTheGivenTopToTheGivenBottom()
+        {
+            var top = new SKColor(0x90, 0x90, 0x90);
+            var bottom = new SKColor(0x10, 0x10, 0x10);
+
+            var theme = UnifiedGradient.Apply(Build(ThemeType.SteelGray), top, bottom);
+
+            Assert.Equal(top, theme.SurfaceRaised);
+            Assert.Equal(bottom, theme.ChromeBottomEnd);
+        }
+
+        [Fact]
+        public void UnifiedGradient_darkensMonotonicallyDownTheWindow()
+        {
+            // Every band must be darker than the one above it. A non-monotonic result would mean
+            // the stops are out of order, which reads as a band of the wrong colour rather than
+            // as a fade.
+            var theme = UnifiedGradient.Apply(Build(ThemeType.SteelGray),
+                new SKColor(0x90, 0x90, 0x90), new SKColor(0x10, 0x10, 0x10));
+
+            double[] stops =
+            {
+                ThemeCssBridge.Luminance(theme.SurfaceRaised),
+                ThemeCssBridge.Luminance(theme.ChromeTopEnd!.Value),
+                ThemeCssBridge.Luminance(theme.BackgroundGradientEnd!.Value),
+                ThemeCssBridge.Luminance(theme.ChromeBottomEnd!.Value),
+            };
+
+            for (int i = 1; i < stops.Length; i++)
+                Assert.True(stops[i] < stops[i - 1],
+                    $"Band {i} is lighter than the band above it ({stops[i]:0.000} vs {stops[i - 1]:0.000}).");
+        }
+
+        [Fact]
+        public void UnifiedGradient_isOffUnlessAskedFor()
+        {
+            // A theme decides its own look; this overrides all three bands at once, so it cannot
+            // be something that happens by default.
+            var settings = Substitute.For<ISettingsManager>();
+            var service = new ThemeService(settings);
+
+            // Steel happens to line its own seams up, so compare against a theme that does not.
+            service.SetTheme(ThemeType.HighContrastDark);
+            Assert.NotEqual(service.Current.SurfaceRaised, service.Current.Background);
+        }
+
+        [Fact]
+        public void UnifiedGradient_withNoColoursChosenSmoothsTheThemesOwnEnds()
+        {
+            // Ticking the box alone has to do something sensible, rather than demanding two
+            // colour choices before it will work.
+            var settings = Substitute.For<ISettingsManager>();
+            settings.GetSetting(SettingsKeys.UnifiedGradient, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
+                .Returns(new Newtonsoft.Json.Linq.JValue(true));
+
+            var service = new ThemeService(settings);
+            service.SetTheme(ThemeType.HighContrastDark);
+
+            // HighContrastDark's own extremes become the ends, and the seams close up.
+            Assert.Equal(service.Current.Background, service.Current.ChromeTopEnd);
+            Assert.Equal(service.Current.BackgroundGradientEnd, service.Current.ChromeBottom);
+        }
+
+        [Fact]
+        public void Lerp_hitsBothEndsExactlyAndTheMidpointBetweenThem()
+        {
+            var a = new SKColor(0, 0, 0);
+            var b = new SKColor(200, 100, 50);
+
+            Assert.Equal(a, UnifiedGradient.Lerp(a, b, 0));
+            Assert.Equal(b, UnifiedGradient.Lerp(a, b, 1));
+            Assert.Equal(new SKColor(100, 50, 25), UnifiedGradient.Lerp(a, b, 0.5));
+
+            // Out-of-range t clamps rather than extrapolating into nonsense colours.
+            Assert.Equal(a, UnifiedGradient.Lerp(a, b, -5));
+            Assert.Equal(b, UnifiedGradient.Lerp(a, b, 5));
+        }
     }
 }
