@@ -10,6 +10,39 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Two long-standing DrawRect bugs, and two regressions from the legibility pass (2026-07-27)
+
+- **`SKCanvas.DrawRect`'s four-float overload is `(x, y, width, height)`, not
+  `(left, top, right, bottom)` — and two call sites passed bounds.**
+  `RenderPaneLegend`'s 8px colour swatch and `RenderYAxisSwatches`' 4x3px tick were
+  both painting rectangles roughly as wide as the canvas and hundreds of pixels tall:
+  a colour column running past the bottom of the legend box, and solid blocks down the
+  price axis burying the axis labels behind them. Nothing threw, nothing looked
+  obviously broken, and it read as a deliberate styling choice — legend text on
+  coloured backgrounds. Both predate this week; the swatch bug is as old as the legend.
+  Every other `DrawRect` call in the renderer was already correct.
+- **The collapsed legend row used the series' full instance name.** A series is named
+  `"{metadata name} {each parameter value}"`, so the new marker-family row read
+  "Value Deviation (support / resistance zones) 240 5 2 2 1 — 6 marks" and stretched
+  the legend across a third of the chart width. Fixing the height budget without
+  bounding the width just rotated the problem. Now `ChartRenderer.ShortSeriesName`
+  drops the parenthesised subtitle and any trailing NUMERIC tokens (a string parameter
+  is usually the point of the name — "Funding Rate BTC-USDT-SWAP" is kept), and the
+  box is additionally capped at 28% of pane width with ellipsis, so no indicator's
+  name can eat the chart regardless of what it calls itself.
+- **Markers are now clamped against bar width.** Thickness is authored for a normal
+  zoom; at 330 bars in view the bars shrink and the glyphs do not, so the new swing
+  squares came out about four times a candle wide and buried the price action they
+  describe. `StandardRenderers.ClampMarkerSize` caps every glyph at 2.2x bar width
+  with a 3px floor, applied across all nine marker renderers. The configured thickness
+  stays an upper bound — this only ever makes a marker smaller — and the floor keeps a
+  mark visible at extreme zoom, because a mark you cannot see is worse than no mark:
+  the chart still claims to be showing you something.
+
+`MarkerSizingTests` covers the clamp and the short name directly, and renders a square
+marker into a real `SKSurface` to measure its painted bounding box — which is the only
+kind of test that would have caught the `DrawRect` argument order. Suite 2312 → 2327.
+
 ### Chart legibility: legend, marker shapes, marker density (2026-07-27)
 
 All three came out of one weekly BTC screenshot carrying Market Structure and

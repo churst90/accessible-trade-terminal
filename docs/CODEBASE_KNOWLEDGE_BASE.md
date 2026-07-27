@@ -593,3 +593,16 @@ Reviewing a feature alone will not surface any of them.
   suppresses the mark but leaves the Deviation Tier component, the reference lines and
   the spoken detail untouched. A screen-reader user must still be able to ask a bar what
   it was. Any future thinning must follow the same split.
+
+**`SKCanvas.DrawRect` gotcha.** The four-float overload is `(x, y, width, height)`. Passing
+`(left, top, right, bottom)` compiles, throws nothing, and paints a rectangle sized by the
+coordinates themselves — which is how an 8px legend swatch and a 4x3px axis tick spent a long
+time drawing as canvas-wide colour blocks that read as intentional styling. Prefer
+`SKRect.Create(x, y, w, h)` or an explicit `SKRect` at every call site so the intent is on the
+page. `MarkerSizingTests` renders into a real `SKSurface` and measures the painted bounding
+box, which is the only kind of test that catches this class of bug.
+
+**Markers are clamped against bar width.** `StandardRenderers.ClampMarkerSize` caps every glyph
+at 2.2x bar width with a 3px-per-density floor. Thickness is authored for a normal zoom, so
+without this a 330-bar view draws marks four times a candle wide. Any new marker renderer must
+route its size through it.

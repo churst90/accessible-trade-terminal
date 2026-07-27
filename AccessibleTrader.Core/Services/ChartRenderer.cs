@@ -475,7 +475,11 @@ namespace AccessibleTrader.Core.Services
                     float y = ChartMath.MapY(v.Value, axisRect.Top, axisRect.Bottom, min, max, isLogScale);
                     if (y < axisRect.Top || y > axisRect.Bottom) continue;
                     using var p = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-                    canvas.DrawRect(axisRect.Left, y - (tickH / 2f), axisRect.Left + tickW, y + (tickH / 2f), p);
+                    // SKCanvas.DrawRect's four-float overload is (x, y, WIDTH, HEIGHT), not
+                    // (left, top, right, bottom). Passing bounds here made a 4x3px tick into a
+                    // rect ~1900px wide and ~y tall — a solid colour block down the price axis
+                    // that buried the axis labels behind it.
+                    canvas.DrawRect(SKRect.Create(axisRect.Left, y - (tickH / 2f), tickW, tickH), p);
                 }
             }
         }
@@ -669,6 +673,14 @@ namespace AccessibleTrader.Core.Services
             var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad);
             if (rows.Count == 0) return;
 
+            // Hard ceiling on width, independent of what anything calls itself. The row budget
+            // already stops the legend growing DOWN into the chart; without this it just grew
+            // ACROSS instead, which is the same problem rotated.
+            float maxTextPx = Math.Max(60f * density, paneRect.Width * 0.28f);
+
+            for (int i = 0; i < rows.Count; i++)
+                rows[i] = (rows[i].Color, Ellipsize(rows[i].Label, maxTextPx));
+
             float maxTextWidth = 0f;
             foreach (var (_, label) in rows)
                 maxTextWidth = Math.Max(maxTextWidth, _textFont.MeasureText(label));
@@ -693,7 +705,10 @@ namespace AccessibleTrader.Core.Services
             {
                 float sy = ey + (line - swatch) / 2f;
                 using var swatchPaint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-                canvas.DrawRect(bx + pad, sy, bx + pad + swatch, sy + swatch, swatchPaint);
+                // Same (x, y, width, height) trap as RenderYAxisSwatches: the 8px swatch was
+                // drawing as a tall column running past the bottom of the legend box, which is
+                // what made the labels look like text on coloured backgrounds.
+                canvas.DrawRect(SKRect.Create(bx + pad, sy, swatch, swatch), swatchPaint);
 
                 float tx = bx + pad + swatch + pad;
                 float ty = ey + line * 0.75f;
@@ -773,7 +788,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     for (int k = entries.Count - 1; k >= seriesStart; k--)
                         if (entries[k].Rank == 2) entries.RemoveAt(k);
-                    entries.Add((2, firstMarkerColor, $"{s.Name} — {markerCount} marks"));
+                    entries.Add((2, firstMarkerColor, $"{ShortSeriesName(s.Name)} — {markerCount} marks"));
                 }
             }
 
@@ -800,6 +815,51 @@ namespace AccessibleTrader.Core.Services
                 rows.Add((new SKColor(150, 150, 158), $"+{dropped} more (see the object tree)"));
 
             return rows;
+        }
+
+        /// <summary>Trims a label to fit a pixel budget, ending in an ellipsis when cut.</summary>
+        private string Ellipsize(string label, float maxPx)
+        {
+            if (_textFont.MeasureText(label) <= maxPx) return label;
+
+            for (int len = label.Length - 1; len > 0; len--)
+            {
+                string candidate = label[..len] + "…";
+                if (_textFont.MeasureText(candidate) <= maxPx) return candidate;
+            }
+            return "…";
+        }
+
+        /// <summary>
+        /// The indicator's name without its subtitle or its baked-in parameter values.
+        ///
+        /// <para>
+        /// A series is named <c>"{metadata name} {each parameter value}"</c>, so the collapsed
+        /// legend row read "Value Deviation (support / resistance zones) 240 5 2 2 1 — 6 marks"
+        /// and stretched the legend box across a third of the chart width. The subtitle in
+        /// parentheses and the trailing numbers are both noise in a one-line key.
+        /// </para>
+        ///
+        /// <para>
+        /// Trailing NUMERIC tokens only — a string parameter is usually the whole point of the
+        /// name ("Funding Rate BTC-USDT-SWAP") and is kept.
+        /// </para>
+        /// </summary>
+        internal static string ShortSeriesName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "";
+
+            string s = name;
+            int paren = s.IndexOf(" (", StringComparison.Ordinal);
+            if (paren > 0) s = s[..paren];
+
+            var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            while (parts.Count > 1 && double.TryParse(parts[^1],
+                       System.Globalization.NumberStyles.Any,
+                       System.Globalization.CultureInfo.InvariantCulture, out _))
+                parts.RemoveAt(parts.Count - 1);
+
+            return parts.Count > 0 ? string.Join(' ', parts) : name.Trim();
         }
 
         /// <summary>Discrete per-bar glyphs — the components that identify themselves by shape.</summary>
