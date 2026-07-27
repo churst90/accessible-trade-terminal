@@ -88,7 +88,8 @@ try
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--window"), out var pw) ? pw : 120,
-            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var pp) ? pp : 5000),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var pp) ? pp : 5000,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--forward"), out var pf) ? pf : 20),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

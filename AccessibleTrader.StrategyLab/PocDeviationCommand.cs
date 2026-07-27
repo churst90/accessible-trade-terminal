@@ -32,15 +32,19 @@ namespace AccessibleTrader.StrategyLab;
 /// </summary>
 public static class PocDeviationCommand
 {
-    private const int ForwardBars = 20;
+    private static int ForwardBars = 20;
     private const int Deciles = 10;
     private const int BinCount = 50;
 
     private sealed record Sample(double DeviationVa, double ForwardAtr, int BarIndex, string Asset);
 
     public static Task<int> RunAsync(string snapshotDir, string? only, string tf,
-        int window, int permutations)
+        int window, int permutations, int forwardBars = 20)
     {
+        // The thesis is explicitly about scaling over a PERIOD rather than acting at a moment,
+        // so the holding horizon has to be a variable rather than a constant.
+        ForwardBars = Math.Max(2, forwardBars);
+
         var files = Directory.GetFiles(snapshotDir, $"*_{tf}.json")
             .Where(f => !Path.GetFileName(f).StartsWith("xs_", StringComparison.OrdinalIgnoreCase))
             .Where(f => only == null || Path.GetFileName(f).Contains(only, StringComparison.OrdinalIgnoreCase))
@@ -90,6 +94,10 @@ public static class PocDeviationCommand
 
                 // Deviation in value-area widths: 0 = at POC, +1 = one value area above it.
                 double deviation = (bars[i].Close - poc) / vaWidth;
+                // Guard against a collapsed value area: when volume piles into a single bin the
+                // width tends to zero and the normalised deviation explodes into the tens or
+                // hundreds. Those bars are a profile artifact, not a stretched market.
+                if (Math.Abs(deviation) > 10) continue;
                 double fwd = (bars[i + ForwardBars].Close - bars[i].Close) / a;
                 samples.Add(new Sample(deviation, fwd, i, snap.Symbol));
             }
@@ -102,7 +110,7 @@ public static class PocDeviationCommand
     private static void Report(List<Sample> samples, string tf, int window, int permutations)
     {
         Console.WriteLine();
-        Console.WriteLine($"===== POC DEVIATION ({tf}, {window}-bar rolling profile) — {samples.Count:N0} bars =====");
+        Console.WriteLine($"===== POC DEVIATION ({tf}, {window}-bar profile, {ForwardBars}-bar horizon) — {samples.Count:N0} bars =====");
         Console.WriteLine("Deviation measured in value-area widths from a CAUSAL rolling POC.");
         Console.WriteLine("Rubber-band thesis predicts POSITIVE correlation (stretched below → bounce).");
         Console.WriteLine();
@@ -150,18 +158,49 @@ public static class PocDeviationCommand
         else
             Console.WriteLine("  → MOMENTUM: stretched above kept rising. Rubber band runs BACKWARDS.");
 
-        // The tails are what a scaling plan actually trades, so report them explicitly rather
-        // than letting a whole-sample correlation hide what happens at the extremes.
-        var far = ordered.Where(s => Math.Abs(s.DeviationVa) >= 1.0).ToList();
-        var below = far.Where(s => s.DeviationVa <= -1.0).ToList();
-        var above = far.Where(s => s.DeviationVa >= 1.0).ToList();
+        // THE TAILS ARE THE ACTUAL QUESTION. A whole-sample correlation can hide what happens at
+        // the extremes, and the extremes are all a scaling plan ever trades. Tested on the
+        // NON-OVERLAPPING subsample so autocorrelated forward windows cannot inflate it.
+        var tailPool = independent.Where(s => Math.Abs(s.DeviationVa) >= 1.0).ToList();
+        var below = tailPool.Where(s => s.DeviationVa <= -1.0).ToList();
+        var above = tailPool.Where(s => s.DeviationVa >= 1.0).ToList();
+
         Console.WriteLine();
-        Console.WriteLine("  Tails (a full value area or more from POC):");
-        if (below.Count > 30)
-            Console.WriteLine($"    below POC: n={below.Count,6}  mean fwd {below.Average(x => x.ForwardAtr),8:+0.0000;-0.0000;0} ATR  win {below.Count(x => x.ForwardAtr > 0) / (double)below.Count:P0}");
-        if (above.Count > 30)
-            Console.WriteLine($"    above POC: n={above.Count,6}  mean fwd {above.Average(x => x.ForwardAtr),8:+0.0000;-0.0000;0} ATR  win {above.Count(x => x.ForwardAtr > 0) / (double)above.Count:P0}");
+        Console.WriteLine("  TAILS — a full value area or more from POC (independent samples):");
+        Console.WriteLine($"    below POC: n={below.Count,6}  mean fwd {Mean(below),8:+0.0000;-0.0000;0} ATR  win {WinRate(below):P0}");
+        Console.WriteLine($"    above POC: n={above.Count,6}  mean fwd {Mean(above),8:+0.0000;-0.0000;0} ATR  win {WinRate(above):P0}");
+
+        if (below.Count >= 30 && above.Count >= 30)
+        {
+            double observed = Mean(below) - Mean(above);
+            var pool = tailPool.Select(x => x.ForwardAtr).ToArray();
+            var rng2 = new Random(9001);
+            int ext = 0;
+            for (int p = 0; p < permutations; p++)
+            {
+                var work = (double[])pool.Clone();
+                for (int k = work.Length - 1; k > 0; k--) { int j = rng2.Next(k + 1); (work[k], work[j]) = (work[j], work[k]); }
+                double a2 = 0, b2 = 0;
+                for (int i = 0; i < below.Count; i++) a2 += work[i];
+                for (int i = below.Count; i < below.Count + above.Count; i++) b2 += work[i];
+                if (Math.Abs(a2 / below.Count - b2 / above.Count) >= Math.Abs(observed)) ext++;
+            }
+            double tailP = (ext + 1.0) / (permutations + 1.0);
+            Console.WriteLine($"    below minus above = {observed:+0.0000;-0.0000;0} ATR, permutation p = {tailP:0.0000}");
+            Console.WriteLine(tailP <= 0.05
+                ? (observed > 0
+                    ? "    → RUBBER BAND CONFIRMED: stretched below beat stretched above."
+                    : "    → REVERSED: stretched above beat stretched below.")
+                : "    → tails are indistinguishable.");
+        }
+        else
+        {
+            Console.WriteLine("    (too few independent tail samples to test)");
+        }
     }
+
+    private static double Mean(List<Sample> xs) => xs.Count == 0 ? double.NaN : xs.Average(x => x.ForwardAtr);
+    private static double WinRate(List<Sample> xs) => xs.Count == 0 ? double.NaN : xs.Count(x => x.ForwardAtr > 0) / (double)xs.Count;
 
     private static double Spearman(double[] a, double[] b)
     {
