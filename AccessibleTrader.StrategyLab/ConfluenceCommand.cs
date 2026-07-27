@@ -35,9 +35,10 @@ public static class ConfluenceCommand
     private sealed record Trade(StructureState State, bool Long, double R, bool NearSrLevel);
 
     public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations,
-        string bullComponent = CipherBProvider.CompBlue, string bearComponent = CipherBProvider.CompRed)
+        string bullComponent = CipherBProvider.CompBlue, string bearComponent = CipherBProvider.CompRed,
+        double srGateAtr = 0.5)
     {
-        Console.WriteLine($"Signal pair: bull='{bullComponent}'  bear='{bearComponent}'");
+        Console.WriteLine($"Signal pair: bull='{bullComponent}'  bear='{bearComponent}'  SR gate={srGateAtr} ATR");
         var services = LabHost.Build().Services;
         var engine = services.GetRequiredService<AccessibleTrader.Core.Services.Indicators.IIndicatorEngine>();
         var analyzer = new SwingStructureAnalyzer();
@@ -75,8 +76,20 @@ public static class ConfluenceCommand
             // Oversold/Overbought Crossover are the canonical mirrored Cipher B dots.
             var buys = Exact(cipherB, bullComponent);
             var sells = Exact(cipherB, bearComponent);
-            var srSupport = Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompSupportLine);
-            var srResistance = Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompResistanceLine);
+            // LOOKAHEAD CORRECTION. CipherSrProvider starts a zone line at pivotBar + 1, but a
+            // pivot at bar p is not knowable until p + PivotBars (every one of the next PivotBars
+            // bars must fail to exceed it). With AutoScale on — the default — PivotBars is
+            // clamp(n/25, 2, 15), so on these series it is 15. Reading the raw array therefore
+            // tells the test "price is sitting on a low that WILL turn out to be the low", which
+            // is exactly the bias that inflates long results. Shifting the arrays right by
+            // PivotBars delays every level to the bar it could first have been known on.
+            //
+            // NOTE: this affects backtests only. Live, the provider simply cannot see the future
+            // bars, so no pivot is emitted early. Any BACKTEST that leafs on Cipher SR zones
+            // without this correction is optimistic.
+            int srPivotBars = Math.Clamp(bars.Count / 25, 2, 15);
+            var srSupport = ShiftRight(Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompSupportLine), srPivotBars);
+            var srResistance = ShiftRight(Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompResistanceLine), srPivotBars);
 
             if (buys == null || sells == null)
             {
@@ -85,8 +98,8 @@ public static class ConfluenceCommand
                 continue;
             }
 
-            AddTrades(trades, bars, atr, structure, buys, isLong: true, srSupport, srResistance);
-            AddTrades(trades, bars, atr, structure, sells, isLong: false, srSupport, srResistance);
+            AddTrades(trades, bars, atr, structure, buys, isLong: true, srSupport, srResistance, srGateAtr);
+            AddTrades(trades, bars, atr, structure, sells, isLong: false, srSupport, srResistance, srGateAtr);
         }
 
         Report(trades, permutations);
@@ -95,7 +108,7 @@ public static class ConfluenceCommand
 
     private static void AddTrades(List<Trade> sink, IReadOnlyList<Ohlcv> bars, double[] atr,
         SwingStructure structure, double[]? signal, bool isLong,
-        double[]? srSupport, double[]? srResistance)
+        double[]? srSupport, double[]? srResistance, double srGateAtr)
     {
         if (signal == null) return;
 
@@ -124,11 +137,11 @@ public static class ConfluenceCommand
                 r = (isLong ? exit - entry : entry - exit) / risk;
             }
 
-            // "Near an SR level" = within 0.5 ATR of the relevant carried Cipher SR zone.
+            // "Near an SR level" = within srGateAtr of the relevant carried Cipher SR zone.
             var zone = isLong ? srSupport : srResistance;
             bool near = false;
             if (zone != null && i < zone.Length && !double.IsNaN(zone[i]))
-                near = Math.Abs(bars[i].Close - zone[i]) <= a * 0.5;
+                near = Math.Abs(bars[i].Close - zone[i]) <= a * srGateAtr;
 
             sink.Add(new Trade(structure.StatePerBar[i], isLong, r, near));
         }
@@ -180,6 +193,8 @@ public static class ConfluenceCommand
         // ── Does adding Cipher SR proximity on top add anything? ─────────────
         var near = trades.Where(t => t.NearSrLevel).ToList();
         var far = trades.Where(t => !t.NearSrLevel).ToList();
+        Console.WriteLine();
+        Console.WriteLine($"  SR sample: near={near.Count}, away={far.Count}");
         if (near.Count >= 30 && far.Count >= 30)
         {
             double observed = near.Average(t => t.R) - far.Average(t => t.R);
@@ -217,6 +232,18 @@ public static class ConfluenceCommand
             if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
         }
         return (extreme + 1.0) / (runs + 1.0);
+    }
+
+    /// <summary>
+    /// Delays a series by <paramref name="lag"/> bars, filling the head with NaN. Used to undo an
+    /// indicator's confirmation lookahead so a backtest only sees what was knowable at the time.
+    /// </summary>
+    private static double[]? ShiftRight(double[]? src, int lag)
+    {
+        if (src == null || lag <= 0) return src;
+        var dst = new double[src.Length];
+        for (int i = 0; i < src.Length; i++) dst[i] = i < lag ? double.NaN : src[i - lag];
+        return dst;
     }
 
     /// <summary>Exact component lookup — no fragment matching, so a rename fails loudly.</summary>
