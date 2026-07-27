@@ -190,9 +190,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
             // ADAPT THE WINDOW TO WHAT IS ACTUALLY LOADED. The default was picked from the
             // research dataset, but a fresh chart fetches about 200 bars — so a 480-bar profile
-            // left every component NaN and the whole indicator read "no data". Never consume more
-            // than half the series, so there is always a usable stretch of output after warmup.
-            int maxUsable = Math.Max(40, n / 2);
+            // left every component NaN and the whole indicator read "no data".
+            //
+            // The cap is a THIRD of the series, not a half. At a half, a 200-bar chart got a
+            // reference line over only its most recent 100 bars and the left side of the chart
+            // sat empty — which reads as broken rather than as warmup. A third covers roughly
+            // two thirds of the view while still leaving a window long enough to mean something.
+            // More loaded history is strictly better here: the research found the SLOWER anchor
+            // measured best, so this cap is a concession to what a chart holds, not an ideal.
+            int maxUsable = Math.Max(40, n / 3);
             window = Math.Clamp(Math.Min(window, maxUsable), 40, Math.Max(40, n - 10));
 
             var bars = new Ohlcv[n];
