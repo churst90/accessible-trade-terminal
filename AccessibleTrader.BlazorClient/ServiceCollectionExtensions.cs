@@ -282,6 +282,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, PulseProvider>();
             services.AddSingleton<IIndicatorProvider, RegimeProvider>();
             services.AddSingleton<IIndicatorProvider, VolRegimeProvider>();
+            services.AddSingleton<IIndicatorProvider, SwingStructureProvider>();
             services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
             services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
             services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();

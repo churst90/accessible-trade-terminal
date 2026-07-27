@@ -69,6 +69,13 @@ try
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var cp) ? cp : 40),
+        "confluence" => await ConfluenceCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var cf) ? cf : 5000,
+            GetFlag(args.Skip(1).ToArray(), "--bull") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompBlue,
+            GetFlag(args.Skip(1).ToArray(), "--bear") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompRed),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

@@ -199,6 +199,15 @@ interaction is inaccurate while split view is on. Keyboard operation is unaffect
 
 ---
 
+## Market Structure
+
+The Market Structure overlay (HH/HL/LH/LL) is added to new OHLCV charts by default. Turn it
+off in Settings, or delete the series from the Object Tree (Alt+O) to drop it for the session.
+Navigate to its Structure State component and press F4 for the full structural read: current
+state, last swing high and low, and where price sits between them.
+
+---
+
 ## Analysis
 
 | Key | Action | Speech Feedback |

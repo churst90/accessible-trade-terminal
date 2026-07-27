@@ -27,6 +27,8 @@ namespace AccessibleTrader.Core.Services
         public const string BackgroundColor2   = "appearance.backgroundColor2";     // gradient end (bottom) color
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
+        /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>
+        public const string MarketStructureOnByDefault = "analysis.marketStructureDefault";
         public const string UiScale            = "appearance.uiScale";
         public const string UiTheme            = "ui.theme";
         /// <summary>"auto" (touch devices only), "show", or "hide".</summary>
