@@ -119,6 +119,32 @@
                     </div>
 
                     <div class="modal-row">
+                        <label for="s-timestamp-where">Speak the time</label>
+                        <select id="s-timestamp-where" value="@_timestampWhere"
+                                @onchange="OnTimestampWhereChanged">
+                            <option value="Always">On every reading</option>
+                            <option value="Along X Axis">Only when moving through time</option>
+                            <option value="Along Y Axis">Only when moving between series</option>
+                            <option value="None">Never</option>
+                        </select>
+                    </div>
+                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        The timestamp is the longest part of a spoken bar. Limiting it to sideways
+                        movement keeps left/right scanning quick without losing the date.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-speech-order">Speak values as</label>
+                        <select id="s-speech-order" value="@_speechOrder"
+                                @onchange="OnSpeechOrderChanged">
+                            <option value="HeaderValue">Name then value — "Close, 64,900"</option>
+                            <option value="ValueOnly">Value only — "64,900"</option>
+                            <option value="HeaderValueTimeOnly">Name and value, time only</option>
+                            <option value="HeaderValueDateOnly">Name and value, date only</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-row">
                         <label for="s-read-headers">Read column headers</label>
                         <input id="s-read-headers" type="checkbox"
                                checked="@Store.State.ReadColumnHeaders"
@@ -581,6 +607,10 @@
                             <option value="SteelGray">Steel Gray (default)</option>
                             <option value="Blackout">Blackout — black, white text</option>
                             <option value="Classic">Classic — familiar dark navy</option>
+                            <option value="MidnightBlue">Midnight Blue — softer than black</option>
+                            <option value="AmberCrt">Amber CRT — amber on near-black</option>
+                            <option value="Walnut">Walnut — warm wood and brass</option>
+                            <option value="Paper">Paper — light, for daylight and printing</option>
                             <option value="HighContrastDark">High Contrast Dark</option>
                             <option value="HighContrastLight">High Contrast Light</option>
                             <option value="SoftDark">Soft Dark</option>
@@ -1289,6 +1319,8 @@
     private bool _hoverSonification;
     private bool _magnetSnap;
     private bool _marketStructureDefault;
+    private string _timestampWhere = "Along X Axis";
+    private string _speechOrder = "HeaderValue";
     private bool _unifiedGradient;
     private string _unifiedTop = "#676e79";
     private string _unifiedBottom = "#17191d";
@@ -1369,6 +1401,22 @@
                 return "The bearish color is very close to the chart background — falling candles will be hard to see.";
             return null;
         }
+    }
+
+    // Both of these were honoured by SpeechFormatter and had no control anywhere — real
+    // behaviour with no way to reach it, which the settings-wiring audit is built to catch.
+    private void OnTimestampWhereChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _timestampWhere = e.Value?.ToString() ?? _timestampWhere;
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Time spoken: {_timestampWhere}.", true));
+    }
+
+    private void OnSpeechOrderChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _speechOrder = e.Value?.ToString() ?? _speechOrder;
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Speech order updated.", true));
     }
 
     private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1642,6 +1690,11 @@
         Store.Dispatch(new UpdateSettingsAction(s => s with
         {
             SpeakTimestamps  = _speakTimestamps,
+            // Both of these were honoured by SpeechFormatter with no control anywhere to set
+            // them — live behaviour with no way to reach it, which is what the settings-wiring
+            // audit exists to find. They go through the store like every other speech preference.
+            TimestampReadLocation = _timestampWhere,
+            SpeechOrder      = _speechOrder,
             ReadColumnHeaders = _readHeaders,
             AnnounceNewBars  = _announceBars,
             WasapiLatency    = _wasapiLatency,
@@ -1653,6 +1706,8 @@
         App.PaperTradingMode = _paperTradingMode;
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
+        App.TimestampReadLocation = _timestampWhere;
+        App.SpeechOrder = _speechOrder;
         Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
         App.Save();
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));

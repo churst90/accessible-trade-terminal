@@ -30,6 +30,21 @@ public enum ThemeType
     /// from another platform can start from something their eye already knows.</summary>
     Classic,
 
+    /// <summary>Amber phosphor on near-black — a 1970s monitor. Amber-on-dark is a genuinely
+    /// restful pairing, not only a period reference.</summary>
+    AmberCrt,
+
+    /// <summary>Warm browns and brass. The wood is the FRAME — chrome and dialogs — while the
+    /// chart stays deep and neutral so price action reads against it.</summary>
+    Walnut,
+
+    /// <summary>A real light theme: warm off-white, near-black ink, muted candles. For daylight,
+    /// for projectors, and for printing a chart.</summary>
+    Paper,
+
+    /// <summary>Deep blue rather than black — the softer alternative to Blackout.</summary>
+    MidnightBlue,
+
     HighContrastDark,
     HighContrastLight,
     SoftDark,

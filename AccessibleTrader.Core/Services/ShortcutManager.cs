@@ -371,6 +371,20 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.SplitViewCycle,       "E", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+E
             s.Add(new(SystemCommand.SplitViewOrientation, "O", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+O
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
+
+            // ── Orientation and recovery ─────────────────────────────────────
+            // Alt+Shift+L, not Alt+Shift+/ — on many layouts Shift+/ is not "?" at all, so a
+            // binding written that way is layout-dependent and silently unavailable to anyone
+            // outside a US keyboard. L for Layout is mnemonic and layout-stable.
+            s.Add(new(SystemCommand.SpeakChartLayout,     "L", Alt: true, Shift: true));
+
+            // Paired with the single-key H and M that hide and mute one component, so the
+            // recovery shortcut is the same letter. NOT F5/F6, which already carry component and
+            // series volume — and NOT Ctrl+Alt+Shift+M, which the conflict guard caught as
+            // already belonging to Monitoring Status. All three orientation-and-recovery commands
+            // sit under Alt+Shift so they are one group to learn rather than three.
+            s.Add(new(SystemCommand.ShowAllComponents,    "H", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.UnmuteAllComponents,  "M", Alt: true, Shift: true));
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
             LoadProfile(p);

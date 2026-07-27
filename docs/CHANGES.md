@@ -33,6 +33,56 @@ surprise is a poor way to meet a release.
    nearly identical in greyscale, so the pair stopped carrying direction under
    red-green deficiency. Each is lifted just enough to separate by brightness.
 
+### Settings-wiring audit, four more themes, orientation and recovery shortcuts (2026-07-27)
+
+**The audit.** "The setting exists and does nothing" has been a recurring class here rather than
+a one-off — boolean indicator parameters dropped app-wide, Market Structure's default with no UI,
+Value Deviation's speech keyed on the wrong string. None threw, none failed a test, each was
+correct at every individual site and wrong only at the join. `SettingsWiringAuditTests` now checks
+both directions across all 47 keys: a key written but never read is a control that does nothing; a
+key read but never written is behaviour with no way to reach it.
+
+It found four, of which **two are real and were shipped**:
+
+- **`speech.timestampReadLocation`** — fully honoured by `SpeechFormatter` (it gates whether the
+  timestamp is spoken on sideways movement, vertical movement, always, or never) with **no control
+  anywhere**. The timestamp is the longest part of a spoken bar, so this is a meaningful pacing
+  control for the primary audience, and it has been unreachable.
+- **`speech.speechOrder`** — same: honoured, controls whether a reading is "Close, 64,900" or just
+  "64,900", plus date/time-only variants. No control anywhere.
+
+Both now have controls in Settings → General. The other two were a false positive (`ui.theme` is
+written through `ThemeService`, a real control by an indirect path) and one genuine gap left
+recorded rather than hidden: **`alerts.setups.webhookMap`** — `SetupAlertBridge` honours per-symbol
+webhook routing and nothing can populate it; only the single fallback webhook has a UI.
+
+**Four more themes**, all passing the contrast checks: **Amber CRT** (amber phosphor on
+near-black, candles stay green and red because a period-accurate monochrome chart would be
+unreadable), **Walnut** (warm browns and brass in the CHROME, with the chart kept deep and neutral
+— brown price action on a brown background reads as nothing), **Paper** (a real light theme; its
+candles are darkened because a light theme is not a dark theme with the background swapped —
+every foreground has to move too), and **Midnight Blue**. Nine themes total.
+
+Paper needed a correction the tests caught: on a light background both candles must be dark enough
+to see, which squeezes the brightness gap between them, and the first pair differed by only 0.21
+in luminance — not enough to carry direction in greyscale.
+
+**Three new shortcuts.**
+
+- **Alt+Shift+L — describe the chart's layout.** What the axes measure and at what scale, how many
+  bars are in view of how many loaded, how many panes there are and what is in each, and what is
+  currently hidden or muted. This is the one thing a sighted user gets for free by glancing at the
+  screen; the only previous route to it was navigating every pane and counting. `ChartLayoutDescriber`
+  duplicates the renderer's exact nice-number arithmetic rather than approximating it — a summary
+  that says "20,000 between gridlines" while the axis is labelled every 50,000 is worse than
+  silence, because it is confidently wrong about something the user cannot check.
+- **Alt+Shift+H / Alt+Shift+M — show all, unmute all.** The escape hatch for the single-key H and M
+  toggles: hide or mute a handful of components across a few indicators and there is no practical
+  way to find them again, which makes those toggles a one-way door. Both announce how many changed,
+  because "nothing was hidden" and "9 items shown" are different pieces of information.
+  Ctrl+Alt+Shift+M was the obvious binding and the conflict guard caught it as already belonging to
+  Monitoring Status, so all three sit under Alt+Shift as one group.
+
 ### Native form controls, two new themes, and a colour-vision gap in three old ones (2026-07-27)
 
 - **The dropdowns were unstyled OS widgets.** Setting a `background-color` on a `<select>` is

@@ -292,6 +292,19 @@ namespace AccessibleTrader.Sdk.Models
     public record SetInteractionContextAction(InteractionContext Context) : WorkspaceAction;
     public record ToggleMuteAction(string? SeriesId = null, string? ComponentName = null) : WorkspaceAction;
     public record ToggleHideAction(string? SeriesId = null, string? ComponentName = null) : WorkspaceAction;
+
+    /// <summary>
+    /// Makes every hidden component visible, or unmutes every muted one, across all series.
+    ///
+    /// <para>
+    /// The escape hatch for the single-key H and M toggles. Hide or mute a handful of components
+    /// across a few indicators and there is no practical way to find them again — you would have
+    /// to walk every component of every series checking its state, and a screen-reader user pays
+    /// that cost one utterance at a time. Without a reset the toggles are a one-way door.
+    /// </para>
+    /// </summary>
+    /// <param name="Unhide">True to show all; false to unmute all.</param>
+    public record RestoreAllComponentsAction(bool Unhide) : WorkspaceAction;
     public record ToggleNarrationAction(string? SeriesId = null) : WorkspaceAction;
     public record SetPlaybackAction(bool IsPlaying, PlaybackScope Scope = PlaybackScope.Chart) : WorkspaceAction;
     public record TogglePauseAction() : WorkspaceAction;

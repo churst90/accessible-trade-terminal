@@ -143,6 +143,10 @@ namespace AccessibleTrader.Core.Services
             ThemeType.SteelGray         => SteelGray(),
             ThemeType.Blackout          => Blackout(),
             ThemeType.Classic           => Classic(),
+            ThemeType.AmberCrt          => AmberCrt(),
+            ThemeType.Walnut            => Walnut(),
+            ThemeType.Paper             => Paper(),
+            ThemeType.MidnightBlue      => MidnightBlue(),
             ThemeType.HighContrastDark  => HighContrastDark(),
             ThemeType.HighContrastLight => HighContrastLight(),
             ThemeType.SoftDark          => SoftDark(),
@@ -360,6 +364,247 @@ namespace AccessibleTrader.Core.Services
             ChromeBorder         = new SKColor(0x43, 0x48, 0x55),
             Accent               = new SKColor(0x29, 0x62, 0xFF),
             ButtonNeutral        = new SKColor(0xD1, 0xD4, 0xDC),
+        };
+
+        /// <summary>
+        /// Amber phosphor on near-black. Amber-on-dark is a genuinely restful pairing — it was
+        /// chosen for 1970s terminals because it reads for hours without strain, not only because
+        /// it looked futuristic.
+        ///
+        /// <para>
+        /// Candles stay green and red rather than going monochrome amber. A period-accurate
+        /// single-phosphor chart would be unreadable, and this is a theme, not a museum piece —
+        /// the amber is the INSTRUMENT and price action is the signal.
+        /// </para>
+        /// </summary>
+        private static ChartTheme AmberCrt() => new()
+        {
+            ThemeType            = ThemeType.AmberCrt,
+            Background = new SKColor(0x0D, 0x0B, 0x06),
+            BackgroundGradientEnd = new SKColor(0x07, 0x06, 0x03),
+            GridLine = new SKColor(0x4A, 0x33, 0x08),
+            GridLineMinor = new SKColor(0x2E, 0x20, 0x05),
+            AxisText = new SKColor(0xFF, 0xB0, 0x00),
+            AxisLine = new SKColor(0x8A, 0x5F, 0x0A),
+            Crosshair = new SKColor(0xFF, 0xD2, 0x66),
+            CandleBullishBody = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishBody = new SKColor(0xDD, 0x00, 0x00),
+            CandleBullishWick = new SKColor(0x9C, 0xFF, 0x9C),
+            CandleBearishWick = new SKColor(0xF2, 0x3B, 0x3B),
+            CandleDojiBody = new SKColor(0xFF, 0xB0, 0x00),
+            VolumeBullish = new SKColor(0x77, 0xFF, 0x77, 110),
+            VolumeBearish = new SKColor(0xDD, 0x00, 0x00, 110),
+            IndicatorPalette = ImmutableList.Create(
+                new SKColor(0xFF, 0xB0, 0x00), new SKColor(0xFF, 0xD2, 0x66), new SKColor(0xFF, 0x8C, 0x1A),
+                new SKColor(0x7E, 0xE8, 0xFF), new SKColor(0xFF, 0xE9, 0x9C), new SKColor(0xD6, 0x9C, 0xFF),
+                new SKColor(0x9C, 0xC8, 0xFF), new SKColor(0xFF, 0x9E, 0x6E), new SKColor(0x96, 0xE8, 0xAE),
+                new SKColor(0xFF, 0x7A, 0x7A), new SKColor(0xA0, 0xCD, 0xEC), new SKColor(0xE8, 0xE6, 0xBA)),
+            ProfilePOC = new SKColor(0xFF, 0xD2, 0x66),
+            ProfileValueArea = new SKColor(0xFF, 0xB0, 0x00, 52),
+            ProfileSinglePrint = new SKColor(0x7E, 0xE8, 0xFF, 100),
+            ProfileNormal = new SKColor(0x8A, 0x6F, 0x30, 90),
+            ProfileSeparator = new SKColor(0x4A, 0x33, 0x08),
+            DrawingLine = new SKColor(0xFF, 0xD2, 0x66),
+            DrawingHandle = new SKColor(0xFF, 0xE9, 0x9C),
+            SelectionHighlight = new SKColor(0xFF, 0xB0, 0x00, 52),
+            SurfaceRaised = new SKColor(0x1A, 0x14, 0x08),
+            ChromeTopEnd = new SKColor(0x0D, 0x0B, 0x06),
+            ChromeBottom = new SKColor(0x07, 0x06, 0x03),
+            ChromeBottomEnd = new SKColor(0x12, 0x0E, 0x06),
+            SurfaceSunken = new SKColor(0x1F, 0x18, 0x0A),
+            TextOnDialog = new SKColor(0xFF, 0xC5, 0x3D),
+            TextPrimary = new SKColor(0xFF, 0xC5, 0x3D),
+            TextMuted = new SKColor(0xC4, 0x8C, 0x28),
+            ChromeBorder = new SKColor(0x7A, 0x54, 0x10),
+            Accent = new SKColor(0xFF, 0xB0, 0x00),
+            ButtonNeutral = new SKColor(0xFF, 0xC5, 0x3D),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+        };
+
+        /// <summary>
+        /// Warm browns and brass — the wood is the FRAME, not the chart.
+        ///
+        /// <para>
+        /// The chrome and dialogs carry the grain (a brown gradient reads as wood without needing
+        /// a texture), while the chart itself stays deep and near-neutral. Brown price action on a
+        /// brown background would be unreadable, and the point of a wood theme is the cabinet the
+        /// instrument sits in, not the instrument.
+        /// </para>
+        /// </summary>
+        private static ChartTheme Walnut() => new()
+        {
+            ThemeType            = ThemeType.Walnut,
+            Background = new SKColor(0x2A, 0x20, 0x1A),
+            BackgroundGradientEnd = new SKColor(0x18, 0x11, 0x0D),
+            GridLine = new SKColor(0x54, 0x42, 0x34),
+            GridLineMinor = new SKColor(0x3B, 0x2E, 0x24),
+            AxisText = new SKColor(0xF0, 0xE3, 0xD2),
+            AxisLine = new SKColor(0x7A, 0x60, 0x4A),
+            Crosshair = new SKColor(0xC9, 0xA2, 0x27),
+            CandleBullishBody = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishBody = new SKColor(0xDD, 0x00, 0x00),
+            CandleBullishWick = new SKColor(0x9C, 0xFF, 0x9C),
+            CandleBearishWick = new SKColor(0xF2, 0x3B, 0x3B),
+            CandleDojiBody = new SKColor(0xEC, 0xDE, 0xCB),
+            VolumeBullish = new SKColor(0x77, 0xFF, 0x77, 120),
+            VolumeBearish = new SKColor(0xDD, 0x00, 0x00, 120),
+            IndicatorPalette = ImmutableList.Create(
+                new SKColor(0xF0, 0xE3, 0xD2), new SKColor(0xC9, 0xA2, 0x27), new SKColor(0xE0, 0x92, 0x4A),
+                new SKColor(0x8F, 0xC9, 0xD6), new SKColor(0xF2, 0xD7, 0x7E), new SKColor(0xC3, 0x9B, 0xD6),
+                new SKColor(0x9C, 0xBE, 0xDA), new SKColor(0xE8, 0x8B, 0x5E), new SKColor(0x9E, 0xC9, 0xA0),
+                new SKColor(0xE0, 0x84, 0x84), new SKColor(0xAD, 0xC4, 0xD4), new SKColor(0xDC, 0xD2, 0xA8)),
+            ProfilePOC = new SKColor(0xC9, 0xA2, 0x27),
+            ProfileValueArea = new SKColor(0xC9, 0xA2, 0x27, 56),
+            ProfileSinglePrint = new SKColor(0x8F, 0xC9, 0xD6, 100),
+            ProfileNormal = new SKColor(0x8A, 0x74, 0x5E, 90),
+            ProfileSeparator = new SKColor(0x54, 0x42, 0x34),
+            DrawingLine = new SKColor(0xC9, 0xA2, 0x27),
+            DrawingHandle = new SKColor(0xF5, 0xEB, 0xDD),
+            SelectionHighlight = new SKColor(0xC9, 0xA2, 0x27, 52),
+            SurfaceRaised = new SKColor(0x5A, 0x40, 0x32),
+            ChromeTopEnd = new SKColor(0x3E, 0x2C, 0x22),
+            ChromeBottom = new SKColor(0x18, 0x11, 0x0D),
+            ChromeBottomEnd = new SKColor(0x2E, 0x21, 0x19),
+            SurfaceSunken = new SKColor(0x3A, 0x2A, 0x20),
+            TextOnDialog = new SKColor(0xF3, 0xE7, 0xD8),
+            TextPrimary = new SKColor(0xF3, 0xE7, 0xD8),
+            TextMuted = new SKColor(0xD2, 0xBE, 0xA4),
+            ChromeBorder = new SKColor(0x8A, 0x6C, 0x52),
+            Accent = new SKColor(0xE8, 0xC1, 0x4A),
+            ButtonNeutral = new SKColor(0xF3, 0xE7, 0xD8),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+        };
+
+        /// <summary>
+        /// A real light theme: warm off-white, near-black ink, muted candles. For daylight, for a
+        /// projector, and for printing a chart.
+        ///
+        /// <para>
+        /// Distinct from High Contrast Light, which maximises separation for low vision. This one
+        /// is comfortable rather than loud — the candles are DARKENED versions of the usual pair,
+        /// because #77FF77 on off-white is nearly invisible. A light theme is not a dark theme
+        /// with the background swapped; every foreground has to move too.
+        /// </para>
+        /// </summary>
+        private static ChartTheme Paper() => new()
+        {
+            ThemeType            = ThemeType.Paper,
+            Background = new SKColor(0xFD, 0xFB, 0xF6),
+            BackgroundGradientEnd = new SKColor(0xF3, 0xEF, 0xE6),
+            GridLine = new SKColor(0xD8, 0xD2, 0xC6),
+            GridLineMinor = new SKColor(0xE8, 0xE3, 0xD9),
+            AxisText = new SKColor(0x2A, 0x27, 0x22),
+            AxisLine = new SKColor(0xA8, 0xA1, 0x94),
+            Crosshair = new SKColor(0x1A, 0x4C, 0xA8),
+            // On a light background both candles must be DARK enough to see, which squeezes the
+            // brightness gap between them — the pair first drawn here differed by 0.21 in
+            // luminance and so stopped carrying direction in greyscale. Widened by lifting the
+            // green and deepening the red, rather than by brightening the green alone, which
+            // would have cost contrast against the off-white.
+            CandleBullishBody = new SKColor(0x15, 0xA0, 0x38),
+            CandleBearishBody = new SKColor(0x9E, 0x05, 0x05),
+            CandleBullishWick = new SKColor(0x0F, 0x7C, 0x2B),
+            CandleBearishWick = new SKColor(0x7A, 0x03, 0x03),
+            CandleDojiBody = new SKColor(0x5A, 0x55, 0x4C),
+            VolumeBullish = new SKColor(0x15, 0xA0, 0x38, 110),
+            VolumeBearish = new SKColor(0x9E, 0x05, 0x05, 110),
+            IndicatorPalette = ImmutableList.Create(
+                new SKColor(0x24, 0x21, 0x1C), new SKColor(0xB0, 0x1E, 0x6B), new SKColor(0xB5, 0x5A, 0x00),
+                new SKColor(0x0A, 0x5F, 0x8A), new SKColor(0x8A, 0x6A, 0x00), new SKColor(0x6A, 0x2A, 0x9E),
+                new SKColor(0x14, 0x56, 0x9E), new SKColor(0xA8, 0x3B, 0x0A), new SKColor(0x1A, 0x6E, 0x3E),
+                new SKColor(0xA8, 0x22, 0x22), new SKColor(0x22, 0x50, 0x86), new SKColor(0x6E, 0x60, 0x0A)),
+            ProfilePOC = new SKColor(0xB5, 0x5A, 0x00),
+            ProfileValueArea = new SKColor(0xB5, 0x5A, 0x00, 46),
+            ProfileSinglePrint = new SKColor(0x1A, 0x4C, 0xA8, 70),
+            ProfileNormal = new SKColor(0x9A, 0x93, 0x86, 80),
+            ProfileSeparator = new SKColor(0xC6, 0xC0, 0xB4),
+            DrawingLine = new SKColor(0x1A, 0x4C, 0xA8),
+            DrawingHandle = new SKColor(0x24, 0x21, 0x1C),
+            SelectionHighlight = new SKColor(0x1A, 0x4C, 0xA8, 40),
+            SurfaceRaised = new SKColor(0xEC, 0xE7, 0xDC),
+            ChromeTopEnd = new SKColor(0xF6, 0xF2, 0xEA),
+            ChromeBottom = new SKColor(0xF3, 0xEF, 0xE6),
+            ChromeBottomEnd = new SKColor(0xE6, 0xE1, 0xD6),
+            SurfaceSunken = new SKColor(0xFA, 0xF7, 0xF1),
+            TextOnDialog = new SKColor(0x1E, 0x1C, 0x18),
+            TextPrimary = new SKColor(0x1E, 0x1C, 0x18),
+            TextMuted = new SKColor(0x5C, 0x56, 0x4C),
+            ChromeBorder = new SKColor(0xB8, 0xB1, 0xA4),
+            Accent = new SKColor(0x1A, 0x4C, 0xA8),
+            ButtonNeutral = new SKColor(0x2A, 0x27, 0x22),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+        };
+
+        /// <summary>
+        /// Deep blue rather than black — the softer alternative to Blackout, for people who find
+        /// pure black too stark but a grey theme too flat.
+        /// </summary>
+        private static ChartTheme MidnightBlue() => new()
+        {
+            ThemeType            = ThemeType.MidnightBlue,
+            Background = new SKColor(0x11, 0x18, 0x2B),
+            BackgroundGradientEnd = new SKColor(0x08, 0x0C, 0x18),
+            GridLine = new SKColor(0x2A, 0x35, 0x52),
+            GridLineMinor = new SKColor(0x1B, 0x23, 0x3A),
+            AxisText = new SKColor(0xD7, 0xDF, 0xF2),
+            AxisLine = new SKColor(0x46, 0x55, 0x7A),
+            Crosshair = new SKColor(0x7D, 0xD3, 0xFC),
+            CandleBullishBody = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishBody = new SKColor(0xDD, 0x00, 0x00),
+            CandleBullishWick = new SKColor(0x9C, 0xFF, 0x9C),
+            CandleBearishWick = new SKColor(0xF2, 0x3B, 0x3B),
+            CandleDojiBody = new SKColor(0xC5, 0xCF, 0xE8),
+            VolumeBullish = new SKColor(0x77, 0xFF, 0x77, 118),
+            VolumeBearish = new SKColor(0xDD, 0x00, 0x00, 118),
+            IndicatorPalette = ImmutableList.Create(
+                new SKColor(0xE2, 0xE9, 0xF8), new SKColor(0xFF, 0x8A, 0xBE), new SKColor(0xFF, 0xB0, 0x4A),
+                new SKColor(0x70, 0xD6, 0xFF), new SKColor(0xFF, 0xE2, 0x70), new SKColor(0xCE, 0x94, 0xFF),
+                new SKColor(0x7E, 0xBE, 0xFF), new SKColor(0xFF, 0x9E, 0x6E), new SKColor(0x96, 0xE8, 0xAE),
+                new SKColor(0xFF, 0x7A, 0x7A), new SKColor(0xA0, 0xCD, 0xEC), new SKColor(0xE8, 0xE6, 0xBA)),
+            ProfilePOC = new SKColor(0xFF, 0xC4, 0x54),
+            ProfileValueArea = new SKColor(0xFF, 0xC4, 0x54, 56),
+            ProfileSinglePrint = new SKColor(0x7E, 0x9E, 0xFF, 100),
+            ProfileNormal = new SKColor(0x74, 0x82, 0xA6, 90),
+            ProfileSeparator = new SKColor(0x2A, 0x35, 0x52),
+            DrawingLine = new SKColor(0x7D, 0xD3, 0xFC),
+            DrawingHandle = new SKColor(0xE8, 0xEF, 0xFC),
+            SelectionHighlight = new SKColor(0x7D, 0xD3, 0xFC, 46),
+            SurfaceRaised = new SKColor(0x1E, 0x2A, 0x46),
+            ChromeTopEnd = new SKColor(0x11, 0x18, 0x2B),
+            ChromeBottom = new SKColor(0x08, 0x0C, 0x18),
+            ChromeBottomEnd = new SKColor(0x05, 0x08, 0x11),
+            SurfaceSunken = new SKColor(0x1A, 0x24, 0x3C),
+            TextOnDialog = new SKColor(0xE4, 0xEB, 0xF8),
+            TextPrimary = new SKColor(0xE4, 0xEB, 0xF8),
+            TextMuted = new SKColor(0xA6, 0xB4, 0xD0),
+            ChromeBorder = new SKColor(0x46, 0x55, 0x7A),
+            Accent = new SKColor(0x7D, 0xD3, 0xFC),
+            ButtonNeutral = new SKColor(0xE4, 0xEB, 0xF8),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
         };
 
         private static ChartTheme HighContrastDark() => new()

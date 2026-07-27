@@ -235,6 +235,10 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
                 SystemCommand.CloseModal,
+                // Orientation and recovery — global, like the other Alt+Shift commands: you ask
+                // "what am I looking at?" and "show everything again" from wherever you are.
+                SystemCommand.SpeakChartLayout,
+                SystemCommand.ShowAllComponents, SystemCommand.UnmuteAllComponents,
                 SystemCommand.None,
             };
 

@@ -32,6 +32,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // Visibility / audio / narration
             ToggleMuteAction a      => ToggleMute(state, a.SeriesId, GetEffectiveComponentName(state, a.SeriesId, a.ComponentName), eventBus),
             ToggleHideAction a      => ToggleHide(state, a.SeriesId, GetEffectiveComponentName(state, a.SeriesId, a.ComponentName), eventBus),
+            RestoreAllComponentsAction a => RestoreAll(state, a.Unhide, eventBus),
             ToggleNarrationAction a => ToggleNarration(state, a.SeriesId, eventBus),
 
             // Series management
@@ -136,6 +137,48 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 LastInteractionContext = InteractionContext.Series,
                 FocusedComponentIndex = 0
             };
+        }
+
+        /// <summary>
+        /// Shows every hidden component, or unmutes every muted one, and says how many changed.
+        ///
+        /// <para>
+        /// The count matters more than the action. "Nothing was hidden" and "9 components shown"
+        /// are completely different pieces of information, and a silent reset leaves the user
+        /// unsure whether the shortcut did anything or whether there was nothing to do.
+        /// </para>
+        /// </summary>
+        private static WorkspaceState RestoreAll(WorkspaceState state, bool unhide, IEventBus eventBus)
+        {
+            int changed = 0;
+
+            var newList = state.ActiveSeries.Select(s =>
+            {
+                bool seriesNeedsChange = unhide ? !s.IsVisible : s.IsMuted;
+                bool anyComponent = s.Components.Any(c => unhide ? !c.IsVisible : c.IsMuted);
+                if (!seriesNeedsChange && !anyComponent) return s;
+
+                var updated = s.Clone();
+                if (unhide)
+                {
+                    if (!updated.IsVisible) { updated.IsVisible = true; changed++; }
+                    foreach (var c in updated.Components.Where(c => !c.IsVisible)) { c.IsVisible = true; changed++; }
+                }
+                else
+                {
+                    if (updated.IsMuted) { updated.IsMuted = false; changed++; }
+                    foreach (var c in updated.Components.Where(c => c.IsMuted)) { c.IsMuted = false; changed++; }
+                }
+                return updated;
+            }).ToImmutableList();
+
+            string what = unhide ? "shown" : "unmuted";
+            eventBus.Publish(new AnnouncementEvent(
+                changed == 0
+                    ? (unhide ? "Nothing was hidden." : "Nothing was muted.")
+                    : $"{changed} {(changed == 1 ? "item" : "items")} {what}.", true));
+
+            return changed == 0 ? state : state with { ActiveSeries = newList };
         }
 
         private static WorkspaceState ToggleMute(WorkspaceState state, string? seriesId, string? compName, IEventBus eventBus)

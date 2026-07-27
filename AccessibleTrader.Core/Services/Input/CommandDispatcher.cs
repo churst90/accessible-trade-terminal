@@ -250,6 +250,24 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenMyData: _eventBus.Publish(new OpenMyDataEvent()); return;
                 case SystemCommand.OpenWatchlist: _eventBus.Publish(new OpenWatchlistEvent()); return;
                 case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
+
+                // ── Orientation and recovery ──────────────────────────────
+                // "What am I looking at?" — the question a sighted user answers by glancing at
+                // the screen, and the one every other spoken message assumes you already have.
+                case SystemCommand.SpeakChartLayout:
+                    _eventBus.Publish(new AnnouncementEvent(
+                        ChartLayoutDescriber.Describe(_store.State, _store.State.SymbolDisplayName), true));
+                    return;
+
+                // The escape hatch for the single-key H and M toggles: hide a few components
+                // across a few indicators and there is otherwise no practical way to find them
+                // again, which makes those toggles a one-way door.
+                case SystemCommand.ShowAllComponents:
+                    _store.Dispatch(new RestoreAllComponentsAction(Unhide: true));
+                    return;
+                case SystemCommand.UnmuteAllComponents:
+                    _store.Dispatch(new RestoreAllComponentsAction(Unhide: false));
+                    return;
                 case SystemCommand.ReplayToggle: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle)); return;
                 case SystemCommand.ReplayStepForward: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepForward)); return;
                 case SystemCommand.ReplayStepBack: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepBack)); return;

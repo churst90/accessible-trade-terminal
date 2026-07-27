@@ -301,6 +301,9 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
+| Alt+Shift+L | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
+| Alt+Shift+H | Show every hidden component again (announces how many) |
+| Alt+Shift+M | Unmute every muted component (announces how many) |
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Zones**) |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |

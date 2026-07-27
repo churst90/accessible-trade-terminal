@@ -145,6 +145,15 @@ namespace AccessibleTrader.Core.Models
 
         // Intra-pane component navigation (cycles only within the focused component's pane)
         NavComponentInPaneNext, // Ctrl+Down: next component within the same pane (wraps)
-        NavComponentInPanePrev  // Ctrl+Up:   previous component within the same pane (wraps)
+        NavComponentInPanePrev, // Ctrl+Up:   previous component within the same pane (wraps)
+
+        // Orientation and recovery
+        /// <summary>Alt+Shift+L: describe the chart's LAYOUT — axes, scales, panes, series counts.
+        /// The one thing a sighted user gets for free by glancing at the screen.</summary>
+        SpeakChartLayout,
+        /// <summary>Ctrl+Alt+Shift+H: make every hidden component visible again.</summary>
+        ShowAllComponents,
+        /// <summary>Ctrl+Alt+Shift+M: unmute every muted component.</summary>
+        UnmuteAllComponents
     }
 }
