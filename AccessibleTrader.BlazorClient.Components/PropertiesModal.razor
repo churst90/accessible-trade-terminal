@@ -160,7 +160,7 @@
                                     {
                                         <div class="modal-row">
                                             <label>Bullish Color</label>
-                                            <input type="color" value="@comp.ColorHex" @onchange='e => comp.ColorHex = e.Value?.ToString() ?? "#00CC44"' />
+                                            <input type="color" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#00CC44")' />
                                         </div>
                                         <div class="modal-row">
                                             <label>Bearish Color</label>
@@ -171,7 +171,7 @@
                                     {
                                         <div class="modal-row">
                                             <label>Color</label>
-                                            <input type="color" value="@comp.ColorHex" @onchange='e => comp.ColorHex = e.Value?.ToString() ?? "#FFF"' />
+                                            <input type="color" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#FFF")' />
                                         </div>
                                     }
                                     <div class="modal-row">
@@ -934,6 +934,20 @@
     }
 
     // Color Rule helpers
+    // Recolouring by hand pins the choice: price action otherwise follows the active theme, and
+    // a theme switch would silently undo a deliberate edit.
+    private static void SetComponentColor(ComponentConfig comp, string hex)
+    {
+        comp.ColorHex = hex;
+        comp.IsUserStyled = true;
+    }
+
+    private static void SetComponentColorSecondary(ComponentConfig comp, string hex)
+    {
+        comp.ColorHexSecondary = hex;
+        comp.IsUserStyled = true;
+    }
+
     private void AddColorRule(ComponentConfig comp)
         => comp.ColorRules.Add(new ColorRule { Condition = ColorCondition.AboveZero, ColorHex = "#26A69A" });
 

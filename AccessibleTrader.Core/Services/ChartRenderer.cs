@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Theming;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -674,7 +675,7 @@ namespace AccessibleTrader.Core.Services
             float pad  = PadPx  * density;
             float line = LinePx * density;
 
-            var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad);
+            var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad, _theme.Current);
             if (rows.Count == 0) return;
 
             // Hard ceiling on width, independent of what anything calls itself. The row budget
@@ -901,7 +902,8 @@ namespace AccessibleTrader.Core.Services
         /// <param name="line">Row height in device pixels.</param>
         /// <param name="pad">Box padding in device pixels.</param>
         internal static List<LegendRow> BuildLegendRows(
-            List<ChartSeries> paneSeries, float paneHeight, float line, float pad)
+            List<ChartSeries> paneSeries, float paneHeight, float line, float pad,
+            ChartTheme? theme = null)
         {
             // Absolute ceiling regardless of how tall the pane is — past this the legend stops
             // being a key and becomes a second chart.
@@ -939,7 +941,15 @@ namespace AccessibleTrader.Core.Services
                     SKColor color;
                     string label = comp.DisplayName ?? comp.Name;
                     if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
-                        color = new SKColor(68, 187, 68, 200); // matches RenderDirectionalBars upPaint
+                    {
+                        // Directional bars paint green/red by value direction rather than by a
+                        // static hex, so the key shows the UP colour — and for volume that is now
+                        // the theme's bullish candle, not a fixed green.
+                        bool followsPrice = comp.Role is ComponentRole.Volume or ComponentRole.PriceAction;
+                        color = followsPrice && theme != null
+                            ? theme.CandleBullishBody.WithAlpha(200)
+                            : new SKColor(68, 187, 68, 200);
+                    }
                     else if (!SKColor.TryParse(comp.ColorHex, out color))
                         continue;
 

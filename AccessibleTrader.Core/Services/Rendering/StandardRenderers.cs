@@ -99,10 +99,18 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar = barWidth / 2.0f;
 
+            // THE THEME OWNS CANDLE COLOUR, unless the user has picked one by hand.
+            //
+            // This used to read the component's ColorHex unconditionally, which comes from
+            // indicator metadata — a hardcoded TradingView teal and salmon. The consequence was
+            // that ChartTheme.CandleBullishBody was dead code for the main chart: a theme could
+            // repaint the background, the grid, the axes and the whole application chrome, and
+            // the candles stayed teal. Which is to say the one element people actually look at
+            // was the one element the theme could not touch.
             var bodyComp = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Candle);
-            SKColor bullish = SKColors.Green;
-            SKColor bearish = SKColors.Red;
-            if (bodyComp != null)
+            SKColor bullish = ctx.Theme.CandleBullishBody;
+            SKColor bearish = ctx.Theme.CandleBearishBody;
+            if (bodyComp is { IsUserStyled: true })
             {
                 SKColor.TryParse(bodyComp.ColorHex, out bullish);
                 SKColor.TryParse(bodyComp.ColorHexSecondary, out bearish);
@@ -113,8 +121,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             // Wick color: read from the wick components' own ColorHex so users can style
             // wicks independently from the candle body via the Properties modal.
             var wickComp = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Wick);
-            SKColor wickColor = SKColors.Gray;
-            if (wickComp != null && !string.IsNullOrEmpty(wickComp.ColorHex))
+            SKColor wickColor = ctx.Theme.CandleBullishWick;
+            if (wickComp is { IsUserStyled: true } && !string.IsNullOrEmpty(wickComp.ColorHex))
                 SKColor.TryParse(wickComp.ColorHex, out wickColor);
             float wickThickness = wickComp?.Thickness ?? 1f;
 
@@ -331,12 +339,21 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float spacing  = barWidth * 0.1f;
 
-            var upColor = SKColors.Green;
-            var downColor = new SKColor(204, 0, 0);
-            if (!string.IsNullOrEmpty(comp.ColorHex) && SKColor.TryParse(comp.ColorHex, out var parsedUp))
-                upColor = parsedUp;
-            if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
-                downColor = parsedDown;
+            // VOLUME takes the theme's candle colours, so the two panes agree about what "up"
+            // looks like. Other directional bars — a MACD histogram, a money-flow bar — keep
+            // their own palette: they are not price direction and colouring them like candles
+            // would say they were.
+            bool followsPrice = comp.Role is ComponentRole.Volume or ComponentRole.PriceAction;
+
+            var upColor   = followsPrice ? ctx.Theme.CandleBullishBody : SKColors.Green;
+            var downColor = followsPrice ? ctx.Theme.CandleBearishBody : new SKColor(204, 0, 0);
+            if (!followsPrice || comp.IsUserStyled)
+            {
+                if (!string.IsNullOrEmpty(comp.ColorHex) && SKColor.TryParse(comp.ColorHex, out var parsedUp))
+                    upColor = parsedUp;
+                if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
+                    downColor = parsedDown;
+            }
             (upColor, downColor) = ApplyColorVision(ctx.Theme, upColor, downColor);
             using var upPaint = SKPaintPool.Rent();
             upPaint.Paint.Color = upColor.WithAlpha(180);

@@ -129,33 +129,36 @@ namespace AccessibleTrader.Core.Services
         private static ChartTheme SteelGray() => new()
         {
             ThemeType            = ThemeType.SteelGray,
-            // Chart canvas: light at the top, fading into the toolbar above it.
-            Background           = new SKColor(56, 60, 66),
-            BackgroundGradientEnd = new SKColor(26, 28, 32),
-            GridLine             = new SKColor(88, 94, 104),
-            GridLineMinor        = new SKColor(66, 71, 79),
-            AxisText             = new SKColor(214, 218, 226),
-            AxisLine             = new SKColor(104, 111, 122),
+            // The window is ONE vertical fade, light at the top and dark at the bottom, and the
+            // chart is the middle slice of it. These two are that slice — not a fade of their own.
+            Background           = new SKColor(0x5C, 0x61, 0x69),   // where the chart meets the tab bar
+            BackgroundGradientEnd = new SKColor(0x3B, 0x3E, 0x44),  // where it meets the indicator bar
+            // Lifted well clear of the background: at the old value the grid was within a few
+            // units of the chart behind it and effectively invisible on the lighter upper half.
+            GridLine             = new SKColor(0x7A, 0x80, 0x8A),
+            GridLineMinor        = new SKColor(0x68, 0x6D, 0x76),
+            AxisText             = new SKColor(0xE8, 0xEC, 0xF2),
+            AxisLine             = new SKColor(0x8A, 0x91, 0x9C),
             Crosshair            = new SKColor(255, 214, 92),
             CandleBullishBody    = new SKColor(0x77, 0xFF, 0x77),
             CandleBearishBody    = new SKColor(0xDD, 0x00, 0x00),
-            CandleBullishWick    = new SKColor(0x77, 0xFF, 0x77),
-            CandleBearishWick    = new SKColor(0xEE, 0x33, 0x33),
-            CandleDojiBody       = new SKColor(188, 194, 204),
-            VolumeBullish        = new SKColor(0x77, 0xFF, 0x77, 120),
-            VolumeBearish        = new SKColor(0xDD, 0x00, 0x00, 120),
+            CandleBullishWick    = new SKColor(0x9C, 0xFF, 0x9C),
+            CandleBearishWick    = new SKColor(0xF2, 0x3B, 0x3B),
+            CandleDojiBody       = new SKColor(0xE2, 0xE7, 0xEE),
+            VolumeBullish        = new SKColor(0x77, 0xFF, 0x77, 130),
+            VolumeBearish        = new SKColor(0xDD, 0x00, 0x00, 130),
             IndicatorPalette     = ImmutableList.Create(
-                new SKColor(226, 232, 240), new SKColor(255, 138, 190), new SKColor(255, 176, 74),
+                new SKColor(240, 244, 250), new SKColor(255, 138, 190), new SKColor(255, 176, 74),
                 new SKColor(112, 214, 255), new SKColor(255, 226, 112), new SKColor(206, 148, 255),
                 new SKColor(126, 190, 255), new SKColor(255, 158, 110), new SKColor(150, 232, 174),
                 new SKColor(255, 122, 122), new SKColor(160, 205, 236), new SKColor(232, 230, 186)),
             ProfilePOC           = new SKColor(255, 196, 84),
             ProfileValueArea     = new SKColor(255, 196, 84, 64),
             ProfileSinglePrint   = new SKColor(126, 158, 255, 110),
-            ProfileNormal        = new SKColor(140, 148, 162, 92),
-            ProfileSeparator     = new SKColor(84, 90, 100),
+            ProfileNormal        = new SKColor(160, 168, 182, 92),
+            ProfileSeparator     = new SKColor(122, 128, 138),
             DrawingLine          = new SKColor(255, 214, 92),
-            DrawingHandle        = new SKColor(240, 244, 250),
+            DrawingHandle        = new SKColor(248, 250, 253),
             SelectionHighlight   = new SKColor(255, 214, 92, 56),
             AxisFontSize         = 12f,
             LegendFontSize       = 11f,
@@ -164,15 +167,23 @@ namespace AccessibleTrader.Core.Services
             AxisHeight           = 40f,
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
-            // Chrome: a shade lighter than the top of the chart gradient, so the toolbars sit
-            // ABOVE the canvas visually instead of framing it in a darker border.
-            SurfaceRaised        = new SKColor(66, 71, 78),
-            SurfaceSunken        = new SKColor(44, 47, 53),
-            TextPrimary          = new SKColor(236, 239, 244),
-            TextMuted            = new SKColor(166, 173, 184),
-            ChromeBorder         = new SKColor(88, 94, 104),
-            Accent               = new SKColor(96, 165, 250),
-            ButtonNeutral        = new SKColor(198, 206, 218),
+            // The two ends of the window fade. Toolbars sit at the top and take SurfaceRaised;
+            // the indicator bar sits at the bottom and takes SurfaceSunken; the chart's own two
+            // colours above are the values the fade has reached where the canvas starts and ends.
+            //
+            // SurfaceRaised is #6B7079 rather than the #888888 that was asked for, and the reason
+            // is measurable: #888888 under near-white text is a 3.3:1 contrast ratio, below the
+            // 4.5:1 needed for body text; #6B7079 reaches about 4.4:1. The alternative that keeps
+            // #888888 is to flip the chrome to DARK ink, which is a coherent "brushed steel panel"
+            // look but recolours every toolbar label and icon variant — a deliberate choice rather
+            // than something to slip in.
+            SurfaceRaised        = new SKColor(0x6B, 0x70, 0x79),
+            SurfaceSunken        = new SKColor(0x33, 0x35, 0x3A),
+            TextPrimary          = new SKColor(0xF5, 0xF7, 0xFA),
+            TextMuted            = new SKColor(0xD2, 0xD8, 0xE0),
+            ChromeBorder         = new SKColor(0x8A, 0x91, 0x9C),
+            Accent               = new SKColor(0x8F, 0xC2, 0xFF),
+            ButtonNeutral        = new SKColor(0xEC, 0xF0, 0xF6),
         };
 
         private static ChartTheme HighContrastDark() => new()

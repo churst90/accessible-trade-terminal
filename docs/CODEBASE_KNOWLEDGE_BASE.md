@@ -655,3 +655,16 @@ canvas edge and the light theme produced a white chart in a near-black frame.
   yet obviously distinct, because the separation is chroma. Grid lines get a BAND check
   (visible but subordinate) rather than a contrast floor; they are supposed to sit close to
   the background.
+
+**Price action follows the THEME; everything else follows its component.** Candle bodies,
+wicks and volume bars resolve their colour from `ChartTheme`, not from the component's
+`ColorHex` — that hex comes from indicator metadata and is a hardcoded TradingView teal, which
+made the theme's candle colours dead code for years. `ComponentConfig.IsUserStyled` is the
+escape hatch: the properties dialog sets it on a hand-picked colour, and the renderer then
+defers to the component. Among directional bars only `ComponentRole.Volume` / `PriceAction`
+follow the candle palette; a MACD histogram is not price direction.
+
+**The window is one gradient.** `.app-container` carries it; toolbars, tab bar and indicator
+bar are transparent and ride on it; the Skia canvas paints the middle slice via
+`ChartTheme.Background` → `BackgroundGradientEnd`. Giving any chrome region its own opaque
+fill puts the stacked-boxes seam back.

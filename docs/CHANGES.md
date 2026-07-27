@@ -10,6 +10,41 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### The theme now reaches the candles, and the window is one fade (2026-07-27)
+
+- **`ChartTheme`'s candle colours were dead code for the main chart.** `RenderCandles` read
+  the CANDLES component's `ColorHex` unconditionally, and that comes from indicator metadata
+  — a hardcoded `#26A69A` teal and `#EF5350` salmon. So a theme could repaint the
+  background, the grid, the axes and the entire application chrome while the candles stayed
+  TradingView teal: the one element people actually look at was the one element a theme could
+  not touch. Candles, wicks and volume bars now take the theme's colours.
+- **`ComponentConfig.IsUserStyled`** is the distinction that makes that safe. The renderer
+  cannot tell a deliberate recolour from a metadata default by looking at the hex, so the
+  properties dialog sets the flag at the moment of the edit; a hand-picked colour then
+  survives every theme change, and everything else follows the theme.
+- **Only VOLUME follows the candle palette among directional bars.** A MACD histogram or a
+  money-flow bar is not price direction, and colouring it like a candle would claim it was.
+- **The window is one vertical fade.** The container carries a single gradient — light at the
+  top, dark at the bottom — and the toolbars, tab bar and indicator bar are transparent and
+  ride on it, with the Skia canvas painting the middle slice of the same fade. Previously each
+  region had its own flat fill, which is what made the window read as stacked boxes.
+- **Steel Gray retuned** toward that description: `#6B7079` chrome at the top, the chart from
+  `#5C6169` down to `#3B3E44`, and `#33353A` at the bottom. Grid lines were lifted to
+  `#7A808A` — at the old value they sat within a few units of the lighter upper background and
+  were effectively invisible.
+
+**On `#888888` for the top, which was what was asked for:** it is a 3.3:1 contrast ratio under
+near-white text, below the 4.5:1 body-text threshold; `#6B7079` reaches about 4.4:1. The other
+way to keep `#888888` is to flip the chrome to DARK ink — a coherent "brushed steel panel"
+look — but that recolours every toolbar label and icon variant, so it is a decision to take
+deliberately rather than slip in.
+
+`ThemeCoverageTests` gained two pixel tests: one renders an up bar and a down bar and reads
+the colour back off the surface to prove the theme reached the paint, the other proves a
+hand-picked colour survives a theme change. Pixels rather than a unit test of the branch,
+because the failure mode was a value resolving correctly and then never reaching the paint.
+Suite 2371 → 2373.
+
 ### Themes now cover the whole window, and Steel Gray is the default (2026-07-27)
 
 A theme used to stop at the canvas edge. The chart is Skia and honoured `ChartTheme`;

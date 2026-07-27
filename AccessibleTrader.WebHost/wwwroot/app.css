@@ -25,16 +25,16 @@ html, body {
        These values are the Steel Gray default and exist so a JS-interop failure
        degrades to a sane palette rather than to unstyled HTML. Any variable added
        to ThemeCssBridge.VariableNames must also appear here — a test enforces it. */
-    --bg-primary:    #1a1c20;
-    --bg-toolbar:    #42474e;
-    --bg-header:     #42474e;
-    --bg-surface:    #2c2f35;
-    --text-primary:  #eceff4;
-    --text-muted:    #a6adb8;
-    --border-color:  #585e68;
-    --accent-color:  #60a5fa;
-    --btn-neutral:   #c6ceda;
-    --chart-fade-top: #383c42;
+    --bg-primary:    #33353a;
+    --bg-toolbar:    #6b7079;
+    --bg-header:     #6b7079;
+    --bg-surface:    #33353a;
+    --text-primary:  #f5f7fa;
+    --text-muted:    #d2d8e0;
+    --border-color:  #8a919c;
+    --accent-color:  #8fc2ff;
+    --btn-neutral:   #ecf0f6;
+    --chart-fade-top: #5c6169;
     --focus-outline-color: #ffff00;
     --bullish-color: #77ff77;
     --bearish-color: #dd0000;
@@ -46,19 +46,24 @@ html, body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: transparent !important;
+    /* The window is ONE vertical fade — light at the top, dark at the bottom — and the chart
+       canvas paints the middle slice of that same fade in Skia. Toolbars and the indicator bar
+       are transparent and ride on it, which is what makes the three regions read as a single
+       surface instead of stacked boxes. */
+    background: linear-gradient(to bottom, var(--bg-toolbar) 0%, var(--chart-fade-top) 28%,
+                                var(--bg-primary) 100%) !important;
 }
 
 .app-header {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
-    background: var(--bg-header);
+    background: transparent;
     color: var(--text-primary);
 }
 
 .app-footer {
     padding: 5px 12px;
-    background: var(--bg-header);
+    background: transparent;
     font-size: 0.82rem;
     border-top: 1px solid var(--border-color);
     color: var(--text-muted);
@@ -69,8 +74,8 @@ html, body {
 /* ── Toolbars ──────────────────────────────────────────────────────────────── */
 
 .toolbar {
-    background-color: var(--bg-toolbar);
-    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
     flex-wrap: wrap;
@@ -86,8 +91,8 @@ html, body {
 }
 
 .indicator-bar {
-    background-color: var(--bg-toolbar);
-    border-top: 1px solid var(--border-color);
+    background: transparent;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
     gap: 8px;
@@ -101,7 +106,7 @@ html, body {
        top colour. This is the seam the "fluid" look lives or dies on: a flat strip of a third
        colour between the toolbar and the chart is what made the window read as three stacked
        boxes rather than one surface. */
-    background: linear-gradient(to bottom, var(--bg-toolbar), var(--chart-fade-top));
+    background: transparent;
     border-bottom: none;
     display: flex;
     flex-direction: row;

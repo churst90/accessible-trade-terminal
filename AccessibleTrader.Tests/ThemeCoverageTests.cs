@@ -282,5 +282,82 @@ namespace AccessibleTrader.Tests
             yield return Path.Combine(dir!.FullName, "AccessibleTrader.WebHost", "wwwroot", "app.css");
             yield return Path.Combine(dir.FullName, "AccessibleTrader.BlazorClient", "wwwroot", "app.css");
         }
+        // ── The theme actually reaches the candles ───────────────────────
+
+        [Fact]
+        public void Candles_takeTheirColourFromTheThemeNotFromIndicatorMetadata()
+        {
+            // The bug: RenderCandles read the CANDLES component's ColorHex unconditionally, and
+            // that comes from indicator metadata — a hardcoded #26A69A teal. So a theme could
+            // repaint the background, grid, axes and the whole application chrome while the
+            // candles stayed TradingView teal. The one element people actually look at was the
+            // one element the theme could not touch.
+            var (bull, bear) = RenderCandlePixels(userStyled: false);
+
+            var theme = Build(ThemeType.SteelGray);
+            AssertNear(theme.CandleBullishBody, bull, "bullish candle");
+            AssertNear(theme.CandleBearishBody, bear, "bearish candle");
+        }
+
+        [Fact]
+        public void A_hand_picked_candle_colour_survives_a_theme_change()
+        {
+            // The other half of the contract. Someone who deliberately recoloured their candles
+            // must keep that choice — the renderer cannot tell a deliberate edit from a metadata
+            // default by looking at the hex, which is what ComponentConfig.IsUserStyled is for.
+            var (bull, _) = RenderCandlePixels(userStyled: true, bullHex: "#00A2FF");
+
+            AssertNear(new SKColor(0x00, 0xA2, 0xFF), bull, "user-chosen bullish candle");
+        }
+
+        /// <summary>
+        /// Renders one up bar and one down bar and reads the colour back off the surface. Pixels
+        /// rather than a unit test of the colour-picking branch, because the failure mode here was
+        /// a value being resolved correctly somewhere and then never reaching the paint.
+        /// </summary>
+        private static (SKColor Bull, SKColor Bear) RenderCandlePixels(bool userStyled, string bullHex = "#26A69A")
+        {
+            var theme = Build(ThemeType.SteelGray);
+
+            var series = new AccessibleTrader.Sdk.Models.ChartSeries();
+            series.Config.Name = "Candles";
+            series.Components.Add(new AccessibleTrader.Sdk.Models.ComponentConfig
+            {
+                Name = "Candles", DisplayName = "Candles",
+                DisplayType = AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle,
+                Role = AccessibleTrader.Sdk.Models.ComponentRole.PriceAction,
+                ColorHex = bullHex, ColorHexSecondary = "#EF5350",
+                IsUserStyled = userStyled, IsVisible = true,
+            });
+
+            var bars = new List<AccessibleTrader.Sdk.Models.Ohlcv>
+            {
+                new(new DateTime(2026, 1, 1), 10, 60, 10, 50, 1),   // up
+                new(new DateTime(2026, 1, 2), 50, 60, 10, 10, 1),   // down
+            };
+
+            using var surface = SKSurface.Create(new SKImageInfo(200, 200));
+            surface.Canvas.Clear(SKColors.Black);
+
+            var ctx = new AccessibleTrader.Core.Services.Rendering.RenderContext(
+                surface.Canvas, new SKRect(0, 0, 200, 200), bars, 0, 2, 0, 70, false,
+                100f, 1f, "Main", 0, theme);
+
+            using var paint = new SKPaint();
+            AccessibleTrader.Core.Services.Rendering.StandardRenderers.RenderCandles(ctx, series, paint);
+
+            using var image = surface.Snapshot();
+            using var bitmap = SKBitmap.FromImage(image);
+
+            // Mid-body of each candle: bar 0 occupies x 0..100, bar 1 occupies x 100..200.
+            return (bitmap.GetPixel(50, 100), bitmap.GetPixel(150, 100));
+        }
+
+        private static void AssertNear(SKColor expected, SKColor actual, string what)
+        {
+            int d = DistanceSq(expected, actual);
+            Assert.True(d < 900,
+                $"The {what} painted {actual} but the theme asked for {expected} (distance {d}).");
+        }
     }
 }
