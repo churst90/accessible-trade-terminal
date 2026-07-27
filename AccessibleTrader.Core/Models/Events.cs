@@ -148,6 +148,9 @@ namespace AccessibleTrader.Core.Models
     /// <summary>Alt+R — open the respect report (ranked levels and moving averages).</summary>
     public record OpenLevelReportEvent();
 
+    /// <summary>Opens the theme editor. A null id starts a new theme from the one in use.</summary>
+    public record OpenThemeEditorEvent(string? PresetId = null);
+
     /// <summary>Bar-replay transport verbs.</summary>
     public enum ReplayCommand { Toggle, StepForward, StepBack, PlayPause }
 

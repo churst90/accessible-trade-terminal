@@ -17,6 +17,7 @@
 @inject IShortcutManager ShortcutService
 @inject ISettingsManager Settings
 @inject IAppSettings App
+@inject AccessibleTrader.Core.Services.Theming.IThemeLibrary Themes
 @inject IServiceProvider ServiceProvider
 @inject IEnumerable<IAlertChannel> AlertChannels
 @inject DemoPolicy Demo
@@ -616,7 +617,28 @@
                             <option value="SoftDark">Soft Dark</option>
                             <option value="Solarized">Solarized</option>
                             <option value="Braille">Braille Optimized</option>
+                            @if (Themes.All.Count > 0)
+                            {
+                                <optgroup label="Your themes">
+                                    @foreach (var custom in Themes.All)
+                                    {
+                                        <option value="custom:@custom.Id">@custom.Name</option>
+                                    }
+                                </optgroup>
+                            }
                         </select>
+                    </div>
+
+                    <div class="modal-row">
+                        <button type="button" @onclick="NewTheme"
+                                aria-label="Create a new theme starting from the one in use">New theme</button>
+                        <button type="button" @onclick="CustomizeTheme"
+                                aria-label="Open the theme editor and change any colour">Customise…</button>
+                        @if (SelectedCustomTheme is { } sel)
+                        {
+                            <button type="button" @onclick="DeleteTheme"
+                                    aria-label="Delete the theme @sel.Name">Delete @sel.Name</button>
+                        }
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         A theme covers the whole window — the toolbars and dialogs as well as the
@@ -1184,10 +1206,17 @@
     private void OnThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _selectedTheme = e.Value?.ToString() ?? _selectedTheme;
-        if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var themeType))
+
+        // "custom:{id}" selects one of the user's own; anything else is a built-in enum name.
+        if (SelectedCustomTheme is { } preset)
+        {
+            ThemeService.SetCustomTheme(preset);
+        }
+        else if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var themeType))
         {
             ThemeService.SetTheme(themeType);
         }
+        EventBus.Publish(new RedrawEvent());
     }
 
     // ── Visual accessibility toggles (Phase D) — persist + apply immediately ──
@@ -1419,6 +1448,31 @@
             "Speech order updated.", true));
     }
 
+    // The picker holds built-ins by enum name and the user's own themes as "custom:{id}", so one
+    // control covers both without a second dropdown appearing and disappearing.
+    private AccessibleTrader.Sdk.Theming.ThemePreset? SelectedCustomTheme =>
+        _selectedTheme != null && _selectedTheme.StartsWith("custom:", StringComparison.Ordinal)
+            ? Themes.GetById(_selectedTheme["custom:".Length..])
+            : null;
+
+    private void NewTheme() => EventBus.Publish(new OpenThemeEditorEvent(null));
+
+    private void CustomizeTheme() => EventBus.Publish(new OpenThemeEditorEvent(SelectedCustomTheme?.Id));
+
+    private void DeleteTheme()
+    {
+        if (SelectedCustomTheme is not { } preset) return;
+
+        Themes.Remove(preset.Id);
+        // Fall back to whatever it was based on, rather than leaving the app pointing at a theme
+        // that no longer exists.
+        ThemeService.SetTheme(preset.BasedOn);
+        _selectedTheme = preset.BasedOn.ToString();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Deleted {preset.Name}. Now using {preset.BasedOn}.", true));
+    }
+
     private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _unifiedGradient = e.Value is bool b && b;
@@ -1639,7 +1693,12 @@
         _backgroundColor2 = Settings.GetSetting(Core.Services.SettingsKeys.BackgroundColor2)?.ToString() ?? _backgroundColor2;
         _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
         _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
-        _selectedTheme   = ThemeService.Current.ThemeType.ToString();
+        // A custom theme is stored by id, so the picker has to show that rather than the base
+        // it happens to be built on — otherwise reopening Settings silently reverts the selection.
+        var activeCustomId = Settings.GetSetting(Core.Services.SettingsKeys.CustomThemeId)?.ToString();
+        _selectedTheme = !string.IsNullOrWhiteSpace(activeCustomId) && Themes.GetById(activeCustomId!) != null
+            ? $"custom:{activeCustomId}"
+            : ThemeService.Current.ThemeType.ToString();
 
         // Alerts config — pull fresh from settings so another component's edits
         // (or a crash-recovery re-open) show the persisted values.

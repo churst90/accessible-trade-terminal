@@ -344,6 +344,7 @@ namespace AccessibleTrader.WebHost
 
             // Screening — see the MAUI head's registration block for the rationale.
             services.AddScoped<IOfflineWorkspaceBuilder, OfflineWorkspaceBuilder>();
+            services.AddScoped<AccessibleTrader.Core.Services.Theming.IThemeLibrary, AccessibleTrader.Core.Services.Theming.JsonThemeLibrary>();  // user-made themes
             services.AddScoped<IWatchlistLibrary, JsonWatchlistLibrary>();
             services.AddScoped<IScreenerLibrary, JsonScreenerLibrary>();
             services.AddScoped<IScreenerService, ScreenerService>();

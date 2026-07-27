@@ -33,6 +33,48 @@ surprise is a poor way to meet a release.
    nearly identical in greyscale, so the pair stopped carrying direction under
    red-green deficiency. Each is lifted just enough to separate by brightness.
 
+### The theme editor: every colour reachable, themes savable and shareable (2026-07-27)
+
+`ChartTheme` carried 33 colours and Settings exposed six. The other 27 — gridlines, crosshair,
+axis text and lines, drawing colours, selection highlight, all five volume-profile colours, the
+doji body, the wicks, the three chrome bands, the dialog surface and its ink — were fully
+themeable in the renderer and unreachable to anyone using the application.
+
+- **`ThemeFields` is a single catalogue** of every themeable colour: a stable key, an editor
+  group, a label, a description of what it actually affects, and a getter and setter. **The
+  editor generates itself from it.** Thirty hand-wired pickers would guarantee that the next
+  colour added to `ChartTheme` is themeable in the renderer and invisible in the UI — which is
+  exactly the gap this closes, so it should not be possible to reopen by accident. One entry
+  appears in the dialog, in saved theme files, and in the round-trip tests together, and a test
+  fails if a `ChartTheme` colour has no entry.
+- **`ThemePreset` stores a base built-in plus only the colours the user changed.** A full
+  snapshot would be simpler and would quietly rot: every colour added afterwards would arrive in
+  every previously saved theme as black, because a snapshot cannot know about a field that did
+  not exist when it was taken. Sparse overrides mean a theme built on Steel Gray picks up later
+  improvements to Steel Gray instead of freezing them.
+  An explicitly stored null is distinct from an absent key — that is how "flat, no gradient" is
+  expressed, as opposed to "I did not touch the gradient". Unknown keys are ignored rather than
+  rejecting the file, so a theme from a newer version still loads with everything this version
+  understands.
+- **`JsonThemeLibrary`** (`themes.json`) with export and import, so a theme is shareable as text.
+  Import always assigns a fresh id, so bringing one in never overwrites one of your own.
+- **`ThemeEditorModal`**, reached from Settings → Appearance → **New theme** / **Customise…**.
+  Seven sections — top bar, chart area, candles and volume, overlays and drawings, bottom bar,
+  dialogs, text and chrome — each a fieldset a screen reader can jump between, each colour with a
+  picker, a hex field, and a description that says what it does. Changed fields are marked and
+  individually revertable.
+- **`BaseThemeResolver`** gives the editor a built-in theme WITHOUT the user's appearance
+  preferences layered on. Everywhere else what matters is the theme as it will actually look; an
+  editor showing that would present the user's own up/down colours as if they belonged to the
+  theme and then save them into it, baking a personal preference into something meant to be
+  shared.
+- **Contrast problems are reported, never corrected.** Every built-in is checked against these
+  rules by the test suite so a preset is always safe, but a theme someone builds by hand is
+  theirs — they may be targeting a projector, a photosensitivity, or a screenshot. The editor
+  lists what will be hard to read and leaves the decision alone.
+
+Suite 2484 → 2507.
+
 ### Settings-wiring audit, four more themes, orientation and recovery shortcuts (2026-07-27)
 
 **The audit.** "The setting exists and does nothing" has been a recurring class here rather than

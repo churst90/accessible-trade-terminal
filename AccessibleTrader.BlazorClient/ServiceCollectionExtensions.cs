@@ -379,6 +379,7 @@ namespace AccessibleTrader.BlazorClient
             // OfflineWorkspaceBuilder is the shared "compute indicators off a bar list" seam that
             // lets the screener and the respect analyzer run against unloaded symbols.
             services.AddSingleton<IOfflineWorkspaceBuilder, OfflineWorkspaceBuilder>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Theming.IThemeLibrary, AccessibleTrader.Core.Services.Theming.JsonThemeLibrary>();  // user-made themes
             services.AddSingleton<IWatchlistLibrary, JsonWatchlistLibrary>();
             services.AddSingleton<IScreenerLibrary, JsonScreenerLibrary>();
             services.AddSingleton<IScreenerService, ScreenerService>();

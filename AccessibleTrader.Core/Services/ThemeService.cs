@@ -44,17 +44,43 @@ namespace AccessibleTrader.Core.Services
         // theme switches until cleared from Settings > Appearance.
         public const string BackgroundOverrideKey = SettingsKeys.BackgroundColor;
 
-        public ThemeService(ISettingsManager settings)
+        /// <summary>
+        /// Optional so the service still constructs in hosts and tests that have no theme storage.
+        /// A missing library simply means no custom themes exist, which is also the state of a
+        /// fresh install.
+        /// </summary>
+        private readonly Theming.IThemeLibrary? _themes;
+
+        public ThemeService(ISettingsManager settings, Theming.IThemeLibrary? themes = null)
         {
             _settings = settings;
+            _themes = themes;
             // Restore previously-saved theme; fall back to HighContrastDark if not set.
             var saved = _settings.GetSetting(ThemeSettingKey)?.ToString();
             var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.SteelGray;
             Current = WithAccessibilityOverrides(BuildTheme(type));
         }
 
+        /// <summary>
+        /// Switches to one of the user's own themes. Its base built-in is applied first, then its
+        /// overrides, then every appearance preference as usual.
+        /// </summary>
+        public void SetCustomTheme(Sdk.Theming.ThemePreset preset)
+        {
+            ArgumentNullException.ThrowIfNull(preset);
+            _settings.SetSetting(SettingsKeys.CustomThemeId, preset.Id);
+            _settings.SetSetting(ThemeSettingKey, preset.BasedOn.ToString());
+            _settings.SaveSettings();
+            Current = WithAccessibilityOverrides(BuildTheme(preset.BasedOn));
+            ThemeChanged?.Invoke(this, Current);
+        }
+
         public void SetTheme(ThemeType theme)
         {
+            // Choosing a built-in leaves any custom theme behind — otherwise its overrides would
+            // silently follow you onto every theme you tried afterwards, and the picker would
+            // appear not to work.
+            _settings.SetSetting(SettingsKeys.CustomThemeId, string.Empty);
             Current = WithAccessibilityOverrides(BuildTheme(theme));
             ThemeChanged?.Invoke(this, Current);
             // Persist immediately so the choice survives restart.
@@ -78,6 +104,13 @@ namespace AccessibleTrader.Core.Services
 
         private ChartTheme WithAccessibilityOverrides(ChartTheme theme)
         {
+            // A user's own theme is applied FIRST, so everything below — the unified gradient,
+            // the background override, the up/down pair — still layers on top of it exactly as it
+            // would over a built-in. A custom theme is a starting point, not a final word.
+            var customId = _settings.GetSetting(SettingsKeys.CustomThemeId)?.ToString();
+            if (!string.IsNullOrWhiteSpace(customId) && _themes?.GetById(customId!) is { } preset)
+                theme = preset.ApplyTo(theme);
+
             bool colorVision = _settings.GetSetting(ColorVisionSafeKey)?.Value<bool?>() ?? false;
             bool hollow      = _settings.GetSetting(HollowUpCandlesKey)?.Value<bool?>() ?? false;
             if (colorVision || hollow)

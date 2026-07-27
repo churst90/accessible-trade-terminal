@@ -17,4 +17,15 @@ public interface IThemeService
     /// implementations don't have to care.
     /// </summary>
     void RefreshAccessibilityOverrides() { }
+
+    /// <summary>
+    /// Switches to one of the user's own themes: its base built-in first, then its overrides, then
+    /// the appearance preferences as usual.
+    ///
+    /// <para>
+    /// Default no-op so substitutes and simple implementations need not care — a host with no
+    /// theme storage has no custom themes to switch to.
+    /// </para>
+    /// </summary>
+    void SetCustomTheme(AccessibleTrader.Sdk.Theming.ThemePreset preset) { }
 }

@@ -682,3 +682,20 @@ share their boundary value, which is the property that actually removes a seam.
 `BearishColor` layer over whatever theme is active. Which colour means "up" is a habit carried
 between themes; absent values leave each theme's own pair, which is how High Contrast Dark
 keeps its deliberate white-on-red.
+
+**`ThemeFields` is the catalogue; the theme editor generates itself from it.** Adding a themeable
+colour means one entry — key, group, label, description, getter, setter — and it appears in the
+editor, in saved theme files and in the round-trip tests at once. `ThemeCustomizationTests` fails
+if a `ChartTheme` colour has no entry, because "themeable in the renderer, invisible in the UI" is
+the exact gap the editor exists to close. **Field keys are on disk in every saved theme — add and
+deprecate, never rename.**
+
+**A saved theme is a base plus a sparse override set.** Never a full snapshot: a snapshot cannot
+know about a colour added later, so every future field would reach every old theme as black. An
+explicitly stored null clears an optional field ("flat, no gradient"); an absent key means "not
+customised". Unknown keys are ignored on load so a file from a newer version still works.
+
+**The editor uses `BaseThemeResolver`, not `ThemeService.Current`.** The running application wants
+the theme as the user will see it — their up/down colours, their background override. An editor
+showing that would present personal preferences as theme properties and then save them into the
+theme.

@@ -116,6 +116,9 @@ public sealed class BlazorTestHarness : IDisposable
         // that stub SettingsManager.GetSetting see consistent typed reads.
         Ctx.Services.AddSingleton<IAppSettings>(new AppSettings(SettingsManager));
         Ctx.Services.AddSingleton(ThemeService);
+        // The theme library backs Settings' theme picker and the theme editor. Substituted rather
+        // than real so no test writes a themes.json into the developer's app-data directory.
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Theming.IThemeLibrary>());
         Ctx.Services.AddSingleton(DataExporter);
         Ctx.Services.AddSingleton(WorkspaceLibrary);
         Ctx.Services.AddSingleton(SeriesManager);

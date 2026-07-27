@@ -37,6 +37,11 @@ namespace AccessibleTrader.Core.Services
         // Treat the toolbar band, the chart and the footer band as slices of ONE top-to-bottom
         // fade instead of three independently coloured regions. Off by default: a theme decides
         // its own look, and this overrides all three at once.
+        // Id of the user's own theme currently in use, or empty for a built-in one. Kept
+        // separate from UiTheme rather than folded into it: a custom theme still records which
+        // built-in it is BASED ON, so both facts have to survive a restart.
+        public const string CustomThemeId        = "appearance.customThemeId";
+
         public const string UnifiedGradient       = "appearance.unifiedGradient";
         public const string UnifiedGradientTop    = "appearance.unifiedGradientTop";
         public const string UnifiedGradientBottom = "appearance.unifiedGradientBottom";
