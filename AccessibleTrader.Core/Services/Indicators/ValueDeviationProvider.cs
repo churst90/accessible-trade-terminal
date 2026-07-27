@@ -312,16 +312,26 @@ namespace AccessibleTrader.Core.Services.Indicators
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
             if (double.IsNaN(value)) return null;
+
+            // Keyed on the component NAME, which is what SpeechFormatter passes — NOT the
+            // DisplayName. These were written against the display strings ("Support tier 1-2"),
+            // so every case fell through to null, the pipeline moved on to its generic template,
+            // and the user heard a bare number where there was a sentence waiting. Nothing threw
+            // and no test failed; it surfaced only because someone navigated the chart and noticed
+            // the speech was uninformative. ComponentSpeechKeyTests now detects the whole class.
             return componentName switch
             {
-                "Support tier 1-2" => $"Shallow support zone at {Price(value)}, just outside value.",
-                "Support tier 3" => $"Support zone at {Price(value)}, well below value.",
-                "Support tier 4-5" => $"Deep support zone at {Price(value)}, far below value — the furthest tier.",
-                "Resistance tier 1-2" => $"Shallow resistance zone at {Price(value)}, just outside value.",
-                "Resistance tier 3" => $"Resistance zone at {Price(value)}, well above value.",
-                "Resistance tier 4-5" => $"Deep resistance zone at {Price(value)}, far above value — the furthest tier.",
-                "Deviation Tier" => value == 0 ? "Inside value."
+                CompSupportShallow => $"Shallow support zone at {Price(value)}, just outside value.",
+                CompSupportMid     => $"Support zone at {Price(value)}, well below value.",
+                CompSupportDeep    => $"Deep support zone at {Price(value)}, far below value — the furthest tier.",
+                CompResistShallow  => $"Shallow resistance zone at {Price(value)}, just outside value.",
+                CompResistMid      => $"Resistance zone at {Price(value)}, well above value.",
+                CompResistDeep     => $"Deep resistance zone at {Price(value)}, far above value — the furthest tier.",
+                CompTier => value == 0 ? "Inside value."
                     : $"Tier {Math.Abs(value):0} {(value < 0 ? "below" : "above")} value.",
+                CompPoc       => $"Value point of control, {Price(value)}.",
+                CompValueHigh => $"Value area high, {Price(value)}.",
+                CompValueLow  => $"Value area low, {Price(value)}.",
                 _ => null
             };
         }

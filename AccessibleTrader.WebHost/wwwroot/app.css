@@ -414,36 +414,43 @@ label {
     font-weight: 600;
 }
 
+/* Dialog form controls. These were pinned to #fff / #111 from when dialogs were a fixed
+   light panel, and that override outranked the themed base rules — so every input in every
+   dialog stayed white after the surfaces went dark. Inset slightly from the dialog surface
+   so a field still reads as a field. */
 .modal-content select,
 .modal-content input[type="text"],
 .modal-content input[type="password"],
 .modal-content input[type="number"],
 .modal-content input[type="range"] {
-    background: #fff;
-    color: #111;
-    border: 1px solid #999;
+    background: color-mix(in srgb, var(--bg-surface) 60%, #000);
+    color: var(--text-on-surface);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
     padding: 4px 8px;
     font-size: 0.9rem;
 }
 
 .modal-content button {
-    background: #ddd;
-    color: #111;
-    border: 1px solid #888;
+    background: color-mix(in srgb, var(--bg-surface) 55%, #fff 6%);
+    color: var(--text-on-surface);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
-.modal-content button:hover {
-    background: #ccc;
+.modal-content button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--bg-surface) 40%, #fff 12%);
+    border-color: var(--border-color);
 }
 
 .modal-content button.primary {
     background: var(--accent-color);
-    color: #fff;
-    border-color: #005a9e;
+    color: #0c0f14;
+    border-color: var(--accent-color);
+    font-weight: 600;
 }
 
-.modal-content button.primary:hover {
-    background: #005a9e;
+.modal-content button.primary:hover:not(:disabled) {
+    filter: brightness(1.08);
 }
 
 .modal-content .modal-row {
@@ -463,7 +470,7 @@ label {
     gap: 10px;
     margin-top: 24px;
     padding-top: 14px;
-    border-top: 1px solid #ccc;
+    border-top: 1px solid var(--border-color);
 }
 
 /* Object tree list items */

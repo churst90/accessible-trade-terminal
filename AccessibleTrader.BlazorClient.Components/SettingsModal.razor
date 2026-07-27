@@ -80,8 +80,14 @@
                             id="tab-@tab.ToLower()"
                             aria-controls="tabpanel-@tab.ToLower()"
                             @onclick="() => _activeTab = tab"
-                            style="padding:6px 16px; border:none; border-bottom:@(active ? "3px solid #0078d4" : "3px solid transparent");
-                                   background:@(active ? "#e8f0ff" : "transparent");
+                            @* The active tab was a pale #e8f0ff panel, which stopped working the
+                               moment the label colour became a theme variable: near-white text on
+                               a near-white background rendered the selected tab as an empty box.
+                               An accent-tinted wash plus the underline carries selection without
+                               depending on the ink being dark. *@
+                            style="padding:6px 16px; border:none;
+                                   border-bottom:@(active ? "3px solid var(--accent-color)" : "3px solid transparent");
+                                   background:@(active ? "color-mix(in srgb, var(--accent-color) 22%, transparent)" : "transparent");
                                    font-weight:@(active ? "700" : "400");
                                    color:var(--text-on-surface); cursor:pointer;">
                         @tab

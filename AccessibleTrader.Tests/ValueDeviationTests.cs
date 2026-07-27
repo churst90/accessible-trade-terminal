@@ -371,8 +371,12 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Provider_ResistanceSpeechDescribesAZoneNotATrade()
         {
+            // The component NAME, which is what SpeechFormatter passes. This test used to pass the
+            // DisplayName — so it exercised the same wrong key the provider was switching on, and
+            // agreed with the bug instead of catching it. A test written against the same
+            // misunderstanding as the code will confirm it forever.
             string? speech = new ValueDeviationProvider().GetComponentSpeech(
-                "Resistance tier 4-5", 100, new Ohlcv(Start, 1, 1, 1, 1, 1),
+                ValueDeviationProvider.CompResistDeep, 100, new Ohlcv(Start, 1, 1, 1, 1, 1),
                 new Dictionary<string, double[]>(), 0);
 
             Assert.NotNull(speech);
