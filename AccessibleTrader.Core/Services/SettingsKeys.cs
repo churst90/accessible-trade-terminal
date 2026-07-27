@@ -25,6 +25,14 @@ namespace AccessibleTrader.Core.Services
         public const string BackgroundColor    = "appearance.backgroundColor";
         public const string BackgroundGradient = "appearance.backgroundGradient";   // bool: gradient vs solid
         public const string BackgroundColor2   = "appearance.backgroundColor2";     // gradient end (bottom) color
+
+        // Up/down colours for candles and volume. These are an APP-LEVEL preference, not a
+        // per-theme one: which colour means "up" is a habit a trader carries between themes,
+        // and having it change under them when they try a new look is exactly wrong. Absent
+        // means "use the theme's own pair", which is how the accessibility themes keep their
+        // deliberate high-contrast choices.
+        public const string BullishColor       = "appearance.bullishColor";
+        public const string BearishColor       = "appearance.bearishColor";
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
         /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>

@@ -131,15 +131,103 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void TheWindowBackgroundMatchesTheDarkEndOfTheChartNotItsTop()
+        public void EachBandIsAddressableSoAThemeCanMakeThemThreeDifferentColours()
         {
-            // Any gap around the canvas — scrollbar gutters, a resize sliver — should read as
-            // more chart, not as a border in a fourth colour.
+            // The point of splitting the chrome into bands: a walnut header over a near-black
+            // chart over a lighter footer has to be expressible. Previously all three were
+            // derived from one fade and could not disagree.
+            var theme = Build(ThemeType.SteelGray) with
+            {
+                SurfaceRaised   = new SKColor(0x6B, 0x4A, 0x2E),  // walnut
+                ChromeTopEnd    = new SKColor(0x50, 0x37, 0x22),
+                Background      = new SKColor(0x0E, 0x0E, 0x10),  // near-black chart
+                BackgroundGradientEnd = new SKColor(0x08, 0x08, 0x0A),
+                ChromeBottom    = new SKColor(0x3A, 0x2A, 0x1C),
+                ChromeBottomEnd = new SKColor(0x2A, 0x1E, 0x14),
+            };
+
+            var vars = ThemeCssBridge.BuildVariables(theme);
+
+            Assert.Equal("#6b4a2e", vars["--bg-toolbar"]);
+            Assert.Equal("#503722", vars["--bg-toolbar-end"]);
+            Assert.Equal("#0e0e10", vars["--chart-fade-top"]);
+            Assert.Equal("#3a2a1c", vars["--bg-footer"]);
+            Assert.Equal("#2a1e14", vars["--bg-footer-end"]);
+
+            // Nothing forces the bands to agree with the chart.
+            Assert.NotEqual(vars["--bg-toolbar-end"], vars["--chart-fade-top"]);
+        }
+
+        [Fact]
+        public void ABandWithNoEndColourIsFlatRatherThanFadingToBlack()
+        {
+            // ChromeTopEnd / ChromeBottomEnd are optional. Absent must mean "flat band", not
+            // "fade into whatever default", or every un-dressed theme grows a gradient it never
+            // asked for.
+            var theme = Build(ThemeType.SteelGray) with { ChromeTopEnd = null, ChromeBottomEnd = null };
+            var vars = ThemeCssBridge.BuildVariables(theme);
+
+            Assert.Equal(vars["--bg-toolbar"], vars["--bg-toolbar-end"]);
+            Assert.Equal(vars["--bg-footer"],  vars["--bg-footer-end"]);
+        }
+
+        [Fact]
+        public void TheWindowBackgroundIsTheVeryBottomOfTheWindow()
+        {
+            // Any gap around the canvas should read as more footer, not as a border in a colour
+            // that appears nowhere else.
             var theme = Build(ThemeType.SteelGray);
             var vars = ThemeCssBridge.BuildVariables(theme);
 
-            Assert.Equal(ThemeCssBridge.Css(theme.BackgroundGradientEnd!.Value), vars["--bg-primary"]);
+            Assert.Equal(ThemeCssBridge.Css(theme.ChromeBottomEnd!.Value), vars["--bg-primary"]);
             Assert.Equal(ThemeCssBridge.Css(theme.Background), vars["--chart-fade-top"]);
+        }
+
+        [Fact]
+        public void SteelGray_linesUpItsSeamsSoTheWindowReadsAsOneFade()
+        {
+            // Steel CHOOSES continuity — the toolbar ends exactly where the chart begins and the
+            // footer starts exactly where the chart ends. Nothing requires it; this pins the
+            // intent so a later tweak to one band doesn't quietly open a seam.
+            var theme = Build(ThemeType.SteelGray);
+
+            Assert.Equal(theme.Background, theme.ChromeTopEnd);
+            Assert.Equal(theme.BackgroundGradientEnd, theme.ChromeBottom);
+        }
+
+        [Fact]
+        public void Up_and_down_colours_are_an_app_preference_that_outranks_the_theme()
+        {
+            // "Which colour means up" is a habit carried between themes. It must not change
+            // under the user when they try a new look.
+            var settings = Substitute.For<ISettingsManager>();
+            settings.GetSetting(SettingsKeys.BullishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
+                .Returns(new Newtonsoft.Json.Linq.JValue("#00A2FF"));
+            settings.GetSetting(SettingsKeys.BearishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
+                .Returns(new Newtonsoft.Json.Linq.JValue("#FF7700"));
+
+            var service = new ThemeService(settings);
+
+            foreach (var type in Enum.GetValues<ThemeType>())
+            {
+                service.SetTheme(type);
+                Assert.Equal(new SKColor(0x00, 0xA2, 0xFF), service.Current.CandleBullishBody);
+                Assert.Equal(new SKColor(0xFF, 0x77, 0x00), service.Current.CandleBearishBody);
+                // Volume follows, keeping its own alpha so it stays behind the candles.
+                Assert.Equal(0x00, service.Current.VolumeBullish.Red);
+                Assert.True(service.Current.VolumeBullish.Alpha < 255);
+            }
+        }
+
+        [Fact]
+        public void Without_that_preference_each_theme_keeps_its_own_pair()
+        {
+            // High Contrast Dark's white-on-red is a deliberate accessibility choice, not a
+            // default waiting to be replaced.
+            var service = new ThemeService(Substitute.For<ISettingsManager>());
+            service.SetTheme(ThemeType.HighContrastDark);
+
+            Assert.Equal(SKColors.White, service.Current.CandleBullishBody);
         }
 
         // ── The default theme ────────────────────────────────────────────

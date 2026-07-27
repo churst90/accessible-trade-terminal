@@ -93,6 +93,29 @@ namespace AccessibleTrader.Core.Services
             if (gradient && !string.IsNullOrWhiteSpace(bg2Override) && SKColor.TryParse(bg2Override, out var bg2))
                 theme = theme with { BackgroundGradientEnd = bg2 };
 
+            // Up/down colours are an app-level preference layered over the theme, for the same
+            // reason the background override is: which colour means "up" is a habit a trader
+            // carries between themes, and it should not change under them when they try a new
+            // look. Absent leaves the theme's own pair — which is how High Contrast Dark keeps
+            // its deliberate white-on-red scheme.
+            var bull = _settings.GetSetting(SettingsKeys.BullishColor)?.ToString();
+            if (!string.IsNullOrWhiteSpace(bull) && SKColor.TryParse(bull, out var bullColor))
+                theme = theme with
+                {
+                    CandleBullishBody = bullColor,
+                    CandleBullishWick = bullColor,
+                    VolumeBullish = bullColor.WithAlpha(theme.VolumeBullish.Alpha),
+                };
+
+            var bear = _settings.GetSetting(SettingsKeys.BearishColor)?.ToString();
+            if (!string.IsNullOrWhiteSpace(bear) && SKColor.TryParse(bear, out var bearColor))
+                theme = theme with
+                {
+                    CandleBearishBody = bearColor,
+                    CandleBearishWick = bearColor,
+                    VolumeBearish = bearColor.WithAlpha(theme.VolumeBearish.Alpha),
+                };
+
             return theme;
         }
 
@@ -131,12 +154,12 @@ namespace AccessibleTrader.Core.Services
             ThemeType            = ThemeType.SteelGray,
             // The window is ONE vertical fade, light at the top and dark at the bottom, and the
             // chart is the middle slice of it. These two are that slice — not a fade of their own.
-            Background           = new SKColor(0x5C, 0x61, 0x69),   // where the chart meets the tab bar
-            BackgroundGradientEnd = new SKColor(0x3B, 0x3E, 0x44),  // where it meets the indicator bar
+            Background           = new SKColor(0x4E, 0x54, 0x5E),   // where the chart meets the tab bar
+            BackgroundGradientEnd = new SKColor(0x22, 0x25, 0x2A),  // where it meets the indicator bar
             // Lifted well clear of the background: at the old value the grid was within a few
             // units of the chart behind it and effectively invisible on the lighter upper half.
-            GridLine             = new SKColor(0x7A, 0x80, 0x8A),
-            GridLineMinor        = new SKColor(0x68, 0x6D, 0x76),
+            GridLine             = new SKColor(0x6E, 0x75, 0x80),
+            GridLineMinor        = new SKColor(0x5B, 0x61, 0x6B),
             AxisText             = new SKColor(0xE8, 0xEC, 0xF2),
             AxisLine             = new SKColor(0x8A, 0x91, 0x9C),
             Crosshair            = new SKColor(255, 214, 92),
@@ -177,13 +200,20 @@ namespace AccessibleTrader.Core.Services
             // #888888 is to flip the chrome to DARK ink, which is a coherent "brushed steel panel"
             // look but recolours every toolbar label and icon variant — a deliberate choice rather
             // than something to slip in.
-            SurfaceRaised        = new SKColor(0x6B, 0x70, 0x79),
-            SurfaceSunken        = new SKColor(0x33, 0x35, 0x3A),
-            TextPrimary          = new SKColor(0xF5, 0xF7, 0xFA),
-            TextMuted            = new SKColor(0xD2, 0xD8, 0xE0),
-            ChromeBorder         = new SKColor(0x8A, 0x91, 0x9C),
+            // Toolbar band: its own fade, ending exactly where the chart begins so the seam
+            // vanishes. Steel chooses continuity; a theme is free not to.
+            SurfaceRaised        = new SKColor(0x67, 0x6E, 0x79),
+            ChromeTopEnd         = new SKColor(0x4E, 0x54, 0x5E),
+            // Footer band: picks up where the chart's fade left off and carries on down.
+            ChromeBottom         = new SKColor(0x22, 0x25, 0x2A),
+            ChromeBottomEnd      = new SKColor(0x17, 0x19, 0x1D),
+            SurfaceSunken        = new SKColor(0x2B, 0x2F, 0x36),
+            TextOnDialog         = new SKColor(0xEC, 0xF0, 0xF6),
+            TextPrimary          = new SKColor(0xF7, 0xF9, 0xFC),
+            TextMuted            = new SKColor(0xD4, 0xDA, 0xE3),
+            ChromeBorder         = new SKColor(0x86, 0x8E, 0x9A),
             Accent               = new SKColor(0x8F, 0xC2, 0xFF),
-            ButtonNeutral        = new SKColor(0xEC, 0xF0, 0xF6),
+            ButtonNeutral        = new SKColor(0xEE, 0xF2, 0xF7),
         };
 
         private static ChartTheme HighContrastDark() => new()
@@ -223,6 +253,8 @@ namespace AccessibleTrader.Core.Services
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
             SurfaceRaised        = new SKColor(20, 20, 20),
+            ChromeBottom         = new SKColor(14, 14, 14),
+            TextOnDialog         = SKColors.White,
             SurfaceSunken        = SKColors.Black,
             TextPrimary          = SKColors.White,
             TextMuted            = new SKColor(190, 190, 190),
@@ -268,6 +300,8 @@ namespace AccessibleTrader.Core.Services
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
             SurfaceRaised        = new SKColor(238, 238, 238),
+            ChromeBottom         = new SKColor(226, 226, 226),
+            TextOnDialog         = SKColors.Black,
             SurfaceSunken        = SKColors.White,
             TextPrimary          = SKColors.Black,
             TextMuted            = new SKColor(70, 70, 70),
@@ -313,6 +347,8 @@ namespace AccessibleTrader.Core.Services
             ProfileWidthFraction = 0.20f,
             ProfileSeparatorWidth = 2f,
             SurfaceRaised        = new SKColor(30, 33, 44),
+            ChromeBottom         = new SKColor(20, 22, 30),
+            TextOnDialog         = new SKColor(226, 230, 240),
             SurfaceSunken        = new SKColor(22, 24, 33),
             TextPrimary          = new SKColor(226, 230, 240),
             TextMuted            = new SKColor(150, 156, 172),

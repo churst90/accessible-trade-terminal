@@ -25,16 +25,20 @@ html, body {
        These values are the Steel Gray default and exist so a JS-interop failure
        degrades to a sane palette rather than to unstyled HTML. Any variable added
        to ThemeCssBridge.VariableNames must also appear here — a test enforces it. */
-    --bg-primary:    #33353a;
-    --bg-toolbar:    #6b7079;
-    --bg-header:     #6b7079;
-    --bg-surface:    #33353a;
-    --text-primary:  #f5f7fa;
-    --text-muted:    #d2d8e0;
-    --border-color:  #8a919c;
+    --bg-primary:    #17191d;
+    --bg-toolbar:    #676e79;
+    --bg-toolbar-end: #4e545e;
+    --bg-footer:     #22252a;
+    --bg-footer-end: #17191d;
+    --bg-header:     #676e79;
+    --bg-surface:    #2b2f36;
+    --text-on-surface: #ecf0f6;
+    --text-primary:  #f7f9fc;
+    --text-muted:    #d4dae3;
+    --border-color:  #868e9a;
     --accent-color:  #8fc2ff;
-    --btn-neutral:   #ecf0f6;
-    --chart-fade-top: #5c6169;
+    --btn-neutral:   #eef2f7;
+    --chart-fade-top: #4e545e;
     --focus-outline-color: #ffff00;
     --bullish-color: #77ff77;
     --bearish-color: #dd0000;
@@ -46,12 +50,11 @@ html, body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    /* The window is ONE vertical fade — light at the top, dark at the bottom — and the chart
-       canvas paints the middle slice of that same fade in Skia. Toolbars and the indicator bar
-       are transparent and ride on it, which is what makes the three regions read as a single
-       surface instead of stacked boxes. */
-    background: linear-gradient(to bottom, var(--bg-toolbar) 0%, var(--chart-fade-top) 28%,
-                                var(--bg-primary) 100%) !important;
+    /* Three INDEPENDENT bands, each painting its own fade: the toolbar band, the Skia canvas,
+       and the footer band. A theme lines the seams up for one continuous window-wide fade
+       (Steel does) or leaves them different (a walnut header over a near-black chart). The
+       container only supplies the colour behind everything. */
+    background: var(--bg-primary) !important;
 }
 
 .app-header {
@@ -63,7 +66,7 @@ html, body {
 
 .app-footer {
     padding: 5px 12px;
-    background: transparent;
+    background: var(--bg-footer-end);
     font-size: 0.82rem;
     border-top: 1px solid var(--border-color);
     color: var(--text-muted);
@@ -74,7 +77,9 @@ html, body {
 /* ── Toolbars ──────────────────────────────────────────────────────────────── */
 
 .toolbar {
-    background: transparent;
+    /* The toolbar band's own fade. Its end colour is the chart's top colour in themes that
+       want continuity, which is what makes the seam above the canvas disappear. */
+    background: linear-gradient(to bottom, var(--bg-toolbar), var(--bg-toolbar-end));
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
@@ -91,7 +96,7 @@ html, body {
 }
 
 .indicator-bar {
-    background: transparent;
+    background: linear-gradient(to bottom, var(--bg-footer), var(--bg-footer-end));
     border-top: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
@@ -106,7 +111,7 @@ html, body {
        top colour. This is the seam the "fluid" look lives or dies on: a flat strip of a third
        colour between the toolbar and the chart is what made the window read as three stacked
        boxes rather than one surface. */
-    background: transparent;
+    background: var(--bg-toolbar-end);
     border-bottom: none;
     display: flex;
     flex-direction: row;
@@ -279,12 +284,16 @@ label {
    for dark surfaces (~8:1 on #121212) and would render at ~2.1:1 against
    the light modal panel — a WCAG AA fail. #555 on #f2f2f2 is ~6.7:1 (AA). */
 .modal-content {
-    --text-muted: #555;
-    background: #f2f2f2;
-    color: #111;
+    /* Dialogs take the theme like everything else. They were a fixed #f2f2f2 with #111 ink —
+       a light island in a dark app — which is why they read as a different product. The ink is
+       its own variable rather than --text-primary, because a theme may pair a dark toolbar
+       with a light dialog and then the two need opposite text. */
+    --text-muted: color-mix(in srgb, var(--text-on-surface) 68%, transparent);
+    background: var(--bg-surface);
+    color: var(--text-on-surface);
     padding: 28px 32px;
-    border: 1px solid #bbb;
-    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
     min-width: 400px;
     max-width: 640px;
     width: 100%;
@@ -295,7 +304,7 @@ label {
 
 .modal-content h2 {
     margin-top: 0;
-    border-bottom: 2px solid #999;
+    border-bottom: 2px solid var(--border-color);
     padding-bottom: 10px;
     font-size: 1.1rem;
     color: #111;

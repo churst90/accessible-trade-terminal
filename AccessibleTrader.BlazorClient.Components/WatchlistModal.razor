@@ -67,7 +67,7 @@
 
             @if (_tab == Tab.Lists)
             {
-                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend style="font-weight:700; padding:0 6px;">Lists</legend>
 
                     <div class="modal-row">
@@ -91,7 +91,7 @@
                     </div>
                 </fieldset>
 
-                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend style="font-weight:700; padding:0 6px;">Add a symbol</legend>
 
                     <div class="modal-row">
@@ -151,7 +151,7 @@
                     </p>
                 </fieldset>
 
-                <fieldset style="border:1px solid #555; padding:10px 14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px;">
                     <legend style="font-weight:700; padding:0 6px;">Symbols on this list</legend>
                     @if (_selectedList == null || _selectedList.Entries.Count == 0)
                     {
@@ -162,7 +162,7 @@
                         <ul role="list" style="list-style:none; padding:0; margin:0;">
                             @foreach (var entry in _selectedList.Entries)
                             {
-                                <li role="listitem" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #444;">
+                                <li role="listitem" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-color);">
                                     <span>@entry.Symbol — @entry.Provider, @entry.SubType</span>
                                     <span>
                                         <button aria-label="Load @entry.Symbol on the chart"
@@ -182,7 +182,7 @@
             }
             else if (_tab == Tab.Build)
             {
-                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend style="font-weight:700; padding:0 6px;">Screen</legend>
 
                     <div class="modal-row">
@@ -231,7 +231,7 @@
                     </div>
                 </fieldset>
 
-                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend style="font-weight:700; padding:0 6px;">
                         Filters (@_filters.Count)
                     </legend>
@@ -247,7 +247,7 @@
                     {
                         var idx = i;
                         var row = _filters[idx];
-                        <div class="modal-row" style="border-bottom:1px solid #444; padding:8px 0; flex-wrap:wrap;"
+                        <div class="modal-row" style="border-bottom:1px solid var(--border-color); padding:8px 0; flex-wrap:wrap;"
                              role="group" aria-label="Filter @(idx + 1)">
 
                             <label for="flt-ind-@idx">Indicator:</label>
@@ -329,7 +329,7 @@
             }
             else
             {
-                <fieldset style="border:1px solid #555; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend style="font-weight:700; padding:0 6px;">Run a screen</legend>
 
                     <div class="modal-row">
@@ -374,7 +374,7 @@
 
                 @if (_result != null)
                 {
-                    <fieldset style="border:1px solid #555; padding:10px 14px;">
+                    <fieldset style="border:1px solid var(--border-color); padding:10px 14px;">
                         <legend style="font-weight:700; padding:0 6px;">
                             Results — @_result.MatchCount matched of @_result.EvaluatedCount evaluated@(_result.FailedCount > 0 ? $", {_result.FailedCount} could not be evaluated" : "")
                         </legend>

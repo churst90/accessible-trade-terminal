@@ -32,7 +32,7 @@
                 <div style="width:200px; display:flex; flex-direction:column; gap:8px;">
                     <h3 style="margin:0; font-size:0.9rem;">Scripts</h3>
                     <div role="listbox" aria-label="Custom scripts"
-                         style="flex:1; overflow-y:auto; border:1px solid #555; border-radius:4px;">
+                         style="flex:1; overflow-y:auto; border:1px solid var(--border-color); border-radius:4px;">
                         @foreach (var s in _scripts)
                         {
                             var sid = s.Id;
@@ -74,7 +74,7 @@
                         <textarea id="cs-code"
                                   aria-label="Script code editor"
                                   rows="16"
-                                  style="flex:1; width:100%; font-family:monospace; font-size:0.82rem; resize:none; background:#1a1a2e; color:#e0e0ff; border:1px solid #555; border-radius:4px; padding:8px;"
+                                  style="flex:1; width:100%; font-family:monospace; font-size:0.82rem; resize:none; background:#1a1a2e; color:#e0e0ff; border:1px solid var(--border-color); border-radius:4px; padding:8px;"
                                   placeholder="@_codePlaceholder"
                                   @bind="_editCode"
                                   @bind:event="oninput"></textarea>

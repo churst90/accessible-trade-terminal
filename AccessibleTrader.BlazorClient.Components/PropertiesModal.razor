@@ -93,7 +93,7 @@
                                         </div>
                                         @if (pm != null && !string.IsNullOrEmpty(pm.Description))
                                         {
-                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:#666;">@pm.Description</p>
+                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@pm.Description</p>
                                         }
                                     }
                                 </fieldset>
@@ -206,7 +206,7 @@
                                         </div>
                                         @if (!comp.ColorRules.Any())
                                         {
-                                            <p style="font-size:0.8rem; color:#555; margin:0 0 4px 0;">No rules — static color above is always used.</p>
+                                            <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 4px 0;">No rules — static color above is always used.</p>
                                         }
                                         @for (int ri = 0; ri < comp.ColorRules.Count; ri++)
                                         {
@@ -384,13 +384,13 @@
                                         </label>
                                         <textarea id="speech-tmpl-@comp.Name"
                                                   rows="2"
-                                                  style="width:100%; background:#222; border:1px solid #444; color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
+                                                  style="width:100%; background:#222; border:1px solid var(--border-color); color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
                                                   aria-label="Continuous speech template for @comp.Name"
                                                   placeholder="@(defaults.Continuous ?? "{name}. {type}. {value}.")"
                                                   @onchange='e => comp.SpeechTemplate = e.Value?.ToString() ?? ""'>@comp.SpeechTemplate</textarea>
                                         @if (!string.IsNullOrEmpty(defaults.Continuous))
                                         {
-                                            <p style="margin:2px 0 4px 0; font-size:0.75rem; color:#666;">
+                                            <p style="margin:2px 0 4px 0; font-size:0.75rem; color:var(--text-muted);">
                                                 Default: <code>@defaults.Continuous</code>
                                             </p>
                                         }
@@ -409,13 +409,13 @@
                                             </label>
                                             <textarea id="signal-tmpl-@comp.Name"
                                                       rows="2"
-                                                      style="width:100%; background:#222; border:1px solid #444; color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
+                                                      style="width:100%; background:#222; border:1px solid var(--border-color); color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
                                                       aria-label="Signal speech template for @comp.Name"
                                                       placeholder="@(defaults.Signal ?? "(silent)")"
                                                       @onchange='e => comp.SignalSpeechTemplate = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value?.ToString()'>@comp.SignalSpeechTemplate</textarea>
                                             @if (!string.IsNullOrEmpty(defaults.Signal))
                                             {
-                                                <p style="margin:2px 0 4px 0; font-size:0.75rem; color:#666;">
+                                                <p style="margin:2px 0 4px 0; font-size:0.75rem; color:var(--text-muted);">
                                                     Default: <code>@defaults.Signal</code>
                                                 </p>
                                             }
@@ -591,7 +591,7 @@
     .modal-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .modal-row label { flex: 1; font-size: 0.9rem; }
     .modal-row input[type="number"], .modal-row input[type="text"], .modal-row select { 
-        background: #222; border: 1px solid #444; color: #fff; padding: 4px; border-radius: 2px;
+        background: #222; border: 1px solid var(--border-color); color: #fff; padding: 4px; border-radius: 2px;
     }
     
     .error-text { color: #f44; font-size: 0.85rem; margin-top: 10px; }

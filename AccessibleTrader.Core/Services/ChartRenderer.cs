@@ -696,10 +696,14 @@ namespace AccessibleTrader.Core.Services
 
             // Reads as an overlay rather than a dialog parked on the chart: near-opaque so text
             // stays legible over candles, but a hairline border instead of a heavy outline.
+            //
+            // Derived from the theme's dialog surface rather than a fixed near-black. On a
+            // lighter theme a hardcoded #101014 box reads as a hole punched in the chart.
+            var surface = _theme.Current.SurfaceSunken;
             var bgRound = new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 5 * density);
-            using (var bgPaint = new SKPaint { Color = new SKColor(16, 16, 20, 232), Style = SKPaintStyle.Fill })
+            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(234), Style = SKPaintStyle.Fill })
                 canvas.DrawRoundRect(bgRound, bgPaint);
-            using (var borderPaint = new SKPaint { Color = new SKColor(255, 255, 255, 34), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
+            using (var borderPaint = new SKPaint { Color = _theme.Current.ChromeBorder.WithAlpha(110), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
                 canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;
@@ -1015,7 +1019,7 @@ namespace AccessibleTrader.Core.Services
 
             if (dropped > 0)
                 shown.Add(new LegendRow($"+{dropped} more (see the object tree)", LegendGlyph.Fill,
-                    new[] { new SKColor(150, 150, 158) }, Rank: 3, SeriesName: ""));
+                    new[] { theme?.TextMuted ?? new SKColor(150, 150, 158) }, Rank: 3, SeriesName: ""));
 
             return shown;
         }

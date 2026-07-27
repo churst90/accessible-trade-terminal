@@ -36,8 +36,12 @@ namespace AccessibleTrader.Core.Services.Theming
         {
             "--bg-primary",
             "--bg-toolbar",
+            "--bg-toolbar-end",
+            "--bg-footer",
+            "--bg-footer-end",
             "--bg-header",
             "--bg-surface",
+            "--text-on-surface",
             "--text-primary",
             "--text-muted",
             "--border-color",
@@ -60,14 +64,21 @@ namespace AccessibleTrader.Core.Services.Theming
             {
                 // The window behind everything. Matches the chart's DARK end, so scrollbars and
                 // any gap around the canvas read as part of the chart rather than a border.
-                ["--bg-primary"]   = Css(theme.BackgroundGradientEnd ?? theme.Background),
+                ["--bg-primary"]   = Css(theme.ChromeBottomEnd ?? theme.ChromeBottom),
 
-                // Toolbars above and the indicator bar below.
-                ["--bg-toolbar"]   = Css(theme.SurfaceRaised),
-                ["--bg-header"]    = Css(theme.SurfaceRaised),
+                // Three independent bands. Each carries its own fade, so a theme can make the
+                // toolbar, the chart and the footer three unrelated colours, or line the seams up
+                // for one continuous window-wide fade. Steel does the latter; nothing requires it.
+                ["--bg-toolbar"]     = Css(theme.SurfaceRaised),
+                ["--bg-toolbar-end"] = Css(theme.ChromeTopEnd ?? theme.SurfaceRaised),
+                ["--bg-footer"]      = Css(theme.ChromeBottom),
+                ["--bg-footer-end"]  = Css(theme.ChromeBottomEnd ?? theme.ChromeBottom),
+                ["--bg-header"]      = Css(theme.SurfaceRaised),
 
-                // Dialog bodies and panels.
-                ["--bg-surface"]   = Css(theme.SurfaceSunken),
+                // Dialog bodies and panels, with their own ink: a theme may perfectly well pair
+                // a dark toolbar with a parchment dialog, and then the two need opposite text.
+                ["--bg-surface"]      = Css(theme.SurfaceSunken),
+                ["--text-on-surface"] = Css(theme.TextOnDialog),
 
                 ["--text-primary"] = Css(theme.TextPrimary),
                 ["--text-muted"]   = Css(theme.TextMuted),

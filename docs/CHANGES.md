@@ -10,6 +10,39 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Three independent theme bands, themed dialogs, up/down as an app preference (2026-07-27)
+
+- **The window is now three INDEPENDENT bands**, each with its own vertical fade: the toolbar
+  band, the Skia canvas, and the footer band. `ChromeTopEnd`, `ChromeBottom` and
+  `ChromeBottomEnd` join `SurfaceRaised` on `ChartTheme`. A theme that wants one continuous
+  window-wide fade lines the seams up (`ChromeTopEnd == Background`,
+  `BackgroundGradientEnd == ChromeBottom`) — Steel does. A theme that wants a walnut header
+  over a near-black chart over a lighter footer simply doesn't. Neither is a special case;
+  previously all three were derived from one fade and could not disagree.
+- **Up and down colours became an app-level preference, not a per-theme one.** Which colour
+  means "up" is a habit a trader carries between themes, and having it change under them when
+  they try a new look is exactly wrong. Settings → Appearance gains a bullish/bearish pair
+  defaulting to `#77FF77` / `#DD0000`, layered over whatever theme is active, with a reset that
+  hands control back to the theme — which is how High Contrast Dark keeps its deliberate
+  white-on-red scheme.
+- **Dialogs take the theme.** `.modal-content` was a fixed `#f2f2f2` with `#111` ink — a light
+  island in a dark application, which is why they read as a different product. They now use
+  `--bg-surface` and a dedicated `--text-on-surface`, kept separate from `--text-primary`
+  because a theme may pair a dark toolbar with a parchment dialog and then the two need
+  opposite ink. 121 inline colour references across the razor files moved onto the variables
+  in the same pass; leaving them would have produced dark-on-dark text the moment the surface
+  changed.
+- **The chart legend follows the theme too.** It was a fixed near-black box, which on a lighter
+  theme reads as a hole punched in the chart.
+- **Steel Gray darkened and its fade deepened.** The chart now runs `#4E545E` → `#22252A`
+  against `#676E79` chrome at the top and `#17191D` at the very bottom. The previous values
+  were both too light — candles sat on a background close enough in tone to mute them — and
+  too shallow to read as a gradient at all.
+
+Suite 2373 → 2378, including tests that a theme CAN make the three bands disagree, that a band
+with no end colour stays flat rather than growing a gradient it never asked for, and that the
+up/down preference outranks every theme while its absence leaves each theme's own pair alone.
+
 ### The theme now reaches the candles, and the window is one fade (2026-07-27)
 
 - **`ChartTheme`'s candle colours were dead code for the main chart.** `RenderCandles` read

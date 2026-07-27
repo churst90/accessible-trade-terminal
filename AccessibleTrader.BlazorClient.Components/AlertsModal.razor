@@ -29,7 +29,7 @@
                         @foreach (var alert in _activeAlerts)
                         {
                             <li role="listitem"
-                                style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #444;">
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
                                 <span>@alert.Name — @(alert.Symbol ?? "Any") · @(alert.ConditionTree != null ? "Advanced rule" : $"{alert.Target} {alert.Condition}{(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")}")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
                                 <button aria-label="@($"Delete alert: {alert.Name}")"
                                         @onclick="() => DeleteAlert(alert.Id)">
@@ -41,7 +41,7 @@
                 }
             </div>
 
-            <div style="margin-top: 24px; border-top: 1px solid #555; padding-top: 16px;">
+            <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
                 <h3>Add Alert</h3>
                 <div class="modal-row">
                     <label for="alert-name">Name:</label>

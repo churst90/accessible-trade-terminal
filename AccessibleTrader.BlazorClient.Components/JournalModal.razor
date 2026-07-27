@@ -41,7 +41,7 @@
                     <button type="button"
                             @onclick="() => SetFilter(kind)"
                             aria-pressed="@(_filter == kind ? "true" : "false")"
-                            style="padding:4px 10px; cursor:pointer; border-radius:4px; border:1px solid #555;
+                            style="padding:4px 10px; cursor:pointer; border-radius:4px; border:1px solid var(--border-color);
                                    background:@(_filter == kind ? "#2a4a7f" : "transparent"); color:#ccc;">
                         @label (@CountFor(kind))
                     </button>
@@ -49,7 +49,7 @@
                 <span style="flex:1"></span>
                 <button type="button" @onclick="CopyAll"
                         aria-label="Copy all visible journal entries to clipboard"
-                        style="padding:4px 10px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer;">
+                        style="padding:4px 10px; border-radius:4px; border:1px solid var(--border-color); background:transparent; color:#ccc; cursor:pointer;">
                     Copy visible
                 </button>
                 <button type="button" @onclick="ClearJournal"
@@ -90,7 +90,7 @@
                 </span>
                 <button type="button" @onclick="ResetAudioTelemetry"
                         aria-label="Reset the audio drop counters to zero"
-                        style="padding:2px 8px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer;">
+                        style="padding:2px 8px; border-radius:4px; border:1px solid var(--border-color); background:transparent; color:#ccc; cursor:pointer;">
                     Reset
                 </button>
             </div>
@@ -114,7 +114,7 @@
                         <strong style="color:#cfcfcf;">Credential checkout latency</strong>
                         <button type="button" @onclick="ResetLatencyTelemetry"
                                 aria-label="Reset credential checkout latency counters"
-                                style="padding:2px 8px; border-radius:4px; border:1px solid #555; background:transparent; color:#ccc; cursor:pointer; font-size:0.75rem;">
+                                style="padding:2px 8px; border-radius:4px; border:1px solid var(--border-color); background:transparent; color:#ccc; cursor:pointer; font-size:0.75rem;">
                             Reset
                         </button>
                     </div>
@@ -145,7 +145,7 @@
                             }
                         </tbody>
                     </table>
-                    <div style="margin-top:4px; color:#666; font-size:0.7rem;">
+                    <div style="margin-top:4px; color:var(--text-muted); font-size:0.7rem;">
                         ms per CheckoutAsync call. P95 ≥ 50 ms warrants the 60 s session cache;
                         15 – 50 ms is yellow (measure more); under 15 ms is green (cache not needed).
                     </div>
@@ -153,7 +153,7 @@
             }
 
             <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:#666; font-size:0.8rem;">
+                <span style="color:var(--text-muted); font-size:0.8rem;">
                     @_visibleCount of @Journal.Capacity max entries
                 </span>
                 <button @onclick="Close" aria-label="Close journal dialog">Close</button>
