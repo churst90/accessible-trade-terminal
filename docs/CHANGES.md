@@ -4,6 +4,197 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+Market watch and screening, three analysis features, two chart modes, and the
+toolbar controls that make all of them findable. Plus the research that decided
+what each of them claims — most of which was a null result, deliberately kept.
+
+### Toolbar controls for everything shipped (2026-07-27)
+
+The honest framing: the watchlist, screener, respect report, journal, AI analyst,
+bar replay and split view all worked, were tested, and had keyboard shortcuts —
+and none of them had a button anywhere on screen. You had to already know the
+shortcut to discover the feature existed. That is a shipping defect, not a polish
+item, so this batch closes it and adds a test to stop it recurring.
+
+- **Six new toolbar buttons.** Row 1 (opens panels) gains **Watch** (watchlists
+  and screener), **Zones** (respect report), **Journal** and **AI**. Row 2 (chart
+  behaviour) gains **Split** and **Replay**, beside Heatmap / Heikin / Log. Both
+  new row-2 buttons show pressed state, so a toggle is never write-only.
+- **Three new sprite icons** — `watchlist`, `split-view`, `replay`.
+- **Buttons publish the command EVENT** rather than calling the service directly,
+  so button and keyboard shortcut go down one code path including the spoken
+  confirmation. The toolbar subscribes to both command events so its pressed state
+  repaints when the change came from the keyboard.
+- **`ToolbarControlSurfaceTests`** — a source-level scan enforcing the mechanical
+  half of discoverability: every feature in its table must have a toolbar control,
+  every `ToolbarIconButton` must name an icon that exists in the sprite, every
+  button must carry an `AriaLabel`, sprite ids must be unique, and Split/Replay
+  must stay in the row-2 toggle group. Caught a real defect immediately — the
+  `ToolbarIconButton` usage example in its own doc comment omitted `AriaLabel`,
+  which is exactly how the omission propagates.
+- **Market Structure's default now has a control.** The setting existed in
+  `AppSettings` with no UI, so "on by default" was unturnoffable. Settings → a new
+  **Analysis** group. Affects charts loaded from then on; open charts are left
+  alone, because silently stripping an indicator off a chart someone is reading is
+  a worse surprise than the setting waiting one load.
+
+### Market watch: symbol picker and screen builder (2026-07-27)
+
+The screening engine shipped without the half a user touches. There was no way to
+pick a symbol except typing it, and no way to build a screen at all — so the
+saved-screens list was permanently empty and the only thing runnable was a quote
+screen that matched everything.
+
+- **Symbol picker replaces the free-text box.** Market → Provider → Sub-type →
+  Symbol, mirroring the toolbar's cascade exactly, including the market-key rule
+  (`"Market|SubType"` only when the provider really has more than one sub-type —
+  that string routes the fetch). Pre-filled from the chart you were looking at.
+  A **Filter symbols** box narrows large universes as you type, with a live spoken
+  count of showing-vs-total, an explicit note when the 500-row display cap is hit,
+  and **Add all shown** for bulk list building. The previous free-text box let a
+  typo become a watchlist entry that failed at screen time and read as a broken
+  screener; it also hard-coded `MarketType.Crypto` on every entry regardless of
+  what you were adding.
+- **Quick screen builder.** A new **Build a screen** tab: name the screen, add
+  filter rows (indicator → component → condition → operands), choose how they
+  combine (all / any / weighted score with a threshold), set bars of history, and
+  save. Editing, deleting and starting fresh are all there.
+  - **The operator list is gated by signal kind.** A marker component is NaN on
+    every bar it didn't fire, so offering it "is above 30" would build a screen
+    that is false forever and reads as a quiet market rather than a broken filter.
+  - **Only the operand boxes the chosen condition uses appear**, and a fresh
+    filter is seeded inside the component's own documented range rather than at
+    zero. Operands the operator doesn't use are dropped on save, so a leftover
+    value from a previously chosen operator can't change what the screen means.
+  - **Every row has a plain-language echo** underneath — "Cipher B — Buy fired
+    within 3 bars." — so a row can be verified in one read instead of tabbing back
+    through five controls.
+  - **A screen with nested groups is flagged, not flattened.** Re-saving a
+    flattened copy over hand-built structure would destroy work.
+- **`QuickScreenBuilder`** (Core) holds the flat-rows ⇄ `ConditionNode`
+  translation, out of the razor, because every way it can be wrong fails silently.
+  49 new tests across it and the toolbar scan; suite 2237 → 2286.
+
+### Watchlists, screener, respect report, bar replay, split view (2026-07-25)
+
+- **Watchlists** (`watchlists.json`) — named, ordered symbol sets that remember
+  their provider and sub-type.
+- **Screener** — runs a condition tree against the last closed bar of every symbol
+  on a list. Reuses the Strategy Composer's own `ISignalCatalog` and
+  `IConditionEvaluator`, so every indicator, operator and signal descriptor the
+  composer understands worked in the screener on day one. Results are a real table
+  with column and row headers. **Symbols that could not be evaluated are reported,
+  never dropped** — "not enough history" and fetch failures stay visible even in
+  matches-only mode, and every spoken summary names matched, evaluated AND failed,
+  because "we never looked at twelve of these" must not be able to look like
+  "nothing qualified".
+- **Respect report** (Alt+R) — measures which lines this market actually reacts to
+  rather than assuming. Two tabs: levels near price, and a moving-average ranking
+  (10/20/21/50/89/100/200, including higher-timeframe projections). Reports hold
+  rate, touch count, median reaction in ATR, support-vs-resistance split, last
+  touch and current distance. **Touches are counted on wicks; outcomes are judged
+  on closes** — measuring the reaction from the touch bar's extreme made a sweep
+  and a genuine breakdown identical. Wicks through and back count as holds,
+  because that is the level working. Thin samples are filtered by default and
+  labelled when shown.
+- **Bar replay** (Ctrl+Alt+Shift+P / F11, F9, Shift+F9, F10) — hides history after
+  the cursor bar and gives it back one bar at a time. Indicators recompute on
+  revealed bars only, so an oscillator reads what it would have read then.
+  Stopping restores the full history and the prior viewport.
+- **Split view** (Ctrl+Alt+Shift+S / E / O) — a second chart from another tab,
+  side-by-side or stacked. Renders from the frozen tab snapshot the store already
+  keeps, so it adds no state and can't drift. Focus, speech and sonification stay
+  with the active chart. Declines to split rather than drawing two unreadable
+  slivers when the window is too narrow.
+
+### Market Structure indicator, on by default (2026-07-25)
+
+`SWING_STRUCTURE` — swing highs and lows, HH/HL/LH/LL labelling, the trend state
+those imply, Break of Structure and Change of Character. Five bars each side by
+default with a one-ATR significance floor. Three components (structure state, last
+swing high, last swing low) computed and hidden by default.
+
+**Stated in its own description and in the manual: descriptive, not predictive.**
+A swing marker is drawn on the pivot bar but cannot be *identified* until the span
+has passed, so it appears where you could never have traded. Tested directly:
+filling at the pivot price versus at the close of the first bar where the pivot was
+knowable was the difference between an impossible return and one that did not beat
+buy-and-hold. See `SwingTradeCommand`.
+
+### Value Deviation indicator (2026-07-26)
+
+`VALUE_DEVIATION` — marks where price REVERSED relative to value. A rolling
+volume-profile POC defines value; a reversal below it marks a support zone, above
+it a resistance zone, and a five-tier scale per side says how far from value the
+zone formed, carried in both marker shape/colour and pitch. Optional momentum
+confirmation (on by default) uses the indicator's own internal WaveTrend, so it
+does not depend on Cipher B being on the chart.
+
+Corrections folded in during development, each worth recording:
+
+- **It printed zero marks on every chart.** WaveTrend's second chained EMA seeded
+  from a NaN warmup, so NaN propagated everywhere and the momentum filter rejected
+  every bar. The POC and value lines looked healthy, so nothing pointed at it.
+  A new lab `probe` command reports non-NaN counts per component at realistic bar
+  counts, which is how the second half of the bug — a 480-bar default window
+  against a ~200-bar fetch — was found.
+- **A degenerate uniform volume profile made the POC whichever bin won a tie.**
+  The value-area-width test does not catch it: growing from bin 0, 70% of volume
+  fills 35 of 50 bins and looks narrow. A peak-prominence test does.
+- **The equities/crypto invert mode was removed entirely**, not renamed. Once the
+  indicator's job was stated as "show where value is, and where reversals marked a
+  zone", the mode had nothing to invert.
+- **Markers carry the zone price**, not a plot level, via the new `MarkerAnchor`.
+
+### Fixes made along the way (2026-07-25 → 2026-07-26)
+
+- **Boolean indicator parameters were silently non-functional app-wide.**
+  `FormatParam` writes `"true"`; `IndicatorModelFactory` required `double.TryParse`
+  and dropped it. This had been quietly disabling Cipher SR's AdaptiveBreak and
+  Cipher B's UseAnchorSuppression too. Bool parameters now also render as
+  checkboxes in both the add-indicator and properties dialogs instead of a text
+  box expecting the word "true".
+- **`CipherSrLevelProvider` had a 15-bar lookahead** relative to the provider it
+  mirrors — backtest-only, live was never affected. Correcting it turned +0.739R
+  at p=0.0002 into −0.095R at p=0.23.
+- **Markers now follow the displayed bars.** `MarkerAnchor` plus a single
+  `ResolveMarkerY` path for all twelve marker renderers means anchored markers
+  track Heikin Ashi candles instead of floating over the untransformed price.
+- **The toolbar follows the active tab.** Switching tabs now re-syncs the
+  market/provider/sub-type cascade to what that tab actually has loaded, instead
+  of leaving the toolbar describing the tab you left.
+- **Keyboard shortcut audit.** Bar replay moved to F9/Shift+F9/F10/F11 after F4
+  turned out to be the braille toggle; `ShortcutConflictTests` now fails on any
+  overlap.
+
+### Research: what was tested and what survived (2026-07-25 → 2026-07-26)
+
+Roughly ten hypotheses, run through surrogate controls (block bootstrap preserving
+volatility clustering), permutation nulls, non-overlapping samples and
+out-of-sample holdouts. Recorded because knowing what does NOT work is most of the
+value, and because two of the results that looked spectacular were bugs.
+
+- **POC mean reversion in equities is real and short.** 348,221 bars across 38
+  symbols: Spearman −0.011 at a 5-day horizon, p=0.0032; the below-minus-above
+  tail gap +0.120 ATR at p=0.0004. Faded by 20 bars, gone by 60. Two things must
+  be said with it: the effect is tiny, and short-term reversal in equities is one
+  of the oldest documented anomalies — recovering it at the right sign and horizon
+  is evidence the pipeline works, not a discovery.
+- **"Crypto is a momentum regime" was Bitcoin with nine passengers.** On a clean
+  crypto-only pool, BTC reaches rho +0.112 at p=0.0010 and no other coin reaches
+  significance; four lean the other way. The claim was published, then withdrawn
+  and narrowed to BTC specifically.
+- **Hand-drawn origin lines did not survive a data-derived control.** The search
+  pinned at the boundary on 12 of 13 assets.
+- **Structure alone, as a trading rule, was null.** It earns its place as context.
+- **Two spectacular results were lookahead bugs** — the Cipher SR one above, and
+  swing trading via the descriptive analyzer's retrospective pivot replacement
+  (+3,137,733% on BTC, versus +9,291% causal; a factor of ~340).
+
+---
+
 ## [2.0.1] — 2026-07-26
 
 A point release on top of 2.0.0: accessibility fixes surfaced in live use, plus a

@@ -1,5 +1,58 @@
 # What's New
 
+## Unreleased — market watch, screening, and two ways to see structure
+
+The big addition is **market watch**: a place to keep lists of symbols and to scan
+them all at once. Alongside it, three tools that answer "where am I on this chart?",
+and two chart modes. Everything below has a toolbar button and a keyboard shortcut.
+
+- **Watchlists (Alt+M, or the Watch button).** Named, ordered lists of symbols that
+  remember which provider and market they came from. Add the symbol you're looking
+  at with one press, or pick from the provider's real symbol list through the same
+  Market → Provider → Sub-type → Symbol cascade the toolbar uses. Type into
+  **Filter symbols** to narrow a long list — it tells you how many are showing out
+  of how many exist — and **Add all shown** builds a list in one go.
+- **A screener, and a builder for it.** Screens run your conditions against every
+  symbol on a list at once. The new **Build a screen** tab lets you make one:
+  choose an indicator, a component, a condition, and any values it needs; add as
+  many filters as you like; and decide whether all of them must be true, any of
+  them, or enough of them by weight. Each row is restated underneath in plain
+  English so you can check it in a single read. Results come back as a proper table
+  your screen reader can move through cell by cell — and symbols that couldn't be
+  checked are always shown, never quietly dropped, because "we couldn't fetch
+  twelve of these" must never look like "nothing qualified".
+- **The respect report (Alt+R, or the Zones button).** Which levels does this market
+  *actually* hold? This measures rather than assumes: for every level near price and
+  every standard moving average, how often price touched it and how often it held,
+  how big the reaction was, and how long ago. Wicks through and straight back count
+  as holds — that's a sweep, which is the level working. Thin samples are filtered
+  out by default and labelled when you show them.
+- **Market Structure, on your charts by default.** Swing highs and lows labelled as
+  higher or lower, the trend state they imply, plus a Break of Structure when price
+  continues past the last swing and a Change of Character when it goes the other
+  way. Turn it off for good in Settings → Analysis if you'd rather add it yourself.
+  One honest caveat, stated in the manual too: a swing mark can only appear five
+  bars after the bar it sits on, so it shows you where you *are*, not where to enter.
+- **Value Deviation.** A new indicator that marks where price reversed relative to
+  value — value being a rolling volume profile's point of control. Reversals below
+  it mark support zones, above it resistance zones, and five tiers per side say how
+  far from value the zone formed, in shape, colour and pitch.
+- **Bar replay (Ctrl+Alt+Shift+P, or the Replay button).** Hides everything after
+  the bar you're on and gives it back one bar at a time with F9, so you can practise
+  reading a market without knowing what happens next. F10 auto-advances; stopping
+  restores the full chart.
+- **Split view (Ctrl+Alt+Shift+S, or the Split button).** Puts a second tab's chart
+  beside the one you're working on — the daily next to the four-hour, say — either
+  side-by-side or stacked. Speech and sound stay with the chart you're actually on.
+
+**Also:** boolean indicator settings now work. They were silently ignored across the
+whole app, which had been quietly disabling a few options on Cipher SR and Cipher B,
+and they now appear as checkboxes rather than a box expecting you to type "true".
+Indicator markers follow Heikin Ashi candles when you have them on, the toolbar's
+market and provider now follow you when you switch tabs, and bar replay moved to
+F9–F11 because F4 was already the braille toggle.
+
+
 ## 2.0.1 — accessibility polish + crypto-options data (2026-07-26)
 
 A small point release on top of 2.0.0. A handful of accessibility fixes that came

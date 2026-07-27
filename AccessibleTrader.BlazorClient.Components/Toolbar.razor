@@ -1,6 +1,9 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Core.Services.Rendering
+@using Microsoft.Extensions.DependencyInjection
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
@@ -11,6 +14,7 @@
 @inject ILogger<Toolbar> Logger
 @inject DemoPolicy Demo
 @inject IViewportManager Viewport
+@inject IServiceProvider Services
 @implements IDisposable
 
 @* ── Per-tab "mode" helper: true when the current tab is showing an OHLCV
@@ -74,6 +78,31 @@
                                   Tooltip="Open strategies (Alt+S)"
                                   AriaLabel="Strategies"
                                   OnClick="() => EventBus.Publish(new OpenStrategiesEvent())" />
+            }
+            @if (!Demo.IsDemo)
+            {
+                <ToolbarIconButton Icon="watchlist" Label="Watch" Variant="data"
+                                  Tooltip="Watchlists and screener — track symbols and scan them for conditions (Alt+M)"
+                                  AriaLabel="Watchlists and Screener"
+                                  OnClick="() => EventBus.Publish(new OpenWatchlistEvent())" />
+            }
+            @if (IsTradingTab)
+            {
+                <ToolbarIconButton Icon="analytics" Label="Zones" Variant="thought"
+                                  Tooltip="Level respect report — which moving averages and levels this symbol actually reacts to (Alt+R)"
+                                  AriaLabel="Level Respect Report"
+                                  OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
+            }
+            <ToolbarIconButton Icon="journal" Label="Journal" Variant="neutral"
+                              Tooltip="Trade journal — review spoken messages and alert history (Ctrl+Alt+Shift+J)"
+                              AriaLabel="Trade Journal"
+                              OnClick="() => EventBus.Publish(new OpenJournalEvent())" />
+            @if (Demo.AllowAiAnalyst)
+            {
+                <ToolbarIconButton Icon="ai-analyst" Label="AI" Variant="thought"
+                                  Tooltip="AI analyst — plain-language read of the current chart (Ctrl+Alt+Shift+A)"
+                                  AriaLabel="AI Analyst"
+                                  OnClick="() => EventBus.Publish(new OpenAIAnalystEvent())" />
             }
             @if (Demo.AllowAlerts)
             {
@@ -312,6 +341,16 @@
                                   Tooltip="Toggle logarithmic price scale"
                                   AriaLabel="Toggle logarithmic price scale"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
+                <ToolbarIconButton Icon="split-view" Label="Split" Variant="data"
+                                  IsToggleOn="@IsSplitActive"
+                                  Tooltip="Toggle split view — show a second tab's chart alongside this one (Ctrl+Alt+Shift+S)"
+                                  AriaLabel="Toggle split view"
+                                  OnClick="ToggleSplit" />
+                <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
+                                  IsToggleOn="@IsReplayActive"
+                                  Tooltip="Toggle bar replay — hide history and step forward one bar at a time (Ctrl+Alt+Shift+P)"
+                                  AriaLabel="Toggle bar replay"
+                                  OnClick="ToggleReplay" />
             </div>
         }
 
@@ -357,6 +396,8 @@
 @code {
     private IDisposable? _pipelineSub;
     private IDisposable? _loadChartSub;
+    private IDisposable? _splitSub;
+    private IDisposable? _replaySub;
     private string? _loadError;
 
     // ── Custom timeframe composer state ──────────────────────────────────
@@ -368,6 +409,23 @@
     private bool CanLoad =>
         !string.IsNullOrEmpty(MarketOrchestrator.SelectedSymbol)
         && MarketOrchestrator.SelectedSymbol != AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
+
+    // ── Split view / bar replay toggles ──────────────────────────────────
+    // Resolved through the service provider rather than @inject so the toolbar still
+    // renders in hosts (and unit tests) that don't stand up the chart-rendering graph;
+    // a missing service leaves the button present but inert rather than throwing at
+    // component-initialisation time and taking the whole toolbar with it.
+    private ISplitViewCoordinator? SplitView => Services.GetService<ISplitViewCoordinator>();
+    private IReplayService?        Replay    => Services.GetService<IReplayService>();
+
+    private bool IsSplitActive  => SplitView?.IsEnabled ?? false;
+    private bool IsReplayActive => Replay?.IsActive ?? false;
+
+    // Published as events rather than called directly so the button and the keyboard
+    // shortcut go down exactly one code path — including the spoken confirmation the
+    // services emit, which a direct call would bypass.
+    private void ToggleSplit()  => EventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle));
+    private void ToggleReplay() => EventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle));
 
     private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
 
@@ -408,6 +466,13 @@
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
         // a silent no-op when the market cascade isn't complete yet.
+        // The Split and Replay buttons show pressed state, and both are also reachable
+        // from the keyboard, so the toolbar has to repaint when the change came from
+        // somewhere else. The services flip their own state on the same events, so this
+        // deliberately re-renders AFTER them by hopping through InvokeAsync.
+        _splitSub  = EventBus.Subscribe<SplitViewCommandEvent>(_ => InvokeAsync(StateHasChanged));
+        _replaySub = EventBus.Subscribe<ReplayCommandEvent>(_ => InvokeAsync(StateHasChanged));
+
         _loadChartSub = EventBus.Subscribe<LoadChartRequestedEvent>(_ => InvokeAsync(async () =>
         {
             if (!CanLoad)
@@ -661,5 +726,7 @@
     public void Dispose() {
         _pipelineSub?.Dispose();
         _loadChartSub?.Dispose();
+        _splitSub?.Dispose();
+        _replaySub?.Dispose();
     }
 }

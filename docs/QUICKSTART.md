@@ -500,6 +500,8 @@ All modals and panels are opened by keyboard shortcut and navigated with Tab, Sh
 | Alt+W | Sound designer: customize indicator timbres and bell patch assignments |
 | Alt+, | Custom scripts panel: load and run PineScript or custom strategy scripts |
 | Ctrl+Alt+Shift+A | AI Analyst: AI-powered technical analysis of the current chart (see [Analysis, AI, and Context](#12-analysis-ai-and-context)) |
+| Alt+M | Market watch: watchlists, the screen builder, and the screener |
+| Alt+R | Respect report: which levels and moving averages this market actually holds |
 | Ctrl+Alt+Shift+J | Journal: review every speech utterance, alert, setup, and error this session |
 
 ### Help Dialog (F1)
@@ -513,6 +515,33 @@ The Settings dialog contains tabs for:
 - Audio preferences (default waveforms, playback speed, bell patch assignments)
 - Accessibility preferences (screen reader integration mode, speech rate adjustments)
 - Connection settings (data provider configuration)
+
+### Market watch (Alt+M)
+
+Three tabs. **Watchlists** keeps named, ordered sets of symbols — pick them from the
+provider's real symbol list through the same Market → Provider → Sub-type → Symbol cascade
+the toolbar uses, with a filter box for large universes and a live count of how many symbols
+are showing out of how many exist. **Build a screen** creates a saved screen from filter rows
+(indicator → component → condition → values), combined by all / any / weighted score; each row
+is restated in plain English underneath. **Run screener** runs a screen against a watchlist and
+returns a table you can move through cell by cell. Symbols that could not be evaluated are
+always reported, never dropped.
+
+### Respect report (Alt+R)
+
+Measures which lines this market actually reacts to, rather than assuming. Two tabs — levels
+near price, and a moving-average ranking — each reporting hold rate, touch count, median
+reaction in ATR, the support-versus-resistance split, and how long ago. Wicks through and back
+count as holds, because that is a sweep. Leave the minimum-touches filter ticked.
+
+### Bar replay and split view
+
+**Bar replay** (Ctrl+Alt+Shift+P, or F11 on the desktop) hides history after the bar you are on
+and gives it back one bar at a time with F9 — Shift+F9 steps back, F10 auto-advances — so you can
+practise reading a market forward without hindsight. **Split view** (Ctrl+Alt+Shift+S) shows a
+second tab's chart beside or below the active one; Ctrl+Alt+Shift+E moves the second pane to the
+next tab and Ctrl+Alt+Shift+O switches side-by-side versus stacked. Keyboard focus, speech and
+sonification stay with the active chart in both.
 
 ---
 
@@ -709,6 +738,21 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Ctrl+Alt+Shift+C | Focus chart and announce context summary |
 | Ctrl+Alt+Shift+N | Toggle auto-narration for focused series |
 | Ctrl+Alt+Shift+A | Open AI Analyst modal |
+| Alt+R | Respect report — which levels this market actually holds |
+
+### Bar Replay and Split View
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Alt+Shift+P (or F11) | Start bar replay at the cursor bar / stop and restore full history |
+| F9 | Reveal the next bar |
+| Shift+F9 | Hide the last revealed bar |
+| F10 | Play / pause auto-advance |
+| Ctrl+Alt+Shift+S | Split view on / off |
+| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
+| Ctrl+Alt+Shift+O | Side-by-side / stacked |
+
+On the web host use Ctrl+Alt+Shift+P rather than F11 — browsers own F11 for fullscreen.
 
 ### Tabs and Workspaces
 
@@ -776,6 +820,8 @@ By default only the chart on screen is live. To keep the other tabs watched too,
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+, | Custom scripts panel |
+| Alt+M | Market watch (watchlists + screener) |
+| Alt+R | Respect report |
 | Ctrl+Alt+Shift+J | Journal (review every speech, alert, setup, error this session) |
 
 ---

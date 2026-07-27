@@ -449,3 +449,123 @@ Every path into `RoslynScriptingService.CompileIndicatorAsync` (`.atpkg` file im
 - **Accessibility modal rework** — `ChartArea.razor` needs explicit `@onkeydown` binding; `OrderBookModal.razor` needs live regions + sonification for depth changes. Planned as Phase 5b.
 
 See `SANDBOX_DESIGN.md` for the full worker spec and per-platform rationale.
+
+---
+
+## 15. Screening, analysis and chart-mode services (2026-07-26)
+
+Six user-facing features added in one arc. They share a rule worth stating first,
+because breaking it is what made the arc necessary: **a feature is not shipped until
+it has an on-screen control.** All six worked, were tested, and had keyboard
+shortcuts for a full release cycle with no toolbar button anywhere, which made them
+effectively invisible. `ToolbarControlSurfaceTests` now enforces the mechanical part
+of that — every feature in its table must have a toolbar button, every button must
+name a sprite icon that exists, and every button must carry an `AriaLabel`.
+
+### Toolbar layout contract
+
+Row 1 opens panels. Row 2 builds and changes the chart. New panel-openers go in row 1
+next to their neighbours; new chart-mode toggles go in row 2 beside Heatmap / Heikin /
+Log. Split and Replay are pinned to row 2 by a test, since "it's a button, put it
+anywhere" is how the two rows lose their meaning.
+
+Toolbar toggles for Split and Replay resolve `ISplitViewCoordinator` / `IReplayService`
+through `IServiceProvider.GetService<T>()` rather than `@inject`. Deliberate: a host
+that hasn't stood up the chart-rendering graph still renders a working toolbar with two
+inert buttons, instead of throwing at component-initialisation time and taking the whole
+toolbar down. Both buttons publish their command EVENT rather than calling the service —
+so button and shortcut share one code path, including the spoken confirmation. The
+toolbar subscribes to both events to repaint its pressed state when the change came
+from the keyboard.
+
+### Screening (`AccessibleTrader.Core/Services/Screening/`)
+
+- **`IWatchlistLibrary` / `JsonWatchlistLibrary`** — `watchlists.json`. Ordered entries,
+  deduped by `WatchlistEntry.Key` (`provider|market|subtype|symbol`).
+- **`IScreenerLibrary` / `JsonScreenerLibrary`** — `screeners.json`. Polymorphic
+  round-trip of the condition tree relies on the `JsonPolymorphic` attributes on
+  `ConditionNode`, exactly as `JsonStrategyLibrary` does.
+- **`IScreenerService` / `ScreenerService`** — fetches N bars per symbol at
+  `MaxConcurrency = 4`, computes indicators through `IOfflineWorkspaceBuilder`, and
+  evaluates with the SAME `ISignalCatalog` + `IConditionEvaluator` the Strategy Composer
+  uses. That reuse is the whole design: a screen is a strategy's entry condition asked
+  across many symbols at one instant rather than across many bars of one symbol, so every
+  indicator and operator works in the screener on day one.
+- **Failed rows are REPORTED, never dropped.** `ScreenerRowStatus` distinguishes
+  Evaluated / InsufficientHistory / Failed, and `ScreenerRunResult` carries all three
+  counts. Silently dropping unfetchable symbols turns "we never looked at twelve of
+  these" into "nothing qualified", which is the kind of difference that costs money.
+- **`QuickScreenBuilder`** — the flat-filter-rows ⇄ `ConditionNode` translation behind
+  the screen builder UI. Lives in Core, not in the razor, because everything it does
+  fails SILENTLY when wrong: an operator a signal kind can never satisfy, or an operand
+  dropped on the way to disk, produces a screen that runs cleanly and matches nothing,
+  which is indistinguishable from a quiet market. Key invariants, all pinned by
+  `QuickScreenBuilderTests`:
+  - `OperatorsFor(SignalKind)` gates the operator dropdown. A `MarkerFire` signal is NaN
+    on every bar it didn't fire, so threshold operators against it are false forever.
+  - `BuildRoot` writes only the operands the chosen operator uses. A `Value2` left over
+    from a previously selected operator must not change the saved screen's meaning.
+  - `FromRoot` reports `HasNestedGroups` rather than silently flattening. Re-saving a
+    flattened copy over a hand-built nested screen destroys work the user can't recover.
+  - `IndicatorCodeOf` splits at the FIRST dot — component names can contain dots.
+- **`OfflineWorkspaceBuilder`** — the shared "compute indicators off a bar list, without a
+  workspace" seam. Used by the screener and the respect report; projects
+  CANDLES/PRICE/VOLUME pseudo-indicators so those are addressable as signals.
+
+### Symbol picker
+
+`WatchlistModal`'s Add-a-symbol area mirrors `MarketOrchestrator`'s cascade exactly,
+including the market-key rule: `"Market|SubType"` **only when the provider actually has
+more than one sub-type**, plain `Market` otherwise. That string routes the fetch; a
+mismatched key silently returns the wrong universe. It was a free-text box before, and a
+typo produced a watchlist entry that failed at screen time and looked like a broken
+screener. `QuickScreenBuilder.FilterSymbols` applies the substring filter and the
+500-row display cap in one place, and the modal always reports both counts — a truncated
+list must never pose as a complete one.
+
+### Analysis (`AccessibleTrader.Core/Services/Analysis/`)
+
+- **`LevelRespectAnalyzer`** — counts touches with WICKS, judges outcome on CLOSES.
+  Measuring the reaction from the touch bar's extreme made a sweep and a genuine
+  breakdown identical. `InteractionKind` splits Through / Reclaim / Ricochet.
+  `lastCountedBar` starts at `-1`, not `int.MinValue` — `i - lastCountedBar` overflowed
+  and suppressed every touch in the first version.
+- **`MaRespectRanker`** — ranks a standard period set including MTF projections, which
+  read only the last CLOSED higher-timeframe bar.
+- **`LevelProvenanceService`** — gathers MAs, `ILevelProvider` levels, prior-period H/L
+  and round numbers into one ranked list.
+- **`SwingStructureAnalyzer`** — pivots, HH/HL/LH/LL labels, structure state, BOS, CHoCH.
+  **Contains a retrospective pass that replaces a kept pivot when a later, more extreme
+  same-kind pivot arrives.** Correct for describing history; fatal in a backtest. Running
+  the descriptive analyzer through a P&L loop produced +3,137,733% on BTC; the causal
+  version produced +9,291%, a factor of ~340. Anything that trades off swings must
+  re-derive them causally (see `SwingTradeCommand.CausalSwings` in the Lab).
+- **`ValueDeviationAnalyzer`** — rolling volume-profile POC, value area, signed deviation
+  tiers. Carries a **peak-prominence guard**: a uniform profile has no meaningful POC, and
+  the value-area-width test does NOT catch it (growing from bin 0, 70% of volume fills 35
+  of 50 bins and looks "narrow"). `volume[pocBin] < meanBin * 1.15` does.
+- **`ReplayService`** — dispatches a growing PREFIX of history via `UpdateDataAction`.
+  Dispatch ORDER is load-bearing: mode flag before truncation, after restoration.
+- **`SplitViewCoordinator`** — renders the secondary pane from the frozen `TabSnapshot`
+  the store already keeps for inactive tabs, so split view adds no state and can't drift.
+  `Render` returns the ACTIVE pane's rect, which hit-testing must use or mouse
+  coordinates go wrong in split view. The renderer is nullable so the layout logic is
+  unit-testable without the six-service rendering graph.
+
+### Indicator-layer changes made for these features
+
+- **`MarkerAnchor` (`Value` / `BelowBar` / `AboveBar`)** on `ComponentConfig`, seeded from
+  `IndicatorMetadata.DefaultMarkerAnchor`. Marker components whose value is a ZONE PRICE
+  rather than a plot level (Value Deviation's tiers) anchor to the bar extreme.
+  `StandardRenderers.ResolveMarkerY` is the single place all 12 marker Y computations go
+  through — they run over the VIEWPORT index, and `ctx.Data` is Heikin-Ashi-transformed
+  for the main pane, so an anchored marker follows the transformed bars.
+- **Bool indicator parameters were silently dropped app-wide.** `FormatParam` writes
+  `"true"`, and `IndicatorModelFactory` required `double.TryParse`. Fixed with
+  `TryParseParamValue`, which accepts bools first. This had been quietly disabling
+  Cipher SR's AdaptiveBreak and Cipher B's UseAnchorSuppression as well.
+- **`CipherSrLevelProvider` had a 15-bar lookahead** relative to the provider it mirrors.
+  Backtest-only; live was unaffected because live never has the future bars. Correcting
+  it turned +0.739R at p=0.0002 into −0.095R at p=0.23 — a reminder that a spectacular
+  backtest result is a bug report until proven otherwise.
+

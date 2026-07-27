@@ -104,6 +104,8 @@ restored when you stop.
 | Shift+F9 | Hide the last revealed bar |
 | F10 | Play / pause auto-advance |
 
+Also on the toolbar's second row as **Replay**, which shows its own pressed state.
+
 On the WebHost, use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for fullscreen
 and page-level `preventDefault` on it is not reliable.
 
@@ -124,6 +126,8 @@ interaction is inaccurate while split view is on. Keyboard operation is unaffect
 | Ctrl+Alt+Shift+S | Split view on / off |
 | Ctrl+Alt+Shift+E | Move the second pane to the next tab |
 | Ctrl+Alt+Shift+O | Side-by-side / stacked |
+
+Also on the toolbar's second row as **Split**, which shows its own pressed state.
 
 ---
 
@@ -297,8 +301,8 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
-| Alt+M | Market watch — watchlists and the screener |
-| Alt+R | Respect report — which levels and moving averages this market actually holds |
+| Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
+| Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Zones**) |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
 | Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |
 
