@@ -63,6 +63,15 @@
                                        value="@(_editParams.TryGetValue(param.Name, out var sv) ? sv?.ToString() ?? string.Empty : param.DefaultValue?.ToString() ?? string.Empty)"
                                        @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: true)" />
                             }
+                            else if (param.DataType == typeof(bool))
+                            {
+                                @* A yes/no knob must be a checkbox. Falling through to the numeric
+                                   input asked the user to type 0 or 1 into a spinner, which is
+                                   unusable with a screen reader and unguessable without one. *@
+                                <input id="param-@param.Name" type="checkbox"
+                                       checked="@IsParamTrue(param)"
+                                       @onchange="e => UpdateBoolParam(param.Name, e.Value)" />
+                            }
                             else
                             {
                                 <input id="param-@param.Name" type="number"
@@ -71,6 +80,10 @@
                                        @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: false)" />
                             }
                         </div>
+                        @if (!string.IsNullOrEmpty(param.Description))
+                        {
+                            <p style="margin:-4px 0 10px 0; font-size:0.78rem; color:#555;">@param.Description</p>
+                        }
                     }
                 </fieldset>
             }
@@ -186,6 +199,24 @@
                 p => p.Name,
                 p => InitialEditValue(p))
             ?? new Dictionary<string, object>();
+    }
+
+    /// <summary>Records a checkbox change as the "true"/"false" text the parameter pipeline expects.</summary>
+    private void UpdateBoolParam(string name, object? value) =>
+        UpdateEditParam(name, (value is bool b && b) ? "true" : "false", isString: false);
+
+    /// <summary>Current checked state for a bool parameter, honouring any pending edit.</summary>
+    private bool IsParamTrue(IndicatorParameterMetadata p)
+    {
+        if (_editParams.TryGetValue(p.Name, out var v) && v != null)
+        {
+            string s = v.ToString() ?? "";
+            if (bool.TryParse(s, out bool b)) return b;
+            if (double.TryParse(s, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double d)) return d != 0;
+        }
+        return p.DefaultValue is bool db ? db
+            : p.DefaultValue is IConvertible c && c.ToDouble(null) != 0;
     }
 
     private static object InitialEditValue(IndicatorParameterMetadata p)

@@ -93,12 +93,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "Five stayed monotonic in testing; six collapsed the two innermost tiers together." },
                     new() { Name = ParamMaxTier, DisplayName = "Outermost tier at (value areas)", DataType = typeof(double),
                             DefaultValue = 2.0, MinValue = 0.5, MaxValue = 6.0 },
-                    new() { Name = ParamRequireMomentum, DisplayName = "Require momentum turn", DataType = typeof(bool),
+                    new() { Name = ParamRequireMomentum, DisplayName = "Require a momentum turn as well", DataType = typeof(bool),
                             DefaultValue = true,
-                            Description = "Only print when an internal WaveTrend oscillator turns with the mark. Off prints on the reversal bar alone." },
-                    new() { Name = ParamInvert, DisplayName = "Invert (momentum asset)", DataType = typeof(bool),
+                            Description = "ON (default): a mark only prints when the built-in WaveTrend oscillator is also turning that way — fewer, cleaner marks. OFF: prints on the reversal bar alone." },
+                    new() { Name = ParamInvert, DisplayName = "Momentum market — flip the buy side", DataType = typeof(bool),
                             DefaultValue = false,
-                            Description = "Crypto tested with the OPPOSITE sign — stretched-above kept rising. Turn on for momentum-regime assets." },
+                            Description = "OFF (default) = MEAN-REVERTING market: buys print BELOW value, trims above. This is how stocks, sectors, metals and bonds measured. " +
+                                          "ON = MOMENTUM market: buys print ABOVE value, trims below. This is how crypto measured — it ran the opposite way. " +
+                                          "Leave OFF for equities; turn ON for BTC and other crypto." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {

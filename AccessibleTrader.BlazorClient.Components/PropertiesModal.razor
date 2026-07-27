@@ -73,12 +73,23 @@
 
                                         <div class="modal-row">
                                             <label for="prop-@key">@displayName</label>
-                                            <input id="prop-@key" type="number"
-                                                   step="@step"
-                                                   min="@minAttr"
-                                                   max="@maxAttr"
-                                                   value="@_params[key]"
-                                                   @onchange="e => UpdateParam(key, e.Value?.ToString())" />
+                                            @if (pm != null && pm.DataType == typeof(bool))
+                                            {
+                                                @* Yes/no knobs render as checkboxes here too. A 0/1
+                                                   spinner is unusable with a screen reader. *@
+                                                <input id="prop-@key" type="checkbox"
+                                                       checked="@(_params[key] != 0)"
+                                                       @onchange="e => UpdateBoolParam(key, e.Value)" />
+                                            }
+                                            else
+                                            {
+                                                <input id="prop-@key" type="number"
+                                                       step="@step"
+                                                       min="@minAttr"
+                                                       max="@maxAttr"
+                                                       value="@_params[key]"
+                                                       @onchange="e => UpdateParam(key, e.Value?.ToString())" />
+                                            }
                                         </div>
                                         @if (pm != null && !string.IsNullOrEmpty(pm.Description))
                                         {
@@ -746,6 +757,10 @@
             SonificationManager.PlayPatch(preview);
         }
     }
+
+    /// <summary>Checkbox change → the 1/0 the parameter dictionary stores.</summary>
+    private void UpdateBoolParam(string key, object? value) =>
+        UpdateParam(key, (value is bool b && b) ? "1" : "0");
 
     private void UpdateParam(string key, string? raw)
     {
