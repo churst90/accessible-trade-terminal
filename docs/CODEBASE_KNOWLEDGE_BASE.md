@@ -606,3 +606,16 @@ box, which is the only kind of test that catches this class of bug.
 at 2.2x bar width with a 3px-per-density floor. Thickness is authored for a normal zoom, so
 without this a 330-bar view draws marks four times a candle wide. Any new marker renderer must
 route its size through it.
+
+**Legend keys mirror the render type.** `ChartRenderer.LegendRow` carries a `LegendGlyph`
+(Line / Marker / Fill) plus the series' dash style, stroke width, marker shape and every
+distinct colour in a collapsed marker family. A uniform coloured square for every row is what
+made the legend uninformative — it communicated colour and nothing else. Colliding labels are
+prefixed with the owning indicator's short name so two indicators' "Resistance" rows do not
+read as one entry listed twice.
+
+**`ClampMarkerExtent` takes a FULL extent.** The marker renderers disagree about their size
+variable: a triangle's `arrowSize` is the whole height; a square's `half`, a diamond's `half`,
+a cross's `arm` and a dot's `radius` are half of it. Half-extent callers must use
+`ClampMarkerHalfExtent` — passing a half-extent to the full-extent clamp draws at twice the cap,
+which is exactly what happened on the first pass and why the squares still looked heavy.

@@ -10,6 +10,34 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Legend keys that look like the chart, and a marker-extent correction (2026-07-27)
+
+- **Every legend row drew the same coloured square.** A dashed resistance line, a
+  step-line POC and a diamond marker had identical keys, so the legend told you a
+  colour and nothing else. Rows now carry a `LegendGlyph` and draw accordingly: a
+  stroked stub for lines, dashed to match the series' own `DashStyle` and weighted by
+  its thickness; the real marker shape for markers; a filled chip for candles, bars and
+  histograms.
+- **A collapsed marker family showed one colour for six marks.** "Value Deviation —
+  6 marks" took the first marker's green and presented a six-colour indicator as green.
+  The row now carries every distinct colour in the family and the key draws up to three
+  chips in the family's own shape.
+- **Two indicators naming a component the same read as a duplicate.** A level provider
+  and Value Deviation both produce a "Resistance"; side by side those rows looked like
+  one entry listed twice. Colliding labels are now prefixed with the owning indicator's
+  short name ("Cipher SR Resistance"), and labels that are already unique are left
+  alone, since the legend is width-constrained.
+- **Lighter chrome.** Hairline border and a slightly softer background so the legend
+  reads as an overlay rather than a dialog parked on the chart. Still near-opaque —
+  text over candles has to stay legible.
+- **Marker extent: half versus full.** The first pass clamped every glyph against one
+  ceiling, but the renderers disagree about what their size variable means. A triangle's
+  `arrowSize` is the whole height, while a square's `half`, a diamond's `half`, a
+  cross's `arm` and a dot's `radius` are half of it — so those four drew at exactly
+  twice the intended cap. That is why the squares and crosses still looked heavy after
+  the fix. `ClampMarkerExtent` now takes a FULL extent and `ClampMarkerHalfExtent`
+  converts once, in one place; the cap is 1.8 bar widths with a 6px floor.
+
 ### Two long-standing DrawRect bugs, and two regressions from the legibility pass (2026-07-27)
 
 - **`SKCanvas.DrawRect`'s four-float overload is `(x, y, width, height)`, not

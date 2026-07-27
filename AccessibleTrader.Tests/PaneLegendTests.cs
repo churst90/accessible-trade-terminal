@@ -50,7 +50,7 @@ namespace AccessibleTrader.Tests
             return s;
         }
 
-        private static List<string> Labels(List<(SkiaSharp.SKColor Color, string Label)> rows) =>
+        private static List<string> Labels(List<ChartRenderer.LegendRow> rows) =>
             rows.Select(r => r.Label).ToList();
 
         // ── Ranking ──────────────────────────────────────────────────────
@@ -309,6 +309,121 @@ namespace AccessibleTrader.Tests
                 ComponentDisplayType.Area, ComponentDisplayType.Gradient,
             })
                 Assert.False(ChartRenderer.IsMarker(t), $"{t} is continuous and must not collapse as a marker.");
+        }
+        // ── Key consistency ──────────────────────────────────────────────
+
+        [Fact]
+        public void A_lines_key_is_a_line_a_markers_key_is_that_marker_and_candles_are_a_chip()
+        {
+            // Every row used to get an identical coloured square, so a dashed resistance line and
+            // a diamond marker had the same key and the legend told you the colour and nothing
+            // else. The key now has to look like the thing it stands for.
+            var panes = new List<ChartSeries>
+            {
+                Series("A",
+                    ("Candles", ComponentDisplayType.Candle),
+                    ("Value POC", ComponentDisplayType.StepLine),
+                    ("Swing High", ComponentDisplayType.Square)),
+            };
+
+            var rows = ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad)
+                                    .ToDictionary(r => r.Label);
+
+            Assert.Equal(ChartRenderer.LegendGlyph.Fill,   rows["Candles"].Glyph);
+            Assert.Equal(ChartRenderer.LegendGlyph.Line,   rows["Value POC"].Glyph);
+            Assert.Equal(ChartRenderer.LegendGlyph.Marker, rows["Swing High"].Glyph);
+            Assert.Equal(ComponentDisplayType.Square, rows["Swing High"].MarkerShape);
+        }
+
+        [Fact]
+        public void A_dashed_series_carries_its_dash_style_into_the_key()
+        {
+            var s = Series("A", ("Resistance", ComponentDisplayType.StepLine));
+            s.Components[0].DashStyle = DashStyle.Dash;
+            s.Components[0].Thickness = 3f;
+
+            var row = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, TallPane, Line, Pad).Single();
+
+            Assert.Equal(DashStyle.Dash, row.Dash);
+            Assert.Equal(3f, row.StrokeWidth);
+        }
+
+        [Fact]
+        public void A_collapsed_marker_row_carries_every_distinct_colour_in_the_family()
+        {
+            // Showing one swatch for six marks in six colours claims the indicator is one colour.
+            var s = new ChartSeries();
+            s.Config.Name = "Value Deviation";
+            var spec = new[]
+            {
+                ("Support tier 1-2",    ComponentDisplayType.TriangleUp,   "#66BB6A"),
+                ("Support tier 3",      ComponentDisplayType.Dot,          "#2E9E4F"),
+                ("Support tier 4-5",    ComponentDisplayType.Diamond,      "#00E676"),
+                ("Resistance tier 1-2", ComponentDisplayType.TriangleDown, "#EF9A9A"),
+                ("Resistance tier 3",   ComponentDisplayType.Dot,          "#E53935"),
+                ("Resistance tier 4-5", ComponentDisplayType.Diamond,      "#FF1744"),
+            };
+            foreach (var (name, type, hex) in spec)
+                s.Components.Add(new ComponentConfig
+                {
+                    Name = name, DisplayName = name, DisplayType = type,
+                    ColorHex = hex, IsVisible = true,
+                });
+
+            var row = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, TallPane, Line, Pad).Single();
+
+            Assert.Equal("Value Deviation — 6 marks", row.Label);
+            Assert.Equal(6, row.Colors.Count);
+        }
+
+        [Fact]
+        public void Repeated_colours_in_a_family_are_not_listed_twice()
+        {
+            var s = Series("A",
+                ("One", ComponentDisplayType.Dot),
+                ("Two", ComponentDisplayType.Dot),
+                ("Three", ComponentDisplayType.Dot));   // all #FFFFFF from the helper
+
+            var row = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, TallPane, Line, Pad).Single();
+
+            Assert.Single(row.Colors);
+        }
+
+        // ── Label collisions ─────────────────────────────────────────────
+
+        [Fact]
+        public void Two_indicators_naming_a_component_the_same_get_their_owner_prefixed()
+        {
+            // Real case: a level provider and Value Deviation both produce a "Resistance". Side by
+            // side those two rows read as a duplicated entry rather than as two different lines.
+            var panes = new List<ChartSeries>
+            {
+                Series("Cipher SR 5 1", ("Resistance", ComponentDisplayType.StepLine)),
+                Series("Value Deviation (zones) 240", ("Resistance", ComponentDisplayType.StepLine)),
+            };
+
+            var labels = Labels(ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad));
+
+            Assert.Contains("Cipher SR Resistance", labels);
+            Assert.Contains("Value Deviation Resistance", labels);
+            Assert.DoesNotContain("Resistance", labels);
+        }
+
+        [Fact]
+        public void A_label_that_is_already_unique_is_left_alone()
+        {
+            // Prefixing everything would make every row longer for no gain, and the legend is
+            // width-constrained.
+            var panes = new List<ChartSeries>
+            {
+                Series("Cipher SR 5 1", ("Resistance", ComponentDisplayType.StepLine)),
+                Series("Value Deviation 240", ("Value POC", ComponentDisplayType.StepLine)),
+            };
+
+            var labels = Labels(ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad));
+
+            Assert.Contains("Resistance", labels);
+            Assert.Contains("Value POC", labels);
         }
     }
 }

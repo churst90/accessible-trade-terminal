@@ -662,13 +662,13 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private void RenderPaneLegend(SKCanvas canvas, SKRect paneRect, List<ChartSeries> paneSeries, float density)
         {
-            const float SwatchPx = 8f;
-            const float PadPx    = 4f;
-            const float LinePx   = 16f;
+            const float KeyPx  = 14f;   // width of the key column — a line stub or a glyph
+            const float PadPx  = 6f;
+            const float LinePx = 17f;
 
-            float swatch = SwatchPx * density;
-            float pad    = PadPx   * density;
-            float line   = LinePx  * density;
+            float key  = KeyPx  * density;
+            float pad  = PadPx  * density;
+            float line = LinePx * density;
 
             var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad);
             if (rows.Count == 0) return;
@@ -676,145 +676,133 @@ namespace AccessibleTrader.Core.Services
             // Hard ceiling on width, independent of what anything calls itself. The row budget
             // already stops the legend growing DOWN into the chart; without this it just grew
             // ACROSS instead, which is the same problem rotated.
-            float maxTextPx = Math.Max(60f * density, paneRect.Width * 0.28f);
-
+            float maxTextPx = Math.Max(60f * density, paneRect.Width * 0.26f);
             for (int i = 0; i < rows.Count; i++)
-                rows[i] = (rows[i].Color, Ellipsize(rows[i].Label, maxTextPx));
+                rows[i] = rows[i] with { Label = Ellipsize(rows[i].Label, maxTextPx) };
 
             float maxTextWidth = 0f;
-            foreach (var (_, label) in rows)
-                maxTextWidth = Math.Max(maxTextWidth, _textFont.MeasureText(label));
+            foreach (var row in rows)
+                maxTextWidth = Math.Max(maxTextWidth, _textFont.MeasureText(row.Label));
 
-            float boxW = pad + swatch + pad + maxTextWidth + pad;
+            float boxW = pad + key + pad + maxTextWidth + pad;
             float boxH = pad + rows.Count * line + pad;
-            float bx   = paneRect.Left + pad * 2;
-            float by   = paneRect.Top  + pad * 2;
+            float bx   = paneRect.Left + pad;
+            float by   = paneRect.Top  + pad;
 
-            // Denser alpha + a thin border gives the legend real separation from
-            // the candles / histogram behind it. At 180a the bg washed out when
-            // bright green/red bars sat directly underneath.
-            var bgRect = new SKRect(bx, by, bx + boxW, by + boxH);
-            var bgRound = new SKRoundRect(bgRect, 3 * density);
-            using (var bgPaint = new SKPaint { Color = new SKColor(15, 15, 18, 245), Style = SKPaintStyle.Fill })
+            // Reads as an overlay rather than a dialog parked on the chart: near-opaque so text
+            // stays legible over candles, but a hairline border instead of a heavy outline.
+            var bgRound = new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 5 * density);
+            using (var bgPaint = new SKPaint { Color = new SKColor(16, 16, 20, 232), Style = SKPaintStyle.Fill })
                 canvas.DrawRoundRect(bgRound, bgPaint);
-            using (var borderPaint = new SKPaint { Color = new SKColor(120, 120, 128, 200), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
+            using (var borderPaint = new SKPaint { Color = new SKColor(255, 255, 255, 34), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
                 canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;
-            foreach (var (color, label) in rows)
+            foreach (var row in rows)
             {
-                float sy = ey + (line - swatch) / 2f;
-                using var swatchPaint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-                // Same (x, y, width, height) trap as RenderYAxisSwatches: the 8px swatch was
-                // drawing as a tall column running past the bottom of the legend box, which is
-                // what made the labels look like text on coloured backgrounds.
-                canvas.DrawRect(SKRect.Create(bx + pad, sy, swatch, swatch), swatchPaint);
-
-                float tx = bx + pad + swatch + pad;
-                float ty = ey + line * 0.75f;
-                canvas.DrawText(label, tx, ty, SKTextAlign.Left, _textFont, _textPaint);
+                DrawLegendKey(canvas, row, bx + pad, ey + line / 2f, key, density);
+                canvas.DrawText(row.Label, bx + pad + key + pad, ey + line * 0.72f,
+                                SKTextAlign.Left, _textFont, _textPaint);
                 ey += line;
             }
         }
 
         /// <summary>
-        /// Chooses which legend rows to show, in what order. Separated from drawing because this
-        /// is the part that can be WRONG — a legend that names the wrong things, or quietly names
-        /// only some of them, misleads without looking broken.
+        /// Draws a row's key so it looks like the thing it stands for: a stroked stub (dashed when
+        /// the series is dashed) for lines, the real glyph for a marker, a filled chip for bars and
+        /// candles. A uniform coloured square for everything was the inconsistency — a dashed
+        /// resistance line and a diamond marker had identical keys, so the legend told you the
+        /// colour and nothing else.
         /// </summary>
-        /// <param name="paneHeight">Pane height in device pixels; the row budget is derived from it.</param>
-        /// <param name="line">Row height in device pixels.</param>
-        /// <param name="pad">Box padding in device pixels.</param>
-        internal static List<(SKColor Color, string Label)> BuildLegendRows(
-            List<ChartSeries> paneSeries, float paneHeight, float line, float pad)
+        private void DrawLegendKey(SKCanvas canvas, LegendRow row, float x, float cy, float key, float density)
         {
-            // Absolute ceiling regardless of how tall the pane is — past this the legend stops
-            // being a key and becomes a second chart.
-            const int HardMaxEntries = 9;
+            using var lease = SKPaintPool.Rent();
+            var paint = lease.Paint;
+            paint.IsAntialias = true;
 
-            // Below this a legend row is worth less than the pixels it costs.
-            const int MinEntries = 3;
-
-            // Fraction of the pane the legend may occupy before it competes with the data.
-            const float MaxPaneFraction = 0.45f;
-
-            // A series contributing at least this many marker components collapses to one row.
-            const int CollapseMarkersAt = 3;
-
-            // Rank 0 = the underlying data (candles, volume bars). Rank 1 = continuous lines and
-            // clouds, which need a colour key to be told apart. Rank 2 = markers, which largely
-            // identify themselves by shape and colour already.
-            var entries = new List<(int Rank, SKColor Color, string Label)>();
-            if (paneSeries == null) return new List<(SKColor, string)>();
-
-            foreach (var s in paneSeries)
+            switch (row.Glyph)
             {
-                // Index of this series' first row, so the collapse below can only ever remove rows
-                // this series added. Matching on colour alone would let one indicator's collapse
-                // delete an earlier indicator's marker row whenever two colours happened to agree.
-                int seriesStart = entries.Count;
-                int markerCount = 0;
-                SKColor firstMarkerColor = default;
-
-                foreach (var comp in s.Components)
-                {
-                    if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
-
-                    // Directional bar/histogram components render green/red by value direction, not
-                    // the static ColorHex. Show the up-direction green so the swatch matches what
-                    // is actually drawn.
-                    SKColor displayColor;
-                    string label = comp.DisplayName ?? comp.Name;
-                    if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
-                        displayColor = new SKColor(68, 187, 68, 200); // matches RenderDirectionalBars upPaint
-                    else if (!SKColor.TryParse(comp.ColorHex, out displayColor))
-                        continue;
-
-                    if (IsMarker(comp.DisplayType))
+                case LegendGlyph.Line:
+                    paint.Color = row.Colors[0];
+                    paint.Style = SKPaintStyle.Stroke;
+                    paint.StrokeWidth = Math.Max(2f * density, row.StrokeWidth * density);
+                    paint.StrokeCap = SKStrokeCap.Round;
+                    paint.PathEffect = row.Dash switch
                     {
-                        if (markerCount == 0) firstMarkerColor = displayColor;
-                        markerCount++;
-                        entries.Add((2, displayColor, label));
-                    }
-                    else
-                    {
-                        entries.Add((IsBaseData(comp.DisplayType) ? 0 : 1, displayColor, label));
-                    }
-                }
+                        DashStyle.Dash    => SKPathEffect.CreateDash(new[] { 4f * density, 3f * density }, 0),
+                        DashStyle.Dot     => SKPathEffect.CreateDash(new[] { 1.5f * density, 3f * density }, 0),
+                        DashStyle.DashDot => SKPathEffect.CreateDash(new[] { 5f * density, 2.5f * density, 1.5f * density, 2.5f * density }, 0),
+                        _                 => null,
+                    };
+                    canvas.DrawLine(x, cy, x + key, cy, paint);
+                    paint.PathEffect?.Dispose();
+                    paint.PathEffect = null;
+                    break;
 
-                // Collapse this series' marker rows into one. Per series, so an indicator with only
-                // one or two marks keeps their real names.
-                if (markerCount >= CollapseMarkersAt)
-                {
-                    for (int k = entries.Count - 1; k >= seriesStart; k--)
-                        if (entries[k].Rank == 2) entries.RemoveAt(k);
-                    entries.Add((2, firstMarkerColor, $"{ShortSeriesName(s.Name)} — {markerCount} marks"));
-                }
+                case LegendGlyph.Marker:
+                    // Up to three chips, one per distinct colour in the family, so a collapsed row
+                    // does not claim a six-colour indicator is one colour.
+                    int n = Math.Min(row.Colors.Count, 3);
+                    float slot = key / n;
+                    float r = Math.Min(slot * 0.42f, 3.2f * density);
+                    paint.Style = SKPaintStyle.Fill;
+                    for (int i = 0; i < n; i++)
+                    {
+                        paint.Color = row.Colors[i];
+                        DrawGlyph(canvas, row.MarkerShape, x + slot * i + slot / 2f, cy, r, paint);
+                    }
+                    break;
+
+                default:
+                    paint.Color = row.Colors[0];
+                    paint.Style = SKPaintStyle.Fill;
+                    float h = 7f * density;
+                    canvas.DrawRect(SKRect.Create(x + (key - h) / 2f, cy - h / 2f, h, h), paint);
+                    break;
             }
+        }
 
-            if (entries.Count == 0) return new List<(SKColor, string)>();
-
-            // How many rows actually fit in the space the legend is allowed to have.
-            int fits = (int)((paneHeight * MaxPaneFraction - pad * 2) / Math.Max(line, 1f));
-            int maxEntries = Math.Clamp(fits, MinEntries, HardMaxEntries);
-
-            // OrderBy is a documented stable sort, so within a rank the series order the user
-            // built is preserved.
-            var shown = entries.OrderBy(e => e.Rank).ToList();
-            int dropped = 0;
-            if (shown.Count > maxEntries)
+        /// <summary>Miniature of a marker shape, so the key matches the chart at a glance.</summary>
+        private static void DrawGlyph(SKCanvas canvas, ComponentDisplayType shape, float cx, float cy, float r, SKPaint paint)
+        {
+            switch (shape)
             {
-                // One row is spent saying so, which is worth more than one more colour swatch:
-                // a legend showing a silent subset reads as a complete list of what is on the chart.
-                dropped = shown.Count - (maxEntries - 1);
-                shown = shown.Take(maxEntries - 1).ToList();
+                case ComponentDisplayType.TriangleUp:
+                case ComponentDisplayType.Arrow:
+                    using (var path = new SKPath())
+                    {
+                        path.MoveTo(cx, cy - r); path.LineTo(cx - r, cy + r); path.LineTo(cx + r, cy + r); path.Close();
+                        canvas.DrawPath(path, paint);
+                    }
+                    break;
+                case ComponentDisplayType.TriangleDown:
+                    using (var path = new SKPath())
+                    {
+                        path.MoveTo(cx, cy + r); path.LineTo(cx - r, cy - r); path.LineTo(cx + r, cy - r); path.Close();
+                        canvas.DrawPath(path, paint);
+                    }
+                    break;
+                case ComponentDisplayType.Diamond:
+                    using (var path = new SKPath())
+                    {
+                        path.MoveTo(cx, cy - r); path.LineTo(cx + r, cy); path.LineTo(cx, cy + r); path.LineTo(cx - r, cy); path.Close();
+                        canvas.DrawPath(path, paint);
+                    }
+                    break;
+                case ComponentDisplayType.Square:
+                    canvas.DrawRect(SKRect.Create(cx - r, cy - r, r * 2f, r * 2f), paint);
+                    break;
+                case ComponentDisplayType.Cross:
+                    using (var stroke = new SKPaint { Color = paint.Color, Style = SKPaintStyle.Stroke, StrokeWidth = Math.Max(1.4f, r * 0.6f), IsAntialias = true, StrokeCap = SKStrokeCap.Round })
+                    {
+                        canvas.DrawLine(cx - r, cy - r, cx + r, cy + r, stroke);
+                        canvas.DrawLine(cx + r, cy - r, cx - r, cy + r, stroke);
+                    }
+                    break;
+                default:
+                    canvas.DrawCircle(cx, cy, r, paint);
+                    break;
             }
-
-            var rows = shown.Select(e => (e.Color, e.Label)).ToList();
-            if (dropped > 0)
-                rows.Add((new SKColor(150, 150, 158), $"+{dropped} more (see the object tree)"));
-
-            return rows;
         }
 
         /// <summary>Trims a label to fit a pixel budget, ending in an ellipsis when cut.</summary>
@@ -860,6 +848,162 @@ namespace AccessibleTrader.Core.Services
                 parts.RemoveAt(parts.Count - 1);
 
             return parts.Count > 0 ? string.Join(' ', parts) : name.Trim();
+        }
+
+        /// <summary>How a legend row draws its key, matching how the series draws on the chart.</summary>
+        internal enum LegendGlyph
+        {
+            /// <summary>A stroked stub, dashed to match the series.</summary>
+            Line,
+            /// <summary>The real marker shape, one chip per distinct colour in the family.</summary>
+            Marker,
+            /// <summary>A filled chip — candles, bars, histograms, areas.</summary>
+            Fill,
+        }
+
+        /// <summary>
+        /// One line of the legend. Carries enough to draw a key that looks like the thing it stands
+        /// for: a uniform coloured square for every row meant a dashed resistance line and a diamond
+        /// marker had identical keys, so the legend told you the colour and nothing else.
+        /// </summary>
+        /// <param name="Rank">0 = base data, 1 = continuous lines, 2 = markers, 3 = the overflow row.</param>
+        /// <param name="SeriesName">Owning indicator, used to disambiguate colliding labels.</param>
+        internal record LegendRow(
+            string Label,
+            LegendGlyph Glyph,
+            IReadOnlyList<SKColor> Colors,
+            int Rank,
+            string SeriesName,
+            ComponentDisplayType MarkerShape = ComponentDisplayType.Dot,
+            DashStyle Dash = DashStyle.Solid,
+            float StrokeWidth = 2f);
+
+        /// <summary>
+        /// Chooses which legend rows to show, in what order. Separated from drawing because this
+        /// is the part that can be WRONG — a legend that names the wrong things, or quietly names
+        /// only some of them, misleads without looking broken.
+        ///
+        /// <para>
+        /// Rules, all learned from one weekly BTC chart carrying Market Structure and Value
+        /// Deviation at once: size the row budget against the pane rather than a constant; rank
+        /// base data → lines → markers before truncating, so one marker-heavy indicator cannot
+        /// spend the whole budget and leave the candles unnamed; collapse a marker family to one
+        /// row; disambiguate labels that would otherwise read identically; and say how many rows
+        /// were dropped, because a legend showing a silent subset reads as a complete list of
+        /// what is on the chart.
+        /// </para>
+        /// </summary>
+        /// <param name="paneHeight">Pane height in device pixels; the row budget is derived from it.</param>
+        /// <param name="line">Row height in device pixels.</param>
+        /// <param name="pad">Box padding in device pixels.</param>
+        internal static List<LegendRow> BuildLegendRows(
+            List<ChartSeries> paneSeries, float paneHeight, float line, float pad)
+        {
+            // Absolute ceiling regardless of how tall the pane is — past this the legend stops
+            // being a key and becomes a second chart.
+            const int HardMaxEntries = 9;
+
+            // Below this a legend row is worth less than the pixels it costs.
+            const int MinEntries = 3;
+
+            // Fraction of the pane the legend may occupy before it competes with the data.
+            const float MaxPaneFraction = 0.45f;
+
+            // A series contributing at least this many marker components collapses to one row.
+            const int CollapseMarkersAt = 3;
+
+            var entries = new List<LegendRow>();
+            if (paneSeries == null) return entries;
+
+            foreach (var s in paneSeries)
+            {
+                string shortName = ShortSeriesName(s.Name);
+
+                // Index of this series' first row, so the collapse below can only ever remove rows
+                // this series added. Matching on colour alone would let one indicator's collapse
+                // delete an earlier indicator's marker row whenever two colours happened to agree.
+                int seriesStart = entries.Count;
+                var markerColors = new List<SKColor>();
+                var markerShape = ComponentDisplayType.Dot;
+
+                foreach (var comp in s.Components)
+                {
+                    if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
+
+                    // Directional bar/histogram components render green/red by value direction, not
+                    // the static ColorHex. Show the up-direction green so the key matches the chart.
+                    SKColor color;
+                    string label = comp.DisplayName ?? comp.Name;
+                    if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
+                        color = new SKColor(68, 187, 68, 200); // matches RenderDirectionalBars upPaint
+                    else if (!SKColor.TryParse(comp.ColorHex, out color))
+                        continue;
+
+                    if (IsMarker(comp.DisplayType))
+                    {
+                        if (markerColors.Count == 0) markerShape = comp.DisplayType;
+                        markerColors.Add(color);
+                        entries.Add(new LegendRow(label, LegendGlyph.Marker, new[] { color },
+                            Rank: 2, SeriesName: shortName, MarkerShape: comp.DisplayType));
+                    }
+                    else if (IsBaseData(comp.DisplayType))
+                    {
+                        entries.Add(new LegendRow(label, LegendGlyph.Fill, new[] { color },
+                            Rank: 0, SeriesName: shortName));
+                    }
+                    else
+                    {
+                        entries.Add(new LegendRow(label, LegendGlyph.Line, new[] { color },
+                            Rank: 1, SeriesName: shortName,
+                            Dash: comp.DashStyle, StrokeWidth: comp.Thickness));
+                    }
+                }
+
+                // Collapse this series' marker rows into one. Per series, so an indicator with only
+                // one or two marks keeps their real names. The key carries up to three of the
+                // family's distinct colours rather than pretending six marks are one colour.
+                if (markerColors.Count >= CollapseMarkersAt)
+                {
+                    for (int k = entries.Count - 1; k >= seriesStart; k--)
+                        if (entries[k].Rank == 2) entries.RemoveAt(k);
+
+                    entries.Add(new LegendRow($"{shortName} — {markerColors.Count} marks",
+                        LegendGlyph.Marker, markerColors.Distinct().ToList(),
+                        Rank: 2, SeriesName: shortName, MarkerShape: markerShape));
+                }
+            }
+
+            if (entries.Count == 0) return entries;
+
+            // Two indicators can both call a component "Resistance". Side by side those rows read
+            // as a duplicate rather than as two different lines, so the owning indicator is named.
+            var collisions = entries.GroupBy(e => e.Label).Where(g => g.Count() > 1)
+                                    .Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+            for (int i = 0; i < entries.Count; i++)
+                if (collisions.Contains(entries[i].Label) && !string.IsNullOrEmpty(entries[i].SeriesName))
+                    entries[i] = entries[i] with { Label = $"{entries[i].SeriesName} {entries[i].Label}" };
+
+            // How many rows actually fit in the space the legend is allowed to have.
+            int fits = (int)((paneHeight * MaxPaneFraction - pad * 2) / Math.Max(line, 1f));
+            int maxEntries = Math.Clamp(fits, MinEntries, HardMaxEntries);
+
+            // OrderBy is a documented stable sort, so within a rank the series order the user
+            // built is preserved.
+            var shown = entries.OrderBy(e => e.Rank).ToList();
+            int dropped = 0;
+            if (shown.Count > maxEntries)
+            {
+                // One row is spent saying so, which is worth more than one more colour key:
+                // a legend showing a silent subset reads as a complete list of what is on the chart.
+                dropped = shown.Count - (maxEntries - 1);
+                shown = shown.Take(maxEntries - 1).ToList();
+            }
+
+            if (dropped > 0)
+                shown.Add(new LegendRow($"+{dropped} more (see the object tree)", LegendGlyph.Fill,
+                    new[] { new SKColor(150, 150, 158) }, Rank: 3, SeriesName: ""));
+
+            return shown;
         }
 
         /// <summary>Discrete per-bar glyphs — the components that identify themselves by shape.</summary>

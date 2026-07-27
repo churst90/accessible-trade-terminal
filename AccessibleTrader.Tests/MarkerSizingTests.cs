@@ -57,7 +57,7 @@ namespace AccessibleTrader.Tests
         // ── Size clamping ────────────────────────────────────────────────
 
         [Fact]
-        public void A_marker_never_grows_wider_than_a_couple_of_bars()
+        public void A_marker_never_grows_wider_than_about_two_bars()
         {
             using var surface = SKSurface.Create(new SKImageInfo(800, 400));
 
@@ -65,8 +65,28 @@ namespace AccessibleTrader.Tests
             var wide = Context(surface.Canvas, viewportLength: 330);
             float barWidth = wide.Width / 330f;
 
-            Assert.True(StandardRenderers.ClampMarkerSize(40f, wide) <= barWidth * 2.2f + 0.01f,
+            // The cap is 1.8 bar widths OR the visibility floor, whichever is larger — at this
+            // zoom 1.8 x 2.42px is under the floor, so the floor is what a mark is allowed to be.
+            Assert.True(StandardRenderers.ClampMarkerExtent(40f, wide) <= Math.Max(6f, barWidth * 1.8f) + 0.01f,
                 "A glyph authored at 40px must shrink when the bars are 2px wide.");
+            Assert.True(StandardRenderers.ClampMarkerExtent(40f, wide) < 40f,
+                "It must actually have shrunk.");
+        }
+
+        [Fact]
+        public void Half_extent_and_full_extent_callers_agree_on_the_drawn_size()
+        {
+            // The bug this pins: a triangle's arrowSize is the WHOLE height, while a square's
+            // half, a diamond's half, a cross's arm and a dot's radius are all half of it. Passing
+            // all five through one full-extent clamp made those four draw exactly twice as large,
+            // which is why the squares and crosses still looked heavy after the first attempt.
+            using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+            var wide = Context(surface.Canvas, viewportLength: 330);
+
+            float full = StandardRenderers.ClampMarkerExtent(40f, wide);
+            float half = StandardRenderers.ClampMarkerHalfExtent(20f, wide);
+
+            Assert.Equal(full, half * 2f, 3);
         }
 
         [Fact]
@@ -77,7 +97,7 @@ namespace AccessibleTrader.Tests
             // 40 bars across 800px — 20px bars, plenty of room.
             var normal = Context(surface.Canvas, viewportLength: 40);
 
-            Assert.Equal(10f, StandardRenderers.ClampMarkerSize(10f, normal));
+            Assert.Equal(18f, StandardRenderers.ClampMarkerExtent(18f, normal));
         }
 
         [Fact]
@@ -87,7 +107,7 @@ namespace AccessibleTrader.Tests
             var normal = Context(surface.Canvas, viewportLength: 20);   // 40px bars
 
             // A deliberately tiny marker stays tiny: the clamp is a ceiling, not a target.
-            Assert.Equal(5f, StandardRenderers.ClampMarkerSize(5f, normal));
+            Assert.Equal(9f, StandardRenderers.ClampMarkerExtent(9f, normal));
         }
 
         [Fact]
@@ -99,7 +119,7 @@ namespace AccessibleTrader.Tests
             // same as no mark, and worse, because the chart claims to be showing you something.
             var extreme = Context(surface.Canvas, viewportLength: 4000);
 
-            Assert.True(StandardRenderers.ClampMarkerSize(12f, extreme) >= 3f,
+            Assert.True(StandardRenderers.ClampMarkerExtent(12f, extreme) >= 6f,
                 "Markers must keep a visible floor however far out the view goes.");
         }
 
@@ -113,8 +133,8 @@ namespace AccessibleTrader.Tests
 
             // On a HiDPI display the floor is in device pixels, so it must double or the marker
             // is physically half the size it is on a standard screen.
-            Assert.Equal(StandardRenderers.ClampMarkerSize(1f, oneX) * 2f,
-                         StandardRenderers.ClampMarkerSize(1f, twoX));
+            Assert.Equal(StandardRenderers.ClampMarkerExtent(1f, oneX) * 2f,
+                         StandardRenderers.ClampMarkerExtent(1f, twoX));
         }
 
         // ── Legend labels ────────────────────────────────────────────────
@@ -214,7 +234,8 @@ namespace AccessibleTrader.Tests
 
             Assert.True(painted > 0, "Nothing was drawn at all.");
 
-            // Thickness 6 at density 1, 20px bars: the clamp leaves it, so a 12x12 square.
+            // Thickness 6 at density 1 means a half of 6, so a 12x12 square. 20px bars leave
+            // room for a full extent of 36, so the clamp does not bite here.
             int width = maxX - minX + 1, height = maxY - minY + 1;
             Assert.InRange(width, 10, 14);
             Assert.InRange(height, 10, 14);
@@ -254,10 +275,11 @@ namespace AccessibleTrader.Tests
                 for (int x = 0; x < bitmap.Width; x++)
                     if (bitmap.GetPixel(x, y).Red > 128) painted++;
 
-            // 800px / 330 bars = 2.42px per bar; the clamp caps the half-size at ~5.3px, so the
-            // square is at most ~11x11. Unclamped it would have been 16x16 and four bars wide.
+            // 800px / 330 bars = 2.42px per bar, so the full extent caps at 6px (the floor beats
+            // 1.8 x 2.42 = 4.4) and the square is at most 6x6 = 36 pixels. Unclamped it would have
+            // been 16x16 and nearly seven bars wide.
             Assert.True(painted > 0, "The marker vanished — the floor is not doing its job.");
-            Assert.True(painted <= 130, $"Square painted {painted} pixels at a 330-bar zoom; the clamp is not applied.");
+            Assert.True(painted <= 49, $"Square painted {painted} pixels at a 330-bar zoom; the clamp is not applied.");
         }
     }
 }

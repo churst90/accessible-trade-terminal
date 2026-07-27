@@ -506,7 +506,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float radius   = ClampMarkerSize(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
             float yZero    = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
             yZero = Math.Clamp(yZero, ctx.Top, ctx.Bottom);
 
@@ -564,7 +564,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float radius   = ClampMarkerSize(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -643,7 +643,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar = barWidth / 2.0f;
-            float arrowSize = ClampMarkerSize(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            float arrowSize = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -739,24 +739,45 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </para>
         /// </summary>
         /// <summary>
-        /// Caps a marker's drawn size against the width of a bar.
+        /// Caps a marker's drawn size against the width of a bar, in FULL extent — the total
+        /// width the glyph occupies, corner to corner.
         ///
         /// <para>
         /// Thickness is authored for a normal zoom. Zoom out to a few hundred bars and the bars
         /// shrink while the glyphs do not, so on a 330-bar weekly the swing squares came out about
-        /// four times a candle wide and buried the price action they were describing. The
-        /// configured thickness stays an upper bound — this only ever makes a marker smaller — and
-        /// a floor keeps it from vanishing entirely at extreme zoom, where a mark you cannot see
-        /// is the same as no mark.
+        /// four times a candle wide and buried the price action they were describing.
+        /// </para>
+        ///
+        /// <para>
+        /// FULL extent matters because the renderers disagree about what their size variable
+        /// means: a triangle's <c>arrowSize</c> is the whole height, while a square's
+        /// <c>half</c>, a diamond's <c>half</c>, a cross's <c>arm</c> and a dot's <c>radius</c>
+        /// are all half of it. Clamping those five against the same ceiling as the triangles made
+        /// them exactly twice as large — which is why the squares and crosses still looked heavy
+        /// after the first attempt at this. Half-extent callers use
+        /// <see cref="ClampMarkerHalfExtent"/> so the conversion happens in one place.
+        /// </para>
+        ///
+        /// <para>
+        /// The configured thickness stays an upper bound — this only ever makes a marker smaller —
+        /// and a floor keeps it from vanishing at extreme zoom, where a mark you cannot see is
+        /// worse than no mark, because the chart still claims to be showing you something.
         /// </para>
         /// </summary>
-        internal static float ClampMarkerSize(float requested, RenderContext ctx)
+        internal static float ClampMarkerExtent(float requestedFullExtent, RenderContext ctx)
         {
             float barWidth = ctx.Width / Math.Max(1, ctx.ViewportLength);
-            float floor    = 3f * ctx.Density;
-            float ceiling  = Math.Max(floor, barWidth * 2.2f);
-            return Math.Clamp(requested, floor, ceiling);
+            float floor    = 6f * ctx.Density;
+            float ceiling  = Math.Max(floor, barWidth * 1.8f);
+            return Math.Clamp(requestedFullExtent, floor, ceiling);
         }
+
+        /// <summary>
+        /// <see cref="ClampMarkerExtent"/> for renderers whose size variable is a radius, an arm,
+        /// or a half-side rather than the whole glyph.
+        /// </summary>
+        internal static float ClampMarkerHalfExtent(float requestedHalfExtent, RenderContext ctx) =>
+            ClampMarkerExtent(requestedHalfExtent * 2f, ctx) / 2f;
 
         private static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
         {
@@ -780,7 +801,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth  = ctx.Width / ctx.ViewportLength;
             float halfBar   = barWidth / 2.0f;
-            float arrowSize = ClampMarkerSize(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            float arrowSize = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -818,7 +839,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth  = ctx.Width / ctx.ViewportLength;
             float halfBar   = barWidth / 2.0f;
-            float arrowSize = ClampMarkerSize(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            float arrowSize = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -855,7 +876,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float half     = ClampMarkerSize(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float half     = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -893,7 +914,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float half     = ClampMarkerSize(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float half     = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -924,7 +945,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float arm      = ClampMarkerSize(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float arm      = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -1132,7 +1153,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float radius   = ClampMarkerSize(Math.Max(comp.Thickness, 1.5f) * ctx.Density, ctx);
+            float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 1.5f) * ctx.Density, ctx);
 
             // Gradient anchor colours — must match RenderDot's palette exactly.
             // Power curve (0.6) applied below so moderate WT readings saturate vividly.
