@@ -117,6 +117,7 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, RegimeProvider>();
         services.AddSingleton<IIndicatorProvider, VolRegimeProvider>();
         services.AddSingleton<IIndicatorProvider, SwingStructureProvider>();
+        services.AddSingleton<IIndicatorProvider, ValueDeviationProvider>();
         services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
         services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
         services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();

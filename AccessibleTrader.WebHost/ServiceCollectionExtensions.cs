@@ -271,6 +271,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, RegimeProvider>();
             services.AddScoped<IIndicatorProvider, VolRegimeProvider>();
             services.AddScoped<IIndicatorProvider, SwingStructureProvider>();
+            services.AddScoped<IIndicatorProvider, ValueDeviationProvider>();
             services.AddScoped<IIndicatorProvider, CoinMetricsProvider>();
             services.AddScoped<IIndicatorProvider, TopBottomDetectorProvider>();
             services.AddScoped<IIndicatorProvider, AnchoredVwapProvider>();
