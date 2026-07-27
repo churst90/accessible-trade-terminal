@@ -53,6 +53,14 @@ namespace AccessibleTrader.Core.Services
         private readonly Sdk.Strategies.IStrategyEngine? _strategyEngine;
         private readonly Strategies.IConfigurableStrategyFactory? _strategyFactory;
         private readonly Strategies.IStrategyLibrary? _strategyLibrary;
+        private readonly IAppSettings? _settings;
+
+        /// <summary>
+        /// Guards the default Market Structure seed so removing the series does not have it
+        /// reappear on the next chart load. Session-scoped on purpose: a fresh launch honours the
+        /// setting again, which is what "on by default" should mean.
+        /// </summary>
+        private bool _structureSeededThisSession;
 
         public WorkspaceInitializer(
             ISeriesManagementService seriesService,
@@ -61,7 +69,8 @@ namespace AccessibleTrader.Core.Services
             IIndicatorService indicatorService,
             Sdk.Strategies.IStrategyEngine? strategyEngine = null,
             Strategies.IConfigurableStrategyFactory? strategyFactory = null,
-            Strategies.IStrategyLibrary? strategyLibrary = null)
+            Strategies.IStrategyLibrary? strategyLibrary = null,
+            IAppSettings? settings = null)
         {
             _seriesService = seriesService;
             _store = store;
@@ -70,6 +79,7 @@ namespace AccessibleTrader.Core.Services
             _strategyEngine = strategyEngine;
             _strategyFactory = strategyFactory;
             _strategyLibrary = strategyLibrary;
+            _settings = settings;
         }
 
         /// <summary>
@@ -210,6 +220,27 @@ namespace AccessibleTrader.Core.Services
                     _                      => null,
                 };
                 if (meta != null) _seriesService.RegisterSeriesFromMetadata(meta);
+            }
+
+            // 3b. Market Structure overlay — seeded by default on OHLCV charts because
+            //     structure is the orientation layer a sighted trader reads off the chart's
+            //     shape for free. Opt-out via Settings; once the user removes the series it
+            //     stays removed for that chart, and this only ever ADDS when absent, so a
+            //     deliberate deletion is not undone on the next reconcile within the session.
+            if (dataShape == ProviderDataShape.Ohlcv && (_settings?.MarketStructureOnByDefault ?? true))
+            {
+                bool alreadyPresent = _store.State.ActiveSeries.Any(sr =>
+                    string.Equals(sr.IndicatorCode, Indicators.SwingStructureProvider.Code,
+                        StringComparison.OrdinalIgnoreCase));
+                if (!alreadyPresent && !_structureSeededThisSession)
+                {
+                    var structureMeta = MetaFor(Indicators.SwingStructureProvider.Code);
+                    if (structureMeta != null)
+                    {
+                        _seriesService.RegisterSeriesFromMetadata(structureMeta);
+                        _structureSeededThisSession = true;
+                    }
+                }
             }
 
             // 4. On SingleValueLine providers, relabel the Price series with the symbol

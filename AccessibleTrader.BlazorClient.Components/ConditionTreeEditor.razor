@@ -17,7 +17,7 @@
 @inject IWorkspaceStore Store
 
 @* ── Condition tree ─────────────────────────────────────────────────────── *@
-<fieldset style="border: 1px solid #555; padding: 10px 14px; margin-bottom: 14px;">
+<fieldset style="border: 1px solid var(--border-color); padding: 10px 14px; margin-bottom: 14px;">
     <legend style="font-weight: 700; padding: 0 6px;">Conditions</legend>
 
     <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
@@ -353,7 +353,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
                             data-tree-toggle="true"
                             @onclick="() => ToggleCollapsed(node)"
                             aria-label="@(isCollapsed ? $"Expand {label}" : $"Collapse {label}")"
-                            style="background: transparent; color: #ddd; border: 1px solid #555; padding: 2px 6px; cursor: pointer; min-width: 24px;">
+                            style="background: transparent; color: #ddd; border: 1px solid var(--border-color); padding: 2px 6px; cursor: pointer; min-width: 24px;">
                         @(isCollapsed ? "+" : "−")
                     </button>
                 }
@@ -362,7 +362,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
                         data-tree-activate="true"
                         @onclick="() => SelectNode(node)"
                         aria-label="Select @label"
-                        style="background: @(isSelected ? "#264" : "transparent"); color: #ddd; border: 1px solid #555; padding: 2px 8px; cursor: pointer;">
+                        style="background: @(isSelected ? "#264" : "transparent"); color: #ddd; border: 1px solid var(--border-color); padding: 2px 8px; cursor: pointer;">
                     @label
                 </button>
 

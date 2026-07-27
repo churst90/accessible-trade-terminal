@@ -4,6 +4,530 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.0] — unreleased, staged for verification
+
+Market watch and screening, three analysis features, two chart modes, an
+application-wide theming system, and the toolbar controls that make all of it
+findable. Plus the research that decided what each feature claims — most of which
+was a null result, deliberately kept.
+
+A MINOR bump: everything here is additive, nothing was removed, and no API broke.
+
+### Five things an upgrading user will notice immediately
+
+None of these is a fault. They are listed first because they change what the
+application looks like and how it behaves on launch, and finding that out by
+surprise is a poor way to meet a release.
+
+1. **The default theme is now Steel Gray**, not High Contrast Dark. The window
+   has a light-to-dark vertical fade and themed chrome throughout. Every previous
+   theme is still there, unchanged, in Settings → Appearance.
+2. **Default candle colours are `#77FF77` and `#DD0000`.** These are now an
+   app-level preference rather than a theme property, so they survive a theme
+   change. "Use theme's" in Settings hands control back to the theme.
+3. **Market Structure is added to every new OHLCV chart.** Turn it off for good in
+   Settings → Analysis; charts already open are never retrofitted.
+4. **Bar replay is on F9–F11**, not F4 — F4 was already the braille toggle.
+5. **High Contrast Light, Soft Dark and Solarized had their candle colours
+   adjusted.** Each paired a mid green against a mid red: distinguishable by hue,
+   nearly identical in greyscale, so the pair stopped carrying direction under
+   red-green deficiency. Each is lifted just enough to separate by brightness.
+
+### Native form controls, two new themes, and a colour-vision gap in three old ones (2026-07-27)
+
+- **The dropdowns were unstyled OS widgets.** Setting a `background-color` on a `<select>` is
+  not enough — the platform still draws its own control, so Market / Provider / Symbol rendered
+  as light-grey system pickers on a themed steel toolbar. `appearance: none` plus an inline
+  `data:` URI arrow fixes it, along with themed `option` colours (an expanded list renders
+  black-on-white otherwise), colour swatches, checkboxes and text inputs. Native form controls
+  are the classic tell that an application was assembled rather than designed, and they were the
+  only elements on screen not following the theme.
+- **Buttons joined the same family**, including the `warning` variant the "Add key" affordance
+  uses — it had been shipping as a default HTML rectangle in a row of themed circular buttons.
+- **The chart legend lost weight**: fill dropped from 234 to 178 alpha with a slightly stronger
+  hairline, so the chart shows through and it reads as an overlay rather than a slab parked on
+  top of the data.
+- **The price axis could print `-0.00`.** A value a hair below zero — rounding residue from the
+  axis-step arithmetic, not a real negative — kept its minus sign through the rounding. On a
+  price axis that reads as a data error, which is the kind of detail that makes a careful reader
+  distrust every other number on screen.
+
+**Two new themes.** *Blackout* — pure black, white text, dialogs lifted to `#242424` because on
+a black window only lightness can say "separate surface", and deliberately flat, since a
+gradient is a lit background by degrees. It is NOT a duplicate of High Contrast Dark: that one
+is an accessibility instrument using white candle bodies because legibility outranks looks;
+Blackout is a preference with normal green/red price action. *Classic* — the familiar dark
+navy-and-teal scheme, so someone arriving from another platform can start from something their
+eye knows and change one thing at a time. It is the only theme keeping teal/salmon candles, and
+that is the point of it.
+
+**A real gap the new tests found in three EXISTING themes.** High Contrast Light, Soft Dark and
+Solarized all paired a mid green against a mid red: distinguishable by hue, but nearly identical
+in greyscale, so the pair stopped carrying direction under red-green deficiency. Worst in High
+Contrast Light, which exists specifically to be legible. Each has been lifted just enough to
+separate by brightness while keeping its character. Classic is exempt by design and says so in
+its own doc comment.
+
+**On light themes and invisible candles** — the trap is real and is now warned about rather than
+hidden. Up/down colour is an app-level preference that survives theme switches, which is right
+for a habit but means a near-white custom pair plus a later light theme yields an invisible
+chart, with neither choice wrong on its own. Every PRESET is checked against itself by
+`EveryTheme_keepsItsOwnCandlesVisibleAgainstItsOwnBackground`, so picking one is always safe.
+Only a custom pair can collide, and Settings now shows a live warning next to the pickers. It
+deliberately does not auto-correct: silently overriding someone's chosen colour is worse than
+letting them see the problem and decide.
+
+- **The toolbar never watched the state it displays.** Pan and Zoom disable on
+  `Store.State.Data.Count`, and Heatmap, Heikin and Log show pressed state from the store's own
+  flags — but `Toolbar.razor` read all of that without subscribing to `StateStream`. It only
+  repainted when something unrelated happened to fire, so pan and zoom could sit greyed out over
+  a chart full of data, and toggling Heikin from the keyboard left the button showing the
+  opposite of the truth. A control that lies about its own state is worse than one that is
+  missing. Found by looking at a screenshot, not by any test — so there is now a test.
+
+Suite 2384 → 2411.
+
+### Three independent theme bands, themed dialogs, up/down as an app preference (2026-07-27)
+
+- **The window is now three INDEPENDENT bands**, each with its own vertical fade: the toolbar
+  band, the Skia canvas, and the footer band. `ChromeTopEnd`, `ChromeBottom` and
+  `ChromeBottomEnd` join `SurfaceRaised` on `ChartTheme`. A theme that wants one continuous
+  window-wide fade lines the seams up (`ChromeTopEnd == Background`,
+  `BackgroundGradientEnd == ChromeBottom`) — Steel does. A theme that wants a walnut header
+  over a near-black chart over a lighter footer simply doesn't. Neither is a special case;
+  previously all three were derived from one fade and could not disagree.
+- **Up and down colours became an app-level preference, not a per-theme one.** Which colour
+  means "up" is a habit a trader carries between themes, and having it change under them when
+  they try a new look is exactly wrong. Settings → Appearance gains a bullish/bearish pair
+  defaulting to `#77FF77` / `#DD0000`, layered over whatever theme is active, with a reset that
+  hands control back to the theme — which is how High Contrast Dark keeps its deliberate
+  white-on-red scheme.
+- **Dialogs take the theme.** `.modal-content` was a fixed `#f2f2f2` with `#111` ink — a light
+  island in a dark application, which is why they read as a different product. They now use
+  `--bg-surface` and a dedicated `--text-on-surface`, kept separate from `--text-primary`
+  because a theme may pair a dark toolbar with a parchment dialog and then the two need
+  opposite ink. 121 inline colour references across the razor files moved onto the variables
+  in the same pass; leaving them would have produced dark-on-dark text the moment the surface
+  changed.
+- **The chart legend follows the theme too.** It was a fixed near-black box, which on a lighter
+  theme reads as a hole punched in the chart.
+- **Steel Gray darkened and its fade deepened.** The chart now runs `#4E545E` → `#22252A`
+  against `#676E79` chrome at the top and `#17191D` at the very bottom. The previous values
+  were both too light — candles sat on a background close enough in tone to mute them — and
+  too shallow to read as a gradient at all.
+
+- **"Blend the toolbars, chart and footer into one gradient" is now a switch.** Lining the
+  seams up by hand is what a theme author does; it is not something a user editing two colour
+  pickers should have to get right. Settings → Appearance → Window gradient takes the colour at
+  the very top and the colour at the very bottom, and each band takes the value the fade has
+  reached where it sits. Leaving the two colours alone smooths whatever the current theme
+  already had. The stops in `UnifiedGradient` are nominal proportions rather than measurements —
+  band colours are decided before layout, and Skia and CSS each paint their half without
+  knowing the other's height — but adjacent bands always share their boundary value, which is
+  the property that removes the seam.
+
+Suite 2373 → 2384, including tests that a theme CAN make the three bands disagree, that a band
+with no end colour stays flat rather than growing a gradient it never asked for, and that the
+up/down preference outranks every theme while its absence leaves each theme's own pair alone.
+
+### The theme now reaches the candles, and the window is one fade (2026-07-27)
+
+- **`ChartTheme`'s candle colours were dead code for the main chart.** `RenderCandles` read
+  the CANDLES component's `ColorHex` unconditionally, and that comes from indicator metadata
+  — a hardcoded `#26A69A` teal and `#EF5350` salmon. So a theme could repaint the
+  background, the grid, the axes and the entire application chrome while the candles stayed
+  TradingView teal: the one element people actually look at was the one element a theme could
+  not touch. Candles, wicks and volume bars now take the theme's colours.
+- **`ComponentConfig.IsUserStyled`** is the distinction that makes that safe. The renderer
+  cannot tell a deliberate recolour from a metadata default by looking at the hex, so the
+  properties dialog sets the flag at the moment of the edit; a hand-picked colour then
+  survives every theme change, and everything else follows the theme.
+- **Only VOLUME follows the candle palette among directional bars.** A MACD histogram or a
+  money-flow bar is not price direction, and colouring it like a candle would claim it was.
+- **The window is one vertical fade.** The container carries a single gradient — light at the
+  top, dark at the bottom — and the toolbars, tab bar and indicator bar are transparent and
+  ride on it, with the Skia canvas painting the middle slice of the same fade. Previously each
+  region had its own flat fill, which is what made the window read as stacked boxes.
+- **Steel Gray retuned** toward that description: `#6B7079` chrome at the top, the chart from
+  `#5C6169` down to `#3B3E44`, and `#33353A` at the bottom. Grid lines were lifted to
+  `#7A808A` — at the old value they sat within a few units of the lighter upper background and
+  were effectively invisible.
+
+**On `#888888` for the top, which was what was asked for:** it is a 3.3:1 contrast ratio under
+near-white text, below the 4.5:1 body-text threshold; `#6B7079` reaches about 4.4:1. The other
+way to keep `#888888` is to flip the chrome to DARK ink — a coherent "brushed steel panel"
+look — but that recolours every toolbar label and icon variant, so it is a decision to take
+deliberately rather than slip in.
+
+`ThemeCoverageTests` gained two pixel tests: one renders an up bar and a down bar and reads
+the colour back off the surface to prove the theme reached the paint, the other proves a
+hand-picked colour survives a theme change. Pixels rather than a unit test of the branch,
+because the failure mode was a value resolving correctly and then never reaching the paint.
+Suite 2371 → 2373.
+
+### Themes now cover the whole window, and Steel Gray is the default (2026-07-27)
+
+A theme used to stop at the canvas edge. The chart is Skia and honoured `ChartTheme`;
+every toolbar, tab, dialog and label around it is HTML reading a fixed `:root` block in
+`app.css`. Switching to the light theme therefore produced a white chart inside a
+near-black frame, and nothing done inside the renderer could have fixed it.
+
+- **`ChartTheme` gained an application-chrome palette** — `SurfaceRaised`,
+  `SurfaceSunken`, `TextPrimary`, `TextMuted`, `ChromeBorder`, `Accent`,
+  `ButtonNeutral`. Optional with defaults, so a theme that has not been dressed keeps
+  working rather than rendering untinted.
+- **`ThemeCssBridge` publishes that palette as CSS custom properties** at first render
+  and on every theme change, via a one-line JS shim. `app.css` keeps a full `:root`
+  fallback so a JS-interop failure degrades to the default palette instead of unstyled
+  HTML — and a test asserts the fallback declares every variable the bridge sets.
+- **The focus ring now follows the theme.** It was a fixed `#ffff00`: excellent on
+  black, close to invisible on the light theme's near-white toolbar. It is picked from
+  the chrome's luminance instead, because a focus ring you cannot see is the same as no
+  keyboard navigation at all for a low-vision user.
+- **The background gradient spans the whole chart, not each pane.** Anchoring it to
+  `PaneRect` restarted the fade in every pane, so a chart with a volume pane showed a
+  hard seam where the light end began again. It is now computed against the full
+  stacked-pane rect and merely clipped per pane.
+- **New default theme: Steel Gray.** Cool neutral greys, chrome a shade lighter than the
+  chart so the toolbars sit above the canvas rather than framing it in something darker,
+  and a chart that fades upward into the tab bar — which itself gradients from the
+  toolbar surface into the chart's top colour, so the three regions read as one surface.
+  The fade is deliberately shallow: a wide swing washes out candles at the top of the
+  pane, which is exactly where price at the top of its range sits.
+  Candles and volume are `#77FF77` / `#DD0000`. Beyond the look, that pair separates by
+  BRIGHTNESS as well as hue, so it still carries direction under red-green deficiency —
+  a test pins the luminance gap.
+  The high-contrast themes are unchanged and one setting away; they are accessibility
+  tools, and shipping "black background, white candles" as a first impression made a
+  finished application read as a debug harness.
+
+`ThemeCoverageTests` holds the parts that rot silently: every theme dresses its chrome,
+every theme's chrome text stays legible on its own toolbar, every theme gets a visible
+focus ring, the stylesheet fallback matches the bridge, and Steel Gray's candles stay
+readable at both ends of its gradient. Suite 2340 → 2371.
+
+**One correction worth recording:** the candle-contrast test first measured luminance
+alone and failed `#DD0000` against the `#383C42` top — the two are within 0.05 in
+brightness. But a saturated red on a neutral blue-grey is plainly visible; what
+separates them is chroma, which luminance cannot see. Luminance is the right measure
+for grey-on-grey (the doji, chrome text) and the wrong one for anything saturated. The
+same test also failed the grid line for being correctly quiet — grid lines are the one
+thing that SHOULD sit close to the background, and they now get a band check (present,
+but subordinate) instead of a contrast floor.
+
+### The API-key sentinel stops rearranging the toolbar (2026-07-27)
+
+Selecting a provider without a configured key put
+"⚠ API key required — open API Keys (Alt+K)" into the symbol dropdown. A `<select>`
+sizes itself to its widest option, so that one string widened the control enough to
+reflow the whole toolbar — Pan and Zoom jumped up into the row above. Nothing was
+broken; the layout simply moved under the user, which for someone navigating by Tab
+order is worse than it looks.
+
+- **The sentinel is now "API key required"** — short enough to ride inside the control
+  rather than drive its width, and still enough to name the problem on its own, since
+  it is what a screen reader reads off the dropdown.
+- **`MarketOrchestrator.ApiKeyRequiredHelp` carries the full explanation**, and it now
+  appears in three better places than a dropdown option: the control's tooltip, an
+  **Add key** button that opens the API Keys dialog from where the user already is, and
+  a spoken announcement fired the moment the provider switch causes it. Speaking the
+  reason beats making someone go and read a dropdown to find out why Load is disabled.
+- **The symbol dropdown is width-capped** at 22ch. The sentinel was not the only long
+  value — a Polygon options contract (`O:SPY251219C00650000`) reflows the row exactly
+  the same way — so the cap fixes the class, not just the instance.
+
+`ToolbarLayoutStabilityTests` pins all of it, including a character budget on the
+sentinel, because writing a friendlier one is precisely how this comes back.
+Suite 2334 → 2340.
+
+### Legend keys that look like the chart, and a marker-extent correction (2026-07-27)
+
+- **Every legend row drew the same coloured square.** A dashed resistance line, a
+  step-line POC and a diamond marker had identical keys, so the legend told you a
+  colour and nothing else. Rows now carry a `LegendGlyph` and draw accordingly: a
+  stroked stub for lines, dashed to match the series' own `DashStyle` and weighted by
+  its thickness; the real marker shape for markers; a filled chip for candles, bars and
+  histograms.
+- **A collapsed marker family showed one colour for six marks.** "Value Deviation —
+  6 marks" took the first marker's green and presented a six-colour indicator as green.
+  The row now carries every distinct colour in the family and the key draws up to three
+  chips in the family's own shape.
+- **Two indicators naming a component the same read as a duplicate.** A level provider
+  and Value Deviation both produce a "Resistance"; side by side those rows looked like
+  one entry listed twice. Colliding labels are now prefixed with the owning indicator's
+  short name ("Cipher SR Resistance"), and labels that are already unique are left
+  alone, since the legend is width-constrained.
+- **Lighter chrome.** Hairline border and a slightly softer background so the legend
+  reads as an overlay rather than a dialog parked on the chart. Still near-opaque —
+  text over candles has to stay legible.
+- **Marker extent: half versus full.** The first pass clamped every glyph against one
+  ceiling, but the renderers disagree about what their size variable means. A triangle's
+  `arrowSize` is the whole height, while a square's `half`, a diamond's `half`, a
+  cross's `arm` and a dot's `radius` are half of it — so those four drew at exactly
+  twice the intended cap. That is why the squares and crosses still looked heavy after
+  the fix. `ClampMarkerExtent` now takes a FULL extent and `ClampMarkerHalfExtent`
+  converts once, in one place; the cap is 1.8 bar widths with a 6px floor.
+
+### Two long-standing DrawRect bugs, and two regressions from the legibility pass (2026-07-27)
+
+- **`SKCanvas.DrawRect`'s four-float overload is `(x, y, width, height)`, not
+  `(left, top, right, bottom)` — and two call sites passed bounds.**
+  `RenderPaneLegend`'s 8px colour swatch and `RenderYAxisSwatches`' 4x3px tick were
+  both painting rectangles roughly as wide as the canvas and hundreds of pixels tall:
+  a colour column running past the bottom of the legend box, and solid blocks down the
+  price axis burying the axis labels behind them. Nothing threw, nothing looked
+  obviously broken, and it read as a deliberate styling choice — legend text on
+  coloured backgrounds. Both predate this week; the swatch bug is as old as the legend.
+  Every other `DrawRect` call in the renderer was already correct.
+- **The collapsed legend row used the series' full instance name.** A series is named
+  `"{metadata name} {each parameter value}"`, so the new marker-family row read
+  "Value Deviation (support / resistance zones) 240 5 2 2 1 — 6 marks" and stretched
+  the legend across a third of the chart width. Fixing the height budget without
+  bounding the width just rotated the problem. Now `ChartRenderer.ShortSeriesName`
+  drops the parenthesised subtitle and any trailing NUMERIC tokens (a string parameter
+  is usually the point of the name — "Funding Rate BTC-USDT-SWAP" is kept), and the
+  box is additionally capped at 28% of pane width with ellipsis, so no indicator's
+  name can eat the chart regardless of what it calls itself.
+- **Markers are now clamped against bar width.** Thickness is authored for a normal
+  zoom; at 330 bars in view the bars shrink and the glyphs do not, so the new swing
+  squares came out about four times a candle wide and buried the price action they
+  describe. `StandardRenderers.ClampMarkerSize` caps every glyph at 2.2x bar width
+  with a 3px floor, applied across all nine marker renderers. The configured thickness
+  stays an upper bound — this only ever makes a marker smaller — and the floor keeps a
+  mark visible at extreme zoom, because a mark you cannot see is worse than no mark:
+  the chart still claims to be showing you something.
+
+`MarkerSizingTests` covers the clamp and the short name directly, and renders a square
+marker into a real `SKSurface` to measure its painted bounding box — which is the only
+kind of test that would have caught the `DrawRect` argument order. Suite 2312 → 2327.
+
+### Chart legibility: legend, marker shapes, marker density (2026-07-27)
+
+All three came out of one weekly BTC screenshot carrying Market Structure and
+Value Deviation at once. Nothing was broken; the chart was simply unreadable, and
+each cause was invisible when the features were reviewed one at a time.
+
+- **The pane legend named the wrong nine things and covered a third of the plot.**
+  `RenderPaneLegend` took the first nine components in series order against a fixed
+  nine-row cap. One marker-heavy indicator therefore spent the whole budget: the box
+  grew to ~152px inside a ~215px price pane and listed nine near-identical tier
+  labels, while the candles, the moving average and the levels were never named at
+  all. Now the selection logic is `ChartRenderer.BuildLegendRows` — extracted from
+  the draw call so it can be tested — with three rules: the row budget comes from
+  the pane height (45% of it, floor 3, ceiling 9); rows are ranked base data →
+  continuous lines → markers before any truncation; and a series contributing three
+  or more marker components collapses to one row naming the series and the count.
+  When rows still do not fit, the last row says how many were dropped, because a
+  legend showing a silent subset reads as a complete list of what is on the chart.
+- **Two indicators were drawing the same glyph in the same colour.** Swing High was
+  a red down-triangle at 7px; Value Deviation's Resistance tier 1-2 was a red
+  down-triangle at 7px. Same for the green up-triangles. Market Structure now owns
+  the angular family — squares for swings, crosses for Break of Structure (amber)
+  and Change of Character (purple, larger) — and Value Deviation keeps the graded
+  triangle → dot → diamond ladder, where the shape *is* the tier and so cannot move.
+  Swing marks also gained `AboveBar` / `BelowBar` anchors so the glyph sits clear of
+  the wick instead of on its tip, hiding the price it marks.
+
+  `MarkerLegibilityTests` measures this rather than trusting judgement, and caught a
+  second clash on the first run: Change of Character's purple diamond against the
+  neon-red deep tier measured 23,760 in squared RGB — inside the range where two
+  glyphs of the same shape read as the same mark, and closer still under
+  deuteranopia. "Purple is unmistakable against red" was an assumption, and it was
+  wrong; CHoCH became a cross.
+- **Value Deviation gained a "Show tiers from" parameter, defaulting to 2.** Tier 1
+  is a reversal barely outside value — closer to noise than to a zone — and it was
+  the bulk of the marks on any long view. It filters the MARK only: the Deviation
+  Tier component, the spoken detail and the reference lines still report every tier,
+  so the chart gets quieter without anything becoming unavailable to speech.
+
+26 new tests (`PaneLegendTests`, `MarkerLegibilityTests`, plus Value Deviation
+density coverage); suite 2286 → 2312.
+
+### Toolbar controls for everything shipped (2026-07-27)
+
+The honest framing: the watchlist, screener, respect report, journal, AI analyst,
+bar replay and split view all worked, were tested, and had keyboard shortcuts —
+and none of them had a button anywhere on screen. You had to already know the
+shortcut to discover the feature existed. That is a shipping defect, not a polish
+item, so this batch closes it and adds a test to stop it recurring.
+
+- **Six new toolbar buttons.** Row 1 (opens panels) gains **Watch** (watchlists
+  and screener), **Zones** (respect report), **Journal** and **AI**. Row 2 (chart
+  behaviour) gains **Split** and **Replay**, beside Heatmap / Heikin / Log. Both
+  new row-2 buttons show pressed state, so a toggle is never write-only.
+- **Three new sprite icons** — `watchlist`, `split-view`, `replay`.
+- **Buttons publish the command EVENT** rather than calling the service directly,
+  so button and keyboard shortcut go down one code path including the spoken
+  confirmation. The toolbar subscribes to both command events so its pressed state
+  repaints when the change came from the keyboard.
+- **`ToolbarControlSurfaceTests`** — a source-level scan enforcing the mechanical
+  half of discoverability: every feature in its table must have a toolbar control,
+  every `ToolbarIconButton` must name an icon that exists in the sprite, every
+  button must carry an `AriaLabel`, sprite ids must be unique, and Split/Replay
+  must stay in the row-2 toggle group. Caught a real defect immediately — the
+  `ToolbarIconButton` usage example in its own doc comment omitted `AriaLabel`,
+  which is exactly how the omission propagates.
+- **Market Structure's default now has a control.** The setting existed in
+  `AppSettings` with no UI, so "on by default" was unturnoffable. Settings → a new
+  **Analysis** group. Affects charts loaded from then on; open charts are left
+  alone, because silently stripping an indicator off a chart someone is reading is
+  a worse surprise than the setting waiting one load.
+
+### Market watch: symbol picker and screen builder (2026-07-27)
+
+The screening engine shipped without the half a user touches. There was no way to
+pick a symbol except typing it, and no way to build a screen at all — so the
+saved-screens list was permanently empty and the only thing runnable was a quote
+screen that matched everything.
+
+- **Symbol picker replaces the free-text box.** Market → Provider → Sub-type →
+  Symbol, mirroring the toolbar's cascade exactly, including the market-key rule
+  (`"Market|SubType"` only when the provider really has more than one sub-type —
+  that string routes the fetch). Pre-filled from the chart you were looking at.
+  A **Filter symbols** box narrows large universes as you type, with a live spoken
+  count of showing-vs-total, an explicit note when the 500-row display cap is hit,
+  and **Add all shown** for bulk list building. The previous free-text box let a
+  typo become a watchlist entry that failed at screen time and read as a broken
+  screener; it also hard-coded `MarketType.Crypto` on every entry regardless of
+  what you were adding.
+- **Quick screen builder.** A new **Build a screen** tab: name the screen, add
+  filter rows (indicator → component → condition → operands), choose how they
+  combine (all / any / weighted score with a threshold), set bars of history, and
+  save. Editing, deleting and starting fresh are all there.
+  - **The operator list is gated by signal kind.** A marker component is NaN on
+    every bar it didn't fire, so offering it "is above 30" would build a screen
+    that is false forever and reads as a quiet market rather than a broken filter.
+  - **Only the operand boxes the chosen condition uses appear**, and a fresh
+    filter is seeded inside the component's own documented range rather than at
+    zero. Operands the operator doesn't use are dropped on save, so a leftover
+    value from a previously chosen operator can't change what the screen means.
+  - **Every row has a plain-language echo** underneath — "Cipher B — Buy fired
+    within 3 bars." — so a row can be verified in one read instead of tabbing back
+    through five controls.
+  - **A screen with nested groups is flagged, not flattened.** Re-saving a
+    flattened copy over hand-built structure would destroy work.
+- **`QuickScreenBuilder`** (Core) holds the flat-rows ⇄ `ConditionNode`
+  translation, out of the razor, because every way it can be wrong fails silently.
+  49 new tests across it and the toolbar scan; suite 2237 → 2286.
+
+### Watchlists, screener, respect report, bar replay, split view (2026-07-25)
+
+- **Watchlists** (`watchlists.json`) — named, ordered symbol sets that remember
+  their provider and sub-type.
+- **Screener** — runs a condition tree against the last closed bar of every symbol
+  on a list. Reuses the Strategy Composer's own `ISignalCatalog` and
+  `IConditionEvaluator`, so every indicator, operator and signal descriptor the
+  composer understands worked in the screener on day one. Results are a real table
+  with column and row headers. **Symbols that could not be evaluated are reported,
+  never dropped** — "not enough history" and fetch failures stay visible even in
+  matches-only mode, and every spoken summary names matched, evaluated AND failed,
+  because "we never looked at twelve of these" must not be able to look like
+  "nothing qualified".
+- **Respect report** (Alt+R) — measures which lines this market actually reacts to
+  rather than assuming. Two tabs: levels near price, and a moving-average ranking
+  (10/20/21/50/89/100/200, including higher-timeframe projections). Reports hold
+  rate, touch count, median reaction in ATR, support-vs-resistance split, last
+  touch and current distance. **Touches are counted on wicks; outcomes are judged
+  on closes** — measuring the reaction from the touch bar's extreme made a sweep
+  and a genuine breakdown identical. Wicks through and back count as holds,
+  because that is the level working. Thin samples are filtered by default and
+  labelled when shown.
+- **Bar replay** (Ctrl+Alt+Shift+P / F11, F9, Shift+F9, F10) — hides history after
+  the cursor bar and gives it back one bar at a time. Indicators recompute on
+  revealed bars only, so an oscillator reads what it would have read then.
+  Stopping restores the full history and the prior viewport.
+- **Split view** (Ctrl+Alt+Shift+S / E / O) — a second chart from another tab,
+  side-by-side or stacked. Renders from the frozen tab snapshot the store already
+  keeps, so it adds no state and can't drift. Focus, speech and sonification stay
+  with the active chart. Declines to split rather than drawing two unreadable
+  slivers when the window is too narrow.
+
+### Market Structure indicator, on by default (2026-07-25)
+
+`SWING_STRUCTURE` — swing highs and lows, HH/HL/LH/LL labelling, the trend state
+those imply, Break of Structure and Change of Character. Five bars each side by
+default with a one-ATR significance floor. Three components (structure state, last
+swing high, last swing low) computed and hidden by default.
+
+**Stated in its own description and in the manual: descriptive, not predictive.**
+A swing marker is drawn on the pivot bar but cannot be *identified* until the span
+has passed, so it appears where you could never have traded. Tested directly:
+filling at the pivot price versus at the close of the first bar where the pivot was
+knowable was the difference between an impossible return and one that did not beat
+buy-and-hold. See `SwingTradeCommand`.
+
+### Value Deviation indicator (2026-07-26)
+
+`VALUE_DEVIATION` — marks where price REVERSED relative to value. A rolling
+volume-profile POC defines value; a reversal below it marks a support zone, above
+it a resistance zone, and a five-tier scale per side says how far from value the
+zone formed, carried in both marker shape/colour and pitch. Optional momentum
+confirmation (on by default) uses the indicator's own internal WaveTrend, so it
+does not depend on Cipher B being on the chart.
+
+Corrections folded in during development, each worth recording:
+
+- **It printed zero marks on every chart.** WaveTrend's second chained EMA seeded
+  from a NaN warmup, so NaN propagated everywhere and the momentum filter rejected
+  every bar. The POC and value lines looked healthy, so nothing pointed at it.
+  A new lab `probe` command reports non-NaN counts per component at realistic bar
+  counts, which is how the second half of the bug — a 480-bar default window
+  against a ~200-bar fetch — was found.
+- **A degenerate uniform volume profile made the POC whichever bin won a tie.**
+  The value-area-width test does not catch it: growing from bin 0, 70% of volume
+  fills 35 of 50 bins and looks narrow. A peak-prominence test does.
+- **The equities/crypto invert mode was removed entirely**, not renamed. Once the
+  indicator's job was stated as "show where value is, and where reversals marked a
+  zone", the mode had nothing to invert.
+- **Markers carry the zone price**, not a plot level, via the new `MarkerAnchor`.
+
+### Fixes made along the way (2026-07-25 → 2026-07-26)
+
+- **Boolean indicator parameters were silently non-functional app-wide.**
+  `FormatParam` writes `"true"`; `IndicatorModelFactory` required `double.TryParse`
+  and dropped it. This had been quietly disabling Cipher SR's AdaptiveBreak and
+  Cipher B's UseAnchorSuppression too. Bool parameters now also render as
+  checkboxes in both the add-indicator and properties dialogs instead of a text
+  box expecting the word "true".
+- **`CipherSrLevelProvider` had a 15-bar lookahead** relative to the provider it
+  mirrors — backtest-only, live was never affected. Correcting it turned +0.739R
+  at p=0.0002 into −0.095R at p=0.23.
+- **Markers now follow the displayed bars.** `MarkerAnchor` plus a single
+  `ResolveMarkerY` path for all twelve marker renderers means anchored markers
+  track Heikin Ashi candles instead of floating over the untransformed price.
+- **The toolbar follows the active tab.** Switching tabs now re-syncs the
+  market/provider/sub-type cascade to what that tab actually has loaded, instead
+  of leaving the toolbar describing the tab you left.
+- **Keyboard shortcut audit.** Bar replay moved to F9/Shift+F9/F10/F11 after F4
+  turned out to be the braille toggle; `ShortcutConflictTests` now fails on any
+  overlap.
+
+### Research: what was tested and what survived (2026-07-25 → 2026-07-26)
+
+Roughly ten hypotheses, run through surrogate controls (block bootstrap preserving
+volatility clustering), permutation nulls, non-overlapping samples and
+out-of-sample holdouts. Recorded because knowing what does NOT work is most of the
+value, and because two of the results that looked spectacular were bugs.
+
+- **POC mean reversion in equities is real and short.** 348,221 bars across 38
+  symbols: Spearman −0.011 at a 5-day horizon, p=0.0032; the below-minus-above
+  tail gap +0.120 ATR at p=0.0004. Faded by 20 bars, gone by 60. Two things must
+  be said with it: the effect is tiny, and short-term reversal in equities is one
+  of the oldest documented anomalies — recovering it at the right sign and horizon
+  is evidence the pipeline works, not a discovery.
+- **"Crypto is a momentum regime" was Bitcoin with nine passengers.** On a clean
+  crypto-only pool, BTC reaches rho +0.112 at p=0.0010 and no other coin reaches
+  significance; four lean the other way. The claim was published, then withdrawn
+  and narrowed to BTC specifically.
+- **Hand-drawn origin lines did not survive a data-derived control.** The search
+  pinned at the boundary on 12 of 13 assets.
+- **Structure alone, as a trading rule, was null.** It earns its place as context.
+- **Two spectacular results were lookahead bugs** — the Cipher SR one above, and
+  swing trading via the descriptive analyzer's retrospective pivot replacement
+  (+3,137,733% on BTC, versus +9,291% causal; a factor of ~340).
+
+---
+
 ## [2.0.1] — 2026-07-26
 
 A point release on top of 2.0.0: accessibility fixes surfaced in live use, plus a

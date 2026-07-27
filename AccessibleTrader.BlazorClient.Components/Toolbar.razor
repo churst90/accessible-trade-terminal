@@ -1,6 +1,9 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Core.Services.Rendering
+@using Microsoft.Extensions.DependencyInjection
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
@@ -11,6 +14,7 @@
 @inject ILogger<Toolbar> Logger
 @inject DemoPolicy Demo
 @inject IViewportManager Viewport
+@inject IServiceProvider Services
 @implements IDisposable
 
 @* ── Per-tab "mode" helper: true when the current tab is showing an OHLCV
@@ -74,6 +78,31 @@
                                   Tooltip="Open strategies (Alt+S)"
                                   AriaLabel="Strategies"
                                   OnClick="() => EventBus.Publish(new OpenStrategiesEvent())" />
+            }
+            @if (!Demo.IsDemo)
+            {
+                <ToolbarIconButton Icon="watchlist" Label="Watch" Variant="data"
+                                  Tooltip="Watchlists and screener — track symbols and scan them for conditions (Alt+M)"
+                                  AriaLabel="Watchlists and Screener"
+                                  OnClick="() => EventBus.Publish(new OpenWatchlistEvent())" />
+            }
+            @if (IsTradingTab)
+            {
+                <ToolbarIconButton Icon="analytics" Label="Zones" Variant="thought"
+                                  Tooltip="Level respect report — which moving averages and levels this symbol actually reacts to (Alt+R)"
+                                  AriaLabel="Level Respect Report"
+                                  OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
+            }
+            <ToolbarIconButton Icon="journal" Label="Journal" Variant="neutral"
+                              Tooltip="Trade journal — review spoken messages and alert history (Ctrl+Alt+Shift+J)"
+                              AriaLabel="Trade Journal"
+                              OnClick="() => EventBus.Publish(new OpenJournalEvent())" />
+            @if (Demo.AllowAiAnalyst)
+            {
+                <ToolbarIconButton Icon="ai-analyst" Label="AI" Variant="thought"
+                                  Tooltip="AI analyst — plain-language read of the current chart (Ctrl+Alt+Shift+A)"
+                                  AriaLabel="AI Analyst"
+                                  OnClick="() => EventBus.Publish(new OpenAIAnalystEvent())" />
             }
             @if (Demo.AllowAlerts)
             {
@@ -182,8 +211,14 @@
         }
 
         <label for="symbol-select">Symbol:</label>
+        @* max-width so a long ticker — an options contract, or the API-key sentinel — cannot
+           widen the control enough to reflow the toolbar rows. The full value is still in the
+           tooltip and in what the screen reader reads. *@
         <select id="symbol-select"
                 aria-label="Select symbol"
+                aria-describedby="@(NeedsApiKey ? "symbol-key-help" : null)"
+                title="@(NeedsApiKey ? AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp : MarketOrchestrator.SelectedSymbol)"
+                style="max-width: 22ch;"
                 @onchange="OnSymbolChanged"
                 value="@MarketOrchestrator.SelectedSymbol">
             @foreach (var s in MarketOrchestrator.AvailableSymbols)
@@ -191,6 +226,15 @@
                 <option value="@s" selected="@(s == MarketOrchestrator.SelectedSymbol)">@s</option>
             }
         </select>
+        @if (NeedsApiKey)
+        {
+            @* Visible next to the disabled Load button rather than crammed into the dropdown,
+               and a live region so the reason is announced when the provider switch causes it. *@
+            <button type="button" class="warning" id="symbol-key-help"
+                    title="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
+                    aria-label="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
+                    @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">Add key</button>
+        }
 
         <div class="toolbar-separator" aria-hidden="true"></div>
 
@@ -312,6 +356,16 @@
                                   Tooltip="Toggle logarithmic price scale"
                                   AriaLabel="Toggle logarithmic price scale"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
+                <ToolbarIconButton Icon="split-view" Label="Split" Variant="data"
+                                  IsToggleOn="@IsSplitActive"
+                                  Tooltip="Toggle split view — show a second tab's chart alongside this one (Ctrl+Alt+Shift+S)"
+                                  AriaLabel="Toggle split view"
+                                  OnClick="ToggleSplit" />
+                <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
+                                  IsToggleOn="@IsReplayActive"
+                                  Tooltip="Toggle bar replay — hide history and step forward one bar at a time (Ctrl+Alt+Shift+P)"
+                                  AriaLabel="Toggle bar replay"
+                                  OnClick="ToggleReplay" />
             </div>
         }
 
@@ -357,6 +411,9 @@
 @code {
     private IDisposable? _pipelineSub;
     private IDisposable? _loadChartSub;
+    private IDisposable? _stateSub;
+    private IDisposable? _splitSub;
+    private IDisposable? _replaySub;
     private string? _loadError;
 
     // ── Custom timeframe composer state ──────────────────────────────────
@@ -368,6 +425,29 @@
     private bool CanLoad =>
         !string.IsNullOrEmpty(MarketOrchestrator.SelectedSymbol)
         && MarketOrchestrator.SelectedSymbol != AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
+
+    // ── Split view / bar replay toggles ──────────────────────────────────
+    // Resolved through the service provider rather than @inject so the toolbar still
+    // renders in hosts (and unit tests) that don't stand up the chart-rendering graph;
+    // a missing service leaves the button present but inert rather than throwing at
+    // component-initialisation time and taking the whole toolbar with it.
+    private ISplitViewCoordinator? SplitView => Services.GetService<ISplitViewCoordinator>();
+    private IReplayService?        Replay    => Services.GetService<IReplayService>();
+
+    private bool IsSplitActive  => SplitView?.IsEnabled ?? false;
+    private bool IsReplayActive => Replay?.IsActive ?? false;
+
+    // Published as events rather than called directly so the button and the keyboard
+    // shortcut go down exactly one code path — including the spoken confirmation the
+    // services emit, which a direct call would bypass.
+    private void ToggleSplit()  => EventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle));
+    private void ToggleReplay() => EventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle));
+
+    // True when the selected provider needs a key it hasn't got, so the symbol list is the
+    // sentinel rather than real symbols.
+    private bool NeedsApiKey =>
+        MarketOrchestrator.SelectedSymbol
+            == AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
 
     private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
 
@@ -405,9 +485,25 @@
         _pipelineSub = MarketOrchestrator.PipelineUpdated
             .Subscribe(_ => InvokeAsync(StateHasChanged));
 
+        // And whenever the WORKSPACE changes, because several controls read their state straight
+        // out of the store: Pan and Zoom disable on Store.State.Data.Count, and Heatmap, Heikin
+        // and Log show pressed state from the store's own flags. Without this the toolbar only
+        // repainted when something unrelated happened to fire, so pan and zoom could sit greyed
+        // out over a chart full of data, and toggling Heikin from the keyboard left the button
+        // showing the opposite of the truth. A control that lies about its own state is worse
+        // than one that is missing.
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
         // a silent no-op when the market cascade isn't complete yet.
+        // The Split and Replay buttons show pressed state, and both are also reachable
+        // from the keyboard, so the toolbar has to repaint when the change came from
+        // somewhere else. The services flip their own state on the same events, so this
+        // deliberately re-renders AFTER them by hopping through InvokeAsync.
+        _splitSub  = EventBus.Subscribe<SplitViewCommandEvent>(_ => InvokeAsync(StateHasChanged));
+        _replaySub = EventBus.Subscribe<ReplayCommandEvent>(_ => InvokeAsync(StateHasChanged));
+
         _loadChartSub = EventBus.Subscribe<LoadChartRequestedEvent>(_ => InvokeAsync(async () =>
         {
             if (!CanLoad)
@@ -661,5 +757,8 @@
     public void Dispose() {
         _pipelineSub?.Dispose();
         _loadChartSub?.Dispose();
+        _stateSub?.Dispose();
+        _splitSub?.Dispose();
+        _replaySub?.Dispose();
     }
 }

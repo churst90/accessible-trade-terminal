@@ -112,6 +112,17 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.OpenSoundDesigner)]
         [InlineData(SystemCommand.OpenJournal)]
         [InlineData(SystemCommand.OpenAIAnalyst)]
+        [InlineData(SystemCommand.OpenWatchlist)]
+        [InlineData(SystemCommand.OpenLevelReport)]
+        // Bar replay transport — global so the keys work while focus sits in a side panel.
+        [InlineData(SystemCommand.ReplayToggle)]
+        [InlineData(SystemCommand.ReplayStepForward)]
+        [InlineData(SystemCommand.ReplayStepBack)]
+        [InlineData(SystemCommand.ReplayPlayPause)]
+        // Split view — global; it changes layout, not chart cursor state.
+        [InlineData(SystemCommand.SplitViewToggle)]
+        [InlineData(SystemCommand.SplitViewCycle)]
+        [InlineData(SystemCommand.SplitViewOrientation)]
         // Accessibility toggles (F2, F3)
         [InlineData(SystemCommand.ToggleSpeech)]
         [InlineData(SystemCommand.ToggleSonification)]
@@ -215,6 +226,11 @@ namespace AccessibleTrader.Tests
                 SystemCommand.FocusTabBar,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
+                SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
+                SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,
+                SystemCommand.ReplayStepBack, SystemCommand.ReplayPlayPause,
+                SystemCommand.SplitViewToggle, SystemCommand.SplitViewCycle,
+                SystemCommand.SplitViewOrientation,
                 SystemCommand.ToggleBraille, SystemCommand.OpenBrailleSettings,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,

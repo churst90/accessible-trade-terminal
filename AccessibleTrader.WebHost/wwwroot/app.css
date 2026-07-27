@@ -19,33 +19,54 @@ html, body {
 }
 
 :root {
-    --bg-primary:    #121212;
-    --bg-toolbar:    #1e1e1e;
-    --bg-header:     #111111;
-    --text-primary:  #ffffff;
-    --text-muted:    #aaaaaa;
-    --border-color:  #444444;
-    --accent-color:  #0078d4;
-    --focus-outline: 2px solid #ffff00;
+    /* ── Theme fallback ────────────────────────────────────────────────────
+       ThemeCssBridge overwrites every one of these on documentElement at startup
+       and on each theme change, so a theme covers the chrome as well as the chart.
+       These values are the Steel Gray default and exist so a JS-interop failure
+       degrades to a sane palette rather than to unstyled HTML. Any variable added
+       to ThemeCssBridge.VariableNames must also appear here — a test enforces it. */
+    --bg-primary:    #17191d;
+    --bg-toolbar:    #676e79;
+    --bg-toolbar-end: #4e545e;
+    --bg-footer:     #22252a;
+    --bg-footer-end: #17191d;
+    --bg-header:     #676e79;
+    --bg-surface:    #2b2f36;
+    --text-on-surface: #ecf0f6;
+    --text-primary:  #f7f9fc;
+    --text-muted:    #d4dae3;
+    --border-color:  #868e9a;
+    --accent-color:  #8fc2ff;
+    --btn-neutral:   #eef2f7;
+    --chart-fade-top: #4e545e;
+    --focus-outline-color: #ffff00;
+    --bullish-color: #77ff77;
+    --bearish-color: #dd0000;
+
+    --focus-outline: 2px solid var(--focus-outline-color);
 }
 
 .app-container {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: transparent !important;
+    /* Three INDEPENDENT bands, each painting its own fade: the toolbar band, the Skia canvas,
+       and the footer band. A theme lines the seams up for one continuous window-wide fade
+       (Steel does) or leaves them different (a walnut header over a near-black chart). The
+       container only supplies the colour behind everything. */
+    background: var(--bg-primary) !important;
 }
 
 .app-header {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
-    background: var(--bg-header);
+    background: transparent;
     color: var(--text-primary);
 }
 
 .app-footer {
     padding: 5px 12px;
-    background: var(--bg-header);
+    background: var(--bg-footer-end);
     font-size: 0.82rem;
     border-top: 1px solid var(--border-color);
     color: var(--text-muted);
@@ -56,8 +77,10 @@ html, body {
 /* ── Toolbars ──────────────────────────────────────────────────────────────── */
 
 .toolbar {
-    background-color: var(--bg-toolbar);
-    border-bottom: 1px solid var(--border-color);
+    /* The toolbar band's own fade. Its end colour is the chart's top colour in themes that
+       want continuity, which is what makes the seam above the canvas disappear. */
+    background: linear-gradient(to bottom, var(--bg-toolbar), var(--bg-toolbar-end));
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
     flex-wrap: wrap;
@@ -73,8 +96,8 @@ html, body {
 }
 
 .indicator-bar {
-    background-color: var(--bg-toolbar);
-    border-top: 1px solid var(--border-color);
+    background: linear-gradient(to bottom, var(--bg-footer), var(--bg-footer-end));
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
     padding: 5px 12px;
     display: flex;
     gap: 8px;
@@ -84,8 +107,12 @@ html, body {
 /* ── Tab bar ──────────────────────────────────────────────────────────────── */
 
 .tab-bar {
-    background-color: #0d0d0d;
-    border-bottom: 1px solid var(--border-color);
+    /* Directly above the canvas, so it fades from the toolbar's surface into the chart's own
+       top colour. This is the seam the "fluid" look lives or dies on: a flat strip of a third
+       colour between the toolbar and the chart is what made the window read as three stacked
+       boxes rather than one surface. */
+    background: var(--bg-toolbar-end);
+    border-bottom: none;
     display: flex;
     flex-direction: row;
     gap: 2px;
@@ -95,9 +122,9 @@ html, body {
 }
 
 .tab-button {
-    background: #1a1a1a;
+    background: var(--bg-surface);
     color: var(--text-muted);
-    border: 1px solid #333;
+    border: 1px solid var(--border-color);
     border-bottom: none;
     border-radius: 4px 4px 0 0;
     padding: 3px 10px 3px 10px;
@@ -111,7 +138,7 @@ html, body {
 }
 
 .tab-button:hover {
-    background: #252525;
+    background: var(--bg-surface);
     color: var(--text-primary);
 }
 
@@ -148,46 +175,69 @@ html, body {
 }
 
 .tab-new:hover {
-    background: #252525;
+    background: var(--bg-surface);
     color: var(--text-primary);
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 
 button {
-    background-color: #2d2d2d;
+    /* Matched to the form controls above so a button next to a dropdown reads as the
+       same family. The old fixed #2d2d2d / #555 pair ignored the theme entirely and
+       showed up as a flat dark rectangle in a row of themed controls. */
+    background-color: color-mix(in srgb, var(--bg-surface) 82%, transparent);
     color: var(--text-primary);
-    border: 1px solid #555;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
     padding: 4px 12px;
     font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.4;
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
 }
 
-button:hover {
-    background-color: #3a3a3a;
-    border-color: #777;
+button:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+    border-color: var(--border-color);
 }
 
-button:active {
-    background-color: #1a1a1a;
+button:active:not(:disabled) {
+    background-color: var(--bg-surface);
 }
 
 /* aria-pressed="true" — visually indicates the pressed/active state */
 button[aria-pressed="true"],
 button[aria-checked="true"] {
-    background-color: #444;
-    border-color: #aaa;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    background-color: color-mix(in srgb, var(--accent-color) 24%, transparent);
+    border-color: var(--accent-color);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 button.primary {
     background-color: var(--accent-color);
-    border-color: #005a9e;
+    border-color: var(--accent-color);
+    color: #0c0f14;
+    font-weight: 600;
 }
 
-button.primary:hover {
-    background-color: #1a8ad4;
+button.primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+/* Draws attention without shouting — used for "Add key", which appears only when the
+   selected provider cannot list symbols without one. */
+button.warning {
+    background-color: color-mix(in srgb, #ffb300 20%, transparent);
+    border-color: color-mix(in srgb, #ffb300 65%, transparent);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+button.warning:hover:not(:disabled) {
+    background-color: color-mix(in srgb, #ffb300 32%, transparent);
+    border-color: #ffb300;
 }
 
 button:disabled,
@@ -206,14 +256,89 @@ input:focus-visible,
     outline-offset: 2px;
 }
 
-/* ── Form Elements ─────────────────────────────────────────────────────────── */
+/* ── Form Elements ─────────────────────────────────────────────────────────────
+   `appearance: none` is the whole point of this block. Setting a background-color
+   on a <select> is not enough — the platform still draws its own widget, so the
+   market/provider/symbol pickers rendered as light-grey OS controls sitting on a
+   themed toolbar. Native form controls are the classic tell that an application was
+   assembled rather than designed, and they were the only elements on screen that
+   did not follow the theme.
 
-select, input[type="text"] {
-    background-color: #111;
+   The dropdown arrow is an inline data: URI rather than a sprite reference, because
+   background-image cannot reach into an SVG <symbol>. It is drawn in currentColor's
+   place by hand — the one spot in the app where a colour is repeated rather than
+   inherited, which is why it is stated here.                                      */
+
+select,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: color-mix(in srgb, var(--bg-surface) 82%, transparent);
     color: var(--text-primary);
-    border: 1px solid #555;
-    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
+    padding: 4px 8px;
     font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: border-color 0.12s ease-out, background-color 0.12s ease-out;
+}
+
+select {
+    /* Room on the right for the arrow, which is painted as a background image. */
+    padding-right: 26px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 L6 6.5 L11 1.5' fill='none' stroke='%23c8ced8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 11px 8px;
+    cursor: pointer;
+}
+
+select:hover:not(:disabled),
+input:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+    border-color: var(--border-color);
+    background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+}
+
+select:disabled,
+input:disabled,
+textarea:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* The dropdown LIST is drawn by the platform and cannot be styled beyond this, so
+   the option colours are set explicitly — otherwise an expanded list renders as
+   black-on-white regardless of the theme. */
+select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 42px;
+    height: 26px;
+    padding: 2px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+input[type="checkbox"] {
+    accent-color: var(--accent-color);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 label {
@@ -257,12 +382,16 @@ label {
    for dark surfaces (~8:1 on #121212) and would render at ~2.1:1 against
    the light modal panel — a WCAG AA fail. #555 on #f2f2f2 is ~6.7:1 (AA). */
 .modal-content {
-    --text-muted: #555;
-    background: #f2f2f2;
-    color: #111;
+    /* Dialogs take the theme like everything else. They were a fixed #f2f2f2 with #111 ink —
+       a light island in a dark app — which is why they read as a different product. The ink is
+       its own variable rather than --text-primary, because a theme may pair a dark toolbar
+       with a light dialog and then the two need opposite text. */
+    --text-muted: color-mix(in srgb, var(--text-on-surface) 68%, transparent);
+    background: var(--bg-surface);
+    color: var(--text-on-surface);
     padding: 28px 32px;
-    border: 1px solid #bbb;
-    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
     min-width: 400px;
     max-width: 640px;
     width: 100%;
@@ -273,7 +402,7 @@ label {
 
 .modal-content h2 {
     margin-top: 0;
-    border-bottom: 2px solid #999;
+    border-bottom: 2px solid var(--border-color);
     padding-bottom: 10px;
     font-size: 1.1rem;
     color: #111;
@@ -308,7 +437,7 @@ label {
 }
 
 .modal-content button.primary {
-    background: #0078d4;
+    background: var(--accent-color);
     color: #fff;
     border-color: #005a9e;
 }
@@ -348,7 +477,7 @@ label {
 }
 
 .object-tree-item:focus {
-    outline: 2px solid #0078d4;
+    outline: 2px solid var(--accent-color);
     outline-offset: -2px;
     background: #e0eeff;
 }
@@ -433,7 +562,7 @@ label {
     cursor: pointer;
     min-width: 52px;
 
-    --btn-color: rgb(180, 180, 200);
+    --btn-color: var(--btn-neutral);
     color: var(--btn-color);
     font-size: 0.7rem;
     line-height: 1;
@@ -482,7 +611,7 @@ label {
 }
 
 .icon-btn-label {
-    color: #dcdce2;
+    color: var(--text-primary);
     letter-spacing: 0.01em;
 }
 
@@ -521,7 +650,7 @@ label {
 .icon-btn-action   { --btn-color: rgb(0, 180, 255); }   /* cyan: execute */
 .icon-btn-warning  { --btn-color: rgb(255, 180, 0); }   /* amber: alerts, flags */
 .icon-btn-danger   { --btn-color: rgb(255, 80, 80); }   /* red: destructive */
-.icon-btn-neutral  { --btn-color: rgb(180, 180, 200); } /* slate: meta / help */
+.icon-btn-neutral  { --btn-color: var(--btn-neutral); }  /* follows the theme */
 .icon-btn-thought  { --btn-color: rgb(180, 100, 255); } /* violet: strategy / AI */
 
 /* Toolbar group containers: visually separate semantic clusters with an
@@ -568,7 +697,7 @@ label {
     outline-offset: 2px;
 }
 .touch-nav-btn:active {
-    background: #0078d4;
+    background: var(--accent-color);
 }
 
 /* ── Reduced motion (Phase D) ─────────────────────────────────────────────

@@ -8,8 +8,20 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
     /// <summary>
     /// Surfaces Cipher SR pivot lines as <see cref="PriceLevel"/>s. Cipher SR writes its
     /// pivots into two component arrays — "Resistance" and "Support" — with NaN at non-pivot
-    /// bars and the pivot price at the bar where the pivot was confirmed. We walk the most
-    /// recent slice of those arrays and emit one descriptor per non-NaN entry.
+    /// bars and the pivot price AT THE PIVOT BAR ITSELF. We walk the most recent slice of those
+    /// arrays and emit one descriptor per non-NaN entry.
+    ///
+    /// <para>
+    /// CONFIRMATION LAG (fixed 2026-07-26). A pivot at bar p is not KNOWABLE until bar
+    /// p + PivotBars, because every one of the next PivotBars bars must fail to exceed it.
+    /// Clipping only to the current bar — which is what this provider used to do — still let a
+    /// backtest read a pivot two bars old that needed three future bars to confirm. In effect it
+    /// told the strategy "this is the low" while the low was still forming, which is the single
+    /// most flattering bias a level-based system can have. Live is unaffected (the provider
+    /// cannot see forward bars at all), so this only ever mattered in backtests — where it
+    /// mattered a great deal: an experiment measuring signal quality near SR levels showed a
+    /// +0.739R edge at p=0.0002 before this fix and nothing at all after it.
+    /// </para>
     ///
     /// Pivot strength scales with how far back the pivot was — recent pivots are more relevant
     /// than ancient ones for setting current stops/targets.
@@ -32,16 +44,32 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
                 string.Equals(s.IndicatorCode, IndicatorCode, System.StringComparison.OrdinalIgnoreCase));
             if (series == null) return System.Array.Empty<PriceLevel>();
 
-            // Future-leak fix: clip the pivot scan to the bar index the strategy is currently
-            // evaluating. In live mode this is a no-op (history.Count == data.Length). In
-            // backtest mode it prevents the provider from emitting pivots that hadn't been
-            // detected yet at the strategy's current bar.
-            int upTo = System.Math.Max(0, history.Count);
+            // Clip to the current bar AND back off by the pivot confirmation lag.
+            int lag = ResolveConfirmationLag(series.Config?.Parameters, history.Count);
+            int upTo = System.Math.Max(0, history.Count - lag);
 
             var sink = new List<PriceLevel>();
             CollectPivots(series.GetComponentData(CompResistance), LevelKind.Resistance, sink, "Cipher SR Resistance", upTo);
             CollectPivots(series.GetComponentData(CompSupport),    LevelKind.Support,    sink, "Cipher SR Support",    upTo);
             return sink;
+        }
+
+        /// <summary>
+        /// Bars a Cipher SR pivot needs before it can be known. Mirrors the provider: the
+        /// explicit PivotBars parameter unless AutoScale is on, in which case
+        /// <c>clamp(barCount / 25, 2, 15)</c>. Defaults to the AutoScale form because AutoScale
+        /// defaults to ON — guessing low here would silently reintroduce the leak.
+        /// </summary>
+        internal static int ResolveConfirmationLag(IReadOnlyDictionary<string, double>? parameters, int barCount)
+        {
+            bool autoScale = true;
+            if (parameters != null && parameters.TryGetValue("AutoScale", out double auto))
+                autoScale = auto != 0;
+
+            if (!autoScale && parameters != null && parameters.TryGetValue("PivotBars", out double pivotBars))
+                return System.Math.Clamp((int)pivotBars, 2, 60);
+
+            return System.Math.Clamp(barCount / 25, 2, 15);
         }
 
         private void CollectPivots(double[]? data, LevelKind kind, List<PriceLevel> sink, string source, int upToExclusive)

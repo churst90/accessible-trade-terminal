@@ -250,6 +250,7 @@ namespace AccessibleTrader.Core.Services
                 ? state with { InitStatus = a.Status }
                 : state,
             SetDataStatusAction a => state with { DataStatus = a.Status },
+            SetReplayModeAction a => state with { IsReplaying = a.Active },
 
             // ── User settings (caller-supplied projection) ───────────────────
             UpdateSettingsAction a => a.Updater(state),

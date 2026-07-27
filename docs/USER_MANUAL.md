@@ -30,15 +30,16 @@ feature and understand what it is doing.
 
 1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
-3. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, listening controls, point analysis
-4. [Analysis Tools](#analysis-tools) — indicators, drawing tools, volume profile, heatmap, the object tree
-5. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
-6. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
-7. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
-8. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
-9. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
-10. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
-11. [Glossary](#glossary)
+3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
+4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, split view, point analysis
+5. [Analysis Tools](#analysis-tools) — indicators, market structure, value zones, the respect report, drawing tools, volume profile, heatmap, the object tree
+6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
+7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
+8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
+9. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
+10. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
+11. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
+12. [Glossary](#glossary)
 
 ---
 
@@ -203,6 +204,30 @@ archives chart happily with no credentials at all, so if you only want to study
 those you can skip this dialog entirely and go straight to the toolbar. The
 terminal will tell you, in the next step, on the rare occasion a key is actually
 missing — you do not have to memorise which providers need one.
+
+### The toolbar, in two rows
+
+The toolbar has two rows and they divide by purpose, which is worth learning once
+because it tells you where to look for anything.
+
+The **first row opens things.** Left to right it holds the object tree, drawing
+tools and the sound designer; then the trading dashboard, order book, strategies,
+**Watch** (watchlists and the screener), **Zones** (the respect report),
+**Journal** and **AI**; then alerts and API keys; then save and load workspace;
+and finally settings and help. Every one of these opens a dialog, and every one
+has a keyboard shortcut named in its tooltip, so the toolbar is how you *find* a
+feature and the shortcut is how you reach it once you know it is there.
+
+The **second row builds and changes the chart**: the market cascade described
+below, then import and load, then pan and zoom, then the display toggles —
+heatmap, Heikin Ashi, log scale, **Split** view and **Replay**. The last five are
+pressed-state toggles, so your screen reader announces whether each is currently
+on.
+
+Buttons are labelled with an abbreviation on screen and a full name for your
+screen reader, so "Watch" reads as "Watchlists and Screener" and "AI" reads as
+"AI Analyst". Some buttons only appear when they apply — drawing tools and the
+chart toggles are hidden on analytics charts, where they mean nothing.
 
 ### Choosing what to chart
 
@@ -379,6 +404,109 @@ anything: the indicator dialog's **Overlays** category has "Compare symbol
 different provider — it defaults to the chart's own), and the second market
 appears rebased on the price pane or as a strength ratio in its own pane,
 always on the chart's timeframe so the bars line up one to one.
+
+## Market Watch and Screening
+
+Loading one symbol at a time answers "what is this market doing?". Market watch
+answers the question before it: "which market should I be looking at?" It holds
+your watchlists, and it runs a screen — the same conditions a strategy uses for
+entry, asked across every symbol on a list at one instant instead of across
+every bar of one symbol.
+
+Open it with **Alt+M**, or with the **Watch** button on the toolbar's first row.
+The dialog has three tabs — Watchlists, Build a screen, and Run screener — and
+you move between them with Tab and Space like any other tab list.
+
+### Watchlists
+
+A watchlist is a named, ordered set of symbols, each remembering which provider
+and sub-type it came from. Order is yours: nothing re-sorts behind your back,
+and Up and Down on each row move a symbol explicitly.
+
+Create one by typing a name into **New list name** and pressing **Create list**.
+The **Add a symbol** area below is a cascade, exactly like the toolbar's:
+Market, then Provider, then Sub-type, then Symbol. Choosing a market narrows
+the providers; choosing a provider loads its real symbol list, so you pick from
+what actually exists rather than typing a symbol name and hoping. When the
+dialog opens, all four are pre-filled from the chart you were looking at, which
+makes "add this to a list" a single press of **Add**.
+
+Providers can list thousands of symbols, so there is a **Filter symbols** box
+beside the picker. Type any fragment — `usdt`, `EUR`, `SOL` — and the list
+narrows as you type; a live message under the picker reads out how many symbols
+are showing and how many exist in total. That message also tells you when the
+list is capped at 500 and you need to narrow further, so a truncated list never
+poses as a complete one. **Add all shown** adds everything the filter is
+currently showing, and announces both how many were added and how many were
+already on the list.
+
+Every row on the list has **Load**, which puts that symbol on the chart through
+exactly the same path the toolbar's Load button uses, then closes the dialog.
+
+### Building a screen
+
+A screen is a set of filters plus a rule for combining them. On the **Build a
+screen** tab, press **Add filter** and you get one row with four or five
+controls:
+
+- **Indicator** — which indicator the condition reads. Split from the component
+  deliberately: one flat list of every signal in the app runs to several hundred
+  entries and is miserable to move through by ear.
+- **Component** — which of that indicator's outputs, for example Cipher B's Buy
+  signal or RSI's Value line.
+- **Condition** — what has to be true. The choices offered depend on what kind
+  of component you picked, and that gating matters: a marker component has no
+  value on bars where it did not fire, so "is above 30" would be false forever
+  and would read to you as a quiet market rather than as a nonsense filter. A
+  marker offers *fired on the last bar* and *fired within N bars*; an oscillator
+  offers thresholds, ranges, crosses, and percentiles; a cloud offers
+  inside/above/below; a level offers rejection and break.
+- **Value**, **Upper**, **Within bars**, **Weight** — only the boxes the chosen
+  condition actually uses appear, and a fresh filter is seeded with a threshold
+  somewhere sensible inside the component's own range rather than at zero.
+
+Under each row, a plain-language sentence restates the whole filter — "Cipher B
+— Buy fired within 3 bars." — so you can check a row in one read instead of
+tabbing back through five controls.
+
+**Combine filters** decides the logic. *All must be true* is a strict AND. *Any
+may be true* is an OR. *Weighted score reaches a threshold* gives every filter a
+Weight box and matches when the weights of the filters that are true add up to
+the threshold you set — useful when you want confluence ("any three of these
+five") rather than unanimity.
+
+**Bars of history per symbol** is the one setting that quietly breaks screens if
+you get it wrong. Every indicator needs a warm-up before it produces values, and
+if you fetch fewer bars than the slowest indicator you referenced needs, every
+symbol comes back as "not enough history". The default of 500 covers everything
+that ships; raise it if you build a filter on a long moving average.
+
+**Save screen** stores it under the name you gave it, and selects it in the Run
+screener tab so you can run it immediately. Editing an existing screen is the
+same dialog — pick it from **Edit saved screen**, change what you like, save
+again. If a screen was built elsewhere and contains nested groups, the flat
+builder says so rather than showing you a plausible-looking subset, because
+saving a flattened copy over it would destroy structure you cannot get back.
+
+### Running a screen
+
+The **Run screener** tab takes three things: which saved screen (or none, which
+matches everything and gives you a plain quote board), which watchlist to run it
+against, and on what timeframe. Press **Run screen**.
+
+Progress is spoken as it goes — how many symbols are done, and which one is in
+flight — and **Cancel** stops it. Results arrive as a real table with proper
+column and row headers, so your screen reader reads the column name with each
+value as you move cell by cell. Each row carries the symbol, provider, whether
+it matched, the score if the screen used weights, last close, percentage change,
+a status, and a **Load** button that puts it on the chart.
+
+Two things about the results are deliberate. First, symbols that could not be
+evaluated are reported, never dropped: a row reading "not enough history" or a
+fetch error stays visible even with **Show matches only** ticked, because "we
+could not check twelve of these" must not be able to look like "nothing
+qualified". Second, the spoken summary after every run names all three numbers —
+matched, evaluated, and failed — for the same reason.
 
 ## Reading the Chart
 
@@ -623,6 +751,73 @@ touching the rest. The M key mutes or unmutes the focused series or component wi
 removing it, and H hides or shows it; both are toggles, and both leave the data in
 place so you can bring it back with the same key.
 
+### Bar replay
+
+Playback reads you a chart you can already see all of. Bar replay does the
+opposite: it hides everything after a point in history and gives it back one bar
+at a time, so you meet the market the way you meet it live — without knowing what
+happens next. It is the honest way to practise, and it is the only way to find out
+whether a setup you like the look of was actually readable at the time or only
+looks obvious with the rest of the chart in view.
+
+Start it with **Ctrl+Alt+Shift+P** (or **F11** on the desktop), or with the
+**Replay** button on the toolbar's second row. Replay begins at the bar your
+cursor is on, and everything after it disappears.
+
+| Key | Action |
+| --- | --- |
+| Ctrl+Alt+Shift+P or F11 | Start replay at the cursor bar, or stop and restore full history |
+| F9 | Reveal the next bar |
+| Shift+F9 | Hide the last revealed bar |
+| F10 | Play / pause auto-advance |
+
+On the web host use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for
+fullscreen and will not pass it through.
+
+While replay is running, the chart is a normal chart in every other respect.
+Indicators recompute on the revealed bars only, so an oscillator reads exactly what
+it would have read at that moment; you can navigate, inspect a bar, draw, and place
+paper orders. Stopping replay restores the full history and the viewport you had
+before you started.
+
+The **Replay** toolbar button shows its own state, so you can tell at a glance — or
+by the button's announced pressed state — whether history is currently hidden.
+
+### Split view
+
+Split view puts a second chart beside the one you are working on, drawn from
+another tab. The usual reason is timeframe context: the four-hour you are trading
+in one pane, the daily you are trading *within* in the other. It also covers
+comparing two symbols, or watching a leader while you work its follower.
+
+| Key | Action |
+| --- | --- |
+| Ctrl+Alt+Shift+S | Split view on / off |
+| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
+| Ctrl+Alt+Shift+O | Switch between side-by-side and stacked |
+
+The **Split** button on the toolbar's second row toggles it too, and reports
+whether it is currently on.
+
+The second pane shows another tab exactly as that tab has it — same indicators,
+same drawings, same viewport — because it renders from the snapshot the tab
+already keeps. It cannot drift out of step with what you would see if you switched
+to that tab, and turning split view on adds nothing you have to maintain
+separately.
+
+Keyboard focus, navigation, speech and sonification all stay with the *active*
+chart; the second pane is a view, not a second place to be. Switching tabs swaps
+which chart is active, and the pane follows. If the window is too narrow to give
+both panes a usable width, split view declines to split rather than drawing two
+unreadable slivers.
+
+One current limitation, stated plainly: **mouse pointing is inaccurate while split
+view is on.** Hit-testing still maps clicks against the whole canvas rather than
+the active pane, so clicking on the chart lands in the wrong place. Keyboard
+operation is completely unaffected, and that is how the feature is meant to be
+used, but if you work with a mouse, turn split view off before clicking on the
+chart.
+
 ### Inspecting a single bar
 
 When one bar deserves a thorough look before you act on it, press Ctrl+Shift+D
@@ -691,6 +886,141 @@ Two whole-chart toggles live near the indicators. Alt+C switches the price pane 
 Heikin-Ashi candles, a smoothed formula that strips noise and can make a trend easier
 to hear; Alt+L switches to a logarithmic price scale, useful over long histories
 where price has moved by large percentages.
+
+### Market structure
+
+**Market Structure (HH/HL/LH/LL)** is on your chart by default, and it is the
+answer to "where am I?" before any indicator answers "what should I do?". It
+finds the swing highs and lows, labels each one against the one before it —
+higher high, higher low, lower high, lower low — and reports the trend state
+those labels imply.
+
+A swing high is a bar whose high is the highest of the bars either side of it,
+within the **Pivot span** (five bars each side by default), and a swing low is
+the mirror. The **Minimum swing size (ATR)** setting suppresses pivots that are
+too small to be structure rather than noise — a swing has to differ from the
+previous one by at least one ATR by default.
+
+The indicator marks a **red square** on each swing high and a **green square** on
+each swing low — just clear of the wick, so the price they mark stays readable —
+and rings a ping for each as you navigate over it, a low tone for lows and a
+higher one for highs. Two further events get their own marks, both drawn as an
+**X**: an **amber X** for a **Break of Structure**, when price closes beyond the
+last swing in the direction the trend was already going, which is continuation;
+and a larger **purple X** for a **Change of Character**, when it closes beyond
+the last swing *against* the trend, which is the first mechanical evidence that
+the trend may be over.
+
+The shapes are deliberate. Market Structure owns the angular family — squares and
+crosses — and Value Deviation below owns triangles, dots and diamonds, so that on
+a chart carrying both you can never mistake a swing high for a resistance zone.
+They shipped a week apart, were each checked alone, and for a while both drew red
+down-triangles at the same size. Three more components are computed but hidden by default —
+Structure State, Last Swing High and Last Swing Low — and you can switch any of
+them on in the object tree or the indicator's properties.
+
+**One thing to be clear about, because it is easy to misread.** A swing marker
+is drawn ON the pivot bar, but a pivot cannot be *identified* until the span has
+passed — five more bars have to fail to exceed it. So the mark appears in a place
+you could not have traded: by the time it shows up, price has already moved five
+bars away from it. A chart full of triangles sitting exactly on the lows is the
+most seductive illusion in technical analysis. Testing this directly, filling at
+the pivot price versus filling at the close of the bar where the pivot could
+first be known, was the difference between an impossible return and one that did
+not beat buy-and-hold. Use structure to understand where you are, not as an
+entry trigger.
+
+The indicator is descriptive by design and it says so in its own description. You
+can turn it off for good in Settings if you would rather add it per chart.
+
+### Value zones
+
+**Value Deviation (support / resistance zones)** answers a different question:
+not where the swings are, but where *value* is, and where price has historically
+refused to go far from it.
+
+It builds a rolling volume profile over the last N bars (the **Profile window**,
+240 by default) and takes its point of control — the price where most volume
+traded — as value. Then it measures how far each bar strayed from that value in
+units of the value area's own width, and when price *reverses* at a distance, it
+marks that bar. A reversal below value marks a support zone; a reversal above it
+marks a resistance zone.
+
+The mark's shape and colour carry how far from value the zone formed, across
+five tiers per side:
+
+| Distance from value | Support | Resistance |
+| --- | --- | --- |
+| Tiers 1–2, nearest value | pale green up-triangle | pale red down-triangle |
+| Tier 3 | mid green dot | mid red dot |
+| Tiers 4–5, furthest | bright green diamond | bright red diamond |
+
+Each tier has its own pitch too, so the tier is audible as well as visible — the
+support tiers descend in pitch as they deepen, the resistance tiers rise.
+
+**Show tiers from** is the density control, and it defaults to 2. Tier 1 is a
+reversal barely outside value — closer to noise than to a zone — and on a long
+view it is the bulk of the marks; left in, it turns the price pane into a
+continuous band of glyphs. Raise it to 3 or 4 on a weekly chart or a wide zoom to
+leave only the deep stretches, or drop it to 1 to see everything the analyzer
+found. It hides the *glyph* only: the Deviation Tier component and the spoken
+detail still report every tier, so navigating to a bar still tells you it was a
+tier 1, and nothing you could act on is hidden from speech.
+
+**Require a momentum turn as well** is on by default: a zone is only marked when
+the indicator's own internal WaveTrend oscillator is turning the same way, which
+gives fewer and better-confirmed zones. Turn it off for more zones and more
+noise. The indicator carries its own oscillator maths internally, so you do not
+have to add Cipher B to the chart to get the benefit.
+
+This one, too, is descriptive rather than a buy/sell signal. What it tells you is
+"price came this far from value and turned here" — which is what makes a level a
+level. Its own testing is worth stating plainly: the mean reversion it rests on
+is real but small in equities at a roughly five-day horizon, and it did not
+replicate as a tradable edge in crypto beyond Bitcoin. Read it as a map of where
+zones formed, not as a promise about where price goes next.
+
+The **Profile window** adapts down if the chart has not loaded enough history —
+a window can never exceed a third of the loaded bars, because otherwise a fresh
+200-bar chart would leave every component empty and read as broken. More loaded
+history genuinely helps this indicator, so zoom out and let it fetch before
+judging it.
+
+### The respect report
+
+Every chart has more lines on it than matter. The respect report tells you which
+ones this market actually reacts to — measured, not assumed.
+
+Open it with **Alt+R**, or with the **Zones** button on the toolbar's first row.
+It measures over the loaded history and presents two tabs: **Levels near price**
+(support and resistance levels from the indicators you have on the chart, prior
+period highs and lows, round numbers) and **Moving-average ranking** (a standard
+set of periods — 10, 20, 21, 50, 89, 100, 200 — including higher-timeframe
+projections).
+
+Each row is a table row with proper headers: the line, its current price, its
+hold rate, how many touches it has had, the median reaction size in ATR, how
+often it held as support versus as resistance, when it was last touched, and how
+far away it is now in ATR.
+
+The definitions matter, and the dialog states them under the table:
+
+- A **touch** is counted when the bar's *range* — wick included — reaches within
+  a tolerance of the line, and only if enough bars have passed since the last
+  counted touch that this is a separate event rather than the same one over
+  again.
+- It **held** if price then moved a minimum distance away within a set window
+  *without closing* through the line by more than the break tolerance.
+- Wicks through and straight back count as holds. That is a sweep — the level
+  working, not failing. Measuring the reaction from the wick instead of the close
+  would make a sweep and a genuine breakdown look identical, which was the first
+  version's bug.
+
+**Only lines with at least N touches** is ticked by default. Leave it ticked: a
+line with two touches and a 100% hold rate is not a reliable line, it is two
+coincidences, and rows below the threshold are marked "(thin sample)" when you
+untick it. **Re-measure** recomputes after you have loaded more history or
+changed indicators, and **Speak summary** reads the top of the ranking aloud.
 
 ### Drawing tools
 
@@ -1533,6 +1863,14 @@ sets the theme and chart colours — most relevant to a sighted collaborator loo
 over your shoulder — and an alerts section holds the email, Telegram, and named-webhook delivery
 details (add/remove webhook rows, each with a name and URL) that let fired alerts reach you away from the keyboard. Changes apply when you
 close the dialog.
+
+The **Analysis** group on the general tab holds one preference worth knowing about:
+**Add Market Structure (swing highs and lows) to new charts**, which is on by
+default and is why every chart you load already has swing labelling on it. Untick
+it if you would rather add that indicator per chart. It changes what happens on the
+*next* load and deliberately leaves charts you already have open alone — silently
+stripping an indicator off a chart you were reading would be a worse surprise than
+the setting waiting one load to take effect.
 
 **Visual accessibility options.** The Appearance tab also carries a group of visual
 accommodations. All of them are **off by default** — the terminal presents itself

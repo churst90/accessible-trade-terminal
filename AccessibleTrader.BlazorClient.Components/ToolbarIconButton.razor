@@ -7,9 +7,14 @@
     <use> element inherits via `currentColor`. Change a variant → every icon of
     that variant repaints without touching the sprite.
 
+    Always pass AriaLabel. Label is an abbreviation sized for a 40px circle
+    ("Watch", "AI", "Book"); AriaLabel is the only place the full name exists for
+    a screen reader, and ToolbarControlSurfaceTests enforces it on every button.
+
     Usage:
         <ToolbarIconButton Icon="alerts" Label="Alerts" Variant="warning"
                           Tooltip="Manage price alerts (Alt+J)"
+                          AriaLabel="Alerts"
                           OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
 *@
 <button type="button"

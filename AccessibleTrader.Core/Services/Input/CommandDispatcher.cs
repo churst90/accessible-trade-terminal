@@ -248,6 +248,15 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenAIAnalyst: _eventBus.Publish(new OpenAIAnalystEvent()); return;
                 case SystemCommand.OpenJournal: _eventBus.Publish(new OpenJournalEvent()); return;
                 case SystemCommand.OpenMyData: _eventBus.Publish(new OpenMyDataEvent()); return;
+                case SystemCommand.OpenWatchlist: _eventBus.Publish(new OpenWatchlistEvent()); return;
+                case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
+                case SystemCommand.ReplayToggle: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle)); return;
+                case SystemCommand.ReplayStepForward: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepForward)); return;
+                case SystemCommand.ReplayStepBack: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepBack)); return;
+                case SystemCommand.ReplayPlayPause: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.PlayPause)); return;
+                case SystemCommand.SplitViewToggle: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle)); return;
+                case SystemCommand.SplitViewCycle: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.CycleSecondary)); return;
+                case SystemCommand.SplitViewOrientation: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.ToggleOrientation)); return;
 
                 // Application/Menu key + Shift+F10: open the right-click context menu on
                 // the focused drawing — keyboard parity with mouse right-click. Sentinel

@@ -91,6 +91,46 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 ---
 
+## Bar Replay
+
+Reveals loaded history one bar at a time so you can practise reading a market forward,
+without hindsight. Live updates are suspended while replay runs and the full series is
+restored when you stop.
+
+| Key | Action |
+|-----|--------|
+| F11 or Ctrl+Alt+Shift+P | Start replay at the cursor bar / stop replay and restore full history |
+| F9 | Reveal the next bar |
+| Shift+F9 | Hide the last revealed bar |
+| F10 | Play / pause auto-advance |
+
+Also on the toolbar's second row as **Replay**, which shows its own pressed state.
+
+On the WebHost, use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for fullscreen
+and page-level `preventDefault` on it is not reliable.
+
+---
+
+## Split View
+
+Renders a second tab beside (or below) the active chart. The second pane is a **read-only
+reference view** — keyboard navigation, speech, sonification and trading all continue to
+address the active tab. Falls back to a single full-size chart when there is no second tab
+or the window is too narrow to divide.
+
+Known limitation: mouse hit-testing still maps against the full canvas, so pointer
+interaction is inaccurate while split view is on. Keyboard operation is unaffected.
+
+| Key | Action |
+|-----|--------|
+| Ctrl+Alt+Shift+S | Split view on / off |
+| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
+| Ctrl+Alt+Shift+O | Side-by-side / stacked |
+
+Also on the toolbar's second row as **Split**, which shows its own pressed state.
+
+---
+
 ## Playback
 
 | Key | Action | Notes |
@@ -163,6 +203,15 @@ When no further event exists in the scan direction, speech announces: "No more [
 | Alt+A | Open the Add Indicator dialog |
 | P | Open indicator properties dialog (parameters, audio, visual settings) |
 | Shift+F12 | Open indicator properties dialog (alternative to P) |
+
+---
+
+## Market Structure
+
+The Market Structure overlay (HH/HL/LH/LL) is added to new OHLCV charts by default. Turn it
+off in Settings, or delete the series from the Object Tree (Alt+O) to drop it for the session.
+Navigate to its Structure State component and press Shift+F1 (context summary) for the full structural read: current
+state, last swing high and low, and where price sits between them.
 
 ---
 
@@ -252,6 +301,8 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
+| Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
+| Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Zones**) |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
 | Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |
 

@@ -613,6 +613,28 @@ window.accessibleTrader = {
      * Used by the keyboard rebinding UI in Settings → Keyboard tab.
      * Fires OnKeyCaptured on the .NET helper with the key details, then removes itself.
      */
+    /**
+     * Applies a theme's CSS custom properties to the document root.
+     *
+     * The chart canvas is painted by Skia, but every toolbar, dialog and label around it is
+     * HTML — so without this a theme change repaints the chart and leaves the frame around it
+     * on the old palette. `vars` is a plain { "--name": "value" } object built by
+     * ThemeCssBridge; setting them on documentElement means every rule that reads
+     * var(--name) updates in one go, with no per-component plumbing.
+     *
+     * Failure here must be survivable: app.css keeps a full :root fallback block, so if this
+     * never runs the application renders in the default palette rather than unstyled.
+     */
+    applyThemeVariables: function(vars) {
+        if (!vars) return;
+        var root = document.documentElement;
+        for (var name in vars) {
+            if (Object.prototype.hasOwnProperty.call(vars, name)) {
+                root.style.setProperty(name, vars[name]);
+            }
+        }
+    },
+
     captureNextKey: function(dotNetHelper) {
         function handler(e) {
             if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;

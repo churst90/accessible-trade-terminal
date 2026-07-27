@@ -28,7 +28,7 @@
                     <h3 style="margin: 0; font-size: 0.9rem;">Patches</h3>
                     <div role="listbox"
                          aria-label="Sound patches"
-                         style="flex: 1; overflow-y: auto; border: 1px solid #555; border-radius: 4px;">
+                         style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px;">
                         @foreach (var patch in _patches)
                         {
                             var pid = patch.Id;
@@ -79,7 +79,7 @@
                             {
                                 var idx = li;
                                 var layer = _editOscillators[idx];
-                                <div class="osc-layer" style="border: 1px solid #444; border-radius: 4px; padding: 6px; margin-bottom: 6px;">
+                                <div class="osc-layer" style="border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; margin-bottom: 6px;">
                                     <div class="modal-row">
                                         <label for="sd-wave-@idx">Oscillator @(idx + 1)</label>
                                         <select id="sd-wave-@idx" value="@layer.Waveform"
@@ -215,9 +215,9 @@
                     <caption class="visually-hidden">Assign sound patches to feedback earcons</caption>
                     <thead>
                         <tr>
-                            <th style="text-align: left; padding: 4px 8px; border-bottom: 1px solid #555;">Earcon</th>
-                            <th style="text-align: left; padding: 4px 8px; border-bottom: 1px solid #555;">Assigned Patch</th>
-                            <th style="padding: 4px 8px; border-bottom: 1px solid #555;"></th>
+                            <th style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border-color);">Earcon</th>
+                            <th style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border-color);">Assigned Patch</th>
+                            <th style="padding: 4px 8px; border-bottom: 1px solid var(--border-color);"></th>
                         </tr>
                     </thead>
                     <tbody>

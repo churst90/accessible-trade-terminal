@@ -109,19 +109,39 @@ public class VisualAccessibilityTests
     }
 
     [Fact]
-    public void Background_gradient_is_off_by_default()
+    public void Background_gradient_setting_is_off_by_default()
     {
-        Assert.Null(new ThemeService(SettingsWith()).Current.BackgroundGradientEnd);
+        // Tested on a theme that ships FLAT. SteelGray, the default, carries a gradient as part
+        // of its own design — so asserting "no gradient by default" against it would conflate a
+        // theme's look with the user's opt-in setting, which are two different things.
+        var svc = new ThemeService(SettingsWith());
+        svc.SetTheme(ThemeType.HighContrastDark);
+
+        Assert.Null(svc.Current.BackgroundGradientEnd);
     }
 
     [Fact]
     public void Background_gradient_end_applies_only_when_enabled()
     {
-        // Color set but gradient toggle off → still flat (no end color).
-        Assert.Null(new ThemeService(SettingsWith(gradient: false, backgroundEnd: "#112233")).Current.BackgroundGradientEnd);
+        // Color set but gradient toggle off → the flat theme stays flat.
+        var off = new ThemeService(SettingsWith(gradient: false, backgroundEnd: "#112233"));
+        off.SetTheme(ThemeType.HighContrastDark);
+        Assert.Null(off.Current.BackgroundGradientEnd);
 
-        // Toggle on + a color → the theme carries the gradient end.
+        // Toggle on + a color → the user's gradient overrides whatever the theme had.
+        var on = new ThemeService(SettingsWith(gradient: true, backgroundEnd: "#112233"));
+        on.SetTheme(ThemeType.HighContrastDark);
+        Assert.Equal(SKColor.Parse("#112233"), on.Current.BackgroundGradientEnd);
+    }
+
+    [Fact]
+    public void A_user_gradient_overrides_a_themes_own_gradient()
+    {
+        // SteelGray ships with one. Setting your own has to win, or the preference silently
+        // does nothing on the theme most people are actually using.
         var svc = new ThemeService(SettingsWith(gradient: true, backgroundEnd: "#112233"));
+        svc.SetTheme(ThemeType.SteelGray);
+
         Assert.Equal(SKColor.Parse("#112233"), svc.Current.BackgroundGradientEnd);
     }
 
@@ -187,8 +207,12 @@ public class VisualAccessibilityTests
     [InlineData("not-a-color")]
     public void Theme_BackgroundOverride_AbsentOrInvalid_UsesThemeDefault(string? stored)
     {
+        // Pinned to a named theme rather than the default: this is about the OVERRIDE falling
+        // back cleanly, and it should not start failing the day the default theme changes.
         var svc = new ThemeService(SettingsWith(background: stored));
-        Assert.Equal(SKColors.Black, svc.Current.Background); // HighContrastDark default
+        svc.SetTheme(ThemeType.HighContrastDark);
+
+        Assert.Equal(SKColors.Black, svc.Current.Background);
     }
 
     // ── Renderer color-vision override ───────────────────────────────────────

@@ -33,6 +33,14 @@ namespace AccessibleTrader.Core.Services
         // Appearance
         bool ColorVisionSafe { get; set; }
         bool HollowUpCandles { get; set; }
+
+        // Analysis
+        /// <summary>
+        /// Seed the Market Structure overlay (HH/HL/LH/LL) on new OHLCV charts. Defaults to TRUE:
+        /// structure is the orientation layer a sighted trader gets free from chart shape, so a
+        /// blind user should not have to know it exists in order to receive it.
+        /// </summary>
+        bool MarketStructureOnByDefault { get; set; }
         int UiScale { get; set; }
 
         // Audio
@@ -125,6 +133,13 @@ namespace AccessibleTrader.Core.Services
             get => GetBool(SettingsKeys.ColorVisionSafe);
             set => Set(SettingsKeys.ColorVisionSafe, value);
         }
+        public bool MarketStructureOnByDefault
+        {
+            // Default true — see the interface docs for why this one is opt-OUT.
+            get => GetBool(SettingsKeys.MarketStructureOnByDefault, def: true);
+            set => Set(SettingsKeys.MarketStructureOnByDefault, value);
+        }
+
         public bool HollowUpCandles
         {
             get => GetBool(SettingsKeys.HollowUpCandles);

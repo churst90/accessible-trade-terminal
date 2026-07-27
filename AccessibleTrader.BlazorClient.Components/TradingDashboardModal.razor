@@ -30,7 +30,7 @@
                 {
                     <div class="key-selector">
                         <label for="key-select" style="font-size: 0.8rem; color: var(--text-muted); margin-right: 8px;">Switch API Key:</label>
-                        <select id="key-select" value="@_activeKeyNickname" @onchange="OnKeyChanged" style="padding: 4px; background: #222; color: #fff; border: 1px solid #444;">
+                        <select id="key-select" value="@_activeKeyNickname" @onchange="OnKeyChanged" style="padding: 4px; background: #222; color: #fff; border: 1px solid var(--border-color);">
                             @foreach (var key in _availableKeys)
                             {
                                 <option value="@key.Nickname">@key.Nickname (@key.Environment)</option>
@@ -247,7 +247,7 @@
                                only providers stay hidden: no unlinked "pairs". *@
                             @if (_supportsOco)
                             {
-                                <section aria-labelledby="oco-title" style="margin-top:14px; border-top:1px solid #555; padding-top:10px;">
+                                <section aria-labelledby="oco-title" style="margin-top:14px; border-top:1px solid var(--border-color); padding-top:10px;">
                                     <h3 id="oco-title">OCO pair — one cancels the other</h3>
                                     <p style="color:var(--text-muted); font-size:0.9em; margin:4px 0 8px;">
                                         Two resting orders, same side and quantity: a limit and a stop.
@@ -472,12 +472,12 @@
     
     .market-stats { display: flex; gap: 20px; }
     .stat { display: flex; flex-direction: column; }
-    .stat span { font-size: 0.75rem; color: #666; }
+    .stat span { font-size: 0.75rem; color: var(--text-muted); }
     .stat strong { font-size: 1.1rem; color: #4ec9b0; }
 
     .order-entry .entry-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .order-entry label { flex: 1; font-size: 0.85rem; }
-    .order-entry input, .order-entry select { background: #222; border: 1px solid #444; color: #fff; padding: 5px; border-radius: 3px; width: 120px; }
+    .order-entry input, .order-entry select { background: #222; border: 1px solid var(--border-color); color: #fff; padding: 5px; border-radius: 3px; width: 120px; }
 
     /* Large, high-contrast circular BUY/SELL controls. Unselected dims to make
        the active side unmistakable at a glance; a thick focus ring keeps it
@@ -513,7 +513,7 @@
     .book-spread { text-align: center; padding: 5px; background: #222; margin: 5px 0; color: var(--text-muted); font-size: 0.8rem; }
 
     .tabs-mini { display: flex; gap: 5px; margin-bottom: 10px; }
-    .tabs-mini button { background: transparent; border: none; color: #666; font-size: 0.8rem; cursor: pointer; padding: 2px 5px; }
+    .tabs-mini button { background: transparent; border: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px 5px; }
     .tabs-mini button.active { color: #0078d4; border-bottom: 1px solid #0078d4; }
     
     .mini-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }

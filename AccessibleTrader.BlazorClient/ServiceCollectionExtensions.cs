@@ -11,6 +11,8 @@ using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
+using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Core.Models;
@@ -280,6 +282,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, PulseProvider>();
             services.AddSingleton<IIndicatorProvider, RegimeProvider>();
             services.AddSingleton<IIndicatorProvider, VolRegimeProvider>();
+            services.AddSingleton<IIndicatorProvider, SwingStructureProvider>();
+            services.AddSingleton<IIndicatorProvider, ValueDeviationProvider>();
             services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
             services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
             services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
@@ -369,6 +373,24 @@ namespace AccessibleTrader.BlazorClient
             // every event handler.
             services.AddSingleton<IStrategyModalCoordinator, StrategyModalCoordinator>();
             services.AddSingleton<SetupSonifier>();
+
+            // Screening — watchlists plus the screener, which reuses the composer's condition
+            // tree (same ISignalCatalog + IConditionEvaluator) evaluated across many symbols.
+            // OfflineWorkspaceBuilder is the shared "compute indicators off a bar list" seam that
+            // lets the screener and the respect analyzer run against unloaded symbols.
+            services.AddSingleton<IOfflineWorkspaceBuilder, OfflineWorkspaceBuilder>();
+            services.AddSingleton<IWatchlistLibrary, JsonWatchlistLibrary>();
+            services.AddSingleton<IScreenerLibrary, JsonScreenerLibrary>();
+            services.AddSingleton<IScreenerService, ScreenerService>();
+
+            // Respect analysis — measures how often price actually honoured a line, so "that
+            // level looks important" becomes a number. Every candidate (horizontal, moving
+            // average, multi-timeframe average, sloped line) is scored by the same analyzer.
+            services.AddSingleton<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
+            services.AddSingleton<IMaRespectRanker, MaRespectRanker>();
+            services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
+            services.AddSingleton<IReplayService, ReplayService>();
+            services.AddSingleton<ISplitViewCoordinator, SplitViewCoordinator>();
 
             // Alert delivery channels — SMTP + Telegram external dispatchers. The
             // AlertDeliveryService subscribes to AlertFiredEvent and fans out to every

@@ -33,7 +33,7 @@
             </p>
 
             @* ── Tab navigation ────────────────────────────────────────────────── *@
-            <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;">
+            <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
                 <button role="tab"
                         id="tab-library"
                         aria-selected="@(_activeTab == "library")"
@@ -137,7 +137,7 @@
                     }
                     <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
                         <thead>
-                            <tr style="border-bottom: 1px solid #555;">
+                            <tr style="border-bottom: 1px solid var(--border-color);">
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Name</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Side</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Status</th>
@@ -206,7 +206,7 @@
                 {
                     <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
                         <thead>
-                            <tr style="border-bottom: 1px solid #555;">
+                            <tr style="border-bottom: 1px solid var(--border-color);">
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Name</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Mode</th>
                                 <th scope="col" style="text-align: right; padding: 4px 8px;">Signals</th>
@@ -381,7 +381,7 @@
                                 <div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
                                     <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
                                         <thead>
-                                            <tr style="border-bottom: 1px solid #444;">
+                                            <tr style="border-bottom: 1px solid var(--border-color);">
                                                 <th scope="col" style="text-align: left; padding: 3px 6px;">Entry</th>
                                                 <th scope="col" style="text-align: left; padding: 3px 6px;">Side</th>
                                                 <th scope="col" style="text-align: right; padding: 3px 6px;">Entry $</th>
@@ -425,7 +425,7 @@
                     the Backtest tab.
                 </p>
 
-                <fieldset style="border:1px solid #444; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend>Walk-forward windows</legend>
                     <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0;">
                         Slices the loaded data into equal chronological windows and backtests one
@@ -482,7 +482,7 @@
                     }
                 </fieldset>
 
-                <fieldset style="border:1px solid #444; padding:10px 14px; margin-bottom:14px;">
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
                     <legend>Compare all strategies (battery)</legend>
                     <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0;">
                         Backtests every saved strategy on the first and second half of the loaded
@@ -579,7 +579,7 @@ public class MyStrategy : BaseStrategy
                 <label for="custom-script-code" style="display:block; margin-bottom:4px;">C# Code:</label>
                 <textarea id="custom-script-code"
                           rows="14"
-                          style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.85rem; background: #111; color: #ccc; border: 1px solid #444; padding: 8px; border-radius: 4px; resize: vertical;"
+                          style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.85rem; background: #111; color: #ccc; border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; resize: vertical;"
                           aria-label="Custom strategy C sharp code editor"
                           value="@_customScriptCode"
                           @oninput="e => _customScriptCode = e.Value?.ToString() ?? string.Empty">

@@ -50,6 +50,13 @@ namespace AccessibleTrader.Sdk.Models
         public float? DefaultThickness { get; set; }
         /// <summary>Zero-crossing threshold for directional bar/histogram coloring. Overrides global default (0) when set. Example: 50 for MFI.</summary>
         public double? ColorBaseline { get; set; }
+        /// <summary>
+        /// Vertical anchoring for marker shapes. Defaults to <see cref="MarkerAnchor.Value"/>.
+        /// Set BelowBar/AboveBar on event markers so they track the DISPLAYED candle rather than a
+        /// raw-OHLC price, which keeps them aligned when Heikin-Ashi is on.
+        /// </summary>
+        public MarkerAnchor? DefaultMarkerAnchor { get; set; }
+
         /// <summary>Dash pattern for line components. Overrides Solid default when set.</summary>
         public DashStyle? DefaultDashStyle { get; set; }
         /// <summary>Color source logic (Value sign vs PriceAction direction). Overrides role-based default when set.</summary>

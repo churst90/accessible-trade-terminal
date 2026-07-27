@@ -3,6 +3,7 @@ using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Input;
+using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Theming;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public partial class MainPage : ContentPage
 {
     private readonly IWorkspaceStore _store;
     private readonly ChartRenderer _renderer;
+    private readonly ISplitViewCoordinator _splitView;
     private readonly IThemeService _themeService;
     private readonly IEventBus _eventBus;
     private readonly ICanvasRegionProvider _canvasRegion;
@@ -32,6 +34,7 @@ public partial class MainPage : ContentPage
     public MainPage(
         IWorkspaceStore store,
         ChartRenderer renderer,
+        ISplitViewCoordinator splitView,
         IAppStartupService startupService,
         IThemeService themeService,
         IEventBus eventBus,
@@ -42,6 +45,7 @@ public partial class MainPage : ContentPage
 
         _store = store;
         _renderer = renderer;
+        _splitView = splitView;
         _themeService = themeService;
         _eventBus = eventBus;
         _canvasRegion = canvasRegion;
@@ -139,23 +143,9 @@ public partial class MainPage : ContentPage
         {
             float density = (float)DeviceDisplay.MainDisplayInfo.Density;
 
-            _renderer.Render(
-                canvas,
-                info.Width,
-                info.Height,
-                state.Data,
-                state.ActiveSeries,
-                state.CurrentDataIndex,
-                state.ViewportStartIndex,
-                state.ViewportLength,
-                state.ViewportRange,
-                state.PaneRanges,
-                state.IsHeikinAshi,
-                state.IsLogScale,
-                density,
-                state.PaneHeightRatios,
-                state.IndicatorPaneScrollIndex,
-                state.RightMarginBars);
+            // SplitView owns the Render call: single full-size chart when split is off,
+            // active chart plus a read-only second tab when it is on.
+            _splitView.Render(canvas, info.Width, info.Height, state, density);
         }
     }
 

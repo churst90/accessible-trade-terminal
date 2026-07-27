@@ -25,8 +25,25 @@ namespace AccessibleTrader.Core.Services
         public const string BackgroundColor    = "appearance.backgroundColor";
         public const string BackgroundGradient = "appearance.backgroundGradient";   // bool: gradient vs solid
         public const string BackgroundColor2   = "appearance.backgroundColor2";     // gradient end (bottom) color
+
+        // Up/down colours for candles and volume. These are an APP-LEVEL preference, not a
+        // per-theme one: which colour means "up" is a habit a trader carries between themes,
+        // and having it change under them when they try a new look is exactly wrong. Absent
+        // means "use the theme's own pair", which is how the accessibility themes keep their
+        // deliberate high-contrast choices.
+        public const string BullishColor       = "appearance.bullishColor";
+        public const string BearishColor       = "appearance.bearishColor";
+
+        // Treat the toolbar band, the chart and the footer band as slices of ONE top-to-bottom
+        // fade instead of three independently coloured regions. Off by default: a theme decides
+        // its own look, and this overrides all three at once.
+        public const string UnifiedGradient       = "appearance.unifiedGradient";
+        public const string UnifiedGradientTop    = "appearance.unifiedGradientTop";
+        public const string UnifiedGradientBottom = "appearance.unifiedGradientBottom";
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
+        /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>
+        public const string MarketStructureOnByDefault = "analysis.marketStructureDefault";
         public const string UiScale            = "appearance.uiScale";
         public const string UiTheme            = "ui.theme";
         /// <summary>"auto" (touch devices only), "show", or "hide".</summary>

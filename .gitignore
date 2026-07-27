@@ -111,3 +111,6 @@ patches/
 # Local release build output
 publish/
 dist/
+
+# Local research video corpus (multi-GB tutorial captures, never committed)
+/video content/

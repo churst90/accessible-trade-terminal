@@ -1,0 +1,1056 @@
+@*
+    Market watch (Alt+M) — watchlist management, a screen builder, and the screener.
+
+    Accessibility notes:
+      • Results are a real <table> with scope="col"/"row" headers, so a screen reader
+        can navigate cell-by-cell and hear the column name with each value. This is the
+        single most screen-reader-native surface in the app and it is deliberately not
+        a div grid.
+      • Every run announces its outcome via AnnouncementEvent, including how many
+        symbols failed — "3 matched" is a lie if 40 never fetched.
+      • Row order is the watchlist's own order, never re-sorted behind the user's back;
+        sorting is an explicit action.
+      • Symbols are chosen from the provider's real list through the same
+        market → provider → sub-type cascade the toolbar uses, not typed free-hand.
+        A typo in a free-text box produced a watchlist entry that failed silently at
+        screen time and looked like a broken screener.
+      • The signal picker is split into indicator-then-component rather than one flat
+        list of several hundred entries, because a single select that long is unusable
+        with a screen reader.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Screening
+@using AccessibleTrader.Core.Services.Strategies
+@using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.Sdk.Screening
+@using AccessibleTrader.Sdk.Strategies
+@inject IWatchlistLibrary Watchlists
+@inject IScreenerLibrary Screeners
+@inject IScreenerService Screener
+@inject ISignalCatalog Signals
+@inject IDataService Data
+@inject IMarketOrchestrator MarketOrchestrator
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="watchlist-title" @onclick:stopPropagation="true"
+             style="max-width: 900px;">
+
+            <h2 id="watchlist-title" tabindex="-1">Market watch — watchlists and screener</h2>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div role="alert" style="color:#f66; margin:8px 0;">@_error</div>
+            }
+            @if (!string.IsNullOrEmpty(_status))
+            {
+                <div role="status" aria-live="polite" style="color:#6d6; margin:8px 0;">@_status</div>
+            }
+
+            <div role="tablist" aria-label="Market watch sections" style="margin-bottom:12px;">
+                <button role="tab" id="watchlist-tab-lists"
+                        aria-selected="@(_tab == Tab.Lists)" aria-controls="watchlist-panel"
+                        @onclick="() => _tab = Tab.Lists">Watchlists</button>
+                <button role="tab" id="watchlist-tab-build"
+                        aria-selected="@(_tab == Tab.Build)" aria-controls="watchlist-panel"
+                        @onclick="() => _tab = Tab.Build">Build a screen</button>
+                <button role="tab" id="watchlist-tab-screen"
+                        aria-selected="@(_tab == Tab.Screen)" aria-controls="watchlist-panel"
+                        @onclick="() => _tab = Tab.Screen">Run screener</button>
+            </div>
+
+            <div id="watchlist-panel" role="tabpanel"
+                 aria-labelledby="@TabId(_tab)">
+
+            @if (_tab == Tab.Lists)
+            {
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Lists</legend>
+
+                    <div class="modal-row">
+                        <label for="wl-select">Watchlist:</label>
+                        <select id="wl-select" @bind="_selectedListId" @bind:after="OnListChanged">
+                            <option value="">— none —</option>
+                            @foreach (var list in Watchlists.All)
+                            {
+                                <option value="@list.Id">@list.Name (@list.Entries.Count)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="wl-new-name">New list name:</label>
+                        <input id="wl-new-name" type="text" @bind="_newListName" style="width:40%;" />
+                        <button type="button" @onclick="CreateList">Create list</button>
+                        <button type="button" @onclick="DeleteList"
+                                disabled="@(string.IsNullOrEmpty(_selectedListId))"
+                                aria-label="Delete the selected watchlist">Delete list</button>
+                    </div>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Add a symbol</legend>
+
+                    <div class="modal-row">
+                        <label for="wl-market">Market:</label>
+                        <select id="wl-market" @bind="_addMarket" @bind:after="OnAddMarketChangedAsync">
+                            @foreach (var m in _markets)
+                            {
+                                <option value="@m">@FormatMarketLabel(m)</option>
+                            }
+                        </select>
+
+                        <label for="wl-provider">Provider:</label>
+                        <select id="wl-provider" @bind="_addProvider" @bind:after="OnAddProviderChangedAsync">
+                            @foreach (var p in _providers)
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
+
+                        <label for="wl-subtype">Sub-type:</label>
+                        <select id="wl-subtype" @bind="_addSubType" @bind:after="OnAddSubTypeChangedAsync">
+                            @foreach (var st in _subTypes)
+                            {
+                                <option value="@st">@st</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="wl-filter">Filter symbols:</label>
+                        <input id="wl-filter" type="text" @bind="_symbolFilter" @bind:event="oninput"
+                               @bind:after="OnSymbolFilterChanged"
+                               aria-describedby="wl-symbol-count"
+                               placeholder="e.g. USDT" style="width:20%;" />
+
+                        <label for="wl-symbol">Symbol:</label>
+                        <select id="wl-symbol" @bind="_addSymbol" aria-describedby="wl-symbol-count"
+                                style="min-width:180px;">
+                            @foreach (var s in _visibleSymbols)
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+
+                        <button type="button" @onclick="AddEntry"
+                                disabled="@(string.IsNullOrEmpty(_selectedListId) || string.IsNullOrEmpty(_addSymbol))">Add</button>
+                        <button type="button" @onclick="AddAllShown"
+                                disabled="@(string.IsNullOrEmpty(_selectedListId) || _visibleSymbols.Count == 0)"
+                                aria-label="Add every symbol currently shown by the filter to the selected watchlist">
+                            Add all shown
+                        </button>
+                    </div>
+
+                    <p id="wl-symbol-count" role="status" aria-live="polite"
+                       style="color:var(--text-muted); font-size:0.9em; margin:6px 0;">
+                        @SymbolCountMessage
+                    </p>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Symbols on this list</legend>
+                    @if (_selectedList == null || _selectedList.Entries.Count == 0)
+                    {
+                        <p role="status">No symbols on this list yet.</p>
+                    }
+                    else
+                    {
+                        <ul role="list" style="list-style:none; padding:0; margin:0;">
+                            @foreach (var entry in _selectedList.Entries)
+                            {
+                                <li role="listitem" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border-color);">
+                                    <span>@entry.Symbol — @entry.Provider, @entry.SubType</span>
+                                    <span>
+                                        <button aria-label="Load @entry.Symbol on the chart"
+                                                @onclick="() => LoadEntryAsync(entry)">Load</button>
+                                        <button aria-label="Move @entry.Symbol up"
+                                                @onclick="() => MoveEntry(entry, -1)">Up</button>
+                                        <button aria-label="Move @entry.Symbol down"
+                                                @onclick="() => MoveEntry(entry, 1)">Down</button>
+                                        <button aria-label="Remove @entry.Symbol from the list"
+                                                @onclick="() => RemoveEntry(entry)">Remove</button>
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </fieldset>
+            }
+            else if (_tab == Tab.Build)
+            {
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Screen</legend>
+
+                    <div class="modal-row">
+                        <label for="bld-select">Edit saved screen:</label>
+                        <select id="bld-select" @bind="_editScreenId" @bind:after="LoadScreenIntoBuilder">
+                            <option value="">— new screen —</option>
+                            @foreach (var s in Screeners.All)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </select>
+                        <button type="button" @onclick="NewScreen">New</button>
+                        <button type="button" @onclick="DeleteScreen"
+                                disabled="@(string.IsNullOrEmpty(_editScreenId))"
+                                aria-label="Delete the screen being edited">Delete</button>
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="bld-name">Screen name:</label>
+                        <input id="bld-name" type="text" @bind="_editScreenName" style="width:30%;" />
+
+                        <label for="bld-logic">Combine filters:</label>
+                        <select id="bld-logic" @bind="_editLogic">
+                            <option value="@LogicOperator.And">All must be true</option>
+                            <option value="@LogicOperator.Or">Any may be true</option>
+                            <option value="@LogicOperator.Score">Weighted score reaches a threshold</option>
+                        </select>
+
+                        @if (_editLogic == LogicOperator.Score)
+                        {
+                            <label for="bld-threshold">Score threshold:</label>
+                            <input id="bld-threshold" type="number" step="0.1" min="0"
+                                   @bind="_editScoreThreshold" style="width:6em;" />
+                        }
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="bld-bars">Bars of history per symbol:</label>
+                        <input id="bld-bars" type="number" min="50" max="5000" step="50"
+                               @bind="_editBarCount" style="width:7em;"
+                               aria-describedby="bld-bars-help" />
+                        <span id="bld-bars-help" style="color:var(--text-muted); font-size:0.9em;">
+                            Must exceed the warmup of the slowest indicator you reference, or its
+                            filters evaluate against no data and every symbol reports not enough history.
+                        </span>
+                    </div>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">
+                        Filters (@_filters.Count)
+                    </legend>
+
+                    @if (_filters.Count == 0)
+                    {
+                        <p role="status">
+                            No filters yet — this screen would match every symbol. Add one below.
+                        </p>
+                    }
+
+                    @for (int i = 0; i < _filters.Count; i++)
+                    {
+                        var idx = i;
+                        var row = _filters[idx];
+                        <div class="modal-row" style="border-bottom:1px solid var(--border-color); padding:8px 0; flex-wrap:wrap;"
+                             role="group" aria-label="Filter @(idx + 1)">
+
+                            <label for="flt-ind-@idx">Indicator:</label>
+                            <select id="flt-ind-@idx" value="@row.IndicatorCode"
+                                    @onchange="e => OnFilterIndicatorChanged(idx, e.Value?.ToString())">
+                                @foreach (var ind in _indicatorCodes)
+                                {
+                                    <option value="@ind">@IndicatorLabel(ind)</option>
+                                }
+                            </select>
+
+                            <label for="flt-sig-@idx">Component:</label>
+                            <select id="flt-sig-@idx" value="@row.SignalId"
+                                    @onchange="e => OnFilterSignalChanged(idx, e.Value?.ToString())">
+                                @foreach (var sig in Signals.GetForIndicator(row.IndicatorCode))
+                                {
+                                    <option value="@sig.Id">@sig.ComponentName</option>
+                                }
+                            </select>
+
+                            <label for="flt-op-@idx">Condition:</label>
+                            <select id="flt-op-@idx" value="@row.Operator"
+                                    @onchange="e => OnFilterOperatorChanged(idx, e.Value?.ToString())">
+                                @foreach (var op in OperatorsFor(row.SignalId))
+                                {
+                                    <option value="@op">@OperatorLabel(op)</option>
+                                }
+                            </select>
+
+                            @if (NeedsValue(row.Operator))
+                            {
+                                <label for="flt-val-@idx">@ValueLabel(row.Operator):</label>
+                                <input id="flt-val-@idx" type="number" step="any"
+                                       value="@row.Value"
+                                       @onchange="e => OnFilterValueChanged(idx, e.Value?.ToString())"
+                                       style="width:7em;" />
+                            }
+                            @if (NeedsValue2(row.Operator))
+                            {
+                                <label for="flt-val2-@idx">Upper:</label>
+                                <input id="flt-val2-@idx" type="number" step="any"
+                                       value="@row.Value2"
+                                       @onchange="e => OnFilterValue2Changed(idx, e.Value?.ToString())"
+                                       style="width:7em;" />
+                            }
+                            @if (NeedsWithin(row.Operator))
+                            {
+                                <label for="flt-win-@idx">Within bars:</label>
+                                <input id="flt-win-@idx" type="number" min="1" max="500"
+                                       value="@row.WithinNBars"
+                                       @onchange="e => OnFilterWithinChanged(idx, e.Value?.ToString())"
+                                       style="width:6em;" />
+                            }
+                            @if (_editLogic == LogicOperator.Score)
+                            {
+                                <label for="flt-score-@idx">Weight:</label>
+                                <input id="flt-score-@idx" type="number" step="0.1" min="0"
+                                       value="@row.Score"
+                                       @onchange="e => OnFilterScoreChanged(idx, e.Value?.ToString())"
+                                       style="width:6em;" />
+                            }
+
+                            <button type="button" @onclick="() => RemoveFilter(idx)"
+                                    aria-label="Remove filter @(idx + 1), @DescribeFilter(row)">Remove</button>
+                        </div>
+                        <p style="color:var(--text-muted); font-size:0.9em; margin:2px 0 8px 0;">
+                            @DescribeFilter(row)
+                        </p>
+                    }
+
+                    <div class="modal-row">
+                        <button type="button" @onclick="AddFilter">Add filter</button>
+                    </div>
+                </fieldset>
+
+                <div class="modal-row">
+                    <button type="button" class="primary" @onclick="SaveScreen">Save screen</button>
+                </div>
+            }
+            else
+            {
+                <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
+                    <legend style="font-weight:700; padding:0 6px;">Run a screen</legend>
+
+                    <div class="modal-row">
+                        <label for="scr-select">Saved screen:</label>
+                        <select id="scr-select" @bind="_selectedScreenId">
+                            <option value="">— every symbol (quote screen) —</option>
+                            @foreach (var s in Screeners.All)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </select>
+
+                        <label for="scr-list">Against watchlist:</label>
+                        <select id="scr-list" @bind="_selectedListId" @bind:after="OnListChanged">
+                            @foreach (var list in Watchlists.All)
+                            {
+                                <option value="@list.Id">@list.Name (@list.Entries.Count)</option>
+                            }
+                        </select>
+
+                        <label for="scr-tf">Timeframe:</label>
+                        <input id="scr-tf" type="text" @bind="_timeframe" style="width:8%;" />
+                    </div>
+
+                    <div class="modal-row">
+                        <button type="button" @onclick="RunScreenAsync" disabled="@_running">
+                            @(_running ? "Running…" : "Run screen")
+                        </button>
+                        <button type="button" @onclick="CancelRun" disabled="@(!_running)">Cancel</button>
+                        <label>
+                            <input type="checkbox" @bind="_matchesOnly" /> Show matches only
+                        </label>
+                    </div>
+
+                    @if (_running)
+                    {
+                        <p role="status" aria-live="polite">
+                            Screened @_progressDone of @_progressTotal — @_progressSymbol
+                        </p>
+                    }
+                </fieldset>
+
+                @if (_result != null)
+                {
+                    <fieldset style="border:1px solid var(--border-color); padding:10px 14px;">
+                        <legend style="font-weight:700; padding:0 6px;">
+                            Results — @_result.MatchCount matched of @_result.EvaluatedCount evaluated@(_result.FailedCount > 0 ? $", {_result.FailedCount} could not be evaluated" : "")
+                        </legend>
+
+                        <table style="width:100%; border-collapse:collapse;">
+                            <caption class="visually-hidden">
+                                Screen results for @_result.SpecName, run at @_result.RunAt.ToString("HH:mm")
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Symbol</th>
+                                    <th scope="col">Provider</th>
+                                    <th scope="col">Match</th>
+                                    <th scope="col">Score</th>
+                                    <th scope="col">Close</th>
+                                    <th scope="col">Change %</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in VisibleRows())
+                                {
+                                    <tr>
+                                        <th scope="row">@row.Entry.Symbol</th>
+                                        <td>@row.Entry.Provider</td>
+                                        <td>@(row.Status == ScreenerRowStatus.Evaluated ? (row.Matched ? "yes" : "no") : "—")</td>
+                                        <td>@FormatScore(row)</td>
+                                        <td>@FormatNumber(row.LastClose)</td>
+                                        <td>@FormatNumber(row.PercentChange)</td>
+                                        <td>@DescribeStatus(row)</td>
+                                        <td>
+                                            <button aria-label="Load @row.Entry.Symbol on the chart"
+                                                    @onclick="() => LoadEntryAsync(row.Entry)">Load</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </fieldset>
+                }
+            }
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Tab { Lists, Build, Screen }
+
+    private Tab _tab = Tab.Lists;
+    private string? _error;
+    private string? _status;
+
+    private string _selectedListId = "";
+    private string _newListName = "";
+    private Watchlist? _selectedList;
+
+    // ── Symbol picker cascade (mirrors the toolbar's market → provider → sub-type → symbol) ──
+    private List<string> _markets = new();
+    private List<string> _providers = new();
+    private List<string> _subTypes = new();
+    private List<string> _allSymbols = new();
+    private List<string> _visibleSymbols = new();
+    private string _addMarket = "";
+    private string _addProvider = "";
+    private string _addSubType = "Spot";
+    private string _addSymbol = "";
+    private string _symbolFilter = "";
+    private bool _symbolsLoading;
+
+    /// <summary>Filtered symbol lists are capped so a 3,000-symbol provider can't wedge the dialog.</summary>
+    private const int MaxVisibleSymbols = 500;
+
+    // ── Screen builder ───────────────────────────────────────────────────
+    // The row model and the tree translation live in QuickScreenBuilder (Core) rather than
+    // here: an operator a signal can never satisfy, or an operand dropped on the way to disk,
+    // produces a screen that runs cleanly and matches nothing, which is indistinguishable from
+    // "no setups today". That needs tests, and tests need it out of the razor.
+    private readonly List<QuickFilter> _filters = new();
+    private List<string> _indicatorCodes = new();
+    private string _editScreenId = "";
+    private string _editScreenName = "";
+    private LogicOperator _editLogic = LogicOperator.And;
+    private double _editScoreThreshold = 1.0;
+    private int _editBarCount = 500;
+
+    // ── Screener run ─────────────────────────────────────────────────────
+    private string _selectedScreenId = "";
+    private string _timeframe = "1d";
+    private bool _matchesOnly = true;
+    private bool _running;
+    private ScreenerRunResult? _result;
+    private CancellationTokenSource? _cts;
+
+    private int _progressDone;
+    private int _progressTotal;
+    private string _progressSymbol = "";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenWatchlistEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private static string TabId(Tab tab) => tab switch
+    {
+        Tab.Lists => "watchlist-tab-lists",
+        Tab.Build => "watchlist-tab-build",
+        _         => "watchlist-tab-screen",
+    };
+
+    private async Task ShowAsync()
+    {
+        _error = null;
+        _status = null;
+
+        _indicatorCodes = Signals.All.Select(s => s.IndicatorCode).Distinct()
+                                 .OrderBy(c => c, StringComparer.OrdinalIgnoreCase).ToList();
+
+        // Seed the picker from the chart the user is looking at — the overwhelmingly common
+        // case for "add this to a list" is the symbol already on screen.
+        if (string.IsNullOrEmpty(_addMarket))
+            _addMarket = MarketOrchestrator.SelectedMarket ?? "";
+        if (string.IsNullOrEmpty(_addProvider))
+            _addProvider = MarketOrchestrator.SelectedProvider ?? "";
+        if (!string.IsNullOrEmpty(MarketOrchestrator.SelectedSubType))
+            _addSubType = MarketOrchestrator.SelectedSubType;
+        if (!string.IsNullOrEmpty(MarketOrchestrator.SelectedTimeframe))
+            _timeframe = MarketOrchestrator.SelectedTimeframe;
+
+        string? preferredSymbol = MarketOrchestrator.SelectedSymbol;
+
+        try
+        {
+            _markets = await Data.LoadAvailableMarketsAsync();
+            if (_markets.Count > 0 && !_markets.Contains(_addMarket, StringComparer.OrdinalIgnoreCase))
+                _addMarket = _markets[0];
+
+            await RefreshProvidersAsync(preserveProvider: true);
+            await RefreshSubTypesAsync(preserveSubType: true);
+            await RefreshSymbolsAsync(preferredSymbol);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load the symbol list: {ex.Message}";
+        }
+
+        if (string.IsNullOrEmpty(_selectedListId) && Watchlists.All.Count > 0)
+            _selectedListId = Watchlists.All[0].Id;
+        OnListChanged();
+
+        await ShowModalAsync("watchlist-title");
+    }
+
+    // ── Symbol picker cascade ────────────────────────────────────────────
+
+    private async Task OnAddMarketChangedAsync()
+    {
+        await RefreshProvidersAsync(preserveProvider: false);
+        await RefreshSubTypesAsync(preserveSubType: false);
+        await RefreshSymbolsAsync(null);
+    }
+
+    private async Task OnAddProviderChangedAsync()
+    {
+        await RefreshSubTypesAsync(preserveSubType: false);
+        await RefreshSymbolsAsync(null);
+    }
+
+    private async Task OnAddSubTypeChangedAsync() => await RefreshSymbolsAsync(null);
+
+    private async Task RefreshProvidersAsync(bool preserveProvider)
+    {
+        try
+        {
+            _providers = await Data.LoadProvidersByMarketTypeAsync(_addMarket);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not list providers: {ex.Message}";
+            _providers = new List<string>();
+        }
+
+        bool keep = preserveProvider && !string.IsNullOrEmpty(_addProvider)
+                    && _providers.Contains(_addProvider, StringComparer.OrdinalIgnoreCase);
+        if (!keep) _addProvider = _providers.Count > 0 ? _providers[0] : "";
+    }
+
+    private async Task RefreshSubTypesAsync(bool preserveSubType)
+    {
+        if (string.IsNullOrEmpty(_addProvider)) { _subTypes = new List<string> { "Spot" }; _addSubType = "Spot"; return; }
+
+        try
+        {
+            _subTypes = await Data.GetSupportedSubTypesAsync(_addProvider, _addMarket);
+        }
+        catch
+        {
+            _subTypes = new List<string>();
+        }
+        if (_subTypes.Count == 0) _subTypes = new List<string> { "Spot" };
+
+        bool keep = preserveSubType && !string.IsNullOrEmpty(_addSubType)
+                    && _subTypes.Contains(_addSubType, StringComparer.OrdinalIgnoreCase);
+        if (!keep) _addSubType = _subTypes[0];
+    }
+
+    /// <summary>
+    /// Loads the provider's symbol list. The market key mirrors <c>MarketOrchestrator</c> exactly —
+    /// "Market|SubType" only when the provider actually has more than one sub-type — because that
+    /// string is what routes the fetch, and a mismatched key silently returns the wrong universe.
+    /// </summary>
+    private async Task RefreshSymbolsAsync(string? preferredSymbol)
+    {
+        if (string.IsNullOrEmpty(_addProvider))
+        {
+            _allSymbols = new List<string>();
+            ApplySymbolFilter(preferredSymbol);
+            return;
+        }
+
+        _symbolsLoading = true;
+        StateHasChanged();
+        try
+        {
+            string marketKey = _subTypes.Count > 1 ? $"{_addMarket}|{_addSubType}" : _addMarket;
+            _allSymbols = await Data.LoadSymbolsAsync(marketKey, _addProvider);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not list symbols for {_addProvider}: {ex.Message}";
+            _allSymbols = new List<string>();
+        }
+        finally
+        {
+            _symbolsLoading = false;
+        }
+
+        ApplySymbolFilter(preferredSymbol);
+    }
+
+    private void OnSymbolFilterChanged() => ApplySymbolFilter(null);
+
+    private void ApplySymbolFilter(string? preferredSymbol)
+    {
+        _visibleSymbols = QuickScreenBuilder.FilterSymbols(_allSymbols, _symbolFilter, MaxVisibleSymbols);
+
+        // Keep a valid selection at all times so the Add button never posts an empty symbol.
+        if (!string.IsNullOrEmpty(preferredSymbol)
+            && _visibleSymbols.Contains(preferredSymbol, StringComparer.OrdinalIgnoreCase))
+        {
+            _addSymbol = preferredSymbol;
+        }
+        else if (!_visibleSymbols.Contains(_addSymbol, StringComparer.OrdinalIgnoreCase))
+        {
+            _addSymbol = _visibleSymbols.Count > 0 ? _visibleSymbols[0] : "";
+        }
+    }
+
+    private string SymbolCountMessage
+    {
+        get
+        {
+            if (_symbolsLoading) return "Loading symbols…";
+            if (_allSymbols.Count == 0) return "No symbols available for this provider.";
+            string shown = $"Showing {_visibleSymbols.Count} of {_allSymbols.Count} symbols";
+            if (_visibleSymbols.Count >= MaxVisibleSymbols)
+                shown += $" (capped at {MaxVisibleSymbols} — narrow the filter to see the rest)";
+            return shown + ".";
+        }
+    }
+
+    private static string FormatMarketLabel(string market) =>
+        market == "MyData" ? "My Data" : market;
+
+    private MarketType ResolveMarketType() =>
+        Enum.TryParse<MarketType>(_addMarket, ignoreCase: true, out var mt) ? mt : MarketType.Crypto;
+
+    // ── Watchlists ───────────────────────────────────────────────────────
+
+    private void OnListChanged() =>
+        _selectedList = string.IsNullOrEmpty(_selectedListId) ? null : Watchlists.GetById(_selectedListId);
+
+    private void CreateList()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_newListName)) { _error = "Give the list a name first."; return; }
+
+        var list = Watchlist.Create(_newListName.Trim());
+        Watchlists.Upsert(list);
+        _selectedListId = list.Id;
+        _newListName = "";
+        OnListChanged();
+        Announce($"Created watchlist {list.Name}.");
+    }
+
+    private void DeleteList()
+    {
+        if (_selectedList == null) return;
+        string name = _selectedList.Name;
+        Watchlists.Remove(_selectedList.Id);
+        _selectedListId = Watchlists.All.Count > 0 ? Watchlists.All[0].Id : "";
+        OnListChanged();
+        Announce($"Deleted watchlist {name}.");
+    }
+
+    private void AddEntry()
+    {
+        _error = null;
+        if (_selectedList == null) { _error = "Select or create a watchlist first."; return; }
+        if (string.IsNullOrWhiteSpace(_addSymbol)) { _error = "Pick a symbol."; return; }
+
+        var entry = new WatchlistEntry(_addProvider, _addSymbol.Trim(), ResolveMarketType(),
+            string.IsNullOrWhiteSpace(_addSubType) ? "Spot" : _addSubType.Trim());
+
+        if (Watchlists.AddEntry(_selectedList.Id, entry))
+        {
+            OnListChanged();
+            Announce($"Added {entry.Symbol} to {_selectedList!.Name}.");
+        }
+        else
+        {
+            _error = $"{entry.Symbol} is already on this list.";
+        }
+    }
+
+    private void AddAllShown()
+    {
+        _error = null;
+        if (_selectedList == null) { _error = "Select or create a watchlist first."; return; }
+
+        var market = ResolveMarketType();
+        string subType = string.IsNullOrWhiteSpace(_addSubType) ? "Spot" : _addSubType.Trim();
+        int added = 0, duplicates = 0;
+
+        foreach (var symbol in _visibleSymbols)
+        {
+            var entry = new WatchlistEntry(_addProvider, symbol, market, subType);
+            if (Watchlists.AddEntry(_selectedList.Id, entry)) added++;
+            else duplicates++;
+        }
+
+        OnListChanged();
+        string message = $"Added {added} symbol{(added == 1 ? "" : "s")} to {_selectedList!.Name}";
+        if (duplicates > 0) message += $"; {duplicates} were already on the list";
+        Announce(message + ".");
+    }
+
+    private void RemoveEntry(WatchlistEntry entry)
+    {
+        if (_selectedList == null) return;
+        Watchlists.RemoveEntry(_selectedList.Id, entry.Key);
+        OnListChanged();
+        Announce($"Removed {entry.Symbol}.");
+    }
+
+    private void MoveEntry(WatchlistEntry entry, int delta)
+    {
+        if (_selectedList == null) return;
+        int newIndex = Watchlists.MoveEntry(_selectedList.Id, entry.Key, delta);
+        OnListChanged();
+        if (newIndex >= 0) Announce($"{entry.Symbol} moved to position {newIndex + 1}.");
+    }
+
+    private async Task LoadEntryAsync(WatchlistEntry entry)
+    {
+        try
+        {
+            // Drive the same selection state the toolbar drives, then run the toolbar's own
+            // load path — so a watchlist load is indistinguishable from a manual one and picks
+            // up every guard (curated-data restrictions, shape-change handling) for free.
+            MarketOrchestrator.SelectedProvider = entry.Provider;
+            MarketOrchestrator.SelectedSubType = entry.SubType;
+            MarketOrchestrator.SelectedSymbol = entry.Symbol;
+            if (!string.IsNullOrWhiteSpace(_timeframe)) MarketOrchestrator.SelectedTimeframe = _timeframe;
+            await MarketOrchestrator.LoadChartAsync();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load {entry.Symbol}: {ex.Message}";
+        }
+    }
+
+    // ── Screen builder ───────────────────────────────────────────────────
+
+    private string IndicatorLabel(string code)
+    {
+        var first = Signals.GetForIndicator(code).FirstOrDefault();
+        if (first == null) return code;
+        // DisplayLabel is "Indicator — Component"; the indicator half is the useful group name.
+        int dash = first.DisplayLabel.IndexOf('—');
+        return dash > 0 ? first.DisplayLabel[..dash].Trim() : code;
+    }
+
+    private IReadOnlyList<LeafOperator> OperatorsFor(string signalId) =>
+        QuickScreenBuilder.OperatorsFor(Signals.GetById(signalId)?.Kind ?? SignalKind.Oscillator);
+
+    private static string OperatorLabel(LeafOperator op) => QuickScreenBuilder.OperatorLabel(op);
+    private static bool NeedsValue(LeafOperator op)      => QuickScreenBuilder.NeedsValue(op);
+    private static bool NeedsValue2(LeafOperator op)     => QuickScreenBuilder.NeedsValue2(op);
+    private static bool NeedsWithin(LeafOperator op)     => QuickScreenBuilder.NeedsWithin(op);
+    private static string ValueLabel(LeafOperator op)    => QuickScreenBuilder.ValueLabel(op);
+
+    private string DescribeFilter(QuickFilter row) =>
+        QuickScreenBuilder.Describe(row, Signals.GetById(row.SignalId), _editLogic);
+
+    private void AddFilter()
+    {
+        _error = null;
+        if (_indicatorCodes.Count == 0) { _error = "No indicators are registered, so there is nothing to screen on."; return; }
+
+        var row = new QuickFilter { IndicatorCode = _indicatorCodes[0] };
+        var first = Signals.GetForIndicator(row.IndicatorCode).FirstOrDefault();
+        if (first != null)
+        {
+            row.SignalId = first.Id;
+            row.Operator = OperatorsFor(first.Id)[0];
+            QuickScreenBuilder.SeedDefaultValue(row, first);
+        }
+        _filters.Add(row);
+        Announce($"Filter {_filters.Count} added: {DescribeFilter(row)}");
+    }
+
+    private void RemoveFilter(int index)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        _filters.RemoveAt(index);
+        Announce($"Filter removed. {_filters.Count} remaining.");
+    }
+
+    private void OnFilterIndicatorChanged(int index, string? code)
+    {
+        if (index < 0 || index >= _filters.Count || string.IsNullOrEmpty(code)) return;
+        var row = _filters[index];
+        row.IndicatorCode = code;
+        var first = Signals.GetForIndicator(code).FirstOrDefault();
+        if (first != null)
+        {
+            row.SignalId = first.Id;
+            row.Operator = OperatorsFor(first.Id)[0];
+            QuickScreenBuilder.SeedDefaultValue(row, first);
+        }
+    }
+
+    private void OnFilterSignalChanged(int index, string? signalId)
+    {
+        if (index < 0 || index >= _filters.Count || string.IsNullOrEmpty(signalId)) return;
+        var row = _filters[index];
+        row.SignalId = signalId;
+
+        // The previously chosen operator may not be legal for the new signal's kind; snap to a
+        // valid one rather than persisting a combination the evaluator would read as false forever.
+        var valid = OperatorsFor(signalId);
+        if (!valid.Contains(row.Operator)) row.Operator = valid[0];
+
+        var sig = Signals.GetById(signalId);
+        if (sig != null) QuickScreenBuilder.SeedDefaultValue(row, sig);
+    }
+
+    private void OnFilterOperatorChanged(int index, string? op)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        if (Enum.TryParse<LeafOperator>(op, out var parsed)) _filters[index].Operator = parsed;
+    }
+
+    private void OnFilterValueChanged(int index, string? raw)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out double v))
+            _filters[index].Value = v;
+    }
+
+    private void OnFilterValue2Changed(int index, string? raw)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out double v))
+            _filters[index].Value2 = v;
+    }
+
+    private void OnFilterWithinChanged(int index, string? raw)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        if (int.TryParse(raw, out int v)) _filters[index].WithinNBars = Math.Clamp(v, 1, 500);
+    }
+
+    private void OnFilterScoreChanged(int index, string? raw)
+    {
+        if (index < 0 || index >= _filters.Count) return;
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out double v))
+            _filters[index].Score = Math.Max(0, v);
+    }
+
+    private void NewScreen()
+    {
+        _editScreenId = "";
+        _editScreenName = "";
+        _editLogic = LogicOperator.And;
+        _editScoreThreshold = 1.0;
+        _editBarCount = 500;
+        _filters.Clear();
+        Announce("Started a new screen.");
+    }
+
+    private void LoadScreenIntoBuilder()
+    {
+        _error = null;
+        _filters.Clear();
+
+        if (string.IsNullOrEmpty(_editScreenId)) { NewScreen(); return; }
+
+        var spec = Screeners.GetById(_editScreenId);
+        if (spec == null) { _error = "That screen no longer exists."; return; }
+
+        _editScreenName = spec.Name;
+        _editBarCount = spec.BarCount;
+        _editLogic = LogicOperator.And;
+        _editScoreThreshold = 1.0;
+
+        var shape = QuickScreenBuilder.FromRoot(spec.Root);
+        _editLogic = shape.Logic;
+        _editScoreThreshold = shape.ScoreThreshold;
+        _filters.AddRange(shape.Filters);
+
+        // A nested group can't be represented by the flat quick-filter list. Say so rather than
+        // silently dropping it and then overwriting the user's screen the next time they save.
+        if (shape.HasNestedGroups)
+            _error = "This screen contains nested groups the quick builder can't show. " +
+                     "Saving here would flatten it — use New to start a separate screen instead.";
+
+        Announce($"Loaded {spec.Name} with {_filters.Count} filter{(_filters.Count == 1 ? "" : "s")}.");
+    }
+
+    internal ConditionNode? BuildRoot() =>
+        QuickScreenBuilder.BuildRoot(_filters, _editLogic, _editScoreThreshold);
+
+    private void SaveScreen()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_editScreenName)) { _error = "Give the screen a name first."; return; }
+        if (_filters.Any(f => string.IsNullOrEmpty(f.SignalId)))
+        {
+            _error = "Every filter needs a component selected.";
+            return;
+        }
+
+        var existing = string.IsNullOrEmpty(_editScreenId) ? null : Screeners.GetById(_editScreenId);
+        var spec = new ScreenerSpec(
+            Id: existing?.Id ?? Guid.NewGuid().ToString("N"),
+            Name: _editScreenName.Trim(),
+            WatchlistId: existing?.WatchlistId,
+            Timeframe: existing?.Timeframe ?? _timeframe,
+            Root: BuildRoot(),
+            BarCount: Math.Clamp(_editBarCount, 50, 5000),
+            Columns: existing?.Columns);
+
+        Screeners.Upsert(spec);
+        _editScreenId = spec.Id;
+        _selectedScreenId = spec.Id;   // so Run screener has it selected without hunting for it
+
+        Announce(_filters.Count == 0
+            ? $"Saved {spec.Name}. It has no filters, so it will match every symbol."
+            : $"Saved {spec.Name} with {_filters.Count} filter{(_filters.Count == 1 ? "" : "s")}.");
+    }
+
+    private void DeleteScreen()
+    {
+        if (string.IsNullOrEmpty(_editScreenId)) return;
+        var spec = Screeners.GetById(_editScreenId);
+        if (spec == null) return;
+
+        Screeners.Remove(spec.Id);
+        if (_selectedScreenId == spec.Id) _selectedScreenId = "";
+        NewScreen();
+        Announce($"Deleted screen {spec.Name}.");
+    }
+
+    // ── Screener run ─────────────────────────────────────────────────────
+
+    private async Task RunScreenAsync()
+    {
+        _error = null;
+        _result = null;
+
+        var list = Watchlists.GetById(_selectedListId);
+        if (list == null || list.Entries.Count == 0)
+        {
+            _error = "Pick a watchlist with at least one symbol.";
+            return;
+        }
+
+        var spec = string.IsNullOrEmpty(_selectedScreenId)
+            ? ScreenerSpec.Create("Quote screen", list.Id) with { Timeframe = _timeframe }
+            : Screeners.GetById(_selectedScreenId)! with { Timeframe = _timeframe };
+
+        _running = true;
+        _progressDone = 0;
+        _progressTotal = list.Entries.Count;
+        _progressSymbol = "";
+        _cts = new CancellationTokenSource();
+
+        var progress = new Progress<ScreenerProgress>(p =>
+        {
+            _progressDone = p.Completed;
+            _progressTotal = p.Total;
+            _progressSymbol = p.Symbol;
+            StateHasChanged();
+        });
+
+        try
+        {
+            _result = await Screener.RunAsync(spec, list.Entries, progress, _cts.Token);
+            string summary = $"{spec.Name}: {_result.MatchCount} matched of {_result.EvaluatedCount} evaluated";
+            if (_result.FailedCount > 0) summary += $", {_result.FailedCount} could not be evaluated";
+            _status = summary + ".";
+            Announce(_status);
+        }
+        catch (OperationCanceledException)
+        {
+            _status = "Screen cancelled.";
+            Announce(_status);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Screen failed: {ex.Message}";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void CancelRun() => _cts?.Cancel();
+
+    private IEnumerable<ScreenerRow> VisibleRows()
+    {
+        if (_result == null) return Array.Empty<ScreenerRow>();
+        if (!_matchesOnly) return _result.Rows;
+        // Failed rows always stay visible even in matches-only mode: hiding them would turn
+        // "we could not check 12 symbols" into a silent zero.
+        return _result.Rows.Where(r => r.Matched || r.Status != ScreenerRowStatus.Evaluated);
+    }
+
+    private static string FormatNumber(double v) =>
+        double.IsNaN(v) ? "—" : v.ToString("0.####");
+
+    private static string FormatScore(ScreenerRow row) =>
+        row.MaxScore > 0 ? $"{row.Score:0.##} of {row.MaxScore:0.##}" : "—";
+
+    private static string DescribeStatus(ScreenerRow row) => row.Status switch
+    {
+        ScreenerRowStatus.Evaluated => string.IsNullOrEmpty(row.Detail) ? "ok" : row.Detail!,
+        ScreenerRowStatus.InsufficientHistory => "not enough history",
+        _ => row.Detail ?? "failed",
+    };
+
+    private void Announce(string message)
+    {
+        _status = message;
+        EventBus.Publish(new AnnouncementEvent(message, true));
+    }
+
+    public override void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        base.Dispose();
+    }
+}

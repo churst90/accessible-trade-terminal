@@ -54,7 +54,7 @@
             @if (!string.IsNullOrWhiteSpace(_searchQuery))
             {
                 <div role="region" aria-label="Setting search results"
-                     style="border:1px solid #bbb; border-radius:4px; padding:6px 10px; margin-bottom:12px;">
+                     style="border:1px solid var(--border-color); border-radius:4px; padding:6px 10px; margin-bottom:12px;">
                     <p id="s-search-count" role="status" style="margin:2px 0; font-size:0.85rem; color:var(--text-muted);">
                         @_searchResults.Count matching setting@(_searchResults.Count == 1 ? "" : "s").
                     </p>
@@ -83,7 +83,7 @@
                             style="padding:6px 16px; border:none; border-bottom:@(active ? "3px solid #0078d4" : "3px solid transparent");
                                    background:@(active ? "#e8f0ff" : "transparent");
                                    font-weight:@(active ? "700" : "400");
-                                   color:#111; cursor:pointer;">
+                                   color:var(--text-on-surface); cursor:pointer;">
                         @tab
                     </button>
                 }
@@ -95,8 +95,8 @@
                  hidden="@(_activeTab != "General")">
 
                 @* ── Speech ─────────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Speech</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Speech</legend>
 
                     <div class="modal-row">
                         <label for="s-speech-enabled">Speech enabled (F2)</label>
@@ -173,8 +173,8 @@
                 </fieldset>
 
                 @* ── Workspace ────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Workspace</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Workspace</legend>
                     <div class="modal-row">
                         <label for="s-resume-session">Resume last session at startup (autosaves every 30 seconds and on close)</label>
                         <input id="s-resume-session" type="checkbox"
@@ -186,8 +186,8 @@
                 @if (Demo.AllowBackgroundMonitoring)
                 {
                     @* ── Background monitoring (multi-workspace) ─────────────── *@
-                    <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                        <legend style="font-weight:700; color:#111; padding:0 6px;">Background monitoring</legend>
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Background monitoring</legend>
                         <div class="modal-row">
                             <label for="s-bg-monitor">Watch non-focused tabs (alerts and strategies keep evaluating)</label>
                             <input id="s-bg-monitor" type="checkbox"
@@ -207,7 +207,7 @@
                                    @onchange="OnLiveBgTabsChanged" />
                         </div>
                         <div class="modal-row">
-                            <span style="flex:1; font-size:0.85rem; color:#555;">
+                            <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
                                 Speaks which workspaces are watched and how fresh each is
                                 (also on Ctrl+Alt+Shift+M).
                             </span>
@@ -250,8 +250,8 @@
                    the toggle there was a dead end. Windows-only besides. *@
                 @if (!Platform.IsBrowserHost)
                 {
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Braille / Tactile Display</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Braille / Tactile Display</legend>
                     <div class="modal-row">
                         <label for="s-braille-enabled">Enable braille / tactile display output</label>
                         <input id="s-braille-enabled" type="checkbox"
@@ -269,8 +269,8 @@
                 }
 
                 @* ── Sonification ────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Sonification</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Sonification</legend>
 
                     <div class="modal-row">
                         <label for="s-sonif-enabled">Sonification enabled (F3)</label>
@@ -314,8 +314,8 @@
                 </fieldset>
 
                 @* ── Touch navigation bar ────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Touch navigation bar</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
                     <div class="modal-row">
                         <label for="s-touch-nav">Show the large-button touch toolbar</label>
                         <select id="s-touch-nav"
@@ -334,8 +334,25 @@
                 </fieldset>
 
                 @* ── Drawing ─────────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Drawing</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Analysis</legend>
+                    <div class="modal-row">
+                        <label for="s-market-structure">
+                            Add Market Structure (swing highs and lows) to new charts
+                        </label>
+                        <input id="s-market-structure" type="checkbox"
+                               checked="@_marketStructureDefault"
+                               @onchange="OnMarketStructureDefaultChanged" />
+                    </div>
+                    <p style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
+                        On by default. Affects charts loaded from now on; charts already open are
+                        untouched, and you can always add or remove the indicator per chart.
+                    </p>
+                </fieldset>
+
+                @* ── Drawing ─────────────────────────────────────────────────── *@
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Drawing</legend>
                     <div class="modal-row">
                         <label for="s-magnet-snap">Magnet snap (drawing anchors snap to nearest open/high/low/close)</label>
                         <input id="s-magnet-snap" type="checkbox"
@@ -345,8 +362,8 @@
                 </fieldset>
 
                 @* ── Viewport ────────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Viewport &amp; Navigation</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Viewport &amp; Navigation</legend>
 
                     <div class="modal-row">
                         <label for="s-granularity">Panning step (%)</label>
@@ -359,13 +376,13 @@
                                 <option value="@g" selected="@(g == Store.State.PanningGranularity)">@g%</option>
                             }
                         </select>
-                        <span style="font-size:0.8rem; color:#555;">Shift+[ / Shift+] to adjust</span>
+                        <span style="font-size:0.8rem; color:var(--text-muted);">Shift+[ / Shift+] to adjust</span>
                     </div>
                 </fieldset>
 
                 @* ── Keyboard Shortcuts (read-only reference) ────────────────── *@
                 <details style="margin-bottom:16px;">
-                    <summary style="cursor:pointer; font-weight:700; color:#111; padding:4px 0;">
+                    <summary style="cursor:pointer; font-weight:700; color:var(--text-on-surface); padding:4px 0;">
                         Keyboard Shortcuts Reference
                     </summary>
                     <table class="shortcuts-table" style="margin-top:10px;">
@@ -400,8 +417,8 @@
                 </details>
 
                 @* ── Data Export ─────────────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Data Export</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Data Export</legend>
                     <div class="modal-row">
                         <span style="flex:1; font-size:0.9rem;">Export visible chart data (OHLCV + indicators) to CSV</span>
                         <button @onclick="ExportDataAsync" aria-label="Export chart data to CSV">Export CSV</button>
@@ -413,9 +430,9 @@
                 </fieldset>
 
                 @* ── Settings Profiles ───────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Settings Profiles</legend>
-                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Settings Profiles</legend>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
                         Export/import visual or audio profiles to share your configuration with other users.
                         Visual profiles include theme, colors, and line styles. Audio profiles include waveforms, volumes, and frequencies.
                     </p>
@@ -441,8 +458,8 @@
                  aria-labelledby="tab-appearance"
                  hidden="@(_activeTab != "Appearance")">
 
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Colors</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Colors</legend>
 
                     <div class="modal-row">
                         <label for="s-bg-color">Background color@(_backgroundGradient ? " (top)" : "")</label>
@@ -480,8 +497,74 @@
 
                 </fieldset>
 
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Theme</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Window gradient</legend>
+
+                    <div class="modal-row">
+                        <label for="s-unified-gradient">
+                            Blend the toolbars, chart and footer into one gradient
+                        </label>
+                        <input id="s-unified-gradient" type="checkbox"
+                               checked="@_unifiedGradient"
+                               @onchange="OnUnifiedGradientChanged" />
+                    </div>
+
+                    @if (_unifiedGradient)
+                    {
+                        <div class="modal-row">
+                            <label for="s-unified-top">Top of window</label>
+                            <input id="s-unified-top" type="color" value="@_unifiedTop"
+                                   @onchange="OnUnifiedTopChanged"
+                                   aria-label="Color at the very top of the window" />
+
+                            <label for="s-unified-bottom">Bottom of window</label>
+                            <input id="s-unified-bottom" type="color" value="@_unifiedBottom"
+                                   @onchange="OnUnifiedBottomChanged"
+                                   aria-label="Color at the very bottom of the window" />
+                        </div>
+                    }
+
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Off by default — each theme colors its three regions itself. Turn this on
+                        and the toolbars, the chart and the footer each take the color the fade has
+                        reached where they sit, so the whole window reads as one surface. Leaving
+                        the two colors alone smooths whatever the current theme already had.
+                    </p>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Up and down colors</legend>
+
+                    <div class="modal-row">
+                        <label for="s-bull-color">Bullish (up)</label>
+                        <input id="s-bull-color" type="color" value="@_bullishColor"
+                               @onchange="OnBullishColorChanged"
+                               aria-label="Color for rising candles and volume" />
+
+                        <label for="s-bear-color">Bearish (down)</label>
+                        <input id="s-bear-color" type="color" value="@_bearishColor"
+                               @onchange="OnBearishColorChanged"
+                               aria-label="Color for falling candles and volume" />
+
+                        <button type="button" @onclick="ResetDirectionColors"
+                                aria-label="Reset up and down colors to the theme's own pair">Use theme's</button>
+                    </div>
+                    @if (DirectionColorWarning is { } warning)
+                    {
+                        <p role="status" aria-live="polite"
+                           style="margin:8px 0 0; color:#ffb300; font-size:0.9em;">
+                            @warning
+                        </p>
+                    }
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Applies to candles and volume bars, and stays put when you change theme —
+                        which color means "up" is a habit, not a decoration. Reset to let each
+                        theme use its own pair (High Contrast Dark deliberately uses white and red).
+                    </p>
+                </fieldset>
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Theme</legend>
 
                     <div class="modal-row">
                         <label for="s-theme">Theme</label>
@@ -489,6 +572,9 @@
                                 value="@_selectedTheme"
                                 @onchange="OnThemeChanged"
                                 aria-label="Application theme">
+                            <option value="SteelGray">Steel Gray (default)</option>
+                            <option value="Blackout">Blackout — black, white text</option>
+                            <option value="Classic">Classic — familiar dark navy</option>
                             <option value="HighContrastDark">High Contrast Dark</option>
                             <option value="HighContrastLight">High Contrast Light</option>
                             <option value="SoftDark">Soft Dark</option>
@@ -496,14 +582,20 @@
                             <option value="Braille">Braille Optimized</option>
                         </select>
                     </div>
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        A theme covers the whole window — the toolbars and dialogs as well as the
+                        chart — so the application never ends up as a themed chart inside a
+                        differently-coloured frame. The colour and gradient settings above are
+                        layered on top of whichever theme is selected.
+                    </p>
 
                 </fieldset>
 
                 @* Visual accessibility (Phase D). ALL OFF BY DEFAULT: the terminal
                    presents audio-first; these are opt-in visual accommodations.
                    Changes apply and persist immediately, like the theme. *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Visual accessibility</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Visual accessibility</legend>
 
                     <div class="modal-row">
                         <label for="s-visual-earcons">Visual earcons</label>
@@ -577,7 +669,7 @@
                  aria-labelledby="tab-keyboard"
                  hidden="@(_activeTab != "Keyboard")">
 
-                <p style="font-size:0.85rem; color:#555; margin-bottom:12px;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
                     Click <strong>Rebind</strong> on any row, then press your new key combination.
                     Escape cancels. Rebindings are saved immediately.
                 </p>
@@ -627,7 +719,7 @@
                  aria-labelledby="tab-alerts"
                  hidden="@(_activeTab != "Alerts")">
 
-                <p style="font-size:0.85rem; color:#555; margin-bottom:12px;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
                     Configure external delivery for fired alerts. Each channel activates
                     only when its required fields are filled; unconfigured channels are
                     silently skipped.
@@ -637,8 +729,8 @@
                 @if (Demo.IsHosted)
                 {
                     @* ── Browser notifications (hosted Web Push) ─────────────── *@
-                    <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                        <legend style="font-weight:700; color:#111; padding:0 6px;">Browser notifications</legend>
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Browser notifications</legend>
                         <div class="modal-row">
                             <span style="flex:1;">
                                 Push your alerts to this browser as system notifications —
@@ -653,8 +745,8 @@
                     </fieldset>
                 }
 
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Email (SMTP)</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Email (SMTP)</legend>
 
                     <div class="modal-row">
                         <label for="s-email-host">SMTP host</label>
@@ -704,7 +796,7 @@
                                @onchange="e => _emailTo = e.Value?.ToString() ?? string.Empty" />
                     </div>
                     <div class="modal-row">
-                        <span style="flex:1; font-size:0.85rem; color:#555;">
+                        <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
                             Sends a sample alert using current values (saved on Close).
                         </span>
                         <button @onclick="TestEmailAsync"
@@ -720,10 +812,10 @@
                 </fieldset>
 
                 @* ── Telegram ─────────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Telegram</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Telegram</legend>
 
-                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
                         Create a bot via <strong>@@BotFather</strong>, send it a message, then paste the bot
                         token and the numeric chat id returned by <code>getUpdates</code>.
                     </p>
@@ -744,7 +836,7 @@
                                @onchange="e => _tgChatId = e.Value?.ToString() ?? string.Empty" />
                     </div>
                     <div class="modal-row">
-                        <span style="flex:1; font-size:0.85rem; color:#555;">
+                        <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
                             Sends a sample alert using current values (saved on Close).
                         </span>
                         <button @onclick="TestTelegramAsync"
@@ -759,10 +851,10 @@
                     }
                 </fieldset>
 
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Webhook (Discord / Slack / custom)</legend>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Webhook (Discord / Slack / custom)</legend>
 
-                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
                         Sends alerts as a JSON POST to any HTTPS endpoint. Add one or more named
                         webhooks — a Discord webhook URL (Server Settings, Integrations, Webhooks) or a
                         Slack incoming-webhook URL — and give each a Name (e.g. "BTC channel"). Each
@@ -820,9 +912,9 @@
                    The SetupAlertBridge (confirmed/armed/dropped setups → email /
                    Telegram / webhook) existed and was documented in the manual, but
                    its settings had no UI — the feature was unreachable. *@
-                <fieldset style="border:1px solid #bbb; padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:#111; padding:0 6px;">Strategy setup alerts</legend>
-                    <p style="font-size:0.85rem; color:#555; margin-bottom:10px;">
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Strategy setup alerts</legend>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
                         When on, confirmed and armed strategy setups are delivered through the
                         same channels as alerts — email, Telegram, and (optionally) a webhook —
                         so your Discord channel hears "Long setup — gold" with the trade plan
@@ -858,7 +950,7 @@
                  aria-labelledby="tab-license"
                  hidden="@(_activeTab != "License")">
 
-                <div style="padding:8px 0; color:#111; line-height:1.7; font-size:0.92rem;">
+                <div style="padding:8px 0; color:var(--text-on-surface); line-height:1.7; font-size:0.92rem;">
                     <p><strong>Accessible Trade Terminal</strong></p>
                     <p>Copyright &copy; 2026 Accessible Trader contributors.</p>
                     @* Matches the LICENSE file at the repository root — this said MIT
@@ -897,7 +989,7 @@
                         <tr><td>Repository</td><td><a href="https://github.com/accessible-trader/accessible-trader" target="_blank" style="color:#0078d4;">GitHub</a></td></tr>
                     </tbody>
                 </table>
-                <p style="margin-top:16px; color:#555; font-size:0.88rem; font-style:italic;">
+                <p style="margin-top:16px; color:var(--text-muted); font-size:0.88rem; font-style:italic;">
                     Built for blind and visually impaired traders.
                 </p>
             </div>
@@ -1190,6 +1282,12 @@
     }
     private bool _hoverSonification;
     private bool _magnetSnap;
+    private bool _marketStructureDefault;
+    private bool _unifiedGradient;
+    private string _unifiedTop = "#676e79";
+    private string _unifiedBottom = "#17191d";
+    private string _bullishColor = "#77ff77";
+    private string _bearishColor = "#dd0000";
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
 
     private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1225,6 +1323,133 @@
         App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
+    }
+
+    /// <summary>
+    /// Warns when a chosen up/down colour has landed too close to the chart background to see.
+    ///
+    /// <para>
+    /// The trap this closes: up/down colour is an APP-level preference that survives theme
+    /// switches, which is what you want for a habit — but it means someone who picks near-white
+    /// candles and later selects a light theme ends up with an invisible chart, and neither
+    /// choice was wrong on its own. The presets never collide with themselves (a test enforces
+    /// it); only a custom pair can, so this warns rather than overriding. Silently correcting
+    /// someone's colour would be worse than letting them see the problem and decide.
+    /// </para>
+    /// </summary>
+    private string? DirectionColorWarning
+    {
+        get
+        {
+            var theme = ThemeService.Current;
+            var bg = theme.Background;
+
+            static int DistSq(SkiaSharp.SKColor a, SkiaSharp.SKColor b)
+            {
+                int dr = a.Red - b.Red, dg = a.Green - b.Green, db = a.Blue - b.Blue;
+                return dr * dr + dg * dg + db * db;
+            }
+
+            const int TooClose = 12_000;
+            bool bullBad = DistSq(theme.CandleBullishBody, bg) < TooClose;
+            bool bearBad = DistSq(theme.CandleBearishBody, bg) < TooClose;
+
+            if (bullBad && bearBad)
+                return "Both colors are very close to the chart background — candles will be hard to see. " +
+                       "Pick brighter colors, or press \"Use theme's\".";
+            if (bullBad)
+                return "The bullish color is very close to the chart background — rising candles will be hard to see.";
+            if (bearBad)
+                return "The bearish color is very close to the chart background — falling candles will be hard to see.";
+            return null;
+        }
+    }
+
+    private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _unifiedGradient = e.Value is bool b && b;
+        Settings.SetSetting(Core.Services.SettingsKeys.UnifiedGradient, _unifiedGradient);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        SyncUnifiedEndsFromTheme();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _unifiedGradient
+                ? "The window is one gradient from top to bottom."
+                : "Each region uses the theme's own color again.", true));
+    }
+
+    private void OnUnifiedTopChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientTop, e.Value?.ToString(), isTop: true);
+
+    private void OnUnifiedBottomChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientBottom, e.Value?.ToString(), isTop: false);
+
+    private void SetUnifiedEnd(string key, string? hex, bool isTop)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        if (isTop) _unifiedTop = hex; else _unifiedBottom = hex;
+
+        Settings.SetSetting(key, hex);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
+    }
+
+    // Seed the pickers from whatever the theme resolved to, so switching the toggle on shows the
+    // colors actually in use rather than a pair the user never chose.
+    private void SyncUnifiedEndsFromTheme()
+    {
+        _unifiedTop = SkColorToHex(ThemeService.Current.SurfaceRaised);
+        _unifiedBottom = SkColorToHex(
+            ThemeService.Current.ChromeBottomEnd ?? ThemeService.Current.ChromeBottom);
+    }
+
+    private void OnBullishColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetDirectionColor(Core.Services.SettingsKeys.BullishColor, e.Value?.ToString(), isUp: true);
+
+    private void OnBearishColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => SetDirectionColor(Core.Services.SettingsKeys.BearishColor, e.Value?.ToString(), isUp: false);
+
+    private void SetDirectionColor(string key, string? hex, bool isUp)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        if (isUp) _bullishColor = hex; else _bearishColor = hex;
+
+        Settings.SetSetting(key, hex);
+        Settings.SaveSettings();
+        // Re-applies the appearance overrides over the active theme and repaints.
+        ThemeService.RefreshAccessibilityOverrides();
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            isUp ? "Bullish color updated." : "Bearish color updated.", true));
+    }
+
+    private void ResetDirectionColors()
+    {
+        Settings.SetSetting(Core.Services.SettingsKeys.BullishColor, string.Empty);
+        Settings.SetSetting(Core.Services.SettingsKeys.BearishColor, string.Empty);
+        Settings.SaveSettings();
+        ThemeService.RefreshAccessibilityOverrides();
+        _bullishColor = SkColorToHex(ThemeService.Current.CandleBullishBody);
+        _bearishColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
+        EventBus.Publish(new RedrawEvent());
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Up and down colors reset to the theme's own pair.", true));
+    }
+
+    private void OnMarketStructureDefaultChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _marketStructureDefault = e.Value is bool b && b;
+        App.MarketStructureOnByDefault = _marketStructureDefault;
+        App.Save();
+        // Deliberately does NOT retrofit open charts. Removing an indicator the user may have
+        // configured, on a chart they were reading, is a bigger surprise than the setting taking
+        // effect on the next load.
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _marketStructureDefault
+                ? "Market structure will be added to new charts."
+                : "Market structure will no longer be added to new charts.", true));
     }
 
     private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1345,6 +1570,9 @@
         };
         _hoverSonification = App.HoverSonification;
         _magnetSnap = App.MagnetSnap;
+        _marketStructureDefault = App.MarketStructureOnByDefault;
+        _bullishColor = SkColorToHex(ThemeService.Current.CandleBullishBody);
+        _bearishColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
         _wasapiLatency = Store.State.WasapiLatency;

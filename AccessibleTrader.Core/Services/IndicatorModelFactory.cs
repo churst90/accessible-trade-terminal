@@ -93,6 +93,29 @@ namespace AccessibleTrader.Core.Services
             return result;
         }
 
+
+        /// <summary>
+        /// Parses a formatted parameter value into the double the config dictionary stores.
+        ///
+        /// <para>
+        /// Booleans need special handling: <c>SeriesManagementService.FormatParam</c> renders them
+        /// as "true"/"false", and <c>double.TryParse</c> rejects both — so before this existed,
+        /// every bool indicator parameter was silently DROPPED on its way into the config and the
+        /// provider always fell back to its hardcoded default. That made Cipher SR's AdaptiveBreak,
+        /// Cipher B's anchor suppression and every other bool knob permanently unsettable from the
+        /// UI, with no error to show for it.
+        /// </para>
+        /// </summary>
+        internal static bool TryParseParamValue(string? raw, out double value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(raw)) return false;
+
+            if (bool.TryParse(raw, out bool b)) { value = b ? 1 : 0; return true; }
+            return double.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
         public ChartSeries CreateSeriesFromMetadata(IndicatorMetadata meta, string instanceName, string pane, List<(string Name, string Value)> parameters, List<ComponentConfig>? componentOverrides, string? restoreId = null)
         {
             string id = restoreId ?? Guid.NewGuid().ToString();
@@ -105,7 +128,7 @@ namespace AccessibleTrader.Core.Services
                 Pane = pane
             };
 
-            foreach (var p in parameters) if (double.TryParse(p.Value, out double val)) config.Parameters[p.Name] = val;
+            foreach (var p in parameters) if (TryParseParamValue(p.Value, out double val)) config.Parameters[p.Name] = val;
             
             // ── 3-layer component merge ─────────────────────────────────────────────
             // Layer 1: always generate fresh configs from provider metadata.
@@ -213,7 +236,7 @@ namespace AccessibleTrader.Core.Services
             config.FriendlyName = instanceName; 
             config.Pane = pane;
             config.Parameters.Clear();
-            foreach (var p in parameters) if (double.TryParse(p.Value, out double val)) config.Parameters[p.Name] = val;
+            foreach (var p in parameters) if (TryParseParamValue(p.Value, out double val)) config.Parameters[p.Name] = val;
 
             bool isProfileOrHeatmap = uiComponents.Any(c => c.DisplayType == ComponentDisplayType.Profile || c.DisplayType == ComponentDisplayType.Heatmap);
             series.IsProfile = isProfileOrHeatmap;
@@ -269,6 +292,7 @@ namespace AccessibleTrader.Core.Services
                 ColorHexSecondary  = meta.DefaultColorHexSecondary ?? _stylingService.GetSecondaryColor(indicatorCode, meta.Name, type),
                 ColorBaseline      = meta.ColorBaseline       ?? _stylingService.GetColorBaseline(indicatorCode, meta.Name),
                 DashStyle          = meta.DefaultDashStyle    ?? DashStyle.Solid,
+                MarkerAnchor       = meta.DefaultMarkerAnchor ?? MarkerAnchor.Value,
 
                 // Visual size.
                 Thickness = meta.DefaultThickness ?? _stylingService.GetDefaultThickness(type),

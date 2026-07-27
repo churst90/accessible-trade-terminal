@@ -30,6 +30,8 @@ namespace AccessibleTrader.Sdk.Models
         public string DisplayName { get; set; } = ""; 
         
         [ObservableProperty] private ComponentDisplayType _displayType = ComponentDisplayType.Line;
+        /// <summary>Vertical anchoring for marker shapes. See <see cref="MarkerAnchor"/>.</summary>
+        [ObservableProperty] private MarkerAnchor _markerAnchor = MarkerAnchor.Value;
         [ObservableProperty] private ComponentRole _role = ComponentRole.None;
         [ObservableProperty] private AmplitudeMapping _amplitudeMapping = AmplitudeMapping.None;
         [ObservableProperty] private PitchMapping _pitchMapping = PitchMapping.Value;
@@ -37,6 +39,20 @@ namespace AccessibleTrader.Sdk.Models
         
         [ObservableProperty] private string _colorHex = "#FFFFFF";
         [ObservableProperty] private string _colorHexSecondary = "#FF0000";
+
+        /// <summary>
+        /// True once the user has picked this component's colour by hand.
+        ///
+        /// <para>
+        /// Price action — candle bodies, wicks, volume bars — takes its colour from the active
+        /// THEME, not from indicator metadata, because a theme that cannot change what a candle
+        /// looks like is not really a theme. But a user who has deliberately recoloured a
+        /// component must keep that choice across theme switches, and the renderer cannot tell a
+        /// deliberate choice from a metadata default by looking at the hex. This flag is that
+        /// distinction, set by the properties dialog at the moment of the edit.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _isUserStyled = false;
         [ObservableProperty] private string _waveform = "sine";
         [ObservableProperty] private string _aboveReferenceWaveform = "sine";
         [ObservableProperty] private string _belowReferenceWaveform = "sine";
@@ -181,7 +197,7 @@ namespace AccessibleTrader.Sdk.Models
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
-                ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary,
+                ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,
                 Waveform = Waveform, AboveReferenceWaveform = AboveReferenceWaveform, BelowReferenceWaveform = BelowReferenceWaveform,
                 SecondaryWaveform = SecondaryWaveform, FreqMultiplier = FreqMultiplier, TriggerBoundaryClick = TriggerBoundaryClick,
                 EnvelopeType = EnvelopeType,

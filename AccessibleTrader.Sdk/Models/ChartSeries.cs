@@ -10,6 +10,28 @@ namespace AccessibleTrader.Sdk.Models
     /// <summary>
     /// Specifies how a component is visually rendered on the chart.
     /// </summary>
+    /// <summary>
+    /// Where a marker component is drawn vertically.
+    ///
+    /// <para>
+    /// Markers that mean "something happened at this bar" should anchor to the BAR, not to an
+    /// absolute price the indicator computed. Indicators run on RAW OHLCV while the main pane may
+    /// be drawing Heikin-Ashi candles, whose highs and lows differ — so a price-anchored marker
+    /// drifts away from the candle it is describing the moment the user switches chart type. It
+    /// also disagrees with the speech and sonification layers, which already follow the transform.
+    /// </para>
+    /// </summary>
+    public enum MarkerAnchor
+    {
+        /// <summary>Draw at the component's own value, mapped through the price axis. The default,
+        /// and correct for anything whose value IS a price (levels, moving averages).</summary>
+        Value,
+        /// <summary>Draw just under the displayed bar's low. For bullish / support markers.</summary>
+        BelowBar,
+        /// <summary>Draw just above the displayed bar's high. For bearish / resistance markers.</summary>
+        AboveBar
+    }
+
     public enum ComponentDisplayType
     {
         Line,

@@ -58,7 +58,7 @@
             </button>
             @if (_seriesList.Count > 0)
             {
-                <div role="separator" style="border-top:1px solid #444; margin:4px 0;"></div>
+                <div role="separator" style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
                 <div aria-hidden="true" style="color:#999; font-size:0.75rem; padding:2px 14px;">Series</div>
                 @foreach (var s in _seriesList)
                 {
@@ -71,7 +71,7 @@
         else
         {
             <button id="chart-ctx-first" role="menuitem" class="ctx-item" @onclick="CloseSeries">◂ Back</button>
-            <div role="separator" style="border-top:1px solid #444; margin:4px 0;"></div>
+            <div role="separator" style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
             <button role="menuitem" class="ctx-item" @onclick="OnFocusSeries">Focus</button>
             <button role="menuitem" class="ctx-item" @onclick="OnToggleMute">
                 @(_selectedSeries.IsMuted ? "Unmute" : "Mute")
