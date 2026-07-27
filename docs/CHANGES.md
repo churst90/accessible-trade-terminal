@@ -10,6 +10,52 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Native form controls, two new themes, and a colour-vision gap in three old ones (2026-07-27)
+
+- **The dropdowns were unstyled OS widgets.** Setting a `background-color` on a `<select>` is
+  not enough — the platform still draws its own control, so Market / Provider / Symbol rendered
+  as light-grey system pickers on a themed steel toolbar. `appearance: none` plus an inline
+  `data:` URI arrow fixes it, along with themed `option` colours (an expanded list renders
+  black-on-white otherwise), colour swatches, checkboxes and text inputs. Native form controls
+  are the classic tell that an application was assembled rather than designed, and they were the
+  only elements on screen not following the theme.
+- **Buttons joined the same family**, including the `warning` variant the "Add key" affordance
+  uses — it had been shipping as a default HTML rectangle in a row of themed circular buttons.
+- **The chart legend lost weight**: fill dropped from 234 to 178 alpha with a slightly stronger
+  hairline, so the chart shows through and it reads as an overlay rather than a slab parked on
+  top of the data.
+- **The price axis could print `-0.00`.** A value a hair below zero — rounding residue from the
+  axis-step arithmetic, not a real negative — kept its minus sign through the rounding. On a
+  price axis that reads as a data error, which is the kind of detail that makes a careful reader
+  distrust every other number on screen.
+
+**Two new themes.** *Blackout* — pure black, white text, dialogs lifted to `#242424` because on
+a black window only lightness can say "separate surface", and deliberately flat, since a
+gradient is a lit background by degrees. It is NOT a duplicate of High Contrast Dark: that one
+is an accessibility instrument using white candle bodies because legibility outranks looks;
+Blackout is a preference with normal green/red price action. *Classic* — the familiar dark
+navy-and-teal scheme, so someone arriving from another platform can start from something their
+eye knows and change one thing at a time. It is the only theme keeping teal/salmon candles, and
+that is the point of it.
+
+**A real gap the new tests found in three EXISTING themes.** High Contrast Light, Soft Dark and
+Solarized all paired a mid green against a mid red: distinguishable by hue, but nearly identical
+in greyscale, so the pair stopped carrying direction under red-green deficiency. Worst in High
+Contrast Light, which exists specifically to be legible. Each has been lifted just enough to
+separate by brightness while keeping its character. Classic is exempt by design and says so in
+its own doc comment.
+
+**On light themes and invisible candles** — the trap is real and is now warned about rather than
+hidden. Up/down colour is an app-level preference that survives theme switches, which is right
+for a habit but means a near-white custom pair plus a later light theme yields an invisible
+chart, with neither choice wrong on its own. Every PRESET is checked against itself by
+`EveryTheme_keepsItsOwnCandlesVisibleAgainstItsOwnBackground`, so picking one is always safe.
+Only a custom pair can collide, and Settings now shows a live warning next to the pickers. It
+deliberately does not auto-correct: silently overriding someone's chosen colour is worse than
+letting them see the problem and decide.
+
+Suite 2384 → 2409.
+
 ### Three independent theme bands, themed dialogs, up/down as an app preference (2026-07-27)
 
 - **The window is now three INDEPENDENT bands**, each with its own vertical fade: the toolbar

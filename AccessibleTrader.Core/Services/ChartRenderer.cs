@@ -501,7 +501,18 @@ namespace AccessibleTrader.Core.Services
                 decimals = 2;
             else
                 decimals = Math.Clamp(2 - (int)Math.Floor(Math.Log10(absRange)), 2, 10);
-            return val.ToString("F" + decimals);
+
+            string text = val.ToString("F" + decimals);
+
+            // "-0.00". A value a hair below zero — a rounding residue from the axis-step
+            // arithmetic, not a real negative — formats with a minus sign that survives the
+            // rounding to zero. On a price axis that reads as a data error, and it is exactly
+            // the kind of detail that makes a careful reader distrust every other number on
+            // screen. Strip the sign when nothing is left of the magnitude.
+            if (text.Length > 1 && text[0] == '-' && text.AsSpan(1).IndexOfAnyExcept('0', '.', ',') < 0)
+                text = text[1..];
+
+            return text;
         }
 
         private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density)
@@ -699,11 +710,16 @@ namespace AccessibleTrader.Core.Services
             //
             // Derived from the theme's dialog surface rather than a fixed near-black. On a
             // lighter theme a hardcoded #101014 box reads as a hole punched in the chart.
+            // Let the chart show through. At near-full opacity this was a solid dark slab in the
+            // corner — the one element that still read as parked ON the chart rather than part of
+            // it. The border does the containing work instead, which is what an overlay is
+            // supposed to look like. Text stays legible because the fill is still the dominant
+            // layer and the ink is near-white.
             var surface = _theme.Current.SurfaceSunken;
             var bgRound = new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 5 * density);
-            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(234), Style = SKPaintStyle.Fill })
+            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(178), Style = SKPaintStyle.Fill })
                 canvas.DrawRoundRect(bgRound, bgPaint);
-            using (var borderPaint = new SKPaint { Color = _theme.Current.ChromeBorder.WithAlpha(110), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
+            using (var borderPaint = new SKPaint { Color = _theme.Current.ChromeBorder.WithAlpha(140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
                 canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;

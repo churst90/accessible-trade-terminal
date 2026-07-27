@@ -447,6 +447,98 @@ namespace AccessibleTrader.Tests
             Assert.True(d < 900,
                 $"The {what} painted {actual} but the theme asked for {expected} (distance {d}).");
         }
+        // ── Every theme's own candles are legible on its own chart ───────
+
+        [Theory]
+        [MemberData(nameof(AllThemes))]
+        public void EveryTheme_keepsItsOwnCandlesVisibleAgainstItsOwnBackground(ThemeType type)
+        {
+            // The failure this exists for: a light theme whose candles or wicks are white. Nothing
+            // throws, nothing looks broken in the code, and the chart simply has invisible bars.
+            // A preset is supposed to be a coherent SET — picking one should never require the
+            // user to then go and fix the candles.
+            const int TooClose = 12_000;
+
+            var theme = Build(type);
+
+            foreach (var background in new[] { theme.Background, theme.BackgroundGradientEnd ?? theme.Background })
+                foreach (var (name, colour) in new[]
+                {
+                    ("bullish body", theme.CandleBullishBody),
+                    ("bearish body", theme.CandleBearishBody),
+                    ("bullish wick", theme.CandleBullishWick),
+                    ("bearish wick", theme.CandleBearishWick),
+                    ("doji body",    theme.CandleDojiBody),
+                    ("axis text",    theme.AxisText),
+                })
+                {
+                    int d = DistanceSq(colour, background);
+                    Assert.True(d > TooClose,
+                        $"{type}: the {name} ({colour}) is invisible against its own background " +
+                        $"({background}) — distance {d}.");
+                }
+        }
+
+        [Theory]
+        [MemberData(nameof(AllThemes))]
+        public void EveryTheme_tellsUpFromDownWithoutRelyingOnColourVision(ThemeType type)
+        {
+            // Red-green deficiency is the common one, so a bull/bear pair that differs only in hue
+            // stops carrying direction. Classic is exempt and says so in its own doc comment: it
+            // exists to reproduce a familiar teal/salmon scheme, and that scheme has this flaw.
+            if (type == ThemeType.Classic) return;
+
+            var theme = Build(type);
+            double bull = ThemeCssBridge.Luminance(theme.CandleBullishBody);
+            double bear = ThemeCssBridge.Luminance(theme.CandleBearishBody);
+
+            Assert.True(Math.Abs(bull - bear) > 0.25,
+                $"{type}: bullish {bull:0.00} vs bearish {bear:0.00} — too close in brightness to " +
+                "tell apart without colour vision.");
+        }
+
+        [Fact]
+        public void Blackout_liftsItsDialogsOffTheBlackRatherThanMeltingIntoThem()
+        {
+            // On a black window only lightness can say "this is a separate surface". A dialog the
+            // same colour as the background is a dialog with no edges.
+            var theme = Build(ThemeType.Blackout);
+
+            Assert.True(ThemeCssBridge.Luminance(theme.SurfaceSunken)
+                        - ThemeCssBridge.Luminance(theme.Background) > 0.08,
+                "The Blackout dialog surface is indistinguishable from its background.");
+        }
+
+        [Fact]
+        public void Blackout_isFlatBecauseAGradientIsALitBackgroundByDegrees()
+        {
+            Assert.Null(Build(ThemeType.Blackout).BackgroundGradientEnd);
+        }
+
+        [Fact]
+        public void A_custom_up_colour_that_collides_with_a_theme_is_a_thing_that_CAN_happen()
+        {
+            // Documenting the trap rather than pretending it away. Up/down colour survives theme
+            // switches — correct for a habit — so someone can pick near-white candles and later
+            // select a light theme and end up with an invisible chart, with neither choice wrong
+            // on its own. The presets never collide with themselves; only a custom pair can.
+            // Settings shows a live warning for exactly this, and deliberately does NOT correct
+            // it: silently overriding someone's colour is worse than letting them see and decide.
+            var settings = Substitute.For<ISettingsManager>();
+            settings.GetSetting(SettingsKeys.BullishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
+                .Returns(new Newtonsoft.Json.Linq.JValue("#FFFFFF"));
+
+            var service = new ThemeService(settings);
+            service.SetTheme(ThemeType.HighContrastLight);   // white background
+
+            int d = DistanceSq(service.Current.CandleBullishBody, service.Current.Background);
+
+            Assert.True(d < 12_000,
+                "This test exists to pin that the collision is possible and therefore worth warning " +
+                "about. If it starts failing, the override behaviour changed and the warning in " +
+                "Settings may no longer be reachable.");
+        }
+
         // ── The unified-gradient option ──────────────────────────────────
 
         [Fact]

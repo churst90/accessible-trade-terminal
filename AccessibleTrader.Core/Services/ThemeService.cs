@@ -141,6 +141,8 @@ namespace AccessibleTrader.Core.Services
         private static ChartTheme BuildTheme(ThemeType type) => type switch
         {
             ThemeType.SteelGray         => SteelGray(),
+            ThemeType.Blackout          => Blackout(),
+            ThemeType.Classic           => Classic(),
             ThemeType.HighContrastDark  => HighContrastDark(),
             ThemeType.HighContrastLight => HighContrastLight(),
             ThemeType.SoftDark          => SoftDark(),
@@ -235,6 +237,131 @@ namespace AccessibleTrader.Core.Services
             ButtonNeutral        = new SKColor(0xEE, 0xF2, 0xF7),
         };
 
+        /// <summary>
+        /// Black everywhere, white text, dark-grey dialogs.
+        ///
+        /// <para>
+        /// Distinct from High Contrast Dark, which is an accessibility instrument: that one uses
+        /// WHITE candle bodies and a maximally loud palette because legibility outranks looks.
+        /// Blackout keeps normal green/red price action and a restrained palette — it is a
+        /// preference (OLED panels, low light, anyone who finds a lit background tiring), not an
+        /// accommodation. Both exist because conflating them serves neither.
+        /// </para>
+        /// </summary>
+        private static ChartTheme Blackout() => new()
+        {
+            ThemeType            = ThemeType.Blackout,
+            Background           = SKColors.Black,
+            BackgroundGradientEnd = null,      // flat: a gradient is a lit background by degrees
+            GridLine             = new SKColor(0x2E, 0x2E, 0x2E),
+            GridLineMinor        = new SKColor(0x1D, 0x1D, 0x1D),
+            AxisText             = new SKColor(0xE8, 0xE8, 0xE8),
+            AxisLine             = new SKColor(0x55, 0x55, 0x55),
+            Crosshair            = new SKColor(0xFF, 0xD5, 0x4F),
+            CandleBullishBody    = new SKColor(0x77, 0xFF, 0x77),
+            CandleBearishBody    = new SKColor(0xDD, 0x00, 0x00),
+            CandleBullishWick    = new SKColor(0x9C, 0xFF, 0x9C),
+            CandleBearishWick    = new SKColor(0xF2, 0x3B, 0x3B),
+            CandleDojiBody       = new SKColor(0xCC, 0xCC, 0xCC),
+            VolumeBullish        = new SKColor(0x77, 0xFF, 0x77, 120),
+            VolumeBearish        = new SKColor(0xDD, 0x00, 0x00, 120),
+            IndicatorPalette     = ImmutableList.Create(
+                SKColors.White, new SKColor(255, 138, 190), new SKColor(255, 176, 74),
+                new SKColor(112, 214, 255), new SKColor(255, 226, 112), new SKColor(206, 148, 255),
+                new SKColor(126, 190, 255), new SKColor(255, 158, 110), new SKColor(150, 232, 174),
+                new SKColor(255, 122, 122), new SKColor(160, 205, 236), new SKColor(232, 230, 186)),
+            ProfilePOC           = new SKColor(0xFF, 0xB3, 0x00),
+            ProfileValueArea     = new SKColor(0xFF, 0xB3, 0x00, 56),
+            ProfileSinglePrint   = new SKColor(0x7E, 0x9E, 0xFF, 110),
+            ProfileNormal        = new SKColor(0x88, 0x88, 0x88, 90),
+            ProfileSeparator     = new SKColor(0x44, 0x44, 0x44),
+            DrawingLine          = new SKColor(0xFF, 0xD5, 0x4F),
+            DrawingHandle        = SKColors.White,
+            SelectionHighlight   = new SKColor(0xFF, 0xD5, 0x4F, 56),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+            SurfaceRaised        = new SKColor(0x0A, 0x0A, 0x0A),
+            ChromeTopEnd         = SKColors.Black,
+            ChromeBottom         = SKColors.Black,
+            ChromeBottomEnd      = new SKColor(0x0A, 0x0A, 0x0A),
+            // Dialogs lift OFF the black rather than melting into it — a modal has to read as a
+            // separate surface, and on a black background only lightness can say so.
+            SurfaceSunken        = new SKColor(0x24, 0x24, 0x24),
+            TextOnDialog         = new SKColor(0xF2, 0xF2, 0xF2),
+            TextPrimary          = SKColors.White,
+            TextMuted            = new SKColor(0xB4, 0xB4, 0xB4),
+            ChromeBorder         = new SKColor(0x4A, 0x4A, 0x4A),
+            Accent               = new SKColor(0x6C, 0xB4, 0xFF),
+            ButtonNeutral        = new SKColor(0xE6, 0xE6, 0xE6),
+        };
+
+        /// <summary>
+        /// The dark navy-and-teal scheme most charting sites use, so someone arriving from another
+        /// platform can start from something their eye already knows and change one thing at a time.
+        ///
+        /// <para>
+        /// It is the only theme that keeps the teal/salmon candle pair, and that is the point of
+        /// it. Everywhere else the default is #77FF77 / #DD0000, which separates by BRIGHTNESS as
+        /// well as hue and so survives red-green deficiency; teal and salmon are close in
+        /// luminance and do not. Familiarity is a real benefit and worth offering — it is just not
+        /// worth making the default.
+        /// </para>
+        /// </summary>
+        private static ChartTheme Classic() => new()
+        {
+            ThemeType            = ThemeType.Classic,
+            Background           = new SKColor(0x13, 0x17, 0x22),
+            BackgroundGradientEnd = null,
+            GridLine             = new SKColor(0x2A, 0x2E, 0x39),
+            GridLineMinor        = new SKColor(0x1E, 0x22, 0x2C),
+            AxisText             = new SKColor(0xD1, 0xD4, 0xDC),
+            AxisLine             = new SKColor(0x43, 0x48, 0x55),
+            Crosshair            = new SKColor(0x9D, 0xA5, 0xB4),
+            CandleBullishBody    = new SKColor(0x26, 0xA6, 0x9A),
+            CandleBearishBody    = new SKColor(0xEF, 0x53, 0x50),
+            CandleBullishWick    = new SKColor(0x26, 0xA6, 0x9A),
+            CandleBearishWick    = new SKColor(0xEF, 0x53, 0x50),
+            CandleDojiBody       = new SKColor(0xB2, 0xB5, 0xBE),
+            VolumeBullish        = new SKColor(0x26, 0xA6, 0x9A, 120),
+            VolumeBearish        = new SKColor(0xEF, 0x53, 0x50, 120),
+            IndicatorPalette     = ImmutableList.Create(
+                new SKColor(0xD1, 0xD4, 0xDC), new SKColor(0x29, 0x62, 0xFF), new SKColor(0xFF, 0x98, 0x00),
+                new SKColor(0x00, 0xBC, 0xD4), new SKColor(0xFF, 0xEB, 0x3B), new SKColor(0x9C, 0x27, 0xB0),
+                new SKColor(0x21, 0x96, 0xF3), new SKColor(0xFF, 0x57, 0x22), new SKColor(0x4C, 0xAF, 0x50),
+                new SKColor(0xE9, 0x1E, 0x63), new SKColor(0x03, 0xA9, 0xF4), new SKColor(0xCD, 0xDC, 0x39)),
+            ProfilePOC           = new SKColor(0xFF, 0x98, 0x00),
+            ProfileValueArea     = new SKColor(0xFF, 0x98, 0x00, 56),
+            ProfileSinglePrint   = new SKColor(0x29, 0x62, 0xFF, 110),
+            ProfileNormal        = new SKColor(0x78, 0x7B, 0x86, 90),
+            ProfileSeparator     = new SKColor(0x36, 0x3A, 0x45),
+            DrawingLine          = new SKColor(0x29, 0x62, 0xFF),
+            DrawingHandle        = new SKColor(0xD1, 0xD4, 0xDC),
+            SelectionHighlight   = new SKColor(0x29, 0x62, 0xFF, 48),
+            AxisFontSize         = 12f,
+            LegendFontSize       = 11f,
+            ProfileLetterFontSize = 10f,
+            AxisWidth            = 60f,
+            AxisHeight           = 40f,
+            ProfileWidthFraction = 0.20f,
+            ProfileSeparatorWidth = 2f,
+            SurfaceRaised        = new SKColor(0x1E, 0x22, 0x2D),
+            ChromeTopEnd         = new SKColor(0x18, 0x1C, 0x26),
+            ChromeBottom         = new SKColor(0x13, 0x17, 0x22),
+            ChromeBottomEnd      = new SKColor(0x10, 0x13, 0x1C),
+            SurfaceSunken        = new SKColor(0x1E, 0x22, 0x2D),
+            TextOnDialog         = new SKColor(0xD1, 0xD4, 0xDC),
+            TextPrimary          = new SKColor(0xD1, 0xD4, 0xDC),
+            TextMuted            = new SKColor(0x9D, 0xA5, 0xB4),
+            ChromeBorder         = new SKColor(0x43, 0x48, 0x55),
+            Accent               = new SKColor(0x29, 0x62, 0xFF),
+            ButtonNeutral        = new SKColor(0xD1, 0xD4, 0xDC),
+        };
+
         private static ChartTheme HighContrastDark() => new()
         {
             ThemeType            = ThemeType.HighContrastDark,
@@ -291,8 +418,11 @@ namespace AccessibleTrader.Core.Services
             AxisText             = SKColors.Black,
             AxisLine             = new SKColor(100, 100, 100),
             Crosshair            = new SKColor(0, 0, 200),
-            CandleBullishBody    = new SKColor(0, 140, 0),
-            CandleBearishBody    = new SKColor(200, 0, 0),
+            // Brightened from (0,140,0): against (200,0,0) the pair differed in hue but barely
+            // in luminance, so it stopped carrying direction under red-green deficiency — in
+            // the one theme that exists specifically to be legible.
+            CandleBullishBody    = new SKColor(0, 175, 0),
+            CandleBearishBody    = new SKColor(190, 0, 0),
             CandleBullishWick    = SKColors.Black,
             CandleBearishWick    = SKColors.Black,
             CandleDojiBody       = new SKColor(100, 100, 100),
@@ -338,10 +468,10 @@ namespace AccessibleTrader.Core.Services
             AxisText             = new SKColor(180, 185, 200),
             AxisLine             = new SKColor(60, 65, 80),
             Crosshair            = new SKColor(120, 180, 255),
-            CandleBullishBody    = new SKColor(70, 190, 100),
-            CandleBearishBody    = new SKColor(200, 70, 80),
-            CandleBullishWick    = new SKColor(100, 210, 130),
-            CandleBearishWick    = new SKColor(220, 100, 110),
+            CandleBullishBody    = new SKColor(96, 222, 126),
+            CandleBearishBody    = new SKColor(196, 54, 64),
+            CandleBullishWick    = new SKColor(126, 238, 152),
+            CandleBearishWick    = new SKColor(216, 84, 92),
             CandleDojiBody       = new SKColor(140, 145, 160),
             VolumeBullish        = new SKColor(70, 190, 100, 100),
             VolumeBearish        = new SKColor(200, 70, 80, 100),
@@ -385,7 +515,7 @@ namespace AccessibleTrader.Core.Services
             AxisText             = new SKColor(131, 148, 150),  // base0
             AxisLine             = new SKColor(88, 110, 117),   // base01
             Crosshair            = new SKColor(38, 139, 210),   // blue
-            CandleBullishBody    = new SKColor(133, 153, 0),    // green
+            CandleBullishBody    = new SKColor(174, 199, 20),   // green, lifted for greyscale separation
             CandleBearishBody    = new SKColor(220, 50, 47),    // red
             CandleBullishWick    = new SKColor(147, 161, 161),  // base1
             CandleBearishWick    = new SKColor(147, 161, 161),

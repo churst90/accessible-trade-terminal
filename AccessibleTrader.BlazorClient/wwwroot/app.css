@@ -182,39 +182,62 @@ html, body {
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 
 button {
-    background-color: #2d2d2d;
+    /* Matched to the form controls above so a button next to a dropdown reads as the
+       same family. The old fixed #2d2d2d / #555 pair ignored the theme entirely and
+       showed up as a flat dark rectangle in a row of themed controls. */
+    background-color: color-mix(in srgb, var(--bg-surface) 82%, transparent);
     color: var(--text-primary);
-    border: 1px solid #555;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
     padding: 4px 12px;
     font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.4;
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
 }
 
-button:hover {
-    background-color: #3a3a3a;
-    border-color: #777;
+button:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+    border-color: var(--border-color);
 }
 
-button:active {
+button:active:not(:disabled) {
     background-color: var(--bg-surface);
 }
 
 /* aria-pressed="true" — visually indicates the pressed/active state */
 button[aria-pressed="true"],
 button[aria-checked="true"] {
-    background-color: #444;
-    border-color: #aaa;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    background-color: color-mix(in srgb, var(--accent-color) 24%, transparent);
+    border-color: var(--accent-color);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 button.primary {
     background-color: var(--accent-color);
-    border-color: #005a9e;
+    border-color: var(--accent-color);
+    color: #0c0f14;
+    font-weight: 600;
 }
 
-button.primary:hover {
-    background-color: #1a8ad4;
+button.primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+/* Draws attention without shouting — used for "Add key", which appears only when the
+   selected provider cannot list symbols without one. */
+button.warning {
+    background-color: color-mix(in srgb, #ffb300 20%, transparent);
+    border-color: color-mix(in srgb, #ffb300 65%, transparent);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+button.warning:hover:not(:disabled) {
+    background-color: color-mix(in srgb, #ffb300 32%, transparent);
+    border-color: #ffb300;
 }
 
 button:disabled,
@@ -233,14 +256,89 @@ input:focus-visible,
     outline-offset: 2px;
 }
 
-/* ── Form Elements ─────────────────────────────────────────────────────────── */
+/* ── Form Elements ─────────────────────────────────────────────────────────────
+   `appearance: none` is the whole point of this block. Setting a background-color
+   on a <select> is not enough — the platform still draws its own widget, so the
+   market/provider/symbol pickers rendered as light-grey OS controls sitting on a
+   themed toolbar. Native form controls are the classic tell that an application was
+   assembled rather than designed, and they were the only elements on screen that
+   did not follow the theme.
 
-select, input[type="text"] {
-    background-color: var(--bg-header);
+   The dropdown arrow is an inline data: URI rather than a sprite reference, because
+   background-image cannot reach into an SVG <symbol>. It is drawn in currentColor's
+   place by hand — the one spot in the app where a colour is repeated rather than
+   inherited, which is why it is stated here.                                      */
+
+select,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: color-mix(in srgb, var(--bg-surface) 82%, transparent);
     color: var(--text-primary);
-    border: 1px solid #555;
-    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
+    padding: 4px 8px;
     font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: border-color 0.12s ease-out, background-color 0.12s ease-out;
+}
+
+select {
+    /* Room on the right for the arrow, which is painted as a background image. */
+    padding-right: 26px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 L6 6.5 L11 1.5' fill='none' stroke='%23c8ced8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 11px 8px;
+    cursor: pointer;
+}
+
+select:hover:not(:disabled),
+input:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+    border-color: var(--border-color);
+    background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+}
+
+select:disabled,
+input:disabled,
+textarea:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* The dropdown LIST is drawn by the platform and cannot be styled beyond this, so
+   the option colours are set explicitly — otherwise an expanded list renders as
+   black-on-white regardless of the theme. */
+select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 42px;
+    height: 26px;
+    padding: 2px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+input[type="checkbox"] {
+    accent-color: var(--accent-color);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 label {

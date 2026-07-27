@@ -21,6 +21,15 @@ public enum ThemeType
     /// <summary>Default. Cool neutral greys, lighter chrome above and below a chart that fades
     /// upward into the toolbar so the window reads as one continuous surface.</summary>
     SteelGray,
+
+    /// <summary>Pure black everywhere, white text, dark-grey dialogs. A true dark mode for OLED
+    /// panels and for anyone who finds any lit background fatiguing.</summary>
+    Blackout,
+
+    /// <summary>The dark navy-and-teal scheme most charting sites use. Here so someone arriving
+    /// from another platform can start from something their eye already knows.</summary>
+    Classic,
+
     HighContrastDark,
     HighContrastLight,
     SoftDark,

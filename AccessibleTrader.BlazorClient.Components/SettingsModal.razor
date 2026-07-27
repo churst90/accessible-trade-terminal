@@ -549,6 +549,13 @@
                         <button type="button" @onclick="ResetDirectionColors"
                                 aria-label="Reset up and down colors to the theme's own pair">Use theme's</button>
                     </div>
+                    @if (DirectionColorWarning is { } warning)
+                    {
+                        <p role="status" aria-live="polite"
+                           style="margin:8px 0 0; color:#ffb300; font-size:0.9em;">
+                            @warning
+                        </p>
+                    }
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         Applies to candles and volume bars, and stays put when you change theme —
                         which color means "up" is a habit, not a decoration. Reset to let each
@@ -566,6 +573,8 @@
                                 @onchange="OnThemeChanged"
                                 aria-label="Application theme">
                             <option value="SteelGray">Steel Gray (default)</option>
+                            <option value="Blackout">Blackout — black, white text</option>
+                            <option value="Classic">Classic — familiar dark navy</option>
                             <option value="HighContrastDark">High Contrast Dark</option>
                             <option value="HighContrastLight">High Contrast Light</option>
                             <option value="SoftDark">Soft Dark</option>
@@ -1314,6 +1323,46 @@
         App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
+    }
+
+    /// <summary>
+    /// Warns when a chosen up/down colour has landed too close to the chart background to see.
+    ///
+    /// <para>
+    /// The trap this closes: up/down colour is an APP-level preference that survives theme
+    /// switches, which is what you want for a habit — but it means someone who picks near-white
+    /// candles and later selects a light theme ends up with an invisible chart, and neither
+    /// choice was wrong on its own. The presets never collide with themselves (a test enforces
+    /// it); only a custom pair can, so this warns rather than overriding. Silently correcting
+    /// someone's colour would be worse than letting them see the problem and decide.
+    /// </para>
+    /// </summary>
+    private string? DirectionColorWarning
+    {
+        get
+        {
+            var theme = ThemeService.Current;
+            var bg = theme.Background;
+
+            static int DistSq(SkiaSharp.SKColor a, SkiaSharp.SKColor b)
+            {
+                int dr = a.Red - b.Red, dg = a.Green - b.Green, db = a.Blue - b.Blue;
+                return dr * dr + dg * dg + db * db;
+            }
+
+            const int TooClose = 12_000;
+            bool bullBad = DistSq(theme.CandleBullishBody, bg) < TooClose;
+            bool bearBad = DistSq(theme.CandleBearishBody, bg) < TooClose;
+
+            if (bullBad && bearBad)
+                return "Both colors are very close to the chart background — candles will be hard to see. " +
+                       "Pick brighter colors, or press \"Use theme's\".";
+            if (bullBad)
+                return "The bullish color is very close to the chart background — rising candles will be hard to see.";
+            if (bearBad)
+                return "The bearish color is very close to the chart background — falling candles will be hard to see.";
+            return null;
+        }
     }
 
     private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
