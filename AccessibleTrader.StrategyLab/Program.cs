@@ -104,6 +104,13 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshot") ?? "../strategy-lab-data/bitstamp_BTC_USDT_1d.json",
             GetFlag(args.Skip(1).ToArray(), "--code") ?? "VALUE_DEVIATION",
             GetFlag(args.Skip(1).ToArray(), "--params")),
+        "swing-trade" => await SwingTradeCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--span"), out var sp2) ? sp2 : 5,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--minatr"), out var ma2) ? ma2 : 1.0,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--cost"), out var ct2) ? ct2 : 5.0),
         "ml-export" => await MlExportCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
