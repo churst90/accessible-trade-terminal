@@ -35,8 +35,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Sell marks are therefore framed as scale-OUT of an existing long, never as short entries.</item>
     /// <item>The effect is SHORT-horizon: strong at five bars, fading by twenty, gone by sixty.
     /// It is not a multi-month position thesis.</item>
-    /// <item>It INVERTS by asset class. Crypto showed the opposite sign — momentum, not reversion
-    /// — so <see cref="ParamInvert"/> flips the semantics and speech says which way it is reading.</item>
+    /// <item>It INVERTS on BITCOIN, which showed the opposite sign — momentum, not reversion —
+    /// so <see cref="ParamInvert"/> flips the semantics and speech says which way it is reading.
+    /// Bitcoin was the ONLY crypto with a significant per-asset reading (rho +0.112, p = 0.001);
+    /// nine other coins showed nothing either way, so the invert switch is validated for BTC
+    /// specifically and NOT for crypto as a category.</item>
     /// </list>
     ///
     /// <para>
@@ -98,9 +101,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "ON (default): a mark only prints when the built-in WaveTrend oscillator is also turning that way — fewer, cleaner marks. OFF: prints on the reversal bar alone." },
                     new() { Name = ParamInvert, DisplayName = "Momentum market — flip the buy side", DataType = typeof(bool),
                             DefaultValue = false,
-                            Description = "OFF (default) = MEAN-REVERTING market: buys print BELOW value, trims above. This is how stocks, sectors, metals and bonds measured. " +
-                                          "ON = MOMENTUM market: buys print ABOVE value, trims below. This is how crypto measured — it ran the opposite way. " +
-                                          "Leave OFF for equities; turn ON for BTC and other crypto." },
+                            Description = "OFF (default) = MEAN-REVERTING market: buys print BELOW value, trims above. Measured across 38 stocks, sectors, metals and bonds. " +
+                                          "ON = MOMENTUM market: buys print ABOVE value, trims below. Measured on BITCOIN only. " +
+                                          "Tested per coin, BTC was the ONLY crypto with a significant reading (p=0.001); ETH, XRP, LTC, BCH, ADA, SOL, DOGE, KAS and TAO all showed nothing either way. " +
+                                          "So: leave OFF for equities, turn ON for BTC, and for other crypto treat this as UNKNOWN rather than assuming BTC's behaviour carries over." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {

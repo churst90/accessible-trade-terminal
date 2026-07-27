@@ -98,8 +98,12 @@ namespace AccessibleTrader.Tests
 
             Assert.Contains("OFF", invert.Description);
             Assert.Contains("ON", invert.Description);
-            Assert.Contains("crypto", invert.Description, System.StringComparison.OrdinalIgnoreCase);
             Assert.Contains("equit", invert.Description, System.StringComparison.OrdinalIgnoreCase);
+            // Bitcoin was the only crypto that actually measured significant, so the description
+            // must name it specifically rather than implying the setting is validated for crypto
+            // as a category — nine other coins showed nothing either way.
+            Assert.Contains("BITCOIN", invert.Description, System.StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("UNKNOWN", invert.Description, System.StringComparison.OrdinalIgnoreCase);
         }
     }
 }
