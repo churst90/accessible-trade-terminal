@@ -81,8 +81,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new()
                     {
                         Name = CompSwingHigh, DisplayName = "Swing High",
-                        DisplayType = ComponentDisplayType.TriangleDown, Role = ComponentRole.Signal,
-                        DefaultColorHex = "#EF5350", DefaultThickness = 7f,
+                        // SQUARE, not a triangle. Value Deviation's shallow resistance tier is a
+                        // red down-triangle at the same 7px, so on a chart carrying both there was
+                        // no way to tell a swing high from a shallow zone. Market Structure now owns
+                        // the angular family (square / cross) and Value Deviation keeps the graded
+                        // triangle → dot → diamond ladder, where the shape carries the tier.
+                        DisplayType = ComponentDisplayType.Square, Role = ComponentRole.Signal,
+                        // Sits just clear of the wick instead of exactly on its tip, so the pivot
+                        // price stays readable underneath the glyph.
+                        DefaultMarkerAnchor = MarkerAnchor.AboveBar,
+                        DefaultColorHex = "#EF5350", DefaultThickness = 8f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 660,
                         DefaultSignalSpeechTemplate = "Swing high.",
@@ -90,8 +98,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new()
                     {
                         Name = CompSwingLow, DisplayName = "Swing Low",
-                        DisplayType = ComponentDisplayType.TriangleUp, Role = ComponentRole.Signal,
-                        DefaultColorHex = "#26A69A", DefaultThickness = 7f,
+                        DisplayType = ComponentDisplayType.Square, Role = ComponentRole.Signal,
+                        DefaultMarkerAnchor = MarkerAnchor.BelowBar,
+                        DefaultColorHex = "#26A69A", DefaultThickness = 8f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 330,
                         DefaultSignalSpeechTemplate = "Swing low.",
@@ -110,8 +119,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new()
                     {
                         Name = CompBos, DisplayName = "Break of Structure",
-                        DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                        DefaultColorHex = "#FFB300", DefaultThickness = 6f,
+                        DisplayType = ComponentDisplayType.Cross, Role = ComponentRole.Signal,
+                        DefaultColorHex = "#FFB300", DefaultThickness = 9f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 880,
                         DefaultSignalSpeechTemplate = "Break of structure.",
@@ -119,8 +128,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new()
                     {
                         Name = CompChoch, DisplayName = "Change of Character",
-                        DisplayType = ComponentDisplayType.Diamond, Role = ComponentRole.Signal,
-                        DefaultColorHex = "#AB47BC", DefaultThickness = 8f,
+                        // A CROSS, not a diamond. Purple against Value Deviation's neon-red deep
+                        // tier looked distinct to me and measured 23,760 in RGB — inside the range
+                        // where two glyphs of the same shape read as the same mark, and closer
+                        // still under deuteranopia. Paired with Break of Structure as the two
+                        // structure EVENTS: same shape, amber for continuation, purple for the
+                        // turn, and the turn is drawn larger because it is the consequential one.
+                        DisplayType = ComponentDisplayType.Cross, Role = ComponentRole.Signal,
+                        DefaultColorHex = "#AB47BC", DefaultThickness = 12f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 990,
                         DefaultSignalSpeechTemplate = "Change of character.",

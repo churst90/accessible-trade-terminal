@@ -381,5 +381,102 @@ namespace AccessibleTrader.Tests
             Assert.DoesNotContain("short", speech!, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("sell", speech!, StringComparison.OrdinalIgnoreCase);
         }
+        // ── Marker density ────────────────────────────────────────────────────
+
+        private static int MarkCount(Buf b) => new[]
+        {
+            ValueDeviationProvider.CompSupportShallow, ValueDeviationProvider.CompSupportMid,
+            ValueDeviationProvider.CompSupportDeep, ValueDeviationProvider.CompResistShallow,
+            ValueDeviationProvider.CompResistMid, ValueDeviationProvider.CompResistDeep,
+        }.Sum(k => b.Data[k].Count(v => !double.IsNaN(v)));
+
+        private static Buf RunWithMinTier(List<Ohlcv> bars, int minTier)
+        {
+            var buf = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object> { ["MinTier"] = minTier, ["RequireMomentumTurn"] = 0 }, buf);
+            return buf;
+        }
+
+        [Fact]
+        public void MinTier_RaisingItStrictlyReducesTheNumberOfMarks()
+        {
+            // The reason this parameter exists: on a 200-bar weekly chart the tier-1 marks — a
+            // reversal barely outside value, which is closer to noise than to a zone — made the
+            // price pane a continuous band of glyphs.
+            var bars = Realistic(800);
+
+            int t1 = MarkCount(RunWithMinTier(bars, 1));
+            int t2 = MarkCount(RunWithMinTier(bars, 2));
+            int t4 = MarkCount(RunWithMinTier(bars, 4));
+
+            Assert.True(t1 > 0, "no marks at all at tier 1 — the filter is not the thing being tested");
+            Assert.True(t2 < t1, "raising the minimum tier removed nothing — is it wired in?");
+            Assert.True(t4 < t2, "tier 4 must be stricter than tier 2");
+        }
+
+        [Fact]
+        public void MinTier_HidesTheGlyphButNeverTheInformation()
+        {
+            // The Deviation Tier component and the spoken detail still report every tier, so
+            // navigating to a bar or asking for its detail still says "tier 1 below value". This
+            // is a density control, not a data filter — hiding the reading as well would make the
+            // chart quieter by making it lie.
+            var bars = Realistic(800);
+
+            var loose = RunWithMinTier(bars, 1);
+            var strict = RunWithMinTier(bars, 5);
+
+            var looseTiers = loose.Data[ValueDeviationProvider.CompTier];
+            var strictTiers = strict.Data[ValueDeviationProvider.CompTier];
+
+            Assert.Equal(looseTiers.Length, strictTiers.Length);
+            for (int i = 0; i < looseTiers.Length; i++)
+            {
+                if (double.IsNaN(looseTiers[i])) Assert.True(double.IsNaN(strictTiers[i]));
+                else Assert.Equal(looseTiers[i], strictTiers[i]);
+            }
+
+            // And the reference lines are equally untouched.
+            Assert.Equal(loose.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v)),
+                         strict.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v)));
+        }
+
+        [Fact]
+        public void MinTier_DefaultsToTwoSoAFreshChartIsNotAWallOfTierOneMarks()
+        {
+            var bars = Realistic(800);
+
+            var explicitTwo = RunWithMinTier(bars, 2);
+
+            var defaulted = new Buf(bars.Count);
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
+                new Dictionary<string, object> { ["RequireMomentumTurn"] = 0 }, defaulted);
+
+            Assert.Equal(MarkCount(explicitTwo), MarkCount(defaulted));
+            Assert.True(MarkCount(defaulted) < MarkCount(RunWithMinTier(bars, 1)),
+                "the default must actually thin the chart, or it is not solving the problem it exists for");
+        }
+
+        [Fact]
+        public void MinTier_IsClampedSoAnAbsurdValueCannotSilenceOrFloodTheChart()
+        {
+            var bars = Realistic(800);
+
+            // 0 and negatives clamp to 1 (show everything); anything above 5 clamps to 5.
+            Assert.Equal(MarkCount(RunWithMinTier(bars, 1)), MarkCount(RunWithMinTier(bars, 0)));
+            Assert.Equal(MarkCount(RunWithMinTier(bars, 1)), MarkCount(RunWithMinTier(bars, -3)));
+            Assert.Equal(MarkCount(RunWithMinTier(bars, 5)), MarkCount(RunWithMinTier(bars, 99)));
+        }
+
+        [Fact]
+        public void MinTier_SurvivesEveryMarkBeingFilteredWithoutThrowing()
+        {
+            // A flat series has no meaningful profile peak and no deep tiers; the strictest
+            // setting must return a clean empty result rather than fall over.
+            var buf = RunWithMinTier(Flat(400, 100), 5);
+
+            Assert.Equal(0, MarkCount(buf));
+        }
     }
 }

@@ -625,62 +625,61 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Renders a small component legend in the top-left corner of an indicator pane.
-        /// Shows a color swatch + name for each visible non-level component and cloud fill.
+        /// Renders a small component legend in the top-left corner of a pane.
+        ///
+        /// <para>
+        /// Three rules, all of them learned from one weekly BTC chart that carried Market Structure
+        /// and Value Deviation at once:
+        /// </para>
+        /// <list type="number">
+        /// <item>
+        /// <b>Size against the pane, not a constant.</b> A fixed nine-row cap is 152px, which on a
+        /// price pane sharing space with a volume pane covered a third of the plot and sat on top
+        /// of the candles. The cap is now whatever fits in the top ~45% of the pane.
+        /// </item>
+        /// <item>
+        /// <b>Rank before truncating.</b> Taking the first N in series order let one marker-heavy
+        /// indicator spend the whole budget, so the candles, the moving average and the levels —
+        /// the things a reader actually needs named — never appeared. Price and continuous lines
+        /// now outrank markers.
+        /// </item>
+        /// <item>
+        /// <b>Collapse marker families.</b> An indicator whose whole output is a graded set of
+        /// marks (six Value Deviation tiers) gets ONE row naming the series and the count, rather
+        /// than six rows of near-identical labels.
+        /// </item>
+        /// </list>
+        ///
+        /// <para>
+        /// When rows still do not fit, the last row says how many were dropped. A legend that
+        /// silently shows a subset reads as a complete list of what is on the chart, which is
+        /// exactly the wrong thing for it to imply.
+        /// </para>
         /// </summary>
         private void RenderPaneLegend(SKCanvas canvas, SKRect paneRect, List<ChartSeries> paneSeries, float density)
         {
-            const float SwatchPx   = 8f;
-            const float PadPx      = 4f;
-            const float LinePx     = 16f;
-            const int   MaxEntries = 9;
+            const float SwatchPx = 8f;
+            const float PadPx    = 4f;
+            const float LinePx   = 16f;
 
             float swatch = SwatchPx * density;
             float pad    = PadPx   * density;
             float line   = LinePx  * density;
 
-            var entries = new List<(SKColor Color, string Label)>();
+            var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad);
+            if (rows.Count == 0) return;
 
-            foreach (var s in paneSeries)
-            {
-                foreach (var comp in s.Components)
-                {
-                    if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
-
-                    // Directional bar/histogram components render green/red based on value direction,
-                    // not the static ColorHex. Show the up-direction green so the swatch matches
-                    // what is actually rendered, with a "↕" suffix to signal dynamic coloring.
-                    SKColor displayColor;
-                    string label = comp.DisplayName ?? comp.Name;
-                    if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
-                    {
-                        displayColor = new SKColor(68, 187, 68, 200); // matches RenderDirectionalBars upPaint
-                        // No suffix appended — the directional green swatch is sufficient indication.
-                    }
-                    else if (!SKColor.TryParse(comp.ColorHex, out displayColor))
-                        continue;
-
-                    entries.Add((displayColor, label));
-                    if (entries.Count >= MaxEntries) break;
-                }
-
-                if (entries.Count >= MaxEntries) break;
-            }
-
-            if (entries.Count == 0) return;
-
-            // Measure max label width
             float maxTextWidth = 0f;
-            foreach (var (_, label) in entries)
+            foreach (var (_, label) in rows)
                 maxTextWidth = Math.Max(maxTextWidth, _textFont.MeasureText(label));
 
             float boxW = pad + swatch + pad + maxTextWidth + pad;
-            float boxH = pad + entries.Count * line + pad;
+            float boxH = pad + rows.Count * line + pad;
             float bx   = paneRect.Left + pad * 2;
             float by   = paneRect.Top  + pad * 2;
 
             // Denser alpha + a thin border gives the legend real separation from
-            // the candles / histogram behind it. At 180α the bg washed out when
+            // the candles / histogram behind it. At 180a the bg washed out when
             // bright green/red bars sat directly underneath.
             var bgRect = new SKRect(bx, by, bx + boxW, by + boxH);
             var bgRound = new SKRoundRect(bgRect, 3 * density);
@@ -690,7 +689,7 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawRoundRect(bgRound, borderPaint);
 
             float ey = by + pad;
-            foreach (var (color, label) in entries)
+            foreach (var (color, label) in rows)
             {
                 float sy = ey + (line - swatch) / 2f;
                 using var swatchPaint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
@@ -702,6 +701,117 @@ namespace AccessibleTrader.Core.Services
                 ey += line;
             }
         }
+
+        /// <summary>
+        /// Chooses which legend rows to show, in what order. Separated from drawing because this
+        /// is the part that can be WRONG — a legend that names the wrong things, or quietly names
+        /// only some of them, misleads without looking broken.
+        /// </summary>
+        /// <param name="paneHeight">Pane height in device pixels; the row budget is derived from it.</param>
+        /// <param name="line">Row height in device pixels.</param>
+        /// <param name="pad">Box padding in device pixels.</param>
+        internal static List<(SKColor Color, string Label)> BuildLegendRows(
+            List<ChartSeries> paneSeries, float paneHeight, float line, float pad)
+        {
+            // Absolute ceiling regardless of how tall the pane is — past this the legend stops
+            // being a key and becomes a second chart.
+            const int HardMaxEntries = 9;
+
+            // Below this a legend row is worth less than the pixels it costs.
+            const int MinEntries = 3;
+
+            // Fraction of the pane the legend may occupy before it competes with the data.
+            const float MaxPaneFraction = 0.45f;
+
+            // A series contributing at least this many marker components collapses to one row.
+            const int CollapseMarkersAt = 3;
+
+            // Rank 0 = the underlying data (candles, volume bars). Rank 1 = continuous lines and
+            // clouds, which need a colour key to be told apart. Rank 2 = markers, which largely
+            // identify themselves by shape and colour already.
+            var entries = new List<(int Rank, SKColor Color, string Label)>();
+            if (paneSeries == null) return new List<(SKColor, string)>();
+
+            foreach (var s in paneSeries)
+            {
+                // Index of this series' first row, so the collapse below can only ever remove rows
+                // this series added. Matching on colour alone would let one indicator's collapse
+                // delete an earlier indicator's marker row whenever two colours happened to agree.
+                int seriesStart = entries.Count;
+                int markerCount = 0;
+                SKColor firstMarkerColor = default;
+
+                foreach (var comp in s.Components)
+                {
+                    if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
+
+                    // Directional bar/histogram components render green/red by value direction, not
+                    // the static ColorHex. Show the up-direction green so the swatch matches what
+                    // is actually drawn.
+                    SKColor displayColor;
+                    string label = comp.DisplayName ?? comp.Name;
+                    if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
+                        displayColor = new SKColor(68, 187, 68, 200); // matches RenderDirectionalBars upPaint
+                    else if (!SKColor.TryParse(comp.ColorHex, out displayColor))
+                        continue;
+
+                    if (IsMarker(comp.DisplayType))
+                    {
+                        if (markerCount == 0) firstMarkerColor = displayColor;
+                        markerCount++;
+                        entries.Add((2, displayColor, label));
+                    }
+                    else
+                    {
+                        entries.Add((IsBaseData(comp.DisplayType) ? 0 : 1, displayColor, label));
+                    }
+                }
+
+                // Collapse this series' marker rows into one. Per series, so an indicator with only
+                // one or two marks keeps their real names.
+                if (markerCount >= CollapseMarkersAt)
+                {
+                    for (int k = entries.Count - 1; k >= seriesStart; k--)
+                        if (entries[k].Rank == 2) entries.RemoveAt(k);
+                    entries.Add((2, firstMarkerColor, $"{s.Name} — {markerCount} marks"));
+                }
+            }
+
+            if (entries.Count == 0) return new List<(SKColor, string)>();
+
+            // How many rows actually fit in the space the legend is allowed to have.
+            int fits = (int)((paneHeight * MaxPaneFraction - pad * 2) / Math.Max(line, 1f));
+            int maxEntries = Math.Clamp(fits, MinEntries, HardMaxEntries);
+
+            // OrderBy is a documented stable sort, so within a rank the series order the user
+            // built is preserved.
+            var shown = entries.OrderBy(e => e.Rank).ToList();
+            int dropped = 0;
+            if (shown.Count > maxEntries)
+            {
+                // One row is spent saying so, which is worth more than one more colour swatch:
+                // a legend showing a silent subset reads as a complete list of what is on the chart.
+                dropped = shown.Count - (maxEntries - 1);
+                shown = shown.Take(maxEntries - 1).ToList();
+            }
+
+            var rows = shown.Select(e => (e.Color, e.Label)).ToList();
+            if (dropped > 0)
+                rows.Add((new SKColor(150, 150, 158), $"+{dropped} more (see the object tree)"));
+
+            return rows;
+        }
+
+        /// <summary>Discrete per-bar glyphs — the components that identify themselves by shape.</summary>
+        internal static bool IsMarker(ComponentDisplayType t) => t is
+            ComponentDisplayType.Dot or ComponentDisplayType.ZeroDot or ComponentDisplayType.GradientDot or
+            ComponentDisplayType.Diamond or ComponentDisplayType.Square or ComponentDisplayType.Cross or
+            ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or ComponentDisplayType.Arrow;
+
+        /// <summary>The chart's underlying data rather than something drawn over it.</summary>
+        internal static bool IsBaseData(ComponentDisplayType t) => t is
+            ComponentDisplayType.Candle or ComponentDisplayType.Wick or
+            ComponentDisplayType.Bar or ComponentDisplayType.Histogram;
 
         public void Dispose() { _textPaint.Dispose(); _textFont.Dispose(); }
     }

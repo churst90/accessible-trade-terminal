@@ -569,3 +569,27 @@ list must never pose as a complete one.
   it turned +0.739R at p=0.0002 into −0.095R at p=0.23 — a reminder that a spectacular
   backtest result is a bug report until proven otherwise.
 
+### Chart legibility rules (2026-07-27)
+
+Three rules that only reveal themselves when several indicators share one chart.
+Reviewing a feature alone will not surface any of them.
+
+- **The pane legend ranks before it truncates.** `ChartRenderer.BuildLegendRows` is
+  separated from the drawing call because choosing WHAT to name is the part that can be
+  wrong. Row budget is derived from pane height (45%, floor 3, ceiling 9); rows sort base
+  data → continuous lines → markers; a series with ≥3 marker components collapses to one
+  row; leftover rows are announced as "+N more". The collapse is scoped by the series'
+  start index, not by colour — matching on colour let one indicator's collapse delete an
+  earlier indicator's row whenever two colours agreed.
+- **Marker shape families are owned per indicator.** Market Structure = squares and
+  crosses. Value Deviation = triangle → dot → diamond, where the shape encodes the tier
+  and therefore cannot be reassigned. A new marker indicator must not reuse another's
+  shape at a similar colour; `MarkerLegibilityTests` enforces it with a squared-RGB
+  threshold of 30,000, which is calibrated on two pairs that genuinely failed on screen
+  (#EF5350 vs #EF9A9A at 13,034, and #AB47BC vs #FF1744 at 23,760). Judgement about
+  whether two colours "obviously differ" proved unreliable at glyph size, and the
+  colour-blind palette makes it worse.
+- **Density controls hide glyphs, never information.** Value Deviation's `MinTier`
+  suppresses the mark but leaves the Deviation Tier component, the reference lines and
+  the spoken detail untouched. A screen-reader user must still be able to ask a bar what
+  it was. Any future thinning must follow the same split.

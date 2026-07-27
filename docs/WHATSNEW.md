@@ -45,6 +45,16 @@ and two chart modes. Everything below has a toolbar button and a keyboard shortc
   beside the one you're working on — the daily next to the four-hour, say — either
   side-by-side or stacked. Speech and sound stay with the chart you're actually on.
 
+**Chart legibility.** With Market Structure and Value Deviation both on a weekly chart,
+the result was a mess — so: the pane legend now sizes itself against the pane instead of
+covering a third of the plot, names the price series and lines before markers, and folds
+a whole family of marks into one row (it used to list nine tier labels and never mention
+the candles); Market Structure's swing marks became **squares** and its structure events
+**crosses**, so they can no longer be confused with Value Deviation's triangles, dots and
+diamonds; and Value Deviation gained a **Show tiers from** setting, defaulting to 2, which
+drops the shallowest marks. That last one hides glyphs only — speech still reports every
+tier, so nothing you could act on has become unreachable.
+
 **Also:** boolean indicator settings now work. They were silently ignored across the
 whole app, which had been quietly disabling a few options on Cipher SR and Cipher B,
 and they now appear as checkboxes rather than a box expecting you to type "true".

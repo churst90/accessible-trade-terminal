@@ -10,6 +10,48 @@ Market watch and screening, three analysis features, two chart modes, and the
 toolbar controls that make all of them findable. Plus the research that decided
 what each of them claims — most of which was a null result, deliberately kept.
 
+### Chart legibility: legend, marker shapes, marker density (2026-07-27)
+
+All three came out of one weekly BTC screenshot carrying Market Structure and
+Value Deviation at once. Nothing was broken; the chart was simply unreadable, and
+each cause was invisible when the features were reviewed one at a time.
+
+- **The pane legend named the wrong nine things and covered a third of the plot.**
+  `RenderPaneLegend` took the first nine components in series order against a fixed
+  nine-row cap. One marker-heavy indicator therefore spent the whole budget: the box
+  grew to ~152px inside a ~215px price pane and listed nine near-identical tier
+  labels, while the candles, the moving average and the levels were never named at
+  all. Now the selection logic is `ChartRenderer.BuildLegendRows` — extracted from
+  the draw call so it can be tested — with three rules: the row budget comes from
+  the pane height (45% of it, floor 3, ceiling 9); rows are ranked base data →
+  continuous lines → markers before any truncation; and a series contributing three
+  or more marker components collapses to one row naming the series and the count.
+  When rows still do not fit, the last row says how many were dropped, because a
+  legend showing a silent subset reads as a complete list of what is on the chart.
+- **Two indicators were drawing the same glyph in the same colour.** Swing High was
+  a red down-triangle at 7px; Value Deviation's Resistance tier 1-2 was a red
+  down-triangle at 7px. Same for the green up-triangles. Market Structure now owns
+  the angular family — squares for swings, crosses for Break of Structure (amber)
+  and Change of Character (purple, larger) — and Value Deviation keeps the graded
+  triangle → dot → diamond ladder, where the shape *is* the tier and so cannot move.
+  Swing marks also gained `AboveBar` / `BelowBar` anchors so the glyph sits clear of
+  the wick instead of on its tip, hiding the price it marks.
+
+  `MarkerLegibilityTests` measures this rather than trusting judgement, and caught a
+  second clash on the first run: Change of Character's purple diamond against the
+  neon-red deep tier measured 23,760 in squared RGB — inside the range where two
+  glyphs of the same shape read as the same mark, and closer still under
+  deuteranopia. "Purple is unmistakable against red" was an assumption, and it was
+  wrong; CHoCH became a cross.
+- **Value Deviation gained a "Show tiers from" parameter, defaulting to 2.** Tier 1
+  is a reversal barely outside value — closer to noise than to a zone — and it was
+  the bulk of the marks on any long view. It filters the MARK only: the Deviation
+  Tier component, the spoken detail and the reference lines still report every tier,
+  so the chart gets quieter without anything becoming unavailable to speech.
+
+26 new tests (`PaneLegendTests`, `MarkerLegibilityTests`, plus Value Deviation
+density coverage); suite 2286 → 2312.
+
 ### Toolbar controls for everything shipped (2026-07-27)
 
 The honest framing: the watchlist, screener, respect report, journal, AI analyst,

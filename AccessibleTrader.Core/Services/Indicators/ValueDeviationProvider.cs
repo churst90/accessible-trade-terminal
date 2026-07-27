@@ -68,6 +68,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         private const string ParamTiers = "Tiers";
         private const string ParamMaxTier = "MaxTierVa";
         private const string ParamRequireMomentum = "RequireMomentumTurn";
+        private const string ParamMinTier = "MinTier";
 
         private readonly IValueDeviationAnalyzer _analyzer = new ValueDeviationAnalyzer();
 
@@ -97,6 +98,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "Five stayed monotonic in testing; six collapsed the two innermost tiers together." },
                     new() { Name = ParamMaxTier, DisplayName = "Outermost tier at (value areas)", DataType = typeof(double),
                             DefaultValue = 2.0, MinValue = 0.5, MaxValue = 6.0 },
+                    new() { Name = ParamMinTier, DisplayName = "Show tiers from", DataType = typeof(int),
+                            DefaultValue = 2.0, MinValue = 1.0, MaxValue = 5.0,
+                            Description = "Lowest tier that gets a mark. Tier 1 is a reversal barely outside value, which is " +
+                                          "closer to noise than to a zone and is the bulk of the marks on a long view — so the " +
+                                          "default starts at 2. Raise it to 3 or 4 on a weekly or a wide zoom to leave only the " +
+                                          "deep stretches; drop it to 1 to see everything the analyzer found." },
                     new() { Name = ParamRequireMomentum, DisplayName = "Require a momentum turn as well", DataType = typeof(bool),
                             DefaultValue = true,
                             Description = "ON (default): a zone is only marked when the built-in WaveTrend oscillator is also turning that way — fewer, better-confirmed zones. OFF: marks on the reversal bar alone, giving more zones with more noise." },
@@ -183,6 +190,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int tiers = Math.Clamp((int)GetParam(parameters, ParamTiers, 5), 2, 6);
             double maxTier = GetParam(parameters, ParamMaxTier, 2.0);
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
+            int minTier = Math.Clamp((int)GetParam(parameters, ParamMinTier, 2), 1, 5);
             // ADAPT THE WINDOW TO WHAT IS ACTUALLY LOADED. The default was picked from the
             // research dataset, but a fresh chart fetches about 200 bars — so a 480-bar profile
             // left every component NaN and the whole indicator read "no data".
@@ -224,6 +232,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 var d = devs[i];
                 if (d.Tier <= 0) continue;
                 tierSpan[i] = d.BelowValue ? -d.Tier : d.Tier;
+
+                // Density control, applied to the MARK only. The Deviation Tier component and the
+                // spoken detail still report every tier, so raising this hides glyphs without
+                // hiding information — navigating to the bar or asking for its detail still says
+                // "tier 1 below value". Tier 1 is a reversal barely outside value and is the bulk
+                // of the marks on a long view; on a 200-bar weekly it turned the price pane into
+                // a band of triangles.
+                if (d.Tier < minTier) continue;
 
                 // A reversal BELOW value marks a support zone; a reversal ABOVE value marks a
                 // resistance zone. That is the whole claim — it is a description of where price

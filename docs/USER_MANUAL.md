@@ -901,14 +901,21 @@ the mirror. The **Minimum swing size (ATR)** setting suppresses pivots that are
 too small to be structure rather than noise — a swing has to differ from the
 previous one by at least one ATR by default.
 
-The indicator marks a red down-triangle on each swing high and a green
-up-triangle on each swing low, and rings a ping for each as you navigate over
-it — a low tone for lows, a higher one for highs. Two further events get their
-own marks: a **Break of Structure** (amber dot) when price closes beyond the
-last swing in the direction the trend was already going, which is continuation,
-and a **Change of Character** (purple diamond) when it closes beyond the last
-swing *against* the trend, which is the first mechanical evidence that the trend
-may be over. Three more components are computed but hidden by default —
+The indicator marks a **red square** on each swing high and a **green square** on
+each swing low — just clear of the wick, so the price they mark stays readable —
+and rings a ping for each as you navigate over it, a low tone for lows and a
+higher one for highs. Two further events get their own marks, both drawn as an
+**X**: an **amber X** for a **Break of Structure**, when price closes beyond the
+last swing in the direction the trend was already going, which is continuation;
+and a larger **purple X** for a **Change of Character**, when it closes beyond
+the last swing *against* the trend, which is the first mechanical evidence that
+the trend may be over.
+
+The shapes are deliberate. Market Structure owns the angular family — squares and
+crosses — and Value Deviation below owns triangles, dots and diamonds, so that on
+a chart carrying both you can never mistake a swing high for a resistance zone.
+They shipped a week apart, were each checked alone, and for a while both drew red
+down-triangles at the same size. Three more components are computed but hidden by default —
 Structure State, Last Swing High and Last Swing Low — and you can switch any of
 them on in the object tree or the indicator's properties.
 
@@ -950,6 +957,15 @@ five tiers per side:
 
 Each tier has its own pitch too, so the tier is audible as well as visible — the
 support tiers descend in pitch as they deepen, the resistance tiers rise.
+
+**Show tiers from** is the density control, and it defaults to 2. Tier 1 is a
+reversal barely outside value — closer to noise than to a zone — and on a long
+view it is the bulk of the marks; left in, it turns the price pane into a
+continuous band of glyphs. Raise it to 3 or 4 on a weekly chart or a wide zoom to
+leave only the deep stretches, or drop it to 1 to see everything the analyzer
+found. It hides the *glyph* only: the Deviation Tier component and the spoken
+detail still report every tier, so navigating to a bar still tells you it was a
+tier 1, and nothing you could act on is hidden from speech.
 
 **Require a momentum turn as well** is on by default: a zone is only marked when
 the indicator's own internal WaveTrend oscillator is turning the same way, which
