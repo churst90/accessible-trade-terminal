@@ -103,15 +103,24 @@ Every one of these is also a toolbar button — row 1 opens panels, row 2 change
 
 ## Current Status (2026-07-27)
 
-**Unreleased on main: market watch, screening, and three analysis features.** Watchlists
-plus a screener that reuses the Strategy Composer's own condition tree (so every indicator
-and operator works in it on day one), with a symbol picker and a quick screen builder; a
-**respect report** that measures which levels and moving averages a market actually reacts
-to rather than assuming; a **Market Structure** indicator (HH/HL/LH/LL, BOS, CHoCH) on by
-default; a **Value Deviation** indicator marking where price reversed relative to a rolling
-volume-profile POC; **bar replay** and **split view**. All six also gained the toolbar
-buttons they shipped without — see `CHANGES.md`, and `ToolbarControlSurfaceTests` for the
-test that now enforces it. Suite at 2411.
+**2.1.0 staged, not cut.** Version is bumped and everything is merged to `main`, but no tag
+exists yet — see [`RELEASE_2.1.0_VERIFICATION.md`](RELEASE_2.1.0_VERIFICATION.md) for the
+hand-verification pass that has to come first. Three specific gaps keep it staged: the MAUI
+desktop head was never built this cycle (the development box lacks the workloads, and that
+head carries its own `app.css`), fifteen dialogs had colours rewritten without being opened,
+and none of the six new features has been run end to end.
+
+What landed since 2.0.1, across 30 commits: **watchlists and a screener** (with a symbol
+picker and a quick screen builder) reusing the Strategy Composer's own condition tree; a
+**respect report** measuring which levels and moving averages a market actually holds; a
+**Market Structure** indicator (HH/HL/LH/LL, BOS, CHoCH) on by default; a **Value Deviation**
+indicator marking reversals relative to a rolling volume-profile POC; **bar replay** and
+**split view**; toolbar controls for all of it; and an **application-wide theming system** —
+a theme now covers the toolbars, tabs and dialogs as well as the chart — with three new
+presets (Steel Gray as the default, Blackout, Classic). Plus real fixes: boolean indicator
+parameters were silently dead app-wide, a Cipher SR backtest lookahead, two `DrawRect` bounds
+bugs, a toolbar that never watched the state it displayed, and a colour-vision gap in three
+themes that already shipped. Suite 2109 → 2411.
 
 **2.0.1 shipped.** A point release on top of 2.0.0: accessible mobile drawing (a "Place
 drawing point" touch button so touch-only users can complete multi-point drawings),

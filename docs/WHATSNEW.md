@@ -1,6 +1,6 @@
 # What's New
 
-## Unreleased — market watch, screening, and two ways to see structure
+## 2.1.0 — market watch, screening, and a terminal that looks like one
 
 The big addition is **market watch**: a place to keep lists of symbols and to scan
 them all at once. Alongside it, three tools that answer "where am I on this chart?",
@@ -54,6 +54,40 @@ the candles); Market Structure's swing marks became **squares** and its structur
 diamonds; and Value Deviation gained a **Show tiers from** setting, defaulting to 2, which
 drops the shallowest marks. That last one hides glyphs only — speech still reports every
 tier, so nothing you could act on has become unreachable.
+
+### The application has a look now
+
+The chart was themed; everything around it was not. Toolbars, tabs and dialogs read
+a fixed dark-grey palette no matter which theme you picked, so choosing the light
+theme gave you a white chart inside a near-black frame. That seam is gone — a theme
+now covers the whole window.
+
+- **Steel Gray is the new default.** The window is one vertical fade: lighter chrome
+  at the top, the chart darkening as it goes down, the footer carrying it out. The
+  fade is deliberately shallow so it never washes out candles near the top of the
+  pane, which is exactly where price at the top of its range sits.
+- **Three new presets.** **Blackout** — pure black, white text, lifted dark-grey
+  dialogs; a true dark mode for OLED panels and low light. **Classic** — the familiar
+  dark navy-and-teal scheme, so anyone arriving from another platform can start from
+  something their eye already knows. And Steel Gray itself. The high-contrast and
+  braille themes are untouched.
+- **Set the colours yourself.** Settings → Appearance now covers up and down colours,
+  the chart background and gradient, and a **Window gradient** switch that blends the
+  toolbars, chart and footer into one continuous fade between any two colours you
+  pick. A theme can also give those three regions completely different colours — a
+  light header over a near-black chart is a thing you can build.
+- **Dialogs match the application.** They were a fixed light panel in a dark app,
+  which is why they read as a different product.
+- **Every dropdown and button now follows the theme.** The market, provider and
+  symbol pickers were unstyled operating-system controls; they are the single thing
+  that most made the terminal look assembled rather than designed.
+
+A safety note that applies to all of it: every built-in theme is checked
+automatically for legible chrome text, a visible focus ring, and candles that stand
+out against its own background at both ends of its gradient. Picking a preset is
+always safe. Only a hand-picked colour pair can collide with a background, and
+Settings warns you the moment it does rather than quietly correcting a choice you
+made on purpose.
 
 **Also:** boolean indicator settings now work. They were silently ignored across the
 whole app, which had been quietly disabling a few options on Cipher SR and Cipher B,

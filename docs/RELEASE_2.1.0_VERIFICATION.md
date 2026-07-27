@@ -1,0 +1,158 @@
+# 2.1.0 — pre-cut verification
+
+Everything below is staged on `main` at version 2.1.0. **The release is not cut.** No tag,
+no build artefacts. This is the list of things that are unverified, and why each one is on
+the list rather than being assumed fine.
+
+Tick through it, and if it comes back clean, cut the tag.
+
+---
+
+## Why this document exists
+
+Three specific gaps, all of them mine:
+
+1. **The desktop head was never built.** This development box has no `maui-android`
+   workload, so every build this cycle covered Core, WebHost, Components and Tests only.
+   The MAUI head has its **own copy of `app.css`**, which received the same theming edits
+   and has never been compiled or run.
+2. **Fifteen dialogs had their colours rewritten, unseen.** 121 inline colour references
+   across 25 razor files moved onto theme variables so dialogs stop being a light island
+   in a dark application. If any dialog carried a light-background assumption that was
+   missed, its text is now dark on a dark surface. Nothing would throw; it would simply be
+   unreadable.
+3. **No new feature has been run end to end.** All six have unit tests. None has fetched
+   real data, persisted to real disk, or been driven from the keyboard by a person.
+
+Unit tests do not cover any of this, which is the point of doing it by hand once.
+
+---
+
+## A. Build both heads
+
+- [ ] `dotnet build AccessibleTrader.slnx -p:UseRazorSourceGenerator=false` on a machine with
+      the MAUI workloads — **0 errors, 0 warnings**
+- [ ] Launch the **desktop (MAUI)** head. It has its own `app.css`; confirm the toolbars,
+      tabs and dialogs are themed and not falling back to the old dark-grey palette
+- [ ] Launch the **WebHost** head
+
+> The Razor source generator on SDK 10.0.301 miscompiles `<text>` and same-line code-block
+> markup. Build with `-p:UseRazorSourceGenerator=false`. It only bites after a clean.
+
+---
+
+## B. Every dialog opens and is readable
+
+This is the highest-risk item and the cheapest to clear. For each: open it, confirm the
+text is legible against its background, headings and hint text are visible, and no control
+has vanished into the surface behind it.
+
+| Dialog | How to open | Readable? |
+| --- | --- | --- |
+| Settings | `F12` | [ ] |
+| Help | `F1` | [ ] |
+| Add Indicator | `Alt+A` | [ ] |
+| Properties | focus a series, `P` | [ ] |
+| Object Tree | `Alt+O` | [ ] |
+| Watchlist / Screener | `Alt+M` | [ ] |
+| Level Report (Zones) | `Alt+R` | [ ] |
+| Alerts | `Alt+J` | [ ] |
+| API Keys | `Alt+K` | [ ] |
+| Trading Dashboard | `Alt+T` | [ ] |
+| Order Book | `Alt+B` | [ ] |
+| Strategies | `Alt+S` | [ ] |
+| Sound Designer | `Alt+W` | [ ] |
+| Custom Scripts | `Alt+,` | [ ] |
+| Journal | `Ctrl+Alt+Shift+J` | [ ] |
+| AI Analyst | `Ctrl+Alt+Shift+A` | [ ] |
+| Load Workspace | `Ctrl+Alt+W` | [ ] |
+| My Data import | toolbar Import | [ ] |
+
+Inside **Settings**, check every tab — the colour sweep touched all of them, and the tabs
+you rarely open are the ones most likely to hold a missed assumption.
+
+- [ ] General · [ ] Appearance · [ ] Keyboard · [ ] Alerts · [ ] About
+
+---
+
+## C. The new features, once each
+
+### Watchlist and screener (`Alt+M`)
+- [ ] Create a list; add a symbol via the Market → Provider → Sub-type → Symbol picker
+- [ ] Type in **Filter symbols** — the count under the picker updates
+- [ ] **Add all shown** adds the filtered set and announces how many
+- [ ] **Load** on a row puts that symbol on the chart
+- [ ] Build a screen: add two filters, pick a logic mode, save it
+- [ ] Run it against the list — progress is spoken, results table is navigable
+- [ ] Confirm a symbol that fails to fetch is **shown as failed, not dropped**
+- [ ] Restart the app: the watchlist and the saved screen are still there
+
+### Respect report (`Alt+R`)
+- [ ] Opens and populates on a loaded chart
+- [ ] Both tabs (levels, moving averages) have rows
+- [ ] **Re-measure** and **Speak summary** both work
+
+### Bar replay (`Ctrl+Alt+Shift+P`, or `F11` on desktop)
+- [ ] Starts at the cursor bar and hides everything after it
+- [ ] `F9` reveals, `Shift+F9` steps back, `F10` auto-advances
+- [ ] Stopping restores the full history **and the prior viewport**
+
+### Split view (`Ctrl+Alt+Shift+S`)
+- [ ] With two tabs open, splits; `Ctrl+Alt+Shift+E` cycles the second pane
+- [ ] `Ctrl+Alt+Shift+O` switches side-by-side / stacked
+- [ ] Speech and navigation stay with the **active** chart
+- [ ] Known limitation, expected: mouse hit-testing is inaccurate while split is on
+
+### Market Structure and Value Deviation
+- [ ] Market Structure appears automatically on a new chart; squares and crosses, not triangles
+- [ ] Settings → Analysis turns it off for new charts and leaves open ones alone
+- [ ] Value Deviation adds cleanly and its **Show tiers from** parameter thins the marks
+
+### Toolbar
+- [ ] Watch, Zones, Journal and AI open their panels
+- [ ] Split and Replay toggle **and show pressed state**
+- [ ] Pan and Zoom are **enabled** whenever a chart has data — this was broken until
+      `c38d7adc` and is worth confirming directly
+
+---
+
+## D. Theming
+
+- [ ] Each theme applies to the whole window, not just the chart: Steel Gray, Blackout,
+      Classic, High Contrast Dark, High Contrast Light, Soft Dark, Solarized, Braille
+- [ ] **High Contrast Light** especially — it is the one where a missed light/dark
+      assumption shows up worst
+- [ ] The **Window gradient** switch blends the three regions; the two colour pickers work
+- [ ] Custom up/down colours apply, survive a theme change, and **"Use theme's"** resets
+- [ ] Setting an up colour close to the background raises the warning in Settings
+- [ ] Keyboard focus rings are clearly visible on every theme
+
+---
+
+## E. Accessibility, which is the actual product
+
+- [ ] Orca reads the new toolbar buttons by their full names ("Watchlists and Screener",
+      not "Watch")
+- [ ] The screener results table reads cell by cell with column headers
+- [ ] The screen builder's filter rows read as a group, and each row's plain-language
+      summary is reachable
+- [ ] Bar replay announces reveals and the stop
+- [ ] Nothing in the theming work changed what is spoken
+
+---
+
+## When it is clean
+
+```
+git tag -a v2.1.0 -m "2.1.0"
+git push origin v2.1.0
+```
+
+Then move the `## [2.1.0] — unreleased, staged for verification` heading in
+`docs/CHANGES.md` to `## [2.1.0] — <date>`.
+
+## If something is wrong
+
+Fix on `main` and re-run this list for whatever the fix touched. Nothing here is tagged
+yet, so there is no release to withdraw — which is the whole reason for cutting after the
+pass rather than before it.

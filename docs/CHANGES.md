@@ -4,11 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [2.1.0] — unreleased, staged for verification
 
-Market watch and screening, three analysis features, two chart modes, and the
-toolbar controls that make all of them findable. Plus the research that decided
-what each of them claims — most of which was a null result, deliberately kept.
+Market watch and screening, three analysis features, two chart modes, an
+application-wide theming system, and the toolbar controls that make all of it
+findable. Plus the research that decided what each feature claims — most of which
+was a null result, deliberately kept.
+
+A MINOR bump: everything here is additive, nothing was removed, and no API broke.
+
+### Five things an upgrading user will notice immediately
+
+None of these is a fault. They are listed first because they change what the
+application looks like and how it behaves on launch, and finding that out by
+surprise is a poor way to meet a release.
+
+1. **The default theme is now Steel Gray**, not High Contrast Dark. The window
+   has a light-to-dark vertical fade and themed chrome throughout. Every previous
+   theme is still there, unchanged, in Settings → Appearance.
+2. **Default candle colours are `#77FF77` and `#DD0000`.** These are now an
+   app-level preference rather than a theme property, so they survive a theme
+   change. "Use theme's" in Settings hands control back to the theme.
+3. **Market Structure is added to every new OHLCV chart.** Turn it off for good in
+   Settings → Analysis; charts already open are never retrofitted.
+4. **Bar replay is on F9–F11**, not F4 — F4 was already the braille toggle.
+5. **High Contrast Light, Soft Dark and Solarized had their candle colours
+   adjusted.** Each paired a mid green against a mid red: distinguishable by hue,
+   nearly identical in greyscale, so the pair stopped carrying direction under
+   red-green deficiency. Each is lifted just enough to separate by brightness.
 
 ### Native form controls, two new themes, and a colour-vision gap in three old ones (2026-07-27)
 
