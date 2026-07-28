@@ -65,8 +65,11 @@ has vanished into the surface behind it.
 | Custom Scripts | `Alt+,` | [ ] |
 | Journal | `Ctrl+Alt+Shift+J` | [ ] |
 | AI Analyst | `Ctrl+Alt+Shift+A` | [ ] |
+| Save Workspace | `Ctrl+Alt+Shift+W` | [ ] |
 | Load Workspace | `Ctrl+Alt+W` | [ ] |
+| Drawing Tools | `Alt+D` | [ ] |
 | My Data import | toolbar Import | [ ] |
+| **Theme editor** | Settings → Appearance → Customise… | [ ] |
 
 Inside **Settings**, check every tab — the colour sweep touched all of them, and the tabs
 you rarely open are the ones most likely to hold a missed assumption.
@@ -116,10 +119,60 @@ you rarely open are the ones most likely to hold a missed assumption.
 
 ---
 
+## C2. Added AFTER this checklist was first written
+
+Five commits landed after 2.1.0 was staged. None of it has been seen running, and it is the part
+most at risk of being skipped, because someone working from their memory of "what 2.1 contains"
+will not think to include it.
+
+### Theme editor (Settings → Appearance)
+- [ ] **New theme** opens the editor seeded from the theme in use
+- [ ] All seven sections appear: top bar, chart area, candles and volume, overlays and drawings,
+      bottom bar, dialogs, text and chrome
+- [ ] Changing a colour updates the preview and is announced
+- [ ] **Revert** on one field returns it to the base theme; **Reset all** clears everything
+- [ ] **Flat** clears an optional gradient end
+- [ ] Contrast warnings appear when a colour is set close to its background — and do NOT
+      auto-correct it
+- [ ] **Save and use** applies it, and the theme survives a restart
+- [ ] **Copy theme text** / **Paste a theme** round-trips
+- [ ] Deleting a custom theme falls back to the one it was based on
+
+### The four newer themes
+- [ ] Amber CRT · [ ] Walnut · [ ] Paper · [ ] Midnight Blue
+- [ ] **Paper especially** — the only light theme among the new four, and light themes are where
+      a missed foreground assumption shows up worst
+
+### Two speech settings that had no control until now
+- [ ] Settings → General → **Speak the time** changes when the timestamp is spoken
+- [ ] Settings → General → **Speak values as** changes name-then-value versus value-only
+- [ ] Both survive a restart
+
+### Three new shortcuts
+- [ ] `Alt+Shift+L` describes the layout, and what it says MATCHES the chart — bar count, date
+      range, price range, gridline step, pane structure
+- [ ] `Alt+Shift+H` shows all hidden components and announces how many
+- [ ] `Alt+Shift+M` unmutes all and announces how many
+- [ ] Both announce "nothing was hidden/muted" when there is nothing to do
+
+### Add Indicator
+- [ ] Search narrows the list, and matches a DESCRIPTION word (try "volatility") not only names
+- [ ] The match count is spoken as you type
+- [ ] The selected indicator's description is shown and announced
+- [ ] An empty result explains which filter to relax
+
+### Dialog changes
+- [ ] Dialog titles no longer draw a yellow box; focus still visibly moves into the dialog
+- [ ] Settings no longer scrolls sideways at any window width
+- [ ] Trading Dashboard: SELL reads as available, not disabled; the mode says "No API key"
+      rather than "None"
+- [ ] Shortened setting labels still make sense, and their hints carry what was removed
+
 ## D. Theming
 
-- [ ] Each theme applies to the whole window, not just the chart: Steel Gray, Blackout,
-      Classic, High Contrast Dark, High Contrast Light, Soft Dark, Solarized, Braille
+- [ ] Each of the ELEVEN themes applies to the whole window, not just the chart: Steel Gray,
+      Blackout, Classic, Midnight Blue, Amber CRT, Walnut, Paper, High Contrast Dark,
+      High Contrast Light, Soft Dark, Solarized, Braille
 - [ ] **High Contrast Light** especially — it is the one where a missed light/dark
       assumption shows up worst
 - [ ] The **Window gradient** switch blends the three regions; the two colour pickers work
@@ -140,6 +193,20 @@ you rarely open are the ones most likely to hold a missed assumption.
 - [ ] Nothing in the theming work changed what is spoken
 
 ---
+
+## Deliberately NOT in 2.1.0
+
+Recorded so these are decisions rather than things nobody noticed.
+
+- **Button finishes as a separate axis** (metallic, wood) — a new feature, not a gap. Colour
+  themes work; adding a finish axis is 2.2 work and nothing is worse for its absence.
+- **A per-symbol webhook route editor.** `SetupAlertBridge` honours `alerts.setups.webhookMap`
+  and nothing can populate it, so the routing feature is real and unreachable. This PREDATES
+  2.1 — it is not a regression — and the single fallback webhook does have a UI. Recorded in
+  `SettingsWiringAuditTests`' allow-list so it stays visible.
+- **Split view mouse hit-testing.** Pointer coordinates map against the full canvas rather than
+  the active pane, so clicking is inaccurate while split view is on. Keyboard operation is
+  unaffected. Stated in the manual rather than left to be discovered.
 
 ## When it is clean
 
