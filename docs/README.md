@@ -101,26 +101,31 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status (2026-07-27)
+## Current Status (2026-07-28)
 
-**2.1.0 staged, not cut.** Version is bumped and everything is merged to `main`, but no tag
-exists yet — see [`RELEASE_2.1.0_VERIFICATION.md`](RELEASE_2.1.0_VERIFICATION.md) for the
-hand-verification pass that has to come first. Three specific gaps keep it staged: the MAUI
-desktop head was never built this cycle (the development box lacks the workloads, and that
-head carries its own `app.css`), fifteen dialogs had colours rewritten without being opened,
-and none of the six new features has been run end to end.
+**2.1.0 shipped.** Market watch and screening, three analysis features, two chart modes, and an
+application-wide theming system — 36 commits since 2.0.1.
 
-What landed since 2.0.1, across 30 commits: **watchlists and a screener** (with a symbol
-picker and a quick screen builder) reusing the Strategy Composer's own condition tree; a
-**respect report** measuring which levels and moving averages a market actually holds; a
-**Market Structure** indicator (HH/HL/LH/LL, BOS, CHoCH) on by default; a **Value Deviation**
-indicator marking reversals relative to a rolling volume-profile POC; **bar replay** and
-**split view**; toolbar controls for all of it; and an **application-wide theming system** —
-a theme now covers the toolbars, tabs and dialogs as well as the chart — with three new
-presets (Steel Gray as the default, Blackout, Classic). Plus real fixes: boolean indicator
-parameters were silently dead app-wide, a Cipher SR backtest lookahead, two `DrawRect` bounds
-bugs, a toolbar that never watched the state it displayed, and a colour-vision gap in three
-themes that already shipped. Suite 2109 → 2533.
+**Watchlists and a screener** that reuses the Strategy Composer's own condition tree, so every
+indicator and operator worked in it on day one, with a symbol picker and a quick screen builder.
+A **respect report** measuring which levels and moving averages a market actually holds rather
+than assuming. A **Market Structure** indicator (HH/HL/LH/LL, BOS, CHoCH) on by default, and a
+**Value Deviation** indicator marking reversals relative to a rolling volume-profile POC. **Bar
+replay** and **split view**. Toolbar controls for all of it — six features had shipped working,
+tested and keyboard-reachable with no button anywhere on screen.
+
+**Theming now covers the whole window**, not just the chart: eleven built-in themes (Steel Gray
+as the new default, plus Blackout, Classic, Midnight Blue, Amber CRT, Walnut and Paper), a theme
+editor exposing all 33 colours, and user themes that save, load and share as text.
+
+Real fixes along the way: boolean indicator parameters were silently dead app-wide; a Cipher SR
+backtest lookahead; two `DrawRect` bounds bugs; a toolbar that never watched the state it
+displayed; a colour-vision gap in three themes that had already shipped; a Razor comment that
+crashed the Settings dialog while compiling clean; a shortcut collision only the WebHost remap
+would have produced; split-view mouse mapping; and Text Label drawings, which turned out to have
+no way to enter text at all.
+
+Suite 2109 → 2533, plus 15 JS gesture tests.
 
 **2.0.1 shipped.** A point release on top of 2.0.0: accessible mobile drawing (a "Place
 drawing point" touch button so touch-only users can complete multi-point drawings),

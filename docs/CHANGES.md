@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [2.1.0] — unreleased, staged for verification
+## [2.1.0] — 2026-07-28
 
 Market watch and screening, three analysis features, two chart modes, an
 application-wide theming system, and the toolbar controls that make all of it

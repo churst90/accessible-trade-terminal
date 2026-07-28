@@ -1,10 +1,20 @@
-# 2.1.0 — pre-cut verification
+# 2.1.0 — verification checklist
 
-Everything below is staged on `main` at version 2.1.0. **The release is not cut.** No tag,
-no build artefacts. This is the list of things that are unverified, and why each one is on
-the list rather than being assumed fine.
+**`v2.1.0` was tagged on 2026-07-28.** This list is kept as the record of what was and was not
+checked before the cut, and as the template for the next release.
 
-Tick through it, and if it comes back clean, cut the tag.
+Two items were still open at the moment of tagging and are recorded here rather than quietly
+dropped:
+
+- **The MAUI desktop head was not built during this cycle.** The development machine has no MAUI
+  workloads and none of that head's target frameworks target Linux, so it could not be. That head
+  carries its own copy of `app.css`, which received every theming edit unseen — and CSS is not
+  compiled, so no build would have validated it regardless. It needs a launch on Windows.
+- **Not every dialog was opened on both heads.** Many were, on the WebHost, and doing so found
+  three defects that a green build and a green suite had both missed.
+
+Neither was treated as a blocker at the maintainer's decision. Both are the first thing to check
+if a 2.1.1 becomes necessary.
 
 ---
 
