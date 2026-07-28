@@ -75,17 +75,21 @@
                 @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "Alerts", "License", "About" })
                 {
                     bool active = _activeTab == tab;
+                    @* The active tab was a pale #e8f0ff panel, which stopped working the moment the
+                       label colour became a theme variable: near-white text on a near-white
+                       background rendered the selected tab as an empty box. An accent-tinted wash
+                       plus the underline carries selection without depending on the ink being dark.
+
+                       NOTE: this comment sits OUTSIDE the button tag deliberately. A Razor comment
+                       placed between an element's attributes compiles without error or warning and
+                       emits as an ATTRIBUTE NAME — a multi-line string that Blazor then throws on
+                       while rendering. That is what took the whole Settings dialog down. *@
                     <button role="tab"
                             aria-selected="@active.ToString().ToLower()"
                             tabindex="@(active ? 0 : -1)"
                             id="tab-@tab.ToLower()"
                             aria-controls="tabpanel-@tab.ToLower()"
                             @onclick="() => _activeTab = tab"
-                            @* The active tab was a pale #e8f0ff panel, which stopped working the
-                               moment the label colour became a theme variable: near-white text on
-                               a near-white background rendered the selected tab as an empty box.
-                               An accent-tinted wash plus the underline carries selection without
-                               depending on the ink being dark. *@
                             style="padding:6px 16px; border:none;
                                    border-bottom:@(active ? "3px solid var(--accent-color)" : "3px solid transparent");
                                    background:@(active ? "color-mix(in srgb, var(--accent-color) 22%, transparent)" : "transparent");
