@@ -41,6 +41,19 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <summary>Index of the tab shown in the secondary pane, or -1 when none is selected.</summary>
         int SecondaryTabIndex { get; }
 
+        /// <summary>
+        /// Where the ACTIVE chart sits inside the canvas, as fractions of the canvas in 0..1
+        /// (left, top, width, height). <c>(0, 0, 1, 1)</c> when split view is off.
+        ///
+        /// <para>
+        /// Normalised rather than in pixels on purpose. The mouse pipeline receives CSS pixels
+        /// and the canvas is painted in DEVICE pixels, so any pixel-valued rect would have to be
+        /// scaled by a density the mouse layer does not know. A fraction is the same number in
+        /// both spaces.
+        /// </para>
+        /// </summary>
+        (float Left, float Top, float Width, float Height) ActiveChartFraction { get; }
+
         /// <summary>Turns split view on (selecting the first available other tab) or off.</summary>
         void Toggle(WorkspaceState state);
 
@@ -147,6 +160,10 @@ namespace AccessibleTrader.Core.Services.Rendering
             Announce($"Split view {DescribeOrientation()}.");
         }
 
+        /// <inheritdoc />
+        public (float Left, float Top, float Width, float Height) ActiveChartFraction { get; private set; }
+            = (0f, 0f, 1f, 1f);
+
         public SKRect Render(SKCanvas canvas, int width, int height, WorkspaceState state, float density)
         {
             var full = new SKRect(0, 0, width, height);
@@ -157,9 +174,20 @@ namespace AccessibleTrader.Core.Services.Rendering
             // would be worse than quietly staying single.
             if (!IsEnabled || snapshot == null || !TrySplit(width, height, out var primary, out var secondary))
             {
+                ActiveChartFraction = (0f, 0f, 1f, 1f);
                 RenderActive(canvas, full, state, density);
                 return full;
             }
+
+            // Recorded on every frame so the mouse pipeline maps pointer coordinates into the
+            // ACTIVE pane rather than the whole canvas. Without this, clicking while split view
+            // is on lands on the wrong bar — the drawing tools, the crosshair and the context
+            // menu all read a position roughly twice as far along the chart as the cursor is.
+            ActiveChartFraction = (
+                primary.Left / width,
+                primary.Top / height,
+                primary.Width / width,
+                primary.Height / height);
 
             RenderActive(canvas, primary, state, density);
             RenderSnapshot(canvas, secondary, snapshot, density);

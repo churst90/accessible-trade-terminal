@@ -131,18 +131,21 @@
                     @if (recommendedId != null && !string.IsNullOrEmpty(symbolLabel))
                     {
                         <p style="margin-top: 8px; color: #ffb84d; font-size: 0.85rem;">
-                            ★ For <strong>@symbolLabel</strong> the empirically-recommended v23 long strategy is
+                            * For <strong>@symbolLabel</strong> the empirically-recommended v23 long strategy is
                             highlighted below. Pick from the table to load.
                         </p>
                     }
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
+                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem;">
                         <thead>
                             <tr style="border-bottom: 1px solid var(--border-color);">
-                                <th scope="col" style="text-align: left; padding: 4px 8px;">Name</th>
-                                <th scope="col" style="text-align: left; padding: 4px 8px;">Side</th>
-                                <th scope="col" style="text-align: left; padding: 4px 8px;">Status</th>
+                                @* Explicit widths because the Description column holds several
+                                   sentences and, left to itself, took the whole table — Name,
+                                   Side and Status were rendering one character per line. *@
+                                <th scope="col" style="text-align: left; padding: 4px 8px; width: 18%; min-width: 9em;">Name</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px; width: 7%; white-space: nowrap;">Side</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px; width: 9%; white-space: nowrap;">Status</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Description</th>
-                                <th scope="col" style="text-align: left; padding: 4px 8px;">Actions</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px; width: 14%; white-space: nowrap;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -154,7 +157,7 @@
                                     && string.Equals(spec.Id, recommendedId, StringComparison.OrdinalIgnoreCase);
                                 <tr @key="spec.Id" style="border-bottom: 1px solid #333; @(isRecommended ? "background: #2a2a14;" : "")">
                                     <td style="padding: 6px 8px;">
-                                        @if (isRecommended) { <span aria-label="Recommended" title="Empirically-recommended for @symbolLabel">★ </span> }
+                                        @if (isRecommended) { <span aria-label="Recommended" title="Empirically-recommended for @symbolLabel">* </span> }
                                         @spec.Name
                                     </td>
                                     <td style="padding: 6px 8px;">@spec.Side</td>

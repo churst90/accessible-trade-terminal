@@ -1,0 +1,90 @@
+@*
+    Asks for the wording of a Text Label that has just been placed on the chart.
+
+    Deliberately the smallest dialog in the application: one field and two buttons.
+    It appears immediately after the anchor is set, so the only decision left is what
+    the label says — and interrupting a drawing gesture with a large form would make
+    annotating a chart feel like filing a report.
+
+    Accessibility notes:
+      • The field takes focus on open, so a screen-reader user can type straight away
+        without hunting for it.
+      • Enter commits, Escape cancels — the two things anyone will try first.
+      • Cancelling still leaves the label placed at the anchor, just empty, and says so.
+        Silently deleting something the user positioned would be the worse surprise.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Cancel">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="label-text-title" @onclick:stopPropagation="true"
+             style="max-width: 460px;">
+
+            <h2 id="label-text-title" tabindex="-1">Label text</h2>
+
+            <div class="modal-row">
+                <label for="label-text-input">Text</label>
+                <input id="label-text-input" type="text" @bind="_text" @bind:event="oninput"
+                       @onkeydown="OnKeyDown"
+                       placeholder="e.g. weekly resistance"
+                       style="flex:1; min-width:16em;" />
+            </div>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.9em;">
+                Shown on the chart beside the anchor, and spoken when you navigate onto it.
+            </p>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" @onclick="Cancel">Cancel</button>
+                <button type="button" class="primary" @onclick="Commit">Add label</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _text = "";
+    private string _seriesId = "";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<PromptForLabelTextEvent>(e => InvokeAsync(() => ShowAsync(e.SeriesId)));
+    }
+
+    private async Task ShowAsync(string seriesId)
+    {
+        _seriesId = seriesId;
+        _text = "";
+        await ShowModalAsync("label-text-title");
+
+        // Straight into the field. The anchor is already placed; the only thing left to do here
+        // is type, so making the user Tab to the only control would be pure ceremony.
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "label-text-input"); }
+        catch { /* focus is best-effort; Tab still reaches it */ }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Commit();
+        else if (e.Key == "Escape") Cancel();
+    }
+
+    private void Commit()
+    {
+        EventBus.Publish(new LabelTextEnteredEvent(_seriesId, _text));
+        CloseModal();
+    }
+
+    // The label stays where it was put, with no text. Deleting a thing the user deliberately
+    // positioned because they changed their mind about the wording is the worse of the two
+    // surprises, and the empty label is trivially removable from the object tree.
+    private void Cancel()
+    {
+        EventBus.Publish(new LabelTextEnteredEvent(_seriesId, string.Empty));
+        CloseModal();
+    }
+}

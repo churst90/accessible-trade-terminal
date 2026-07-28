@@ -28,7 +28,13 @@
             }
             else if (!string.IsNullOrEmpty(_errorMessage))
             {
-                <p role="alert" style="color: #c00; margin-top: 12px;">@_errorMessage</p>
+                @* Amber on a bordered plate rather than pure red text. #c00 on a dark surface is both
+                   harsh and low-contrast, and "no API key configured" is a thing to go and do, not
+                   a failure — styling it as an error made a setup step read as a fault. *@
+                <p role="alert"
+                   style="margin-top: 12px; color: #ffb300;
+                          border-left: 3px solid #ffb300; padding: 8px 12px;
+                          background: color-mix(in srgb, #ffb300 10%, transparent);">@_errorMessage</p>
             }
             else if (!string.IsNullOrEmpty(_analysisText))
             {

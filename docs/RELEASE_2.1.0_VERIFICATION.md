@@ -104,7 +104,8 @@ you rarely open are the ones most likely to hold a missed assumption.
 - [ ] With two tabs open, splits; `Ctrl+Alt+Shift+E` cycles the second pane
 - [ ] `Ctrl+Alt+Shift+O` switches side-by-side / stacked
 - [ ] Speech and navigation stay with the **active** chart
-- [ ] Known limitation, expected: mouse hit-testing is inaccurate while split is on
+- [ ] Clicking in the ACTIVE pane lands on the bar under the cursor
+- [ ] Clicking the read-only second pane, or the divider, does nothing
 
 ### Market Structure and Value Deviation
 - [ ] Market Structure appears automatically on a new chart; squares and crosses, not triangles
@@ -149,10 +150,10 @@ will not think to include it.
 - [ ] Both survive a restart
 
 ### Three new shortcuts
-- [ ] `Alt+Shift+L` describes the layout, and what it says MATCHES the chart — bar count, date
+- [ ] `Ctrl+Alt+Shift+Y` describes the layout, and what it says MATCHES the chart — bar count, date
       range, price range, gridline step, pane structure
-- [ ] `Alt+Shift+H` shows all hidden components and announces how many
-- [ ] `Alt+Shift+M` unmutes all and announces how many
+- [ ] `Ctrl+Alt+Shift+K` shows all hidden components and announces how many
+- [ ] `Ctrl+Alt+Shift+U` unmutes all and announces how many
 - [ ] Both announce "nothing was hidden/muted" when there is nothing to do
 
 ### Add Indicator
@@ -204,9 +205,6 @@ Recorded so these are decisions rather than things nobody noticed.
   and nothing can populate it, so the routing feature is real and unreachable. This PREDATES
   2.1 — it is not a regression — and the single fallback webhook does have a UI. Recorded in
   `SettingsWiringAuditTests`' allow-list so it stays visible.
-- **Split view mouse hit-testing.** Pointer coordinates map against the full canvas rather than
-  the active pane, so clicking is inaccurate while split view is on. Keyboard operation is
-  unaffected. Stated in the manual rather than left to be discovered.
 
 ## When it is clean
 

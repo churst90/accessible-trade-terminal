@@ -33,6 +33,52 @@ surprise is a poor way to meet a release.
    nearly identical in greyscale, so the pair stopped carrying direction under
    red-green deficiency. Each is lifted just enough to separate by brightness.
 
+### Split view mouse, text labels, and a shortcut clash only the WebHost would have seen (2026-07-28)
+
+- **Split view no longer breaks the mouse.** Pointer coordinates are mapped into the ACTIVE pane
+  before anything downstream reads them. The browser reports a position inside the whole canvas,
+  and every mapping after it — bar index, price, drawing hit-tests, the context menu — assumed
+  that canvas WAS the chart, so a click landed roughly on the bar twice as far along as the
+  cursor. `ISplitViewCoordinator.ActiveChartFraction` publishes the pane as fractions rather than
+  pixels, because pointer coordinates arrive in CSS pixels and the canvas is painted in device
+  pixels; a fraction is the same number in both spaces. A click over the divider or over the
+  read-only second chart is now DROPPED — letting it through would draw on the chart you are
+  working in at a place you never pointed at, which is worse than a click doing nothing. This was
+  shipped as a stated limitation; the manual and shortcut reference now say it works.
+- **Text labels actually hold text.** The tool placed an anchor, rendered a marker, and there was
+  no way to enter any text, nothing drew it, and nothing spoke it — a point marker wearing the
+  name of a text tool. Now: the anchor goes down first, then a small dialog asks for the wording
+  (two separate decisions, which matters when you cannot see where the anchor landed); the text is
+  drawn beside the anchor on a plate; and it becomes the drawing's NAME, so navigating onto it
+  speaks it, the object tree lists it and the legend shows it. Cancelling leaves the label in
+  place and empty rather than deleting something just positioned.
+
+**The shortcut clash worth reading twice.** The three orientation-and-recovery shortcuts added
+earlier this cycle were `Alt+Shift+L / H / M`. The Linux WebHost rewrites every
+`Ctrl+Shift+letter` chord to `Alt+Shift+letter` at startup — browsers reserve the former at chrome
+level and a page cannot cancel it — so all three landed exactly on the remapped **Text Label**,
+**Horizontal Line** and **Measure Tool**.
+
+The default profile was clean. `ShortcutConflictTests` was green. The profile a WebHost user
+actually runs had two commands on one chord in three places, and nothing in 2,500 tests looked at
+it, because the remap happens at runtime on a profile no test ever built.
+
+`WebHostShortcutConflictTests` now applies the remap and checks the result, including that the
+remap ran at all (otherwise the check passes by testing the wrong profile — the same failure one
+level up) and that no command lost its only chord in the shuffle. All three commands moved to
+`Ctrl+Alt+Shift+Y` (layout), `Ctrl+Alt+Shift+K` (show all) and `Ctrl+Alt+Shift+U` (unmute all) —
+three-modifier chords are untouched by the rewrite and so mean the same thing on both heads.
+
+**Five visual fixes** from the dialog screenshots: the strategy library's table had no column
+widths, so the Description column took everything and Name/Side/Status rendered one character per
+line; the workspace lists' selected row was a hardcoded indigo belonging to no theme; the object
+tree and strategy list used emoji that render as empty boxes wherever no emoji font is installed
+(replaced with words, which a screen reader was reading anyway); new sound patches were all called
+"New Patch", which is indistinguishable in a list and in speech; and the AI analyst's
+"no API key configured" was styled as a red error when it is a setup step, not a fault.
+
+Suite 2520 → 2533.
+
 ### Dialog language, Add Indicator, and four screenshot defects (2026-07-27)
 
 **A language pass over Settings.** The rule applied throughout: *the label says what the setting
@@ -158,19 +204,21 @@ in luminance — not enough to carry direction in greyscale.
 
 **Three new shortcuts.**
 
-- **Alt+Shift+L — describe the chart's layout.** What the axes measure and at what scale, how many
+- **Ctrl+Alt+Shift+Y — describe the chart's layout.** What the axes measure and at what scale, how many
   bars are in view of how many loaded, how many panes there are and what is in each, and what is
   currently hidden or muted. This is the one thing a sighted user gets for free by glancing at the
   screen; the only previous route to it was navigating every pane and counting. `ChartLayoutDescriber`
   duplicates the renderer's exact nice-number arithmetic rather than approximating it — a summary
   that says "20,000 between gridlines" while the axis is labelled every 50,000 is worse than
   silence, because it is confidently wrong about something the user cannot check.
-- **Alt+Shift+H / Alt+Shift+M — show all, unmute all.** The escape hatch for the single-key H and M
+- **Ctrl+Alt+Shift+K / Ctrl+Alt+Shift+U — show all, unmute all.** The escape hatch for the single-key H and M
   toggles: hide or mute a handful of components across a few indicators and there is no practical
   way to find them again, which makes those toggles a one-way door. Both announce how many changed,
   because "nothing was hidden" and "9 items shown" are different pieces of information.
   Ctrl+Alt+Shift+M was the obvious binding and the conflict guard caught it as already belonging to
-  Monitoring Status, so all three sit under Alt+Shift as one group.
+  Monitoring Status. The Alt+Shift chords chosen instead then collided with the WebHost's browser
+  remap — see the later entry; all three now sit on Ctrl+Alt+Shift, the only family that means the
+  same thing on both heads.
 
 ### Native form controls, two new themes, and a colour-vision gap in three old ones (2026-07-27)
 

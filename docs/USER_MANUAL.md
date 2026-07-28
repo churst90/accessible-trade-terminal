@@ -751,6 +751,22 @@ touching the rest. The M key mutes or unmutes the focused series or component wi
 removing it, and H hides or shows it; both are toggles, and both leave the data in
 place so you can bring it back with the same key.
 
+### Text labels on the chart
+
+**Ctrl+Shift+L** pins a text label at the cursor bar. The anchor goes down first,
+then a small dialog asks what the label should say — so the position and the
+wording are two separate decisions, which matters when you cannot see where the
+anchor landed.
+
+The text is drawn on the chart beside the anchor, and it becomes the label's name
+everywhere else: navigating onto the label speaks it, the object tree lists it, and
+the chart legend shows it. A label reading "Label (3)" would be a label you have to
+go and look at, which is the one thing that does not work here.
+
+Cancelling the dialog leaves the label in place with no text, and says so — deleting
+something you had just deliberately positioned would be the worse surprise. Remove
+it from the object tree if you did not want it.
+
 ### Bar replay
 
 Playback reads you a chart you can already see all of. Bar replay does the
@@ -811,12 +827,11 @@ which chart is active, and the pane follows. If the window is too narrow to give
 both panes a usable width, split view declines to split rather than drawing two
 unreadable slivers.
 
-One current limitation, stated plainly: **mouse pointing is inaccurate while split
-view is on.** Hit-testing still maps clicks against the whole canvas rather than
-the active pane, so clicking on the chart lands in the wrong place. Keyboard
-operation is completely unaffected, and that is how the feature is meant to be
-used, but if you work with a mouse, turn split view off before clicking on the
-chart.
+The mouse works normally in split view. Pointer coordinates are mapped into the
+pane you are actually working in, so a click lands on the bar you pointed at. A
+click over the divider, or over the read-only second chart, is ignored — the second
+pane is a reference view, and letting a click there draw on your active chart would
+be worse than the click doing nothing.
 
 ### Inspecting a single bar
 

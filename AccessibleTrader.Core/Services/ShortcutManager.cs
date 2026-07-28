@@ -373,18 +373,23 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
 
             // ── Orientation and recovery ─────────────────────────────────────
-            // Alt+Shift+L, not Alt+Shift+/ — on many layouts Shift+/ is not "?" at all, so a
-            // binding written that way is layout-dependent and silently unavailable to anyone
-            // outside a US keyboard. L for Layout is mnemonic and layout-stable.
-            s.Add(new(SystemCommand.SpeakChartLayout,     "L", Alt: true, Shift: true));
-
-            // Paired with the single-key H and M that hide and mute one component, so the
-            // recovery shortcut is the same letter. NOT F5/F6, which already carry component and
-            // series volume — and NOT Ctrl+Alt+Shift+M, which the conflict guard caught as
-            // already belonging to Monitoring Status. All three orientation-and-recovery commands
-            // sit under Alt+Shift so they are one group to learn rather than three.
-            s.Add(new(SystemCommand.ShowAllComponents,    "H", Alt: true, Shift: true));
-            s.Add(new(SystemCommand.UnmuteAllComponents,  "M", Alt: true, Shift: true));
+            //
+            // These sat on Alt+Shift+L / H / M and had to move. The Linux WebHost rewrites every
+            // Ctrl+Shift+letter chord to Alt+Shift+letter at startup — browsers reserve the former
+            // at chrome level and a page cannot cancel it — so all three landed exactly on the
+            // remapped Text Label, Horizontal Line and Measure Tool. The DEFAULT profile was
+            // clean, which is why the original conflict guard was happy; the profile a WebHost
+            // user actually runs had two commands on one chord in three places.
+            //
+            // Three-modifier chords are untouched by that rewrite, so Ctrl+Alt+Shift is the only
+            // family that means the same thing on both heads. Letters chosen from what is
+            // genuinely free after the remap is simulated:
+            //   Y — "what am I looking at?" (L, D and S were all taken)
+            //   K — sho[K] all, paired with…
+            //   U — [U]nmute all
+            s.Add(new(SystemCommand.SpeakChartLayout,     "Y", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.ShowAllComponents,    "K", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.UnmuteAllComponents,  "U", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
             LoadProfile(p);

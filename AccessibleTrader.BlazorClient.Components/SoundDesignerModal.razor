@@ -438,7 +438,10 @@
 
     private void NewPatch()
     {
-        var p = new SoundPatch { Name = "New Patch" };
+        // Numbered, because the list is keyed by nothing else — two patches both called
+        // "New Patch" are indistinguishable in the list AND to a screen reader reading it.
+        int n = _patches.Count(x => x.Name.StartsWith("New Patch", StringComparison.Ordinal)) + 1;
+        var p = new SoundPatch { Name = n == 1 ? "New Patch" : $"New Patch {n}" };
         PatchLibrary.AddPatch(p);
         _patches = PatchLibrary.GetPatches().ToList();
         SelectPatch(p.Id);

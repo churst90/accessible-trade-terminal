@@ -118,8 +118,9 @@ reference view** — keyboard navigation, speech, sonification and trading all c
 address the active tab. Falls back to a single full-size chart when there is no second tab
 or the window is too narrow to divide.
 
-Known limitation: mouse hit-testing still maps against the full canvas, so pointer
-interaction is inaccurate while split view is on. Keyboard operation is unaffected.
+Mouse pointing is correct in split view: pointer coordinates are mapped into the ACTIVE pane,
+and a click over the divider or over the read-only second chart is ignored rather than applied
+to the chart you are working in.
 
 | Key | Action |
 |-----|--------|
@@ -301,9 +302,10 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
-| Alt+Shift+L | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
-| Alt+Shift+H | Show every hidden component again (announces how many) |
-| Alt+Shift+M | Unmute every muted component (announces how many) |
+| Ctrl+Shift+L | Pin a text label at the cursor bar, then type what it says |
+| Ctrl+Alt+Shift+Y | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
+| Ctrl+Alt+Shift+K | Show every hidden component again (announces how many) |
+| Ctrl+Alt+Shift+U | Unmute every muted component (announces how many) |
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Zones**) |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |

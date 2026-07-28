@@ -101,7 +101,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IIndicatorModelFactory modelFactory,
             IInputService inputService,
             Rendering.IPaneLayoutService? paneLayout = null,
-            ISettingsManager? settings = null)
+            ISettingsManager? settings = null,
+            Rendering.ISplitViewCoordinator? splitView = null)
         {
             _eventBus = eventBus;
             _drawingService = drawingService;
@@ -110,13 +111,76 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _inputService = inputService;
             _paneLayout = paneLayout;
             _settings = settings;
+            _splitView = splitView;
 
             _subs.Add(_eventBus.Subscribe<CancelDrawingEvent>(_ => CancelPendingDrawing()));
+            _subs.Add(_eventBus.Subscribe<LabelTextEnteredEvent>(e => ApplyLabelText(e.SeriesId, e.Text)));
             _inputService.MouseEvent += HandleMouseEvent;
+        }
+
+        /// <summary>
+        /// Optional so every existing construction site and test keeps working. A null coordinator
+        /// means "no split view", which is also the state of a chart that has never been split.
+        /// </summary>
+        private readonly Rendering.ISplitViewCoordinator? _splitView;
+
+        /// <summary>
+        /// Rewrites pointer coordinates into the ACTIVE chart's own space.
+        ///
+        /// <para>
+        /// The browser reports a position inside the whole canvas element, and every mapping below
+        /// — bar index, price, hit-testing, the context menu — assumes that canvas IS the chart.
+        /// While split view is on it is only half of it, so a click landed on roughly the bar
+        /// twice as far along as the cursor. That was shipped as a known limitation and stated in
+        /// the manual; this removes it instead.
+        /// </para>
+        ///
+        /// <para>
+        /// Works in FRACTIONS, not pixels. Pointer coordinates arrive in CSS pixels while the
+        /// canvas is painted in device pixels, so a pixel-valued rect would need a density this
+        /// layer has no access to. A fraction is the same number in both spaces.
+        /// </para>
+        ///
+        /// <para>
+        /// A pointer OUTSIDE the active pane — over the divider, or over the read-only second
+        /// chart — is reported as such by returning false, and the caller drops the event. The
+        /// second pane is a reference view; clicking it must not draw on the chart you are working
+        /// in, which is a far worse outcome than a click doing nothing.
+        /// </para>
+        /// </summary>
+        internal bool TryMapToActiveChart(
+            ref double x, ref double y, ref double width, ref double height)
+        {
+            var f = _splitView?.ActiveChartFraction ?? (0f, 0f, 1f, 1f);
+            if (f.Width <= 0f || f.Height <= 0f) return false;
+
+            // Nothing to do when the active chart IS the canvas.
+            if (f.Left == 0f && f.Top == 0f && f.Width == 1f && f.Height == 1f) return true;
+
+            double left = f.Left * width;
+            double top = f.Top * height;
+            double paneWidth = f.Width * width;
+            double paneHeight = f.Height * height;
+
+            double localX = x - left;
+            double localY = y - top;
+
+            if (localX < 0 || localY < 0 || localX > paneWidth || localY > paneHeight) return false;
+
+            x = localX;
+            y = localY;
+            width = paneWidth;
+            height = paneHeight;
+            return true;
         }
 
         public void HandleMouseEvent(double x, double y, string type, double width, double height)
         {
+            // Everything below assumes the canvas is the chart. While split view is on it is not,
+            // so translate first — and drop the event entirely when the pointer is over the
+            // divider or the read-only second pane.
+            if (!TryMapToActiveChart(ref x, ref y, ref width, ref height)) return;
+
             // Fast-reject events that have no drawing context. MouseMove with an active
             // preview OR an active edit-drag is allowed even when _pendingDrawingType is
             // None, because a two-point drawing's preview (or a handle-drag edit) outlives
@@ -958,8 +1022,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else if (dType == DrawingType.TextLabel)
             {
-                CreateDrawingSeries("Label", new DrawingData { Type = DrawingType.TextLabel, AnchorDate1 = pt.Date, AnchorPrice1 = pt.Close }, chartData);
+                // The anchor is placed first, then the text is asked for. Placing it first means
+                // the label exists at the price the user chose even if they cancel the prompt, and
+                // it keeps the anchor decision and the wording decision separate — which matters
+                // when the wording is being typed by someone who cannot see where the anchor went.
+                string id = CreateDrawingSeries("Label",
+                    new DrawingData { Type = DrawingType.TextLabel, AnchorDate1 = pt.Date, AnchorPrice1 = pt.Close },
+                    chartData);
                 _eventBus.Publish(new AnnouncementEvent($"Text label pinned at {SpeechPriceFormatter.FormatPrice(pt.Close)}"));
+                _eventBus.Publish(new PromptForLabelTextEvent(id));
             }
             else if (dType != DrawingType.None)
             {
@@ -1036,6 +1107,39 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _isMouseDragging = false;
             _eventBus.Publish(new AnnouncementEvent($"{label} cancelled."));
             _eventBus.Publish(new RedrawEvent());
+        }
+
+        /// <summary>
+        /// Stores a label's text and folds it into the series NAME.
+        ///
+        /// <para>
+        /// The name is what gets announced when you navigate onto the drawing, what the object
+        /// tree lists, and what the chart legend shows. Putting the text there means one change
+        /// makes the label audible, findable and visible in the same move — where a dedicated
+        /// speech path would have covered only the first, and only for whoever remembered to
+        /// write it. A label reading "Label (3)" is a label you have to go and look at, which is
+        /// the one thing the user cannot do.
+        /// </para>
+        /// </summary>
+        private void ApplyLabelText(string seriesId, string text)
+        {
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
+            if (series?.Drawing is not { Type: DrawingType.TextLabel }) return;
+
+            string trimmed = (text ?? string.Empty).Trim();
+            series.Drawing.Text = trimmed;
+
+            if (!string.IsNullOrEmpty(trimmed))
+            {
+                series.Config.Name = $"Label: {trimmed}";
+                series.Config.FriendlyName = $"Text label: {trimmed}";
+            }
+
+            _eventBus.Publish(new RedrawEvent());
+            _eventBus.Publish(new AnnouncementEvent(
+                string.IsNullOrEmpty(trimmed)
+                    ? "Label left empty."
+                    : $"Label reads: {trimmed}."));
         }
 
         private string CreateDrawingSeries(string name, DrawingData drawing, IReadOnlyList<Ohlcv> chartData)

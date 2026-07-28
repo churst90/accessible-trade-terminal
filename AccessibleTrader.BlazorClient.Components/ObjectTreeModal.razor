@@ -47,7 +47,7 @@
                             <summary class="pane-header" role="treeitem" aria-level="1"
                                      tabindex="@(firstItem ? 0 : -1)"
                                      aria-label="@($"Pane {pane.Key}, {pane.Count()} series")">
-                                <span class="icon">📦</span> Pane: @pane.Key
+                                <span class="icon"></span> Pane: @pane.Key
                             </summary>
 
                             <div role="group" class="pane-content">
@@ -73,20 +73,20 @@
                                                             @onclick:stopPropagation="true"
                                                             @onclick="() => ToggleHide(series.Id)"
                                                             aria-pressed="@(!series.IsVisible ? "true" : "false")">
-                                                        @(series.IsVisible ? "👁️" : "🚫")
+                                                        @(series.IsVisible ? "Show️" : "Hide")
                                                     </button>
                                                     <button title="Toggle Audio (M)" 
                                                             @onclick:stopPropagation="true"
                                                             @onclick="() => ToggleMute(series.Id)"
                                                             aria-pressed="@(series.IsMuted ? "true" : "false")">
-                                                        @(series.IsMuted ? "🔇" : "🔊")
+                                                        @(series.IsMuted ? "Mute" : "Sound")
                                                     </button>
                                                     @if (series.Id != CoreSeriesIds.Candles && series.Id != CoreSeriesIds.Price)
                                                     {
                                                         <button title="Remove" class="danger-btn"
                                                                 @onclick:stopPropagation="true"
                                                                 @onclick="() => RemoveSeries(series.Id)">
-                                                            🗑️
+                                                            Delete️
                                                         </button>
                                                     }
                                                 </div>
@@ -106,13 +106,13 @@
                                                                     class="mini-btn"
                                                                     @onclick:stopPropagation="true"
                                                                     @onclick="() => ToggleCompHide(series.Id, comp.Name)">
-                                                                @(comp.IsVisible ? "👁️" : "🚫")
+                                                                @(comp.IsVisible ? "Show️" : "Hide")
                                                             </button>
                                                             <button title="Toggle Component Audio" 
                                                                     class="mini-btn"
                                                                     @onclick:stopPropagation="true"
                                                                     @onclick="() => ToggleCompMute(series.Id, comp.Name)">
-                                                                @(comp.IsMuted ? "🔇" : "🔊")
+                                                                @(comp.IsMuted ? "Mute" : "Sound")
                                                             </button>
                                                         </div>
                                                     </div>

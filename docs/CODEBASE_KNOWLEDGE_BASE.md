@@ -699,3 +699,16 @@ customised". Unknown keys are ignored on load so a file from a newer version sti
 the theme as the user will see it — their up/down colours, their background override. An editor
 showing that would present personal preferences as theme properties and then save them into the
 theme.
+
+**A new shortcut must be checked against the REMAPPED profile.** The Linux WebHost rewrites every
+`Ctrl+Shift+letter` chord to `Alt+Shift+letter` at startup (`WebHostShortcutRemap`), so any new
+`Alt+Shift+letter` binding collides with a drawing tool for every WebHost user while the default
+profile stays clean. `ShortcutConflictTests` checks the shipped profile;
+`WebHostShortcutConflictTests` checks the one people actually run. Three-modifier chords
+(`Ctrl+Alt+Shift+…`) are untouched by the rewrite and are the safe family for anything global.
+
+**Pointer coordinates are pane-relative, not canvas-relative.** `DrawingInteractionManager`
+translates through `ISplitViewCoordinator.ActiveChartFraction` before any mapping runs, and drops
+events outside the active pane. The fraction is normalised because pointer coordinates arrive in
+CSS pixels while the canvas is painted in device pixels — a pixel rect would need a density the
+mouse layer never sees.

@@ -33,7 +33,7 @@
                             <li role="option"
                                 tabindex="0"
                                 aria-selected="@(_workspaceName == profile ? "true" : "false")"
-                                style="padding: 4px 8px; cursor: pointer; @(_workspaceName == profile ? "background: #335; font-weight: bold;" : "")"
+                                style="padding: 4px 8px; cursor: pointer; @(_workspaceName == profile ? "background: color-mix(in srgb, var(--accent-color) 26%, transparent); font-weight: bold;" : "")"
                                 @onclick="() => SelectProfile(profile)"
                                 @onkeydown="e => OnProfileKeyDown(e, profile)">
                                 @profile

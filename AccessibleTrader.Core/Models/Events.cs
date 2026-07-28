@@ -151,6 +151,12 @@ namespace AccessibleTrader.Core.Models
     /// <summary>Opens the theme editor. A null id starts a new theme from the one in use.</summary>
     public record OpenThemeEditorEvent(string? PresetId = null);
 
+    /// <summary>Asks the UI to collect the text for a Text Label that has just been placed.</summary>
+    public record PromptForLabelTextEvent(string SeriesId);
+
+    /// <summary>Carries the text back, or an empty string when the user cancelled.</summary>
+    public record LabelTextEnteredEvent(string SeriesId, string Text);
+
     /// <summary>Bar-replay transport verbs.</summary>
     public enum ReplayCommand { Toggle, StepForward, StepBack, PlayPause }
 
