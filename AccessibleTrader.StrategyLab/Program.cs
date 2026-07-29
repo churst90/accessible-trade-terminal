@@ -92,6 +92,15 @@ try
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--exit"), out var xx) ? xx : 0.0,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var xs) ? xs : 2000,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--cost"), out var xc) ? xc : 10.0),
+        "gate" => await GateCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var gp) ? gp : 20000),
+        "polarity" => PolarityCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var pp) ? pp : 20000),
         "poc-dev" => await PocDeviationCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

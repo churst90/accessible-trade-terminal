@@ -204,6 +204,34 @@ public static class TradingCrossCommand
             barsTotal > 0 ? barsIn / (double)barsTotal : 0);
     }
 
+    /// <summary>
+    /// The rule's in-market state per bar, using exactly the crossing logic of
+    /// <see cref="RunStrategy"/> so the gate tested elsewhere is the same object that produced the
+    /// return figures rather than a re-implementation that could quietly drift from it.
+    ///
+    /// <para>
+    /// <c>state[i]</c> is knowable at the CLOSE of bar i. A trade gated on it therefore has to be
+    /// entered at bar i+1 or later — the same one-bar delay <see cref="RunStrategy"/> applies.
+    /// </para>
+    /// </summary>
+    internal static bool[] StatePerBar(IReadOnlyList<Ohlcv> bars, int window, double entryZ, double exitZ)
+    {
+        var z = ZScore(bars, window);
+        var state = new bool[bars.Count];
+        bool inMarket = false;
+
+        for (int i = window + 1; i < bars.Count; i++)
+        {
+            if (!double.IsNaN(z[i]) && !double.IsNaN(z[i - 1]))
+            {
+                if (!inMarket && z[i - 1] <= entryZ && z[i] > entryZ) inMarket = true;
+                else if (inMarket && z[i - 1] >= exitZ && z[i] < exitZ) inMarket = false;
+            }
+            state[i] = inMarket;
+        }
+        return state;
+    }
+
     private static Book RunBuyAndHold(IReadOnlyList<Ohlcv> bars)
     {
         double equity = 1.0, peak = 1.0, maxDd = 0;
