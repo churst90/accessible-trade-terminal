@@ -92,6 +92,10 @@ try
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--exit"), out var xx) ? xx : 0.0,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var xs) ? xs : 2000,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--cost"), out var xc) ? xc : 10.0),
+        "fib" => FibCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only") ?? "BTC_USDT",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var fbp) ? fbp : 4000),
         "fomc" => FomcCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
