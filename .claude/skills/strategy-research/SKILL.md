@@ -82,6 +82,16 @@ Pick the ones that apply. Each has changed a verdict here.
 
 ## Traps that have produced false results here
 
+- **A conditional mean forward return is an EXPOSURE statement, not a TIMING statement.** "Days with
+  property X had better forward returns" mostly describes when you were invested, especially in a
+  strongly trending asset. MVRV's quintile result was real (p=0.0002, monotone, every era) and still
+  failed as a rule. Convert any conditional finding into a long/flat book and put it against the
+  exposure-matched null before calling it an edge.
+- **Perturb every input a metric depends on.** If the metric contains price (MVRV and NVT both carry
+  market cap), a noise test that perturbs only the price hands the metric a clean signal and a noisy
+  target. Scale the metric by the same cumulative factor.
+- **A strategy that IMPROVES under noise has no signal.** ETH's book went 7.4× → 61.8× as noise rose.
+  That is not robustness; it is chance exposure deciding the outcome.
 - **Shuffling a strategy's own returns cannot fail.** Order was never the question — the set was
   selected by the signal. Shuffle the *input*.
 - **Block-bootstrap surrogates for a partial-exposure rule** have a null median near 0.05, so almost
@@ -145,11 +155,12 @@ Pick the ones that apply. Each has changed a verdict here.
   length on every asset and land in the claimed timing band more often than real data. Mean gap is
   near-linear in the detector's span. Translation (high late vs early) is momentum in cycle
   vocabulary and splits crypto/equity like everything else. (`docs/CYCLE_FINDINGS.md`)
-- **On-chain value metrics beat their price baselines** — the first non-price family with anything
-  in it. MVRV is monotone across z quintiles (−1.11 ATR, p=0.0002) while its matched price/SMA
-  baseline predicts nothing (0.00, p=0.986) despite correlating 0.752 with it. NVT likewise. High
-  MVRV predicts HIGHER returns — the folklore's "expensive = sell" imports a mean-reversion
-  assumption crypto does not satisfy. Not robustness-passed. (`docs/ONCHAIN_FINDINGS.md`)
+- **On-chain (MVRV, NVT): carries non-price information but is NOT an edge.** MVRV is monotone
+  across z quintiles (−1.11 ATR, p=0.0002) while its matched price/SMA baseline predicts nothing
+  (0.00, p=0.986) despite correlating 0.752 with it — so it genuinely contains something price does
+  not. But as a rule it **fails the exposure-matched null on all 6 symbol-metric pairs** (best
+  p=0.143), loses to buy-and-hold on 5 of 6, and ETH gets 8× *better* under noise injection.
+  (`docs/ONCHAIN_FINDINGS.md`)
 - **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
   On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
   p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
