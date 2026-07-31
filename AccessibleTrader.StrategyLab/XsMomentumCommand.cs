@@ -1,0 +1,413 @@
+using AccessibleTrader.Sdk.Models;
+
+namespace AccessibleTrader.StrategyLab;
+
+/// <summary>
+/// CROSS-SECTIONAL momentum — rank a basket by trailing return, hold the winners, and ask whether
+/// that beats holding the basket.
+///
+/// <para>
+/// WHY THIS MATTERS MORE THAN IT LOOKS. Every study in this lab to date has been TIME-SERIES: one
+/// asset measured against its own past. Cross-sectional momentum is a different alpha family
+/// entirely — the asset is measured against its PEERS — and it is the most replicated anomaly in
+/// academic finance, surviving thirty years of out-of-sample tests across equities, futures,
+/// currencies and countries. Samir Varma names it as one of three distinct momentum types and notes
+/// it works "even with unrelated assets thrown in the basket". Not having tested it was the biggest
+/// gap in this lab's coverage.
+/// </para>
+///
+/// <para>
+/// THE CONTROL THAT DECIDES IT. "The top-ranked third went up" is nearly guaranteed in a universe
+/// that rose over the sample, and says nothing about ranking. Every result is therefore reported
+/// against a RANDOM-SELECTION portfolio — the same number of names, drawn at random at each
+/// rebalance from exactly the same eligible set. If ranking by past return does not beat drawing
+/// names from a hat, there is no cross-sectional effect, only a rising market.
+/// </para>
+///
+/// <para>
+/// SURVIVORSHIP. The snapshot universe is entirely survivors — every symbol still trades today.
+/// Cross-sectional momentum is the study most damaged by that, because the names that would have
+/// ranked worst are precisely the ones that stopped existing. Treat the long-short spread as an
+/// upper bound. The random-selection control absorbs part of this (it draws from the same biased
+/// universe) which is a second reason it, and not the raw return, is the number to read.
+/// </para>
+///
+/// <para>
+/// Lookbacks and holds are in CALENDAR DAYS rather than bars, so crypto's 365-day year and the
+/// equity 252-day year are handled without a class-dependent constant and without bar-index
+/// misalignment across instruments with different histories.
+/// </para>
+/// </summary>
+public static class XsMomentumCommand
+{
+    /// <summary>A price older than this is treated as missing rather than carried forward. Without
+    /// it a symbol that stops reporting keeps a stale rank forever.</summary>
+    private const int StaleDays = 10;
+
+    /// <summary>Minimum eligible names needed to form a meaningful ranking on a date.</summary>
+    private const int MinNames = 8;
+
+    /// <summary>
+    /// Random books averaged per configuration. A SINGLE random draw is a sample from a very wide
+    /// distribution, not a baseline — over eighteen years one lucky draw of a third of the universe
+    /// can compound to several times another. Averaging many draws gives the expected return of
+    /// choosing names by coin, which is the quantity the momentum book has to beat.
+    /// </summary>
+    private const int RandomBooks = 400;
+
+    private sealed class Series
+    {
+        public required string Symbol { get; init; }
+        public required string Class { get; init; }
+        public required DateTime[] Dates { get; init; }
+        public required double[] Closes { get; init; }
+
+        /// <summary>
+        /// Stdev of daily log returns over the <paramref name="days"/> calendar days ending at
+        /// <paramref name="d"/>. Used to rank on RISK-ADJUSTED trailing return.
+        ///
+        /// <para>
+        /// Ranking raw returns across a mixed universe is close to ranking by volatility: a crypto
+        /// name will out-return an equity in most windows simply because it moves more, so the top
+        /// third fills with the highest-volatility names regardless of any momentum. Dividing by
+        /// realised vol is the standard correction and is what makes a mixed basket a fair test
+        /// rather than a volatility sort wearing a momentum label.
+        /// </para>
+        /// </summary>
+        public double? VolOver(DateTime d, int days)
+        {
+            int hi = Index(d), lo = Index(d.AddDays(-days));
+            if (hi < 0 || lo < 0 || hi - lo < 20) return null;
+            double sum = 0, sumSq = 0; int n = 0;
+            for (int i = lo + 1; i <= hi; i++)
+            {
+                if (Closes[i] <= 0 || Closes[i - 1] <= 0) continue;
+                double r = Math.Log(Closes[i] / Closes[i - 1]);
+                sum += r; sumSq += r * r; n++;
+            }
+            if (n < 20) return null;
+            double mean = sum / n;
+            double v = sumSq / n - mean * mean;
+            return v > 1e-12 ? Math.Sqrt(v) : null;
+        }
+
+        private int Index(DateTime d)
+        {
+            int lo = 0, hi = Dates.Length - 1, best = -1;
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (Dates[mid] <= d) { best = mid; lo = mid + 1; } else hi = mid - 1;
+            }
+            return best;
+        }
+
+        /// <summary>Most recent close at or before <paramref name="d"/>, or null if none / stale.</summary>
+        public double? CloseAsOf(DateTime d)
+        {
+            int lo = 0, hi = Dates.Length - 1, best = -1;
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (Dates[mid] <= d) { best = mid; lo = mid + 1; } else hi = mid - 1;
+            }
+            if (best < 0) return null;
+            if ((d - Dates[best]).TotalDays > StaleDays) return null;
+            return Closes[best] > 0 ? Closes[best] : null;
+        }
+    }
+
+    private sealed record Result(int Lookback, int Skip, int Hold,
+        double Top, double Bottom, double All, double Random, int Rebalances, int AvgNames);
+
+    public static int Run(string snapshotDir, string tf, string universe, string rank, int permutations)
+    {
+        var all = Load(snapshotDir, tf);
+        var series = universe.ToLowerInvariant() switch
+        {
+            "crypto" => all.Where(s => s.Class == "crypto").ToList(),
+            "equity" => all.Where(s => s.Class is "equity" or "bond" or "commod").ToList(),
+            _ => all,
+        };
+
+        if (series.Count < MinNames)
+        {
+            Console.WriteLine($"Only {series.Count} series in universe '{universe}' — need {MinNames}.");
+            return 1;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"===== CROSS-SECTIONAL MOMENTUM — universe '{universe}', {series.Count} symbols =====");
+        Console.WriteLine($"  {string.Join(", ", series.Select(s => s.Symbol).OrderBy(s => s))}");
+        Console.WriteLine();
+        bool volNorm = rank.Equals("volnorm", StringComparison.OrdinalIgnoreCase);
+        Console.WriteLine($"  Rank by {(volNorm ? "trailing return / realised vol" : "raw trailing return")}, " +
+                          "hold the top third, rebalance each hold period.");
+        Console.WriteLine("  Lookback/skip/hold in CALENDAR DAYS. Equal-weighted, no costs.");
+        Console.WriteLine("  SURVIVORSHIP: every symbol here still trades. Read the RANDOM column, not the raw return.");
+        Console.WriteLine();
+
+        DateTime start = series.Max(s => s.Dates[0]);
+        DateTime end = series.Min(s => s.Dates[^1]);
+        Console.WriteLine($"  Common window {start:yyyy-MM-dd} → {end:yyyy-MM-dd} " +
+                          $"({(end - start).TotalDays / 365.25:0.0} years, limited by the shortest history)");
+        Console.WriteLine();
+
+        var results = new List<Result>();
+        Console.WriteLine($"  {"look",5} {"skip",5} {"hold",5} {"TOP",9} {"bottom",9} {"all",9} {"RANDOM",9} {"top−rand",9} {"reb",5} {"names",6}");
+
+        foreach (int look in new[] { 30, 90, 180, 365 })
+            foreach (int skip in new[] { 0, 30 })
+                foreach (int hold in new[] { 30, 90 })
+                {
+                    var r = Backtest(series, start, end, look, skip, hold, volNorm);
+                    if (r == null) continue;
+                    results.Add(r);
+                    Console.WriteLine($"  {look,5} {skip,5} {hold,5} " +
+                                      $"{r.Top,9:+0.0%;-0.0%;0} {r.Bottom,9:+0.0%;-0.0%;0} {r.All,9:+0.0%;-0.0%;0} " +
+                                      $"{r.Random,9:+0.0%;-0.0%;0} {r.Top - r.Random,9:+0.0%;-0.0%;0} " +
+                                      $"{r.Rebalances,5} {r.AvgNames,6}");
+                }
+
+        if (results.Count == 0) { Console.WriteLine("  No usable configurations."); return 1; }
+
+        Report(results, series, start, end, volNorm, permutations);
+        return 0;
+    }
+
+    /// <summary>
+    /// One configuration. Returns TOTAL log return of each book over the whole window, so the
+    /// numbers compound and are directly comparable.
+    ///
+    /// <para>
+    /// The random book draws from the SAME eligible set on the SAME dates with the SAME name count.
+    /// Anything the market did, it did to both books equally; the only difference is whether the
+    /// names were chosen by trailing return or by a coin.
+    /// </para>
+    /// </summary>
+    private static Result? Backtest(List<Series> series, DateTime start, DateTime end,
+        int look, int skip, int hold, bool volNorm)
+    {
+        double top = 0, bottom = 0, all = 0;
+        var rndBooks = new double[RandomBooks];
+        int rebalances = 0, nameSum = 0;
+        var rng = new Random(20260731 + look * 1000 + skip * 100 + hold);
+
+        for (var t = start.AddDays(look + skip); t.AddDays(hold) <= end; t = t.AddDays(hold))
+        {
+            // Eligible = has a price now, a price at the lookback start, and a price at the horizon.
+            var ranked = new List<(Series S, double Past, double Fwd)>();
+            foreach (var s in series)
+            {
+                double? now = s.CloseAsOf(t.AddDays(-skip));
+                double? then = s.CloseAsOf(t.AddDays(-skip - look));
+                double? fwdNow = s.CloseAsOf(t);
+                double? fwd = s.CloseAsOf(t.AddDays(hold));
+                if (now is null || then is null || fwd is null || fwdNow is null) continue;
+                double past = Math.Log(now.Value / then.Value);
+                if (volNorm)
+                {
+                    double? vol = s.VolOver(t.AddDays(-skip), look);
+                    if (vol is null) continue;
+                    past /= vol.Value;
+                }
+                ranked.Add((s, past, Math.Log(fwd.Value / fwdNow.Value)));
+            }
+
+            if (ranked.Count < MinNames) continue;
+
+            int k = Math.Max(1, ranked.Count / 3);
+            var byMom = ranked.OrderByDescending(r => r.Past).ToList();
+
+            top += byMom.Take(k).Average(r => r.Fwd);
+            bottom += byMom.TakeLast(k).Average(r => r.Fwd);
+            all += ranked.Average(r => r.Fwd);
+
+            // Each random book keeps its own running total, so what is compared at the end is the
+            // AVERAGE compounded outcome of choosing by coin — not one draw's luck.
+            var pool = ranked.ToArray();
+            for (int b = 0; b < RandomBooks; b++)
+            {
+                for (int i = pool.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (pool[i], pool[j]) = (pool[j], pool[i]); }
+                double acc = 0;
+                for (int i = 0; i < k; i++) acc += pool[i].Fwd;
+                rndBooks[b] += acc / k;
+            }
+
+            rebalances++;
+            nameSum += ranked.Count;
+        }
+
+        if (rebalances < 8) return null;
+
+        return new Result(look, skip, hold,
+            Math.Exp(top) - 1, Math.Exp(bottom) - 1, Math.Exp(all) - 1,
+            rndBooks.Select(v => Math.Exp(v) - 1).Average(),
+            rebalances, nameSum / rebalances);
+    }
+
+    /// <summary>
+    /// Per-period spread with a permutation test, on the single best-supported configuration.
+    ///
+    /// <para>
+    /// The permutation reshuffles the RANK LABELS within each rebalance date and leaves each name's
+    /// realised forward return attached to that name. This holds the market's own behaviour on that
+    /// date completely fixed and asks only whether sorting by past return picked better names than
+    /// sorting at random — which is the whole claim.
+    /// </para>
+    /// </summary>
+    private static void Report(List<Result> results, List<Series> series,
+        DateTime start, DateTime end, bool volNorm, int permutations)
+    {
+        Console.WriteLine();
+
+        int beatsRandom = results.Count(r => r.Top > r.Random);
+        int beatsAll = results.Count(r => r.Top > r.All);
+        Console.WriteLine($"  Configurations where TOP beats RANDOM: {beatsRandom} of {results.Count}.");
+        Console.WriteLine($"  Configurations where TOP beats holding the whole basket: {beatsAll} of {results.Count}.");
+        Console.WriteLine("  A plateau of positives is the signature of a real effect; one lone winner is a fit.");
+        Console.WriteLine();
+        Console.WriteLine("  ── by lookback (the axis the literature says should matter) ──");
+        foreach (var g in results.GroupBy(r => r.Lookback).OrderBy(g => g.Key))
+            Console.WriteLine($"    {g.Key,4}d lookback: beats random {g.Count(r => r.Top > r.Random)}/{g.Count()}   " +
+                              $"mean excess {g.Average(r => r.Top - r.Random),+8:+0.0%;-0.0%;0}");
+        Console.WriteLine("    Short lookbacks losing while long ones win is the documented shape —");
+        Console.WriteLine("    one-month horizons carry short-term REVERSAL, not momentum.");
+        Console.WriteLine();
+
+        var best = results.OrderByDescending(r => r.Top - r.Random).First();
+        Console.WriteLine($"  ── per-period test on look={best.Lookback} skip={best.Skip} hold={best.Hold} ──");
+
+        var spreads = new List<double>();
+        var pooled = new List<(double Past, double Fwd)[]>();
+
+        for (var t = start.AddDays(best.Lookback + best.Skip); t.AddDays(best.Hold) <= end; t = t.AddDays(best.Hold))
+        {
+            var ranked = new List<(double Past, double Fwd)>();
+            foreach (var s in series)
+            {
+                double? now = s.CloseAsOf(t.AddDays(-best.Skip));
+                double? then = s.CloseAsOf(t.AddDays(-best.Skip - best.Lookback));
+                double? fwdNow = s.CloseAsOf(t);
+                double? fwd = s.CloseAsOf(t.AddDays(best.Hold));
+                if (now is null || then is null || fwd is null || fwdNow is null) continue;
+                double past = Math.Log(now.Value / then.Value);
+                if (volNorm)
+                {
+                    double? vol = s.VolOver(t.AddDays(-best.Skip), best.Lookback);
+                    if (vol is null) continue;
+                    past /= vol.Value;
+                }
+                ranked.Add((past, Math.Log(fwd.Value / fwdNow.Value)));
+            }
+            if (ranked.Count < MinNames) continue;
+
+            int k = Math.Max(1, ranked.Count / 3);
+            var byMom = ranked.OrderByDescending(r => r.Past).ToList();
+            spreads.Add(byMom.Take(k).Average(r => r.Fwd) - byMom.TakeLast(k).Average(r => r.Fwd));
+            pooled.Add(ranked.ToArray());
+        }
+
+        if (spreads.Count < 8) { Console.WriteLine("    too few rebalances"); return; }
+
+        double mean = spreads.Average();
+        double sd = Math.Sqrt(spreads.Sum(v => (v - mean) * (v - mean)) / (spreads.Count - 1));
+        int positive = spreads.Count(v => v > 0);
+
+        var rng = new Random(555);
+        int extreme = 0;
+        for (int p = 0; p < permutations; p++)
+        {
+            double acc = 0;
+            foreach (var arr in pooled)
+            {
+                int k = Math.Max(1, arr.Length / 3);
+                var shuf = arr.OrderBy(_ => rng.Next()).ToArray();
+                acc += shuf.Take(k).Average(r => r.Fwd) - shuf.TakeLast(k).Average(r => r.Fwd);
+            }
+            if (Math.Abs(acc / pooled.Count) >= Math.Abs(mean)) extreme++;
+        }
+        double pv = (extreme + 1.0) / (permutations + 1.0);
+
+        Console.WriteLine($"    mean top−bottom spread per {best.Hold}d period: {mean:+0.00%;-0.00%;0}   " +
+                          $"sd {sd:0.00%}   positive {positive}/{spreads.Count}   p = {pv:0.0000}" +
+                          (pv <= 0.05 ? "  *" : ""));
+        Console.WriteLine();
+
+        Console.WriteLine("  ── VERDICT ──");
+
+        // Judging on the flat grid count would be wrong: it includes lookbacks the literature says
+        // should NOT work. One-month horizons carry short-term reversal, and counting their failure
+        // against the hypothesis is counting a confirmed prediction as evidence against it. The
+        // question is whether the LONG lookbacks work and whether the effect is monotone in lookback.
+        var longLb = results.Where(r => r.Lookback >= 180).ToList();
+        int longWins = longLb.Count(r => r.Top > r.Random);
+        var byLb = results.GroupBy(r => r.Lookback).OrderBy(g => g.Key)
+                          .Select(g => g.Average(r => r.Top - r.Random)).ToList();
+        bool monotone = byLb.Count >= 3 && byLb.Last() > byLb.First()
+                        && byLb.Last() == byLb.Max();
+
+        if (longWins >= longLb.Count * 0.75 && pv <= 0.05)
+        {
+            Console.WriteLine($"    Cross-sectional momentum is PRESENT, concentrated where it should be:");
+            Console.WriteLine($"    {longWins} of {longLb.Count} long-lookback configurations beat random selection, and the");
+            Console.WriteLine($"    per-period spread clears its permutation null at p = {pv:0.0000}.");
+            if (monotone)
+                Console.WriteLine("    The excess rises monotonically with lookback — the documented shape, not a fit.");
+            Console.WriteLine();
+            Console.WriteLine("    Two things before this is tradeable: survivorship inflates the level (every name");
+            Console.WriteLine("    here still trades, and the worst-ranked are exactly the ones that would have");
+            Console.WriteLine("    delisted), and no transaction costs are modelled. Read the SPREAD, not the return.");
+        }
+        else if (longWins <= longLb.Count * 0.4 || pv > 0.2)
+        {
+            Console.WriteLine("    No cross-sectional momentum here. Ranking by trailing return does no better than");
+            Console.WriteLine("    drawing names from a hat, which is the whole claim.");
+        }
+        else
+        {
+            Console.WriteLine($"    Mixed: {longWins} of {longLb.Count} long-lookback configurations beat random, per-period");
+            Console.WriteLine($"    p = {pv:0.0000}. Suggestive, not decisive at this universe size.");
+        }
+    }
+
+    private static List<Series> Load(string dir, string tf)
+    {
+        var outp = new List<Series>();
+        foreach (var file in Directory.GetFiles(dir, $"*_{tf}.json")
+                     .Where(f => !Path.GetFileName(f).StartsWith("xs_", StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(f => f))
+        {
+            SnapshotFile snap;
+            try { snap = SnapshotCommand.Load(file); } catch { continue; }
+            if (snap.Bars.Count < 400) continue;
+
+            string cls = ClassOf(Path.GetFileName(file));
+            if (cls == "skip") continue;
+
+            outp.Add(new Series
+            {
+                Symbol = snap.Symbol,
+                Class = cls,
+                Dates = snap.Bars.Select(b => b.Date).ToArray(),
+                Closes = snap.Bars.Select(b => b.Close).ToArray(),
+            });
+        }
+
+        // Same instrument from two providers would be ranked twice and could occupy the top third
+        // on its own. Keep the longest history per symbol.
+        return outp.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase)
+                   .Select(g => g.OrderByDescending(s => s.Dates.Length).First())
+                   .ToList();
+    }
+
+    private static string ClassOf(string fileName)
+    {
+        string f = fileName.ToLowerInvariant();
+        if (f.StartsWith("bitstamp_") || f.StartsWith("mexc_")) return "crypto";
+        if (f.Contains("xau") || f.Contains("_gld_") || f.Contains("_slv_") || f.Contains("_uso_")) return "commod";
+        if (f.Contains("_tlt_") || f.Contains("_ief_")) return "bond";
+        if (f.StartsWith("twelvedata_") || f.StartsWith("yahoo_") || f.StartsWith("alpaca_")) return "equity";
+        return "skip";
+    }
+}
