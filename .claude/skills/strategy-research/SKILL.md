@@ -47,6 +47,15 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Noise injection** (Varma). Add noise to the input prices; a real edge degrades *slowly*, a
   fitted one collapses. Look for a **plateau, not a peak**, in any parameter sweep.
 - **Per-symbol and per-era breakdown.** A pooled number can be one symbol or one regime.
+- **Average the control, don't sample it.** A single random draw over a long window is a sample from
+  a very wide distribution, not a baseline. The first cross-sectional run used one random book and
+  produced a control swinging from +79% to +476%; averaging 400 books made it stable at ~210%.
+- **Surrogate the DETECTOR, not just the signal.** When a claim depends on features a rule finds
+  (swing lows, pivots, levels), run the same rule on return-shuffled random walks. If the surrogate
+  reproduces the feature, the feature belongs to the detector.
+- **Count your tests.** Running 4 assets × 2 claims and reporting the one p = 0.03 is a false
+  positive waiting to happen — at α = 0.05 you expect 0.4 of them. Say how many tests were run and
+  what a corrected threshold would be.
 
 ## Traps that have produced false results here
 
@@ -74,6 +83,13 @@ Pick the ones that apply. Each has changed a verdict here.
   result is biased upward. Say so explicitly.
 - **Model the signal + entry + exit** (Varma). A momentum result can be entirely consumed by
   realistic execution. Shorting backtests additionally need hard-to-borrow and cost-to-borrow data.
+- **A signal correlated with trailing return may just be momentum renamed.** Check it, then re-test
+  inside trailing-return buckets. The crowding index claimed orthogonality to price and correlated
+  0.19 with trailing returns; the volume signal correlates 0.43–0.59 and only *survived* that check
+  in crypto. Always run it before believing a new "non-price" input.
+- **Judging a grid on a flat count can reject a confirmed prediction.** If the literature says short
+  lookbacks should fail, their failing is evidence *for* the hypothesis. Read the structure across
+  the parameter axis, not the tally.
 
 ## Standing findings — do not re-derive
 
@@ -91,6 +107,21 @@ Pick the ones that apply. Each has changed a verdict here.
   (`docs/CROWDING_FINDINGS.md`)
 - **The Trading Cross** (z-score momentum) is real but is drawdown-avoidance: 10/10 crypto beat
   hold, 0/3 traditional. (`docs/TRADING_CROSS_FINDINGS.md`)
+- **Cross-sectional momentum WORKS in equities — the strongest result here.** Rank 39 names by
+  trailing return, hold the top third: beats a random-selection portfolio 8/8 at 180–365d lookbacks,
+  monotone in lookback, per-period spread p = 0.0045. Null in crypto (underpowered, 10 names) and
+  null in a mixed universe even vol-normalised — never rank a trending class against a reverting
+  one. Not yet costed or delisting-adjusted. (`docs/XSMOMENTUM_FINDINGS.md`)
+- **Volume confirms in crypto, reverses in equities.** Trailing return/volume correlation, top-minus-
+  bottom quintile: crypto +1.26 ATR (p=0.0002, survives inside every trend tercile), equity −0.19 ATR
+  (p=0.0002). "20× volume day = capitulation = buy" is rejected and runs backwards in crypto and
+  commodities. (`docs/VOLUME_FINDINGS.md`)
+- **The 60d/40d cycle is a swing-detector artifact.** Return-shuffled surrogates reproduce the cycle
+  length on every asset and land in the claimed timing band more often than real data. Mean gap is
+  near-linear in the detector's span. Translation (high late vs early) is momentum in cycle
+  vocabulary and splits crypto/equity like everything else. (`docs/CYCLE_FINDINGS.md`)
+- **The asset-class polarity has now been measured five independent ways** — POC deviation, Value
+  Deviation, the Trading Cross, volume, and cycle translation. It is the most robust finding here.
 - **Failed outright:** all four Cosasverdes claims; Cipher SR proximity (lookahead artifact).
 
 ## Hypothesis generation from hindsight
