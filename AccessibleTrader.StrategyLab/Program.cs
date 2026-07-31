@@ -92,6 +92,12 @@ try
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--exit"), out var xx) ? xx : 0.0,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var xs) ? xs : 2000,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--cost"), out var xc) ? xc : 10.0),
+        "walkfwd" => WalkForwardCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only") ?? "BTC_USDT",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--folds"), out var wf) ? wf : 6,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var wp) ? wp : 2000),
         "btcstrat" => BtcStrategyCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only") ?? "BTC_USDT",

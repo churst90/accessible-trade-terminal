@@ -1,5 +1,10 @@
 # A Bitcoin strategy from verified parts — and it is one ingredient, not two
 
+> **SUPERSEDED IN PART, 2026-07-31.** The walk-forward in `WALKFORWARD_FINDINGS.md` shows the 6×
+> headline below is IN-SAMPLE: the 50/+1/+0.5 parameters were chosen by sweeping this same history.
+> Honest out-of-sample is **~1.5–1.8× hold**, and a RANDOM parameter pick beat the optimiser.
+> The mechanism and the "trade the daily" recommendation stand; the specific parameter values do not.
+
 Run 2026-07-31. `dotnet run -- btcstrat --only BTC_USDT`.
 
 ## The ingredient list
