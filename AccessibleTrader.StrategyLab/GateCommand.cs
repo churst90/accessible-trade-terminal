@@ -44,14 +44,18 @@ public static class GateCommand
     private const double EntryZ = 1.0;
     private const double ExitZ = 0.5;
 
-    private sealed record Trade(string Signal, bool Long, double R, bool CrossGate, bool MaGate, double Z);
+    private sealed record Trade(string Signal, bool Long, double R, bool CrossGate, bool MaGate, double Z,
+        string Symbol, string Class, DateTime Date, double AtrPct);
 
     /// <summary>Fraction of all usable bars each gate was open on, pooled — the base rate a
     /// signal's own gate-open fraction has to be read against.</summary>
     private static long _barsSeen, _crossBarsOpen, _maBarsOpen;
+    private static bool _noisy;
 
-    public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations)
+    public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations,
+        double noiseAlpha = 0, int noiseSeed = 0)
     {
+        _noisy = noiseAlpha > 0;
         var services = LabHost.Build().Services;
         var engine = services.GetRequiredService<IIndicatorEngine>();
 
@@ -70,6 +74,11 @@ public static class GateCommand
             var bars = snap.Bars;
             if (bars.Count < 500) continue;
 
+            // Varma's robustness test. Perturb every log return by gaussian noise scaled to this
+            // series' own daily volatility and rebuild the path. A real edge should decay gradually;
+            // one keyed to the exact price path collapses at the first perturbation.
+            if (noiseAlpha > 0) bars = Perturb(bars, noiseAlpha, noiseSeed + snap.Symbol.GetHashCode() % 1000);
+
             Dictionary<string, double[]> cipherB;
             try
             {
@@ -86,8 +95,8 @@ public static class GateCommand
             var buys = Exact(cipherB, CipherBProvider.CompBlue);
             var sells = Exact(cipherB, CipherBProvider.CompRed);
 
-            AddTrades(trades, "cipherB-long", bars, atr, buys, true, crossGate, maGate, z);
-            AddTrades(trades, "cipherB-short", bars, atr, sells, false, crossGate, maGate, z);
+            AddTrades(trades, "cipherB-long", bars, atr, buys, true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
+            AddTrades(trades, "cipherB-short", bars, atr, sells, false, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
 
             // Base rates, so a signal's gate-open fraction can be read against how often the gate
             // was open AT ALL on this data rather than against an assumption.
@@ -103,20 +112,20 @@ public static class GateCommand
             // z-DERIVED signal, kept only to demonstrate why it cannot answer the question: the
             // gate opens above z = +1 and this fires below z = −1, so the gate is closed at every
             // one of its signals BY CONSTRUCTION. Reported, then excluded from the verdict.
-            AddTrades(trades, "z-reversion-long*", bars, atr, CrossDownSignal(z, -1.0), true, crossGate, maGate, z);
+            AddTrades(trades, "z-reversion-long*", bars, atr, CrossDownSignal(z, -1.0), true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
 
             // Signals that are NOT functions of z, so the gate is free to be open or closed at
             // them. Without at least one of these the whole command measures its own arithmetic.
             var closes = bars.Select(b => b.Close).ToArray();
-            AddTrades(trades, "breakout-long", bars, atr, DonchianBreakout(bars, 20), true, crossGate, maGate, z);
+            AddTrades(trades, "breakout-long", bars, atr, DonchianBreakout(bars, 20), true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
             AddTrades(trades, "rsi-bounce-long", bars, atr,
-                CrossUpSignal(AccessibleTrader.Sdk.Indicators.IndicatorMath.Rsi(closes, 14), 30.0), true, crossGate, maGate, z);
+                CrossUpSignal(AccessibleTrader.Sdk.Indicators.IndicatorMath.Rsi(closes, 14), 30.0), true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
 
             // THE CONTROL THAT MAKES THE MA RESULT MEAN SOMETHING. A gate that only says "the
             // market has been going up" will lift ANY long, signal or no signal. Random entries
             // measure exactly that baseline lift. A gate is only worth attaching to a signal if it
             // lifts that signal by MORE than it lifts a coin flip in the same bars.
-            AddTrades(trades, "random-entry-long", bars, atr, RandomSignal(bars.Count, 250, symbols), true, crossGate, maGate, z);
+            AddTrades(trades, "random-entry-long", bars, atr, RandomSignal(bars.Count, 250, symbols), true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
 
             symbols++;
         }
@@ -125,6 +134,54 @@ public static class GateCommand
 
         Report(trades, symbols, permutations);
         return 0;
+    }
+
+    private static List<Ohlcv> Perturb(List<Ohlcv> bars, double alpha, int seed)
+    {
+        double sum = 0, sumSq = 0; int n = 0;
+        var rets = new double[bars.Count];
+        for (int i = 1; i < bars.Count; i++)
+        {
+            if (bars[i].Close <= 0 || bars[i - 1].Close <= 0) continue;
+            rets[i] = Math.Log(bars[i].Close / bars[i - 1].Close);
+            sum += rets[i]; sumSq += rets[i] * rets[i]; n++;
+        }
+        if (n < 2) return bars;
+        double mean = sum / n;
+        double sigma = Math.Sqrt(Math.Max(1e-12, sumSq / n - mean * mean));
+
+        var rng = new Random(seed);
+        var outp = new List<Ohlcv>(bars.Count) { bars[0] };
+        double px = bars[0].Close;
+        for (int i = 1; i < bars.Count; i++)
+        {
+            double u1 = 1.0 - rng.NextDouble(), u2 = rng.NextDouble();
+            double g = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);
+            px = Math.Max(1e-9, px * Math.Exp(rets[i] + alpha * sigma * g));
+
+            // Carry the bar's own high/low geometry across as a fraction of its close, so ATR and
+            // the stop/target harness see a comparably shaped bar rather than a flat line.
+            double refC = bars[i].Close > 0 ? bars[i].Close : px;
+            outp.Add(new Ohlcv
+            {
+                Date = bars[i].Date,
+                Open = px,
+                High = px * Math.Max(1, bars[i].High / refC),
+                Low = px * Math.Min(1, bars[i].Low / refC),
+                Close = px,
+                Volume = bars[i].Volume,
+            });
+        }
+        return outp;
+    }
+
+    internal static string ClassOf(string fileName)
+    {
+        string f = fileName.ToLowerInvariant();
+        if (f.StartsWith("bitstamp_") || f.StartsWith("mexc_")) return "crypto";
+        if (f.Contains("xau") || f.Contains("_gld_") || f.Contains("_slv_") || f.Contains("_uso_")) return "commod";
+        if (f.Contains("_tlt_") || f.Contains("_ief_")) return "bond";
+        return "equity";
     }
 
     /// <summary>Marks bars where the series crosses down through <paramref name="level"/>.</summary>
@@ -200,7 +257,8 @@ public static class GateCommand
     }
 
     private static void AddTrades(List<Trade> sink, string label, IReadOnlyList<Ohlcv> bars,
-        double[] atr, double[]? signal, bool isLong, bool[] crossGate, bool[] maGate, double[] z)
+        double[] atr, double[]? signal, bool isLong, bool[] crossGate, bool[] maGate, double[] z,
+        string symbol = "", string cls = "")
     {
         if (signal == null) return;
 
@@ -236,7 +294,11 @@ public static class GateCommand
                 r = (isLong ? exit - entry : entry - exit) / risk;
             }
 
-            sink.Add(new Trade(label, isLong, r, crossGate[i], maGate[i], z[i]));
+            // ATR as a fraction of price is what converts a basis-point cost into an R-multiple:
+            // risking one ATR means the position is (1/atrPct) times the risk budget, so a spread
+            // that looks tiny against notional can be large against R.
+            sink.Add(new Trade(label, isLong, r, crossGate[i], maGate[i], z[i],
+                symbol, cls, bars[i].Date, a / bars[i].Close));
         }
     }
 
@@ -274,6 +336,10 @@ public static class GateCommand
         }
 
         Verdict(all, permutations);
+
+        if (!_noisy)
+            GateRobustness.Run(all.Select(t => (t.Signal, t.R, t.MaGate, t.Symbol, t.Class, t.Date, t.AtrPct)).ToList(),
+                               permutations);
     }
 
     /// <summary>

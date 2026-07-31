@@ -135,3 +135,102 @@ consistent with its 0.23× on SPY.
 The generalisable lesson: both theses died on a control that was cheap to add and that the obvious
 version of each test omitted. The random-entry baseline cost twenty lines and turned a tautology
 into a real number.
+
+---
+
+# Robustness pass on the SMA(200) dip filter — 2026-07-31
+
+The same four tests cross-sectional momentum passed. **This result does not pass them.**
+
+## 1. Costs — the lift survives, the strategy barely does
+
+Median ATR is **1.71% of price**, so risking one ATR means the position is ~58× the risk unit and a
+basis-point cost against notional becomes a large number against R. Cost per round trip in R =
+`2 × bps ÷ 10000 ÷ atrPct`.
+
+| bps/side | cipherB-long gated, net | lift vs ungated | excess over random |
+|---|---|---|---|
+| 0 | +0.202R | +0.115R | +0.106R |
+| 2 | +0.179R | +0.113R | +0.107R |
+| 5 | +0.143R | +0.110R | +0.108R |
+| 10 | **+0.085R** | +0.105R | +0.110R |
+
+**The lift is nearly cost-invariant** — costs hit gated and ungated trades alike and cancel out of a
+relative measure. That is a genuine point in the filter's favour.
+
+What costs destroy is the **absolute** return of the thing being filtered: +0.202R → **+0.085R** at
+10 bps/side. Still positive, but thin enough that execution quality decides whether it exists.
+
+## 2. Eras — and the control is not clean
+
+Gap per era (four equal-count slices, 1970 → 2026):
+
+| signal | era 1 | era 2 | era 3 | era 4 |
+|---|---|---|---|---|
+| cipherB-long | +0.31 | +0.14 | +0.24 | +0.15 |
+| rsi-bounce-long | +0.15 | −0.06 | +0.25 | +0.04 |
+| **random-entry-long** | **+0.11** | **+0.16** | −0.09 | −0.10 |
+
+The random arm is supposed to sit near zero. **In eras 1 and 2 it does not** (+0.11, +0.16), meaning
+the filter was picking up plain market direction in those periods rather than signal quality.
+Netting it out, cipherB-long's excess over random by era is **+0.20, −0.02, +0.33, +0.25** — three
+of four, with one era at nothing.
+
+## 3. Per-symbol — thinner than the pooled number
+
+| signal | symbols positive | median gap | mean gap |
+|---|---|---|---|
+| cipherB-long | 22/33 (67%) | +0.22R | +0.25R |
+| **rsi-bounce-long** | **17/30 (57%)** | **+0.02R** | +0.09R |
+| z-reversion-long | 25/33 (76%) | +0.11R | +0.11R |
+
+The rsi-bounce arm is a coin flip across names with a median gap of +0.02R — its pooled +0.084R lift
+is carried by a subset. cipherB-long at 67% is the only arm that looks broad.
+
+## 4. Noise injection — this is where it fails
+
+Gaussian noise scaled to each series' own daily volatility, three draws per level:
+
+| noise | cipherB gap | random gap | excess | **vs clean** |
+|---|---|---|---|---|
+| 0% | +0.200R | +0.017R | +0.183R | **100%** |
+| **25%** | +0.054R | +0.015R | +0.039R | **21%** |
+| 50% | +0.062R | +0.015R | +0.048R | 26% |
+| 100% | −0.016R | −0.015R | −0.001R | −1% |
+
+**79% of the edge is gone at 25% noise.** Cross-sectional momentum retained 86% at the same level.
+That is the difference between an effect keyed to the broad shape of a price series and one keyed to
+its exact path.
+
+**One honest qualification:** this test cannot fully separate a fragile *signal* from a fragile
+*harness*. A 1-ATR stop with a 2R target is inherently path-sensitive — small perturbations flip
+trades between win and loss — whereas ranking on a 365-day return is not. Some of the collapse
+belongs to the trade construction rather than to the filter. But that distinction offers little
+comfort in practice: live fills, spreads and data vendor differences *are* exactly this kind of
+perturbation, and the strategy has to survive them as implemented.
+
+## 5. Survivorship — biased the flattering way, and unquantifiable
+
+Unlike the cross-sectional case, this bias runs against us. Every name here recovered from every dip
+it ever had — that is what still being listed means. The dips that did not recover belong to
+companies that are gone.
+
+Worse for this specific claim: a company heading for delisting spends its final years **below** its
+200-day average, so the missing losses would land disproportionately in the gate-**closed** bucket
+and would *widen* the measured gap. The filter looks better than it is, for a reason that is an
+artefact.
+
+Not stressed with a number, because inventing one here would be inventing the answer.
+
+## Verdict: downgraded
+
+The pooled p = 0.0002 was real, but the effect is **fragile**. It collapses under mild noise, one
+era shows nothing, the random control is not clean in two eras, the weaker arm is a coin flip across
+symbols, and survivorship biases it in the flattering direction.
+
+**Cross-sectional momentum passed 4/4; this passes 1.5 of 4.** They should not be spoken of in the
+same breath, and the earlier framing of "two surviving results" was too generous to this one.
+
+What remains defensible: *if* you are already going to buy dips in equities, doing so only above the
+200-day average is better than not — the lift is cost-invariant and positive on 22 of 33 names. That
+is a sensible default, not an edge to build on.

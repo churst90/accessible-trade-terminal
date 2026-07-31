@@ -114,7 +114,9 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
-            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var gp) ? gp : 20000),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var gp) ? gp : 20000,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--noise"), out var gn) ? gn : 0,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--noiseseed"), out var gs) ? gs : 0),
         "polarity" => PolarityCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
