@@ -82,7 +82,10 @@ Desktop.ini
 .DS_Store
 
 # Claude Code local settings + agent state
-.claude/
+# Machine-local Claude Code state stays out, but .claude/skills is project IP — the research
+# methodology, the controls, the traps. It has to be versioned and reviewable like any other source.
+.claude/*
+!.claude/skills/
 
 # StrategyLab research fixtures — regenerate with `StrategyLab snapshot` / `xs-snapshot`
 strategy-lab-data/
