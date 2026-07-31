@@ -44,8 +44,19 @@ Pick the ones that apply. Each has changed a verdict here.
   Permuting b destroys the b~c relationship too, which is not the null being tested.
 - **Within-class / demeaned tests.** A pooled cross-sectional correlation can be the asset-class
   label wearing a number.
-- **Noise injection** (Varma). Add noise to the input prices; a real edge degrades *slowly*, a
-  fitted one collapses. Look for a **plateau, not a peak**, in any parameter sweep.
+- **Noise injection** (Varma). Perturb every log return by gaussian noise scaled to the series' own
+  daily volatility, rebuild the path, re-run — several draws per level. A real edge degrades
+  *gradually*; a fit keyed to the exact path collapses at the first perturbation. Cross-sectional
+  momentum retained 86% at 25% noise and 62% at 50%. Also look for a **plateau, not a peak**, in any
+  parameter sweep.
+- **Costs change the benchmark, not just the number.** Against a random book both sides churn, but
+  nobody redraws a random portfolio monthly — the realistic alternative is holding the basket at
+  near-zero turnover. Report turnover, compute the break-even cost, and re-benchmark against the
+  thing a person would actually do instead.
+- **Express any assumed rate ANNUALLY before believing it.** A survivorship stress modelled as
+  "2 names lose 20% per rebalance" compounded into a basket down 99% over 215 months. Converted to
+  an annual rate it was obviously absurd. Any per-period hazard should be sanity-checked in the
+  units the real world quotes it in.
 - **Per-symbol and per-era breakdown.** A pooled number can be one symbol or one regime.
 - **Average the control, don't sample it.** A single random draw over a long window is a sample from
   a very wide distribution, not a baseline. The first cross-sectional run used one random book and
