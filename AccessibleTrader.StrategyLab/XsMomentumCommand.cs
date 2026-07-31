@@ -55,7 +55,7 @@ public static class XsMomentumCommand
     /// </summary>
     private const int RandomBooks = 400;
 
-    private sealed class Series
+    internal sealed class Series
     {
         public required string Symbol { get; init; }
         public required string Class { get; init; }
@@ -89,6 +89,40 @@ public static class XsMomentumCommand
             double mean = sum / n;
             double v = sumSq / n - mean * mean;
             return v > 1e-12 ? Math.Sqrt(v) : null;
+        }
+
+        /// <summary>
+        /// A copy of this series with gaussian noise added to every log return, scaled to
+        /// <paramref name="alpha"/> times its own daily volatility, and the price path rebuilt.
+        /// Varma's robustness test: a genuine edge should decay gradually under this, a curve-fit
+        /// keyed to the exact path should collapse.
+        /// </summary>
+        public Series WithNoise(double alpha, int seed)
+        {
+            var rets = new double[Closes.Length];
+            double sum = 0, sumSq = 0; int n = 0;
+            for (int i = 1; i < Closes.Length; i++)
+            {
+                if (Closes[i] <= 0 || Closes[i - 1] <= 0) { rets[i] = 0; continue; }
+                rets[i] = Math.Log(Closes[i] / Closes[i - 1]);
+                sum += rets[i]; sumSq += rets[i] * rets[i]; n++;
+            }
+            if (n < 2) return this;
+            double mean = sum / n;
+            double sigma = Math.Sqrt(Math.Max(1e-12, sumSq / n - mean * mean));
+
+            var rng = new Random(seed);
+            var noisy = new double[Closes.Length];
+            noisy[0] = Closes[0];
+            for (int i = 1; i < Closes.Length; i++)
+            {
+                // Box–Muller, so the perturbation is genuinely gaussian rather than uniform.
+                double u1 = 1.0 - rng.NextDouble(), u2 = rng.NextDouble();
+                double g = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);
+                noisy[i] = Math.Max(1e-9, noisy[i - 1] * Math.Exp(rets[i] + alpha * sigma * g));
+            }
+
+            return new Series { Symbol = Symbol, Class = Class, Dates = Dates, Closes = noisy };
         }
 
         private int Index(DateTime d)
@@ -358,6 +392,8 @@ public static class XsMomentumCommand
             Console.WriteLine("    Two things before this is tradeable: survivorship inflates the level (every name");
             Console.WriteLine("    here still trades, and the worst-ranked are exactly the ones that would have");
             Console.WriteLine("    delisted), and no transaction costs are modelled. Read the SPREAD, not the return.");
+
+            XsMomentumRobustness.Run(series, start, end, best.Lookback, best.Skip, best.Hold, volNorm);
         }
         else if (longWins <= longLb.Count * 0.4 || pv > 0.2)
         {
