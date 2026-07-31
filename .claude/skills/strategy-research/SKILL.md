@@ -84,6 +84,11 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Match the control on calendar structure, not just count.** FOMC decisions are 71% Wednesdays and
   this repo had already measured a weekday effect, so a random-date control had to draw from the same
   weekday distribution or it would have been measuring the calendar.
+- **Put a RANDOM-PARAMETER arm in every walk-forward.** Fitted picks returned 1.48× hold on BTC while
+  random picks from the same grid returned 1.80×. Without that arm the 1.48× reads as a success
+  instead of a failure to beat a coin.
+- **Parameter stability is NOT evidence the parameter is right.** Best-by-return chose window 20 in
+  five of six folds — very stable — and was still beaten by random. Noise can have a persistent shape.
 - **Count your tests.** Running 4 assets × 2 claims and reporting the one p = 0.03 is a false
   positive waiting to happen — at α = 0.05 you expect 0.4 of them. Say how many tests were run and
   what a corrected threshold would be.
@@ -172,6 +177,10 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
   On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
   p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
+- **BTC trend-following: the family works, the tuning does not.** Out-of-sample ~1.5–1.8× hold at
+  ~40% exposure and about half the drawdown — but a random parameter pick beat the grid search, so
+  the specific window/entry/exit values carry nothing. The 6× in `BTC_STRATEGY.md` is in-sample.
+  (`docs/WALKFORWARD_FINDINGS.md`)
 - **FOMC decision-day drift is real, replicates, and has decayed.** Day-0 excess of +0.17% to +0.27%
   across four US equity vehicles at the same offset, absent in gold and crypto; survives an
   exposure- and weekday-matched null at 3 bps. But ~70% is gone post-2015. Event dates live in
