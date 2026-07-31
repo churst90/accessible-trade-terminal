@@ -76,6 +76,14 @@ Pick the ones that apply. Each has changed a verdict here.
   Where a signal should generalise, test somewhere it must agree.
 - **Never reconstruct event dates from memory.** If FOMC/CPI/earnings dates are not in the dataset,
   fetch them or skip the test. Fabricated data at the centre of a result is worse than no result.
+- **Split any published anomaly at its publication date.** The FOMC decision-day drift is real,
+  replicates, and passes the exposure-matched null on the full sample — but three of four assets
+  lost 70%+ of it after Lucca & Moench published in 2015 and one went negative. A full-sample number
+  on a documented effect is a pre-publication number. (Cross-sectional momentum is the counterexample
+  — public since 1993 and still working — so publication is not automatically fatal; capacity is.)
+- **Match the control on calendar structure, not just count.** FOMC decisions are 71% Wednesdays and
+  this repo had already measured a weekday effect, so a random-date control had to draw from the same
+  weekday distribution or it would have been measuring the calendar.
 - **Count your tests.** Running 4 assets × 2 claims and reporting the one p = 0.03 is a false
   positive waiting to happen — at α = 0.05 you expect 0.4 of them. Say how many tests were run and
   what a corrected threshold would be.
@@ -164,6 +172,10 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
   On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
   p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
+- **FOMC decision-day drift is real, replicates, and has decayed.** Day-0 excess of +0.17% to +0.27%
+  across four US equity vehicles at the same offset, absent in gold and crypto; survives an
+  exposure- and weekday-matched null at 3 bps. But ~70% is gone post-2015. Event dates live in
+  `strategy-lab-data/events_fomc.json`. (`docs/FOMC_FINDINGS.md`)
 - **The asset-class polarity has now been measured five independent ways** — POC deviation, Value
   Deviation, the Trading Cross, volume, and cycle translation. It is the most robust finding here.
 - **Failed outright:** all four Cosasverdes claims; Cipher SR proximity (lookahead artifact).
