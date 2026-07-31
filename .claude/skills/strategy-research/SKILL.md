@@ -71,6 +71,11 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Surrogate the DETECTOR, not just the signal.** When a claim depends on features a rule finds
   (swing lows, pivots, levels), run the same rule on return-shuffled random walks. If the surrogate
   reproduces the feature, the feature belongs to the detector.
+- **Check correlated instruments against each other.** Two ~90%-correlated indices giving opposite
+  significant answers is proof of a sample artifact, and it is more convincing than any p-value.
+  Where a signal should generalise, test somewhere it must agree.
+- **Never reconstruct event dates from memory.** If FOMC/CPI/earnings dates are not in the dataset,
+  fetch them or skip the test. Fabricated data at the centre of a result is worse than no result.
 - **Count your tests.** Running 4 assets × 2 claims and reporting the one p = 0.03 is a false
   positive waiting to happen — at α = 0.05 you expect 0.4 of them. Say how many tests were run and
   what a corrected threshold would be.
@@ -140,6 +145,14 @@ Pick the ones that apply. Each has changed a verdict here.
   length on every asset and land in the claimed timing band more often than real data. Mean gap is
   near-linear in the detector's span. Translation (high late vs early) is momentum in cycle
   vocabulary and splits crypto/equity like everything else. (`docs/CYCLE_FINDINGS.md`)
+- **On-chain value metrics beat their price baselines** — the first non-price family with anything
+  in it. MVRV is monotone across z quintiles (−1.11 ATR, p=0.0002) while its matched price/SMA
+  baseline predicts nothing (0.00, p=0.986) despite correlating 0.752 with it. NVT likewise. High
+  MVRV predicts HIGHER returns — the folklore's "expensive = sell" imports a mean-reversion
+  assumption crypto does not satisfy. Not robustness-passed. (`docs/ONCHAIN_FINDINGS.md`)
+- **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
+  On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
+  p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
 - **The asset-class polarity has now been measured five independent ways** — POC deviation, Value
   Deviation, the Trading Cross, volume, and cycle translation. It is the most robust finding here.
 - **Failed outright:** all four Cosasverdes claims; Cipher SR proximity (lookahead artifact).
