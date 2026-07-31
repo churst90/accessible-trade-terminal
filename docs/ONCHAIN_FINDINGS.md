@@ -94,3 +94,96 @@ be treated as dead.
 **This is the second family with something real in it.** Not yet robustness-passed — costs, noise
 injection and a forward test have not been run. But unlike crowding, cycles, or the conditioner
 line, it survived the control it was designed against.
+
+---
+
+# Robustness pass — 2026-07-31. **Both fail.**
+
+The conditional relationship had to become a strategy before costs meant anything: **long while the
+metric's rolling-365d z is in its top quintile, flat otherwise.** That is the formulation the
+quintile finding implies, and it is the one tested — searching for a threshold that works after the
+fact would be fitting, not testing.
+
+## The test that decides it: exposure-matched timing null
+
+A partial-exposure rule cannot be judged against a block bootstrap — that null sits far below 1 for
+any such rule and almost anything clears it. The right control is the same number of days in market,
+chosen as **random contiguous blocks** instead of by the signal. This is the test that carried the
+Trading Cross at p = 0.001.
+
+| metric | symbol | signal | random median | p |
+|---|---|---|---|---|
+| MVRV | BTC | 169.0× | 29.3× | **0.143** |
+| MVRV | ETH | 7.4× | 2.1× | **0.143** |
+| MVRV | LTC | 1.0× | 0.9× | 0.439 |
+| MVRV | XRP | 2.7× | 1.0× | 0.224 |
+| NVT | BTC | 42.4× | **48.0×** | 0.537 |
+| NVT | ETH | 1.4× | 2.1× | 0.644 |
+
+**Nothing clears 0.05. On NVT/BTC the random median actually beats the signal.**
+
+## And it loses to buy-and-hold
+
+| metric | symbol | signal (0 bps) | buy & hold |
+|---|---|---|---|
+| MVRV | BTC | 169.0× | **6046.1×** |
+| MVRV | ETH | 7.4× | 5.7× ✓ |
+| MVRV | LTC | 1.0× | 1.5× |
+| MVRV | XRP | 2.7× | 158.2× |
+| NVT | BTC | 42.4× | **6046.1×** |
+| NVT | ETH | 1.4× | 5.7× |
+
+One of six beats holding, and that one (ETH/MVRV, 7.4× vs 5.7×) fails the exposure null anyway.
+
+## Costs and eras
+
+Costs are real but not the killer: MVRV/BTC runs 47 trades at 39% exposure, 169.0× → 153.8× at
+10 bps → 105.5× at 50 bps. NVT/BTC churns much harder (257 trades) and drops 42.4× → 3.2× at 50 bps.
+
+Eras are mixed rather than damning — BTC/MVRV loses to hold in two of three thirds, LTC wins all
+three (on a book that ends at 1.0×).
+
+## Noise injection — the diagnostic that explains everything
+
+| metric | symbol | 0% | 25% | 50% | 100% |
+|---|---|---|---|---|---|
+| MVRV | BTC | 169.0× | 52.3× | 30.2× | 8.1× |
+| MVRV | **ETH** | 7.4× | **11.7×** | **39.8×** | **61.8×** |
+| MVRV | XRP | 2.7× | 1.8× | 1.5× | **3.8×** |
+| NVT | **ETH** | 1.4× | **3.5×** | **8.6×** | **17.1×** |
+
+**ETH gets better as the data gets noisier, by a factor of eight.** That is not a robust edge
+degrading gracefully — it is the signal doing nothing, with the outcome decided by whatever exposure
+chance hands it. A rule with real information cannot improve when you destroy the information.
+
+*(Note the test design: MVRV and NVT both carry market cap — i.e. price — in the numerator, so the
+metric is perturbed by the same cumulative factor as the price. Leaving it clean while noising the
+price would have handed the metric a clean signal and a noisy target.)*
+
+## Why the earlier result was true and still failed
+
+The quintile analysis was not wrong. High-MVRV days really did precede higher forward returns
+(−1.11 ATR, p = 0.0002, monotone, all three eras), and MVRV really does beat its matched price
+baseline, which really does mean it carries non-price information.
+
+But **conditional mean forward return is an exposure statement, not a timing statement.** In an asset
+that rose 6000×, "days with property X had better forward returns" is largely a description of when
+you happened to be invested. Only the exposure-matched null separates the two, and it says the
+selection is no better than random blocks of the same size.
+
+This is the same lesson the Trading Cross taught, arriving from the other direction — there, the
+exposure-matched null *rescued* a result a weak null could not support. Here it **kills** one a
+strong-looking null appeared to support.
+
+## Standing
+
+**MVRV and NVT are downgraded from "a family with something in it" to "a real conditional
+relationship that does not convert into a tradeable rule."**
+
+What survives: MVRV contains information that is not in the price path (it beats a matched price/SMA
+baseline that predicts literally nothing, p = 0.986, despite correlating 0.752 with it). That is
+genuinely interesting and it is not nothing. It just is not an edge at this formulation, on four
+survivor coins, with this cross-section.
+
+**Cross-sectional momentum remains the only result in this lab that has passed a full robustness
+pass.**

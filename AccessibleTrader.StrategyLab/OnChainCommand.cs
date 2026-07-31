@@ -62,6 +62,7 @@ public static class OnChainCommand
         };
 
         var obs = new List<Obs>();
+        var panels = new List<OnChainRobustness.Panel>();
         Console.WriteLine();
         Console.WriteLine($"===== ON-CHAIN VALUE METRICS — forward horizon {horizon} bars =====");
         Console.WriteLine($"Metrics lagged {MetricLagDays}d (a day's on-chain aggregate is not knowable until it closes).");
@@ -90,6 +91,7 @@ public static class OnChainCommand
                 if (real < 500) continue;
 
                 Build(obs, label, metric, bars, atr, aligned, horizon);
+                panels.Add(new OnChainRobustness.Panel(label, metric, bars, aligned));
             }
 
             // Derived ratios. On-chain LEVELS grow secularly with adoption, so a raw level is
@@ -100,7 +102,11 @@ public static class OnChainCommand
             var addr = LoadXs(snapshotDir, chain, "adractcnt");
 
             if (mcap != null && txf != null)
-                Build(obs, label, "NVT (mcap/transfers)", bars, atr, Ratio(Align(mcap, bars), Align(txf, bars)), horizon);
+            {
+                var nvt = Ratio(Align(mcap, bars), Align(txf, bars));
+                Build(obs, label, "NVT (mcap/transfers)", bars, atr, nvt, horizon);
+                panels.Add(new OnChainRobustness.Panel(label, "NVT (mcap/transfers)", bars, nvt));
+            }
             if (mcap != null && addr != null)
                 Build(obs, label, "mcap/addresses", bars, atr, Ratio(Align(mcap, bars), Align(addr, bars)), horizon);
         }
@@ -108,6 +114,7 @@ public static class OnChainCommand
         if (obs.Count < 2000) { Console.WriteLine($"Too few observations ({obs.Count})."); return 1; }
 
         Report(obs, permutations);
+        OnChainRobustness.Run(panels, permutations);
         return 0;
     }
 
