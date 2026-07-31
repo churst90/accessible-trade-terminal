@@ -49,6 +49,13 @@ Pick the ones that apply. Each has changed a verdict here.
   *gradually*; a fit keyed to the exact path collapses at the first perturbation. Cross-sectional
   momentum retained 86% at 25% noise and 62% at 50%. Also look for a **plateau, not a peak**, in any
   parameter sweep.
+- **Costs behave differently for relative and absolute claims.** A *lift* (gated vs ungated) is
+  nearly cost-invariant because costs hit both arms and cancel; the *absolute* return of the thing
+  being filtered is not. Report both — the dip filter's lift survived 10 bps while its absolute
+  return more than halved.
+- **Convert per-trade costs into R before judging.** Risking one ATR means the position is
+  `1 ÷ (ATR÷price)` times the risk unit — at a 1.71% ATR, a 10 bps round trip costs 0.117R, which
+  can be the entire edge. Basis points against notional are not basis points against R.
 - **Costs change the benchmark, not just the number.** Against a random book both sides churn, but
   nobody redraws a random portfolio monthly — the realistic alternative is holding the basket at
   near-zero turnover. Report turnover, compute the break-even cost, and re-benchmark against the
@@ -112,10 +119,12 @@ Pick the ones that apply. Each has changed a verdict here.
   walk-forwarded to break-even; structure labels were indistinguishable from random. S/R, fibs,
   swing points, candle patterns, market structure and the Cipher oscillators are all transforms of
   one OHLC series — agreement between them is arithmetic, not evidence.
-- **Three conditioners tested, one survived.** z-state regime gate: no. Crowding (funding+OI): no
-  forward information at any horizon 1–40 bars. `close > SMA(200)`: **yes**, +0.10R/trade over a
-  random baseline (p=0.0002), but *only* on mean-reversion entries and *only* in equities.
-  (`docs/CROWDING_FINDINGS.md`)
+- **Three conditioners tested, one survived — and it later failed its robustness pass.** z-state
+  regime gate: no. Crowding (funding+OI): no forward information at any horizon. `close > SMA(200)`
+  on mean-reversion entries in equities: +0.10R/trade over a random baseline (p=0.0002), but it
+  **collapses under noise injection** (21% retained at 25% noise vs 86% for cross-sectional
+  momentum), one era shows nothing, and survivorship biases it the flattering way. A sensible
+  default, not an edge. (`docs/CROWDING_FINDINGS.md`, `docs/POLARITY_AND_GATE_FINDINGS.md`)
 - **The Trading Cross** (z-score momentum) is real but is drawdown-avoidance: 10/10 crypto beat
   hold, 0/3 traditional. (`docs/TRADING_CROSS_FINDINGS.md`)
 - **Cross-sectional momentum WORKS in equities — the strongest result here.** Rank 39 names by
