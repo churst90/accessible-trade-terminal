@@ -92,6 +92,10 @@ try
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--exit"), out var xx) ? xx : 0.0,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var xs) ? xs : 2000,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--cost"), out var xc) ? xc : 10.0),
+        "cycles" => CycleCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var cy) ? cy : 20000),
         "volume" => VolumeCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
