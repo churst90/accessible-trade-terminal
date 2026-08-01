@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.2",
+  "registryVersion": "2026-08-01.3",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
   "edges": [
     {
@@ -1067,6 +1067,56 @@
       },
       "reMeasure": {
         "command": "streak-rules (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "normalised-risk-metric",
+      "title": "A 0-1 'risk metric' from price extension over its own history",
+      "claim": "A composite normalised to 0-1 from price relative to its long-term moving averages, rank-scaled over the asset's own history, identifies high-risk and low-risk zones better than the plain price-over-SMA distance it is built from.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 90,
+        "timeframe": "1d",
+        "notes": "Benjamin Cowen's rainbow risk metric, as a general construction rather than his exact undisclosed formula. THREE TRAPS TO BUILD AROUND, all of which this project has already been bitten by. (1) LOOKAHEAD: normalising over the FULL history uses the future to rank the past — every published rainbow chart does this. Must be an EXPANDING-WINDOW percentile using only prior data, which is what makes the honest version look far worse than the picture. (2) THE BASELINE: the metric IS a price/SMA transform, so the only meaningful test is whether the composite beats its own simplest component — the exact control that killed MVRV (matched price/SMA baseline gave p = 0.9855 where the raw signal gave 0.0002). (3) SAMPLE SIZE: on BTC the whole claim rests on three cycles, and a diminishing-returns correction fitted to those same three cycles is retrospective selection, not evidence.",
+        "universeMin": 20
+      },
+      "effect": {
+        "measure": "decile-forward-return-spread-vs-sma-baseline",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "onchain-valuation-timing",
+          "note": "same shape and probably the same fate — a normalised valuation band that must be run against a matched price/SMA baseline on the same rows",
+          "correlation": null
+        },
+        {
+          "id": "trend-following-family",
+          "note": "built from the same price-over-long-MA information",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "practitioner",
+        "who": "Benjamin Cowen (risk metric / rainbow chart)",
+        "url": null,
+        "capturedOn": "2026-08-01",
+        "quote": "PARAPHRASE, no transcript captured: a 0-1 risk value per asset, rendered as rainbow bands, built from price relative to long-term moving averages and normalised over the asset's history with a diminishing-returns correction for later cycles."
+      },
+      "reMeasure": {
+        "command": "risk-metric (to build)",
         "implemented": false
       }
     }
