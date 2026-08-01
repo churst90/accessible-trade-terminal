@@ -42,63 +42,11 @@ namespace AccessibleTrader.Tests
             Assert.NotEqual(AssetClassifier.RegimeClass.BullBiased, p.Regime);
         }
 
-        [Fact]
-        public void RecommendV23Long_Tier1BullBiasedNonTrender_PicksPivots()
-        {
-            var profile = new AssetClassifier.Profile(
-                Volatility: AssetClassifier.VolatilityClass.Medium,
-                Cycle:      AssetClassifier.CycleClass.Random,
-                Regime:     AssetClassifier.RegimeClass.BullBiased,
-                Liquidity:  AssetClassifier.LiquidityClass.Tier1,
-                AtrPctMedian: 0.02, HurstMedian: 0.5,
-                PctBarsAboveSma200: 0.7, AvgVolDollar: 500_000_000);
-            Assert.Equal(BuiltInStrategySeeds.LongV23pCipherBPivotsId,
-                AssetClassifier.RecommendV23Long(profile));
-        }
-
-        [Fact]
-        public void RecommendV23Long_Tier1Trender_FallsBackToFaber()
-        {
-            var profile = new AssetClassifier.Profile(
-                Volatility: AssetClassifier.VolatilityClass.Medium,
-                Cycle:      AssetClassifier.CycleClass.Trender,
-                Regime:     AssetClassifier.RegimeClass.BullBiased,
-                Liquidity:  AssetClassifier.LiquidityClass.Tier1,
-                AtrPctMedian: 0.02, HurstMedian: 0.6,
-                PctBarsAboveSma200: 0.7, AvgVolDollar: 500_000_000);
-            Assert.Equal(BuiltInStrategySeeds.LongV23rCipherBFaberId,
-                AssetClassifier.RecommendV23Long(profile));
-        }
-
-        [Fact]
-        public void RecommendV23Long_MeanReverterAnyTier_PicksHurst()
-        {
-            var profile = new AssetClassifier.Profile(
-                Volatility: AssetClassifier.VolatilityClass.High,
-                Cycle:      AssetClassifier.CycleClass.MeanReverter,
-                Regime:     AssetClassifier.RegimeClass.Range,
-                Liquidity:  AssetClassifier.LiquidityClass.Tier2,
-                AtrPctMedian: 0.04, HurstMedian: 0.3,
-                PctBarsAboveSma200: 0.5, AvgVolDollar: 10_000_000);
-            Assert.Equal(BuiltInStrategySeeds.LongV23hCipherBHurstId,
-                AssetClassifier.RecommendV23Long(profile));
-        }
-
-        [Fact]
-        public void RecommendV23Long_MicroLiquidity_DefaultsToBareV23()
-        {
-            var profile = new AssetClassifier.Profile(
-                Volatility: AssetClassifier.VolatilityClass.Extreme,
-                Cycle:      AssetClassifier.CycleClass.Random,
-                Regime:     AssetClassifier.RegimeClass.Range,
-                Liquidity:  AssetClassifier.LiquidityClass.Micro,
-                AtrPctMedian: 0.06, HurstMedian: 0.5,
-                PctBarsAboveSma200: 0.5, AvgVolDollar: 1_000_000);
-            Assert.Equal(BuiltInStrategySeeds.LongV23CipherBWeeklyId,
-                AssetClassifier.RecommendV23Long(profile));
-        }
-
-        // ── Synthetic data helpers ────────────────────────────────────────────
+        // The four RecommendV23Long tests that lived here were removed 2026-08-01 along with the
+        // method they covered. They asserted which Cipher-B variant the app should pick for a given
+        // asset profile — i.e. they encoded the opinion, so they had to go with it. Classify() is
+        // still tested above; see StrategyLibraryPolicyTests for the guard that keeps the
+        // recommender from coming back.
 
         private static List<Ohlcv> SyntheticUptrend(int n, double dailyDriftPct, double noisePct, int seed = 42)
         {

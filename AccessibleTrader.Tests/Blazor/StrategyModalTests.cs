@@ -180,12 +180,14 @@ public class StrategyModalTests
     }
 
     /// <summary>
-    /// With BTC/USDT 1d in the workspace state and an empty bar list (under
-    /// the 565 classifier threshold), the symbol-string heuristic runs.
-    /// The recommendation banner displays the symbol.
+    /// INVERTED 2026-08-01. This test used to assert that a recommendation banner appeared for a
+    /// known symbol. That banner is gone: the terminal no longer picks a strategy for the user, and
+    /// the picker behind it returned a Cipher-B variant on every branch — the component this
+    /// project's own research falsified. The test now guards the opposite, so the banner cannot
+    /// return without a deliberate decision.
     /// </summary>
     [Fact]
-    public void StrategyModal_RecommendationBanner_ShowsForKnownSymbol()
+    public void StrategyModal_ShowsNoRecommendationBanner_EvenForAKnownSymbol()
     {
         var seeds = new[] { PickSeed() };
         var state = WorkspaceState.Initial with
@@ -202,8 +204,7 @@ public class StrategyModalTests
         var cut = OpenModal(ctx, bus);
 
         var paragraphs = cut.FindAll("p");
-        Assert.Contains(paragraphs, p =>
-            p.TextContent.Contains("BTC/USDT", StringComparison.Ordinal) &&
+        Assert.DoesNotContain(paragraphs, p =>
             p.TextContent.Contains("recommended", StringComparison.OrdinalIgnoreCase));
     }
 

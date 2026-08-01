@@ -206,124 +206,19 @@ namespace AccessibleTrader.Core.Services.Strategies
         // trend flow); on single stocks the Faber gate was neutral-to-negative.
         public const string LongV23cCipherBCotId = "builtin.long.v23c-cipherb-cot";
 
-        // Asset-aware v23 preset map. Empirical research (2026-04-27 rounds 3-4):
-        // the right v23 variant depends on BOTH asset and timeframe.
+        // ── Per-asset "recommended" accessors: REMOVED 2026-08-01 ──────────────────
+        // GetV23{Long,Short}PresetForAsset, the ForBars variants, and the one-shot
+        // GetRecommendedV23{Long,Short}Spec composites all mapped a symbol — or a classified
+        // profile — onto a specific seed. The terminal surfaced that as a highlighted library
+        // row, a starred dropdown entry, and a "Use recommended" button.
         //
-        // BTC/ETH 1d: v23p-Pivots is the strongest. ETH 1d hit 100% positive /
-        //   33% CI / +0.523R in rolling-window — closest to ROBUST anywhere.
-        // BTC/ETH 4h: v23r-Faber lifts R materially (validated cross-mechanism
-        //   alongside v13, Faber-Pulse, BareBullPulse).
-        // BTC/ETH 1w: v23 base — weekly trends survive aggregation cleanly.
-        // XRP/LTC any TF: v23 base — Faber gate hurts (cycle mismatch).
-        // KAS/TAO/altcoins: v23 base — same reasoning as XRP/LTC.
+        // That is shipping an OPINION, automatically, in software a user relies on. And every
+        // branch returned a Cipher-B variant, which is precisely the component this project's
+        // own research falsified: eight versions of pure-Cipher confluence walked forward to
+        // break-even, and structure labels tested indistinguishable from random.
         //
-        // Returns null for null/empty input — caller falls back to v23 base.
-        public static string? GetV23LongPresetForAsset(string symbol, string? timeframe = null)
-        {
-            if (string.IsNullOrWhiteSpace(symbol)) return null;
-            var s = symbol.ToUpperInvariant().Replace("/", "").Replace("-", "");
-            var tf = (timeframe ?? string.Empty).ToLowerInvariant();
-
-            bool isBtcOrEth = s.StartsWith("BTC") || s.StartsWith("ETH");
-
-            if (isBtcOrEth)
-            {
-                // 1d on BTC/ETH: Pivots is the empirically strongest gate.
-                if (tf == "1d" || tf == "24h" || tf == "1day")
-                    return LongV23pCipherBPivotsId;
-                // 4h on BTC/ETH: Faber gate lifts R best at this TF.
-                if (tf == "4h" || tf == "240m" || tf == "240")
-                    return LongV23rCipherBFaberId;
-                // Default for BTC/ETH (no TF or other TF): Faber-gated.
-                return LongV23rCipherBFaberId;
-            }
-
-            // Altcoins (XRP/LTC/KAS/TAO/SOL/DOGE/etc.): Faber gate hurts. Bare v23.
-            return LongV23CipherBWeeklyId;
-        }
-
-        // Symmetric helper for SHORT side. v23h-Hurst is the per-trade-R champion
-        // on the short side (240% better than base on KAS 4h). For BTC 4h
-        // v22-distribution-top remains ROBUST and is the deployable champion.
-        public static string? GetV23ShortPresetForAsset(string symbol, string? timeframe = null)
-        {
-            if (string.IsNullOrWhiteSpace(symbol)) return null;
-            var s = symbol.ToUpperInvariant().Replace("/", "").Replace("-", "");
-            var tf = (timeframe ?? string.Empty).ToLowerInvariant();
-
-            // BTC 4h: v22-distribution-top is the only ROBUST short anywhere — use it.
-            if ((s.StartsWith("BTC")) && (tf == "4h" || tf == "240m" || tf == "240"))
-                return ShortV22DistributionTopId;
-
-            // Everything else: Hurst-gated short.
-            return ShortV23hCipherBHurstId;
-        }
-
-        // Behavior-driven preset override. When the caller has actual bars for the
-        // chart, this route classifies the asset by its own price action (volatility,
-        // cycle, regime, liquidity) and returns the recommended seed. Falls back to
-        // the symbol-string heuristic above if classification fails (e.g. too few
-        // bars). Use this when you want to handle ANY asset (including ones we've
-        // never tested) without hard-coding new whitelist branches.
-        public static string GetV23LongPresetForBars(
-            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv> bars,
-            string symbol,
-            string? timeframe = null)
-        {
-            var profile = AssetClassifier.Classify(bars);
-            if (profile != null)
-                return AssetClassifier.RecommendV23Long(profile);
-            // Insufficient bars → fall back to the symbol-string heuristic.
-            return GetV23LongPresetForAsset(symbol, timeframe) ?? LongV23CipherBWeeklyId;
-        }
-
-        public static string GetV23ShortPresetForBars(
-            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv> bars,
-            string symbol,
-            string? timeframe = null)
-        {
-            var profile = AssetClassifier.Classify(bars);
-            if (profile != null)
-                return AssetClassifier.RecommendV23Short(profile);
-            return GetV23ShortPresetForAsset(symbol, timeframe) ?? ShortV23hCipherBHurstId;
-        }
-
-        /// <summary>
-        /// One-shot composite preset accessor. Returns the fully-resolved
-        /// <see cref="StrategySpec"/> for the recommended v23 LONG variant given a
-        /// symbol, timeframe, and optional bar history. Prefers the behavior-driven
-        /// classifier when bars are available; falls back to the symbol-string
-        /// heuristic; falls back to bare v23 if neither route resolves.
-        ///
-        /// Useful for callers (and a single UI button) that want "give me the right
-        /// spec for this chart" without picking a variant manually.
-        /// </summary>
-        public static StrategySpec? GetRecommendedV23LongSpec(
-            string symbol,
-            string? timeframe = null,
-            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv>? bars = null)
-        {
-            string? id = bars != null
-                ? GetV23LongPresetForBars(bars, symbol, timeframe)
-                : GetV23LongPresetForAsset(symbol, timeframe);
-            id ??= LongV23CipherBWeeklyId;
-            return GetAllSeeds().FirstOrDefault(s => s.Id == id);
-        }
-
-        /// <summary>
-        /// Symmetric SHORT-side accessor. See <see cref="GetRecommendedV23LongSpec"/>.
-        /// </summary>
-        public static StrategySpec? GetRecommendedV23ShortSpec(
-            string symbol,
-            string? timeframe = null,
-            System.Collections.Generic.IReadOnlyList<AccessibleTrader.Sdk.Models.Ohlcv>? bars = null)
-        {
-            string? id = bars != null
-                ? GetV23ShortPresetForBars(bars, symbol, timeframe)
-                : GetV23ShortPresetForAsset(symbol, timeframe);
-            id ??= ShortV23hCipherBHurstId;
-            return GetAllSeeds().FirstOrDefault(s => s.Id == id);
-        }
+        // The seeds remain as a library the user browses and chooses from. Selection is the
+        // user's decision. See docs/STRATEGY_LIBRARY_POLICY.md.
 
         // Pulse Long V2 — the cleanest pure-Pulse long signal produced as of 2026-04-09.
         // GreenDotV2 from PulseProvider: slope-confirmed RSI(14) midline cross + Regime

@@ -127,58 +127,12 @@ namespace AccessibleTrader.Core.Services.Strategies
                 atrPctMedian, hurstMedian, pctAbove, avgDollarVol);
         }
 
-        /// <summary>
-        /// Pick the recommended v23 LONG seed ID for a classified profile. Replaces
-        /// the hard-coded asset whitelist in <c>BuiltInStrategySeeds.GetV23LongPresetForAsset</c>
-        /// with a behavior-driven mapping.
-        /// </summary>
-        public static string RecommendV23Long(Profile p)
-        {
-            // Tier-1 + Bull-biased + Random/MeanReverter cycle → Pivots gate works
-            // (validated on BTC/ETH 1d). Faber-Bull-only assets benefit from Pivots
-            // because pivot levels are trustworthy in trending bull regimes.
-            if (p.Liquidity == LiquidityClass.Tier1
-                && p.Regime == RegimeClass.BullBiased
-                && p.Cycle != CycleClass.Trender)
-            {
-                return BuiltInStrategySeeds.LongV23pCipherBPivotsId;
-            }
-
-            // Tier-1 in any regime + non-trender → Faber-gated v23 (validated on
-            // BTC/ETH 4h family). The Faber MA gate works when the asset has clean
-            // bull/bear regime separation.
-            if (p.Liquidity == LiquidityClass.Tier1)
-            {
-                return BuiltInStrategySeeds.LongV23rCipherBFaberId;
-            }
-
-            // Mean-reverting cycle on any tier → Hurst gate is the natural fit
-            // (it's literally a mean-reversion regime gate).
-            if (p.Cycle == CycleClass.MeanReverter)
-            {
-                return BuiltInStrategySeeds.LongV23hCipherBHurstId;
-            }
-
-            // Tier-2 or micro, anything that isn't a pure trender → bare v23.
-            // Same rule that worked for XRP/LTC/KAS/TAO empirically.
-            return BuiltInStrategySeeds.LongV23CipherBWeeklyId;
-        }
-
-        /// <summary>
-        /// Pick the recommended v23 SHORT seed for a profile.
-        /// </summary>
-        public static string RecommendV23Short(Profile p)
-        {
-            // Mean-reverting any tier → Hurst gate.
-            if (p.Cycle == CycleClass.MeanReverter)
-                return BuiltInStrategySeeds.ShortV23hCipherBHurstId;
-
-            // Default: Hurst-gated short. v22-distribution-top is the only ROBUST
-            // short anywhere (BTC 4h specifically) and the caller can override per
-            // their own knowledge — this method only returns the broadly-applicable
-            // pick, not asset-class-specific ROBUST overrides.
-            return BuiltInStrategySeeds.ShortV23hCipherBHurstId;
-        }
+        // NOTE: RecommendV23Long/Short were removed 2026-08-01. Classify() stays — profiling an
+        // asset by volatility, cycle, regime and liquidity is a neutral, useful measurement and is
+        // the basis of the research lab's character classifier. Mapping that profile to a specific
+        // strategy was an OPINION, it was shipped automatically, and every branch of it returned a
+        // Cipher-B variant — a component this project's own research falsified. Removed rather than
+        // corrected: the terminal should ship tools, not picks.
 
         // ── Helpers ────────────────────────────────────────────────────────────
 
