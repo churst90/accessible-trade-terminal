@@ -111,6 +111,10 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only") ?? "BTC_USDT",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var fbp) ? fbp : 4000),
+        "macro" => MacroEventCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var mep) ? mep : 2000),
         "fomc" => FomcCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
