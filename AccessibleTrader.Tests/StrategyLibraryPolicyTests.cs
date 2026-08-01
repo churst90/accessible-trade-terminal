@@ -88,6 +88,42 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void NoStrategyCatalogueShipsInsideTheApp()
+        {
+            // Second half of the split, added 2026-08-01: the specs themselves moved to the
+            // research lab. Shipping code must not carry a catalogue of strategies at all —
+            // not as a seeder, not as an "examples" list that a future refactor quietly
+            // reintroduces into the library on first launch.
+            var offenders = AppSources()
+                .Where(f =>
+                {
+                    string code = CodeOnly(f);
+                    return code.Contains("BuiltInStrategySeeds")
+                        || code.Contains("EnsureSeeded")
+                        || code.Contains("StrategyCatalogue.AllSpecs");
+                })
+                .Select(f => Path.GetFileName(f))
+                .ToList();
+
+            Assert.True(offenders.Count == 0,
+                "A built-in strategy catalogue is back in shipping code. Specs live in " +
+                "AccessibleTrader.StrategyLab/Catalogue and reach a library only through an " +
+                "explicit import:\n  " + string.Join("\n  ", offenders));
+        }
+
+        [Fact]
+        public void ImportedStrategiesCannotStartThemselves()
+        {
+            // The import path is the ONLY way a strategy the user did not write reaches the
+            // library, which makes "importing a file never starts anything" a policy property
+            // and not merely an implementation detail of StrategyBundleService.
+            string source = File.ReadAllText(Path.Combine(
+                RepoRoot(), "AccessibleTrader.Core", "Services", "Strategies", "StrategyBundle.cs"));
+
+            Assert.Contains("IsAutoActivate = false", source);
+        }
+
+        [Fact]
         public void AssetClassifierStillProfilesAssets()
         {
             // The profiling half was deliberately KEPT. Classifying an asset by volatility, cycle,

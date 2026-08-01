@@ -22,6 +22,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.StrategyLab.Catalogue;
 using Bunit;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
@@ -146,8 +147,8 @@ public class StrategyModalTests
     }
 
     private static StrategySpec PickSeed() =>
-        BuiltInStrategySeeds.GetAllSeeds()
-            .First(s => s.Id == BuiltInStrategySeeds.LongV23pCipherBPivotsId);
+        StrategyCatalogue.AllSpecs()
+            .First(s => s.Id == StrategyCatalogue.LongV23pCipherBPivotsId);
 
     /// <summary>
     /// Modal renders nothing until OpenStrategiesEvent fires. Baseline:
@@ -170,7 +171,7 @@ public class StrategyModalTests
     [Fact]
     public void StrategyModal_LibraryCount_ReflectsLibrarySize()
     {
-        var seeds = BuiltInStrategySeeds.GetAllSeeds().Take(3).ToList();
+        var seeds = StrategyCatalogue.AllSpecs().Take(3).ToList();
         var (ctx, _, _, _, bus) = BuildContext(seededLibrary: seeds);
 
         var cut = OpenModal(ctx, bus);
@@ -226,16 +227,68 @@ public class StrategyModalTests
     }
 
     /// <summary>
-    /// Empty library renders the "No saved strategies yet" empty-state copy.
-    /// Guards the no-results branch from regressing during library refactors.
+    /// The empty library is now the SHIPPING state, not an edge case — nothing is seeded on first
+    /// launch. So the empty state has to do real work: name the situation, explain that it is
+    /// intentional, and give both routes out (build one, or import a file). A bare "nothing here"
+    /// leaves a first-run user with no idea what to do.
     /// </summary>
     [Fact]
-    public void StrategyModal_EmptyLibrary_ShowsEmptyState()
+    public void StrategyModal_EmptyLibrary_ExplainsItselfAndOffersBothRoutes()
     {
         var (ctx, _, _, _, bus) = BuildContext();
 
         var cut = OpenModal(ctx, bus);
 
-        Assert.Contains("No saved strategies yet", cut.Markup);
+        var heading = cut.Find("#library-empty-heading");
+        Assert.Contains("empty", heading.TextContent, StringComparison.OrdinalIgnoreCase);
+        // Focusable, so a screen reader can be moved to the explanation.
+        Assert.Equal("-1", heading.GetAttribute("tabindex"));
+
+        Assert.Contains("Build Setup", cut.Markup);
+        Assert.Contains("Import a strategy file", cut.Markup);
+    }
+
+    /// <summary>
+    /// The import form is the documented way into the library, so it is present in both states —
+    /// an empty library and a populated one — with a labelled file input and a paste box.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StrategyModal_ImportForm_IsAlwaysAvailable(bool librarySeeded)
+    {
+        var (ctx, _, _, _, bus) = BuildContext(
+            seededLibrary: librarySeeded ? new[] { PickSeed() } : null);
+
+        var cut = OpenModal(ctx, bus);
+
+        Assert.NotNull(cut.Find("#strategy-import-file"));
+        Assert.NotNull(cut.Find("#strategy-import-paste"));
+        Assert.Contains("never overwrites a strategy you already have", cut.Markup);
+    }
+
+    /// <summary>
+    /// Every library row states its evidence, including "Not recorded" for a user-built spec.
+    /// A table where tested and untested strategies look identical is the implied endorsement
+    /// the 2026-08-01 split removed, just in a quieter form.
+    /// </summary>
+    [Fact]
+    public void StrategyModal_LibraryRows_StateTheirEvidence()
+    {
+        var tested = PickSeed() with
+        {
+            Id = "test.tested",
+            Provenance = new StrategyProvenance(
+                StrategyEvidenceLevel.Falsified, "BTC daily", "walk-forward",
+                "tested and it did not work"),
+        };
+        var userBuilt = PickSeed() with { Id = "test.user-built", Provenance = null };
+        var (ctx, _, _, _, bus) = BuildContext(seededLibrary: new[] { tested, userBuilt });
+
+        var cut = OpenModal(ctx, bus);
+
+        Assert.Contains("Falsified", cut.Markup);
+        Assert.Contains("tested and it did not work", cut.Markup);
+        Assert.Contains("Not recorded", cut.Markup);
     }
 }

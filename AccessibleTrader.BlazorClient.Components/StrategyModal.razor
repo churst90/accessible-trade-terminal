@@ -105,9 +105,39 @@
 
                 @if (StrategyLibrary.All.Count == 0)
                 {
-                    <p style="color: var(--text-muted); margin-top: 16px;">
-                        No saved strategies yet. Switch to <strong>Build Setup</strong> to compose one.
-                    </p>
+                    @* A first-class empty state, not a shrug. The library ships empty on purpose —
+                       research specs used to be written in on first launch, which made them look
+                       like the product's advice. Both routes out of here are spelled out, and the
+                       heading is focusable so a screen-reader user landing on an empty Library tab
+                       hears an explanation rather than a bare table that isn't there. *@
+                    <div style="margin-top: 16px; border: 1px solid var(--border-color); border-radius: 6px; padding: 14px 16px;">
+                        <h4 id="library-empty-heading" tabindex="-1" style="margin-top: 0;">
+                            Your strategy library is empty
+                        </h4>
+                        <p style="color: var(--text-muted);">
+                            That is the starting state, not a problem. This app ships the tools — the
+                            chart, the indicators, the condition builder and the backtester — and lets you
+                            decide what to trade with them. It does not pick a strategy for you.
+                        </p>
+                        <p style="color: var(--text-muted);">
+                            Two ways to fill it:
+                        </p>
+                        <ul style="color: var(--text-muted); margin: 0 0 10px 1.2em;">
+                            <li>
+                                <strong>Build one.</strong> The <strong>Build Setup</strong> tab composes a
+                                spec from signals and a risk plan without writing any code.
+                            </li>
+                            <li>
+                                <strong>Import a strategy file.</strong> Use the form below. Imported
+                                strategies arrive stopped, and each one carries a record of how far it has
+                                actually been tested.
+                            </li>
+                        </ul>
+                        <button type="button" @onclick='() => _activeTab = "build"'
+                                aria-label="Go to the Build Setup tab and compose a strategy">
+                            Go to Build Setup
+                        </button>
+                    </div>
                 }
                 else
                 {
@@ -126,6 +156,7 @@
                                 <th scope="col" style="text-align: left; padding: 4px 8px; width: 18%; min-width: 9em;">Name</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px; width: 7%; white-space: nowrap;">Side</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px; width: 9%; white-space: nowrap;">Status</th>
+                                <th scope="col" style="text-align: left; padding: 4px 8px; width: 11%; white-space: nowrap;">Evidence</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px;">Description</th>
                                 <th scope="col" style="text-align: left; padding: 4px 8px; width: 14%; white-space: nowrap;">Actions</th>
                             </tr>
@@ -141,7 +172,24 @@
                                     <td style="padding: 6px 8px; color: @(isActive ? "#6f6" : "#888");">
                                         @(isActive ? "Active" : "Stopped")
                                     </td>
-                                    <td style="padding: 6px 8px; color: var(--text-muted);">@spec.Description</td>
+                                    @* Evidence is shown next to every spec, including "Not recorded"
+                                       for ones the user built. A library where some entries carry a
+                                       tested verdict and others silently carry none is the same
+                                       implied endorsement in a quieter form. *@
+                                    <td style="padding: 6px 8px; color: var(--text-muted);">
+                                        @DescribeEvidence(spec)
+                                    </td>
+                                    <td style="padding: 6px 8px; color: var(--text-muted);">
+                                        @spec.Description
+                                        @if (spec.Provenance is { } prov)
+                                        {
+                                            <span style="display: block; margin-top: 6px; font-size: 0.9em;">
+                                                <strong>Tested on:</strong> @prov.TestedOn.
+                                                <strong>Controls:</strong> @prov.Controls.
+                                                <strong>Verdict:</strong> @prov.Verdict
+                                            </span>
+                                        }
+                                    </td>
                                     <td style="padding: 6px 8px; white-space: nowrap;">
                                         @if (isActive)
                                         {
@@ -175,6 +223,58 @@
                         @_libraryMessage
                     </p>
                 }
+
+                @* ── Import ────────────────────────────────────────────────────────
+                   The documented route into the library. A file OR pasted text, because a
+                   file picker is the worse experience of the two with a screen reader and
+                   the text is short enough to paste. *@
+                <fieldset style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 14px; margin-top: 20px;">
+                    <legend style="font-weight: 700; padding: 0 6px;">Import strategies</legend>
+                    <p id="strategy-import-hint" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0;">
+                        Strategy files are JSON, written by the research lab
+                        (<code>StrategyLab catalogue export</code>) or exported by another copy of this
+                        app. Importing never overwrites a strategy you already have, and never starts
+                        anything — imported specs arrive stopped and you start them yourself.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="strategy-import-file">Choose a strategy file:</label>
+                        <InputFile id="strategy-import-file" OnChange="OnStrategyFilePicked"
+                                   accept=".json" aria-describedby="strategy-import-hint" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="strategy-import-paste">Or paste the file's contents:</label>
+                    </div>
+                    <textarea id="strategy-import-paste" rows="4" style="width: 100%; font-family: monospace;"
+                              aria-describedby="strategy-import-hint"
+                              @bind="_importPasted"></textarea>
+
+                    <button type="button" @onclick="ImportStrategies" disabled="@_importing"
+                            aria-label="Import strategies from the chosen file or pasted text">
+                        Import
+                    </button>
+
+                    @if (!string.IsNullOrEmpty(_importMessage))
+                    {
+                        @* aria-live rather than role="status" alone: the result is several facts
+                           (imported, skipped, rejected) and must be announced without moving focus
+                           away from the Import button. *@
+                        <p role="status" aria-live="polite" aria-atomic="true"
+                           style="margin-top: 8px; color: @(_importError ? "#f44" : "#4a4");">
+                            @_importMessage
+                        </p>
+                    }
+                    @if (_importRejections.Count > 0)
+                    {
+                        <ul style="color: #f88; font-size: 0.85rem; margin-top: 6px;">
+                            @foreach (var reason in _importRejections)
+                            {
+                                <li>@reason</li>
+                            }
+                        </ul>
+                    }
+                </fieldset>
             </section>
 
             @* ── Active strategies ─────────────────────────────────────────────── *@
@@ -609,6 +709,21 @@ public class MyStrategy : BaseStrategy
     private string? _libraryMessage;
     private bool _libraryError;
 
+    // ── Strategy import state ────────────────────────────────────────────────
+    private string _importPasted = string.Empty;
+    private string? _importPickedFile;
+    private string _importMessage = string.Empty;
+    private bool _importError;
+    private bool _importing;
+    private IReadOnlyList<string> _importRejections = Array.Empty<string>();
+
+    /// <summary>
+    /// A strategy bundle is a small text file. One megabyte is already far more than the whole
+    /// research catalogue serializes to, and the cap keeps a mis-picked file from being read
+    /// into memory before it is rejected as unparseable.
+    /// </summary>
+    private const long MaxStrategyFileBytes = 1024 * 1024;
+
     // Backtester state
     private string _btSelectedSpecId = string.Empty;
 
@@ -773,6 +888,93 @@ public class MyStrategy : BaseStrategy
         _libraryMessage = r.Message;
         _libraryError   = !r.IsSuccess;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// What the Evidence column says. Specs carrying a provenance record report their level;
+    /// anything else reports that nothing is recorded — with one distinction worth drawing.
+    /// A library that predates 2026-08-01 still holds the thirty specs the app used to seed, and
+    /// for those "Not recorded" would read as "you built this", which is the opposite of true.
+    /// </summary>
+    private static string DescribeEvidence(StrategySpec spec)
+    {
+        if (spec.Provenance is { } p) return p.Evidence.ToString();
+        return spec.Id.StartsWith("builtin.", StringComparison.OrdinalIgnoreCase)
+            ? "Not recorded (older built-in)"
+            : "Not recorded";
+    }
+
+    // ── Import handlers ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads the picked file into the paste box rather than importing straight away. The user
+    /// gets to see what they picked, the paste and file routes then converge on one Import
+    /// button, and a mis-picked file costs nothing.
+    /// </summary>
+    private async Task OnStrategyFilePicked(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file.Size > MaxStrategyFileBytes)
+            {
+                _importMessage = $"That file is {file.Size / 1024}KB. Strategy files are small — this is probably not one.";
+                _importError = true;
+                return;
+            }
+
+            using var reader = new StreamReader(file.OpenReadStream(MaxStrategyFileBytes));
+            _importPasted = await reader.ReadToEndAsync();
+            _importPickedFile = file.Name;
+            _importMessage = $"Loaded {file.Name}. Choose Import to add its strategies.";
+            _importError = false;
+            _importRejections = Array.Empty<string>();
+        }
+        catch (Exception ex)
+        {
+            _importMessage = $"Could not read that file: {ex.Message}";
+            _importError = true;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Runs on the UI thread deliberately. IStrategyLibrary is not thread-safe and every Upsert
+    /// writes the whole file, so importing on a background thread could tear a render that is
+    /// enumerating <c>All</c> at the same moment. A bundle is small; the pause is not worth a race.
+    /// </summary>
+    private void ImportStrategies()
+    {
+        if (string.IsNullOrWhiteSpace(_importPasted))
+        {
+            _importMessage = "Choose a strategy file or paste one first.";
+            _importError = true;
+            return;
+        }
+
+        _importing = true;
+        try
+        {
+            var result = StrategyBundleService.Import(_importPasted, StrategyLibrary);
+
+            _importMessage = result.Describe();
+            _importError = !result.Success;
+            _importRejections = result.Rejected;
+
+            if (result.Success && result.Imported.Count > 0)
+            {
+                _importPasted = string.Empty;
+                _importPickedFile = null;
+            }
+        }
+        finally
+        {
+            _importing = false;
+            StateHasChanged();
+        }
     }
 
     private void DeleteSpec(string specId)

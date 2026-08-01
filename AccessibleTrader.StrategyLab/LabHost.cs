@@ -6,6 +6,7 @@ using AccessibleTrader.Core.Strategies;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.StrategyLab.Catalogue;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -159,15 +160,12 @@ public sealed class LabHost
     }
 
     /// <summary>
-    /// Lookup a built-in strategy spec by its id constant. Walks the public seed enumeration
-    /// from <see cref="BuiltInStrategySeeds.GetAllSeeds"/>.
+    /// Lookup a catalogue spec by its stable id. The returned spec carries its
+    /// <see cref="StrategyProvenance"/> so a lab run can print what is already known about the
+    /// thing it is about to re-measure.
     /// </summary>
-    public static StrategySpec? FindBuiltInSpec(string id)
-    {
-        foreach (var spec in BuiltInStrategySeeds.GetAllSeeds())
-            if (spec.Id == id) return spec;
-        return null;
-    }
+    public static StrategySpec? FindBuiltInSpec(string id) =>
+        CatalogueProvenance.SpecsWithProvenance().FirstOrDefault(s => s.Id == id);
 }
 
 /// <summary>

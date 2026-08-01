@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### The strategy library ships empty, and strategies now carry their evidence (2026-08-01)
+
+**What an upgrading user will notice:** nothing changes for an existing install — your
+`strategies.json` is untouched, including the thirty built-ins already in it. A **fresh** install
+now opens with an empty library and an explanation, where it previously opened with thirty
+research specs.
+
+Removing the auto-recommendation on 2026-08-01 was half the job. A library pre-filled with thirty
+specs at first launch is itself a recommendation, just a slower one: the user did not ask for them,
+could not tell which had been tested, and reasonably assumed the application stood behind anything
+it put there. Of those thirty, one is control-tested, five carry a plain walk-forward, and six are
+recorded as **falsified**.
+
+- **The specs moved to the research lab.** `BuiltInStrategySeeds` is gone from
+  `AccessibleTrader.Core`; the catalogue lives in `AccessibleTrader.StrategyLab/Catalogue/` with a
+  recorded provenance for every spec. `JsonStrategyLibrary.Reload()` no longer seeds.
+- **Every strategy states its evidence.** New `StrategySpec.Provenance`: an evidence level
+  (Untested / InSampleOnly / WalkForward / ControlTested / Fragile / Falsified), what it was tested
+  on, which controls ran, and the verdict. The library table shows it on every row — including
+  **"Not recorded"** for specs you built yourself, because a table where tested and untested
+  strategies look identical is the same implied endorsement in a quieter form.
+- **Import.** Library tab → **Import strategies**, from a file or pasted text. Import never
+  overwrites a spec you already have, forces auto-activate off so importing cannot start anything,
+  refuses specs containing program code, and reports imported / skipped / rejected counts plus a
+  warning when a spec is set to place orders rather than raise suggestions.
+- **A real empty state** — a focusable heading, why empty is intentional, and both routes out.
+- **Lab side:** `StrategyLab catalogue list [--verbose] [--status <level>]` and
+  `catalogue export --out <file> [--id <spec>]... [--min-evidence <level>]`. A bulk export by
+  evidence level never sweeps in Fragile or Falsified specs; those must be named explicitly.
+
+Guards: `CatalogueProvenanceTests` fails the build if a spec has no recorded verdict or a verdict
+too thin to say anything; `StrategyLibraryPolicyTests` fails if a catalogue or seeder reappears in
+shipping code, or if the importer stops forcing auto-activate off. Suite 2537 green.
+
+Detail in `docs/STRATEGY_CATALOGUE.md`; the reasoning in `docs/STRATEGY_LIBRARY_POLICY.md`.
+
+---
+
 ## [2.1.0] — 2026-07-28
 
 Market watch and screening, three analysis features, two chart modes, an

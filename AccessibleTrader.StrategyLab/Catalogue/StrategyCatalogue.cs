@@ -1,26 +1,45 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
 
-namespace AccessibleTrader.Core.Services.Strategies
+namespace AccessibleTrader.StrategyLab.Catalogue
 {
     /// <summary>
-    /// Hard-coded library of starter strategy specs that ship with the app. The
-    /// <see cref="JsonStrategyLibrary"/> calls <see cref="EnsureSeeded"/> after every Reload —
-    /// any spec whose stable ID is not already present in the user's library is inserted.
+    /// The research catalogue: every strategy spec this project has built, owned by the LAB.
     ///
-    /// IDs are intentionally hand-picked (e.g. <c>builtin.cryptoface.long.v1</c>) so the
-    /// seeder is idempotent and a user who edits or deletes a built-in is not pestered by
-    /// it reappearing on the next launch — once present, the seeder leaves it alone, even
-    /// if the user has modified it. To force a reseed, bump the version suffix.
+    /// <para>
+    /// Until 2026-08-01 this file lived in <c>AccessibleTrader.Core</c> as
+    /// <c>BuiltInStrategySeeds</c> and every spec was written into the user's library on first
+    /// launch. That made research artifacts look like shipped product. The terminal now ships the
+    /// engine, the editor and the backtester and starts with an EMPTY library; specs travel from
+    /// here into a terminal instance through an explicit export/import step
+    /// (<see cref="AccessibleTrader.Core.Services.Strategies.StrategyBundle"/>), carrying their
+    /// provenance with them. See <c>docs/STRATEGY_CATALOGUE.md</c>.
+    /// </para>
     ///
-    /// Built-in specs default to <c>IsAutoActivate = false</c> so they show up in the
-    /// library tab as templates the user can load, inspect, modify, and run on demand —
-    /// nothing executes automatically without explicit user action.
+    /// <para>
+    /// IDs are hand-picked and stable (e.g. <c>builtin.long.v16-trilogy</c>) — they are how a
+    /// lab run, a note, a memory file and an imported spec refer to the same thing. Do not renumber
+    /// them; add a new id instead. Every spec here must have an entry in
+    /// <see cref="CatalogueProvenance"/> — <see cref="CatalogueProvenanceTests"/> fails the build
+    /// otherwise, because a spec with no recorded verdict is exactly the thing this split removed.
+    /// </para>
+    ///
+    /// <para>
+    /// Specs default to <c>IsAutoActivate = false</c> and the importer forces it false regardless,
+    /// so importing a catalogue spec never starts anything running.
+    /// </para>
     /// </summary>
-    public static class BuiltInStrategySeeds
+    public static class StrategyCatalogue
     {
+        /// <summary>
+        /// Bumped whenever a spec is added, removed, or its parameters change. Stamped into every
+        /// exported bundle so an imported spec can be traced back to a known catalogue state.
+        /// </summary>
+        public const string Version = "2026-08-01";
+
         // v13 — Blue Dot + Faber regime filter (post MCB-rewrite survivor). AND-gates the
         // Cipher B blue dot with REGIME.AboveSma200 > 0. BTC daily walk-forward:
         // H1 +0.65R/70% WR, H2 +0.50R/67% WR. First post-rewrite spec to test as a real
@@ -243,21 +262,12 @@ namespace AccessibleTrader.Core.Services.Strategies
         public const string BareBullPulseLongId = "builtin.long.bare-bull-pulse";
         public const string CapitulationBuyId   = "builtin.long.capitulation-buy";
 
-        /// <summary>
-        /// Walks the seed list and inserts any missing specs into the library. Idempotent:
-        /// repeated calls add nothing once the user has the spec. Existing specs (even ones
-        /// the user has edited) are never overwritten.
-        /// </summary>
-        public static void EnsureSeeded(IStrategyLibrary library)
-        {
-            foreach (var spec in GetAllSeeds())
-            {
-                if (library.GetById(spec.Id) == null)
-                    library.Upsert(spec);
-            }
-        }
+        /// <summary>Looks up one spec by its stable id, or null when the id is unknown.</summary>
+        public static StrategySpec? FindById(string id) =>
+            AllSpecs().FirstOrDefault(s => s.Id == id);
 
-        public static IEnumerable<StrategySpec> GetAllSeeds()
+        /// <summary>Every spec in the catalogue, in listing order.</summary>
+        public static IEnumerable<StrategySpec> AllSpecs()
         {
             // Library state 2026-04-09 (post-rolling-window stress-test):
             // The rolling-window walk-forward harness (StrategyLab `rolling-window`)
@@ -277,9 +287,11 @@ namespace AccessibleTrader.Core.Services.Strategies
             // REDUCED robustness. The least-clever strategy in the battery is the most
             // robust thing we have.
             //
-            // Library is now seeded with the Faber-pulse cell as the primary built-in.
-            // PulseLongV2 and PulseReversalLong remain as supplementary cycle-aware
-            // alternatives but Faber-pulse is the recommended starting point.
+            // That result is IN-SAMPLE across a single battery on one asset family, which is
+            // why the Faber-pulse cell is recorded in CatalogueProvenance as InSampleOnly and
+            // not as a recommendation. The 2026-07 walk-forward work (see the memory note
+            // btc-trend-walkforward) later showed random parameters beating the optimised ones
+            // out of sample on this same family: the family works, the fitted numbers do not.
             yield return BuildCapitulationBuy();
             yield return BuildFaberPulseLong();
             yield return BuildBareBullPulseLong();
@@ -2320,7 +2332,9 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             return new StrategySpec(
                 Id: LongV23pCipherBPivotsId,
-                Name: "Cipher Reversal at Pivot Support — BTC/ETH Daily (Long) [v23p] ★",
+                // The ★ that used to end this name was the last surviving piece of the
+                // per-asset recommender — a rank marker baked into the data itself.
+                Name: "Cipher Reversal at Pivot Support — BTC/ETH Daily (Long) [v23p]",
                 Description:
                     "v23 base trigger (WT Cross Bull / Blue / Bull Divergence within 2) " +
                     "AND Anchor Wave < 0 AND PIVOTS.Pivot Zone < -0.5 (price within ATR-" +

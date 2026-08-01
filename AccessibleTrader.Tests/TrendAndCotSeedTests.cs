@@ -2,6 +2,7 @@ using System.Linq;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.StrategyLab.Catalogue;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -15,7 +16,7 @@ namespace AccessibleTrader.Tests
     public class TrendAndCotSeedTests
     {
         private static StrategySpec Seed(string id) =>
-            BuiltInStrategySeeds.GetAllSeeds().Single(s => s.Id == id);
+            StrategyCatalogue.AllSpecs().Single(s => s.Id == id);
 
         private static System.Collections.Generic.IEnumerable<ConditionLeaf> Leaves(ConditionNode node)
         {
@@ -29,7 +30,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TrendBaseline_IsAFaberCross_WithTrailingExit()
         {
-            var spec = Seed(BuiltInStrategySeeds.LongTrendBaselineId);
+            var spec = Seed(StrategyCatalogue.LongTrendBaselineId);
 
             var leaf = Assert.Single(Leaves(spec.Conditions));
             Assert.Equal("REGIME.AboveSma200", leaf.SignalDescriptorId);
@@ -45,7 +46,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void CotGatedSeed_ReferencesTheRealZScoreComponent()
         {
-            var spec = Seed(BuiltInStrategySeeds.LongV23cCipherBCotId);
+            var spec = Seed(StrategyCatalogue.LongV23cCipherBCotId);
             var leaves = Leaves(spec.Conditions).ToList();
 
             // The gate must reference the component name exactly as the indicator
@@ -71,7 +72,7 @@ namespace AccessibleTrader.Tests
             // 8-bar trigger windows (confirmation lag), the ABSENCE of the anchor
             // gate (it deleted the good half), and the ATR stop (swing-low stops
             // died to cycle-low retests).
-            var spec = Seed(BuiltInStrategySeeds.LongV24CycleLowReversalId);
+            var spec = Seed(StrategyCatalogue.LongV24CycleLowReversalId);
             var leaves = Leaves(spec.Conditions).ToList();
 
             var dcl = Assert.Single(leaves, l => l.SignalDescriptorId.StartsWith("LOUKAS_CYCLES."));

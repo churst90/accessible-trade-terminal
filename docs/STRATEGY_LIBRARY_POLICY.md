@@ -30,9 +30,36 @@ break-even; structure labels tested indistinguishable from random (`ConfluenceCo
 proximity turned out to be a lookahead artifact. Recommending a component we have shown does not
 work is worse than recommending nothing.
 
-The existing design was already careful in one respect worth preserving: seeds default to
-`IsAutoActivate = false`, and the seeder never resurrects a spec the user has deleted. Nothing ever
+The existing design was already careful in one respect worth preserving: seeds defaulted to
+`IsAutoActivate = false`, and the seeder never resurrected a spec the user had deleted. Nothing ever
 executed without explicit user action. The problem was the *implied endorsement*, not silent trading.
+
+## Second half, 2026-08-01: the specs moved out
+
+The library now ships **empty**. `JsonStrategyLibrary.Reload()` no longer seeds anything, and
+`BuiltInStrategySeeds` is gone from `AccessibleTrader.Core` — the thirty specs live in
+`AccessibleTrader.StrategyLab/Catalogue/` as the research catalogue, each with a recorded
+provenance. Full detail in [STRATEGY_CATALOGUE.md](STRATEGY_CATALOGUE.md).
+
+Why the seeding had to go too, having already removed the recommender: a library pre-filled with
+thirty specs at first launch *is* a recommendation, just a slower one. The user did not ask for
+them, cannot tell which have been tested, and reasonably assumes anything the application put there
+on its own is something the application stands behind. Of the thirty, one is control-tested, five
+carry a plain walk-forward, and six are recorded as falsified.
+
+What replaced it:
+
+- **Provenance on the spec.** `StrategySpec.Provenance` (`StrategyEvidenceLevel` + what it was
+  tested on, which controls ran, the verdict). The library table shows it for every row, including
+  **"Not recorded"** for user-built specs — a table where tested and untested strategies look
+  identical is the same implied endorsement in a quieter form.
+- **An import path.** `StrategyBundleService` reads a versioned JSON bundle. It never overwrites an
+  existing spec, forces `IsAutoActivate = false` so importing cannot start anything, refuses
+  Roslyn-source specs (importing a file must not compile and run code), and returns an error rather
+  than throwing on bad input.
+- **A first-class empty state.** A focusable heading, an explanation that empty is intentional, and
+  both routes out — Build Setup, or import.
+- **`StrategyLab catalogue list | export`.** The lab's side of the same contract.
 
 ## What was deliberately kept
 
@@ -41,7 +68,9 @@ is a neutral measurement, and it is the basis of the research lab's character cl
 single most robust finding in this project is that asset character determines which tool family
 applies. It was the *mapping from profile to a named strategy* that was an opinion, not the profiling.
 
-The 30 built-in seeds also remain, as a library the user browses. They are templates, not advice.
+**The specs themselves are kept, in the lab** — including the falsified ones. A recorded negative
+stops the next person re-running the same idea hopefully; deleting it just makes room for a
+rediscovery.
 
 ## Enforcement
 
@@ -50,18 +79,21 @@ The 30 built-in seeds also remain, as a library the user browses. They are templ
 - any per-asset recommender reappears in `Core`, `BlazorClient.Components` or `Maui`
 - a "Use Recommended" control is rendered in any `.razor`
 - `AssetClassifier.Classify` is deleted while removing the recommenders (guards over-correction)
+- a strategy catalogue or seeder reappears in shipping code (`BuiltInStrategySeeds`,
+  `EnsureSeeded`, `StrategyCatalogue.AllSpecs`)
+- the importer stops forcing `IsAutoActivate = false`
 
 Comments are stripped before matching, so a note *about* the removal does not trip the guard.
 
+`AccessibleTrader.Tests/CatalogueProvenanceTests.cs` fails the build if a catalogue spec has no
+provenance entry, if an entry names a spec that no longer exists, or if a verdict is too thin to
+say anything. Adding a strategy to the lab therefore requires stating what is known about it.
+
 ## Still to do
 
-The seeds themselves have not yet moved to the lab. They remain in
-`AccessibleTrader.Core/Services/Strategies/BuiltInStrategySeeds.cs` and are shared with
-`AccessibleTrader.StrategyLab/RunCommand.cs`, so relocating them is a real refactor rather than a
-deletion. The intended end state:
-
-- specs live in the lab as a versioned catalogue with **provenance per spec** — tested or untested,
-  against which controls, with what verdict (most will read "untested")
-- the terminal keeps the engine and gains a documented **strategy-import path**
-- an empty library gets a first-class empty state with its own screen-reader announcements and a
-  clear "import or create" route — not silence
+- **Library export.** The terminal cannot write a *bundle*. The older per-spec route still exists
+  (Build Setup → Export / Import latest, writing one `.atstrat` file into `{AppData}/exports/` and
+  reading back the most recent), but it handles a single spec at a time and cannot be pointed at an
+  arbitrary path — so moving a whole library between machines is still one-directional.
+- **`StrategyExecutionMode.Auto` on import** is preserved and counted, and the count is announced,
+  but there is no per-spec confirmation before a user starts one.

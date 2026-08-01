@@ -26,7 +26,7 @@ namespace AccessibleTrader.StrategyLab;
 ///
 /// All cells use Cipher B Money Flow Wave's true zero (-80 raw) and Cipher B Anchor Wave's
 /// natural zero (0 raw). The published cipher long stages are encoded as published in
-/// BuiltInStrategySeeds.cs lines 287-330.
+/// Catalogue/StrategyCatalogue.cs (formerly Core's BuiltInStrategySeeds).
 /// </summary>
 public static class StrategyBatteryCommand
 {

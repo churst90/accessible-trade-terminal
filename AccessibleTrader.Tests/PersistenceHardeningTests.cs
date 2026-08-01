@@ -219,15 +219,17 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset()
         {
-            // THE data-loss scenario from the audit: corrupt strategies.json used to be
-            // replaced by seeds-only on the next save, destroying every user strategy.
+            // THE data-loss scenario from the audit: a corrupt strategies.json used to be
+            // replaced on the next save, destroying every user strategy. Since 2026-08-01 the
+            // library no longer seeds anything, so the quarantine copy is the ONLY route back
+            // to the user's specs — this test matters more now, not less.
             string path = Path.Combine(_dir, "strategies.json");
             File.WriteAllText(path, "[ { \"Id\": \"user.precious\", TRUNCATED GARBAGE");
 
             var lib = new JsonStrategyLibrary(new FakePathService(_dir));
 
-            // The library starts from seeds (best-effort), but the user's original
-            // file is recoverable from quarantine…
+            // The in-memory library starts empty, but the user's original file is recoverable…
+            Assert.Empty(lib.All);
             var quarantined = Directory.GetFiles(_dir, "strategies.json.corrupt-*");
             Assert.Single(quarantined);
             Assert.Contains("user.precious", File.ReadAllText(quarantined[0]));
@@ -242,13 +244,26 @@ namespace AccessibleTrader.Tests
         public void StrategyLibrary_UserSpecSurvivesReload()
         {
             var lib = new JsonStrategyLibrary(new FakePathService(_dir));
-            int seedCount = lib.All.Count;
+            Assert.Empty(lib.All);   // a fresh library seeds nothing — see StrategyBundleTests
 
-            var spec = lib.All[0] with { Id = "user.mine", Name = "My Strategy" };
+            var spec = new AccessibleTrader.Sdk.Strategies.StrategySpec(
+                Id: "user.mine",
+                Name: "My Strategy",
+                Description: "built by the user",
+                Side: AccessibleTrader.Sdk.Plugins.OrderSide.Buy,
+                Conditions: new AccessibleTrader.Sdk.Strategies.ConditionLeaf(
+                    "leaf", "REGIME.AboveSma200", AccessibleTrader.Sdk.Strategies.LeafOperator.GreaterThan),
+                Risk: new AccessibleTrader.Sdk.Strategies.RiskPlan(
+                    new AccessibleTrader.Sdk.Strategies.StopSource(
+                        AccessibleTrader.Sdk.Strategies.StopSourceKind.AtrMultiple),
+                    new[] { new AccessibleTrader.Sdk.Strategies.TpLadderRung(
+                        AccessibleTrader.Sdk.Strategies.TargetSourceKind.RiskRewardMultiple) },
+                    new AccessibleTrader.Sdk.Strategies.PositionSizing(),
+                    new AccessibleTrader.Sdk.Strategies.EntryTrigger()));
             lib.Upsert(spec);
 
             var reloaded = new JsonStrategyLibrary(new FakePathService(_dir));
-            Assert.Equal(seedCount + 1, reloaded.All.Count);
+            Assert.Single(reloaded.All);
             Assert.NotNull(reloaded.GetById("user.mine"));
             Assert.Equal("My Strategy", reloaded.GetById("user.mine")!.Name);
         }

@@ -71,9 +71,12 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             try
             {
-                // NOTE: no early returns here — the missing/empty branches must still
-                // fall through to EnsureSeeded below, otherwise a fresh install (no
-                // strategies.json yet) starts with a completely empty library.
+                // A fresh install starts with an EMPTY library, deliberately. Until 2026-08-01
+                // this method ended with BuiltInStrategySeeds.EnsureSeeded(this), which wrote
+                // thirty research specs into every new library on first launch — research
+                // artifacts wearing the product's authority. The specs now live in the research
+                // lab's catalogue and reach a library only through an explicit import
+                // (StrategyBundleService). See docs/STRATEGY_LIBRARY_POLICY.md.
                 if (!File.Exists(_filepath))
                 {
                     _specs = new List<StrategySpec>();
@@ -89,16 +92,13 @@ namespace AccessibleTrader.Core.Services.Strategies
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load strategies: {ex.Message}");
-                // CRITICAL data-loss guard: without the quarantine, EnsureSeeded below
-                // repopulates seeds-only and the next Save() permanently overwrites the
-                // user's entire strategy library with the corrupt file's replacement.
+                // CRITICAL data-loss guard: a corrupt file is moved aside intact rather than
+                // being replaced. Reload() leaves an empty in-memory list, and the next Save()
+                // would otherwise overwrite the user's whole library with that empty list —
+                // the quarantine copy is the only remaining route back to their strategies.
                 CorruptFileQuarantine.MoveAside(_filepath, ex);
                 _specs = new List<StrategySpec>();
             }
-
-            // Insert any built-in starter specs that aren't already in the library. Idempotent —
-            // existing specs (including ones the user has edited) are preserved untouched.
-            BuiltInStrategySeeds.EnsureSeeded(this);
         }
     }
 }

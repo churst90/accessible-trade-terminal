@@ -8,6 +8,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.StrategyLab.Catalogue;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -108,7 +109,7 @@ namespace AccessibleTrader.Tests
             engine.AddStrategy(Arg.Any<ITradingStrategy>(), Arg.Any<IDictionary<string, object>>(),
                 Arg.Any<StrategyExecutionMode>(), Arg.Any<string?>(), Arg.Any<string?>()).Returns("new-id");
 
-            var spec = BuiltInStrategySeeds.GetAllSeeds().First();
+            var spec = StrategyCatalogue.AllSpecs().First();
             var library = Substitute.For<IStrategyLibrary>();
             library.All.Returns(new[] { spec });
             var factory = Substitute.For<IConfigurableStrategyFactory>();

@@ -1,5 +1,6 @@
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Core.Services.Strategies;
+using AccessibleTrader.StrategyLab.Catalogue;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.StrategyLab;
@@ -43,9 +44,9 @@ public static class RunCommand
         var spec = LabHost.FindBuiltInSpec(specId);
         if (spec == null)
         {
-            Console.Error.WriteLine($"Strategy spec id '{specId}' not found in BuiltInStrategySeeds.GetAllSeeds().");
-            Console.Error.WriteLine("Available built-in spec ids:");
-            foreach (var s in BuiltInStrategySeeds.GetAllSeeds())
+            Console.Error.WriteLine($"Strategy spec id '{specId}' is not in the catalogue.");
+            Console.Error.WriteLine("Available spec ids (or run `StrategyLab catalogue list --verbose`):");
+            foreach (var s in StrategyCatalogue.AllSpecs())
                 Console.Error.WriteLine($"  {s.Id}  ({s.Name})");
             return 2;
         }
@@ -53,6 +54,11 @@ public static class RunCommand
         Console.WriteLine($"Strategy: {spec.Name}");
         Console.WriteLine($"  id   = {spec.Id}");
         Console.WriteLine($"  side = {spec.Side}");
+        // What we already know, printed BEFORE the numbers. A run that reproduces a known
+        // in-sample result is not new evidence, and it is easy to forget that by the time the
+        // metrics appear.
+        if (spec.Provenance != null)
+            Console.WriteLine($"  known = {spec.Provenance.Evidence} · controls so far: {spec.Provenance.Controls}");
 
         var factory = host.Services.GetRequiredService<IConfigurableStrategyFactory>();
         var strategy = factory.Create(spec);

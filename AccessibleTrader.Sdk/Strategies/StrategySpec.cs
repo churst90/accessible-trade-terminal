@@ -31,6 +31,13 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// <c>IRoslynScriptingService</c> instead of going through
 /// <c>IConfigurableStrategyFactory</c>. Null for the default (ConditionTree) path.
 /// </param>
+/// <param name="Provenance">
+/// Optional evidence record: how far this spec has actually been tested, and the verdict.
+/// Null for anything the user built themselves — an unrecorded spec is honestly unrecorded,
+/// not implicitly untested-but-fine. Specs that arrive through
+/// <c>StrategyBundle</c> import carry the research catalogue's provenance so the library can
+/// show the user what the evidence is instead of presenting every spec as equally blessed.
+/// </param>
 public record StrategySpec(
     string Id,
     string Name,
@@ -42,5 +49,6 @@ public record StrategySpec(
     DateTime CreatedUtc = default,
     DateTime UpdatedUtc = default,
     bool IsAutoActivate = false,
-    string? RoslynSource = null
+    string? RoslynSource = null,
+    StrategyProvenance? Provenance = null
 );
