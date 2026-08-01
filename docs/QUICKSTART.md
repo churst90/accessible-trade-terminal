@@ -496,7 +496,7 @@ All modals and panels are opened by keyboard shortcut and navigated with Tab, Sh
 | Alt+T | Trading dashboard: view positions, orders, and account balance |
 | Alt+B | Order book: view the live bid/ask order book for the current symbol |
 | Alt+H | Toggle the heatmap overlay on/off |
-| Alt+S | Strategy manager: load, configure, and run automated strategies |
+| Alt+S | Strategy manager: build, import, and run automated strategies (your library starts empty — the app does not choose a strategy for you) |
 | Alt+W | Sound designer: customize indicator timbres and bell patch assignments |
 | Alt+, | Custom scripts panel: load and run PineScript or custom strategy scripts |
 | Ctrl+Alt+Shift+A | AI Analyst: AI-powered technical analysis of the current chart (see [Analysis, AI, and Context](#12-analysis-ai-and-context)) |
@@ -840,8 +840,10 @@ If you are opening Accessible Trader for the first time, here is a recommended s
 
 When you are ready to go deeper, the [User Manual](USER_MANUAL.md) covers trading,
 alerts (including Discord/Slack webhooks), automated strategies with spoken trade
-plans, and the Strategy Lab — the command-line research harness where strategies are
-validated before they ship (see the manual's Automation chapter for how the lab and
-the terminal divide the work).
+plans, and the Strategy Lab — the command-line research harness that holds this
+project's strategies and the evidence for each of them. The terminal ships the tools
+and starts with an empty strategy library; strategies get there because you built one
+or imported one, never because the application decided for you (see the manual's
+Automation chapter, and `STRATEGY_LIBRARY_POLICY.md` for why).
 
 Welcome to Accessible Trader.

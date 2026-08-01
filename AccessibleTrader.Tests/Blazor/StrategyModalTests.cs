@@ -268,6 +268,54 @@ public class StrategyModalTests
     }
 
     /// <summary>
+    /// The import form, driven end to end: paste a bundle, press Import, and the strategy is in
+    /// the library with its evidence intact and the outcome announced in a live region.
+    /// </summary>
+    [Fact]
+    public void StrategyModal_PastingABundleAndPressingImport_AddsTheStrategy()
+    {
+        var (ctx, _, lib, _, bus) = BuildContext();
+        var incoming = PickSeed() with
+        {
+            Id = "import.me",
+            Name = "Imported spec",
+            Provenance = new StrategyProvenance(
+                StrategyEvidenceLevel.WalkForward, "BTC daily", "walk-forward", "held up in both halves"),
+        };
+        string json = StrategyBundleService.Write(
+            new[] { incoming }, "test", "test-cat", new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("#strategy-import-paste").Change(json);
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Import").Click();
+
+        var saved = Assert.Single(lib.All);
+        Assert.Equal("Imported spec", saved.Name);
+        Assert.Equal(StrategyEvidenceLevel.WalkForward, saved.Provenance!.Evidence);
+
+        var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
+        Assert.Contains(status, s => s.Contains("1 strategy imported"));
+    }
+
+    /// <summary>
+    /// A bad paste is an ordinary event — an announced message, an untouched library, no crash.
+    /// </summary>
+    [Fact]
+    public void StrategyModal_ImportingRubbish_SaysSoAndChangesNothing()
+    {
+        var existing = PickSeed();
+        var (ctx, _, lib, _, bus) = BuildContext(seededLibrary: new[] { existing });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("#strategy-import-paste").Change("this is not a strategy file");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Import").Click();
+
+        Assert.Single(lib.All);
+        var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
+        Assert.Contains(status, s => s.Contains("Import failed"));
+    }
+
+    /// <summary>
     /// Every library row states its evidence, including "Not recorded" for a user-built spec.
     /// A table where tested and untested strategies look identical is the implied endorsement
     /// the 2026-08-01 split removed, just in a quieter form.

@@ -1,5 +1,33 @@
 # What's New
 
+## Unreleased — the app stops recommending strategies
+
+- **The strategy library ships empty now.** A fresh install opens the Strategy Manager
+  with an explanation and two routes — build one, or import one — instead of thirty
+  strategies from this project's own research. **If you are upgrading, nothing is
+  removed:** your library is exactly as you left it. The reason is simple. A shelf of
+  strategies the application put there itself reads as advice, and when they were
+  scored honestly only one of the thirty had ever beaten a real control, while six had
+  been tested and *failed*. Shipping that as a starting library was an endorsement
+  nobody had earned. (The auto-recommendation that used to highlight a "recommended"
+  strategy per symbol went in the same clear-out.)
+- **Every strategy now says how far it has been tested.** A new Evidence column in the
+  library: *Untested*, *In-sample only*, *Walk-forward*, *Control-tested*, *Fragile* or
+  *Falsified* — with what it was tested on, which controls were run, and the verdict in
+  a sentence, alongside the description. Strategies you built read **Not recorded**,
+  which is the truth about them. A tested strategy and an untested one should never
+  look alike in a list.
+- **Import strategies from a file.** At the bottom of the Library tab: choose a `.json`
+  strategy file or paste its contents. Importing never overwrites a strategy you
+  already have, never starts anything (everything arrives stopped), and refuses files
+  containing program code. You hear the full outcome — imported, skipped, rejected, and
+  how many are set to place orders rather than suggest them.
+- **The research catalogue lives in the Strategy Lab.** All thirty specs, with their
+  evidence, are in the command-line lab: `catalogue list --verbose` to read the
+  verdicts, `catalogue export` to write a file you can import. A bulk export by
+  evidence level will not hand you anything recorded as Fragile or Falsified — those
+  have to be asked for by name.
+
 ## 2.1.0 — market watch, screening, and a terminal that looks like one
 
 The big addition is **market watch**: a place to keep lists of symbols and to scan

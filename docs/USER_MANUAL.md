@@ -1611,6 +1611,36 @@ tabs: **Library** (your saved strategies, each with Start/Stop), **Build Setup**
 composer), **Active** (running strategies, with Pause/Resume), **Backtest**, and
 **Custom Script**.
 
+**Your library starts empty, and that is deliberate.** This application ships the
+tools — the chart, the indicators, the condition builder, the backtester — and leaves
+the choice of what to trade to you. It does not pick a strategy for you and it does
+not arrive pre-loaded with someone else's. Earlier versions seeded thirty strategies
+from the project's own research on first launch; that was removed, because a shelf of
+strategies the application put there itself reads as advice, and of those thirty only
+one had ever been tested against a proper control while six had been tested and
+*failed*. If you upgraded, nothing was taken away — your library still holds whatever
+it held before.
+
+Two ways to fill it. Build one in **Build Setup**, or import a strategy file.
+
+**Importing.** At the bottom of the Library tab, **Import strategies** takes a `.json`
+strategy file — either choose the file or paste its contents, whichever suits you —
+and adds what it contains. The rules are fixed and worth knowing: importing **never
+overwrites** a strategy you already have (a file that contains one you already hold is
+skipped, and you are told), it **never starts anything** (everything arrives stopped,
+however the file was saved), and it refuses strategies that carry program code, which
+belong in the Custom Script tab where you paste the code yourself. Afterwards you hear
+the whole outcome in one sentence — how many were imported, how many skipped, how many
+rejected, and how many are set to place orders rather than only suggest them.
+
+**The Evidence column.** Every row in the library says how far that strategy has
+actually been tested: *Untested*, *In-sample only*, *Walk-forward*, *Control-tested*,
+*Fragile*, or *Falsified* — with the detail alongside it, in the Description column:
+what it was tested on, which controls were run, and the verdict in a sentence, negative
+verdicts included. Strategies you built yourself read **Not recorded**, which is simply
+the truth about them. The point of the column is that a tested strategy and an untested
+one should never look alike in a list.
+
 To build one, the Build Setup tab gives the strategy a Name and a Side (Long or
 Short), then a condition tree you assemble from "+ Group" (AND/OR/NOT) and "+ Leaf"
 buttons — each leaf picks an indicator, an operator, and the component to test, with
@@ -1822,11 +1852,26 @@ optional command-line research harness that ships in the same repository — the
 where strategy ideas are tested *before* they earn a spot in the application. The
 division of labor is deliberate: the lab is for research, the terminal is for
 trading. Nothing you run in the lab touches your workspaces, keys, or positions, and
-nothing in the terminal depends on the lab being present. When a lab experiment
-survives validation, its logic is promoted into the terminal as a built-in strategy
-or indicator — that is where the built-in strategies' bracketed research tags
-([v13], [v23] and so on) come from, and why each one's description quotes its actual
-walk-forward record, including the weak spots.
+nothing in the terminal depends on the lab being present.
+
+The lab also **owns the strategies**. Its catalogue holds every spec this project has
+built — thirty of them, with their bracketed research tags ([v13], [v23] and so on) —
+each carrying a record of how far it was actually tested and what the verdict was. None
+of them is installed with the application. To put one in your own library you export it
+from the lab and import the file, which is the only route in:
+
+```
+dotnet run --project AccessibleTrader.StrategyLab -- catalogue list --verbose
+dotnet run --project AccessibleTrader.StrategyLab -- catalogue export \
+    --out my-strategies.json --id builtin.long.trend-baseline
+```
+
+`catalogue list --verbose` prints each strategy with what it was tested on, which
+controls were run, and the verdict — read it before you import anything. `--status`
+narrows the list to one evidence level (`--status Falsified` is a short and instructive
+list). Exporting in bulk by `--min-evidence` deliberately refuses to include anything
+recorded as Fragile or Falsified; if you want one of those, for instance to re-test it
+yourself, you have to name it with `--id`.
 
 You do not need the lab to validate a strategy day-to-day: the Strategy Manager's
 **Backtest** tab has walk-forward first-half / last-half buttons built in, which is
@@ -1840,6 +1885,8 @@ every command; the ones that matter:
 
 - `snapshot` — download bar history for a symbol into `strategy-lab-data/` (the
   lab always works from these saved snapshots, so experiments are reproducible).
+- `catalogue list` / `catalogue export` — see what the lab holds, what the evidence
+  for each spec is, and write a strategy file the terminal can import.
 - `cftc-cot` — download CFTC positioning history for named contracts.
 - `run` / `walk` — backtest one built-in strategy by its id against a snapshot;
   `walk` splits the data in half and reports each half separately, which is the

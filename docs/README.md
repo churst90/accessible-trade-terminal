@@ -101,7 +101,21 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status (2026-07-28)
+## Current Status (2026-08-01)
+
+**The terminal ships tools, not opinions.** The app no longer chooses a strategy for the user, and
+as of 2026-08-01 it no longer ships strategies at all: a fresh library opens **empty**, with an
+explanation and two routes — build one, or import one. The thirty research specs moved to the
+Strategy Lab's catalogue (`AccessibleTrader.StrategyLab/Catalogue/`), each carrying a recorded
+provenance: what it was tested on, which controls ran, and the verdict. Scored honestly that reads
+**1 control-tested, 5 walk-forward, 9 in-sample-only, 7 untested, 2 fragile, 6 falsified** — which
+is precisely why shipping them as a starting library was an endorsement nobody had earned.
+`StrategySpec.Provenance` travels with a spec through export and import so it can never arrive in a
+library anonymous, and the library table shows it on every row including "Not recorded" for
+user-built specs. Guard tests fail the build if a catalogue returns to shipping code, if a spec is
+added without a verdict, or if the importer stops forcing auto-activate off. See
+[`STRATEGY_LIBRARY_POLICY.md`](STRATEGY_LIBRARY_POLICY.md) for the reasoning and
+[`STRATEGY_CATALOGUE.md`](STRATEGY_CATALOGUE.md) for the format, the CLI, and how to add a spec.
 
 **2.1.0 shipped.** Market watch and screening, three analysis features, two chart modes, and an
 application-wide theming system — 36 commits since 2.0.1.

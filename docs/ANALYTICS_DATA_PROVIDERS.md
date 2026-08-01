@@ -232,6 +232,35 @@ no DI registration required.
    (or wire the build output via msbuild target — see existing plugins for the
    pattern).
 
+> ### ⚠ FMP is BROKEN for any key issued after 2025-08-31 (verified 2026-08-01)
+>
+> Both FMP providers target `https://financialmodelingprep.com/api/v3` (and `/api/v4` for the
+> analytics side). FMP retired those paths: they now answer **403 `Legacy Endpoint`** for every
+> key that did not have a subscription before **2025-08-31**. Keys older than that still work, so
+> this fails only for new users — the exact shape of silent read-path failure the provider audit
+> called out. Verified against a live key: `api/v3/quote`, `api/v3/stock/list`,
+> `api/v3/historical-price-full`, `api/v3/earnings-surprises`, `api/v3/economic_calendar` and
+> `api/v4/historical/earning_calendar` all return 403; the same key succeeds on `/stable/`.
+>
+> **The fix** is a base-URL and response-shape migration to `https://financialmodelingprep.com/stable`,
+> where paths take the symbol as a query parameter (`/stable/quote?symbol=AAPL`) rather than in
+> the path. What that key can reach, tested 2026-08-01:
+>
+> | works on `/stable/` | restricted (402) on this plan |
+> |---|---|
+> | `quote`, `profile`, `search-symbol` | `stock-list`, `company-screener` |
+> | `historical-price-eod/full` | `news/stock` |
+> | `income-statement`, `ratios`, `key-metrics`, `key-metrics-ttm` | `insider-trading/search` |
+> | `earnings` (**carries `epsActual` + `epsEstimated`**) | `institutional-ownership/*` |
+> | `analyst-estimates`, `grades-consensus`, `dividends` | `economic-calendar` |
+> | `treasury-rates`, `economic-indicators`, `sector-performance-snapshot` | `earnings-calendar` over a wide range |
+> | `cryptocurrency-list` | |
+>
+> Two consequences worth carrying into research planning: **macro consensus is not available**
+> (`economic-calendar` is 402), so the actual-minus-consensus macro-surprise test cannot be built
+> on FMP; but `/stable/earnings` returns actual *and* estimated EPS per quarter, so the same
+> hypothesis — the surprise moves price, not the date — **is** testable on company earnings.
+
 ### Equities — *FMP* (NEW, requires free API key)
 - **Auth:** free API key from financialmodelingprep.com (250 req/day, no CC)
 - **Coverage:** 70,000+ stocks across 60+ exchanges, 4,500+ cryptos, 1,500+ forex pairs, 40 commodities, indices

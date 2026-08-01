@@ -6,6 +6,44 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Terminal / lab split (2026-08-01)
+
+The app ships tools, not opinions. Reasoning in
+[STRATEGY_LIBRARY_POLICY.md](STRATEGY_LIBRARY_POLICY.md), mechanics in
+[STRATEGY_CATALOGUE.md](STRATEGY_CATALOGUE.md).
+
+- [x] **Per-asset auto-recommendation removed** from all four surfaces plus the
+  `AssetClassifier.RecommendV23*` / `GetV23*Preset*` machinery. `Classify()` kept —
+  profiling is measurement, the mapping to a named strategy was the opinion.
+- [x] **The thirty specs moved to the lab.** `BuiltInStrategySeeds` is gone from Core;
+  `StrategyLab/Catalogue/` owns them. `JsonStrategyLibrary` no longer seeds, so a fresh
+  install opens empty. Existing installs untouched.
+- [x] **Provenance per spec** (`StrategySpec.Provenance`): 1 ControlTested,
+  5 WalkForward, 9 InSampleOnly, 7 Untested, 2 Fragile, 6 Falsified.
+- [x] **Import path** (`StrategyBundleService`) + Library-tab import form + a real empty
+  state; `catalogue list` / `catalogue export` on the lab side.
+- [ ] **Bundle export from the terminal.** Import exists; the app can only write the old
+  single-spec `.atstrat` into `{AppData}/exports/`, so whole-library transfer between
+  machines is one-directional.
+- [ ] **Per-spec confirmation before starting an `ExecutionMode.Auto` import.** The count
+  is announced at import time; there is no second gate at Start.
+
+## FMP provider is broken for new keys (found 2026-08-01)
+
+- [ ] **Migrate `FmpProvider` + `FmpAnalyticsProvider` to `/stable/`.** Both target
+  `/api/v3` (and `/api/v4`), which FMP retired: **403 `Legacy Endpoint`** for any key
+  without a subscription predating 2025-08-31. Keys older than that still work, so this
+  fails only for new users — verified against a live key, which succeeds on `/stable/`.
+  Paths take the symbol as a query parameter there (`/stable/quote?symbol=AAPL`) and the
+  response shapes differ. Endpoint-by-endpoint status (what works, what is 402 on the
+  free plan) is tabulated in
+  [ANALYTICS_DATA_PROVIDERS.md](ANALYTICS_DATA_PROVIDERS.md#equities--fmp-new-requires-free-api-key).
+  Two research consequences: **no macro consensus** (`economic-calendar` is 402), but
+  `/stable/earnings` carries `epsActual` + `epsEstimated`, so the surprise-vs-date
+  hypothesis is testable on company earnings instead.
+
+---
+
 ## Post-2.0 polish batch (2026-07-26)
 
 Accessibility fixes surfaced in live use, plus one new provider.
