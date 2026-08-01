@@ -203,21 +203,23 @@ Nothing in the ledger is a speed edge.
 
 ## Sequence — what to do, in order
 
-**Step 1 · Prune the catalogue (half a day).** Now that provenance is recorded, act on it. Proposed
-disposition of the thirty:
+**Step 1 · Prune the catalogue. DONE 2026-08-01.** Provenance was recorded, then acted on:
 
-- **Delete (6):** the four Cipher-SR trilogies (v16 long/short, v17, v21) plus the two symmetric
+- **Deleted (6):** the four Cipher-SR trilogies (v16 long/short, v17, v21) plus the two symmetric
   reversal shorts recorded as negative-expectancy (v23 short, v23r short). Their premises are
   falsified and their entry stacks cannot be honestly backtested on a repainting provider. The
-  *record* stays in the ledger; the code goes.
-- **Demote to `Untested` and strip the numbers from their descriptions (9):** every cell promoted
+  verdicts moved to `CatalogueProvenance.Retired`, which a retired id still resolves against.
+- **Numbers stripped from the descriptions (9):** every cell promoted
   out of the 89-cell battery (v23p, v23h ×2, v23a, v23or, faber-pulse, bare-bull-pulse, v14, v23c).
-  Their quoted numbers are maxima over 89 draws and read as results.
-- **Keep as reference (5):** trend baseline (the benchmark everything must beat), v18 refined short,
+  Their quoted numbers are maxima over 89 draws and read as results; each description now says so and
+  points at its provenance record. They keep `InSampleOnly` rather than being relabelled `Untested`,
+  because they *were* run — calling a measured thing untested is the same sin in the other
+  direction.
+- **Kept as reference (5):** trend baseline (the benchmark everything must beat), v18 refined short,
   v13, pulse-v2, v24.
-- **Leave alone (10):** the untested ones, honestly labelled.
+- **Left alone (10):** the untested ones, honestly labelled.
 
-**Step 2 · Build the edge registry (2–3 days).** `edges.json` + a `lab edges` command: list, show
+**Step 2 · Build the edge registry (IN PROGRESS).** `edges.json` + a `lab edges` command: list, show
 one with its history, and `re-measure` to run each edge's own test against current data and append
 to its decay series. Seed it from the ledger above. **This is the keystone** — L2, L4 and L5 all
 read it, and it is the thing that makes research compound instead of accumulate.

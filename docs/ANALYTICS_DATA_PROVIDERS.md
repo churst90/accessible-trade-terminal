@@ -256,10 +256,30 @@ no DI registration required.
 > | `treasury-rates`, `economic-indicators`, `sector-performance-snapshot` | `earnings-calendar` over a wide range |
 > | `cryptocurrency-list` | |
 >
-> Two consequences worth carrying into research planning: **macro consensus is not available**
-> (`economic-calendar` is 402), so the actual-minus-consensus macro-surprise test cannot be built
-> on FMP; but `/stable/earnings` returns actual *and* estimated EPS per quarter, so the same
-> hypothesis — the surprise moves price, not the date — **is** testable on company earnings.
+> **Paying more does not fix this.** The 403 is an API-*version* retirement, not a subscription
+> gate — the same key at the same moment gets 403 on `/api/v3/quote` and 200 on `/stable/quote`.
+> The migration is required at every price point, including the free one.
+>
+> **What the free tier actually allows** (measured 2026-08-01, not inferred): EOD prices are fine —
+> 5,000 rows back to 2006 in one call. Fundamentals and earnings are capped at **`limit` ≤ 5**;
+> asking for more returns 402. So the free tier gives five quarters per symbol, which is enough to
+> *display* and useless for a study.
+>
+> **Plans** (personal use, billed annually; monthly billing costs up to ~34% more): Basic free
+> (250 calls/day) · **Starter $22/mo** (300 calls/min, 5 years of history, US coverage, annual
+> fundamentals and ratios, news, crypto/forex) · **Premium $59/mo** (750 calls/min, 30 years,
+> UK/Canada, full fundamentals, intraday, technical indicators, corporate calendars) ·
+> **Ultimate $149/mo** (global, transcripts, ETF/fund holdings, 13F, 1-minute intraday, bulk).
+> Insider trading and 13F sit in the upper tiers; FMP does not publish a per-endpoint plan badge,
+> so which tier first unlocks `economic-calendar` is unverified — Premium's "corporate calendars"
+> is the closest listed match.
+>
+> **Two consequences for research planning.** **Macro consensus is not available** on this key
+> (`economic-calendar` is 402), so the actual-minus-consensus macro-surprise test cannot be built on
+> FMP as things stand. But `/stable/earnings` returns actual *and* estimated EPS per quarter, so the
+> same hypothesis — the surprise moves price, not the date — **is** testable on company earnings,
+> with the caveat that five quarters per symbol is not an event study. Starter's five-year cap buys
+> a single regime; Premium's thirty years is the first tier that supports the test properly.
 
 ### Equities — *FMP* (NEW, requires free API key)
 - **Auth:** free API key from financialmodelingprep.com (250 req/day, no CC)

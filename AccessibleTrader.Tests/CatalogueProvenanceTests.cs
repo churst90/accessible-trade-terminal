@@ -99,16 +99,43 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void FalsifiedSpecsAreKept_NotQuietlyDeleted()
+        public void RetiredSpecsKeepTheirVerdict()
         {
-            // A recorded negative stops the next person re-running it hopefully. If this ever
-            // hits zero, check that a failed spec was not simply removed from the catalogue.
-            var falsified = CatalogueProvenance.SpecsWithProvenance()
-                .Where(s => s.Provenance!.Evidence == StrategyEvidenceLevel.Falsified)
-                .ToList();
+            // Deleting a falsified strategy is housekeeping; forgetting that it failed is how it
+            // gets reinvented. Six specs were retired on 2026-08-01 — their code is gone and their
+            // verdicts are not. Every retirement must carry a dated, sourced verdict.
+            Assert.NotEmpty(CatalogueProvenance.Retired);
+            Assert.All(CatalogueProvenance.Retired, r =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(r.Id));
+                Assert.False(string.IsNullOrWhiteSpace(r.Name));
+                Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", r.RetiredOn);
+                Assert.False(string.IsNullOrWhiteSpace(r.Provenance.Source));
+                Assert.True(r.Provenance.Verdict.Length >= 40);
+            });
+        }
 
-            Assert.NotEmpty(falsified);
-            Assert.All(falsified, s => Assert.False(string.IsNullOrWhiteSpace(s.Provenance!.Source)));
+        [Fact]
+        public void ARetiredIdStillResolvesToItsVerdict()
+        {
+            // A note, a memory or an old exported bundle can still name a retired spec. Looking it
+            // up should answer "this failed, here is why" rather than "unknown id".
+            var retired = CatalogueProvenance.Retired[0];
+
+            Assert.Null(CatalogueProvenance.For(retired.Id));                     // not in the live catalogue
+            Assert.NotNull(CatalogueProvenance.ForAnyEverKnown(retired.Id));      // still answerable
+            Assert.Equal(StrategyEvidenceLevel.Falsified,
+                CatalogueProvenance.ForAnyEverKnown(retired.Id)!.Evidence);
+        }
+
+        [Fact]
+        public void NoRetiredIdIsStillLiveInTheCatalogue()
+        {
+            var live = StrategyCatalogue.AllSpecs().Select(s => s.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var zombies = CatalogueProvenance.Retired.Where(r => live.Contains(r.Id)).Select(r => r.Id).ToList();
+
+            Assert.True(zombies.Count == 0,
+                "Recorded as retired but still shipping: " + string.Join(", ", zombies));
         }
     }
 }

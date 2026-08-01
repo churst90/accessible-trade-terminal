@@ -103,19 +103,21 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Export_AFalsifiedSpecStillGoesOutWhenNamedExplicitly()
+        public void Export_AnExcludedSpecStillGoesOutWhenNamedExplicitly()
         {
             // Deliberate is fine; accidental is not. Re-testing a recorded failure is legitimate
-            // research, so --id remains an unrestricted escape hatch.
-            string falsifiedId = CatalogueProvenance.SpecsWithProvenance()
-                .First(s => s.Provenance!.Evidence == StrategyEvidenceLevel.Falsified).Id;
+            // research, so --id remains an unrestricted escape hatch even for the categories
+            // --min-evidence refuses to include.
+            string excludedId = CatalogueProvenance.SpecsWithProvenance()
+                .First(s => s.Provenance!.Evidence is StrategyEvidenceLevel.Fragile
+                                                   or StrategyEvidenceLevel.Falsified).Id;
             string path = Out("known-bad.json");
 
-            int code = CatalogueCommand.Run(new[] { "export", "--out", path, "--id", falsifiedId });
+            int code = CatalogueCommand.Run(new[] { "export", "--out", path, "--id", excludedId });
 
             Assert.Equal(0, code);
             var bundle = StrategyBundleService.Read(File.ReadAllText(path), out _);
-            Assert.Equal(falsifiedId, Assert.Single(bundle!.Strategies).Id);
+            Assert.Equal(excludedId, Assert.Single(bundle!.Strategies).Id);
         }
 
         [Fact]

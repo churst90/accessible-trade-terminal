@@ -115,42 +115,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "stated rationale — divergence explains why the cross matters — is a story, not evidence.",
                 Source: null),
 
-            // ── Cipher SR trilogies: the structural premise was tested and failed ───────
-            [StrategyCatalogue.LongV16TrilogyId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
-                Controls: "lookahead audit; random-label control on structure",
-                Verdict: "The structural third of the trilogy does not exist: Cipher SR proximity was a " +
-                         "15-bar lookahead artifact, and structure labels tested indistinguishable from " +
-                         "random. The spec has never been re-run with the artifact removed, and the " +
-                         "provider still repaints, so it cannot be honestly backtested as written.",
-                Source: "StrategyLab ConfluenceCommand"),
-
-            [StrategyCatalogue.ShortV16TrilogyId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
-                Controls: "lookahead audit; random-label control on structure",
-                Verdict: "Same falsified structural premise as the long trilogy, on the side of the market " +
-                         "where crypto's upward drift is already against you.",
-                Source: "StrategyLab ConfluenceCommand"),
-
-            [StrategyCatalogue.LongV17GoldTrilogyId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
-                Controls: "lookahead audit",
-                Verdict: "Built on the same repainting SR leaf, plus a speculation about what the gold dot " +
-                         "reads internally that was never tested either.",
-                Source: "StrategyLab ConfluenceCommand"),
-
-            [StrategyCatalogue.LongV21MvrvCapitulationTrilogyId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "both components separately (2026-06, 2026-07)",
-                Controls: "lookahead audit on SR; exposure-matched null on MVRV",
-                Verdict: "Both halves failed: the SR leaf repaints, and MVRV-regime gating failed the " +
-                         "exposure-matched null 0 for 6 — being long during a low-MVRV period is exposure, " +
-                         "not timing. The intersection of two failed components is not a strategy.",
-                Source: "StrategyLab ConfluenceCommand; on-chain null study"),
-
             // ── Asymmetric short ────────────────────────────────────────────────────────
             [StrategyCatalogue.ShortV18RefinedShortId] = new(
                 StrategyEvidenceLevel.WalkForward,
@@ -205,14 +169,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "that, which makes this the base case rather than a strategy to run.",
                 Source: "StrategyLab run"),
 
-            [StrategyCatalogue.ShortV23CipherBWeeklyId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "BTC 4h and daily (2026-04)",
-                Controls: "backtest across both timeframes",
-                Verdict: "Negative expectancy on both timeframes. Recorded rather than deleted: symmetric " +
-                         "shorts on a reversal trigger are the single most repeated failure in this catalogue.",
-                Source: "StrategyLab run"),
-
             [StrategyCatalogue.LongV23rCipherBFaberId] = new(
                 StrategyEvidenceLevel.Untested,
                 TestedOn: "never run as a spec",
@@ -220,14 +176,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                 Verdict: "The Faber gate on v23 base. The gate is well supported elsewhere and the " +
                          "hypothesis is reasonable, but this combination was never actually run.",
                 Source: null),
-
-            [StrategyCatalogue.ShortV23rCipherBFaberId] = new(
-                StrategyEvidenceLevel.Falsified,
-                TestedOn: "BTC 4h and daily (2026-04)",
-                Controls: "backtest across both timeframes",
-                Verdict: "Negative expectancy on both timeframes — adding the regime gate did not rescue " +
-                         "the short side.",
-                Source: "StrategyLab run"),
 
             [StrategyCatalogue.ShortV23rfCipherBFundingId] = new(
                 StrategyEvidenceLevel.Untested,
@@ -319,6 +267,78 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "generally is a place this project has found artifacts before — treat with care.",
                 Source: "StrategyLab walk (Wave 4)"),
         };
+
+        /// <summary>
+        /// Specs whose CODE was deleted but whose VERDICT is kept. Retiring a falsified strategy is
+        /// housekeeping; forgetting that it failed is how it gets reinvented. Each entry records
+        /// what it was, why it went, and when — enough that someone proposing the same idea next
+        /// year finds the answer instead of re-running it.
+        /// </summary>
+        public sealed record RetiredSpec(string Id, string Name, string RetiredOn, StrategyProvenance Provenance);
+
+        private static readonly RetiredSpec[] _retired =
+        {
+            new("builtin.long.v16-trilogy", "Trilogy Long (Cipher A + B + SR)", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
+                Controls: "lookahead audit; random-label control on structure",
+                Verdict: "The structural third of the trilogy does not exist: Cipher SR proximity was a " +
+                         "15-bar lookahead artifact, and structure labels tested indistinguishable from " +
+                         "random. The provider still repaints, so the spec could not be honestly " +
+                         "backtested as written — which is why it was deleted rather than re-run.",
+                Source: "StrategyLab ConfluenceCommand")),
+
+            new("builtin.short.v16-trilogy", "Trilogy Short", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
+                Controls: "lookahead audit; random-label control on structure",
+                Verdict: "Same falsified structural premise as the long trilogy, on the side of the market " +
+                         "where crypto's upward drift is already against you.",
+                Source: "StrategyLab ConfluenceCommand")),
+
+            new("builtin.long.v17-gold-trilogy", "Gold Trilogy", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "the SR component, via ConfluenceCommand (2026-06)",
+                Controls: "lookahead audit",
+                Verdict: "Built on the same repainting SR leaf, plus a speculation about what the gold dot " +
+                         "reads internally that was never tested either.",
+                Source: "StrategyLab ConfluenceCommand")),
+
+            new("builtin.long.v21-mvrv-capitulation-trilogy", "MVRV Capitulation Trilogy", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "both components separately (2026-06, 2026-07)",
+                Controls: "lookahead audit on SR; exposure-matched null on MVRV",
+                Verdict: "Both halves failed: the SR leaf repaints, and MVRV-regime gating failed the " +
+                         "exposure-matched null 0 for 6 — being long during a low-MVRV period is exposure, " +
+                         "not timing. The intersection of two failed components is not a strategy.",
+                Source: "StrategyLab ConfluenceCommand; on-chain null study")),
+
+            new("builtin.short.v23-cipherb-weekly", "Cipher Reversal — Universal (Short)", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "BTC 4h and daily (2026-04)",
+                Controls: "backtest across both timeframes",
+                Verdict: "Negative expectancy on both timeframes. Symmetric shorts on a reversal trigger " +
+                         "are the single most repeated failure in this project — five separate attempts, " +
+                         "none positive. The one short that ever worked (v18) is not symmetric: it fades " +
+                         "rallies in a confirmed bear regime with longs still paying funding.",
+                Source: "StrategyLab run")),
+
+            new("builtin.short.v23r-cipherb-faber", "Cipher Reversal + Trend Filter (Short)", "2026-08-01", new(
+                StrategyEvidenceLevel.Falsified,
+                TestedOn: "BTC 4h and daily (2026-04)",
+                Controls: "backtest across both timeframes",
+                Verdict: "Negative expectancy on both timeframes — adding the regime gate did not rescue " +
+                         "the short side, which is the useful part of the result.",
+                Source: "StrategyLab run")),
+        };
+
+        /// <summary>Every retired spec, newest housekeeping first in file order.</summary>
+        public static IReadOnlyList<RetiredSpec> Retired => _retired;
+
+        /// <summary>Provenance for a spec id, live or retired — so a stale reference still resolves.</summary>
+        public static StrategyProvenance? ForAnyEverKnown(string specId) =>
+            For(specId) ?? _retired.FirstOrDefault(r =>
+                string.Equals(r.Id, specId, StringComparison.OrdinalIgnoreCase))?.Provenance;
 
         /// <summary>Provenance for a spec id, or null if the id has no entry.</summary>
         public static StrategyProvenance? For(string specId) =>
