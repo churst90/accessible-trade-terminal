@@ -193,6 +193,19 @@ try
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "ml-data.csv"),
         "catalogue" or "catalog" => CatalogueCommand.Run(args.Skip(1).ToArray()),
         "edges" or "edge" => EdgesCommand.Run(args.Skip(1).ToArray()),
+        "sweep" => SweepReclaimCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
+        "mtf-size" => MtfSizingCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
+        "risk-metric" => RiskMetricCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--horizon"), out var rmh) ? rmh : 90),
+        "targets" => TargetsCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
         "approach" => ApproachCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

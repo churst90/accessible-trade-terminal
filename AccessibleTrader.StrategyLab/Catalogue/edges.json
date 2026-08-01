@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.4",
+  "registryVersion": "2026-08-01.6",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
   "edges": [
     {
@@ -841,14 +841,21 @@
         "notes": "THE UNTESTED CORNER. Twenty edges in this registry and not one is about SIZING. The claim is a conditional-expectancy test: bucket trades by how many timeframes agree and compare per-trade R. Watch for the tautology trap — if the bias filter and the entry are derived from the same price series, agreement is partly arithmetic."
       },
       "effect": {
-        "measure": "per-trade-R-by-agreement-count",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "R-per-trade-full-minus-weak-agreement",
+        "value": 0.037,
+        "unit": "R equities (crypto +0.765)",
+        "p": 0.324,
+        "n": 8782,
+        "notes": "Null, and THE OVERLAP CHECK IS THE FINDING: 'close above the 50-bar mean' is true at 100.0% of entries against a 23-30% base rate, because a z-score cross upward mechanically implies it. That condition cannot discriminate between entries, so '3 of 3' is really '2 of 2'. With that understood equities are flat (+0.313/+0.308/+0.349 across buckets) and crypto is non-monotone with the MIDDLE bucket best. Neither survives a random-subset null. FIRST MEASUREMENT THIS LAB HAS MADE ABOUT SIZING. HONEST LIMIT: one entry on daily bars, versus his 5-minute entries under weekly/daily/30m structure."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "overlap-check-condition-base-rate-at-entries-vs-all-bars",
+        "random-subset-null",
+        "two-asset-classes"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [
         {
@@ -857,7 +864,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -866,8 +873,8 @@
         "quote": "some of analysis is not just for me to decide if I'm going to buy or sell but it's more like me shaving off risk ... if everything is in structure everything is bullish, beautiful zones, I'm going to risk more; if there's things that doesn't tick the box I'm shaving off my risk"
       },
       "reMeasure": {
-        "command": "mtf-sizing (to build)",
-        "implemented": false
+        "command": "mtf-size",
+        "implemented": true
       }
     },
     {
@@ -933,7 +940,7 @@
         ],
         "horizonBars": 10,
         "timeframe": "30m",
-        "notes": "Cheap: tag each level by the session it formed in, then compare respect rates — the existing respect harness with one extra column. Confound to control: session also determines volatility and volume, so match on those before claiming the session did anything."
+        "notes": "Cheap: tag each level by the session it formed in, then compare respect rates — the existing respect harness with one extra column. Confound to control: session also determines volatility and volume, so match on those before claiming the session did anything. BLOCKED ON DATA 2026-08-01: the claim is about FX sessions and this lab holds no FX snapshots. Crypto trades continuously so a session tag there tests something else. Needs an FX intraday source before it can be run."
       },
       "effect": {
         "measure": "respect-rate-by-formation-session",
@@ -980,17 +987,26 @@
         "notes": "Algorithmically definable, which most of this video's 'liquidity' language is not: equal highs within a tolerance, a breach, a close back inside within N bars. Two controls needed — random entries at the same timestamps, and the same entry WITHOUT the reclaim requirement, which isolates the part he says matters."
       },
       "effect": {
-        "measure": "per-trade-R-vs-random-and-vs-breach-only",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "R-per-trade-reclaim-minus-breach",
+        "value": -0.026,
+        "unit": "R equities (crypto 1d +0.754, crypto 4h +0.070)",
+        "p": null,
+        "n": 16053,
+        "notes": "Not supported. The one arm resembling the claim -- crypto daily, +0.754 R for waiting -- is the SMALLEST sample (n=241) and is contradicted by both larger ones: on crypto 4h both real arms underperform random entries, and on equities the difference has the wrong sign at a fortieth of the size. Even at face value, almost all of the crypto-daily gap is the breach arm being bad (-0.637 vs a -0.137 random floor) rather than the reclaim being good: waiting avoids a poor entry rather than creating a good one, which is the polarity finding restated -- do not short a crypto breakout."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "random-entry-floor-matched-count-and-direction",
+        "breach-without-reclaim-arm-isolating-the-claimed-ingredient",
+        "two-timeframes",
+        "two-asset-classes",
+        "fixed-horizon-so-no-exit-rule-contaminates-it"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "",
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -999,8 +1015,8 @@
         "quote": "you have series of equal highs, a move up, and then back into the range — that move back into the range is a confirmation of my entry ... I need the closed candle, not the open candle"
       },
       "reMeasure": {
-        "command": "sweep-reclaim (to build)",
-        "implemented": false
+        "command": "sweep",
+        "implemented": true
       }
     },
     {
@@ -1018,14 +1034,22 @@
         "notes": "DIRECTLY CONTRADICTS our exit finding, which is what makes it worth running. We measured that fixed-percentage scale-outs destroy 95-100% of the return because the R-distribution has a fat right tail — but that was CRYPTO DAILY. His market is intraday FX and indices. The real question underneath is not '1:3 or not' but 'does the fat right tail exist in intraday FX at all?' Measure the R-distribution FIRST, per asset class, then the target choice answers itself. Note he keeps a 10-20% runner at breakeven, which is a hedge against exactly the tail we measured."
       },
       "effect": {
-        "measure": "accumulated-R-by-target-multiple",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "R-per-trade-by-target-vs-no-target",
+        "value": 0.155,
+        "unit": "R at 1:3 crypto (no target: +3.265)",
+        "p": null,
+        "n": 8962,
+        "notes": "Falsified in both classes. Total R rises monotonically 1:1 through 1:8 and letting the signal decide beats every fixed target: crypto +3.265 R/trade vs +0.155 at 1:3, equities +0.321 vs +0.134. The distribution says why before any target is tested -- the median trade LOSES (-0.75R) and the top 10% of trades carry 101% (crypto) and 245% (equities) of total R, so in equities the other 90% collectively lose money. Extends EXIT_FINDINGS: the fat right tail is not a crypto peculiarity. HONEST LIMIT: his market is intraday FX with 15-pip stops and we have no FX data; this shifts the burden rather than settling it."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "path-dependent-target-evaluation-stop-checked-first",
+        "R-distribution-measured-before-choosing-a-target",
+        "two-asset-classes",
+        "no-target-arm"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [
         {
@@ -1034,7 +1058,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1043,8 +1067,8 @@
         "quote": "I tried my strategy with 1:1, 1:2, 1:8 over hundreds of trades. 1:3 is my ideal ... 1:3 had the best, not the win rate, but best profit when it's accumulated over many trades"
       },
       "reMeasure": {
-        "command": "exits --targets",
-        "implemented": false
+        "command": "targets",
+        "implemented": true
       }
     },
     {
@@ -1063,17 +1087,23 @@
         "notes": "Has a clean prior test: if trade outcomes are serially INDEPENDENT the rule cannot change expectancy, only variance — so measure the autocorrelation of trade outcomes first. If it is zero, the rule is behavioural rather than statistical, which is a legitimate reason to keep it and a dishonest reason to claim an edge from it."
       },
       "effect": {
-        "measure": "outcome-autocorrelation-then-expectancy-delta",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "lag-1-autocorrelation-of-win-loss",
+        "value": -0.035,
+        "unit": "crypto (equities -0.040)",
+        "p": 0.53,
+        "n": 8962,
+        "notes": "No statistical basis: outcomes are serially independent, slightly negative if anything, so a stop-after-N-losses rule cannot move expectancy -- only variance. That makes it a BEHAVIOURAL rule, which is a good reason to keep it and a dishonest reason to claim an edge from it."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "shuffle-control-on-the-win-loss-sequence",
+        "prior-test-before-testing-the-rule-itself"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "",
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1082,8 +1112,8 @@
         "quote": "if I have two losses in a row I'm done for the day, and if I have four losses in a row I'm done for the week"
       },
       "reMeasure": {
-        "command": "streak-rules (to build)",
-        "implemented": false
+        "command": "targets",
+        "implemented": true
       }
     },
     {
@@ -1102,14 +1132,22 @@
         "universeMin": 20
       },
       "effect": {
-        "measure": "decile-forward-return-spread-vs-sma-baseline",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "decile-spread-of-90-bar-forward-return",
+        "value": 0.03,
+        "unit": "pts, crypto expanding-window",
+        "p": null,
+        "n": 358703,
+        "notes": "THE LOOKAHEAD PREMIUM IS 2.3x: ranking against the whole series (what a published rainbow chart shows) gives a 6.9-point spread in crypto; ranking against prior data only, which is all a trader can do, gives 3.0. More than half the picture's apparent power comes from knowing the future. The 0-1 normalisation then adds almost nothing over its own raw input (3.0 vs 2.6 for plain log price/MA) -- the same control that killed the on-chain metrics, landing the same way. Equities are a null with the WRONG SIGN (-0.8 pts, high-risk decile has higher forward returns, 2 of 9 steps monotone), which is the asset-class polarity finding reappearing. What remains is a weak crypto signal that is mostly 'price is far above its 200-day average', across three cycles."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "expanding-window-vs-full-sample-lookahead",
+        "raw-input-baseline",
+        "monotonicity-across-deciles",
+        "two-asset-classes"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [
         {
@@ -1123,7 +1161,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "practitioner",
         "who": "Benjamin Cowen (risk metric / rainbow chart)",
@@ -1132,8 +1170,8 @@
         "quote": "PARAPHRASE, no transcript captured: a 0-1 risk value per asset, rendered as rainbow bands, built from price relative to long-term moving averages and normalised over the asset's history with a diminishing-returns correction for later cycles."
       },
       "reMeasure": {
-        "command": "risk-metric (to build)",
-        "implemented": false
+        "command": "risk-metric",
+        "implemented": true
       }
     },
     {

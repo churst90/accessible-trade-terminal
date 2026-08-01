@@ -40,7 +40,11 @@ this table is a 0.37% per-30-day spread. Edges here are attention-direction, not
 
 ## The nulls — tested and dead
 
-Recorded so nobody re-runs them hopefully. **Six of these looked good until one specific control.**
+Recorded so nobody re-runs them hopefully. **Most of these looked good until one specific control** —
+and three of the 2026-08-01 batch are the same mistake in different clothes: the thing that would
+produce the observed pattern *without* the claimed mechanism was never built. A fat tail makes any
+target look good against a smaller target; a z-cross makes "above the 50-bar mean" look like
+agreement; full-sample ranking makes any extension metric look prescient.
 
 | # | Claim | Verdict | What killed it |
 |---|---|---|---|
@@ -55,7 +59,12 @@ Recorded so nobody re-runs them hopefully. **Six of these looked good until one 
 | 18 | **Sentiment (Fear & Greed) adds orthogonal information** | **Redundant** | The gated spec was byte-identical to the ungated one: when the oscillator buys at a cycle bottom at support, you are already in extreme fear |
 | 19 | **Weekly bullish engulfing predicts the next week** | **Null** | Equities −2.31 pts with 0 of 39 instruments significant (≈2 expected by chance); the crypto arm's +3.21 is an era artifact (H1 +10.4, H2 −1.8). The cheap alternative — "last week simply closed up" — is flat too |
 | 20 | **How price approaches a level predicts whether it holds** | **Null**, both halves | Matched random lines. Real levels hold 46.2% vs random 46.7%, and every conditioning bucket lands inside ±1.2 pts of its random control. Loitering does lower the hold rate — and lowers it identically for random lines |
-| 21 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
+| 21 | **A fixed 1:3 reward-to-risk target** | **Falsified**, both classes | Total R rises monotonically 1:1→1:8 and no target beats the signal exit (crypto +3.265 vs +0.155 at 1:3). The median trade loses; the top 10% carry 101% (crypto) and **245%** (equities) of total R |
+| 22 | **Stopping after two consecutive losses** | **No statistical basis** | Lag-1 autocorrelation of win/loss −0.035 / −0.040, p 0.53 / 0.999 against a shuffle. Outcomes are independent, so the rule moves variance, not expectancy — behavioural, not an edge |
+| 23 | **Sizing up when timeframes agree** | **Null** | The overlap check is the finding: "above the 50-bar mean" is true at **100%** of entries by construction. Expectancy is flat across agreement buckets (equities +0.037 R, p = 0.324) |
+| 24 | **A 0–1 rank-normalised risk metric** | **Falsified** | Ranking against the full series (what a published rainbow chart shows) gives 2.3× the spread of an honest expanding window; the normalisation then adds almost nothing over its own raw input (3.0 vs 2.6 pts); equities are a null with the wrong sign |
+| 25 | **Sweep-and-reclaim entry** | **Not supported** | The one arm resembling the claim is the smallest sample and is contradicted by two larger ones; most of its gap is the breach arm being *bad*, not the reclaim being good |
+| 26 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
 
 ---
 
@@ -94,7 +103,7 @@ lookahead · a test that shares the code's misunderstanding.
 
 ## Sources
 
-`APPROACH_AND_WEEKLY_FINDINGS.md` · `XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
+`APPROACH_AND_WEEKLY_FINDINGS.md` · `RISK_TARGET_AND_METRIC_FINDINGS.md` · `XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
 `VOLUME_FINDINGS.md` · `EXIT_FINDINGS.md` · `FOMC_FINDINGS.md` · `MACRO_EVENT_FINDINGS.md` ·
 `ONCHAIN_FINDINGS.md` · `CROWDING_FINDINGS.md` · `POSITIONING_AND_EVENTS_FINDINGS.md` ·
 `TRADING_CROSS_FINDINGS.md` · `CYCLE_FINDINGS.md` · `CONFLUENCE_SENTIMENT_FINDINGS.md` ·
