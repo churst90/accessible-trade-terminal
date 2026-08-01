@@ -89,6 +89,13 @@ Pick the ones that apply. Each has changed a verdict here.
   instead of a failure to beat a coin.
 - **Parameter stability is NOT evidence the parameter is right.** Best-by-return chose window 20 in
   five of six folds — very stable — and was still beaten by random. Noise can have a persistent shape.
+- **Random-exit control.** To test an exit, hold the entry fixed and compare against a random exit
+  drawn from the SAME holding-period distribution. Bars-in-trade matched, only timing randomised.
+  Without it, a rule that just holds longer in a rising asset looks skilful — ATR-trail-5 posted the
+  highest BTC equity of any rule and scored 1.02× against this control.
+- **Measure the R-distribution before choosing an exit.** A fat right tail must be allowed to run;
+  fixed-percentage scale-outs destroyed 95–100% of the BTC trend edge because its trades average
+  +8.15R at a 47% win rate. Exit design follows the distribution, not preference.
 - **Count your tests.** Running 4 assets × 2 claims and reporting the one p = 0.03 is a false
   positive waiting to happen — at α = 0.05 you expect 0.4 of them. Say how many tests were run and
   what a corrected threshold would be.
@@ -177,6 +184,10 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
   On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
   p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
+- **Exits: skill exists, crypto-only, and it is the entry signal in reverse.** Signal exit beats a
+  random same-length exit 32× on BTC (p=0.003) and 4.35× on ETH (p=0.034); nothing beats random on
+  SPY or QQQ. All mechanical exits (fixed R, ATR trails, time stops) are worthless everywhere.
+  (`docs/EXIT_FINDINGS.md`)
 - **BTC trend-following: the family works, the tuning does not.** Out-of-sample ~1.5–1.8× hold at
   ~40% exposure and about half the drawdown — but a random parameter pick beat the grid search, so
   the specific window/entry/exit values carry nothing. The 6× in `BTC_STRATEGY.md` is in-sample.
