@@ -35,7 +35,8 @@ this table is a 0.37% per-30-day spread. Edges here are attention-direction, not
 | # | Claim | Verdict | The control that decided it |
 |---|---|---|---|
 | 8 | **Buy dips only above the 200MA** | **Fragile.** Real (+0.107R vs +0.007R for random entries with the same filter) but only **21% retained** under noise injection, against 86% for cross-sectional momentum | Random-entry baseline, then noise injection |
-| 9 | **The Trading Cross z-score rule** | **Real, but it is drawdown avoidance, not timing.** 10/10 crypto beat hold, 0/3 traditional | Exposure-matched timing null (p = 0.001) — the block bootstrap could not decide it |
+| 9 | **Crypto bearish engulfing weekly → down week** | **Interesting, not established.** +8.30 pts, pooled p = 0.013, cheap alternative flat (+0.04), holds in both eras and strengthens (H1 +5.2, H2 +12.0) — but four pooled tests put Bonferroni at 0.0125, and ten crypto instruments are not ten independent samples | Random-week null, cheap alternative, era split — needs an independent asset set with a correlation-preserving null |
+| 10 | **The Trading Cross z-score rule** | **Real, but it is drawdown avoidance, not timing.** 10/10 crypto beat hold, 0/3 traditional | Exposure-matched timing null (p = 0.001) — the block bootstrap could not decide it |
 
 ## The nulls — tested and dead
 
@@ -52,7 +53,9 @@ Recorded so nobody re-runs them hopefully. **Six of these looked good until one 
 | 16 | **Cipher confluence (A + B + SR)** | **Falsified** | Eight versions walked forward to break-even; structure labels indistinguishable from random; SR proximity was a 15-bar lookahead |
 | 17 | **Hurst exponent as a cross-asset classifier** | **Useless** | 0.57–0.60 on all 17 asset/timeframe combinations — no discrimination |
 | 18 | **Sentiment (Fear & Greed) adds orthogonal information** | **Redundant** | The gated spec was byte-identical to the ungated one: when the oscillator buys at a cycle bottom at support, you are already in extreme fear |
-| 19 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
+| 19 | **Weekly bullish engulfing predicts the next week** | **Null** | Equities −2.31 pts with 0 of 39 instruments significant (≈2 expected by chance); the crypto arm's +3.21 is an era artifact (H1 +10.4, H2 −1.8). The cheap alternative — "last week simply closed up" — is flat too |
+| 20 | **How price approaches a level predicts whether it holds** | **Null**, both halves | Matched random lines. Real levels hold 46.2% vs random 46.7%, and every conditioning bucket lands inside ±1.2 pts of its random control. Loitering does lower the hold rate — and lowers it identically for random lines |
+| 21 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
 
 ---
 
@@ -80,7 +83,10 @@ same result without the claimed mechanism**, and build that first as a named con
 (`close > SMA(200)`) · within-class and demeaned tests · noise injection · random-parameter arms ·
 Freedman–Lane permutation for partial correlations · surrogate series from shuffled returns.
 
-**Traps that produced false results here:** shuffling a strategy's own returns (order was never the
+**Traps that produced false results here:** a control seeded from `string.GetHashCode()`, which .NET
+randomises per process — the same bucket printed −5.6 and then −1.8 on consecutive runs of identical
+code, and the first number would have been reported (run any study twice and diff) · shuffling a
+strategy's own returns (order was never the
 question — shuffle the *input*) · block-bootstrap surrogates for a partial-exposure rule (the null
 median sits near 0.05) · full-sample max drawdown as a cross-sectional variable · the same
 instrument from two providers · a signal and its gate derived from the same series · confirmation
@@ -88,7 +94,7 @@ lookahead · a test that shares the code's misunderstanding.
 
 ## Sources
 
-`XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
+`APPROACH_AND_WEEKLY_FINDINGS.md` · `XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
 `VOLUME_FINDINGS.md` · `EXIT_FINDINGS.md` · `FOMC_FINDINGS.md` · `MACRO_EVENT_FINDINGS.md` ·
 `ONCHAIN_FINDINGS.md` · `CROWDING_FINDINGS.md` · `POSITIONING_AND_EVENTS_FINDINGS.md` ·
 `TRADING_CROSS_FINDINGS.md` · `CYCLE_FINDINGS.md` · `CONFLUENCE_SENTIMENT_FINDINGS.md` ·

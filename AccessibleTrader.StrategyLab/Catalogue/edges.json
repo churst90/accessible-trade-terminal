@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.3",
+  "registryVersion": "2026-08-01.4",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
   "edges": [
     {
@@ -796,16 +796,24 @@
       },
       "effect": {
         "measure": "conditional-minus-unconditional-up-week-rate",
-        "value": null,
-        "unit": "not yet measured"
+        "value": -0.0231,
+        "unit": "points, equities pooled",
+        "p": 0.995,
+        "n": 77331,
+        "notes": "Equities -2.31 pts, 11/39 instruments positive, 0/39 significant where ~2 were expected by chance. Crypto +3.21 pts but 5/10 positive and the era split kills it: H1 +10.4, H2 -1.8. The cheap alternative (last week simply closed up) is flat everywhere too, so there is no plain weekly momentum either."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "random-week-null-5000-draws",
+        "cheap-alternative-plain-up-week",
+        "era-split",
+        "pooled-permutation-preserving-per-asset-base-rates"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "",
+      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -814,8 +822,8 @@
         "quote": "if I see that the previous weekly candle is bullish engulfing it's more likely than not that the next week is also going to have more bullishness than bearishness ... is there a chance the next candle is bearish? yes, but it's way lower chance"
       },
       "reMeasure": {
-        "command": "weekly-persistence (to build)",
-        "implemented": false
+        "command": "weekly-persistence",
+        "implemented": true
       }
     },
     {
@@ -877,14 +885,22 @@
         "notes": "CHEAPEST REAL TEST WE CAN RUN — the respect harness (RespectCommand, LevelRespectAnalyzer) already measures whether a level holds, with surrogate controls. This adds one conditioning variable. Note the internal tension in the source: he shaves risk on one-way momentum INTO the level, yet says he prefers aggressive approaches over price hanging around the level. Both halves are separately measurable."
       },
       "effect": {
-        "measure": "respect-rate-by-approach-character",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "real-minus-random-hold-rate-by-approach-bucket",
+        "value": -0.012,
+        "unit": "points, largest daily bucket",
+        "p": 0.708,
+        "n": 22898,
+        "notes": "Every daily bucket is a null; the largest real-vs-random difference is -1.2 pts at p=0.708. Real levels DO hold less after loitering (47.5% -> 42.7%) and random lines do exactly the same, so the conditioning describes the measurement. Baseline: real levels 46.2% vs random lines 46.7% -- real levels are not better than random lines at all, which independently reproduces the fib finding under a different respect definition. A 4h crypto arm shows three of six buckets at p<0.05 with inconsistent signs; recorded, not believed."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "matched-random-levels-log-uniform",
+        "two-proportion-test-per-bucket",
+        "two-timeframes",
+        "no-lookahead-pivot-confirmation-delay"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [
         {
@@ -893,7 +909,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -902,8 +918,8 @@
         "quote": "if it's slowly approaching my supply or demand there's no momentum against me, I'm going to continue to hold full risk ... if the price is just going crazy into my supply and demand, momentum is against me, I'm going to shave off my risk. Also I don't like when the price hangs around my liquidity too long because that ranging is just accumulation of stop losses"
       },
       "reMeasure": {
-        "command": "respect --conditioned-on approach",
-        "implemented": false
+        "command": "approach",
+        "implemented": true
       }
     },
     {
@@ -1118,6 +1134,49 @@
       "reMeasure": {
         "command": "risk-metric (to build)",
         "implemented": false
+      }
+    },
+    {
+      "id": "crypto-bearish-engulfing-week",
+      "title": "A bearish engulfing weekly candle precedes a down week in crypto",
+      "claim": "In crypto, the week after a bearish engulfing weekly candle closes down more often than that asset's unconditional down-week rate.",
+      "family": "structure",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 1,
+        "timeframe": "1w",
+        "notes": "FOUND WHILE TESTING THE OPPOSITE. The bullish claim from the video is dead; its mirror was free to test and is the only arm that survived anything. Consistent with this project's repeated finding that crypto's two directions are not mirrors of each other."
+      },
+      "effect": {
+        "measure": "conditional-minus-unconditional-down-week-rate",
+        "value": 0.083,
+        "unit": "points",
+        "p": 0.013,
+        "n": 209,
+        "notes": "Cheap-alternative control (plain down week) is +0.04 pts, so the structure is doing the work and not momentum. Era split holds and strengthens: H1 +5.2, H2 +12.0. THREE REASONS IT IS NOT ESTABLISHED: four pooled tests were run so the Bonferroni threshold is 0.0125 and 0.013 sits just outside; the ten crypto instruments are not ten independent samples because they move together, which narrows the pooled null dishonestly; and 209 signals is a small base."
+      },
+      "controls": [
+        "random-week-null-5000-draws",
+        "cheap-alternative-plain-down-week",
+        "era-split"
+      ],
+      "evidence": "InSampleOnly",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "weekly-candle-persistence",
+          "note": "the same study; this is the mirror arm of the falsified claim",
+          "correlation": null
+        }
+      ],
+      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
+      "reMeasure": {
+        "command": "weekly-persistence",
+        "implemented": true
       }
     }
   ]

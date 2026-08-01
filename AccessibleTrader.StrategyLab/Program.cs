@@ -193,6 +193,14 @@ try
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "ml-data.csv"),
         "catalogue" or "catalog" => CatalogueCommand.Run(args.Skip(1).ToArray()),
         "edges" or "edge" => EdgesCommand.Run(args.Skip(1).ToArray()),
+        "approach" => ApproachCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
+        "weekly-persistence" => WeeklyPersistenceCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var wpp) ? wpp : 5000),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
