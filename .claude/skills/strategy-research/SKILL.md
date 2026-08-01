@@ -192,6 +192,11 @@ Pick the ones that apply. Each has changed a verdict here.
   ~40% exposure and about half the drawdown — but a random parameter pick beat the grid search, so
   the specific window/entry/exit values carry nothing. The 6× in `BTC_STRATEGY.md` is in-sample.
   (`docs/WALKFORWARD_FINDINGS.md`)
+- **Macro release DATES are a null; FOMC was not.** CPI/NFP/PPI/GDP on real FRED dates gave 2 of 20
+  significant release-day cells across 60 tests (~3 expected by chance), both TLT, neither near
+  Bonferroni. FOMC gave four US equity vehicles at the SAME offset with the same sign. The likely
+  reason: FOMC is a policy *action*; CPI/NFP are *data* the market spends the interval forecasting,
+  so the SURPRISE moves price, not the date. (`docs/MACRO_EVENT_FINDINGS.md`)
 - **FOMC decision-day drift is real, replicates, and has decayed.** Day-0 excess of +0.17% to +0.27%
   across four US equity vehicles at the same offset, absent in gold and crypto; survives an
   exposure- and weekday-matched null at 3 bps. But ~70% is gone post-2015. Event dates live in
