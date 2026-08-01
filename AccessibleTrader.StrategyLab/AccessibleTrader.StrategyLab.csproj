@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The edge registry is data, not code: it ships beside the binary so other tools can read
+         it without referencing the lab. EdgeRegistry.DefaultPath() expects it at Catalogue/. -->
+    <None Update="Catalogue\edges.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>

@@ -7,8 +7,10 @@ claim, what survived, how big it was, where it applies, and which control decide
 — it is material. What a research programme needs is a single place that answers "what do we
 believe, how strongly, and where does it apply", so the next study starts from the frontier rather
 than from scratch, and so a scoring engine has something principled to read. This file is the prose
-version; the machine-readable one (`edges.json`, consumed by the lab) is the next step described in
-[LAB_DESIGN.md](LAB_DESIGN.md).
+version. The machine-readable one now exists:
+**`AccessibleTrader.StrategyLab/Catalogue/edges.json`**, read by `EdgeRegistry` and queryable with
+`StrategyLab edges list | show | scorable | overlaps | stale | validate`. Keep the two in step —
+`EdgeRegistryTests` fails the build if a `*_FINDINGS.md` document has no edge record.
 
 **The honest prior.** Narang's number for a successful quantitative strategy's out-of-sample R² is
 **0.03–0.04**. Nothing below beats that, and nothing should be expected to. The strongest result in

@@ -192,6 +192,7 @@ try
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "ml-data.csv"),
         "catalogue" or "catalog" => CatalogueCommand.Run(args.Skip(1).ToArray()),
+        "edges" or "edge" => EdgesCommand.Run(args.Skip(1).ToArray()),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
@@ -217,6 +218,8 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine("  StrategyLab catalogue list [--status <level>] [--verbose]        # specs + what the evidence is");
     Console.WriteLine("  StrategyLab catalogue export --out <file.json> [--id <spec-id>]  # bundle for the terminal to import");
+    Console.WriteLine("  StrategyLab edges list [--class crypto] [--evidence ControlTested]  # what we have MEASURED");
+    Console.WriteLine("  StrategyLab edges show <edge-id> | scorable | overlaps | stale | validate");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000");

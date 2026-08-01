@@ -1,0 +1,196 @@
+using System;
+using System.IO;
+using System.Linq;
+using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.StrategyLab;
+using AccessibleTrader.StrategyLab.Catalogue;
+using Xunit;
+
+namespace AccessibleTrader.Tests
+{
+    /// <summary>
+    /// The edge registry — the research programme's memory.
+    ///
+    /// <para>
+    /// These tests guard the properties that make the registry worth having rather than the
+    /// contents of any one record. The load-bearing ones: a scorable edge must name the controls it
+    /// beat (otherwise "ControlTested" is a claim, not a test), nulls must survive in the file
+    /// (a recorded negative is what stops the next hopeful re-run), and overlaps must resolve
+    /// (an unresolvable overlap silently permits double-counting, which is the failure mode this
+    /// project has repeated most).
+    /// </para>
+    /// </summary>
+    public class EdgeRegistryTests
+    {
+        private static EdgeRegistry Registry() => EdgeRegistry.Load();
+
+        [Fact]
+        public void TheRegistryShipsBesideTheBinaryAndLoads()
+        {
+            Assert.True(File.Exists(EdgeRegistry.DefaultPath()),
+                $"edges.json is not at {EdgeRegistry.DefaultPath()} — check the csproj copies it to the output.");
+
+            var reg = Registry();
+
+            Assert.Equal(1, reg.SchemaVersion);
+            Assert.NotEmpty(reg.Edges);
+        }
+
+        [Fact]
+        public void TheRegistryIsStructurallySound()
+        {
+            var problems = Registry().Validate();
+
+            Assert.True(problems.Count == 0,
+                "edges.json has structural problems:\n  " + string.Join("\n  ", problems));
+        }
+
+        [Fact]
+        public void OnlyControlTestedEdgesMayScore()
+        {
+            var reg = Registry();
+
+            Assert.All(reg.Scorable, e => Assert.Equal(StrategyEvidenceLevel.ControlTested, e.Evidence));
+            Assert.All(reg.Edges.Where(e => e.Evidence != StrategyEvidenceLevel.ControlTested),
+                e => Assert.False(e.CanScore, $"{e.Id} is {e.Evidence} and must not be scorable."));
+            Assert.NotEmpty(reg.Scorable);
+        }
+
+        [Fact]
+        public void EveryScorableEdgeNamesTheControlsItBeat()
+        {
+            // The difference between an edge and an opinion is the control arm. An edge marked
+            // ControlTested with nothing in `controls` is the latter wearing the former's label.
+            var thin = Registry().Scorable.Where(e => e.Controls.Count < 2).Select(e => e.Id).ToList();
+
+            Assert.True(thin.Count == 0,
+                "Marked ControlTested without naming at least two controls:\n  " + string.Join("\n  ", thin));
+        }
+
+        [Fact]
+        public void TheNullsAreKept()
+        {
+            // Ten of the records are falsified. If this collapses, check that a negative result was
+            // not quietly deleted because it was "not useful" — the negatives are the cheapest
+            // thing in the registry and they save the most time.
+            var falsified = Registry().Edges.Where(e => e.Evidence == StrategyEvidenceLevel.Falsified).ToList();
+
+            Assert.True(falsified.Count >= 8,
+                $"Only {falsified.Count} recorded nulls — a negative result may have been dropped.");
+            Assert.All(falsified, e => Assert.NotEmpty(e.Controls));
+        }
+
+        [Fact]
+        public void EveryEdgeIsScopedToAnAssetClass()
+        {
+            // "It works everywhere" has been wrong every single time it was tested here: volume
+            // reverses between crypto and equities, exits only work in crypto, POC reversion only
+            // in equities. An unscoped edge is an untested generalisation.
+            var unscoped = Registry().Edges.Where(e => e.Scope.AssetClasses.Count == 0).Select(e => e.Id).ToList();
+
+            Assert.True(unscoped.Count == 0, "Unscoped edges: " + string.Join(", ", unscoped));
+        }
+
+        [Fact]
+        public void RecordedOverlapsResolve_AndAreReportedOnce()
+        {
+            var reg = Registry();
+
+            foreach (var e in reg.Edges)
+                foreach (var link in e.CorrelatesWith)
+                    Assert.True(reg[link.Id] != null, $"{e.Id} overlaps unknown edge '{link.Id}'.");
+
+            // Symmetric relationships recorded at both ends must still surface as one pair.
+            var pairs = reg.KnownOverlaps()
+                .Select(p => string.Join("|", new[] { p.A.Id, p.B.Id }.OrderBy(x => x, StringComparer.Ordinal)))
+                .ToList();
+            Assert.Equal(pairs.Count, pairs.Distinct().Count());
+        }
+
+        [Fact]
+        public void TheStrongestEdgeIsRecordedWithItsNumbers()
+        {
+            // A spot-check that the registry carries the actual measurement and not a summary of a
+            // summary: cross-sectional momentum is the project's best result and its p-value and
+            // effect size must survive the trip into the file.
+            var xs = Registry()["xs-momentum-equities"];
+
+            Assert.NotNull(xs);
+            Assert.Equal(StrategyEvidenceLevel.ControlTested, xs!.Evidence);
+            Assert.Equal(0.0045, xs.Effect.P);
+            Assert.Equal(0.0037, xs.Effect.Value);
+            Assert.Contains("equities", xs.Scope.AssetClasses);
+            Assert.False(xs.AppliesTo("crypto"));   // the crypto arm is underpowered, not established
+        }
+
+        [Fact]
+        public void EverySourceDocumentExists()
+        {
+            // A source that does not resolve makes a verdict unauditable, which is how a finding
+            // decays into a rumour.
+            var root = RepoRoot();
+            var missing = Registry().Edges
+                .Where(e => !File.Exists(Path.Combine(root, e.Source)))
+                .Select(e => $"{e.Id} → {e.Source}")
+                .ToList();
+
+            Assert.True(missing.Count == 0, "Edge sources that do not exist:\n  " + string.Join("\n  ", missing));
+        }
+
+        [Fact]
+        public void EveryFindingsDocumentIsRepresentedInTheRegistry()
+        {
+            // The registry's whole purpose is that nothing stays trapped in prose. If a new findings
+            // document lands without an edge record, this fails and says which one.
+            var root = RepoRoot();
+            var docs = Directory.GetFiles(Path.Combine(root, "docs"), "*_FINDINGS.md")
+                .Select(f => "docs/" + Path.GetFileName(f))
+                .ToList();
+            var cited = Registry().Edges.Select(e => e.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var orphans = docs.Where(d => !cited.Contains(d)).ToList();
+
+            Assert.True(orphans.Count == 0,
+                "Findings documents with no edge record — the verdict is still trapped in prose:\n  " +
+                string.Join("\n  ", orphans));
+        }
+
+        [Fact]
+        public void TheCliReadsTheRegistry()
+        {
+            var stdout = Console.Out;
+            var stderr = Console.Error;
+            Console.SetOut(TextWriter.Null);
+            Console.SetError(TextWriter.Null);
+            try
+            {
+                Assert.Equal(0, EdgesCommand.Run(new[] { "validate" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "list" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "list", "--class", "crypto" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "list", "--evidence", "ControlTested" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "scorable" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "overlaps" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "stale", "--days", "30" }));
+                Assert.Equal(0, EdgesCommand.Run(new[] { "show", "xs-momentum-equities" }));
+
+                Assert.NotEqual(0, EdgesCommand.Run(new[] { "show", "no-such-edge" }));
+                Assert.NotEqual(0, EdgesCommand.Run(new[] { "list", "--evidence", "Excellent" }));
+                Assert.NotEqual(0, EdgesCommand.Run(new[] { "nonsense" }));
+            }
+            finally
+            {
+                Console.SetOut(stdout);
+                Console.SetError(stderr);
+            }
+        }
+
+        private static string RepoRoot()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
+                dir = dir.Parent;
+            Assert.NotNull(dir);
+            return dir!.FullName;
+        }
+    }
+}

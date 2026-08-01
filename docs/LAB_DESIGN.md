@@ -219,7 +219,7 @@ Nothing in the ledger is a speed edge.
   v13, pulse-v2, v24.
 - **Left alone (10):** the untested ones, honestly labelled.
 
-**Step 2 · Build the edge registry (IN PROGRESS).** `edges.json` + a `lab edges` command: list, show
+**Step 2 · Build the edge registry. DONE 2026-08-01.** `edges.json` + a `lab edges` command: list, show
 one with its history, and `re-measure` to run each edge's own test against current data and append
 to its decay series. Seed it from the ledger above. **This is the keystone** — L2, L4 and L5 all
 read it, and it is the thing that makes research compound instead of accumulate.

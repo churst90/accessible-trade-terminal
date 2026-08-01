@@ -1,0 +1,782 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "2026-08-01.1",
+  "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
+  "edges": [
+    {
+      "id": "xs-momentum-equities",
+      "title": "Cross-sectional momentum",
+      "claim": "Rank a universe by trailing return; the top tercile outperforms the bottom over the next month.",
+      "family": "momentum",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 30,
+        "timeframe": "1d",
+        "universeMin": 20,
+        "notes": "38 names tested. The crypto arm is a null but with 10 names a tercile is 3 names — underpowered rather than disproven."
+      },
+      "effect": {
+        "measure": "top-minus-bottom",
+        "value": 0.0037,
+        "unit": "fraction per 30d",
+        "p": 0.0045,
+        "n": 215
+      },
+      "controls": [
+        "monotone-in-lookback-8of8",
+        "sign-flip-at-1-month",
+        "noise-injection-86pct-retained",
+        "365d-arm-p-0.0029"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/XSMOMENTUM_FINDINGS.md",
+      "reMeasure": {
+        "command": "xsmom",
+        "implemented": false
+      }
+    },
+    {
+      "id": "trend-following-family",
+      "title": "Time-series trend following — the family, not the parameters",
+      "claim": "A long-only trend filter on a crypto asset beats holding it, and the specific parameter values carry no information.",
+      "family": "trend",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities",
+          "commodities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "Crypto is where it earns return. On indices and gold it matches hold's Sharpe with 2-3x smaller drawdowns — crash insurance, not alpha. Long-only FX: nothing."
+      },
+      "effect": {
+        "measure": "multiple-of-hold-oos",
+        "value": 1.8,
+        "unit": "x",
+        "p": null,
+        "n": null,
+        "notes": "Vol-targeted BTC Sharpe 1.19 vs 0.80 hold; maxDD 23% vs 83%. ~40% drawdown for the raw version."
+      },
+      "controls": [
+        "walk-forward",
+        "random-parameter-arm-beat-the-optimiser",
+        "era-sliced",
+        "exposure-matched-vs-hold"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-13",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "polarity-asset-class-fork",
+          "note": "same directional premise in crypto",
+          "correlation": null
+        }
+      ],
+      "source": "docs/WALKFORWARD_FINDINGS.md",
+      "reMeasure": {
+        "command": "walk-windows",
+        "implemented": false
+      }
+    },
+    {
+      "id": "polarity-asset-class-fork",
+      "title": "Asset-class polarity — crypto trends, equities revert",
+      "claim": "Crypto price series are positively autocorrelated at swing horizons and equity indices negatively; the correct tool family follows from the asset class.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "USE AS A FORK, NOT A DIAL. Collinear with market depth at rho 0.96, and the sign reverses INSIDE crypto — the continuous version is mostly depth wearing another name."
+      },
+      "effect": {
+        "measure": "variance-ratio-20",
+        "value": 1.15,
+        "unit": "VR crypto (equities 0.82)",
+        "p": 0.04,
+        "n": 33
+      },
+      "controls": [
+        "within-class-tests",
+        "demeaned",
+        "jackknife-stable",
+        "four-independent-studies-agree"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-29",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "volume-informative-crypto",
+          "note": "both split on asset class; check overlap before stacking",
+          "correlation": null
+        }
+      ],
+      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "reMeasure": {
+        "command": "polarity",
+        "implemented": false
+      }
+    },
+    {
+      "id": "volume-informative-crypto",
+      "title": "Volume carries forward information — in crypto, and reversed in equities",
+      "claim": "High relative volume precedes positive forward returns in crypto and negative forward returns in equities.",
+      "family": "volume",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "The SIGN is asset-class dependent — this is one edge with two signs, not two edges."
+      },
+      "effect": {
+        "measure": "quintile-spread",
+        "value": 0.37,
+        "unit": "normalised, crypto bucket 1 (equities -0.37)",
+        "p": 0.004,
+        "n": null,
+        "notes": "Crypto survives in all three volume buckets with the same sign (p 0.0002-0.009); the equity arm is significantly negative."
+      },
+      "controls": [
+        "three-independent-volume-buckets",
+        "cross-asset-class"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "polarity-asset-class-fork",
+          "note": "shares the asset-class split",
+          "correlation": null
+        }
+      ],
+      "source": "docs/VOLUME_FINDINGS.md",
+      "reMeasure": {
+        "command": "volume",
+        "implemented": false
+      }
+    },
+    {
+      "id": "poc-mean-reversion-equities",
+      "title": "Mean reversion to the volume POC",
+      "claim": "Price displaced from the rolling volume point-of-control reverts toward it over about five days in equities.",
+      "family": "mean-reversion",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 5,
+        "timeframe": "1d",
+        "universeMin": 20,
+        "notes": "REVERSES in crypto — there the same displacement continues."
+      },
+      "effect": {
+        "measure": "forward-return-spread",
+        "value": null,
+        "unit": "small",
+        "p": 0.0004,
+        "n": 348000,
+        "notes": "38 symbols, 348k bars. A known anomaly; the effect is real and tiny."
+      },
+      "controls": [
+        "cross-asset-class",
+        "crypto-arm-reverses"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-20",
+      "lastMeasured": "2026-07-20",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "polarity-asset-class-fork",
+          "note": "the equity half is the polarity fork restated on a specific anchor",
+          "correlation": null
+        }
+      ],
+      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "reMeasure": {
+        "command": "rubber-band",
+        "implemented": false
+      }
+    },
+    {
+      "id": "signal-reversed-exit-crypto",
+      "title": "Exit on the entry signal reversed",
+      "claim": "Closing a position when the entry signal inverts beats a random exit with the same holding-period distribution — in crypto only.",
+      "family": "exit",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "The equity arm is null (0.53x, 0.84x). This is the ONLY exit rule with measured skill; every mechanical exit tested worthless."
+      },
+      "effect": {
+        "measure": "multiple-vs-random-exit",
+        "value": 32.34,
+        "unit": "x on BTC (ETH 4.35x)",
+        "p": 0.003,
+        "n": null
+      },
+      "controls": [
+        "random-exit-control",
+        "equity-arm-null"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/EXIT_FINDINGS.md",
+      "reMeasure": {
+        "command": "exits",
+        "implemented": false
+      }
+    },
+    {
+      "id": "fomc-pre-drift",
+      "title": "FOMC pre-announcement drift",
+      "claim": "US equities drift upward in the days before a scheduled FOMC announcement.",
+      "family": "event",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 3,
+        "timeframe": "1d",
+        "notes": "Four US equity vehicles, same offset, same sign, 224 real dates."
+      },
+      "effect": {
+        "measure": "cumulative-abnormal-return",
+        "value": null,
+        "unit": "see source",
+        "p": null,
+        "n": 224,
+        "notes": "DECAYED: three of four vehicles have lost 70%+ of the effect post-2015 and XLF has gone slightly negative."
+      },
+      "controls": [
+        "exposure-matched-null",
+        "weekday-matched-random-dates",
+        "era-split-pre-post-2015"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-30",
+      "lastMeasured": "2026-07-30",
+      "decay": [
+        {
+          "asOf": "2026-07-30",
+          "note": "post-2015 subsample retains ~30% of the full-sample effect"
+        }
+      ],
+      "correlatesWith": [],
+      "source": "docs/FOMC_FINDINGS.md",
+      "reMeasure": {
+        "command": "fomc",
+        "implemented": false
+      }
+    },
+    {
+      "id": "dip-buy-above-200ma",
+      "title": "Buy dips only above the 200-day moving average",
+      "claim": "A dip-buy entry filtered by price above its 200-day average beats the same entry unfiltered, and beats random entries under the same filter.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "R-per-trade-vs-random",
+        "value": 0.107,
+        "unit": "R (random entries under the same filter: 0.007R)",
+        "p": null,
+        "n": null
+      },
+      "controls": [
+        "random-entry-baseline",
+        "noise-injection-only-21pct-retained"
+      ],
+      "evidence": "Fragile",
+      "firstMeasured": "2026-07-28",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "trend-following-family",
+          "note": "same 200MA regime premise — do not count both",
+          "correlation": null
+        }
+      ],
+      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "reMeasure": {
+        "command": "dipbuy",
+        "implemented": false
+      }
+    },
+    {
+      "id": "trading-cross-zscore",
+      "title": "The Trading Cross z-score rule",
+      "claim": "Long when the rolling z-score of price crosses above +1, flat when it crosses back below 0.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "10 of 10 crypto assets beat hold; 0 of 3 traditional. What it does is AVOID DRAWDOWN, not time entries."
+      },
+      "effect": {
+        "measure": "multiple-vs-hold",
+        "value": 6.85,
+        "unit": "x (vs DCA 36x)",
+        "p": 0.001,
+        "n": null
+      },
+      "controls": [
+        "exposure-matched-timing-null",
+        "block-bootstrap-was-inconclusive"
+      ],
+      "evidence": "ControlTested",
+      "firstMeasured": "2026-07-27",
+      "lastMeasured": "2026-07-27",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "trend-following-family",
+          "note": "a trend filter in z-score clothing; heavily overlapping exposure",
+          "correlation": null
+        }
+      ],
+      "source": "docs/TRADING_CROSS_FINDINGS.md",
+      "reMeasure": {
+        "command": "trading-cross",
+        "implemented": false
+      }
+    },
+    {
+      "id": "onchain-valuation-timing",
+      "title": "On-chain valuation (MVRV, NVT) times the market",
+      "claim": "Low MVRV / NVT readings precede outperformance.",
+      "family": "onchain",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "quintile-spread",
+        "value": -1.11,
+        "unit": "ATR",
+        "p": 0.0002,
+        "n": null,
+        "notes": "Monotone and significant against a naive baseline — and 0.00 ATR (p = 0.9855) against a matched price/SMA baseline on the same rows."
+      },
+      "controls": [
+        "matched-price-sma-baseline-KILLED-IT",
+        "exposure-matched-null-0-of-6",
+        "era-split"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/ONCHAIN_FINDINGS.md",
+      "reMeasure": {
+        "command": "onchain",
+        "implemented": false
+      }
+    },
+    {
+      "id": "cot-positioning",
+      "title": "COT positioning predicts returns",
+      "claim": "Commercial/large-spec positioning extremes precede reversals.",
+      "family": "positioning",
+      "scope": {
+        "assetClasses": [
+          "commodities",
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "forward-return-spread",
+        "value": 0.0,
+        "unit": "none detected",
+        "p": null,
+        "n": null
+      },
+      "controls": [
+        "dedicated-study-both-data-sources"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/POSITIONING_AND_EVENTS_FINDINGS.md",
+      "reMeasure": {
+        "command": "cftc-cot",
+        "implemented": false
+      }
+    },
+    {
+      "id": "crowding-funding-oi",
+      "title": "Crowding from funding and open interest",
+      "claim": "Crowded positioning (funding plus OI) precedes mean reversion.",
+      "family": "positioning",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 40,
+        "timeframe": "4h"
+      },
+      "effect": {
+        "measure": "forward-return-correlation",
+        "value": 0.0,
+        "unit": "none at any horizon 1-40 bars",
+        "p": 0.43,
+        "n": null
+      },
+      "controls": [
+        "all-horizons-1-to-40",
+        "orthogonality-check-vs-trailing-return-0.19"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/CROWDING_FINDINGS.md",
+      "reMeasure": {
+        "command": "crowding",
+        "implemented": false
+      }
+    },
+    {
+      "id": "macro-release-dates",
+      "title": "Macro release days move price",
+      "claim": "CPI, NFP, PPI and GDP release days carry an exploitable directional edge.",
+      "family": "event",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "bonds"
+        ],
+        "horizonBars": 1,
+        "timeframe": "1d",
+        "notes": "457/445/455/487 real FRED dates since 1990."
+      },
+      "effect": {
+        "measure": "release-day-return",
+        "value": null,
+        "unit": "none",
+        "p": null,
+        "n": 1844,
+        "notes": "2 of 20 release-day cells significant where ~3 false positives are expected across 60 tests; both TLT; neither near Bonferroni. CPI shows nothing anywhere."
+      },
+      "controls": [
+        "multiple-comparison-accounting",
+        "same-harness-that-found-FOMC-positive"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-01",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "fomc-pre-drift",
+          "note": "THE CONTRAST IS THE FINDING: FOMC is a policy ACTION, CPI/NFP are DATA the market spends the interval forecasting — the surprise should move price, not the date",
+          "correlation": null
+        }
+      ],
+      "source": "docs/MACRO_EVENT_FINDINGS.md",
+      "reMeasure": {
+        "command": "macro-release",
+        "implemented": false
+      }
+    },
+    {
+      "id": "fixed-percent-scale-outs",
+      "title": "Fixed-percentage scale-outs protect gains",
+      "claim": "Closing a fixed fraction at fixed profit levels improves the return distribution.",
+      "family": "exit",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "return-retained",
+        "value": 0.03,
+        "unit": "fraction of the unscaled return",
+        "p": null,
+        "n": null,
+        "notes": "Destroys 95-100% of the return. The R-distribution has a fat right tail and capping it removes the only trades that pay."
+      },
+      "controls": [
+        "R-distribution-inspected-before-designing-the-exit"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/EXIT_FINDINGS.md",
+      "reMeasure": {
+        "command": "exits",
+        "implemented": false
+      }
+    },
+    {
+      "id": "camel-cycle-counts",
+      "title": "Fixed-length market cycles (Camel / Lucas, 54-66d BTC)",
+      "claim": "Assets oscillate on a countable cycle of a characteristic length that can be traded.",
+      "family": "cycle",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 60,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "cycle-length-vs-surrogate",
+        "value": 0.0,
+        "unit": "indistinguishable",
+        "p": null,
+        "n": 200,
+        "notes": "200 surrogate series built by shuffling log returns reproduce the cycle length on every asset, landing inside the claimed band. It is a property of the detector, not of the market."
+      },
+      "controls": [
+        "surrogate-series-from-shuffled-returns",
+        "multiple-comparison-accounting"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/CYCLE_FINDINGS.md",
+      "reMeasure": {
+        "command": "cycles",
+        "implemented": false
+      }
+    },
+    {
+      "id": "cipher-confluence",
+      "title": "Cipher confluence (oscillator + tape + structure)",
+      "claim": "Requiring three orthogonal Cipher components to agree produces high-conviction entries.",
+      "family": "confluence",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "4h"
+      },
+      "effect": {
+        "measure": "walk-forward-expectancy",
+        "value": 0.0,
+        "unit": "R, break-even across 8 versions",
+        "p": null,
+        "n": null,
+        "notes": "Structure labels tested indistinguishable from random; SR proximity was a 15-bar lookahead. The components are not orthogonal — they are transforms of the same price series."
+      },
+      "controls": [
+        "walk-forward-8-versions",
+        "random-label-control-on-structure",
+        "lookahead-audit"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-06-15",
+      "lastMeasured": "2026-07-26",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
+      "reMeasure": {
+        "command": "confluence",
+        "implemented": false
+      }
+    },
+    {
+      "id": "hurst-as-classifier",
+      "title": "The Hurst exponent classifies assets as trending or mean-reverting",
+      "claim": "Hurst separates trending assets from mean-reverting ones and can route the strategy choice.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "cross-asset-spread",
+        "value": 0.03,
+        "unit": "Hurst range across all 17 asset/timeframe combinations (0.57-0.60)",
+        "p": null,
+        "n": 17
+      },
+      "controls": [
+        "17-asset-timeframe-combinations"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-06-12",
+      "lastMeasured": "2026-06-12",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/ASSET_PROFILE_FINDINGS.md",
+      "reMeasure": {
+        "command": "asset-profile",
+        "implemented": false
+      }
+    },
+    {
+      "id": "sentiment-orthogonal",
+      "title": "Sentiment (Fear & Greed) adds orthogonal information",
+      "claim": "A sentiment gate on a technical entry improves it.",
+      "family": "sentiment",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "trades-changed-by-the-gate",
+        "value": 0.0,
+        "unit": "the gated spec was byte-identical to the ungated one",
+        "p": null,
+        "n": null,
+        "notes": "When the oscillator buys at a cycle bottom at support you are already in extreme fear. Fear & Greed is a lagging echo of price."
+      },
+      "controls": [
+        "byte-identical-output-check",
+        "overlap-inspected-before-interpreting"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-06-20",
+      "lastMeasured": "2026-06-20",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
+      "reMeasure": {
+        "command": "confluence",
+        "implemented": false
+      }
+    },
+    {
+      "id": "ml-confidence-price-features",
+      "title": "A confidence model over price features",
+      "claim": "A gradient-boosted model over price and indicator features ranks setups usefully.",
+      "family": "ml",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d"
+      },
+      "effect": {
+        "measure": "out-of-sample-AUC",
+        "value": 0.52,
+        "unit": "AUC (0.55 is the build-big bar)",
+        "p": null,
+        "n": null,
+        "notes": "Stable and calibrated, not a coin flip — and below the threshold that justifies building on it. Asset-tuned models were WORSE. What signal exists lives in regime/vol features, not in the indicator signals."
+      },
+      "controls": [
+        "walk-forward",
+        "leak-aware-causal-features-only",
+        "asset-tuned-vs-pooled-comparison"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-06-25",
+      "lastMeasured": "2026-06-25",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/ML_CONFIDENCE_FINDINGS.md",
+      "reMeasure": {
+        "command": "ml-export",
+        "implemented": false
+      }
+    },
+    {
+      "id": "fibonacci-levels",
+      "title": "Fibonacci retracement levels are respected",
+      "claim": "Price respects Fibonacci retracement ratios more often than it respects arbitrary levels drawn on the same swings.",
+      "family": "levels",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "horizonBars": 10,
+        "timeframe": "4h/1d/2d/1w",
+        "notes": "BTC across four timeframes, ~355,000 level tests. Levels go live with the same delay a real trader has (a pivot at bar p is only knowable at p+span)."
+      },
+      "effect": {
+        "measure": "respect-rate-minus-placebo",
+        "value": 0.002,
+        "unit": "fraction, best timeframe",
+        "p": 0.49,
+        "n": 355000,
+        "notes": "THE NUMBER THAT EXPLAINS THE FOLKLORE: a RANDOM horizontal line is respected 59% of the time. 'Levels hold about 60% of the time' is true of ANY line — it is a property of the measurement geometry, not evidence the level did anything. Fib confluence does show +4.4% for crowded zones, but random lines reproduce 2.6 of those 4.4 points: crowded zones are ranges, and ranges keep ranging."
+      },
+      "controls": [
+        "random-levels-at-matched-density",
+        "placebo-ratios-on-the-same-swings",
+        "density-control-on-confluence"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-07-31",
+      "lastMeasured": "2026-07-31",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "cipher-confluence",
+          "note": "same failure shape — a confluence effect that a density/random control reproduces",
+          "correlation": null
+        }
+      ],
+      "source": "docs/FIB_GANN_FINDINGS.md",
+      "reMeasure": {
+        "command": "fib",
+        "implemented": true
+      }
+    }
+  ]
+}
