@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.7",
-  "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
+  "registryVersion": "2026-08-01.8",
+  "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
       "id": "xs-momentum-equities",
@@ -32,13 +32,19 @@
       ],
       "evidence": "ControlTested",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-01",
+      "decay": [
+        {
+          "asOf": "2026-08-01",
+          "value": 0.0037,
+          "note": "RE-MEASURED and reproduced exactly: +0.37% per 30d, sd 3.62%, 124/215 periods positive, p=0.0044 vs the recorded 0.0045 (permutation noise). Monotone by lookback unchanged: 1/4, 2/4, 4/4, 4/4."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/XSMOMENTUM_FINDINGS.md",
       "reMeasure": {
-        "command": "xsmom",
-        "implemented": false
+        "command": "xsmom --universe equity",
+        "implemented": true
       }
     },
     {
@@ -83,8 +89,8 @@
       ],
       "source": "docs/WALKFORWARD_FINDINGS.md",
       "reMeasure": {
-        "command": "walk-windows",
-        "implemented": false
+        "command": "walkfwd",
+        "implemented": true
       }
     },
     {
@@ -116,8 +122,14 @@
       ],
       "evidence": "ControlTested",
       "firstMeasured": "2026-07-29",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-01",
+      "decay": [
+        {
+          "asOf": "2026-08-01",
+          "value": 1.15,
+          "note": "RE-MEASURED, the fork holds: crypto VR20 above 1 on 8 of 10 names, equities below 1 on the majority. Depth still tracks the split, so the caveat about collinearity stands."
+        }
+      ],
       "correlatesWith": [
         {
           "id": "volume-informative-crypto",
@@ -128,7 +140,7 @@
       "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
         "command": "polarity",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -159,8 +171,14 @@
       ],
       "evidence": "ControlTested",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-01",
+      "decay": [
+        {
+          "asOf": "2026-08-01",
+          "value": 1.26,
+          "note": "RE-MEASURED, signs and significance hold: crypto top-bottom volume quintile +1.26 ATR (p=0.0005), equities -0.19 ATR (p=0.0005). The asset-class sign flip is intact."
+        }
+      ],
       "correlatesWith": [
         {
           "id": "polarity-asset-class-fork",
@@ -171,7 +189,7 @@
       "source": "docs/VOLUME_FINDINGS.md",
       "reMeasure": {
         "command": "volume",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -213,8 +231,8 @@
       ],
       "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
-        "command": "rubber-band",
-        "implemented": false
+        "command": "poc-dev",
+        "implemented": true
       }
     },
     {
@@ -249,7 +267,7 @@
       "source": "docs/EXIT_FINDINGS.md",
       "reMeasure": {
         "command": "exits",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -291,7 +309,7 @@
       "source": "docs/FOMC_FINDINGS.md",
       "reMeasure": {
         "command": "fomc",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -331,8 +349,8 @@
       ],
       "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
-        "command": "dipbuy",
-        "implemented": false
+        "command": "gate",
+        "implemented": true
       }
     },
     {
@@ -372,8 +390,8 @@
       ],
       "source": "docs/TRADING_CROSS_FINDINGS.md",
       "reMeasure": {
-        "command": "trading-cross",
-        "implemented": false
+        "command": "cross",
+        "implemented": true
       }
     },
     {
@@ -409,7 +427,7 @@
       "source": "docs/ONCHAIN_FINDINGS.md",
       "reMeasure": {
         "command": "onchain",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -442,8 +460,8 @@
       "correlatesWith": [],
       "source": "docs/POSITIONING_AND_EVENTS_FINDINGS.md",
       "reMeasure": {
-        "command": "cftc-cot",
-        "implemented": false
+        "command": "events",
+        "implemented": true
       }
     },
     {
@@ -477,7 +495,7 @@
       "source": "docs/CROWDING_FINDINGS.md",
       "reMeasure": {
         "command": "crowding",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -519,8 +537,8 @@
       ],
       "source": "docs/MACRO_EVENT_FINDINGS.md",
       "reMeasure": {
-        "command": "macro-release",
-        "implemented": false
+        "command": "macro",
+        "implemented": true
       }
     },
     {
@@ -555,7 +573,7 @@
       "source": "docs/EXIT_FINDINGS.md",
       "reMeasure": {
         "command": "exits",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -591,7 +609,7 @@
       "source": "docs/CYCLE_FINDINGS.md",
       "reMeasure": {
         "command": "cycles",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -627,7 +645,7 @@
       "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
       "reMeasure": {
         "command": "confluence",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -661,7 +679,7 @@
       "source": "docs/ASSET_PROFILE_FINDINGS.md",
       "reMeasure": {
         "command": "asset-profile",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -696,7 +714,7 @@
       "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
       "reMeasure": {
         "command": "confluence",
-        "implemented": false
+        "implemented": true
       }
     },
     {
@@ -732,7 +750,7 @@
       "source": "docs/ML_CONFIDENCE_FINDINGS.md",
       "reMeasure": {
         "command": "ml-export",
-        "implemented": false
+        "implemented": true
       }
     },
     {

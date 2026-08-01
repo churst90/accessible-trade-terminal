@@ -219,6 +219,50 @@ namespace AccessibleTrader.Tests
             Assert.Contains(target!.CorrelatesWith, l => l.Id == "fixed-percent-scale-outs");
         }
 
+        [Fact]
+        public void EveryClaimedReMeasureCommandActuallyExists()
+        {
+            // The registry told a lie about itself on 2026-08-01: nineteen edges claimed
+            // "implemented: false" when every one of those studies was already a wired command, and
+            // two named commands that did not exist at all. A registry whose self-description is
+            // wrong is worse than no registry, because the whole point is that it can be trusted
+            // without re-deriving it. So the dispatcher is parsed and the claims checked against it.
+            string program = File.ReadAllText(Path.Combine(
+                RepoRoot(), "AccessibleTrader.StrategyLab", "Program.cs"));
+            var wired = new HashSet<string>(
+                System.Text.RegularExpressions.Regex
+                    .Matches(program, @"""([a-z0-9-]+)""\s*(?:or\s*""[a-z0-9-]+""\s*)?=>")
+                    .Select(m => m.Groups[1].Value),
+                StringComparer.OrdinalIgnoreCase);
+
+            Assert.NotEmpty(wired);
+
+            var broken = Registry().Edges
+                .Where(e => e.ReMeasure?.Implemented == true)
+                .Select(e => (e.Id, Verb: e.ReMeasure!.Command?.Split(' ')[0] ?? ""))
+                .Where(x => !wired.Contains(x.Verb))
+                .Select(x => $"{x.Id} → '{x.Verb}'")
+                .ToList();
+
+            Assert.True(broken.Count == 0,
+                "Edges claiming a re-measurement command that is not in the lab's dispatcher:\n  " +
+                string.Join("\n  ", broken));
+        }
+
+        [Fact]
+        public void TheFlagshipEdgeRecordsItsReMeasurement()
+        {
+            // Re-measuring the strongest edge and finding it unchanged is a result, and the decay
+            // series is where that result lives. An empty series on the flagship means nobody has
+            // checked it since it was found.
+            var xs = Registry()["xs-momentum-equities"];
+
+            Assert.NotEmpty(xs!.Decay);
+            Assert.All(xs.Decay, d => Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", d.AsOf));
+            // The flags matter: the bare verb reproduces a different study on a 3.2-year window.
+            Assert.Contains("--universe equity", xs.ReMeasure!.Command);
+        }
+
         private static string RepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
