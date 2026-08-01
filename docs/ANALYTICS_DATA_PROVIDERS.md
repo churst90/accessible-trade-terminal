@@ -274,6 +274,28 @@ no DI registration required.
 > so which tier first unlocks `economic-calendar` is unverified — Premium's "corporate calendars"
 > is the closest listed match.
 >
+> **Is any FMP tier worth buying? No — verified 2026-08-01.** Everything the paid tiers sell is
+> available free from a primary source, including the one thing that looked scarce:
+>
+> | what a paid tier gives | free alternative, tested |
+> |---|---|
+> | 30 years of fundamentals (Premium) | **SEC EDGAR XBRL** — `data.sec.gov/api/xbrl/companyconcept/...`, official, free, no key. 338 EPS datapoints for AAPL back to 2007 in one call. FMP is reselling this |
+> | 13F institutional holdings (Ultimate) | SEC EDGAR — 13F filings are public record |
+> | insider trades (upper tiers) | SEC EDGAR Form 4 |
+> | EOD prices | already free from our own providers |
+> | market news | free or near-free from many sources |
+> | **analyst / earnings estimates** | **Alpha Vantage `EARNINGS`, FREE tier** — verified: 122 quarters back to **1996** for IBM with `reportedEPS`, `estimatedEPS`, `surprise`, `surprisePercentage`, `reportedDate` and pre/post-market flag |
+>
+> The Alpha Vantage result is the decisive one. Consensus estimates were the only genuinely scarce
+> item — actuals are free everywhere, expectations are proprietary — and the free tier carries actual,
+> estimate and surprise back three decades. Its limit is 25 requests/day, which does not matter here:
+> one request returns a symbol's entire history, the lab works from snapshots, so a hundred-symbol
+> earnings-surprise dataset costs four days of polling and nothing else.
+>
+> The one thing still not obtainable free is **macro** consensus (the economic calendar). Given that
+> the macro release-DATE study already came back null and the surprise hypothesis can now be tested on
+> company earnings instead, that gap does not currently block anything.
+>
 > **Two consequences for research planning.** **Macro consensus is not available** on this key
 > (`economic-calendar` is 402), so the actual-minus-consensus macro-surprise test cannot be built on
 > FMP as things stand. But `/stable/earnings` returns actual *and* estimated EPS per quarter, so the

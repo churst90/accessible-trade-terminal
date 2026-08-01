@@ -41,6 +41,12 @@ The app ships tools, not opinions. Reasoning in
   Two research consequences: **no macro consensus** (`economic-calendar` is 402), but
   `/stable/earnings` carries `epsActual` + `epsEstimated`, so the surprise-vs-date
   hypothesis is testable on company earnings instead.
+- [x] **Is any FMP tier worth buying? No** (verified 2026-08-01). Every paid item has a free
+  primary source: fundamentals and 13F and insider trades are SEC EDGAR, which FMP resells;
+  EOD prices we already have. The only scarce item was consensus estimates — and **Alpha
+  Vantage's free `EARNINGS` endpoint carries actual, estimate and surprise back to 1996**
+  (verified on IBM: 122 quarters). 25 requests/day is irrelevant when one request returns a
+  full history and the lab works from snapshots.
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.6",
+  "registryVersion": "2026-08-01.7",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
   "edges": [
     {
@@ -1215,6 +1215,55 @@
       "reMeasure": {
         "command": "weekly-persistence",
         "implemented": true
+      }
+    },
+    {
+      "id": "earnings-surprise-drift",
+      "title": "The surprise moves price, not the scheduled date",
+      "claim": "Post-earnings returns scale with the earnings SURPRISE (actual minus consensus EPS), even though the release DATE itself carries no directional edge.",
+      "family": "event",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "universeMin": 50,
+        "notes": "THE FOLLOW-UP THE MACRO STUDY EARNED. Release dates for CPI/NFP/PPI/GDP tested null while FOMC did not, and the proposed explanation was that FOMC is a policy ACTION while CPI/NFP are DATA the market spends the interval forecasting -- so the surprise should move price rather than the date. That was untestable while macro consensus was paywalled. It is testable on EARNINGS: Alpha Vantage's free EARNINGS endpoint carries reportedEPS, estimatedEPS and surprise back to 1996 (verified 2026-08-01). Controls needed: post-earnings drift is a documented anomaly, so the arm that matters is whether surprise MAGNITUDE ranks forward returns beyond the plain event-date effect, plus an exposure-matched null on the drift window."
+      },
+      "effect": {
+        "measure": "forward-return-spread-by-surprise-decile",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "macro-release-dates",
+          "note": "this is the surprise-side test of the same hypothesis that the date-side test falsified",
+          "correlation": null
+        },
+        {
+          "id": "fomc-pre-drift",
+          "note": "the action-versus-data distinction these two together are meant to settle",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "practitioner",
+        "who": "this project's own macro/FOMC contrast (2026-08-01)",
+        "url": null,
+        "capturedOn": "2026-08-01",
+        "quote": "PARAPHRASE of our own MACRO_EVENT_FINDINGS conclusion: FOMC is a policy action and CPI/NFP are data the market spends the interval forecasting, so the surprise should move price, not the date."
+      },
+      "reMeasure": {
+        "command": "earnings-surprise (to build)",
+        "implemented": false
       }
     }
   ]
