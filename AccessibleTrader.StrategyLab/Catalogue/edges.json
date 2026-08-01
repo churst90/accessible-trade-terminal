@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.1",
-  "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
+  "registryVersion": "2026-08-01.2",
+  "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md.",
   "edges": [
     {
       "id": "xs-momentum-equities",
@@ -776,6 +776,298 @@
       "reMeasure": {
         "command": "fib",
         "implemented": true
+      }
+    },
+    {
+      "id": "weekly-candle-persistence",
+      "title": "A bullish engulfing weekly candle predicts the next week's direction",
+      "claim": "After a bullish engulfing weekly candle, the following week closes higher more often than it closes lower — and enough more often to justify trading only that direction all week.",
+      "family": "structure",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "equities",
+          "crypto",
+          "commodities"
+        ],
+        "horizonBars": 1,
+        "timeframe": "1w",
+        "notes": "THE CHEAPEST TEST IN THE VIDEO: one directional claim, weekly bars, a stated prior, no discretionary inputs. The control is the base rate of up-weeks for the same asset — an asset that closes up 55% of weeks unconditionally makes a 55% conditional hit rate worthless."
+      },
+      "effect": {
+        "measure": "conditional-minus-unconditional-up-week-rate",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "if I see that the previous weekly candle is bullish engulfing it's more likely than not that the next week is also going to have more bullishness than bearishness ... is there a chance the next candle is bearish? yes, but it's way lower chance"
+      },
+      "reMeasure": {
+        "command": "weekly-persistence (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "mtf-alignment-sizing",
+      "title": "Position size should scale with multi-timeframe agreement",
+      "claim": "Trades taken when weekly bias, daily structure and the zone all agree have higher expectancy than trades taken when they conflict — enough to justify sizing 6% versus 1%.",
+      "family": "risk-management",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "equities"
+        ],
+        "horizonBars": 5,
+        "timeframe": "5m",
+        "notes": "THE UNTESTED CORNER. Twenty edges in this registry and not one is about SIZING. The claim is a conditional-expectancy test: bucket trades by how many timeframes agree and compare per-trade R. Watch for the tautology trap — if the bias filter and the entry are derived from the same price series, agreement is partly arithmetic."
+      },
+      "effect": {
+        "measure": "per-trade-R-by-agreement-count",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "dip-buy-above-200ma",
+          "note": "same shape — a higher-timeframe regime filter conditioning a lower-timeframe entry",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "some of analysis is not just for me to decide if I'm going to buy or sell but it's more like me shaving off risk ... if everything is in structure everything is bullish, beautiful zones, I'm going to risk more; if there's things that doesn't tick the box I'm shaving off my risk"
+      },
+      "reMeasure": {
+        "command": "mtf-sizing (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "approach-momentum-conditions-rejection",
+      "title": "How price approaches a level predicts whether the level holds",
+      "claim": "A level approached by one-way momentum holds less often than one approached in a two-way, alternating fashion; and a level price has ranged around for a long time holds less often than one approached cleanly.",
+      "family": "levels",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "crypto"
+        ],
+        "horizonBars": 10,
+        "timeframe": "5m/30m",
+        "notes": "CHEAPEST REAL TEST WE CAN RUN — the respect harness (RespectCommand, LevelRespectAnalyzer) already measures whether a level holds, with surrogate controls. This adds one conditioning variable. Note the internal tension in the source: he shaves risk on one-way momentum INTO the level, yet says he prefers aggressive approaches over price hanging around the level. Both halves are separately measurable."
+      },
+      "effect": {
+        "measure": "respect-rate-by-approach-character",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "fibonacci-levels",
+          "note": "MUST reuse that study's control — a random line is respected 59% of the time, so any conditional respect rate is meaningless without the matched random-level arm",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "if it's slowly approaching my supply or demand there's no momentum against me, I'm going to continue to hold full risk ... if the price is just going crazy into my supply and demand, momentum is against me, I'm going to shave off my risk. Also I don't like when the price hangs around my liquidity too long because that ranging is just accumulation of stop losses"
+      },
+      "reMeasure": {
+        "command": "respect --conditioned-on approach",
+        "implemented": false
+      }
+    },
+    {
+      "id": "session-scoped-levels",
+      "title": "Levels formed in the asset's active session hold better",
+      "claim": "Supply/demand levels formed during an instrument's primary sessions (London/New York for EURUSD) are respected more often than levels formed outside them.",
+      "family": "levels",
+      "scope": {
+        "assetClasses": [
+          "forex"
+        ],
+        "horizonBars": 10,
+        "timeframe": "30m",
+        "notes": "Cheap: tag each level by the session it formed in, then compare respect rates — the existing respect harness with one extra column. Confound to control: session also determines volatility and volume, so match on those before claiming the session did anything."
+      },
+      "effect": {
+        "measure": "respect-rate-by-formation-session",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "approach-momentum-conditions-rejection",
+          "note": "same harness, same random-level control required",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "if I'm trading EURUSD I'm only looking for liquidity in London and New York session ... people make a big mistake where they're looking for EURUSD liquidity inside of Asian session"
+      },
+      "reMeasure": {
+        "command": "respect --conditioned-on session",
+        "implemented": false
+      }
+    },
+    {
+      "id": "sweep-and-reclaim-entry",
+      "title": "Sweep and reclaim: breach equal highs, then close back inside the range",
+      "claim": "Entering when price breaches a cluster of equal highs/lows and then CLOSES back inside the range beats entering on the breach itself, and beats a random entry at the same moments.",
+      "family": "entry",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "crypto"
+        ],
+        "horizonBars": 10,
+        "timeframe": "5m",
+        "notes": "Algorithmically definable, which most of this video's 'liquidity' language is not: equal highs within a tolerance, a breach, a close back inside within N bars. Two controls needed — random entries at the same timestamps, and the same entry WITHOUT the reclaim requirement, which isolates the part he says matters."
+      },
+      "effect": {
+        "measure": "per-trade-R-vs-random-and-vs-breach-only",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "you have series of equal highs, a move up, and then back into the range — that move back into the range is a confirmation of my entry ... I need the closed candle, not the open candle"
+      },
+      "reMeasure": {
+        "command": "sweep-reclaim (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "fixed-1to3-target",
+      "title": "A fixed 1:3 reward-to-risk target maximises accumulated profit",
+      "claim": "Over many trades a fixed 1:3 target accumulates more profit than 1:1, 1:2 or 1:8 — with a small runner left on beyond it.",
+      "family": "exit",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "equities"
+        ],
+        "horizonBars": 5,
+        "timeframe": "5m",
+        "notes": "DIRECTLY CONTRADICTS our exit finding, which is what makes it worth running. We measured that fixed-percentage scale-outs destroy 95-100% of the return because the R-distribution has a fat right tail — but that was CRYPTO DAILY. His market is intraday FX and indices. The real question underneath is not '1:3 or not' but 'does the fat right tail exist in intraday FX at all?' Measure the R-distribution FIRST, per asset class, then the target choice answers itself. Note he keeps a 10-20% runner at breakeven, which is a hedge against exactly the tail we measured."
+      },
+      "effect": {
+        "measure": "accumulated-R-by-target-multiple",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "fixed-percent-scale-outs",
+          "note": "the crypto arm of this question is already answered and the answer was NO — so run this as an asset-class fork, not as a fresh question",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "I tried my strategy with 1:1, 1:2, 1:8 over hundreds of trades. 1:3 is my ideal ... 1:3 had the best, not the win rate, but best profit when it's accumulated over many trades"
+      },
+      "reMeasure": {
+        "command": "exits --targets",
+        "implemented": false
+      }
+    },
+    {
+      "id": "loss-streak-stop-rules",
+      "title": "Stopping after consecutive losses improves results",
+      "claim": "Stopping for the day after two consecutive losses, and for the week after four, improves outcomes.",
+      "family": "risk-management",
+      "scope": {
+        "assetClasses": [
+          "forex",
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "Has a clean prior test: if trade outcomes are serially INDEPENDENT the rule cannot change expectancy, only variance — so measure the autocorrelation of trade outcomes first. If it is zero, the rule is behavioural rather than statistical, which is a legitimate reason to keep it and a dishonest reason to claim an edge from it."
+      },
+      "effect": {
+        "measure": "outcome-autocorrelation-then-expectancy-delta",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
+        "capturedOn": "2026-08-01",
+        "quote": "if I have two losses in a row I'm done for the day, and if I have four losses in a row I'm done for the week"
+      },
+      "reMeasure": {
+        "command": "streak-rules (to build)",
+        "implemented": false
       }
     }
   ]

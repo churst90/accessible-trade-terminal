@@ -144,19 +144,39 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                 if (e.Claim.Length < 30) problems.Add($"{where}: the claim is too short to be falsifiable.");
                 if (e.Scope == null || e.Scope.AssetClasses.Count == 0)
                     problems.Add($"{where}: no asset-class scope — an edge that applies everywhere has not been scoped.");
-                if (e.Controls.Count == 0)
-                    problems.Add($"{where}: no controls recorded. Even a null needs to say what it was tested against.");
-                if (string.IsNullOrWhiteSpace(e.Source))
-                    problems.Add($"{where}: no source document.");
-                if (!IsIsoDate(e.LastMeasured))
-                    problems.Add($"{where}: lastMeasured '{e.LastMeasured}' is not an ISO date.");
-                if (!IsIsoDate(e.FirstMeasured))
-                    problems.Add($"{where}: firstMeasured '{e.FirstMeasured}' is not an ISO date.");
+                // Two kinds of record live here and the rules differ. A MEASURED edge must say what
+                // it was tested against, where the verdict is written up, and when — including a
+                // measured null, which is a result and not an absence. A QUEUED claim (Untested)
+                // has none of those yet by definition, and instead must be traceable to its origin.
+                bool measured = e.Evidence != StrategyEvidenceLevel.Untested;
+                if (measured)
+                {
+                    if (e.Controls.Count == 0)
+                        problems.Add($"{where}: no controls recorded. Even a null needs to say what it was tested against.");
+                    if (string.IsNullOrWhiteSpace(e.Source))
+                        problems.Add($"{where}: no source document.");
+                    if (!IsIsoDate(e.LastMeasured))
+                        problems.Add($"{where}: lastMeasured '{e.LastMeasured}' is not an ISO date.");
+                    if (!IsIsoDate(e.FirstMeasured))
+                        problems.Add($"{where}: firstMeasured '{e.FirstMeasured}' is not an ISO date.");
+                }
+                else
+                {
+                    if (!IsIsoDate(e.Origin?.CapturedOn))
+                        problems.Add($"{where}: queued claim with no capture date on its origin.");
+                    if (e.ReMeasure?.Command == null)
+                        problems.Add($"{where}: queued claim with no proposed test — an idea, not a plan.");
+                }
 
                 // The rule that makes the registry mean something: a scorable edge must name the
                 // control it beat. "ControlTested" with an empty controls list is a claim, not a test.
                 if (e.Evidence == StrategyEvidenceLevel.ControlTested && e.Controls.Count < 2)
                     problems.Add($"{where}: marked ControlTested with fewer than two named controls.");
+
+                // An untested edge is a QUEUE ENTRY. Without an origin nobody can re-read the
+                // claim in its original words, and an ambiguous result becomes unresolvable.
+                if (e.Evidence == StrategyEvidenceLevel.Untested && e.Origin == null)
+                    problems.Add($"{where}: Untested with no origin — an untraceable idea, not a queued claim.");
 
                 foreach (var link in e.CorrelatesWith)
                     if (this[link.Id] == null)
@@ -207,6 +227,14 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         public string Source { get; init; } = "";
         public EdgeReMeasure? ReMeasure { get; init; }
 
+        /// <summary>
+        /// Where the CLAIM came from, when it came from outside this project — a video, a book, a
+        /// paper. Distinct from <see cref="Source"/>, which is where our own verdict is written up.
+        /// An untested edge without an origin is an idea nobody can trace; with one, the claim can
+        /// be re-read in its original words when the test comes out ambiguous.
+        /// </summary>
+        public EdgeOrigin? Origin { get; init; }
+
         /// <summary>See <see cref="EdgeRegistry.Scorable"/>.</summary>
         [JsonIgnore]
         public bool CanScore => Evidence == StrategyEvidenceLevel.ControlTested;
@@ -244,6 +272,16 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         public string AsOf { get; init; } = "";
         public double? Value { get; init; }
         public string? Note { get; init; }
+    }
+
+    /// <summary>Provenance of an external claim — who said it, where, and when we captured it.</summary>
+    public sealed record EdgeOrigin
+    {
+        public string? Kind { get; init; }      // video, book, paper, practitioner
+        public string? Who { get; init; }
+        public string? Url { get; init; }
+        public string? CapturedOn { get; init; }
+        public string? Quote { get; init; }     // the claim in their words, so a null result can be checked against what was actually said
     }
 
     public sealed record EdgeLink

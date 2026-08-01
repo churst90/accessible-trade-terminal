@@ -130,6 +130,7 @@ namespace AccessibleTrader.Tests
             // decays into a rumour.
             var root = RepoRoot();
             var missing = Registry().Edges
+                .Where(e => e.Evidence != StrategyEvidenceLevel.Untested)   // queued claims have no verdict yet
                 .Where(e => !File.Exists(Path.Combine(root, e.Source)))
                 .Select(e => $"{e.Id} → {e.Source}")
                 .ToList();
@@ -182,6 +183,40 @@ namespace AccessibleTrader.Tests
                 Console.SetOut(stdout);
                 Console.SetError(stderr);
             }
+        }
+
+        [Fact]
+        public void QueuedClaimsAreTraceableAndHaveAProposedTest()
+        {
+            // The registry holds two kinds of record. A MEASURED edge carries controls, a source and
+            // dates. A QUEUED claim (Untested) carries none of those yet — so it must instead carry
+            // where the claim came from and what test would settle it. Without the origin an
+            // ambiguous result is unresolvable because nobody can re-read what was actually claimed;
+            // without a proposed test it is an idea rather than a plan.
+            var queued = Registry().Edges.Where(e => e.Evidence == StrategyEvidenceLevel.Untested).ToList();
+
+            Assert.NotEmpty(queued);
+            Assert.All(queued, e =>
+            {
+                Assert.NotNull(e.Origin);
+                Assert.False(string.IsNullOrWhiteSpace(e.Origin!.Who), $"{e.Id}: origin names nobody.");
+                Assert.False(string.IsNullOrWhiteSpace(e.Origin!.Quote), $"{e.Id}: no quote — the claim cannot be re-read in its own words.");
+                Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", e.Origin!.CapturedOn ?? "");
+                Assert.NotNull(e.ReMeasure?.Command);
+                Assert.False(e.CanScore, $"{e.Id} is queued and must not be scorable.");
+            });
+        }
+
+        [Fact]
+        public void AQueuedClaimThatContradictsAMeasuredOneSaysSo()
+        {
+            // The 1:3-target claim from the 2026-08-01 video contradicts our own exit finding. That
+            // is exactly why it is worth running — but the contradiction has to be recorded, or the
+            // test gets designed as though the question were open when half of it is already answered.
+            var target = Registry()["fixed-1to3-target"];
+
+            Assert.NotNull(target);
+            Assert.Contains(target!.CorrelatesWith, l => l.Id == "fixed-percent-scale-outs");
         }
 
         private static string RepoRoot()
