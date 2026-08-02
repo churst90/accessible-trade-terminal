@@ -64,7 +64,9 @@ agreement; full-sample ranking makes any extension metric look prescient.
 | 23 | **Sizing up when timeframes agree** | **Null** | The overlap check is the finding: "above the 50-bar mean" is true at **100%** of entries by construction. Expectancy is flat across agreement buckets (equities +0.037 R, p = 0.324) |
 | 24 | **A 0–1 rank-normalised risk metric** | **Falsified** | Ranking against the full series (what a published rainbow chart shows) gives 2.3× the spread of an honest expanding window; the normalisation then adds almost nothing over its own raw input (3.0 vs 2.6 pts); equities are a null with the wrong sign |
 | 25 | **Sweep-and-reclaim entry** | **Not supported** | The one arm resembling the claim is the smallest sample and is contradicted by two larger ones; most of its gap is the breach arm being *bad*, not the reclaim being good |
-| 26 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
+| 26 | **The ladder — always in the trend's direction** | **Falsified** | Loses at every rung width **with costs set to zero**, so it is the structure and not the churn. Long-only is 4× better in crypto and 7× in equities; the short side helps on 1 of 10 crypto names — the sixth symmetric-short failure here |
+| 27 | **Earnings surprise ranks forward returns** | **Null on the sample we could reach** | Quintiles non-monotone at 20/60/120 bars with Q2 best every time; the event itself is *below* an exposure-matched null at 60 and 120 bars. But the universe is 10 mega-caps — the most analyst-covered names there are, where drift is weakest by construction |
+| 28 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
 
 ---
 
@@ -103,7 +105,7 @@ lookahead · a test that shares the code's misunderstanding.
 
 ## Sources
 
-`APPROACH_AND_WEEKLY_FINDINGS.md` · `RISK_TARGET_AND_METRIC_FINDINGS.md` · `XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
+`EARNINGS_SURPRISE_FINDINGS.md` · `APPROACH_AND_WEEKLY_FINDINGS.md` · `RISK_TARGET_AND_METRIC_FINDINGS.md` · `XSMOMENTUM_FINDINGS.md` · `WALKFORWARD_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
 `VOLUME_FINDINGS.md` · `EXIT_FINDINGS.md` · `FOMC_FINDINGS.md` · `MACRO_EVENT_FINDINGS.md` ·
 `ONCHAIN_FINDINGS.md` · `CROWDING_FINDINGS.md` · `POSITIONING_AND_EVENTS_FINDINGS.md` ·
 `TRADING_CROSS_FINDINGS.md` · `CYCLE_FINDINGS.md` · `CONFLUENCE_SENTIMENT_FINDINGS.md` ·

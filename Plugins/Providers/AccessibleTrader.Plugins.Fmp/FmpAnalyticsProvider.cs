@@ -31,8 +31,12 @@ namespace AccessibleTrader.Plugins.Fmp
     /// </summary>
     public class FmpAnalyticsProvider : BaseMarketDataProvider
     {
-        private const string BaseUrl = "https://financialmodelingprep.com/api/v3";
-        private const string BaseUrlV4 = "https://financialmodelingprep.com/api/v4";
+        // MIGRATED 2026-08-02 from /api/v3 and /api/v4, both of which FMP retired: they answer
+        // 403 "Legacy Endpoint" for any key without a subscription predating 2025-08-31. On /stable
+        // the ticker moves from the path into a `symbol` query parameter. Several of these data sets
+        // are also plan-gated and answer 402 — see FetchArrayAsync, which says so out loud rather
+        // than returning an empty series that reads as "this metric has no data".
+        private const string BaseUrl = "https://financialmodelingprep.com/stable";
         private HttpClient? _httpClient;
         private string _apiKey = "";
         private readonly RateLimiter _rateLimiter = new(4, TimeSpan.FromMinutes(1));
@@ -134,7 +138,7 @@ namespace AccessibleTrader.Plugins.Fmp
             if (!IsConfigured) return (false, "API key not configured.");
             try
             {
-                var url = $"{BaseUrl}/key-metrics-ttm/AAPL?apikey={_apiKey}";
+                var url = $"{BaseUrl}/key-metrics-ttm?symbol=AAPL&apikey={_apiKey}";
                 var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
                 return response.IsSuccessStatusCode
                     ? (true, "FMP Analytics API key validated.")
@@ -265,11 +269,11 @@ namespace AccessibleTrader.Plugins.Fmp
             if (symbol.StartsWith("ECONOMIC_CALENDAR", StringComparison.OrdinalIgnoreCase))
                 return await FetchEconomicCalendarAsync(limit).ConfigureAwait(false);
             if (symbol.StartsWith("IPO_CALENDAR", StringComparison.OrdinalIgnoreCase))
-                return await FetchCalendarAsync("ipo_calendar", limit).ConfigureAwait(false);
+                return await FetchCalendarAsync("ipos-calendar", limit).ConfigureAwait(false);
             if (symbol.StartsWith("DIVIDEND_CALENDAR", StringComparison.OrdinalIgnoreCase))
-                return await FetchCalendarAsync("stock_dividend_calendar", limit).ConfigureAwait(false);
+                return await FetchCalendarAsync("dividends-calendar", limit).ConfigureAwait(false);
             if (symbol.StartsWith("SPLIT_CALENDAR", StringComparison.OrdinalIgnoreCase))
-                return await FetchCalendarAsync("stock_split_calendar", limit).ConfigureAwait(false);
+                return await FetchCalendarAsync("splits-calendar", limit).ConfigureAwait(false);
 
             // Compound symbol: TICKER_METRIC
             var idx = symbol.IndexOf('_');
@@ -295,9 +299,9 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchFinancialMetricAsync(string ticker, MetricDef def, int limit)
         {
-            var url = $"{BaseUrl}/{def.Endpoint}/{ticker}?period=quarter&limit={limit}&apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            var url = $"{BaseUrl}/{def.Endpoint}?symbol={ticker}&period=quarter&limit={limit}&apikey={_apiKey}";
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             return arr
                 .Select(t =>
@@ -318,9 +322,11 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchEarningsSurprisesAsync(string ticker, int limit)
         {
-            var url = $"{BaseUrl}/earnings-surprises/{ticker}?apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            // /stable folds earnings-surprises into `earnings`, which carries both the reported and
+            // the estimated EPS on the free tier.
+            var url = $"{BaseUrl}/earnings?symbol={ticker}&apikey={_apiKey}";
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             return arr
                 .Select(t =>
@@ -343,9 +349,13 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchSectorPerformanceAsync(string sector)
         {
-            var url = $"{BaseUrl}/historical-sectors-performance?limit=365&apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            // /stable takes ONE sector and a date range and returns rows already scoped to it,
+            // where v3 returned every sector per date in wide form.
+            var to = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var from = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd");
+            var url = $"{BaseUrl}/historical-sector-performance?sector={Uri.EscapeDataString(sector)}&from={from}&to={to}&apikey={_apiKey}";
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             // Field name in response: sector name with "ChangesPercentage" suffix
             // The API returns all sectors per date — we pick the one matching our sector
@@ -382,9 +392,9 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd");
             var from = DateTime.UtcNow.AddMonths(-3).ToString("yyyy-MM-dd");
-            var url = $"{BaseUrl}/earning_calendar?from={from}&to={to}&apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            var url = $"{BaseUrl}/earnings-calendar?from={from}&to={to}&apikey={_apiKey}";
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             // Aggregate: count of earnings reports per day
             return arr
@@ -408,9 +418,9 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var to = DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd");
             var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd");
-            var url = $"{BaseUrl}/economic_calendar?from={from}&to={to}&apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            var url = $"{BaseUrl}/economic-calendar?from={from}&to={to}&apikey={_apiKey}";
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             return arr
                 .Select(t =>
@@ -434,8 +444,8 @@ namespace AccessibleTrader.Plugins.Fmp
             var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd");
             var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd");
             var url = $"{BaseUrl}/{endpoint}?from={from}&to={to}&apikey={_apiKey}";
-            var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var arr = JArray.Parse(body);
+            var arr = await FetchArrayAsync(url).ConfigureAwait(false);
+            if (arr == null) return new List<Ohlcv>();
 
             return arr
                 .GroupBy(t => t["date"]?.ToString() ?? "")
@@ -469,6 +479,45 @@ namespace AccessibleTrader.Plugins.Fmp
         }
 
         // ── Internal types ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// One place where every /stable call lands, so a plan-gated data set reports itself instead
+        /// of arriving as an empty series. On the free tier `key-metrics` and `ratios` refuse the
+        /// quarterly period, the calendars refuse wide date ranges, and IPO data is unavailable —
+        /// all of which used to surface as a blank chart with no explanation anywhere.
+        /// </summary>
+        private async Task<JArray?> FetchArrayAsync(string url)
+        {
+            try
+            {
+                var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if ((int)response.StatusCode == 402)
+                {
+                    _errorStream.OnNext("FMP Analytics: your plan does not include this data set (or this "
+                                      + "period/date range). Free covers income statements, earnings, treasury "
+                                      + "rates, economic indicators and sector performance.");
+                    return null;
+                }
+                if ((int)response.StatusCode == 403 && body.Contains("Legacy", StringComparison.OrdinalIgnoreCase))
+                {
+                    _errorStream.OnNext("FMP Analytics called a retired API path — this is a bug; please report it.");
+                    return null;
+                }
+                if (!response.IsSuccessStatusCode)
+                {
+                    _errorStream.OnNext($"FMP Analytics request failed: HTTP {(int)response.StatusCode}.");
+                    return null;
+                }
+                return JArray.Parse(body);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"FMP Analytics request error: {ex.Message}");
+                return null;
+            }
+        }
 
         private record MetricDef(string Field, string Endpoint, string Label);
     }

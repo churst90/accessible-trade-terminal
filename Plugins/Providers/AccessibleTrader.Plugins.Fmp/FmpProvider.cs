@@ -19,7 +19,12 @@ namespace AccessibleTrader.Plugins.Fmp
     /// </summary>
     public class FmpProvider : BaseMarketDataProvider
     {
-        private const string BaseUrl = "https://financialmodelingprep.com/api/v3";
+        // MIGRATED 2026-08-02 from /api/v3. FMP retired the v3 and v4 paths: they answer
+        // 403 "Legacy Endpoint" for every key without a subscription predating 2025-08-31, so the
+        // provider worked for old keys and was dead for every new user — a silent read-path failure
+        // that no test caught because the old key in the repo still worked. On /stable the symbol is
+        // a query parameter rather than a path segment, and several endpoints are plan-gated.
+        private const string BaseUrl = "https://financialmodelingprep.com/stable";
         private HttpClient? _httpClient;
         private string _apiKey = "";
         private readonly RateLimiter _rateLimiter = new(4, TimeSpan.FromMinutes(1)); // Conservative for 250/day
@@ -69,7 +74,7 @@ namespace AccessibleTrader.Plugins.Fmp
             if (!IsConfigured) return (false, "API key not configured.");
             try
             {
-                var url = $"{BaseUrl}/quote/AAPL?apikey={_apiKey}";
+                var url = $"{BaseUrl}/quote?symbol=AAPL&apikey={_apiKey}";
                 var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
@@ -78,6 +83,13 @@ namespace AccessibleTrader.Plugins.Fmp
                         return (false, "API key rejected by FMP.");
                     return (true, "FMP API key validated.");
                 }
+                // 403 here means the LEGACY-endpoint refusal, which is a code problem rather than a
+                // key problem, and saying "invalid key" would send the user to regenerate a key that
+                // was never the issue.
+                if ((int)response.StatusCode == 403)
+                    return (false, "FMP refused the request as a legacy endpoint. The app is calling a retired API path — this is a bug, not a key problem.");
+                if ((int)response.StatusCode == 402)
+                    return (false, "Your FMP plan does not include this endpoint.");
                 return (false, $"Validation failed: HTTP {(int)response.StatusCode}");
             }
             catch (Exception ex) { return (false, $"Validation error: {ex.Message}"); }
@@ -135,7 +147,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetStockSymbolsAsync()
         {
             if (_stockSymbolCache != null) return _stockSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/stock/list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/stock-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _stockSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -147,7 +159,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetEtfSymbolsAsync()
         {
             if (_etfSymbolCache != null) return _etfSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/etf/list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/etf-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _etfSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -159,7 +171,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetCryptoSymbolsAsync()
         {
             if (_cryptoSymbolCache != null) return _cryptoSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/symbol/available-cryptocurrencies?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/cryptocurrency-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _cryptoSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s) && s.EndsWith("USD", StringComparison.OrdinalIgnoreCase))
@@ -171,7 +183,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetForexSymbolsAsync()
         {
             if (_forexSymbolCache != null) return _forexSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/symbol/available-forex-currency-pairs?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/forex-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _forexSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -183,7 +195,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetCommoditySymbolsAsync()
         {
             if (_commoditySymbolCache != null) return _commoditySymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/symbol/available-commodities?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/commodities-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _commoditySymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -195,7 +207,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetIndexSymbolsAsync()
         {
             if (_indexSymbolCache != null) return _indexSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/symbol/available-indexes?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/index-list?apikey={_apiKey}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _indexSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -234,7 +246,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<Ohlcv>> FetchDailyAsync(MarketDataRequest request)
         {
             var symbol = CleanSymbol(request.Symbol);
-            var url = $"{BaseUrl}/historical-price-full/{symbol}?apikey={_apiKey}";
+            var url = $"{BaseUrl}/historical-price-eod/full?symbol={symbol}&apikey={_apiKey}";
 
             if (request.Since.HasValue)
             {
@@ -247,18 +259,18 @@ namespace AccessibleTrader.Plugins.Fmp
                 url += $"&to={to}";
             }
 
-            url += $"&timeseries={request.Limit}";
-
+            // /stable returns a FLAT array; v3 wrapped it in {"historical": [...]} and dropped the
+            // `timeseries` parameter, so the row cap is applied here instead.
             var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
-            var root = JObject.Parse(body);
-            var historical = root["historical"] as JArray;
-            if (historical == null || !historical.Any()) return new List<Ohlcv>();
+            var arr = JArray.Parse(body);
+            if (!arr.Any()) return new List<Ohlcv>();
 
-            return historical
+            return arr
                 .Select(ParseDailyBar)
                 .Where(b => b.HasValue)
                 .Select(b => b!.Value)
                 .OrderBy(b => b.Date)
+                .TakeLast(request.Limit)
                 .ToList();
         }
 
@@ -266,7 +278,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var symbol = CleanSymbol(request.Symbol);
             var interval = MapTimeframe(request.Timeframe);
-            var url = $"{BaseUrl}/historical-chart/{interval}/{symbol}?apikey={_apiKey}";
+            var url = $"{BaseUrl}/historical-chart/{interval}?symbol={symbol}&apikey={_apiKey}";
 
             if (request.Since.HasValue)
             {
@@ -352,14 +364,44 @@ namespace AccessibleTrader.Plugins.Fmp
             _ => "1hour"
         };
 
+        /// <summary>
+        /// Several /stable endpoints — the full stock and ETF lists, intraday charts — are gated by
+        /// FMP subscription tier and answer 402. Swallowing that produced an empty dropdown, which
+        /// reads as "this market has no symbols" rather than "your plan does not include it". The
+        /// difference matters: one is a bug report, the other is a purchase decision.
+        /// </summary>
         private async Task<JArray?> FetchJsonAsync(string url)
         {
             try
             {
-                var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
+                var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if ((int)response.StatusCode == 402)
+                {
+                    _errorStream.OnNext("FMP: your plan does not include this data set. The free tier covers quotes, "
+                                      + "daily prices and the crypto/forex/commodity/index lists; full stock and ETF "
+                                      + "lists and intraday charts need a paid plan.");
+                    return null;
+                }
+                if ((int)response.StatusCode == 403 && body.Contains("Legacy", StringComparison.OrdinalIgnoreCase))
+                {
+                    _errorStream.OnNext("FMP refused a request as a legacy endpoint — the app is calling a retired API path. "
+                                      + "This is a bug; please report it.");
+                    return null;
+                }
+                if (!response.IsSuccessStatusCode)
+                {
+                    _errorStream.OnNext($"FMP request failed: HTTP {(int)response.StatusCode}.");
+                    return null;
+                }
                 return JArray.Parse(body);
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"FMP request error: {ex.Message}");
+                return null;
+            }
         }
 
         protected override void Dispose(bool disposing)

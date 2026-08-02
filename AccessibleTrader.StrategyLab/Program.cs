@@ -193,6 +193,15 @@ try
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "ml-data.csv"),
         "catalogue" or "catalog" => CatalogueCommand.Run(args.Skip(1).ToArray()),
         "edges" or "edge" => EdgesCommand.Run(args.Skip(1).ToArray()),
+        "ladder" => LadderCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--clicks"), out var lc) ? lc : 3,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--trail"), out var lt) ? lt : 2,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--click-atr"), out var la) ? la : 0.5,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--random-trials"), out var lr) ? lr : 40),
+        "earnings" => await EarningsCommand.RunAsync(args.Skip(1).ToArray(),
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data"),
         "sweep" => SweepReclaimCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),

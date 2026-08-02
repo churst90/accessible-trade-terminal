@@ -177,3 +177,57 @@ makes any target look good relative to a smaller target. The z-cross makes "abov
 look like agreement. Full-sample ranking makes any extension metric look prescient.
 
 In each case the control took a few lines and reversed the conclusion.
+
+---
+
+## 6. The ladder — always in the trend's direction
+
+Run 2026-08-02. `dotnet run -- ladder --snapshots strategy-lab-data --tf 1d`
+
+A click is a fraction of ATR, so rung spacing breathes with volatility. From a reference price, N
+clicks in one direction opens a position that way; a K-click trailing stop rides behind it; a
+stop-out resets the reference and the ladder starts counting again. So it is always in the market
+when price is moving, and it reverses freely.
+
+**51 instruments, daily. It loses money nearly everywhere.**
+
+| | ladder | long-only ladder | buy & hold | random parameters |
+|---|---|---|---|---|
+| **crypto** (median) | **0.61×** | 2.39× | 1.68× | 0.75× |
+| **equity** (median) | **0.06×** | 0.41× | 7.00× | 0.48× |
+
+Beats hold on 3/10 crypto and **1/41** equities. Beats its own random-parameter arm on 4/10 and
+1/41 — so the chosen numbers carry no information, which is the same result the walk-forward study
+found for trend parameters generally.
+
+**The always-in part is what breaks it.** Long-only is four times better in crypto (2.39× vs 0.61×)
+and seven times better in equities. The short side helps on **1 of 10** crypto instruments and 2 of
+41 equities. That is the sixth independent time a symmetric short has failed in this project.
+
+### It is not the trading costs
+
+The obvious defence is that it churns — 460 round trips at the default rung width — so the sweep
+below removes costs entirely and widens the rungs:
+
+| click | crypto (with cost) | crypto (free) | equity (with cost) | equity (free) | median trades |
+|---|---|---|---|---|---|
+| 0.5 ATR | 0.61× | 0.71× | 0.06× | 0.15× | 460 |
+| 1.0 ATR | 0.76× | 0.80× | 0.24× | 0.35× | 168 |
+| 2.0 ATR | 0.41× | 0.42× | 0.40× | 0.45× | 52 |
+| 4.0 ATR | 0.75× | 0.75× | 1.67× | 1.70× | 14 |
+
+**With zero costs it still loses at every rung width.** The cost column and the free column are
+within a few points of each other everywhere, and by 4 ATR they are identical because there is
+almost nothing left to charge. Widening the rungs improves equities (0.06× → 1.67×) purely by
+trading less and thereby converging on holding — and 1.67× is still a quarter of the 7.00× that
+doing nothing returned.
+
+**Verdict: the structure is the problem, not the frequency.** A stop-and-reverse ladder pays the
+trailing stop's cost on every oscillation and collects the trend premium only on the leg that runs.
+In a market that trends up over decades, the short legs are a tax and the long legs are a worse
+version of holding.
+
+**What survives from the idea.** The long-only variant in crypto (2.39× median, beating hold's
+1.68×) is a trend follower with a trailing stop, which is the family the registry already records as
+control-tested. The ladder's genuinely new ingredient — *always* being in the market, in both
+directions — is the part that fails.

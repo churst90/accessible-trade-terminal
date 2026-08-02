@@ -411,14 +411,15 @@ namespace AccessibleTrader.Tests
             }
 
             [Fact]
-            public async Task DailyHappyPath_ParsesHistoricalNode_SortsAscending()
+            public async Task DailyHappyPath_ParsesFlatArray_SortsAscending()
             {
-                // FMP returns daily bars newest-first.
-                var handler = new FakeHttpMessageHandler().Get(@"historical-price-full", """
-                    {"symbol":"AAPL","historical":[
+                // FMP returns daily bars newest-first. UPDATED 2026-08-02 for the /stable migration:
+                // v3 wrapped the rows in {"historical": [...]}, /stable returns a flat array.
+                var handler = new FakeHttpMessageHandler().Get(@"historical-price-eod/full", """
+                    [
                       {"date":"2026-01-02","open":151.0,"high":152.0,"low":150.0,"close":151.5,"volume":2000},
                       {"date":"2026-01-01","open":150.0,"high":151.0,"low":149.0,"close":150.5,"volume":1000}
-                    ]}
+                    ]
                     """);
                 var provider = NewConfigured(handler);
 
@@ -497,16 +498,38 @@ namespace AccessibleTrader.Tests
             }
 
             [Fact]
-            public async Task SymbolCleaned_OnUrlPath()
+            public async Task SymbolCleaned_IntoTheQueryString()
             {
-                // "BTC/USD" → CleanSymbol → "BTCUSD" in the path segment.
-                var handler = new FakeHttpMessageHandler().Get(@"historical-price-full", """{"historical":[]}""");
+                // "BTC/USD" → CleanSymbol → "BTCUSD". UPDATED 2026-08-02: on /stable the symbol is a
+                // QUERY PARAMETER, not a path segment — which matters beyond cosmetics, because a
+                // slash left in the symbol used to change the URL's shape rather than its content.
+                var handler = new FakeHttpMessageHandler().Get(@"historical-price-eod/full", """[]""");
                 var provider = NewConfigured(handler);
 
                 await provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USD", "1d", 100));
 
                 Assert.Single(handler.Captured);
-                Assert.Contains("/historical-price-full/BTCUSD?", handler.Captured[0].RequestUri!.ToString());
+                var uri = handler.Captured[0].RequestUri!.ToString();
+                Assert.Contains("/stable/historical-price-eod/full?symbol=BTCUSD", uri);
+                Assert.DoesNotContain("/api/v3", uri);
+            }
+
+            [Fact]
+            public async Task RetiredApiPathsAreNeverCalled()
+            {
+                // The whole reason for the migration: /api/v3 and /api/v4 answer 403 "Legacy
+                // Endpoint" for every key issued after 2025-08-31, so the provider worked for old
+                // keys and was dead for new users. Nothing caught it because the repo's own key was
+                // old enough to keep working. This pins the base URL so it cannot regress.
+                var handler = new FakeHttpMessageHandler().Get(@"historical-price-eod/full", """[]""");
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 100));
+
+                var uri = handler.Captured[0].RequestUri!.ToString();
+                Assert.DoesNotContain("/api/v3", uri);
+                Assert.DoesNotContain("/api/v4", uri);
+                Assert.Contains("/stable/", uri);
             }
         }
 

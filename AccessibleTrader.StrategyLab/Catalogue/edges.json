@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-01.8",
+  "registryVersion": "2026-08-02.1",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
@@ -1250,14 +1250,22 @@
         "notes": "THE FOLLOW-UP THE MACRO STUDY EARNED. Release dates for CPI/NFP/PPI/GDP tested null while FOMC did not, and the proposed explanation was that FOMC is a policy ACTION while CPI/NFP are DATA the market spends the interval forecasting -- so the surprise should move price rather than the date. That was untestable while macro consensus was paywalled. It is testable on EARNINGS: Alpha Vantage's free EARNINGS endpoint carries reportedEPS, estimatedEPS and surprise back to 1996 (verified 2026-08-01). Controls needed: post-earnings drift is a documented anomaly, so the arm that matters is whether surprise MAGNITUDE ranks forward returns beyond the plain event-date effect, plus an exposure-matched null on the drift window."
       },
       "effect": {
-        "measure": "forward-return-spread-by-surprise-decile",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "beat-minus-miss-quintile-spread",
+        "value": 0.0008,
+        "unit": "fraction over 20 bars (60-bar +0.0111, 120-bar +0.0051)",
+        "p": null,
+        "n": 1200,
+        "notes": "NULL on both halves. The surprise does not rank forward returns: quintiles are non-monotone at every horizon with Q2 the best, not Q5, and the beat-minus-miss spread is +0.08% over 20 bars, +1.11% over 60, +0.51% over 120. The event itself adds nothing over plain exposure either: +0.14 pts of level at 20 bars, and NEGATIVE at 60 and 120 (-0.14, -0.13) against the same stocks' own returns over any equivalent window. SAMPLE CAVEAT, and it is a serious one: 10 mega-cap US names (AAPL CAT CVX IBM JNJ JPM KO MCD MMM MSFT) are the most analyst-covered stocks in the market, which is exactly where post-earnings drift is weakest by construction. The literature finds it in small caps with thin coverage, which this universe has none of."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "exposure-matched-null-same-stocks-any-window",
+        "surprise-standardised-within-symbol",
+        "three-horizons-20-60-120",
+        "monotonicity-across-quintiles"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-02",
+      "lastMeasured": "2026-08-02",
       "decay": [],
       "correlatesWith": [
         {
@@ -1271,7 +1279,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/EARNINGS_SURPRISE_FINDINGS.md",
       "origin": {
         "kind": "practitioner",
         "who": "this project's own macro/FOMC contrast (2026-08-01)",
@@ -1280,8 +1288,61 @@
         "quote": "PARAPHRASE of our own MACRO_EVENT_FINDINGS conclusion: FOMC is a policy action and CPI/NFP are data the market spends the interval forecasting, so the surprise should move price, not the date."
       },
       "reMeasure": {
-        "command": "earnings-surprise (to build)",
-        "implemented": false
+        "command": "earnings study",
+        "implemented": true
+      }
+    },
+    {
+      "id": "ladder-stop-and-reverse",
+      "title": "A ladder that is always in the trend's direction",
+      "claim": "Opening a position after N volatility clicks in one direction, with a trailing stop, and reversing on every stop-out, so there is always a trade open while price is moving, beats holding.",
+      "family": "trend",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "Cody's idea, formalised: click = fraction of ATR so rung spacing breathes with volatility; N clicks to open, K-click trail, reference resets on stop-out."
+      },
+      "effect": {
+        "measure": "median-multiple-of-capital",
+        "value": 0.61,
+        "unit": "x crypto (equities 0.06x, hold 1.68x/7.00x)",
+        "p": null,
+        "n": 51,
+        "notes": "Loses money nearly everywhere: beats hold on 3/10 crypto and 1/41 equities, and beats its own random-parameter arm on 4/10 and 1/41. THE ALWAYS-IN PART IS WHAT BREAKS IT -- long-only is 4x better in crypto (2.39x) and 7x better in equities, and the short side helps on 1 of 10 crypto instruments. Sixth independent failure of a symmetric short here. NOT COSTS: with costs set to zero it still loses at every rung width from 0.5 to 4.0 ATR, the free and cost columns landing within a few points of each other. Widening rungs improves equities only by trading less and converging on holding, and still returns a quarter of what doing nothing did."
+      },
+      "controls": [
+        "buy-and-hold",
+        "long-only-arm-isolating-the-short-side",
+        "random-parameter-arm",
+        "zero-cost-arm-separating-rule-from-churn",
+        "rung-width-sweep"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-02",
+      "lastMeasured": "2026-08-02",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "trend-following-family",
+          "note": "the long-only variant IS this edge; the ladder's new ingredient is the always-in reversal, which is the part that fails",
+          "correlation": null
+        }
+      ],
+      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "origin": {
+        "kind": "practitioner",
+        "who": "Cody",
+        "url": null,
+        "capturedOn": "2026-08-02",
+        "quote": "if price goes in a certain direction for a number of clicks it opens a trade so long as price goes in that direction with a trailing stop so no matter the direction there is always a trade open so long as there is trend"
+      },
+      "reMeasure": {
+        "command": "ladder",
+        "implemented": true
       }
     }
   ]
