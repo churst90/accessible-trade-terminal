@@ -42,8 +42,22 @@ Design notes in [PLATFORM_AND_SIGNAL_SERVICE.md](PLATFORM_AND_SIGNAL_SERVICE.md)
 - Key status tested 2026-08-02: **CoinMarketCap works** (and covers the crypto vetting scorecard);
   **Nomics is dead** (service shut down); **CoinAPI is out of credits**. Nothing needs buying — SEC
   EDGAR, GDELT and Wikipedia pageviews are free and cover the real gaps.
-- [ ] `WikipediaPageviewsProvider` — smallest job, and the only one where delay costs history.
-- [ ] Dossier modal with plain-language pattern description (no research dependency).
+- [x] `WikipediaPageviewsProvider` — DONE 2026-08-02. Analytics tier, no key, 33 curated tickers
+      plus raw-article passthrough, daily and monthly. Two corrections found while building it:
+      per-article **hourly is HTTP 400** (the design note said hourly and was wrong), and requests
+      reaching before **2015-07-01** 404 the *entire* range rather than clipping, so the window is
+      clamped. Three plausible catalogue entries (Binance, Stock market, Tether) resolve as
+      Wikipedia articles but 404 from the pageviews API and were left out rather than shipped dead.
+- [x] **Opt-in chart-pattern description** — DONE 2026-08-02, and it is the part of the dossier that
+      did not need the dossier. `ChartPatternDetector` finds double tops/bottoms, head and shoulders
+      (both ways), ascending/descending/symmetrical triangles, rising/falling wedges and bull/bear
+      flags, each reported as **Forming** (structure present, trigger not yet hit) or **Completed**.
+      Forming reports carry the trigger level, because a pattern announced only on completion cannot
+      be acted on. Setting `speech.describeChartPatterns`, default OFF, spoken on X-axis navigation.
+      Never says bullish or bearish — a test enforces the banned vocabulary.
+- [ ] **Dossier modal** (`Alt+I`) — still to build. The pattern-description half is now done and
+      reusable; what remains is the spoken headline and the tabbed per-company sections, which need
+      `SecEdgarProvider` for most of their content.
 - [ ] `CoinMarketCapProvider` + the 11-check deterministic crypto scorecard ("run scam report").
 - [ ] `SecEdgarProvider`, `GdeltProvider` — larger, gated on the revision-breadth result.
 - [ ] Signal service LAST, when there is more than one control-tested edge to serve.
@@ -64,9 +78,10 @@ recorded so the decision can be made without re-deriving it.
 - **LLM in the ingestion pipeline, never the decision loop** — and LLM-derived sentiment can only be
   validated FORWARD, because a model scoring old text already knows what happened next. Invisible
   lookahead, no offset can fix it.
-- [ ] **Start the recorders** (Wikipedia pageviews, GDELT counts). The only step worth doing before
-  a decision, because history accumulates only if collection starts and that delay cannot be
-  recovered.
+- [x] **Wikipedia pageviews is live** (2026-08-02). Note the urgency argument was partly wrong: the
+  API serves history back to 2015-07-01 on demand, so the daily series is NOT lost by waiting. GDELT
+  event counts are the one where delay still costs something.
+- [ ] **Start the GDELT recorder.**
 - [ ] **First test if the layer is greenlit:** analyst estimate revision breadth, through the
   cross-sectional harness. Strongest documented prior, inputs already free, machinery already exists.
 

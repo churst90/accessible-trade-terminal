@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-02.2",
+  "registryVersion": "2026-08-02.4",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
@@ -1432,15 +1432,63 @@
       "family": "regime",
       "scope": {
         "assetClasses": [
-          "equities",
-          "crypto"
+          "equities"
         ],
         "horizonBars": 0,
         "timeframe": "1d",
-        "notes": "TESTABLE NOW with snapshots already on disk, and the most interesting claim in the interview because it is falsifiable and nobody usually bothers. Measure the run-length distribution of a fixed regime label (above/below the 200-day, or a variance-ratio sign) pre-2020 versus post-2020, across the same instruments. His anecdote -- down 1,400 points at 11am and 'in a bull market' by 2pm -- is a claim about the PRESS's use of the words, so the test must use a mechanical label, not a journalist's. Watch the obvious confound: post-2020 is a shorter window with one enormous volatility event in it, so era slicing must be balanced by length rather than by calendar."
+        "notes": "TESTED 2026-08-02 and FALSIFIED. Regime = a confirmed percentage swing at theta = 10% (correction) and 20% (textbook bull/bear); a mechanical label rather than a journalist's, because his anecdote is about how the PRESS used the words. Each instrument's history is tiled BACKWARDS from today into slices of exactly the post-COVID length, so the short recent window is never compared against a fifty-year mean. The post-COVID era ranks 3rd of 8 for flip rate at both thresholds. The reason the claim FEELS true: the era immediately before it (2013-10 to 2020-02) is the calmest six years in the fifty-year record -- 17.5% vol against 22-32% elsewhere, and the longest mean regime duration of any era -- so a trader comparing the last six years against the six before them correctly sees regimes half as long. The baseline moved, not the market."
       },
       "effect": {
-        "measure": "median-regime-run-length-pre-vs-post-2020",
+        "measure": "recent-era-flip-rate-vs-equal-length-earlier-eras",
+        "value": 8.9,
+        "unit": "percent, theta=10% raw (theta=20% raw +10.0%)",
+        "p": 0.456,
+        "n": 29,
+        "notes": "Raw p 0.456 (theta 10%) and 0.546 (theta 20%); both controls land at or below zero (+0.7% / -3.0% vs shuffled surrogate, -7.7% / -6.1% vol-scaled). Mean rank of the recent era 3.0 and 2.8 out of 8 eras. Moving the era boundary six months to exclude the COVID crash FLIPS the sign of every arm, which is decisive against the claim. Design p-floor is 1/(number of slices) = 0.125, stated in the output."
+      },
+      "controls": [
+        "equal-length-era-tiling-not-calendar",
+        "shuffled-returns-surrogate-per-slice-KILLED-IT",
+        "volatility-scaled-threshold",
+        "correlation-preserving-shared-era-permutation",
+        "two-thresholds-both-reported",
+        "era-boundary-sensitivity-SIGN-FLIPS",
+        "detector-verified-against-real-bear-market-dates"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-02",
+      "lastMeasured": "2026-08-02",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "docs/REGIME_PERSISTENCE_FINDINGS.md",
+      "origin": {
+        "kind": "video",
+        "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=I6OnphhSKMA",
+        "capturedOn": "2026-08-02",
+        "quote": "you cannot use a term like a bull market and a bare market ... when in January we were down 1400 points at 11:00 a.m. and the press was talking about oh my God we are now in a bare market ... and then the market reversed and by 2 o'clock in the afternoon we were actually in a bull market ... when you have something that historically used to take generations now happening over lunch, you need to re-evaluate these things"
+      },
+      "reMeasure": {
+        "command": "regime-persistence",
+        "implemented": true
+      }
+    },
+    {
+      "id": "pyramiding-risk-recycling",
+      "title": "Pyramiding by recycling the same dollar risk beats a fixed position",
+      "claim": "When a trade develops structure allowing a tighter stop, move the stop up and add size to return to the SAME dollar risk. Repeated across a trend this converts a $10k initial risk into a position worth many multiples of it, without ever increasing the amount at risk.",
+      "family": "sizing",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "THE FIRST SIZING CLAIM IN THE REGISTRY. The ledger holds ~20 edges on entries and 2 on exits and ZERO on sizing -- the trader's-triangle interview already identified sizing as the untested corner, and this is a mechanically specifiable rule for it. Crucially it is NOT 'add risk when winning': the dollar at risk is held constant and the stop does the work, so it is testable without a conviction input. OUR OWN PRIOR IS FAVOURABLE AND THAT IS A REASON FOR EXTRA CARE: the exit study found the BTC trend edge has a fat right tail (mean +8.15R at a 47% win rate) and that fixed-percentage scale-OUTS destroyed 95-100% of it. Pyramiding is the exact inverse of scaling out, so a positive result would be consistent with something already measured -- which makes it easy to believe too quickly. CONTROLS REQUIRED: (1) an exposure-matched null, because adding to winners mechanically raises exposure during trends and in a trending asset that wins for the same reason buy-and-hold wins; (2) hold the ENTRY AND EXIT SIGNALS FIXED and vary only the size schedule, or the test measures the entry rule again; (3) report total R, not win rate -- he states his own win rate would be ~60% without pyramiding and is 41% with it, so win rate moving the wrong way is predicted by the claim rather than evidence against it; (4) model slippage on the adds, since each add is a market order into a move."
+      },
+      "effect": {
+        "measure": "total-R-vs-fixed-size-same-signals",
         "value": null,
         "unit": "not yet measured"
       },
@@ -1453,13 +1501,165 @@
       "source": "",
       "origin": {
         "kind": "video",
-        "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
-        "url": "https://www.youtube.com/watch?v=I6OnphhSKMA",
+        "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=PBhrBnrtbxs",
         "capturedOn": "2026-08-02",
-        "quote": "you cannot use a term like a bull market and a bare market ... when in January we were down 1400 points at 11:00 a.m. and the press was talking about oh my God we are now in a bare market ... and then the market reversed and by 2 o'clock in the afternoon we were actually in a bull market ... when you have something that historically used to take generations now happening over lunch, you need to re-evaluate these things"
+        "quote": "you might have had a 10K initial risk on a trade, but you just get so big after adding and moving your stop up that that 10k initial risk turns into a million dollars ... it's not necessarily increasing risk, it's recycling the same risk"
       },
       "reMeasure": {
-        "command": "regime-persistence (to build)",
+        "command": "pyramid (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "first-red-day-reversal",
+      "title": "The first red day after a parabolic run is a short",
+      "claim": "After several consecutive up days with expanding range, expanding volume and gaps, the first day that breaks the prior day's low reverses, and the more extended the run the better the odds.",
+      "family": "mean-reversion",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto"
+        ],
+        "horizonBars": 10,
+        "timeframe": "1d",
+        "notes": "His single most-repeated setup and fully mechanical: N consecutive up days + expanding true range + expanding volume + gap-ups, then enter on the break of the prior day's low with the run's high as the stop. He also gives the transfer rule -- it is a small-cap pattern that only works on large caps 'when large caps start behaving like small caps', which is itself a testable conditioning statement rather than hand-waving. CONTROLS: the extension is measured against a base, so define the base algorithmically with a fixed confirmation lag or the setup is retrospectively selected. Compare against a random-entry short on days matched for the same trailing return, because 'stocks that ran a lot then fell' is what mean reversion IS and the question is whether the volume/gap/range conditions add anything. Survivorship cuts the WRONG way here for once -- the snapshot universe excludes the parabolic names that never came back -- so a null would be conservative and a positive result would be optimistic. Our own rubber-band finding says mean reversion is real in equities at ~5 days and REVERSED in crypto, so a crypto result of the same sign as equities would be the surprise."
+      },
+      "effect": {
+        "measure": "R-per-trade-vs-trailing-return-matched-random-short",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=PBhrBnrtbxs",
+        "capturedOn": "2026-08-02",
+        "quote": "when you get a large cap that gets really really overextended and starts behaving like a small cap where you get three four five up days in a row with expanding range and volume and they're gapping up each of those days, that's when you can actually bet big"
+      },
+      "reMeasure": {
+        "command": "first-red-day (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "breakout-vs-meanreversion-winrate",
+      "title": "Mean reversion has a higher win rate than breakouts",
+      "claim": "Fading a parabolic extension wins more often than trading a breakout, even though the breakout carries better reward-to-risk.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "Stated as fact -- 'it's a fact if you go look at the data' -- and cheap to check, which is exactly the kind of aside this pipeline exists to catch. Both arms must be defined mechanically and given the SAME risk unit and the SAME horizon, or the comparison is between two different trades. Report win rate AND mean R side by side: his own framing is that he accepts the lower win rate for the better payoff, so a result where breakouts lose more often and still earn more would CONFIRM him rather than refute him. That asymmetry has to be stated before the test runs, not after."
+      },
+      "effect": {
+        "measure": "win-rate-and-mean-R-both-arms",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=PBhrBnrtbxs",
+        "capturedOn": "2026-08-02",
+        "quote": "normally I like breakouts, but they do inherently have a much lower win rate than a mean reversion type strategy if you know how to time it correctly"
+      },
+      "reMeasure": {
+        "command": "breakout-vs-revert (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "triangle-direction-bias",
+      "title": "Ascending triangles break up and descending triangles break down",
+      "claim": "A flat resistance with rising support resolves upward; a flat support with falling resistance resolves downward; symmetrical triangles are roughly 50/50.",
+      "family": "pattern",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "Queued specifically because the terminal is gaining an opt-in chart-pattern DESCRIBER, and the standing policy is describe freely, score never. This is the claim that would have to be true before any pattern readout could carry a directional hint -- so testing it decides whether the feature stays purely descriptive. THE PRIOR IS BAD AND SHOULD BE STATED UP FRONT: every price-derived pattern claim tested in this project has come back null (random horizontal lines respected 59% of the time, real swing levels 46.2% against 46.7% for random, fib ratios nothing across 355,000 tests). The control that matters is the DETECTOR surrogate -- run the same triangle-finder over return-shuffled random walks, because a rule that finds converging trendlines will find them in noise. He also volunteers that the symmetrical case is 50/50, which is a usable internal control: a detector with no information should produce the same rate for all three."
+      },
+      "effect": {
+        "measure": "up-break-rate-by-triangle-type-vs-shuffled-surrogate",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=PBhrBnrtbxs",
+        "capturedOn": "2026-08-02",
+        "quote": "when you get ascending support and like a flat resistance line I tend to think that's going to break up to the upside ... and then you can get the symmetrical ones where to me it's a little bit more 50/50"
+      },
+      "reMeasure": {
+        "command": "triangles (to build)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "adr-selection-for-swings",
+      "title": "Swing candidates should be ranked by average daily range",
+      "claim": "A swing book built from high average-daily-range names outperforms one built from low-ADR names, because a 2% ADR stock cannot move a portfolio the way a 7-8% ADR one can.",
+      "family": "sizing",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto"
+        ],
+        "horizonBars": 20,
+        "timeframe": "1d",
+        "notes": "Sounds obvious and is not, because it is a claim about RETURNS and the mechanism offered is about RANGE. High-ADR names deliver more of both directions, so the null is that ADR ranking buys volatility and nothing else. The decisive control is volatility-normalisation: compare high-ADR and low-ADR books at MATCHED risk (position sized to 1 ATR), where the range advantage is removed by construction. If the high-ADR book still wins at matched risk the claim has content; if it does not, this is a leverage statement wearing a selection statement's clothes, and the cheaper answer is to size up on the low-ADR names."
+      },
+      "effect": {
+        "measure": "risk-matched-return-high-ADR-vs-low-ADR",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=PBhrBnrtbxs",
+        "capturedOn": "2026-08-02",
+        "quote": "if you're focusing on stuff with a 2% average daily range it's just not going to meaningfully move your portfolio like something with a 7 8% average daily range would"
+      },
+      "reMeasure": {
+        "command": "adr-rank (to build)",
         "implemented": false
       }
     }
