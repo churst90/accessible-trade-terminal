@@ -27,6 +27,22 @@ namespace AccessibleTrader.Plugins.Alpaca
         private const string CryptoDataUrl = "https://data.alpaca.markets/v1beta3/crypto";
         private string _tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
 
+        /// <summary>
+        /// Which consolidated feed to ask for on STOCK bars. Alpaca's default when the parameter is
+        /// omitted is <c>iex</c>, and that default was silently in force here — which matters more
+        /// than it sounds. IEX is a single venue carrying roughly 2% of consolidated volume, its
+        /// bars are sparse and its history only reaches 2022, whereas <c>sip</c> is the full
+        /// consolidated tape back to 2016. A user charting SPY on 5-minute bars was getting the thin
+        /// one with nothing anywhere saying so.
+        /// <para>
+        /// So the request asks for SIP and falls back ONCE to IEX if the account is not entitled,
+        /// remembering the answer and saying so on the error stream. Accounts with SIP get the real
+        /// tape; accounts without keep working. Neither is silent about which it got.
+        /// </para>
+        /// </summary>
+        private string _stockFeed = "sip";
+        private bool _feedDowngraded;
+
         // Rate limiter: Alpaca allows 200 requests/minute
         private readonly RateLimiter _rateLimiter = new(200, TimeSpan.FromMinutes(1));
 
@@ -103,6 +119,14 @@ namespace AccessibleTrader.Plugins.Alpaca
         public override void Configure(Dictionary<string, string> config)
         {
             if (config.TryGetValue("ApiKey", out var key)) _apiKey = key;
+            // Explicit override wins over the SIP-then-IEX probe, for accounts that know what they
+            // have. Any value other than "sip" disables the one-time downgrade so a deliberate
+            // choice is not second-guessed.
+            if (config.TryGetValue("Feed", out var feed) && !string.IsNullOrWhiteSpace(feed))
+            {
+                _stockFeed = feed.Trim().ToLowerInvariant();
+                _feedDowngraded = _stockFeed != "sip";
+            }
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
 
             if (config.TryGetValue("Environment", out var env) && env == "Live")
@@ -350,36 +374,84 @@ namespace AccessibleTrader.Plugins.Alpaca
             var timeframe = MapTimeframe(request.Timeframe);
             int limit = Math.Min(request.Limit, MaxBarsPerRequest);
 
-            string url = isCrypto
-                ? $"{CryptoDataUrl}/us/bars?symbols={Uri.EscapeDataString(cryptoSym)}&timeframe={timeframe}"
-                : $"{StockDataUrl}/stocks/{stockSym}/bars?timeframe={timeframe}";
-            url += $"&limit={limit}";
-            if (request.Since.HasValue) url += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
-            if (request.Until.HasValue) url += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
+            string BuildUrl(string? pageToken)
+            {
+                string u = isCrypto
+                    ? $"{CryptoDataUrl}/us/bars?symbols={Uri.EscapeDataString(cryptoSym)}&timeframe={timeframe}"
+                    : $"{StockDataUrl}/stocks/{stockSym}/bars?timeframe={timeframe}&feed={_stockFeed}&adjustment=all";
+                u += $"&limit={Math.Min(limit, 10000)}";
+                if (request.Since.HasValue) u += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
+                if (request.Until.HasValue) u += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
+                if (!string.IsNullOrEmpty(pageToken)) u += $"&page_token={Uri.EscapeDataString(pageToken!)}";
+                return u;
+            }
 
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync(url);
-                    var json = JObject.Parse(response);
-                    JArray? bars = isCrypto ? json["bars"]?[cryptoSym] as JArray : json["bars"] as JArray;
-                    if (bars == null)
+                    var ohlcvList = new List<Ohlcv>();
+                    string? pageToken = null;
+
+                    // Alpaca caps a single response at 10,000 bars and hands back a
+                    // next_page_token for the rest. That token used to be ignored, so a request for
+                    // deep intraday history stopped at the first page and reported success — the
+                    // chart simply began later than asked, with no error. The page cap here is a
+                    // runaway guard, not a data limit: 20 pages is 200,000 bars, well past anything
+                    // a chart or a study asks for in one call.
+                    for (int page = 0; page < 20; page++)
                     {
-                        var msg = json["message"]?.ToString();
-                        if (!string.IsNullOrEmpty(msg))
-                            _errorStream.OnNext($"Alpaca data error for {request.Symbol}: {msg}");
-                        return (new List<Ohlcv>(), new List<(long, double)>());
+                        await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                        var response = await _httpClient.GetStringAsync(BuildUrl(pageToken));
+                        var json = JObject.Parse(response);
+                        JArray? bars = isCrypto ? json["bars"]?[cryptoSym] as JArray : json["bars"] as JArray;
+
+                        if (bars == null)
+                        {
+                            var msg = json["message"]?.ToString();
+
+                            // Not entitled to SIP: downgrade once, tell the user which feed they are
+                            // now on, and retry. Falling back silently would leave them looking at
+                            // one venue's 2% of volume believing it was the market.
+                            if (!isCrypto && _stockFeed == "sip" && !_feedDowngraded
+                                && !string.IsNullOrEmpty(msg)
+                                && (msg!.Contains("subscription", StringComparison.OrdinalIgnoreCase)
+                                 || msg.Contains("not authorized", StringComparison.OrdinalIgnoreCase)
+                                 || msg.Contains("permission", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                _stockFeed = "iex";
+                                _feedDowngraded = true;
+                                _errorStream.OnNext(
+                                    "Alpaca: this account is not entitled to the SIP consolidated feed. " +
+                                    "Falling back to IEX, which carries a single venue's volume and only " +
+                                    "reaches 2022.");
+                                page--;                     // retry this page on the new feed
+                                continue;
+                            }
+
+                            if (!string.IsNullOrEmpty(msg))
+                                _errorStream.OnNext($"Alpaca data error for {request.Symbol}: {msg}");
+                            break;
+                        }
+
+                        foreach (var b in bars)
+                        {
+                            ohlcvList.Add(new Ohlcv(
+                                b["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.MinValue,
+                                b["o"]?.Value<double>() ?? 0,
+                                b["h"]?.Value<double>() ?? 0,
+                                b["l"]?.Value<double>() ?? 0,
+                                b["c"]?.Value<double>() ?? 0,
+                                b["v"]?.Value<double>() ?? 0));
+                        }
+
+                        pageToken = json["next_page_token"]?.Type == JTokenType.Null
+                            ? null
+                            : json["next_page_token"]?.ToString();
+                        if (string.IsNullOrEmpty(pageToken) || ohlcvList.Count >= limit) break;
                     }
 
-                    var ohlcvList = bars.Select(b => new Ohlcv(
-                        b["t"]?.Value<DateTime>().ToUniversalTime() ?? DateTime.MinValue,
-                        b["o"]?.Value<double>() ?? 0,
-                        b["h"]?.Value<double>() ?? 0,
-                        b["l"]?.Value<double>() ?? 0,
-                        b["c"]?.Value<double>() ?? 0,
-                        b["v"]?.Value<double>() ?? 0)).OrderBy(x => x.Date).ToList();
+                    ohlcvList = ohlcvList.OrderBy(x => x.Date).ToList();
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }

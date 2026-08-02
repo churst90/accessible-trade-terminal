@@ -223,6 +223,19 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var wpp) ? wpp : 5000),
+        "late-session" => LateSessionCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var lsp) ? lsp : 20000),
+        "pyramid" => PyramidCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var pyp) ? pyp : 2000,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--slippage-bps"), out var pys) ? pys : 5.0,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--span"), out var pysp) ? pysp : 3,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--min-swing-atr"), out var pyms) ? pyms : 0.25,
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--exit-z"), out var pyez) ? pyez : 0.5),
         "regime-persistence" => RegimePersistenceCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

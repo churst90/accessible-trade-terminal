@@ -41,6 +41,15 @@ public static class SnapshotCommand
                 pageLimit = 500;
                 break;
             case "alpaca":
+                // Alpaca needs credentials for market data, unlike every other provider here. Left
+                // unchecked, a missing --key produced an empty first page and the message
+                // "history exhausted" -- indistinguishable from a symbol that genuinely has no data,
+                // and it cost a debugging round.
+                if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
+                {
+                    Console.Error.WriteLine("alpaca requires --key and --secret (paper credentials are enough for market data).");
+                    return 1;
+                }
                 var ap = new AlpacaProvider();
                 if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret))
                     ap.Configure(new Dictionary<string, string>
@@ -67,6 +76,12 @@ public static class SnapshotCommand
             Console.Error.WriteLine($"Unknown timeframe '{timeframe}'.");
             return 1;
         }
+
+        // Providers report fetch failures on their error stream and return an EMPTY page rather
+        // than throwing. Nothing here was listening, so an auth failure, a bad symbol and a
+        // genuinely exhausted history all printed the same "empty (history exhausted)" line — the
+        // silent read-path failure this project keeps rediscovering, this time in its own tooling.
+        using var errors = provider.ErrorStream.Subscribe(e => Console.Error.WriteLine($"  ! {e}"));
 
         // Walk loop. We accumulate into a dictionary keyed by Date so duplicate bars
         // returned across overlapping pages are naturally de-duplicated. Each page costs ~1

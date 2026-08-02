@@ -1078,6 +1078,152 @@ public class ProviderFetchOhlcvTests
                 Assert.Equal(151.0, result.Ohlcv[1].Close);
             }
 
+            // ── Feed selection and pagination (added 2026-08-02) ──────────────
+            // Alpaca defaults an omitted `feed` to IEX, which is ONE VENUE carrying ~2% of
+            // consolidated volume and only reaching 2022. The provider had been letting that
+            // default stand, so a user charting SPY on 5-minute bars got the thin tape and
+            // nothing said so. And next_page_token was ignored, so any request past 10,000
+            // bars stopped at the first page and reported success.
+
+            [Fact]
+            public async Task StockRequests_AskForTheConsolidatedSipFeed()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}
+                    """);
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "5m", 100));
+
+                var url = handler.Captured.Single().RequestUri!.ToString();
+                Assert.Contains("feed=sip", url);
+                Assert.Contains("adjustment=all", url);   // splits/dividends, or history is wrong
+            }
+
+            [Fact]
+            public async Task CryptoRequests_CarryNoStockFeedParameter()
+            {
+                // The feed parameter is a stocks concept. Sending it on the crypto endpoint would
+                // be at best ignored and at worst a 400.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*us/bars", """
+                    {"bars":{"BTC/USD":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}]}}
+                    """);
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USD", "1h", 100));
+
+                Assert.DoesNotContain("feed=", handler.Captured.Single().RequestUri!.ToString());
+            }
+
+            [Fact]
+            public async Task WithoutSipEntitlement_DowngradesToIexOnceAndSaysSo()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler()
+                    .Add(HttpMethod.Get, @"feed=sip", """{"message":"subscription does not permit querying recent SIP data"}""")
+                    .Add(HttpMethod.Get, @"feed=iex", """
+                        {"bars":[{"t":"2026-01-01T00:00:00Z","o":10,"h":11,"l":9,"c":10.5,"v":100}],"next_page_token":null}
+                        """);
+                var provider = NewConfigured(handler);
+
+                string? notice = null;
+                using var sub = provider.ErrorStream.Subscribe(e => notice = e);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "5m", 100));
+
+                Assert.Single(result.Ohlcv);                       // the retry succeeded
+                Assert.NotNull(notice);                            // and it was NOT silent
+                Assert.Contains("IEX", notice!);
+
+                // The downgrade is remembered — a second call must not re-probe SIP.
+                handler.Captured.Clear();
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "5m", 100));
+                Assert.All(handler.Captured, r => Assert.DoesNotContain("feed=sip", r.RequestUri!.ToString()));
+            }
+
+            [Fact]
+            public async Task ConfiguredFeedOverride_IsNotSecondGuessed()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}
+                    """);
+                var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+                provider.Configure(new Dictionary<string, string>
+                {
+                    ["ApiKey"] = "k", ["ApiSecret"] = "s", ["Feed"] = "iex",
+                });
+                SwapHttpClient(provider, handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "5m", 100));
+
+                Assert.Contains("feed=iex", handler.Captured.Single().RequestUri!.ToString());
+            }
+
+            [Fact]
+            public async Task FollowsNextPageToken_UntilTheLimitIsSatisfied()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler()
+                    .Add(HttpMethod.Get, @"page_token=PAGE2", """
+                        {"bars":[
+                          {"t":"2026-01-01T02:00:00Z","o":3,"h":3,"l":3,"c":3,"v":3},
+                          {"t":"2026-01-01T03:00:00Z","o":4,"h":4,"l":4,"c":4,"v":4}
+                        ],"next_page_token":null}
+                        """)
+                    .Add(HttpMethod.Get, @"alpaca\.markets.*stocks", """
+                        {"bars":[
+                          {"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1},
+                          {"t":"2026-01-01T01:00:00Z","o":2,"h":2,"l":2,"c":2,"v":2}
+                        ],"next_page_token":"PAGE2"}
+                        """);
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "1h", 100));
+
+                Assert.Equal(4, result.Ohlcv.Count);
+                Assert.Equal(2, handler.Captured.Count);
+                Assert.Equal(new[] { 1d, 2d, 3d, 4d }, result.Ohlcv.Select(b => b.Open));
+            }
+
+            [Fact]
+            public async Task StopsPagingOnceTheRequestedCountIsReached()
+            {
+                // A page token is not an instruction to keep going forever. Asking for 2 bars must
+                // not walk the whole history because the server offered more.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[
+                      {"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1},
+                      {"t":"2026-01-01T01:00:00Z","o":2,"h":2,"l":2,"c":2,"v":2}
+                    ],"next_page_token":"MORE"}
+                    """);
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "1h", 2));
+
+                Assert.Equal(2, result.Ohlcv.Count);
+                Assert.Single(handler.Captured);
+            }
+
+            [Fact]
+            public async Task ANullNextPageToken_TerminatesRatherThanBeingSentBackAsTheString()
+            {
+                // JSON null must not become the literal "page_token=" — a regression that would
+                // loop on the same page until the guard tripped.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}
+                    """);
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "1h", 5000));
+
+                Assert.Single(handler.Captured);
+            }
+
             [Fact]
             public async Task CryptoHappyPath_ReadsFromSymbolKey()
             {
