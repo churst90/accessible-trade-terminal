@@ -95,6 +95,34 @@ All 12 analytics providers cap their outbound `HttpClient` at
 - **Strategy use:** extreme readings are mean-reverting. Index < 20 + Cipher oversold
   = high-conviction long. Index > 80 + Cipher overbought = high-conviction short.
 
+### Sentiment / Attention — *Wikipedia* (NEW, no key)
+- **Auth:** none. Wikimedia asks for a descriptive User-Agent and throttles anonymous clients that
+  do not send one, so the provider sets it.
+- **Symbols:** 33 curated tickers of the form `BTC_VIEWS`, `AAPL_VIEWS`, `INFLATION_VIEWS`, grouped
+  into sub-types Crypto / Equities / Macro. Any symbol *not* in the catalogue is passed through as a
+  raw article title, so a hand-edited workspace can chart any article without a code change.
+- **Resolution:** `1d` and `1M`. **Per-article hourly is HTTP 400** — the hourly endpoint exists but
+  is project-wide aggregate, not per article. (Verified 2026-08-02; the design note in
+  `COMPANY_DATA_LAYER.md` said hourly and was wrong.)
+- **History:** back to **2015-07-01**. Earlier start dates 404 the *entire* request rather than
+  clipping, so the provider clamps the window — without that, "5,000 daily bars" renders an empty
+  chart instead of the eleven years that exist.
+- **Units:** page views per period, `agent=user` (bot and spider traffic filtered — it is not
+  attention, and on low-traffic articles it is most of the count).
+- **Why this matters:** it is a **point-in-time attention series that cannot be contaminated
+  retroactively**. The count of people who opened the Bitcoin article on a given day was fixed that
+  day. That is the property no text-sentiment feature can have — an LLM scoring a 2019 article today
+  already knows what happened next — and it is why this provider was built first.
+- **How to use it:** as a rate of change against the entity's own trailing baseline, never as a
+  level. Raw views differ by three orders of magnitude between entities, so any cross-entity
+  comparison of the level measures article popularity, not attention.
+- **Before believing any result from it:** correlate against trailing return. Attention is plausibly
+  driven *by* large price moves, which is the collapse that made Fear & Greed redundant and the
+  check that exposed the crowding index's claimed orthogonality as +0.19.
+- **Catalogue integrity:** every mapped article was verified to return 200 on 2026-08-02. Three
+  plausible entries (Binance, Stock market, Tether) resolve as Wikipedia articles but 404 from the
+  pageviews API, and were deliberately left out rather than shipped as dead dropdown entries.
+
 ### OnChain — *Glassnode* (NEW, requires free API key)
 - **Auth:** free API key from glassnode.com (no credit card required for Tier 1)
 - **Symbols:**

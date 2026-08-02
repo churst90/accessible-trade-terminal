@@ -17,6 +17,7 @@
   </Folder>
   <Folder Name="/Plugins/Analytics/">
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.AlternativeMe/AccessibleTrader.Plugins.AlternativeMe.csproj" />
+    <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.WikipediaPageviews/AccessibleTrader.Plugins.WikipediaPageviews.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BGeometrics/AccessibleTrader.Plugins.BGeometrics.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BinanceDerivatives/AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
     <Project Path="Plugins/Analytics/AccessibleTrader.Plugins.BinanceVision/AccessibleTrader.Plugins.BinanceVision.csproj" />

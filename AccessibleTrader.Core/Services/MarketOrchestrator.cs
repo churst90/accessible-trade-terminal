@@ -408,7 +408,7 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "OkxDerivatives", "BinanceDerivatives");
                     break;
                 case "Sentiment":
-                    EnsureContains(_availableProviders, "AlternativeMe");
+                    EnsureContains(_availableProviders, "AlternativeMe", "Wikipedia");
                     break;
                 case "Stock":
                     EnsureContains(_availableProviders, "Twelve Data", "Alpaca", "Polygon", "FMP");
