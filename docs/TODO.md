@@ -30,7 +30,12 @@ The app ships tools, not opinions. Reasoning in
 
 ## FMP provider is broken for new keys (found 2026-08-01)
 
-- [ ] **Migrate `FmpProvider` + `FmpAnalyticsProvider` to `/stable/`.** Both target
+- [x] **Migrate `FmpProvider` + `FmpAnalyticsProvider` to `/stable/`.** DONE 2026-08-02 (commit
+  301d1a66). Symbols moved from path segment to query parameter, daily bars are a flat array,
+  earnings-surprises folded into `earnings`, sector performance takes one sector plus a range. Both
+  providers now route every call through one helper that surfaces plan-gated 402s and legacy 403s to
+  the error stream instead of returning an empty series. Contract tests updated, plus one pinning
+  that no retired path is ever called. ORIGINAL REPORT: Both target
   `/api/v3` (and `/api/v4`), which FMP retired: **403 `Legacy Endpoint`** for any key
   without a subscription predating 2025-08-31. Keys older than that still work, so this
   fails only for new users — verified against a live key, which succeeds on `/stable/`.
