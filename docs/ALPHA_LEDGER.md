@@ -94,6 +94,25 @@ same result without the claimed mechanism**, and build that first as a named con
 (`close > SMA(200)`) · within-class and demeaned tests · noise injection · random-parameter arms ·
 Freedman–Lane permutation for partial correlations · surrogate series from shuffled returns.
 
+**State the minimum detectable effect whenever the sample is small enough to doubt.** Added
+2026-08-02 after the analyst revision-breadth run. Six monthly cross-sections over eleven mega-caps
+produced a −1.56% tercile spread at t = −0.68, which reads exactly like a null — and is not one. The
+smallest effect that sample could have detected at all was **6.47% a month**, against a literature
+effect well under 1%. Reporting it as a null would have been the mirror image of reporting a lucky
+backtest as an edge, and would have closed a live question with a number that meant nothing. One
+line of arithmetic separates *untested* from *tested and dead*, and the ledger depends on the
+difference. (`REVISION_BREADTH_FINDINGS.md`)
+
+**Any recorder that cannot distinguish "not yet" from "not there" will eventually write a hole into
+an archive and call it data.** Also 2026-08-02, and found twice in one afternoon. The analyst-grades
+recorder collapsed *paywalled*, *uncovered*, *rate-limited* and *network error* into a single null
+return, captured 1 symbol of 21, and reported success. The GDELT recorder, written hours later, hit
+the identical failure: GDELT answers an over-rate request with **HTTP 200 and a plain-text apology**,
+so a naive client sees a successful non-JSON response and records nothing. Both now classify the
+failure and both refuse a run that lost more than a set share of the *reachable* universe —
+permanent absences are stable and harmless, transient ones come and go and every reappearance looks
+like news.
+
 **Traps that produced false results here:** a control seeded from `string.GetHashCode()`, which .NET
 randomises per process — the same bucket printed −5.6 and then −1.8 on consecutive runs of identical
 code, and the first number would have been reported (run any study twice and diff) · shuffling a

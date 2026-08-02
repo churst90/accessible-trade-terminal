@@ -230,6 +230,21 @@ try
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--delay-ms"), out var urd) ? urd : 3000),
         "universe-status" => UniverseRecorderCommand.Status(
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "universe-archive"),
+        "screen-crypto" => ScreenerCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--archive") ?? "universe-archive",
+            GetFlag(args.Skip(1).ToArray(), "--date"),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--top"), out var sct) ? sct : 1000,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--min-flags"), out var scf) ? scf : 3,
+            HasFlag(args.Skip(1).ToArray(), "--show-clean"),
+            GetFlag(args.Skip(1).ToArray(), "--only")),
+        "record-gdelt" => await GdeltRecorderCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "gdelt-archive",
+            HasFlag(args.Skip(1).ToArray(), "--force"),
+            GetFlag(args.Skip(1).ToArray(), "--timespan") ?? "3m"),
+        "gdelt-status" => GdeltRecorderCommand.Status(
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "gdelt-archive"),
+        "grades" => await GradesCommand.RunAsync(args.Skip(1).ToArray(),
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data"),
         "pattern-speech" => PatternSpeechCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
@@ -280,6 +295,19 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab catalogue export --out <file.json> [--id <spec-id>]  # bundle for the terminal to import");
     Console.WriteLine("  StrategyLab edges list [--class crypto] [--evidence ControlTested]  # what we have MEASURED");
     Console.WriteLine("  StrategyLab edges show <edge-id> | scorable | overlaps | stale | validate");
+    Console.WriteLine();
+    Console.WriteLine("Forward recorders — run these on a schedule. Every day not recorded is");
+    Console.WriteLine("permanently outside the sample, which is the one cost no later cleverness undoes:");
+    Console.WriteLine("  StrategyLab record-universe [--out universe-archive]     # daily: crypto universe (survivorship)");
+    Console.WriteLine("  StrategyLab universe-status                              # how close it is to answering anything");
+    Console.WriteLine("  StrategyLab record-gdelt   [--timespan 24m]              # daily: news attention by theme");
+    Console.WriteLine("  StrategyLab gdelt-status                                 # incl. whether GDELT restates history");
+    Console.WriteLine("  StrategyLab grades record --key <fmp>                    # monthly: analyst rating mix");
+    Console.WriteLine();
+    Console.WriteLine("Screens and studies built on those archives:");
+    Console.WriteLine("  StrategyLab screen-crypto [--min-flags 3] [--show-clean] [--only KAS,TAO]");
+    Console.WriteLine("  StrategyLab grades fetch --key <fmp> | grades study [--horizon 21]");
+    Console.WriteLine("  StrategyLab pattern-speech [--tf 1d]                     # chart-formation narration density");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000");
