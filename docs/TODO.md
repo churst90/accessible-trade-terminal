@@ -28,6 +28,26 @@ The app ships tools, not opinions. Reasoning in
 - [ ] **Per-spec confirmation before starting an `ExecutionMode.Auto` import.** The count
   is announced at import time; there is no second gate at Start.
 
+## Platform tiers + signal service — designed, not built (2026-08-02)
+
+Design notes in [PLATFORM_AND_SIGNAL_SERVICE.md](PLATFORM_AND_SIGNAL_SERVICE.md).
+
+- **The boundary rule:** anything that MEASURES or DISPLAYS goes in the terminal; anything that
+  decides what is TRUE goes in the lab. Conclusions reach users only through an opt-in signal
+  service, with their evidence level attached.
+- **Chart patterns:** describe freely, score never. Description is an accessibility feature worth
+  shipping; prediction is tested and weak (a random line is respected 59% of the time).
+- **Theses accumulate with no LLM** — named conditions, re-evaluated daily, with the invalidation
+  condition written down before the outcome is known.
+- Key status tested 2026-08-02: **CoinMarketCap works** (and covers the crypto vetting scorecard);
+  **Nomics is dead** (service shut down); **CoinAPI is out of credits**. Nothing needs buying — SEC
+  EDGAR, GDELT and Wikipedia pageviews are free and cover the real gaps.
+- [ ] `WikipediaPageviewsProvider` — smallest job, and the only one where delay costs history.
+- [ ] Dossier modal with plain-language pattern description (no research dependency).
+- [ ] `CoinMarketCapProvider` + the 11-check deterministic crypto scorecard ("run scam report").
+- [ ] `SecEdgarProvider`, `GdeltProvider` — larger, gated on the revision-breadth result.
+- [ ] Signal service LAST, when there is more than one control-tested edge to serve.
+
 ## Company / macro data layer — designed, not built (2026-08-02)
 
 Design notes in [COMPANY_DATA_LAYER.md](COMPANY_DATA_LAYER.md). Nothing is built; the reasoning is
