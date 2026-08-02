@@ -223,6 +223,12 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var wpp) ? wpp : 5000),
+        "regime-persistence" => RegimePersistenceCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--recent-start"),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var rpp) ? rpp : 20000,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var rps) ? rps : 200),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
