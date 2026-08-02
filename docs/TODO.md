@@ -55,10 +55,15 @@ Design notes in [PLATFORM_AND_SIGNAL_SERVICE.md](PLATFORM_AND_SIGNAL_SERVICE.md)
       Forming reports carry the trigger level, because a pattern announced only on completion cannot
       be acted on. Setting `speech.describeChartPatterns`, default OFF, spoken on X-axis navigation.
       Never says bullish or bearish — a test enforces the banned vocabulary.
-- [ ] **Dossier modal** (`Alt+I`) — still to build. The pattern-description half is now done and
-      reusable; what remains is the spoken headline and the tabbed per-company sections, which need
-      `SecEdgarProvider` for most of their content.
-- [ ] `CoinMarketCapProvider` + the 11-check deterministic crypto scorecard ("run scam report").
+- [x] **Dossier modal** (`Alt+I`) — DONE 2026-08-02. Tabbed by QUESTION not by source, spoken
+      headline before any table, four explicit empty-states (Ok / NoData / NotApplicable /
+      Unavailable) so a blank row is a bug. Crypto runs on CoinGecko + a direct GitHub query;
+      equities on SEC EDGAR. `docs/ASSET_DOSSIER.md`.
+- [x] **The 11-check crypto scorecard** — DONE 2026-08-02, inside the dossier, sourced from
+      CoinGecko + GitHub rather than CMC (CMC would have been a price-page reprint; CoinGecko carries
+      developer activity and disclosure links, which is the part that is not on any price page).
+- [ ] `CoinMarketCapProvider` — now optional. Only worth it for fields CoinGecko lacks
+      (`self_reported_circulating_supply`, `cex_volume_24h` vs `dex_volume_24h`).
 - [ ] `SecEdgarProvider`, `GdeltProvider` — larger, gated on the revision-breadth result.
 - [ ] Signal service LAST, when there is more than one control-tested edge to serve.
 
@@ -78,6 +83,10 @@ recorded so the decision can be made without re-deriving it.
 - **LLM in the ingestion pipeline, never the decision loop** — and LLM-derived sentiment can only be
   validated FORWARD, because a model scoring old text already knows what happened next. Invisible
   lookahead, no offset can fix it.
+- [x] **Forward crypto-universe recorder is live** (2026-08-02). `StrategyLab record-universe`,
+  1,000 assets/day, gzipped into the COMMITTED `universe-archive/` (65 KB/day, 23 MB/year) because
+  it is the one artefact that cannot be re-fetched after the fact. **Run it daily** — survivorship
+  is the only bias with no retrospective fix.
 - [x] **Wikipedia pageviews is live** (2026-08-02). Note the urgency argument was partly wrong: the
   API serves history back to 2015-07-01 on demand, so the daily series is NOT lost by waiting. GDELT
   event counts are the one where delay still costs something.

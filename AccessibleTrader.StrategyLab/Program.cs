@@ -223,6 +223,13 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var wpp) ? wpp : 5000),
+        "record-universe" => await UniverseRecorderCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "universe-archive",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--pages"), out var urp) ? urp : 4,
+            HasFlag(args.Skip(1).ToArray(), "--force"),
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--delay-ms"), out var urd) ? urd : 3000),
+        "universe-status" => UniverseRecorderCommand.Status(
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "universe-archive"),
         "late-session" => LateSessionCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
