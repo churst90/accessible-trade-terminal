@@ -104,16 +104,40 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// it — i.e. what a sighted person would see on screen while looking at that bar.
         ///
         /// <para>
-        /// The <c>KnownAtIndex &lt;= barIndex</c> half is the important one and is not cosmetic: it
+        /// The lower bound is <see cref="ChartPattern.KnownAtIndex"/> and it is not cosmetic: it
         /// stops the terminal describing, at bar 400, a shape whose final pivot was not confirmed
         /// until bar 430. Panning back through history must reproduce what was actually visible at
         /// the time, or the feature quietly teaches a false sense of how legible the chart was.
         /// </para>
+        ///
+        /// <para>
+        /// The upper bound needs care. A pattern's own span always ENDS BEFORE it becomes knowable —
+        /// confirmation lag guarantees it — so bounding by <c>EndBarIndex</c> collapses the window to
+        /// the single bar <c>KnownAtIndex</c>, and the pattern is announced once, on one bar, and
+        /// never when the user pans into the region it describes. That was the first implementation,
+        /// and measuring how often the feature actually spoke on real snapshots is what exposed it:
+        /// coverage came out at exactly one bar per pattern.
+        /// </para>
         /// </summary>
         public static IReadOnlyList<ChartPattern> AtBar(IReadOnlyList<ChartPattern> all, int barIndex)
-            => all.Where(p => p.KnownAtIndex <= barIndex
-                           && barIndex >= p.StartBarIndex
-                           && barIndex <= Math.Max(p.EndBarIndex, p.KnownAtIndex))
-                  .ToList();
+            => all.Where(p => barIndex >= p.KnownAtIndex && barIndex <= RelevantUntil(p)).ToList();
+
+        /// <summary>
+        /// The last bar at which a pattern is still worth mentioning.
+        ///
+        /// <para>
+        /// A completed pattern stops being current the moment it resolves, so it is relevant up to
+        /// the bar that broke its trigger. A forming one has no known end, so it stays relevant for
+        /// as long again as it took to form — a triangle that built over forty bars is still the
+        /// context forty bars later, and stale after that. Anchoring the decay to the formation's own
+        /// length rather than a fixed bar count keeps it proportionate across timeframes.
+        /// </para>
+        /// </summary>
+        private static int RelevantUntil(ChartPattern p)
+        {
+            if (p.CompletedAtIndex is int done) return done;
+            int formationLength = Math.Max(1, p.EndBarIndex - p.StartBarIndex);
+            return p.KnownAtIndex + formationLength;
+        }
     }
 }

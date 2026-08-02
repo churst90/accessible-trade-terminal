@@ -335,18 +335,61 @@ public class ChartPatternDetectorTests
     {
         var patterns = new List<ChartPattern>
         {
+            // Formed over 30 bars, knowable at 45 → relevant 45..75.
             new(ChartPatternKind.DoubleTop, ChartPatternState.Forming, 10, 40, 45, 100, DateTime.Today, DateTime.Today),
+            // Formed over 20 bars, knowable at 30 → relevant 30..50.
             new(ChartPatternKind.BullFlag,  ChartPatternState.Forming, 10, 30, 30, 110, DateTime.Today, DateTime.Today),
         };
 
-        Assert.Empty(ChartPatternNarrator.AtBar(patterns, 20));      // neither confirmed yet
-        Assert.Single(ChartPatternNarrator.AtBar(patterns, 30));     // the flag, the bar it completes on
+        Assert.Empty(ChartPatternNarrator.AtBar(patterns, 20));           // neither confirmed yet
+        Assert.Single(ChartPatternNarrator.AtBar(patterns, 30));          // the flag, on the bar it confirms
+        Assert.Equal(2, ChartPatternNarrator.AtBar(patterns, 45).Count);  // both in view
 
-        // At bar 45 the double top has just become knowable; the flag's region ended 15 bars ago and
-        // is no longer on screen. A pattern the user has panned past is not "in view".
-        var at45 = ChartPatternNarrator.AtBar(patterns, 45);
-        Assert.Single(at45);
-        Assert.Equal(ChartPatternKind.DoubleTop, at45[0].Kind);
+        // Past the flag's relevance window, the double top is still current.
+        var at70 = ChartPatternNarrator.AtBar(patterns, 70);
+        Assert.Single(at70);
+        Assert.Equal(ChartPatternKind.DoubleTop, at70[0].Kind);
+
+        Assert.Empty(ChartPatternNarrator.AtBar(patterns, 200));          // everything long stale
+    }
+
+    /// <summary>
+    /// A completed pattern stops being current the moment it resolves. Announcing it forever after
+    /// would bury the forming ones, which are the only actionable output.
+    /// </summary>
+    [Fact]
+    public void AtBar_DropsACompletedPatternOnceItHasResolved()
+    {
+        var patterns = new List<ChartPattern>
+        {
+            new(ChartPatternKind.DoubleTop, ChartPatternState.Completed, 10, 40, 45, 100,
+                DateTime.Today, DateTime.Today, CompletedAtIndex: 52),
+        };
+
+        Assert.Single(ChartPatternNarrator.AtBar(patterns, 45));
+        Assert.Single(ChartPatternNarrator.AtBar(patterns, 52));
+        Assert.Empty(ChartPatternNarrator.AtBar(patterns, 53));
+    }
+
+    /// <summary>
+    /// The window must be wider than one bar. Because confirmation lag guarantees a pattern's own
+    /// span ends BEFORE it becomes knowable, an upper bound of EndBarIndex silently collapses the
+    /// window to a single bar — the pattern is then announced once, on one bar, and never when the
+    /// user pans into the region it describes. That was the first implementation, and it looked
+    /// entirely correct until the coverage was measured.
+    /// </summary>
+    [Fact]
+    public void AtBar_WindowSpansMoreThanTheSingleConfirmationBar()
+    {
+        var bars = RandomWalk(600, seed: 21);
+        var found = Detector.Detect(bars);
+        Assert.NotEmpty(found);
+
+        int barsWithAPattern = Enumerable.Range(0, bars.Count)
+            .Count(i => ChartPatternNarrator.AtBar(found, i).Count > 0);
+
+        Assert.True(barsWithAPattern > found.Count,
+            $"{found.Count} patterns cover only {barsWithAPattern} bars — the window is one bar wide");
     }
 
     // ── Helper ──────────────────────────────────────────────────────────────────
