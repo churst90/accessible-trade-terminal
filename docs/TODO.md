@@ -28,6 +28,28 @@ The app ships tools, not opinions. Reasoning in
 - [ ] **Per-spec confirmation before starting an `ExecutionMode.Auto` import.** The count
   is announced at import time; there is no second gate at Start.
 
+## Company / macro data layer — designed, not built (2026-08-02)
+
+Design notes in [COMPANY_DATA_LAYER.md](COMPANY_DATA_LAYER.md). Nothing is built; the reasoning is
+recorded so the decision can be made without re-deriving it.
+
+- The layer serves **two audiences**: automated strategies AND a person reading the data to decide
+  for themselves. Discretionary use is first-class, and it changes the design — display everything
+  with provenance, score only what has earned it. **If every edge tests null the dossier is still
+  worth having**, which is what makes the project justifiable.
+- Presentation rule: **time axis → chart** (analytics series + event markers, existing plumbing);
+  **snapshot of many facts → modal** (`Alt+I` dossier, spoken headline before any table).
+- SEC EDGAR is the anchor and is free; FMP's paid tiers largely resell it. GDELT and Wikipedia
+  pageviews are the other two free anchors.
+- **LLM in the ingestion pipeline, never the decision loop** — and LLM-derived sentiment can only be
+  validated FORWARD, because a model scoring old text already knows what happened next. Invisible
+  lookahead, no offset can fix it.
+- [ ] **Start the recorders** (Wikipedia pageviews, GDELT counts). The only step worth doing before
+  a decision, because history accumulates only if collection starts and that delay cannot be
+  recovered.
+- [ ] **First test if the layer is greenlit:** analyst estimate revision breadth, through the
+  cross-sectional harness. Strongest documented prior, inputs already free, machinery already exists.
+
 ## FMP provider is broken for new keys (found 2026-08-01)
 
 - [x] **Migrate `FmpProvider` + `FmpAnalyticsProvider` to `/stable/`.** DONE 2026-08-02 (commit
