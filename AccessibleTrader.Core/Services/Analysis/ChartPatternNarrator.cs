@@ -62,6 +62,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             ChartPatternKind.FallingWedge => "falling wedge",
             ChartPatternKind.BullFlag => "bull flag",
             ChartPatternKind.BearFlag => "bear flag",
+            ChartPatternKind.Rectangle => "range",
             _ => kind.ToString()
         };
 
@@ -72,6 +73,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                 or ChartPatternKind.HeadAndShoulders or ChartPatternKind.InverseHeadAndShoulders
                 => "neckline",
             ChartPatternKind.BullFlag or ChartPatternKind.BearFlag => "flag edge",
+            ChartPatternKind.Rectangle => "top",
             _ => "trigger"
         };
 
@@ -88,6 +90,27 @@ namespace AccessibleTrader.Core.Services.Analysis
             string level = formatPrice(p.TriggerLevel);
             string role = TriggerName(p.Kind);
             string side = p.BreaksBelow ? "below" : "above";
+
+            // A range is the one formation with two live levels, so it gets its own sentence. Both
+            // boundaries are spoken while it is intact — either could be the one that matters, and
+            // naming only one would quietly nominate a direction the shape has not chosen.
+            if (p.Kind == ChartPatternKind.Rectangle && p.SecondaryLevel is double bottom)
+            {
+                string top = formatPrice(p.TriggerLevel);
+                string low = formatPrice(bottom);
+
+                return p.State switch
+                {
+                    ChartPatternState.Forming =>
+                        $"Possible range forming, top {top}, bottom {low}. Height {formatPrice(p.TriggerLevel - bottom)}.",
+                    ChartPatternState.Completed =>
+                        $"Range broken: price closed {side} the {(p.BreaksBelow ? "bottom" : "top")} "
+                        + $"at {(p.BreaksBelow ? low : top)}{Target(p, formatPrice)}.",
+                    ChartPatternState.Expired =>
+                        $"Range still intact — price held between {low} and {top}.",
+                    _ => $"Range, {low} to {top}."
+                };
+            }
 
             return p.State switch
             {
@@ -188,6 +211,19 @@ namespace AccessibleTrader.Core.Services.Analysis
             string name = Name(p.Kind);
             string level = formatPrice(p.TriggerLevel);
             string role = TriggerName(p.Kind);
+
+            if (p.Kind == ChartPatternKind.Rectangle && p.SecondaryLevel is double bottom)
+            {
+                return p.State switch
+                {
+                    ChartPatternState.Completed =>
+                        $"Range breaks here: closed {(p.BreaksBelow ? "below the bottom" : "above the top")} "
+                        + $"at {formatPrice(p.BreaksBelow ? bottom : p.TriggerLevel)}{Target(p, formatPrice)}.",
+                    ChartPatternState.Expired =>
+                        $"Range ends here still intact — price held between {formatPrice(bottom)} and {level}.",
+                    _ => ""
+                };
+            }
 
             return p.State switch
             {

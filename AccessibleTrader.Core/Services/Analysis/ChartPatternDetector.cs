@@ -12,7 +12,26 @@ namespace AccessibleTrader.Core.Services.Analysis
         HeadAndShoulders, InverseHeadAndShoulders,
         AscendingTriangle, DescendingTriangle, SymmetricalTriangle,
         RisingWedge, FallingWedge,
-        BullFlag, BearFlag
+        BullFlag, BearFlag,
+
+        /// <summary>
+        /// A horizontal range — flat top, flat bottom, price rotating between them.
+        ///
+        /// <para>
+        /// The most common state a market is in, and it was the one shape the detector could not
+        /// name: the triangle grid handled every sloping combination and let flat-against-flat fall
+        /// through. So the single most frequent thing a chart does produced silence, which is the
+        /// worst possible gap in a feature whose job is to say what the chart is doing.
+        /// </para>
+        ///
+        /// <para>
+        /// It is the only kind with <b>two</b> live levels. Everything else has one line that
+        /// confirms it; a range can break either way, and pretending otherwise by picking a side
+        /// would be inventing a directional opinion out of a shape that is definitionally
+        /// undecided.
+        /// </para>
+        /// </summary>
+        Rectangle
     }
 
     /// <summary>
@@ -123,7 +142,8 @@ namespace AccessibleTrader.Core.Services.Analysis
         int? CompletedAtIndex = null,
         int? ExpiresAtIndex = null,
         bool BreaksBelow = true,
-        double? MeasuredTarget = null)
+        double? MeasuredTarget = null,
+        double? SecondaryLevel = null)
     {
         /// <summary>
         /// <see cref="ExpiresAtIndex"/>, falling back to the formation-length rule when a caller
@@ -428,6 +448,7 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                 ChartPatternKind? kind = (hs, ls) switch
                 {
+                    (0, 0) => ChartPatternKind.Rectangle,              // flat top, flat bottom
                     (0, +1) => ChartPatternKind.AscendingTriangle,     // flat top, rising lows
                     (-1, 0) => ChartPatternKind.DescendingTriangle,    // falling highs, flat bottom
                     (-1, +1) => ChartPatternKind.SymmetricalTriangle,  // converging both sides
@@ -436,6 +457,35 @@ namespace AccessibleTrader.Core.Services.Analysis
                     _ => null
                 };
                 if (kind == null) continue;
+
+                // ── Range: two live levels, and no assumed break direction ──────
+                if (kind == ChartPatternKind.Rectangle)
+                {
+                    double top = Math.Max(h1.Price, h2.Price);
+                    double bottom = Math.Min(l1.Price, l2.Price);
+                    double height = top - bottom;
+
+                    // A range has to be tall enough to trade inside. Below two tolerance units the
+                    // "range" is a flat line, and naming a flat line a formation is noise wearing a
+                    // technical word.
+                    if (height < tol * 2) continue;
+
+                    int rk = new[] { h2.ConfirmedAtIndex, l2.ConfirmedAtIndex }.Max();
+                    int rexp = Expiry(rk, start, end);
+                    var rr = ResolveRange(bars, rk, rexp, top, bottom);
+
+                    // The target only exists once a side has broken — while price is still inside,
+                    // projecting one would mean picking a direction the shape has not picked.
+                    double? rtarget = rr.State == ChartPatternState.Completed
+                        ? (rr.BrokeBelow ? bottom - height : top + height)
+                        : null;
+
+                    yield return new ChartPattern(ChartPatternKind.Rectangle, rr.State, start, end, rk,
+                        top, bars[Math.Min(start, bars.Count - 1)].Date, bars[Math.Min(end, bars.Count - 1)].Date,
+                        rr.CompletedAt, rexp, BreaksBelow: rr.BrokeBelow, MeasuredTarget: rtarget,
+                        SecondaryLevel: bottom);
+                    continue;
+                }
 
                 // A wedge must actually converge — both boundaries sloping the same way is not
                 // enough, the gap between them has to be closing, or this is just a channel.
@@ -585,6 +635,33 @@ namespace AccessibleTrader.Core.Services.Analysis
             return bars.Count - 1 > expiresAt
                 ? (ChartPatternState.Expired, null)
                 : (ChartPatternState.Forming, null);
+        }
+
+        /// <summary>
+        /// A range resolves on whichever boundary breaks FIRST, and reports which one it was.
+        ///
+        /// <para>
+        /// The single-trigger <see cref="Resolve"/> cannot express this: it is handed a direction
+        /// up front. A range has not chosen a direction — that is what makes it a range — so the
+        /// direction is an OUTPUT here rather than an input. Scanning for one side only would
+        /// silently mis-report every break the other way as the range still being intact.
+        /// </para>
+        /// </summary>
+        private static (ChartPatternState State, int? CompletedAt, bool BrokeBelow) ResolveRange(
+            IReadOnlyList<Ohlcv> bars, int knownAt, int expiresAt, double top, double bottom)
+        {
+            if (knownAt >= bars.Count) return (ChartPatternState.Forming, null, false);
+
+            int last = Math.Min(expiresAt, bars.Count - 1);
+            for (int i = knownAt; i <= last; i++)
+            {
+                if (bars[i].Close > top) return (ChartPatternState.Completed, i, false);
+                if (bars[i].Close < bottom) return (ChartPatternState.Completed, i, true);
+            }
+
+            return bars.Count - 1 > expiresAt
+                ? (ChartPatternState.Expired, null, false)
+                : (ChartPatternState.Forming, null, false);
         }
 
         private static int Sign(double delta, double tol)

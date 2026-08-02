@@ -80,13 +80,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (all.Count == 0) return "";
 
             var here = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList();
-            if (here.Count == 0) return "No chart formation here.";
+            if (here.Count == 0) return MostRecentlyResolved(all, idx);
 
             var sb = new StringBuilder();
             sb.Append(here.Count == 1 ? "One formation here. " : $"{here.Count} formations here. ");
             foreach (var p in here)
                 sb.Append(ChartPatternNarrator.Describe(p, SpeechPriceFormatter.FormatPrice)).Append(' ');
             return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// When nothing is live at the cursor, name the last formation that finished and say how.
+        ///
+        /// <para>
+        /// A formation drops out of the live window the moment it resolves, which is right for
+        /// arrow-key navigation — repeating old shapes forever is how the feature becomes noise.
+        /// But it left the detail key answering "no chart formation here" on a bar sitting twenty
+        /// bars after a double top broke, which is misleading in a way that matters: the level that
+        /// broke is still the most relevant price on the screen, and the pattern that produced it
+        /// is the reason.
+        /// </para>
+        ///
+        /// <para>
+        /// This looks BACKWARD only. A formation whose structure is not yet knowable at this bar
+        /// stays unmentionable, exactly as during navigation — the point is to recover context that
+        /// has passed, never to preview context that has not arrived.
+        /// </para>
+        /// </summary>
+        private static string MostRecentlyResolved(IReadOnlyList<ChartPattern> all, int idx)
+        {
+            var last = all
+                .Where(p => p.ResolvesAt < idx && p.KnownAtIndex <= idx)
+                .OrderByDescending(p => p.ResolvesAt)
+                .FirstOrDefault();
+
+            if (last == null) return "No chart formation here.";
+
+            int ago = idx - last.ResolvesAt;
+            string what = ChartPatternNarrator.Describe(last, SpeechPriceFormatter.FormatPrice);
+            return $"No formation here. Most recent, {ago} {(ago == 1 ? "bar" : "bars")} ago: {what}";
         }
 
         private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)

@@ -61,11 +61,14 @@ internal static class PatternSpeechCommand
         Console.WriteLine();
         Console.WriteLine("Chart-pattern narration, measured by walking every bar as the arrow keys do.");
         Console.WriteLine();
-        Console.WriteLine($"{"symbol",-22}{"bars",8}{"patts",8}{"spoken",8}{"rate",8}{"per-pat",9}   outcome mix");
-        Console.WriteLine(new string('-', 92));
+        Console.WriteLine($"{"symbol",-22}{"bars",8}{"patts",8}{"spoken",8}{"rate",8}{"per-pat",9}{"detect",10}   outcome mix");
+        Console.WriteLine(new string('-', 100));
 
         int totalBars = 0, totalSpoken = 0, totalPatterns = 0;
         var outcomes = new Dictionary<ChartPatternState, int>();
+        // Per-kind counts: a shape that is defined but never actually found is indistinguishable
+        // from one that is not implemented, and the range was exactly that for a while.
+        var kinds = new Dictionary<ChartPatternKind, int>();
 
         foreach (var path in files)
         {
@@ -73,9 +76,20 @@ internal static class PatternSpeechCommand
             var bars = snap.Bars;
             if (bars.Count < 60) continue;
 
+            // Timed separately from the narration walk below. Detection runs ONCE per loaded
+            // dataset (it is cached), so this is the number that decides whether turning the
+            // feature on stalls a chart load. The walk is a measurement artifact — it re-scans
+            // every pattern on every bar, which nothing in the product ever does.
+            var clock = System.Diagnostics.Stopwatch.StartNew();
             var found = detector.Detect(bars);
+            clock.Stop();
+            long detectMs = clock.ElapsedMilliseconds;
+
             foreach (var p in found)
+            {
                 outcomes[p.State] = outcomes.GetValueOrDefault(p.State) + 1;
+                kinds[p.Kind] = kinds.GetValueOrDefault(p.Kind) + 1;
+            }
 
             int spoken = 0;
             var samples = new List<string>();
@@ -112,12 +126,12 @@ internal static class PatternSpeechCommand
                 .OrderBy(g => g.Key)
                 .Select(g => $"{g.Key.ToString()[..4].ToLowerInvariant()}={g.Count()}"));
 
-            Console.WriteLine($"{snap.Symbol,-22}{bars.Count,8}{found.Count,8}{spoken,8}{rate,7:F1}%{perPattern,9:F2}   {mix}");
+            Console.WriteLine($"{snap.Symbol,-22}{bars.Count,8}{found.Count,8}{spoken,8}{rate,7:F1}%{perPattern,9:F2}{detectMs,8}ms   {mix}");
 
             foreach (var s in samples) Console.WriteLine($"        \"{s}\"");
         }
 
-        Console.WriteLine(new string('-', 92));
+        Console.WriteLine(new string('-', 100));
         double overall = totalBars == 0 ? 0 : 100.0 * totalSpoken / totalBars;
         double per = totalPatterns == 0 ? 0 : (double)totalSpoken / totalPatterns;
 
@@ -131,6 +145,13 @@ internal static class PatternSpeechCommand
             Console.WriteLine($"  {kv.Key,-10} {kv.Value,6}");
         Console.WriteLine( "  No Expired at all would mean the resolve scan is unbounded again, and old");
         Console.WriteLine( "  shapes are being credited with unrelated breaks.");
+        Console.WriteLine();
+        Console.WriteLine("── SHAPES FOUND ──");
+        foreach (ChartPatternKind k in Enum.GetValues<ChartPatternKind>())
+        {
+            int n = kinds.GetValueOrDefault(k);
+            Console.WriteLine($"  {ChartPatternNarrator.Name(k),-28}{n,7}{(n == 0 ? "   <-- never found" : "")}");
+        }
         Console.WriteLine();
 
         return 0;

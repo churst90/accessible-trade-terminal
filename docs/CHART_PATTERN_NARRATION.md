@@ -96,6 +96,44 @@ untested claim the whole feature refuses to make.
 right place for it: arrow-key navigation must stay short, but "tell me everything about this bar" is
 the one request that should not be summarised.
 
+When **nothing** is live at the cursor, `Alt+Shift+D` names the last formation that finished and how
+— *"No formation here. Most recent, 20 bars ago: double top: price closed below the neckline at
+42,100."* A formation drops out of the live window the moment it resolves, which is right for
+navigation but left the detail key saying "no chart formation here" twenty bars after a neckline
+broke. That broken level is usually still the most relevant price on the screen and the pattern is
+the reason. The lookup is **backward-only**: a shape not yet knowable at this bar stays
+unmentionable, exactly as during navigation.
+
+---
+
+## Ranges: the one formation with two live levels
+
+Flat top against flat bottom used to fall straight through the triangle grid, which handled every
+*sloping* combination and let `(0, 0)` return null. So the single most common state a market is in
+produced **silence** — the worst possible gap in a feature whose job is to say what the chart is
+doing.
+
+A range is the only kind carrying a `SecondaryLevel`, and it needs its own resolve:
+
+```
+Forming    "Possible range forming, top 110, bottom 100. Height 10."
+Broken     "Range breaks here: closed above the top at 110, measured target 120."
+Expired    "Range ends here still intact — price held between 100 and 110."
+```
+
+Three deliberate differences from every other shape:
+
+- **Both boundaries are spoken while it is intact.** Naming one would quietly nominate a direction
+  the shape has not chosen, and "undecided" is the entire content of a range.
+- **No target until a side breaks.** The projection needs a direction; before the break there is
+  none. `ResolveRange` therefore returns the direction as an *output* rather than taking it as an
+  input — scanning one side only would mis-report every break the other way as the range holding.
+- **Expiry reads as "still intact", not "did not confirm".** A range that never broke has not
+  failed at anything; it is doing what a range does.
+
+A range must also be at least two tolerance units tall. Below that the "range" is a flat line, and
+naming a flat line a formation is noise wearing a technical word.
+
 ---
 
 ## Measured targets
@@ -142,6 +180,50 @@ Current, across 22 snapshots:
 | Announcements per pattern | **~1.7** | Two is the design — entry and resolution. Materially above means edge detection is re-firing |
 | Outcome mix | **confirmed ≈ expired** | No *Expired* at all would mean the resolve scan is unbounded again |
 
+### Every shape is actually found
+
+`pattern-speech` prints a per-kind count and flags any shape at zero, because **a kind that is
+defined but never detected is indistinguishable from one that is not implemented** — which is
+precisely what the range was until it was measured. Across 82 daily snapshots:
+
+| Shape | Found | | Shape | Found |
+|---|---:|---|---|---:|
+| bull flag | 2,872 | | symmetrical triangle | 1,343 |
+| double top | 2,736 | | range | **1,103** |
+| double bottom | 2,570 | | inverse head and shoulders | 933 |
+| ascending triangle | 2,374 | | descending triangle | 910 |
+| rising wedge | 2,120 | | head and shoulders | 889 |
+| bear flag | 1,863 | | falling wedge | 1,541 |
+
+### Timeframe stability
+
+Every tolerance is expressed in **ATR** — the instrument's own volatility — rather than in percent
+or currency, so nothing needs recalibrating across timeframes or instruments. Measured on the same
+markets at five timeframes:
+
+| Timeframe | Bars | Formations | Speech rate | Per pattern |
+|---|---|---|---|---|
+| 1h | 59,027 | 2,829 | 8.1% | 1.70 |
+| 4h | 89,731 | 4,859 | 9.2% | 1.69 |
+| 1d | 393,893 | 20,151 | 8.8% | 1.71 |
+| 2d | 17,986 | 860 | 8.1% | 1.69 |
+| 1w | 2,132 | 109 | 8.7% | 1.70 |
+
+Those are the two numbers you would want flat across timeframes, and they are — **8.1–9.2%** and
+**1.69–1.71**. (Pre-range-detection figures; ranges add roughly 5% more formations without moving
+the rate.)
+
+What is counted in **bars** rather than time is the formation size window: `MinPatternBars = 12`,
+`MaxPatternBars = 160`. That is intentional — a double top whose two highs are two years apart is
+not a double top, it is two highs — but it means a formation is always sized relative to the chart
+you are on, never to the calendar. A 12-bar flag is an hour on a 5-minute chart and three months on
+a weekly one, and both are flags.
+
+**Cost.** Detection runs once per loaded dataset and is cached (`IChartPatternCache`). About 20 ms
+on a 5,400-bar daily chart; about **2.2 seconds on 328,679 intraday bars**. The narration walk in
+`pattern-speech` is far slower than that, but it is a measurement artifact — it re-scans every
+pattern on every bar, which nothing in the product does.
+
 ---
 
 ## What is deliberately absent
@@ -156,5 +238,26 @@ Current, across 22 snapshots:
   nothing the right arrow does not, while consuming a binding. Candle patterns are read on the bar
   you are standing on, which is the right place for something that common.
 
-Cross-references: `SHORTCUTS.md` · `ALPHA_LEDGER.md` · `LAB_DESIGN.md` ·
-`PLATFORM_AND_SIGNAL_SERVICE.md` (describe freely, score never).
+---
+
+## How a user is meant to act on this
+
+The narration is deliberately mechanical, so the interpretation belongs in the manual rather than in
+the code. `USER_MANUAL.md` → *Analysis Tools* → *Chart formations* carries it, and the one point
+worth repeating here because it is so easy to invert:
+
+**On a double top, a break of the neckline is the pattern SUCCEEDING.** The neckline is the trough
+between the two highs — it is support — so a close below it is the top doing what a top does, and it
+is the conventional short. A neckline that *holds* means the double top failed to confirm, support
+was tested and survived, and the conventional read flips bullish. Both are useful and they point
+opposite ways, which is the whole reason the narration reports **what price did** rather than
+whether the pattern "worked".
+
+The forming announcement also carries a second, earlier trade: hearing "possible double top forming"
+means price has returned to a level it was already rejected from once. Acting there — the second
+top, before the neckline is near — is a better price, a tighter stop above the twin highs, and a
+much lower hit rate, because most possible double tops never become double tops. The terminal
+surfaces both moments and takes no view on either.
+
+Cross-references: `SHORTCUTS.md` · `USER_MANUAL.md` (Chart formations) · `ALPHA_LEDGER.md` ·
+`LAB_DESIGN.md` · `PLATFORM_AND_SIGNAL_SERVICE.md` (describe freely, score never).

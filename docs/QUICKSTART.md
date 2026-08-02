@@ -138,6 +138,63 @@ dropdown then appears (Economic, OnChain, Derivatives, Sentiment) before Provide
 no separate "Trading vs Analytics" switch — the Market dropdown is the single place you
 choose between the two.
 
+### Which API keys to get first
+
+You can chart crypto the minute you install this and never enter a key. Everything else is
+worth adding in roughly this order — each step unlocks more than the one after it, and the
+first four are free.
+
+**Start here — no key needed at all.**
+Crypto price data works out of the box: **Bitstamp**, **Kraken**, **MEXC** and **Binance**
+all serve market data without credentials. So do a surprising number of the analytics
+feeds: **CoinGecko** (coin profiles, the crypto half of the `Alt+I` dossier), **SEC EDGAR**
+(US company filings, the equity half of the dossier), **Alternative.me** (Fear & Greed),
+**CoinMetrics** (on-chain), **FINRA** (daily short volume for any US stock), **CFTC**
+(Commitments of Traders), **Binance Vision** (funding and open interest), **DefiLlama**,
+**Mempool**, **Deribit**, **OKX**, and **Wikipedia pageviews** (retail attention). That is
+most of the analytics layer, for nothing.
+
+**1. Alpaca — free, and the single biggest unlock.**
+This is the one to get first if you touch US markets at all. It brings **14,162 active US
+equities and ETFs**, including **1,136 OTC symbols**, with 5-minute intraday history back
+to 2016 — so esoteric tickers, the leveraged and thematic ETFs, and small caps are all
+covered. The same key also gives you a **paper trading account**, which is how you should
+practise the order panel before any real money is involved. Sign up at alpaca.markets; you
+get a paper key pair and a live key pair. **Enter the paper pair first**, and only add the
+live pair when you actually intend to trade with it.
+
+Alpaca covers ETFs but **not indices**. There is no `SPX`. Use the fund that tracks the
+index instead — SPY, QQQ, IWM, DIA — and for metals and bonds use GLD, SLV, TLT, IEF. One
+trap worth knowing: typing `ES` expecting the S&P futures contract returns **Eversource
+Energy**, a utility stock trading around $72. It is a valid symbol, so nothing will warn
+you.
+
+**2. FRED — free, instant, and the whole macro picture.**
+A St. Louis Fed key (fred.stlouisfed.org, issued immediately) turns on the Economic
+analytics provider: CPI, unemployment, yield curves, the Fed funds rate, and hundreds of
+other series you can chart beside price like any indicator.
+
+**3. TwelveData — free tier, for what Alpaca cannot reach.**
+Spot gold (`XAU/USD`) works on the free tier and is genuinely useful. Be aware that on the
+free plan `SPX` and `XAG/USD` (spot silver) are **not** included — they need a paid tier —
+so do not be surprised when they fail.
+
+**4. An AI provider — optional, and only for the AI Analyst.**
+**Claude**, **OpenAI** or a local **Ollama** install. Nothing else in the terminal uses it,
+no strategy or alert depends on it, and your chart data leaves your machine when you use
+it. A local Ollama install avoids that entirely.
+
+**Later, and only if you need them.** **Coinbase**, **Schwab**, **Tradier**, **Oanda** and
+**Interactive Brokers** are for placing real orders through a broker you already have.
+**Polygon**, **Finnhub** and **FMP** are paid data vendors that overlap heavily with what
+Alpaca already gives you free — add one only when you hit a specific gap. **Glassnode** and
+**Etherscan** are paid or rate-limited on-chain sources, and the free CoinMetrics and
+Mempool feeds cover most of the same ground.
+
+Keys go in the **API key manager, `Alt+K`**. They are stored on your own machine, never
+sent anywhere except the provider they belong to, and each provider tells you plainly when
+a key is missing rather than failing quietly.
+
 ---
 
 ## 5. Moving Through Time: Bar-by-Bar Navigation

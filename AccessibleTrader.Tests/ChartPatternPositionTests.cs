@@ -38,6 +38,38 @@ public class ChartPatternPositionTests
         => new(kind, state, start, end, known, trigger, DateTime.Today, DateTime.Today,
                completed, expires, breaksBelow, target);
 
+    /// <summary>
+    /// Price rotating between a flat 100 and a flat 110, four turns, then leaving. Single-point
+    /// bars so the boundaries are exactly the numbers the assertions name.
+    /// </summary>
+    private static List<Ohlcv> RangeSeries(bool breakUp = false)
+    {
+        var path = new List<double> { 105 };
+        void Ramp(double from, double to, int steps)
+        {
+            for (int i = 1; i <= steps; i++) path.Add(from + (to - from) * i / steps);
+        }
+
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            Ramp(path[^1], 110, 12);
+            Ramp(110, 100, 12);
+        }
+        Ramp(100, breakUp ? 130 : 70, 25);
+        for (int i = 0; i < 60; i++) path.Add(breakUp ? 130 : 70);
+
+        var bars = new List<Ohlcv>(path.Count);
+        var t = new DateTime(2020, 1, 1);
+        for (int i = 0; i < path.Count; i++)
+            bars.Add(new Ohlcv
+            {
+                Date = t.AddDays(i),
+                Open = path[i], Close = path[i], High = path[i], Low = path[i],
+                Volume = 1000
+            });
+        return bars;
+    }
+
     // ── Expiry: the third outcome ───────────────────────────────────────────────
 
     /// <summary>
@@ -260,6 +292,117 @@ public class ChartPatternPositionTests
 
         Assert.NotEqual(early, late);        // different records…
         Assert.Equal(early.Key, late.Key);   // …same formation
+    }
+
+    // ── Ranges: the one formation with two live levels ──────────────────────────
+
+    /// <summary>
+    /// Flat top against flat bottom used to fall through the triangle grid and be reported as
+    /// nothing at all — so the single most common state a market is in produced silence, which is
+    /// the worst possible gap in a feature whose job is to say what the chart is doing.
+    /// </summary>
+    [Fact]
+    public void AHorizontalRangeIsDetected()
+    {
+        var found = new ChartPatternDetector(new SwingStructureAnalyzer()).Detect(RangeSeries());
+
+        Assert.Contains(found, p => p.Kind == ChartPatternKind.Rectangle);
+    }
+
+    /// <summary>
+    /// Both boundaries are spoken while the range is intact. Naming only one would quietly nominate
+    /// a direction the shape has not chosen — and "undecided" is the entire content of a range.
+    /// </summary>
+    [Fact]
+    public void AnIntactRangeSpeaksBothBoundariesAndNoTarget()
+    {
+        var p = new ChartPattern(ChartPatternKind.Rectangle, ChartPatternState.Forming,
+            10, 60, 65, 110, DateTime.Today, DateTime.Today, SecondaryLevel: 100);
+
+        string s = ChartPatternNarrator.Describe(p, Fmt);
+
+        Assert.Contains("top 110", s);
+        Assert.Contains("bottom 100", s);
+        Assert.Contains("Height 10", s);
+        Assert.DoesNotContain("measured target", s);   // no side has broken, so nothing to project
+    }
+
+    /// <summary>
+    /// A range resolves on whichever boundary breaks first, and the direction is an OUTPUT of that
+    /// scan rather than an input. Scanning one side only would mis-report every break the other way
+    /// as the range still being intact.
+    /// </summary>
+    [Fact]
+    public void ARangeResolvesOnWhicheverSideBreaksFirst()
+    {
+        var down = new ChartPatternDetector(new SwingStructureAnalyzer())
+            .Detect(RangeSeries(breakUp: false))
+            .Where(p => p.Kind == ChartPatternKind.Rectangle && p.State == ChartPatternState.Completed)
+            .ToList();
+        var up = new ChartPatternDetector(new SwingStructureAnalyzer())
+            .Detect(RangeSeries(breakUp: true))
+            .Where(p => p.Kind == ChartPatternKind.Rectangle && p.State == ChartPatternState.Completed)
+            .ToList();
+
+        Assert.NotEmpty(down);
+        Assert.NotEmpty(up);
+        Assert.All(down, p => Assert.True(p.BreaksBelow, "a downside break was reported as upside"));
+        Assert.All(up, p => Assert.False(p.BreaksBelow, "an upside break was reported as downside"));
+    }
+
+    /// <summary>
+    /// Once a side breaks there IS a direction, so the conventional projection becomes available —
+    /// the range's own height, from the boundary that gave way.
+    /// </summary>
+    [Fact]
+    public void ABrokenRangeProjectsItsHeightFromTheSideThatGaveWay()
+    {
+        var p = new ChartPattern(ChartPatternKind.Rectangle, ChartPatternState.Completed,
+            10, 60, 65, 110, DateTime.Today, DateTime.Today, CompletedAtIndex: 70,
+            BreaksBelow: false, MeasuredTarget: 120, SecondaryLevel: 100);
+
+        string s = ChartPatternNarrator.Describe(p, Fmt);
+
+        Assert.Contains("closed above the top at 110", s);
+        Assert.Contains("measured target 120", s);
+    }
+
+    /// <summary>A range that never broke is reported as intact, not as a failure.</summary>
+    [Fact]
+    public void AnExpiredRangeIsReportedAsStillIntact()
+    {
+        var p = new ChartPattern(ChartPatternKind.Rectangle, ChartPatternState.Expired,
+            10, 60, 65, 110, DateTime.Today, DateTime.Today, ExpiresAtIndex: 115,
+            SecondaryLevel: 100);
+
+        string s = ChartPatternNarrator.Describe(p, Fmt);
+
+        Assert.Contains("intact", s);
+        Assert.Contains("100", s);
+        Assert.Contains("110", s);
+        Assert.DoesNotContain("did not confirm", s);   // wrong verb for a shape that never had one
+    }
+
+    /// <summary>
+    /// Every kind must produce a sentence, including the newest one. A kind added to the enum and
+    /// forgotten in the narrator falls through to a default and reads as the raw C# identifier.
+    /// </summary>
+    [Fact]
+    public void EveryKindHasRealWordsInEveryState()
+    {
+        foreach (ChartPatternKind kind in Enum.GetValues<ChartPatternKind>())
+        foreach (var state in Enum.GetValues<ChartPatternState>())
+        {
+            var p = new ChartPattern(kind, state, 1, 20, 25, 100, DateTime.Today, DateTime.Today,
+                CompletedAtIndex: state == ChartPatternState.Completed ? 30 : null,
+                ExpiresAtIndex: 45, MeasuredTarget: 90,
+                SecondaryLevel: kind == ChartPatternKind.Rectangle ? 90 : null);
+
+            string s = ChartPatternNarrator.Describe(p, Fmt);
+
+            Assert.False(string.IsNullOrWhiteSpace(s), $"{kind}/{state} said nothing");
+            Assert.DoesNotContain(kind.ToString(), s);   // the raw enum name never reaches speech
+        }
     }
 
     // ── Stepping between formations ─────────────────────────────────────────────

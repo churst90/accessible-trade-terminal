@@ -32,7 +32,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
 4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, split view, point analysis
-5. [Analysis Tools](#analysis-tools) — indicators, market structure, value zones, the respect report, drawing tools, volume profile, heatmap, the object tree
+5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, drawing tools, volume profile, heatmap, the object tree
 6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
 8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
@@ -947,6 +947,169 @@ entry trigger.
 
 The indicator is descriptive by design and it says so in its own description. You
 can turn it off for good in Settings if you would rather add it per chart.
+
+### Chart formations
+
+**Chart formations** are the multi-bar shapes a sighted trader names in one glance — double
+tops, head and shoulders, triangles, wedges, flags, ranges. Delivering that by ear is the
+reason this terminal exists, so the terminal describes them; it never tells you what
+they mean. Turn it on in **Settings → Describe chart patterns**. It is off by default,
+because it is extra narration on an action you perform constantly.
+
+Twelve shapes are recognised: **double top** and **double bottom**, **head and shoulders**
+and **inverse head and shoulders**, **ascending / descending / symmetrical triangle**,
+**rising** and **falling wedge**, **bull** and **bear flag**, and the **range** (a flat
+top against a flat bottom — the most common state a market is in).
+
+#### The three things that can happen, and how you hear each one
+
+Every formation has a **trigger level** — one price that decides its fate. On a double top
+or a head and shoulders that price is the **neckline**; on a triangle or wedge it is the
+boundary a break would cross first; on a flag it is the flag edge. A range is the one
+exception and has two.
+
+| What you hear | What it means |
+| --- | --- |
+| "**Possible** double top **forming**, neckline 42,100, measured target 39,400 if it breaks." | The shape is there, the neckline has not been touched through yet, and the outcome is still open. This is the only state you can act on in advance. |
+| "Double top **confirmed** here: **closed below** the neckline at 42,100." | A bar closed through the trigger. The pattern did what it is defined to do. |
+| "Double top ends here **without confirming** — the neckline at 42,100 **held**." | The shape aged out. Price came to the line and the line won. |
+
+The wording is deliberately literal. You will never hear the word "completed", because it
+could not tell you whether the pattern worked or failed — it only ever meant "price closed
+through a line". So the terminal says which side of which level, and leaves the meaning to
+you.
+
+#### Where you are in the shape
+
+A formation is a stretch of chart, not a single bar, and the announcement tells you which
+edge you just crossed:
+
+- Arrowing **right** into one: "**Start of** possible double top forming… Spans 22 bars."
+  You are at the left edge, the outcome has not happened, and the neckline is the number
+  to remember.
+- Arrowing **left** into one: "**End of** double top: price closed below the neckline…"
+  You are at the right edge, walking backwards into a shape that is already resolved.
+- On the bar where it resolved: "Double top **confirmed here**…" or "…**ends here** without
+  confirming."
+- Between those points: **silence.** It has already been described and nothing has changed.
+
+Press **`,`** and **`.`** to jump between formation edges — the start of each shape and the
+bar its story ended. Two keys walk you through every formation on the chart in the order
+they happened.
+
+Press **Alt+Shift+D** on any bar for the full list, including every overlapping formation
+with its own levels. If nothing is live where you are standing, it tells you what finished
+most recently and how — "No formation here. Most recent, 20 bars ago: double top: price
+closed below the neckline at 42,100." That broken level is often still the most relevant
+price on the screen.
+
+#### Reading a break versus a hold — the part that is easy to get backwards
+
+Take the double top, because it is the clearest case and the confusion is common.
+
+A double top is two highs at roughly the same level with a trough between them. **The
+neckline is that trough, and it is support.** So:
+
+- **Price closes below the neckline.** The double top has *confirmed*. In the conventional
+  reading this is the *bearish* case and the pattern working as advertised: the level that
+  was holding price up gave way. The textbook entry is short on the break, or on a retest
+  of the broken neckline from underneath; the measured target is the neckline minus the
+  height from the twin tops down to it. **A break is the pattern succeeding, not failing** —
+  the shape is a top, and tops are supposed to break downward.
+- **Price comes to the neckline and holds.** The double top *failed to confirm*. Support was
+  tested and it survived. Conventionally that is the bullish case, and the level that held
+  is the reference an upside trade is built around.
+
+Both are useful and they point opposite ways, which is exactly why the terminal reports
+what price did rather than whether the pattern "worked". Every shape follows the same logic
+once you know which side its trigger sits on, and the announcement always names the side:
+
+| Formation | Trigger is | Confirmation is a close |
+| --- | --- | --- |
+| Double top, head and shoulders | the trough between the peaks (support) | **below** it |
+| Double bottom, inverse head and shoulders | the peak between the lows (resistance) | **above** it |
+| Ascending triangle, falling wedge, symmetrical triangle | the upper boundary | **above** it |
+| Descending triangle, rising wedge | the lower boundary | **below** it |
+| Bull flag | the flag's high | **above** it |
+| Bear flag | the flag's low | **below** it |
+| Range | both boundaries | **either** — whichever gives way first |
+
+**Playing the second top.** There is a second, earlier trade hiding in the forming
+announcement, and it is worth naming because it is the reason forming patterns are reported
+at all. Once you hear "possible double top forming" you are being told that price has
+returned to a level it was rejected from once already. Acting there — at the second top,
+before the neckline is anywhere near — is the anticipation trade: a much better price, a
+much tighter stop just above the twin highs, and a much lower chance of being right,
+because most possible double tops never become double tops. Waiting for the neckline break
+is the confirmation trade: worse price, wider stop, higher hit rate. The terminal gives you
+both moments and takes no view on which one to take.
+
+#### Ranges
+
+A range is announced with **both** boundaries — "Possible range forming, top 110, bottom
+100. Height 10." — and no target, because a range that has not broken has not chosen a
+direction and projecting one would be inventing an opinion the shape does not hold.
+
+When it goes, you hear which way: "Range breaks here: closed above the top at 110, measured
+target 120." Until then the two numbers are the whole content: the conventional readings —
+buy the bottom, sell the top, or wait for the break — all need the same two prices, and the
+terminal gives them to you without choosing between them.
+
+If it expires still intact you hear "Range ends here still intact — price held between 100
+and 110", which is a different statement from a failed pattern and is worded differently on
+purpose.
+
+#### Overlap: when several shapes fit at once
+
+A stretch of chart can genuinely be an inverse head and shoulders *and* a double bottom
+*and* an ascending triangle at the same time. Two experienced traders looking at it would
+disagree about which it is, and the terminal is not going to pretend otherwise by silently
+picking one.
+
+What it does instead is **rank** them and describe the leader, then count the rest: "…**Plus
+2 more formations here.**" The ranking is live formations before resolved ones, then the
+largest structure first — the eighty-bar shape is what the chart is making, the twelve-bar
+flag inside it is a detail of that shape. Size is the tie-break because it is the only one
+available that is not a directional opinion; ranking by "which pattern is more reliable"
+would be exactly the untested claim this terminal refuses to make.
+
+**Alt+Shift+D** reads them all when you want the disagreement in full.
+
+#### What the terminal will not tell you, and why
+
+You will never hear a formation called bullish or bearish, and you will never hear a
+probability. The measured target is spoken because it is arithmetic on two numbers already
+on your screen, and it is always phrased as the *measured* target, conditional on *if it
+breaks* — that is the difference between reporting a convention and endorsing one.
+
+That reticence is not caution for its own sake. Every price-derived pattern claim this
+project has tested has come back null: a randomly-drawn horizontal line was respected 59%
+of the time, real swing levels held 46.2% of the time against 46.7% for random lines, and
+fib ratios did nothing across 355,000 tests. The shapes are real and worth hearing — they
+are how you build a picture of the chart. Whether acting on them makes money is a separate
+question, and one this project has repeatedly failed to answer in their favour. Use them to
+understand where you are, and get your edge somewhere you have tested.
+
+#### Timeframes
+
+Every tolerance in the detector is expressed in **ATR** — the instrument's own volatility —
+rather than in percent or in dollars, so nothing needs recalibrating when you change
+timeframe or switch from a $3 small cap to a $600 index fund. Measured across 1-hour,
+4-hour, daily, 2-day and weekly bars on the same set of markets, the share of bars carrying
+an announcement stays between **8.1% and 9.2%**, and the number of announcements per
+formation stays between **1.69 and 1.71**. Those are the numbers you would want to be flat,
+and they are.
+
+The one thing that *is* counted in bars rather than time is how long a formation may run: a
+shape must span at least 12 bars and at most 160. That is intentional — a "double top"
+whose two highs are two years apart is not a double top, it is two highs — but it does mean
+a formation is always sized relative to the chart you are on, never to the calendar. A
+12-bar flag is an hour on a 5-minute chart and three months on a weekly one, and both are
+flags.
+
+Detection runs once when a chart loads and is then cached, so it costs nothing as you
+navigate. On a 5,400-bar daily chart it takes about 20 milliseconds; on 328,000 intraday
+bars, about two seconds.
 
 ### Value zones
 
