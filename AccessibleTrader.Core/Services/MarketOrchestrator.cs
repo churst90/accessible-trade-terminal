@@ -399,7 +399,7 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase", "FMP");
                     break;
                 case "Economic":
-                    EnsureContains(_availableProviders, "Fred", "FMP Analytics");
+                    EnsureContains(_availableProviders, "Fred", "FMP Analytics", "SEC EDGAR");
                     break;
                 case "OnChain":
                     EnsureContains(_availableProviders, "Glassnode", "CoinGecko", "BGeometrics", "DefiLlama", "CoinMetrics", "Mempool", "Etherscan");

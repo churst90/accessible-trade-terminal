@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-02.4",
+  "registryVersion": "2026-08-02.5",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
@@ -1393,17 +1393,27 @@
         ],
         "horizonBars": 1,
         "timeframe": "5m",
-        "notes": "The one part of his floor knowledge he offered to retail, and it has a stated mechanism -- the closing-bell order flow populating on brokers' handhelds at 14:00 and updating through the afternoon, so the late-session move is the market absorbing imbalance information. TESTABLE WITH FREE DATA once we have US equity intraday bars; currently BLOCKED -- no Alpaca key on disk and no intraday equity snapshots. Controls needed: compare the 15:00-16:00 window's drift and its follow-through against every other hour of the session, because 'the market moves at 3pm' is true of every hour if you do not compare."
+        "notes": "TESTED 2026-08-02 and FALSIFIED, once an Alpaca key unblocked US equity intraday. SPY/QQQ/IWM/DIA/AAPL, 5-minute SIP bars 2016-2026, ~2.2M bars. THE CONTROL THE RECORD DEMANDED -- every hour of the session measured the same way -- is what settles it: the 15:00 window's continuation rate is 50.03% against 50.25% across the other hours, ranking 4TH OF 7. Mean follow-through correlation across every hour is +0.0014, two orders of magnitude below Narang's 0.03-0.04 for a SUCCESSFUL strategy. Hannan's time-of-day claim (cleaner moves at the open, poor follow-through at 1pm) is folded into this record and also fails: open 50.87% vs 13:00 49.91%, and the open's follow-through CORRELATION is the most NEGATIVE of the session, so its two halves point opposite ways. WHAT IS TRUE: the volatility smile is real -- mean absolute move IS largest at the open and into the close. So 'the market makes a big move at 3' is correct about MAGNITUDE and carries no directional information. The claim conflates volatility with predictability, which is easy to notice from the floor and requires counting to falsify."
       },
       "effect": {
-        "measure": "follow-through-of-the-1500-and-1530-move-vs-other-hours",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "continuation-rate-1500-window-vs-other-hours",
+        "value": 50.03,
+        "unit": "percent (other hours 50.25%; rank 4 of 7)",
+        "p": null,
+        "n": 5,
+        "notes": "Sign-flip null with a 50% expectation. Mean follow-through correlation across all hours +0.0014. Costs not modelled -- unnecessary for a null, but a positive result would have needed them."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "every-hour-of-session-compared-THE-DECIDING-CONTROL",
+        "sign-flip-null-preserving-magnitudes",
+        "regular-trading-hours-only",
+        "DST-aware-via-America-New_York",
+        "non-overlapping-windows-at-1500",
+        "full-hour-magnitude-measured-separately-from-follow-through"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-02",
+      "lastMeasured": "2026-08-02",
       "decay": [],
       "correlatesWith": [
         {
@@ -1412,7 +1422,7 @@
           "correlation": null
         }
       ],
-      "source": "",
+      "source": "docs/INTRADAY_SESSION_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
@@ -1421,8 +1431,8 @@
         "quote": "at 3:00 and at 3:30 usually the market make a big move ... your retail audience should know that you should rather be on the same side of the move that the market does at 3 and 330 rather than trying to be counterintuitive"
       },
       "reMeasure": {
-        "command": "late-session (to build; needs US equity intraday)",
-        "implemented": false
+        "command": "late-session",
+        "implemented": true
       }
     },
     {
@@ -1485,20 +1495,30 @@
         ],
         "horizonBars": 20,
         "timeframe": "1d",
-        "notes": "THE FIRST SIZING CLAIM IN THE REGISTRY. The ledger holds ~20 edges on entries and 2 on exits and ZERO on sizing -- the trader's-triangle interview already identified sizing as the untested corner, and this is a mechanically specifiable rule for it. Crucially it is NOT 'add risk when winning': the dollar at risk is held constant and the stop does the work, so it is testable without a conviction input. OUR OWN PRIOR IS FAVOURABLE AND THAT IS A REASON FOR EXTRA CARE: the exit study found the BTC trend edge has a fat right tail (mean +8.15R at a 47% win rate) and that fixed-percentage scale-OUTS destroyed 95-100% of it. Pyramiding is the exact inverse of scaling out, so a positive result would be consistent with something already measured -- which makes it easy to believe too quickly. CONTROLS REQUIRED: (1) an exposure-matched null, because adding to winners mechanically raises exposure during trends and in a trending asset that wins for the same reason buy-and-hold wins; (2) hold the ENTRY AND EXIT SIGNALS FIXED and vary only the size schedule, or the test measures the entry rule again; (3) report total R, not win rate -- he states his own win rate would be ~60% without pyramiding and is 41% with it, so win rate moving the wrong way is predicted by the claim rather than evidence against it; (4) model slippage on the adds, since each add is a market order into a move."
+        "notes": "TESTED 2026-08-02 and FALSIFIED, by the cleanest margin in the ledger. Entry and exit held FIXED (z-momentum in, signal out); only the size schedule varied across five arms. TWO CONTROLS, both decisive. (1) STRUCTURE CARRIES NOTHING: the pyramid is indistinguishable from adding at RANDOM moments inside the same trade with the same add count -- equities +2252.0 R vs +2251.0 R, a difference of one R across 41 instruments, 19/41 favouring the pyramid. (2) IT LOSES TO PLAIN LEVERAGE: holding the same average position flat from entry beats it on 41/41 equities and 6/6 crypto, 47 of 47 with no exceptions. The mechanism is visible in hindsight -- a pyramid buys LATER at WORSE prices, so it carries a higher average entry than a flat position of the same average size, which owns the whole move rather than the back half of it at a premium. WHY THE BELIEF SURVIVES FROM THE INSIDE: the pyramid DOES beat flat 1x (1.03-1.12x), so a trader who pyramids genuinely makes more than one who does not. The comparison never made is against the same trader simply sizing up at entry. Re-run with a loosened exit (--exit-z -1.0, 34-37 bar holds) to give the technique its best case; the verdict did not move."
       },
       "effect": {
-        "measure": "total-R-vs-fixed-size-same-signals",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "total-R-vs-flat-position-at-the-same-average-size",
+        "value": -20.2,
+        "unit": "percent shortfall (2252.0 R vs 3052.2 R, equities, long-hold arm)",
+        "p": null,
+        "n": 47,
+        "notes": "Loses to the leverage control on 47 of 47 instruments. Beats flat 1x by 1.03-1.12x, which is the number that makes it persuasive and the wrong comparison. Structure vs random adds: 19/41 equities, 2/6 crypto -- a coin flip."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "entry-and-exit-held-fixed",
+        "random-add-timing-same-count-STRUCTURE-CARRIES-NOTHING",
+        "flat-at-same-average-size-LEVERAGE-CONTROL-KILLED-IT",
+        "best-case-long-hold-rerun",
+        "slippage-5bps-per-add",
+        "naive-add-strawman-arm"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-02",
+      "lastMeasured": "2026-08-02",
       "decay": [],
       "correlatesWith": [],
-      "source": "",
+      "source": "docs/SIZING_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
@@ -1507,8 +1527,8 @@
         "quote": "you might have had a 10K initial risk on a trade, but you just get so big after adding and moving your stop up that that 10k initial risk turns into a million dollars ... it's not necessarily increasing risk, it's recycling the same risk"
       },
       "reMeasure": {
-        "command": "pyramid (to build)",
-        "implemented": false
+        "command": "pyramid",
+        "implemented": true
       }
     },
     {

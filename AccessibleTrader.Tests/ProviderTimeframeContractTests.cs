@@ -43,6 +43,7 @@ namespace AccessibleTrader.Tests
             yield return new object[] { "AlternativeMe",      new[] { "1d" } };
             // Wikipedia per-article pageviews serves daily and monthly only — hourly is a 400.
             yield return new object[] { "Wikipedia",          new[] { "1d", "1M" } };
+            yield return new object[] { "SEC EDGAR",          new[] { "1d" } };
             yield return new object[] { "BGeometrics",        new[] { "1d" } };
             yield return new object[] { "CoinGecko",          new[] { "1d" } };
             yield return new object[] { "CoinMetrics",        new[] { "1d" } };

@@ -187,6 +187,7 @@
       <!-- Analytics (non-tradeable data: on-chain, derivatives, sentiment, economic) -->
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.WikipediaPageviews\AccessibleTrader.Plugins.WikipediaPageviews.csproj" />
+      <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.SecEdgar\AccessibleTrader.Plugins.SecEdgar.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BGeometrics\AccessibleTrader.Plugins.BGeometrics.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceDerivatives\AccessibleTrader.Plugins.BinanceDerivatives.csproj" />
       <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.BinanceVision\AccessibleTrader.Plugins.BinanceVision.csproj" />
