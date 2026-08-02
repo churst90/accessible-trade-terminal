@@ -33,7 +33,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IEventBus _eventBus;
         private readonly IEarconService _earconService;
         private readonly ISdkCandlePatternAnalyzer _patternAnalyzer;
-        private readonly IChartPatternDetector _chartPatterns;
+        private readonly IChartPatternCache _patternCache;
         // Held purely to ensure AutoNarrationService is instantiated at startup.
         // All work is done inside that service via its own subscriptions.
         private readonly IAutoNarrationService _autoNarration;
@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IEventBus eventBus,
             IEarconService earconService,
             ISdkCandlePatternAnalyzer patternAnalyzer,
-            IChartPatternDetector chartPatterns,
+            IChartPatternCache patternCache,
             IAutoNarrationService autoNarration)
         {
             _store = store;
@@ -67,7 +67,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _eventBus = eventBus;
             _earconService = earconService;
             _patternAnalyzer = patternAnalyzer;
-            _chartPatterns = chartPatterns;
+            _patternCache = patternCache;
             _autoNarration = autoNarration;
             _previousState = store.State;
 
@@ -460,11 +460,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     break;
 
                 case FeedbackType.Navigation:
-                    _navManager.HandleNavigationFeedback(_store.State, e.IsXMove, e.IsYMove, e.Message ?? "", isJump: e.IsJump);
-                    // After the bar itself has been read, describe any chart formation the cursor is
-                    // now inside — but only when the user asked for it, and only on a move along the
-                    // time axis.
-                    if (e.IsXMove) AnnounceChartPatternsAtCursor();
+                    // The chart-formation clause is computed BEFORE the bar is read and handed in,
+                    // rather than spoken afterwards as a second utterance. Two Speak calls in one
+                    // keypress do not reliably produce two announcements: on the web head speech
+                    // goes into an ARIA live region, Blazor batches the whole event handler into a
+                    // single render, and only the last write to that region ever reaches the DOM —
+                    // so the earlier phrase is silently dropped. Composing one utterance is the only
+                    // arrangement in which everything true about a bar is actually heard.
+                    _navManager.HandleNavigationFeedback(
+                        _store.State, e.IsXMove, e.IsYMove, e.Message ?? "", isJump: e.IsJump,
+                        extraContext: e.IsXMove ? ChartPatternContext() : null);
                     break;
 
                 case FeedbackType.VolumeChange:
@@ -531,57 +536,106 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Chart-pattern description (opt-in) ─────────────────────────────────
 
-        // Detection is O(swings^2) over the whole series, so it is cached per loaded dataset rather
-        // than recomputed on every arrow key. The cache key is the bar count plus the last bar's
-        // timestamp: cheap, and it changes on load, on timeframe switch, and when a live bar closes.
-        private IReadOnlyList<ChartPattern>? _cachedPatterns;
-        private (int Count, DateTime Last) _patternCacheKey;
-        private string _lastSpokenPatterns = "";
+        // The bar the cursor was on last time a pattern readout was computed. -1 means "no idea",
+        // which is the correct state after a load, a jump, or a timeframe change — see below.
+        private int _lastPatternBar = -1;
 
         /// <summary>
-        /// Speak the formations the cursor is currently inside.
+        /// The chart-formation clause for the bar the cursor has just moved to, or "" for silence.
         ///
         /// <para>
-        /// Three gates, and each removes a way this feature would become annoying enough to be
-        /// switched off — at which point it protects nobody:
+        /// This is EDGE-TRIGGERED, and that is the whole design. The first version described
+        /// whatever overlapped the current bar and suppressed repeats, which sounds equivalent and
+        /// is not: as the overlapping set churned bar by bar — a flag dropping out here, a triangle
+        /// arriving there — the readout kept changing, so the suppression kept failing, and the
+        /// user heard a different pile of formations every few bars with no way to tell which were
+        /// new. What a person actually needs to know is when they have <b>crossed into</b> a
+        /// formation and when it <b>resolved</b>. Those are two events per pattern over its whole
+        /// life, not one utterance per bar.
         /// </para>
+        ///
         /// <list type="bullet">
-        ///   <item>Off unless <c>DescribeChartPatterns</c> is enabled. It is extra narration on an
-        ///         action the user performs constantly.</item>
-        ///   <item>Silent when the readout has not CHANGED, so panning through the middle of a
-        ///         sixty-bar triangle says it once rather than sixty times.</item>
-        ///   <item>Spoken on the Event channel without interrupting, so it never cuts off the bar
-        ///         reading that is the primary output of the keypress.</item>
+        ///   <item><b>Entering a region</b> — spoken with the edge named, so the direction of travel
+        ///         is audible: "start of" walking forward, "end of" walking back.</item>
+        ///   <item><b>The resolution bar</b> — the bar that broke the trigger, or the bar the shape
+        ///         aged out on. This is what closes the loop on an entry the user already heard.</item>
+        ///   <item><b>Everything in between</b> — silence. The pattern has already been described
+        ///         and the level is not changing.</item>
         /// </list>
+        ///
+        /// <para>
+        /// A jump (any move of more than one bar, or the first move after a load) cannot be
+        /// diffed — there is no adjacent previous bar to have crossed an edge from — so it falls
+        /// back to describing what is here, which is exactly what "where am I?" wants.
+        /// </para>
         /// </summary>
-        private void AnnounceChartPatternsAtCursor()
+        private string ChartPatternContext()
         {
             var state = _store.State;
-            if (!state.DescribeChartPatterns) return;
+            if (!state.DescribeChartPatterns) { _lastPatternBar = -1; return ""; }
 
             var data = state.Data;
-            if (data == null || data.Count < 30) return;
-
             int idx = state.CurrentDataIndex;
-            if (idx < 0 || idx >= data.Count) return;
+            if (data == null || idx < 0 || idx >= data.Count) { _lastPatternBar = -1; return ""; }
 
-            var key = (data.Count, data[^1].Date);
-            if (_cachedPatterns == null || _patternCacheKey != key)
+            var all = _patternCache.For(data);
+            int prev = _lastPatternBar;
+            _lastPatternBar = idx;
+
+            if (all.Count == 0) return "";
+
+            var here = ChartPatternNarrator.AtBar(all, idx);
+
+            // Jump, or first move: no edge was crossed, so describe the neighbourhood instead.
+            if (prev < 0 || Math.Abs(idx - prev) != 1)
+                return here.Count == 0 ? "" : ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice, max: 1)
+                                              + OverlapNote(here.Count);
+
+            if (here.Count == 0) return "";
+
+            bool movingRight = idx > prev;
+
+            // Diffed on Key, never on the records themselves. AtBar projects each pattern to the
+            // state it held at the requested bar, so the SAME formation is a different record on
+            // the bar it resolved — and a record-wise diff would report it as newly entered there,
+            // announcing "start of" at the finish line.
+            var beforeKeys = ChartPatternNarrator.AtBar(all, prev).Select(p => p.Key).ToHashSet();
+
+            var parts = new List<string>();
+
+            // 1. Regions crossed into on this step. Ranked, and only the leader is described in
+            //    full — see ChartPatternNarrator.ByDominance for why overlap is ranked rather than
+            //    hidden.
+            var entered = ChartPatternNarrator.ByDominance(here.Where(p => !beforeKeys.Contains(p.Key))).ToList();
+            if (entered.Count > 0)
             {
-                _cachedPatterns = _chartPatterns.Detect(data);
-                _patternCacheKey = key;
-                _lastSpokenPatterns = "";
+                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], movingRight, SpeechPriceFormatter.FormatPrice));
+                if (entered.Count > 1) parts.Add(OverlapNote(entered.Count).TrimStart());
             }
 
-            var here = ChartPatternNarrator.AtBar(_cachedPatterns, idx);
-            if (here.Count == 0) { _lastSpokenPatterns = ""; return; }
+            // 2. Patterns whose story ends exactly here. Only when walking forward: arriving at a
+            //    break bar from the right means the user is leaving the pattern, and they were told
+            //    the outcome by the "end of" entry a moment ago.
+            if (movingRight)
+            {
+                var enteredKeys = entered.Select(p => p.Key).ToHashSet();
+                foreach (var p in here.Where(p => p.ResolvesAt == idx && !enteredKeys.Contains(p.Key)))
+                {
+                    string res = ChartPatternNarrator.DescribeResolution(p, SpeechPriceFormatter.FormatPrice);
+                    if (!string.IsNullOrEmpty(res)) parts.Add(res);
+                }
+            }
 
-            string msg = ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice);
-            if (string.IsNullOrEmpty(msg) || msg == _lastSpokenPatterns) return;
-
-            _lastSpokenPatterns = msg;
-            _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
+            return string.Join(" ", parts);
         }
+
+        /// <summary>
+        /// How the terminal admits that a region satisfies more than one definition at once.
+        /// Naming the count rather than reading them all keeps the utterance short while making it
+        /// obvious that something was left unsaid — Alt+Shift+D reads the full list.
+        /// </summary>
+        private static string OverlapNote(int total)
+            => total > 1 ? $" Plus {total - 1} more formation{(total == 2 ? "" : "s")} here." : "";
 
         public void Dispose()
         {

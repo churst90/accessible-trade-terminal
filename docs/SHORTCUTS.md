@@ -91,6 +91,56 @@ When no further event exists in the scan direction, speech announces: "No more [
 
 ---
 
+## Chart Formation Navigation (`,` and `.`)
+
+Bare comma and period step between **chart formations** — double tops, head and shoulders,
+triangles, wedges, flags. They are unmodified keys because this is something you press repeatedly
+while reading a chart, and they are chart-scoped, so they remain typable everywhere else.
+
+| Key | Action |
+|-----|--------|
+| `,` | Previous formation edge |
+| `.` | Next formation edge |
+
+**The stops are edges, not formations.** Each one contributes two: the bar its structure first
+became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.
+Landing on those two bars walks you through the same narrative arrow-key navigation gives you, so
+the jump keys and the arrow keys always agree about what is worth saying.
+
+There is no equivalent for **candle** patterns, deliberately. Dojis, spinning tops and small-bodied
+bars occur on a large share of every chart, so "jump to the next candle pattern" would usually mean
+"move one bar right" — a key that does nothing you could not do with the right arrow, while
+consuming a binding. Candle patterns are already read on the bar you are standing on, which is the
+right place for something that common.
+
+### What you hear
+
+Formation narration is opt-in (Settings → *Describe chart patterns*) and is **edge-triggered**: a
+formation speaks twice over its whole life, not once per bar.
+
+| When | Example |
+|------|---------|
+| Crossing in, moving right | "Start of possible double top forming, neckline 42,100, measured target 39,400 if it breaks. Spans 22 bars." |
+| Crossing in, moving left | "End of double top: price closed below the neckline at 42,100, measured target 39,400. Spans 22 bars." |
+| The bar it confirmed | "Double top confirmed here: closed below the neckline at 42,100, measured target 39,400." |
+| The bar it aged out | "Double top ends here without confirming — the neckline at 42,100 held." |
+| Overlapping formations | "…Plus 2 more formations here." (`Alt+Shift+D` reads them all) |
+
+Three properties are worth knowing, because each is a deliberate choice:
+
+- **The edge you crossed is named.** A formation is a region, not a point. Moving forward you meet
+  its structure first and its outcome later; moving backward you meet the outcome first. Without
+  the edge word the two are indistinguishable by ear.
+- **An outcome is stated as what price did, never as a verdict.** The word "completed" is never
+  spoken: it could not tell you whether the pattern worked or failed, and it never meant either —
+  only that price closed through a line. So the narration names the side and the level instead.
+- **Nothing is ever called bullish or bearish.** The measured target is spoken because it is
+  arithmetic on numbers already on screen, and it is always framed as the *measured* target,
+  conditional on *if it breaks*. It has never been tested here — see `ALPHA_LEDGER.md`, where every
+  price-derived pattern claim tested so far has come back null.
+
+---
+
 ## Bar Replay
 
 Reveals loaded history one bar at a time so you can practise reading a market forward,
@@ -220,7 +270,7 @@ state, last swing high and low, and where price sits between them.
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| Ctrl+Shift+D | Full candle pattern + indicator analysis for the current bar | Spoken summary |
+| Ctrl+Shift+D (web: Alt+Shift+D) | Full candle pattern + indicator analysis for the current bar, **plus every chart formation the cursor sits inside** with its trigger and measured target | Spoken summary |
 | Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 

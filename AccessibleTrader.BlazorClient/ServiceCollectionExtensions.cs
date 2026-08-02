@@ -396,6 +396,10 @@ namespace AccessibleTrader.BlazorClient
             // acted on. Built on the swing analyzer so every shape inherits its confirmation lag.
             services.AddSingleton<ISwingStructureAnalyzer, SwingStructureAnalyzer>();
             services.AddSingleton<IChartPatternDetector, ChartPatternDetector>();
+            // One detection result shared by navigation speech, the detail summary and the
+            // comma/period jump keys — three caches of the same derived value is three chances
+            // for them to disagree about what is on the chart.
+            services.AddSingleton<IChartPatternCache, ChartPatternCache>();
 
             // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
             // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and
@@ -528,6 +532,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IKeyNormalizationService, KeyNormalizationService>();
             services.AddSingleton<IShortcutManager, ShortcutManager>();
             services.AddSingleton<IndicatorCrossingEngine>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Analysis.ChartPatternNavigator>();
             services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
             services.AddSingleton<IInputRouter, InputRouter>();
             services.AddSingleton<IDrawingInteractionManager, DrawingInteractionManager>();

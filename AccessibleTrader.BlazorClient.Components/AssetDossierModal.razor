@@ -240,11 +240,40 @@
         }
     }
 
+    /// <summary>
+    /// Re-announce the headline on demand. "Say that again" is the most common request when a
+    /// summary is long, and an aria-live region that has already fired will not repeat itself.
+    ///
+    /// <para>
+    /// This used to call <c>accessibleTrader.announce</c>, <b>a function that does not exist
+    /// anywhere in the project</b>. The interop call threw, the surrounding catch swallowed it, and
+    /// the button was silent with no error — the exact silent-failure shape the feedback contract
+    /// forbids. The lesson generalises: a <c>try/catch</c> around a best-effort call also hides the
+    /// case where the call was never going to work at all.
+    /// </para>
+    ///
+    /// <para>
+    /// The fix uses the two paths that are actually wired. Blanking the live region and re-setting
+    /// it on the next render is what makes a screen reader read unchanged text a second time —
+    /// writing the same string back changes no DOM node, so nothing is announced. And the app's own
+    /// speech engine is driven directly, which covers the desktop heads and the browser-voice mode
+    /// where there is no screen reader listening to the region at all.
+    /// </para>
+    /// </summary>
     private async Task SpeakHeadline()
     {
-        // Re-announce on demand: an aria-live region that has already fired will not repeat itself,
-        // and "say that again" is the single most common request when a summary is long.
-        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.announce", _headline); }
-        catch { /* the region above is the primary path; this is a convenience */ }
+        if (string.IsNullOrWhiteSpace(_headline)) return;
+
+        string text = _headline;
+
+        // Path 1: the app's own speech engine (native TTS / browser voice / journal mirror).
+        EventBus.Publish(new AnnouncementEvent(text, true));
+
+        // Path 2: force the aria-live region to change, for a screen reader reading the DOM.
+        _headline = "";
+        StateHasChanged();
+        await Task.Yield();
+        _headline = text;
+        StateHasChanged();
     }
 }

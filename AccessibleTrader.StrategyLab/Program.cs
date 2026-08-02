@@ -230,6 +230,10 @@ try
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--delay-ms"), out var urd) ? urd : 3000),
         "universe-status" => UniverseRecorderCommand.Status(
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "universe-archive"),
+        "pattern-speech" => PatternSpeechCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d"),
         "late-session" => LateSessionCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),

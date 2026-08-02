@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -9,22 +10,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
 {
     /// <summary>
     /// Provides deep, context-aware analysis of a single data point (bar).
-    /// Used for the detailed summary command (Ctrl+Shift+D).
+    /// Used for the detailed summary command (Ctrl+Shift+D, Alt+Shift+D on the web head).
     /// </summary>
     public class BarDetailService : IBarDetailService
     {
         private readonly IEventBus _eventBus;
 
-        public BarDetailService(IEventBus eventBus)
+        /// <summary>
+        /// Optional so the many existing two-argument constructions keep working. When absent the
+        /// detail summary simply omits the chart-formation clause rather than failing.
+        /// </summary>
+        private readonly IChartPatternCache? _patterns;
+
+        public BarDetailService(IEventBus eventBus, IChartPatternCache? patterns = null)
         {
             _eventBus = eventBus;
+            _patterns = patterns;
         }
 
         /// <inheritdoc />
         public void AnnounceDetails(WorkspaceState state)
         {
             if (state.Data == null || state.Data.Count == 0) return;
-            
+
             var seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (series == null) return;
@@ -38,7 +46,47 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var dataSlice  = state.Data.Skip(sliceStart).Take(idx - sliceStart + 1).ToArray();
             string detail  = GetBarDetailFact(series, bar, idx, dataSlice);
 
+            string formations = ChartFormationDetail(state, idx);
+            if (!string.IsNullOrEmpty(formations))
+                detail = string.IsNullOrEmpty(detail) ? formations : detail + " " + formations;
+
             _eventBus.Publish(new AnnouncementEvent(detail, true));
+        }
+
+        /// <summary>
+        /// Every chart formation the cursor sits inside, in full.
+        ///
+        /// <para>
+        /// This is the one place that reads the complete list. Arrow-key navigation deliberately
+        /// describes only the dominant formation and counts the rest, because a region can satisfy
+        /// four definitions at once and reading all four on every bar is how a user learns to
+        /// switch the feature off. But "tell me everything about this bar" is precisely the request
+        /// that should not be summarised — so the detail key enumerates them, ranked, each with its
+        /// own trigger and measured target.
+        /// </para>
+        ///
+        /// <para>
+        /// Deliberately NOT gated on the <c>DescribeChartPatterns</c> setting. That setting governs
+        /// unsolicited narration during navigation; this command is the user explicitly asking, and
+        /// a key that stays silent because of a preference they set for a different purpose is the
+        /// kind of thing that is impossible to diagnose by ear.
+        /// </para>
+        /// </summary>
+        private string ChartFormationDetail(WorkspaceState state, int idx)
+        {
+            if (_patterns == null) return "";
+
+            var all = _patterns.For(state.Data);
+            if (all.Count == 0) return "";
+
+            var here = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList();
+            if (here.Count == 0) return "No chart formation here.";
+
+            var sb = new StringBuilder();
+            sb.Append(here.Count == 1 ? "One formation here. " : $"{here.Count} formations here. ");
+            foreach (var p in here)
+                sb.Append(ChartPatternNarrator.Describe(p, SpeechPriceFormatter.FormatPrice)).Append(' ');
+            return sb.ToString().TrimEnd();
         }
 
         private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)

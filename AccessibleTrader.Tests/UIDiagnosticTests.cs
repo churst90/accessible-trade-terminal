@@ -48,7 +48,7 @@ namespace AccessibleTrader.Tests
                 eventBus,
                 new MockEarconService(),
                 new SdkCandlePatternAnalyzer(),
-                new ChartPatternDetector(new SwingStructureAnalyzer()),
+                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())),
                 new MockAutoNarrationService());
 
             // Prime with initial state

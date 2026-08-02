@@ -261,23 +261,68 @@ public class ChartPatternDetectorTests
         string s = ChartPatternNarrator.Describe(p, Fmt);
 
         Assert.StartsWith("Possible ", s);
-        Assert.Contains("in progress", s);
+        Assert.Contains("forming", s);
         Assert.Contains("neckline", s);
         Assert.Contains("42100", s);
     }
 
+    /// <summary>
+    /// The word "completed" is banned outright, and this is the test that enforces it.
+    ///
+    /// <para>
+    /// It is ambiguous in exactly the way that matters: a user hearing "double top completed" could
+    /// not tell whether the pattern had worked out or failed. It never meant either — it only ever
+    /// meant "price closed through the line" — so the narration has to say that instead, naming
+    /// which side of which level. This was reported from live use, not found by a test, which is
+    /// the usual shape of a wording bug: every assertion passed while the sentence misled.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void CompletedPatternsSayCompleted_AndNameTheBrokenLevel()
+    public void AConfirmedPatternSaysWhatPriceDid_NeverTheWordCompleted()
     {
         var p = new ChartPattern(ChartPatternKind.HeadAndShoulders, ChartPatternState.Completed,
-            10, 40, 45, 118.5, DateTime.Today, DateTime.Today);
+            10, 40, 45, 118.5, DateTime.Today, DateTime.Today, CompletedAtIndex: 50,
+            BreaksBelow: true);
 
         string s = ChartPatternNarrator.Describe(p, Fmt);
 
         Assert.DoesNotContain("Possible", s);
-        Assert.Contains("completed", s);
-        Assert.Contains("broken", s);
+        Assert.DoesNotContain("completed", s.ToLowerInvariant());
+        Assert.Contains("closed below", s);
+        Assert.Contains("neckline", s);
         Assert.Contains("118.5", s);
+    }
+
+    /// <summary>The break side is spoken, so an upside confirmation cannot sound like a downside one.</summary>
+    [Fact]
+    public void AnUpsideConfirmationSaysAbove()
+    {
+        var p = new ChartPattern(ChartPatternKind.InverseHeadAndShoulders, ChartPatternState.Completed,
+            10, 40, 45, 118.5, DateTime.Today, DateTime.Today, CompletedAtIndex: 50,
+            BreaksBelow: false);
+
+        Assert.Contains("closed above", ChartPatternNarrator.Describe(p, Fmt));
+    }
+
+    /// <summary>
+    /// The third outcome, which used to be invisible. A pattern that ages out unconfirmed is
+    /// reported as the level having held — a fact about price, stated exactly like a confirmation
+    /// and carrying no more judgement than one.
+    /// </summary>
+    [Fact]
+    public void AnExpiredPatternSaysTheLevelHeld()
+    {
+        var p = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Expired,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today, ExpiresAtIndex: 75,
+            MeasuredTarget: 39000);
+
+        string s = ChartPatternNarrator.Describe(p, Fmt);
+
+        Assert.Contains("did not confirm", s);
+        Assert.Contains("held", s);
+        Assert.Contains("42100", s);
+        // No target on a pattern that never broke: there is nothing to project from.
+        Assert.DoesNotContain("39000", s);
     }
 
     /// <summary>
@@ -285,22 +330,117 @@ public class ChartPatternDetectorTests
     /// head and shoulders is bearish, ascending triangles break up — is a claim this project has
     /// either failed to confirm or has not yet tested (<c>triangle-direction-bias</c> is queued and
     /// untested). A single directional word here would be the product endorsing an untested claim.
+    ///
+    /// <para>
+    /// "Target" is deliberately NOT on this list any more. The measured move is arithmetic on two
+    /// numbers already on the screen — the same status as the trigger level — and it is always
+    /// spoken as the <i>measured</i> target, tied to <i>if it breaks</i>. What stays banned is
+    /// anything that asserts which way price goes or how likely it is to get there, which is the
+    /// actual line between reporting a convention and endorsing it.
+    /// </para>
     /// </summary>
     [Fact]
-    public void NarrationNeverClaimsADirectionOrATarget()
+    public void NarrationNeverClaimsADirectionOrALikelihood()
     {
-        string[] banned = { "bullish", "bearish", "buy", "sell", "target", "expect", "will ", "reversal", "likely" };
+        // Whole words only where a substring would collide: "should" matches "shoulders", which is
+        // in the name of two of the eleven patterns. A banned-substring list is a trap for exactly
+        // this, and the false positive it produced here is the cheap version of the mistake.
+        string[] banned = { "bullish", "bearish", "buy", "sell", "expect", "will ", "reversal", "likely" };
 
         foreach (ChartPatternKind kind in Enum.GetValues<ChartPatternKind>())
-        foreach (var state in new[] { ChartPatternState.Forming, ChartPatternState.Completed })
+        foreach (var state in Enum.GetValues<ChartPatternState>())
         {
             string s = ChartPatternNarrator.Describe(
-                new ChartPattern(kind, state, 1, 2, 3, 100, DateTime.Today, DateTime.Today), Fmt)
+                new ChartPattern(kind, state, 1, 2, 3, 100, DateTime.Today, DateTime.Today,
+                    MeasuredTarget: 90), Fmt)
                 .ToLowerInvariant();
 
             foreach (var word in banned)
                 Assert.False(s.Contains(word), $"{kind}/{state} narration contains '{word}': {s}");
         }
+    }
+
+    /// <summary>
+    /// A target must never be stated flatly. Unconditional it reads as a forecast; hedged on the
+    /// break it reads as what it is — the convention's arithmetic, conditional on an event that has
+    /// not happened.
+    /// </summary>
+    [Fact]
+    public void AFormingPatternsTargetIsConditionalOnTheBreak()
+    {
+        var p = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today, MeasuredTarget: 39400);
+
+        string s = ChartPatternNarrator.Describe(p, Fmt);
+
+        Assert.Contains("measured target 39400", s);
+        Assert.Contains("if it breaks", s);
+    }
+
+    /// <summary>
+    /// The edge word is the whole point of the positional announcement: walking forward you meet
+    /// the structure first, walking back you meet its outcome first, and without naming which edge
+    /// was crossed the two are indistinguishable by ear.
+    /// </summary>
+    [Fact]
+    public void EntryNamesTheEdgeYouCrossedAndTheSpan()
+    {
+        var p = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today);
+
+        string right = ChartPatternNarrator.DescribeEntry(p, movingRight: true, Fmt);
+        string left  = ChartPatternNarrator.DescribeEntry(p, movingRight: false, Fmt);
+
+        Assert.StartsWith("Start of ", right);
+        Assert.StartsWith("End of ", left);
+        Assert.Contains("Spans 30 bars", right);
+        // The levels survive the prefix — an entry announcement that dropped them would be trivia.
+        Assert.Contains("42100", right);
+        Assert.Contains("42100", left);
+    }
+
+    /// <summary>
+    /// The resolution announcement is what closes the loop on a "start of" the user already heard.
+    /// A pattern still live at the right-hand edge has no outcome yet, and inventing one would be
+    /// the feature's worst possible failure mode.
+    /// </summary>
+    [Fact]
+    public void ResolutionSpeaksOnlyOnceAnOutcomeExists()
+    {
+        var forming = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today);
+        Assert.Equal("", ChartPatternNarrator.DescribeResolution(forming, Fmt));
+
+        var confirmed = forming with { State = ChartPatternState.Completed, CompletedAtIndex = 60, BreaksBelow = true };
+        Assert.Contains("confirmed here", ChartPatternNarrator.DescribeResolution(confirmed, Fmt));
+
+        var expired = forming with { State = ChartPatternState.Expired, ExpiresAtIndex = 75 };
+        string s = ChartPatternNarrator.DescribeResolution(expired, Fmt);
+        Assert.Contains("without confirming", s);
+        Assert.Contains("held", s);
+    }
+
+    /// <summary>
+    /// Overlap is real — a region genuinely can be an inverse head and shoulders and an ascending
+    /// triangle at once, and two traders would disagree about which. What must not happen is
+    /// reading them all at equal weight. The ranking is live-before-resolved, then largest
+    /// structure, which is the only tie-break available that is not a directional opinion.
+    /// </summary>
+    [Fact]
+    public void DominanceRanksLiveFirstThenTheLargestStructure()
+    {
+        var small = new ChartPattern(ChartPatternKind.BullFlag, ChartPatternState.Forming,
+            100, 112, 112, 50, DateTime.Today, DateTime.Today);
+        var large = new ChartPattern(ChartPatternKind.SymmetricalTriangle, ChartPatternState.Forming,
+            30, 110, 115, 60, DateTime.Today, DateTime.Today);
+        var resolved = new ChartPattern(ChartPatternKind.HeadAndShoulders, ChartPatternState.Completed,
+            1, 200, 205, 70, DateTime.Today, DateTime.Today, CompletedAtIndex: 210);
+
+        var ranked = ChartPatternNarrator.ByDominance(new[] { small, resolved, large }).ToList();
+
+        Assert.Equal(large, ranked[0]);      // biggest live structure leads
+        Assert.Equal(small, ranked[1]);
+        Assert.Equal(resolved, ranked[2]);   // history last, despite being the largest of all
     }
 
     /// <summary>

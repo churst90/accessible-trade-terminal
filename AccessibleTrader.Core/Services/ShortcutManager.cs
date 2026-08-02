@@ -309,6 +309,12 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.NavLeftJump,  "LEFT",  Ctrl: true));
             s.Add(new(SystemCommand.NavRightJump, "RIGHT", Ctrl: true));
 
+            // Comma / period: step between chart-formation edges. Bare keys, because this is
+            // pressed repeatedly while reading a chart. Alt+comma (custom scripts) is a different
+            // binding and is unaffected — the lookup matches on modifiers too.
+            s.Add(new(SystemCommand.NavPatternPrev, ","));
+            s.Add(new(SystemCommand.NavPatternNext, "."));
+
             // Detail summary: Ctrl+Shift+D speaks full candle pattern analysis for the current bar.
             s.Add(new(SystemCommand.DetailedPointSummary, "D", Ctrl: true, Shift: true));
             // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.

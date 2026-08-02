@@ -32,8 +32,32 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// Price has closed through the confirming level. Reported because "it did complete" is a
         /// fact worth hearing, and because it closes the loop on a <see cref="Forming"/> report the
         /// user already heard.
+        /// <para>
+        /// <b>This says nothing about whether the trade worked.</b> It is a statement about price
+        /// crossing a line, not about the outcome of acting on it. The narrator therefore never
+        /// speaks the bare word "completed" — it says which side of the level price closed on, so
+        /// the user cannot mistake confirmation for profit.
+        /// </para>
         /// </summary>
-        Completed
+        Completed,
+
+        /// <summary>
+        /// The structure aged out without price ever closing through the trigger.
+        ///
+        /// <para>
+        /// This is the third of the three things that can happen to a pattern and it used to be
+        /// invisible: an unconfirmed pattern simply stayed <see cref="Forming"/> forever, so a
+        /// double top from 2019 whose neckline never broke was still announced as a live decision.
+        /// Worse, the old unbounded resolve would mark it <see cref="Completed"/> if the neckline
+        /// happened to break two hundred bars later — an unrelated move wearing the pattern's name.
+        /// </para>
+        /// <para>
+        /// Nothing here judges the pattern. "Did not confirm" is a fact about price, on the same
+        /// footing as "confirmed", and both are stated the same way: what price did, relative to
+        /// which level.
+        /// </para>
+        /// </summary>
+        Expired
     }
 
     /// <param name="KnownAtIndex">
@@ -58,6 +82,35 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// boundary of a triangle or flag. This is the actionable number: it is what a
     /// <see cref="ChartPatternState.Forming"/> report exists to hand over.
     /// </param>
+    /// <param name="ExpiresAtIndex">
+    /// The last bar at which the structure is still live. A pattern that has not confirmed by here
+    /// is <see cref="ChartPatternState.Expired"/>, and a break after here belongs to some later
+    /// move, not to this shape.
+    /// <para>
+    /// Set to the formation's own length past <paramref name="KnownAtIndex"/>: a triangle that
+    /// built over forty bars stays context for forty more. Anchoring the decay to the pattern's own
+    /// span rather than a fixed bar count is what keeps it proportionate on a 1-minute chart and a
+    /// weekly one at the same time.
+    /// </para>
+    /// </param>
+    /// <param name="BreaksBelow">
+    /// Which way price must close through <paramref name="TriggerLevel"/> to confirm. Carried so
+    /// the narrator can say <i>closed below the neckline</i> rather than the ambiguous
+    /// <i>completed</i>, and so the measured target can be projected in the right direction.
+    /// </param>
+    /// <param name="MeasuredTarget">
+    /// The conventional measured move: the height of the formation projected from
+    /// <paramref name="TriggerLevel"/> in the break direction.
+    /// <para>
+    /// <b>This is geometry, not a forecast, and this project has never tested it.</b> It is
+    /// arithmetic on two numbers already on the screen — the same status as the trigger level
+    /// itself. It is reported because a trader asking "where does this thing go if it breaks?" is
+    /// asking about a convention they already use, and answering it by ear is the terminal's job;
+    /// the narrator states it as the convention's number and never as a prediction. If it were ever
+    /// to be scored, it would first have to survive the same controls as everything in the edge
+    /// registry — and every price-derived pattern claim tested here so far has come back null.
+    /// </para>
+    /// </param>
     public record ChartPattern(
         ChartPatternKind Kind,
         ChartPatternState State,
@@ -67,7 +120,38 @@ namespace AccessibleTrader.Core.Services.Analysis
         double TriggerLevel,
         DateTime StartTime,
         DateTime EndTime,
-        int? CompletedAtIndex = null);
+        int? CompletedAtIndex = null,
+        int? ExpiresAtIndex = null,
+        bool BreaksBelow = true,
+        double? MeasuredTarget = null)
+    {
+        /// <summary>
+        /// <see cref="ExpiresAtIndex"/>, falling back to the formation-length rule when a caller
+        /// (or an older test) constructed the record without one.
+        /// </summary>
+        public int RelevanceEndsAt =>
+            ExpiresAtIndex ?? KnownAtIndex + Math.Max(1, EndBarIndex - StartBarIndex);
+
+        /// <summary>
+        /// The bar at which this pattern's story finishes — the break bar if it confirmed,
+        /// otherwise the bar it aged out on. This is the bar the narrator speaks its outcome at,
+        /// and the last bar at which it is worth mentioning at all.
+        /// </summary>
+        public int ResolvesAt => CompletedAtIndex ?? RelevanceEndsAt;
+
+        /// <summary>
+        /// Stable identity for one formation, independent of the life stage it is being described
+        /// at.
+        ///
+        /// <para>
+        /// Needed because the narrator projects a pattern back to the state it held at a given bar,
+        /// which produces a different record for the same shape on different bars. Diffing the
+        /// records themselves would then report every formation as newly entered on the bar it
+        /// resolved — announcing "start of" at the finish line.
+        /// </para>
+        /// </summary>
+        public (ChartPatternKind, int, int, int) Key => (Kind, StartBarIndex, EndBarIndex, KnownAtIndex);
+    }
 
     /// <param name="Span">Bars either side a pivot must dominate. Passed through to the swing analyzer.</param>
     /// <param name="ToleranceAtr">
@@ -199,9 +283,16 @@ namespace AccessibleTrader.Core.Services.Analysis
                 if (Math.Min(a.Price, b.Price) - trough.Price < tol) continue;   // too shallow to be a double top
 
                 int known = Math.Max(b.ConfirmedAtIndex, trough.ConfirmedAtIndex);
-                var p = Resolve(bars, known, trough.Price, breakBelow: true);
+                int expires = Expiry(known, a.BarIndex, b.BarIndex);
+                var p = Resolve(bars, known, expires, trough.Price, breakBelow: true);
+
+                // Measured move: the depth from the twin highs down to the neckline, projected the
+                // same distance below it.
+                double target = trough.Price - (Math.Max(a.Price, b.Price) - trough.Price);
+
                 yield return new ChartPattern(ChartPatternKind.DoubleTop, p.State,
-                    a.BarIndex, b.BarIndex, known, trough.Price, a.Time, b.Time, p.CompletedAt);
+                    a.BarIndex, b.BarIndex, known, trough.Price, a.Time, b.Time, p.CompletedAt,
+                    expires, BreaksBelow: true, MeasuredTarget: target);
             }
         }
 
@@ -225,9 +316,14 @@ namespace AccessibleTrader.Core.Services.Analysis
                 if (peak.Price - Math.Max(a.Price, b.Price) < tol) continue;
 
                 int known = Math.Max(b.ConfirmedAtIndex, peak.ConfirmedAtIndex);
-                var p = Resolve(bars, known, peak.Price, breakBelow: false);
+                int expires = Expiry(known, a.BarIndex, b.BarIndex);
+                var p = Resolve(bars, known, expires, peak.Price, breakBelow: false);
+
+                double target = peak.Price + (peak.Price - Math.Min(a.Price, b.Price));
+
                 yield return new ChartPattern(ChartPatternKind.DoubleBottom, p.State,
-                    a.BarIndex, b.BarIndex, known, peak.Price, a.Time, b.Time, p.CompletedAt);
+                    a.BarIndex, b.BarIndex, known, peak.Price, a.Time, b.Time, p.CompletedAt,
+                    expires, BreaksBelow: false, MeasuredTarget: target);
             }
         }
 
@@ -275,11 +371,17 @@ namespace AccessibleTrader.Core.Services.Analysis
                     : Math.Max(t1.Max(t => t.Price), t2.Max(t => t.Price));
 
                 int known = new[] { right.ConfirmedAtIndex, t1.Max(t => t.ConfirmedAtIndex), t2.Max(t => t.ConfirmedAtIndex) }.Max();
-                var p = Resolve(bars, known, neck, breakBelow: !inverse);
+                int expires = Expiry(known, left.BarIndex, right.BarIndex);
+                var p = Resolve(bars, known, expires, neck, breakBelow: !inverse);
+
+                // Head-to-neckline, projected from the neckline the other way.
+                double height = Math.Abs(head.Price - neck);
+                double target = inverse ? neck + height : neck - height;
 
                 yield return new ChartPattern(
                     inverse ? ChartPatternKind.InverseHeadAndShoulders : ChartPatternKind.HeadAndShoulders,
-                    p.State, left.BarIndex, right.BarIndex, known, neck, left.Time, right.Time, p.CompletedAt);
+                    p.State, left.BarIndex, right.BarIndex, known, neck, left.Time, right.Time, p.CompletedAt,
+                    expires, BreaksBelow: !inverse, MeasuredTarget: target);
             }
         }
 
@@ -351,11 +453,17 @@ namespace AccessibleTrader.Core.Services.Analysis
                 double trigger = breakBelow ? l2.Price : h2.Price;
 
                 int known = new[] { h2.ConfirmedAtIndex, l2.ConfirmedAtIndex }.Max();
-                var p = Resolve(bars, known, trigger, breakBelow);
+                int expires = Expiry(known, start, end);
+                var p = Resolve(bars, known, expires, trigger, breakBelow);
+
+                // The convention for a triangle or wedge is the widest part of the formation —
+                // its opening mouth — projected from whichever boundary breaks.
+                double mouth = Math.Abs(h1.Price - l1.Price);
+                double target = breakBelow ? trigger - mouth : trigger + mouth;
 
                 yield return new ChartPattern(kind.Value, p.State, start, end, known, trigger,
                     bars[Math.Min(start, bars.Count - 1)].Date, bars[Math.Min(end, bars.Count - 1)].Date,
-                    p.CompletedAt);
+                    p.CompletedAt, expires, breakBelow, target);
             }
         }
 
@@ -407,12 +515,18 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                     double trigger = bull ? flagHigh : flagLow;
                     int flagEnd = end;
-                    var p = Resolve(bars, flagEnd, trigger, breakBelow: !bull);
+                    int expires = Expiry(flagEnd, poleStart, end);
+                    var p = Resolve(bars, flagEnd, expires, trigger, breakBelow: !bull);
+
+                    // The flag's convention is the pole re-flown from the breakout. `pole` already
+                    // carries the sign, so one expression covers both directions.
+                    double target = trigger + pole;
 
                     yield return new ChartPattern(
                         bull ? ChartPatternKind.BullFlag : ChartPatternKind.BearFlag,
                         p.State, poleStart, end, flagEnd, trigger,
-                        bars[poleStart].Date, bars[end].Date, p.CompletedAt);
+                        bars[poleStart].Date, bars[end].Date, p.CompletedAt,
+                        expires, BreaksBelow: !bull, MeasuredTarget: target);
 
                     end += flagLen;   // one flag per region — otherwise every length reports the same shape
                     break;
@@ -423,8 +537,16 @@ namespace AccessibleTrader.Core.Services.Analysis
         // ── Shared ──────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Decide whether a pattern known at <paramref name="knownAt"/> has since been confirmed,
-        /// and at which bar.
+        /// The last bar at which a formation spanning <paramref name="start"/>..<paramref name="end"/>
+        /// and knowable at <paramref name="known"/> is still live. Kept as one expression so the
+        /// detector and the narrator can never disagree about when a pattern stops mattering.
+        /// </summary>
+        internal static int Expiry(int known, int start, int end)
+            => known + Math.Max(1, end - start);
+
+        /// <summary>
+        /// Decide what became of a pattern known at <paramref name="knownAt"/>: did it confirm,
+        /// is it still live, or did it age out?
         ///
         /// <para>
         /// The scan starts AT the knowable bar, never before it. A pattern is Forming until a bar
@@ -432,18 +554,37 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// the single most common way a pattern reader is faked out, and reporting it as complete
         /// would make the feature actively misleading.
         /// </para>
+        ///
+        /// <para>
+        /// The scan also STOPS at <paramref name="expiresAt"/>, and that bound is what makes the
+        /// three states mean anything. Without it the scan ran to the end of the series, so a
+        /// double top whose neckline broke two hundred bars later was reported as that double top
+        /// completing — attributing an unrelated move to a shape that had long since stopped being
+        /// the reason for it. It also meant nothing could ever be reported as having failed to
+        /// confirm, because every pattern was either Completed or waiting forever.
+        /// </para>
+        ///
+        /// <para>
+        /// Forming is returned only when the series has not yet reached the expiry bar — i.e. the
+        /// verdict genuinely is not in yet. That keeps the hedged, actionable wording for the one
+        /// case that deserves it: a decision still open at the right-hand edge of the chart.
+        /// </para>
         /// </summary>
         private static (ChartPatternState State, int? CompletedAt) Resolve(
-            IReadOnlyList<Ohlcv> bars, int knownAt, double trigger, bool breakBelow)
+            IReadOnlyList<Ohlcv> bars, int knownAt, int expiresAt, double trigger, bool breakBelow)
         {
             if (knownAt >= bars.Count) return (ChartPatternState.Forming, null);
 
-            for (int i = knownAt; i < bars.Count; i++)
+            int last = Math.Min(expiresAt, bars.Count - 1);
+            for (int i = knownAt; i <= last; i++)
             {
                 bool through = breakBelow ? bars[i].Close < trigger : bars[i].Close > trigger;
                 if (through) return (ChartPatternState.Completed, i);
             }
-            return (ChartPatternState.Forming, null);
+
+            return bars.Count - 1 > expiresAt
+                ? (ChartPatternState.Expired, null)
+                : (ChartPatternState.Forming, null);
         }
 
         private static int Sign(double delta, double tol)

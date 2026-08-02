@@ -356,6 +356,10 @@ namespace AccessibleTrader.WebHost
             // Chart-pattern description — see the MAUI head's registration block for the rationale.
             services.AddScoped<ISwingStructureAnalyzer, SwingStructureAnalyzer>();
             services.AddScoped<IChartPatternDetector, ChartPatternDetector>();
+            // One detection result shared by navigation speech, the detail summary and the
+            // comma/period jump keys — three caches of the same derived value is three chances
+            // for them to disagree about what is on the chart.
+            services.AddScoped<IChartPatternCache, ChartPatternCache>();
 
             // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
             // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and
@@ -456,6 +460,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IKeyNormalizationService, KeyNormalizationService>();
             services.AddScoped<IShortcutManager, ShortcutManager>();
             services.AddScoped<IndicatorCrossingEngine>();
+            services.AddScoped<AccessibleTrader.Core.Services.Analysis.ChartPatternNavigator>();
             services.AddScoped<ICommandDispatcher, CommandDispatcher>();
             services.AddScoped<IInputRouter, InputRouter>();
             services.AddScoped<IDrawingInteractionManager, DrawingInteractionManager>();

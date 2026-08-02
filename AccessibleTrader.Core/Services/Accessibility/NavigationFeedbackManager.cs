@@ -13,7 +13,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
     public interface INavigationFeedbackManager
     {
         bool IsSpeechEnabled { get; set; }
-        void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false);
+        /// <param name="extraContext">
+        /// An already-composed clause to append to this bar's utterance — currently the chart
+        /// formation the cursor has moved into. Passed in rather than spoken separately by the
+        /// caller: see the composition note in the implementation.
+        /// </param>
+        void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false, string? extraContext = null);
     }
 
     public class NavigationFeedbackManager : INavigationFeedbackManager
@@ -54,7 +59,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         ///           SignalSpeechTemplate: marker signals present on a bar. Tokens: {price} {name}.
         ///   Path 3: SpeechFormatter generic fallback — display type + raw value.
         /// </summary>
-        public void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false)
+        public void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false, string? extraContext = null)
         {
             if (state.Data == null || !state.Data.Any() || state.CurrentDataIndex < 0 || state.CurrentDataIndex >= state.Data.Count)
             {
@@ -240,13 +245,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
             }
 
-            if (!string.IsNullOrEmpty(finalSpeech))
-            {
-                _speechRouter.Speak(finalSpeech, interrupt: isUserInitiated);
-            }
+            // ── ONE UTTERANCE PER BAR ──────────────────────────────────────────
+            //
+            // Everything true about this bar is joined into a single phrase and spoken once.
+            //
+            // This used to be three Speak calls — the bar reading, then any additional marker
+            // signals, then the chart-formation clause — and on a bar where more than one had
+            // something to say the user heard only one of them. The reason is structural, not a
+            // race: on the web head speech is delivered by writing into an ARIA live region;
+            // Blazor batches an entire event handler into one render; so the region is written
+            // three times but only the final value ever reaches the DOM for the screen reader to
+            // announce. The earlier phrases were never dropped by a mute or a filter — they were
+            // overwritten before anything could read them.
+            //
+            // Composing first and speaking once is the only arrangement that is correct on every
+            // head, and it also removes the interrupt ordering problem: a single utterance cannot
+            // cut itself off half way through.
+            var utterance = new List<string>();
+            if (!string.IsNullOrWhiteSpace(finalSpeech)) utterance.Add(finalSpeech.Trim());
 
-            // Additional signal speech: after primary component speech, announce other active marker signals
-            // on the same bar in the same tier order used by the cluster audio tick system (Phase F).
+            // Additional signal speech: other active marker signals on the same bar, in the tier
+            // order used by the cluster audio tick system (Phase F).
             // Only in Component context (Series context already speaks all components in summary).
             // Only on X-axis moves (bar changes) to avoid repetition during Y navigation.
             // Only when focused on the candle/price series — when navigating inside an indicator (Cipher A/B, SR, etc.)
@@ -259,16 +278,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     int focusedComp = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
                     string additionalSignals = GetAdditionalSignalSpeech(state, state.CurrentDataIndex, s.Id, focusedComp);
-                    if (!string.IsNullOrEmpty(additionalSignals))
-                        _speechRouter.Speak(additionalSignals, interrupt: false);
+                    if (!string.IsNullOrWhiteSpace(additionalSignals)) utterance.Add(additionalSignals.Trim());
                 }
-
-                // Zone proximity earcon: fires only when navigating the candle/price series.
-                // When the user has focus inside a different indicator (Cipher A/B, SR, etc.),
-                // zone speech is noise — only that indicator's own content should speak.
-                if (isXMove && focusedOnCandleSeries)
-                    CheckAndPlayZoneProximity(state, state.CurrentDataIndex);
             }
+
+            if (!string.IsNullOrWhiteSpace(extraContext)) utterance.Add(extraContext.Trim());
+
+            if (utterance.Count > 0)
+                _speechRouter.Speak(string.Join(" ", utterance), interrupt: isUserInitiated);
+
+            // Zone proximity earcon: fires only when navigating the candle/price series.
+            // When the user has focus inside a different indicator (Cipher A/B, SR, etc.),
+            // zone speech is noise — only that indicator's own content should speak.
+            if (!isJump && isXMove && focusedOnCandleSeries)
+                CheckAndPlayZoneProximity(state, state.CurrentDataIndex);
 
             _previousState = state;
         }
@@ -330,9 +353,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Returns a "Also: {signal1}. {signal2}." speech string summarising active marker signals
+        /// Returns a "{signal1}. {signal2}." speech string summarising active marker signals
         /// on the current bar from series other than the primary focused one (or from non-focused
         /// components of the focused series in Series-scope context).
+        ///
+        /// <para>
+        /// There is no "Also:" lead-in. It was a filler word on a phrase the user hears on most
+        /// bars, and by the time it has been spoken often enough to be recognised it is carrying no
+        /// information — the signals themselves already read as a list. Words that cost time and
+        /// say nothing are the thing an audio-first interface can least afford.
+        /// </para>
         /// Signals are sorted in the same tier order as the cluster audio tick system (Phase F).
         /// Zone line components are excluded (they use zone proximity speech instead).
         /// Returns empty string when there are no additional signals.
@@ -405,7 +435,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Cap at 5 to match cluster audio tick limit.
             int maxSignals = Math.Min(signals.Count, 5);
             var parts = signals.Take(maxSignals).Select(s => s.speech);
-            return "Also: " + string.Join(". ", parts) + ".";
+            return string.Join(". ", parts) + ".";
         }
 
         /// <summary>

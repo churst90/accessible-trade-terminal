@@ -38,6 +38,10 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.NavComponentInPanePrev)]
         [InlineData(SystemCommand.SelectNextSeries)]
         [InlineData(SystemCommand.SelectPrevSeries)]
+        // Chart-formation jump. Chart-scoped is not a style choice here: bare comma and period are
+        // ordinary printable characters, and a global binding would swallow them in every text box.
+        [InlineData(SystemCommand.NavPatternPrev)]
+        [InlineData(SystemCommand.NavPatternNext)]
         // Viewport
         [InlineData(SystemCommand.ZoomIn)]
         [InlineData(SystemCommand.ZoomOut)]
@@ -184,6 +188,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.NavDown, SystemCommand.NavHome, SystemCommand.NavEnd,
                 SystemCommand.NavPageUp, SystemCommand.NavPageDown,
                 SystemCommand.NavLeftJump, SystemCommand.NavRightJump,
+                SystemCommand.NavPatternPrev, SystemCommand.NavPatternNext,
                 SystemCommand.JumpToLatest, SystemCommand.NavSubPaneNext,
                 SystemCommand.NavSubPanePrev, SystemCommand.NavComponentInPaneNext,
                 SystemCommand.NavComponentInPanePrev, SystemCommand.SelectNextSeries,

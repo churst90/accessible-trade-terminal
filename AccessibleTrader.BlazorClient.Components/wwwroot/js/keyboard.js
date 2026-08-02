@@ -105,6 +105,10 @@ window.accessibleTrader = {
                 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7',
                 'F9', 'F10', 'F11', 'F12',
                 ' ', '[', ']', '{', '}', '\\', '-', '=', '_', '+',
+                // Comma / period: step between chart formations. Trapped so they reach .NET
+                // without a modifier, and gated on chart focus below exactly like the single
+                // letters — they are ordinary printable characters and must stay typable.
+                ',', '.',
                 // Single-letter chart commands: H (hide), M (mute), P (properties).
                 // These are also trapped so they reach .NET even without a modifier.
                 // The form-control guard below (isFormControl && !isModified) still
@@ -138,8 +142,11 @@ window.accessibleTrader = {
             // modifier chords still fire everywhere for accessibility. This stops
             // a letter like 'h' from firing the "hide" command when the user is
             // typing into a custom Blazor input that isn't a native INPUT/TEXTAREA.
+            // Comma and period are included: they are printable characters bound to the chart
+            // formation jump, and firing them from a custom (non-native) editor would eat the
+            // user's punctuation.
             const isSingleLetter = !isModified && !isShifted &&
-                e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key);
+                e.key.length === 1 && /^[a-zA-Z0-9,.]$/.test(e.key);
             if (isSingleLetter && !self._chartFocused) return;
 
             // For modifier chords (Ctrl/Alt/Ctrl+Shift), hard-stop the event so the WebView

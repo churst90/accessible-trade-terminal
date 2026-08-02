@@ -222,9 +222,14 @@ namespace AccessibleTrader.Tests.Mocks
     {
         public bool IsSpeechEnabled { get; set; } = true;
         public int HandleNavigationCalls { get; private set; }
-        public void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false)
+
+        /// <summary>The chart-formation clause handed in on the most recent call, if any.</summary>
+        public string? LastExtraContext { get; private set; }
+
+        public void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false, string? extraContext = null)
         {
             HandleNavigationCalls++;
+            LastExtraContext = extraContext;
         }
     }
 

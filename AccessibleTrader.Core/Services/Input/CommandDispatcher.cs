@@ -35,6 +35,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IWorkspaceStore _store;
         private readonly IBarDetailService _barDetailService;
         private readonly IndicatorCrossingEngine _crossingEngine;
+        private readonly Analysis.ChartPatternNavigator? _patternNavigator;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
         private readonly IDisposable _modalSub;
@@ -72,13 +73,18 @@ namespace AccessibleTrader.Core.Services.Input
             INavigationEngine navEngine,
             IWorkspaceStore store,
             IBarDetailService barDetailService,
-            IndicatorCrossingEngine crossingEngine)
+            IndicatorCrossingEngine crossingEngine,
+            Analysis.ChartPatternNavigator? patternNavigator = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
             _store            = store;
             _barDetailService = barDetailService;
             _crossingEngine   = crossingEngine;
+            // Optional so the many five-argument constructions in the test suite keep working;
+            // DI always supplies it. When absent the comma/period keys report that there is
+            // nothing to navigate rather than throwing.
+            _patternNavigator = patternNavigator;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
                 .Subscribe(_ => SetChartActive(true));
@@ -471,6 +477,15 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
 
+                // Comma / period: step between chart-formation edges.
+                if (command == SystemCommand.NavPatternPrev || command == SystemCommand.NavPatternNext)
+                {
+                    if (_patternNavigator != null) _patternNavigator.Jump(command);
+                    else _eventBus.Publish(new FeedbackRequestEvent(
+                        FeedbackType.Boundary, "Chart formation navigation is unavailable."));
+                    return;
+                }
+
                 string navTarget = MapCommandToNavString(command);
                 if (!string.IsNullOrEmpty(navTarget))
                 {
@@ -679,6 +694,11 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.NavPageDown:
                 case SystemCommand.NavLeftJump:
                 case SystemCommand.NavRightJump:
+                // Bare comma and period MUST be chart-scoped: they are ordinary printable
+                // characters, and a global binding would swallow them inside every text box in
+                // the application.
+                case SystemCommand.NavPatternPrev:
+                case SystemCommand.NavPatternNext:
                 case SystemCommand.JumpToLatest:
                 case SystemCommand.NavSubPaneNext:
                 case SystemCommand.NavSubPanePrev:

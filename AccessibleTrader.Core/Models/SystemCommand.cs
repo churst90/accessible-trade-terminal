@@ -59,7 +59,22 @@ namespace AccessibleTrader.Core.Models
         NavPageDown,
         NavLeftJump,   // Ctrl+Left: jump to previous trendline/price crossing
         NavRightJump,  // Ctrl+Right: jump to next trendline/price crossing
-        
+
+        /// <summary>
+        /// Comma — step back to the previous chart-formation edge (the start of a formation, or
+        /// the bar one resolved on).
+        /// <para>
+        /// Bare comma and period, not a chord: a chart can hold dozens of formations and this is a
+        /// key the user presses repeatedly while reading. Both were free — the unshifted single
+        /// characters already bound are H, M, 0, P, bracket, minus, equals and backslash.
+        /// </para>
+        /// </summary>
+        NavPatternPrev,
+
+        /// <summary>Period — step forward to the next chart-formation edge.</summary>
+        NavPatternNext,
+
+
         // View/Zoom
         ZoomIn,
         ZoomOut,
