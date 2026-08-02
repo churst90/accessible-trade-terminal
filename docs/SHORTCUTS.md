@@ -308,6 +308,7 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Ctrl+Alt+Shift+U | Unmute every muted component (announces how many) |
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Zones**) |
+| Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
 | Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |
 

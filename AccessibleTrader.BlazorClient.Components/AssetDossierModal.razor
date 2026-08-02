@@ -1,0 +1,250 @@
+@*
+    Asset dossier (Alt+I) — everything the terminal knows about whatever is loaded.
+
+    THE ASSET IS THE ACTIVE CHART'S. There is no symbol picker here on purpose: a second
+    selection would drift out of sync with what the user is actually looking at, and
+    "the dossier is describing a different asset than the chart" is a bug nobody would
+    notice by ear. Load the symbol on the toolbar, press Alt+I.
+
+    TABS ARE BY QUESTION, NOT BY SOURCE. Tabs labelled "CoinGecko" / "GitHub" / "SEC"
+    would push the synthesis back onto the user — four tabs and four half-answers to hold
+    in their head to decide one thing. Every field cites its own source instead.
+
+    THE HEADLINE IS SPOKEN ON OPEN, before any table. A person reading by ear must never
+    have to walk a table to discover whether anything is there.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Sdk.Models
+@inject IWorkspaceStore Store
+@inject IAssetDossierService Dossier
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="dossier-title" @onclick:stopPropagation="true"
+             style="max-width: 900px;">
+
+            <h2 id="dossier-title" tabindex="-1">Dossier — @_symbol</h2>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div role="alert" style="color:#f66; margin:8px 0;">@_error</div>
+            }
+
+            @* The single most important element on the screen. aria-live so it is spoken
+               whether the user reached the modal by keyboard or by mouse. *@
+            <div role="status" aria-live="polite" style="margin:8px 0;">
+                @(_busy ? $"Building the dossier for {_symbol}…" : _headline)
+            </div>
+
+            @if (_dossier != null)
+            {
+                <div role="tablist" aria-label="Dossier sections" style="margin-bottom:12px;">
+                    @foreach (var s in _dossier.Sections)
+                    {
+                        var isSel = s.Title == _tab;
+                        <button role="tab"
+                                id="@TabId(s.Title)"
+                                aria-selected="@isSel"
+                                aria-controls="dossier-panel"
+                                @onclick="() => _tab = s.Title">
+                            @s.Title@(s.Status == DossierStatus.Ok ? "" : " (empty)")
+                        </button>
+                    }
+                    @if (_dossier.Flags.Count > 0)
+                    {
+                        <button role="tab" id="@TabId(ChecksTab)"
+                                aria-selected="@(_tab == ChecksTab)" aria-controls="dossier-panel"
+                                @onclick="() => _tab = ChecksTab">
+                            Checks (@_dossier.RaisedFlags.Count of @_dossier.Flags.Count flagged)
+                        </button>
+                    }
+                    <button type="button" @onclick="RefreshAsync" disabled="@_busy">Rebuild</button>
+                </div>
+
+                <div id="dossier-panel" role="tabpanel" aria-labelledby="@TabId(_tab)">
+
+                    @if (_tab == ChecksTab)
+                    {
+                        <p>
+                            Each check is one comparison over a value already shown elsewhere in this
+                            dossier. Nothing is scored, ranked, or added up: a single number would read
+                            as a rating, and none of these thresholds has been tested against forward
+                            returns. Treat them as conventional red flags, not as evidence.
+                        </p>
+                        <table style="width:100%; border-collapse:collapse;">
+                            <caption class="visually-hidden">Deterministic checks, each with its result and source</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Check</th>
+                                    <th scope="col">Result</th>
+                                    <th scope="col">Detail</th>
+                                    <th scope="col">Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var f in _dossier.Flags)
+                                {
+                                    <tr>
+                                        <th scope="row">@f.Check</th>
+                                        <td>@(f.Triggered ? "FLAGGED" : "clear")</td>
+                                        <td>@f.Detail</td>
+                                        <td>@f.Source</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        var section = _dossier.Sections.FirstOrDefault(x => x.Title == _tab);
+                        if (section == null)
+                        {
+                            <p role="status">Section not found.</p>
+                        }
+                        else
+                        {
+                            @* Absence is stated in words, always. A blank panel would be
+                               indistinguishable from a broken one. *@
+                            <p role="status">
+                                @switch (section.Status)
+                                {
+                                    case DossierStatus.Ok:
+                                        <text>As of @(section.AsOf?.ToString("yyyy-MM-dd HH:mm") ?? "unknown") UTC.</text>
+                                        break;
+                                    case DossierStatus.NoData:
+                                        <text>The source answered and had nothing for this asset.</text>
+                                        break;
+                                    case DossierStatus.Unavailable:
+                                        <text>This section could not be loaded.</text>
+                                        break;
+                                    case DossierStatus.NotApplicable:
+                                        <text>Not applicable to this asset class.</text>
+                                        break;
+                                }
+                                @if (!string.IsNullOrEmpty(section.StatusNote))
+                                {
+                                    <text> @section.StatusNote</text>
+                                }
+                            </p>
+
+                            @if (section.Fields.Count > 0)
+                            {
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <caption class="visually-hidden">@section.Title, with the source of each value</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Item</th>
+                                            <th scope="col">Value</th>
+                                            <th scope="col">Source</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var f in section.Fields)
+                                        {
+                                            <tr>
+                                                <th scope="row">@f.Label</th>
+                                                <td>
+                                                    @f.Value
+                                                    @if (!string.IsNullOrEmpty(f.Note))
+                                                    {
+                                                        <text> — @f.Note</text>
+                                                    }
+                                                </td>
+                                                <td>@f.Source</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        }
+                    }
+                </div>
+            }
+
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button @onclick="SpeakHeadline">Speak summary</button>
+                <button @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const string ChecksTab = "Checks";
+
+    private AssetDossier? _dossier;
+    private string _tab = "";
+    private string _symbol = "";
+    private string _headline = "";
+    private string? _error;
+    private bool _busy;
+
+    private static string TabId(string title) =>
+        "dossier-tab-" + new string(title.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenAssetDossierEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _error = null;
+        await ShowModalAsync("dossier-title");
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _error = null;
+        _busy = true;
+        _dossier = null;
+        StateHasChanged();
+
+        try
+        {
+            var state = Store.State;
+            _symbol = state.Identity.Symbol ?? "";
+            string market = state.Identity.Market ?? "";
+
+            if (string.IsNullOrWhiteSpace(_symbol))
+            {
+                _headline = "No symbol is loaded. Choose a market, provider and symbol on the toolbar, "
+                          + "load the chart, then press Alt+I.";
+                _busy = false;
+                StateHasChanged();
+                return;
+            }
+
+            var bars = state.Data?.ToList();
+            _dossier = await Dossier.BuildAsync(_symbol, market, bars);
+            _headline = _dossier.Headline;
+            _tab = _dossier.Sections.FirstOrDefault()?.Title ?? ChecksTab;
+        }
+        catch (Exception ex)
+        {
+            // The dossier itself must never throw into the UI: a network hiccup should degrade the
+            // report, not replace the modal with nothing.
+            _error = $"The dossier could not be built: {ex.Message}";
+            _headline = "The dossier could not be built. The chart and every other feature are unaffected.";
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SpeakHeadline()
+    {
+        // Re-announce on demand: an aria-live region that has already fired will not repeat itself,
+        // and "say that again" is the single most common request when a summary is long.
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.announce", _headline); }
+        catch { /* the region above is the primary path; this is a convenience */ }
+    }
+}

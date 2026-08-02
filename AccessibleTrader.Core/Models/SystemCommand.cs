@@ -8,6 +8,13 @@ namespace AccessibleTrader.Core.Models
         OpenSettings,
         OpenProperties,
         OpenObjectTree,     // Alt+O
+
+        /// <summary>
+        /// Alt+I — the asset dossier for whatever is loaded on the active chart.
+        /// I for Instrument / Info. Verified free: the plain-Alt letters already taken are
+        /// A, B, C, D, H, J, K, L, M, O, R, S, T, W and comma.
+        /// </summary>
+        OpenAssetDossier,   // Alt+I
         OpenTradingDashboard, // Alt+T
         OpenOrderBook,      // Alt+B
         OpenHelp,           // F1

@@ -70,6 +70,10 @@ namespace AccessibleTrader.Core.Models
     public record OpenSettingsEvent();
     public record OpenTradingDashboardEvent();
     public record OpenObjectTreeEvent();
+
+    /// <summary>Alt+I. Carries nothing: the dossier reads the ACTIVE chart's identity, so there is
+    /// no second symbol selection to drift out of sync with what the user is looking at.</summary>
+    public record OpenAssetDossierEvent();
     public record OpenHelpEvent();
     public record OpenApiKeysEvent();
     public record OpenOrderBookEvent();

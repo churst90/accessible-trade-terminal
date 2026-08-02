@@ -396,6 +396,22 @@ namespace AccessibleTrader.BlazorClient
             // acted on. Built on the swing analyzer so every shape inherits its confirmation lag.
             services.AddSingleton<ISwingStructureAnalyzer, SwingStructureAnalyzer>();
             services.AddSingleton<IChartPatternDetector, ChartPatternDetector>();
+
+            // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
+            // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and
+            // GitHub rejects requests with no agent at all. Both are registered even when unused --
+            // a missing source degrades one section rather than failing the dossier.
+            services.AddSingleton<ICryptoProfileSource>(_ => new CoinGeckoCryptoProfileSource(
+                AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+                    "AssetDossier.Crypto",
+                    new[] { "api.coingecko.com", "api.github.com" },
+                    userAgent: "AccessibleTrader/2.1 (accessible-trade-terminal)")));
+            services.AddSingleton<ICompanyProfileSource>(_ => new EdgarCompanyProfileSource(
+                AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+                    "AssetDossier.Company",
+                    new[] { "data.sec.gov", "www.sec.gov" },
+                    userAgent: "AccessibleTrader/2.1 (codythurst@gmail.com)")));
+            services.AddSingleton<IAssetDossierService, AssetDossierService>();
             services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
             services.AddSingleton<IReplayService, ReplayService>();
             services.AddSingleton<ISplitViewCoordinator, SplitViewCoordinator>();

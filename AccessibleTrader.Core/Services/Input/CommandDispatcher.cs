@@ -235,6 +235,7 @@ namespace AccessibleTrader.Core.Services.Input
             {
                 case SystemCommand.OpenSettings: _eventBus.Publish(new OpenSettingsEvent()); return;
                 case SystemCommand.OpenObjectTree: _eventBus.Publish(new OpenObjectTreeEvent()); return;
+                case SystemCommand.OpenAssetDossier: _eventBus.Publish(new OpenAssetDossierEvent()); return;
                 case SystemCommand.OpenTradingDashboard: _eventBus.Publish(new OpenTradingDashboardEvent()); return;
                 case SystemCommand.OpenOrderBook: _eventBus.Publish(new OpenOrderBookEvent()); return;
                 case SystemCommand.OpenHelp: _eventBus.Publish(new OpenHelpEvent()); return;
