@@ -65,6 +65,11 @@ namespace AccessibleTrader.Core.Services
         public const string SpeechOrder           = "speech.speechOrder";
         public const string AnnounceNewBars       = "speech.announceNewBars";
 
+        // Chart-pattern description. OFF by default: it adds speech to a navigation action the user
+        // already knows the shape of, so it has to be asked for rather than imposed — the same
+        // opt-in rule the visual-accessibility additions follow.
+        public const string DescribeChartPatterns = "speech.describeChartPatterns";
+
         // ── Viewport ─────────────────────────────────────────────────────────
         public const string PanningGranularity  = "viewport.panningGranularity";
 

@@ -125,6 +125,38 @@ So: **describe patterns freely, score them never.** The dossier can say "price i
 touched four times" without claiming that means anything, and it should say so in exactly those
 terms.
 
+### Built 2026-08-02 — and the design decision that mattered
+
+`ChartPatternDetector` ships this: double tops and bottoms, head and shoulders both ways,
+ascending / descending / symmetrical triangles, rising and falling wedges, bull and bear flags.
+Opt-in via `speech.describeChartPatterns`, default OFF, spoken on time-axis navigation.
+
+**The decision that makes it worth having is the life stage.** A detector that reports only
+*completed* patterns is a curiosity: by the time a head and shoulders completes, the neckline has
+broken and the move it names is underway. So every pattern is reported from the moment its structure
+is knowable, as **Forming**, carrying the **trigger level** that would confirm it:
+
+> "Possible double top in progress, neckline 42,100."
+
+That is a level to watch. The completed form closes the loop on a report the user already heard:
+
+> "Double top completed, neckline 42,100 broken."
+
+Three properties are enforced by tests rather than convention:
+
+1. **No lookahead.** Built on `ISwingStructureAnalyzer`, whose pivots carry the bar at which they
+   could first be *known* — Span bars after they printed. A truncation test detects on the full
+   series and on a prefix and requires identical output for everything knowable inside the prefix.
+   That test caught a real wart: `KnownAtIndex` was being overwritten with the break bar for
+   completed patterns, so the same pattern reported a different "knowable at" depending on how much
+   future data happened to be loaded. Completion now lives in its own field.
+2. **Forming means the trigger has genuinely not been hit** — verified across a 600-bar random walk.
+3. **No directional language, ever.** A test asserts the narration contains none of *bullish*,
+   *bearish*, *buy*, *sell*, *target*, *expect*, *reversal* or *likely*, for every pattern in both
+   states. The conventional readings are exactly the claims this project has failed to confirm; the
+   one that would have to be true first — "ascending triangles break up" — is queued as
+   `triangle-direction-bias` and untested.
+
 ---
 
 ## Thesis building — what code can do, and where the LLM actually goes

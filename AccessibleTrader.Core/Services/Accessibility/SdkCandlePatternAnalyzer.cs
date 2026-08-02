@@ -26,7 +26,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _t = thresholds ?? new SdkThr();
         }
 
-        public SdkCA Analyze(Ohlcv current, Ohlcv? previous = null, Ohlcv? twoBarsAgo = null)
+        public SdkCA Analyze(Ohlcv current, Ohlcv? previous = null, Ohlcv? twoBarsAgo = null,
+                             IReadOnlyList<Ohlcv>? recent = null)
         {
             var c  = current;
             var p1 = previous;
@@ -55,29 +56,40 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var pa2 = p2.Value;
                 var pa1 = p1.Value;
 
-                // Morning Star
+                // Morning Star. The STAR — the small middle body — must sit BELOW the first bar's
+                // body; that separation is what makes the shape a star rather than three ordinary
+                // bars. Classically it is a gap, which 24/7 crypto never produces, so the test here
+                // is body-below-body rather than a true gap. Without any such test the pattern fires
+                // on [long red, small body, green closing above the midpoint] no matter where the
+                // middle bar sits — including above the first bar's open, which is not the pattern.
                 if (IsLargeBody(pa2, false) && IsSmallBody(pa1) && isBullish
+                    && BodyHigh(pa1) < BodyLow(pa2) + BodySize(pa2) * StarBodyOverlapAllowed
                     && c.Close > (pa2.Open + pa2.Close) / 2.0)
                     return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.MorningStar,
                         3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
 
-                // Evening Star
+                // Evening Star — the mirror.
                 if (IsLargeBody(pa2, true) && IsSmallBody(pa1) && !isBullish
+                    && BodyLow(pa1) > BodyHigh(pa2) - BodySize(pa2) * StarBodyOverlapAllowed
                     && c.Close < (pa2.Open + pa2.Close) / 2.0)
                     return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.EveningStar,
                         3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
 
-                // Three White Soldiers
+                // Three White Soldiers. Each candle must OPEN INSIDE the previous body — that is the
+                // definition, and it is what distinguishes a steady advance from three bars gapping
+                // away from each other, which is a different (and exhaustion-flavoured) thing. The
+                // previous test only required each open to be above the last open, so a gapped
+                // staircase qualified.
                 if (isBullish && IsLargeBody(pa1, true) && IsLargeBody(pa2, true)
-                    && c.Open > pa1.Open && c.Close > pa1.Close
-                    && pa1.Open > pa2.Open && pa1.Close > pa2.Close)
+                    && c.Open > pa1.Open && c.Open <= pa1.Close && c.Close > pa1.Close
+                    && pa1.Open > pa2.Open && pa1.Open <= pa2.Close && pa1.Close > pa2.Close)
                     return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.ThreeWhiteSoldiers,
                         3, bodyPct, upperPct, lowerPct, changePct, continuation: true);
 
-                // Three Black Crows
+                // Three Black Crows — the mirror.
                 if (!isBullish && IsLargeBody(pa1, false) && IsLargeBody(pa2, false)
-                    && c.Open < pa1.Open && c.Close < pa1.Close
-                    && pa1.Open < pa2.Open && pa1.Close < pa2.Close)
+                    && c.Open < pa1.Open && c.Open >= pa1.Close && c.Close < pa1.Close
+                    && pa1.Open < pa2.Open && pa1.Open >= pa2.Close && pa1.Close < pa2.Close)
                     return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeBlackCrows,
                         3, bodyPct, upperPct, lowerPct, changePct, continuation: true);
             }
@@ -108,7 +120,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double prevBodyLow  = Math.Min(prev.Open, prev.Close);
                 double currBodyHigh = Math.Max(c.Open, c.Close);
                 double currBodyLow  = Math.Min(c.Open, c.Close);
-                if (currBodyHigh < prevBodyHigh && currBodyLow > prevBodyLow && bodyPct < 50)
+                // Harami: this body is contained within the previous body, and the colours differ.
+                // There is deliberately no test on bodyPct here. It used to require bodyPct < 50 —
+                // the current body as a fraction of its OWN range — which is not part of the
+                // definition and rejected any harami whose small body happened to fill most of its
+                // own small range. Containment inside the previous body is the whole pattern.
+                if (currBodyHigh < prevBodyHigh && currBodyLow > prevBodyLow)
                 {
                     if (isBullish && !prevBullish)
                         return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.BullishHarami,
@@ -163,24 +180,43 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return Build(dir, mbType, SdkCP.None, 1, bodyPct, upperPct, lowerPct, changePct);
             }
 
-            // Hammer / Hanging Man
+            // ── The two shapes whose NAME is decided by the trend they interrupt ──
+            //
+            // A hammer and a hanging man are the same candle. So are an inverted hammer and a
+            // shooting star. What separates each pair is the trend it appears in: hammer and
+            // inverted hammer end a decline (bullish), hanging man and shooting star end an advance
+            // (bearish). Getting it wrong does not merely mislabel — it announces the opposite
+            // direction to the one the shape implies.
+            //
+            // This used to be decided by the COLOUR OF THE SINGLE PREVIOUS CANDLE, which is not a
+            // trend: one green bar inside a sustained decline turned a hammer into a hanging man.
+            // CandlePatternThresholds.TrendLookbackBars had been declared for exactly this job and
+            // was never read by anything. It is now.
+            bool? priorDowntrend = PriorTrendIsDown(recent, p1);
+
+            // Direction here is the shape's IMPLICATION, not the candle's own colour: a hanging man
+            // is bearish even though it can close green, and that is the entire point of the name.
+            // When the trend is unknown there is no implication to state, so it falls back to the
+            // candle's own direction — a fact rather than a claim — and asserts no reversal.
+
+            // Hammer (ends a decline, bullish) / Hanging Man (ends an advance, bearish)
             bool bodyInUpperZone = (Math.Min(c.Open, c.Close) - c.Low) / range * 100.0 > (100.0 - _t.HammerBodyUpperZonePercent);
             if (lowerWick > bodySize * _t.WickMultiplierForHammer && upperWick < bodySize && bodyInUpperZone)
             {
-                bool priorBearish = p1.HasValue && p1.Value.Close < p1.Value.Open;
-                var hmType = priorBearish ? SdkCT.Hammer : SdkCT.HangingMan;
-                return Build(priorBearish ? SdkCD.Bullish : dir, hmType, SdkCP.None,
-                    1, bodyPct, upperPct, lowerPct, changePct, reversal: priorBearish);
+                var hmType = priorDowntrend == true ? SdkCT.Hammer : SdkCT.HangingMan;
+                var hmDir = priorDowntrend switch { true => SdkCD.Bullish, false => SdkCD.Bearish, _ => dir };
+                return Build(hmDir, hmType, SdkCP.None,
+                    1, bodyPct, upperPct, lowerPct, changePct, reversal: priorDowntrend.HasValue);
             }
 
-            // Shooting Star / Inverted Hammer
+            // Inverted Hammer (ends a decline, bullish) / Shooting Star (ends an advance, bearish)
             bool bodyInLowerZone = (c.High - Math.Max(c.Open, c.Close)) / range * 100.0 > (100.0 - _t.HammerBodyUpperZonePercent);
             if (upperWick > bodySize * _t.WickMultiplierForHammer && lowerWick < bodySize && bodyInLowerZone)
             {
-                bool priorBullish = p1.HasValue && p1.Value.Close > p1.Value.Open;
-                var ssType = priorBullish ? SdkCT.ShootingStar : SdkCT.InvertedHammer;
-                return Build(priorBullish ? SdkCD.Bearish : dir, ssType, SdkCP.None,
-                    1, bodyPct, upperPct, lowerPct, changePct, reversal: priorBullish);
+                var ssType = priorDowntrend == false ? SdkCT.ShootingStar : SdkCT.InvertedHammer;
+                var ssDir = priorDowntrend switch { true => SdkCD.Bullish, false => SdkCD.Bearish, _ => dir };
+                return Build(ssDir, ssType, SdkCP.None,
+                    1, bodyPct, upperPct, lowerPct, changePct, reversal: priorDowntrend.HasValue);
             }
 
             // Spinning Top
@@ -218,6 +254,55 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private static bool IsContinuationPattern(SdkCP p) => p is
             SdkCP.ThreeWhiteSoldiers or SdkCP.ThreeBlackCrows;
+
+        /// <summary>
+        /// How much of the first bar's body the star is allowed to overlap. A true gap is 0, but
+        /// 24/7 markets do not gap, so a small tolerance keeps the pattern findable on crypto while
+        /// still requiring the star to sit clearly outside the body it is reversing.
+        /// </summary>
+        private const double StarBodyOverlapAllowed = 0.10;
+
+        private static double BodyHigh(Ohlcv b) => Math.Max(b.Open, b.Close);
+        private static double BodyLow(Ohlcv b) => Math.Min(b.Open, b.Close);
+        private static double BodySize(Ohlcv b) => Math.Abs(b.Close - b.Open);
+
+        /// <summary>
+        /// True if the bars leading INTO the current one were falling, false if rising, null if
+        /// there is not enough context to say.
+        ///
+        /// <para>
+        /// The comparison deliberately ENDS at the bar before the current one. The current bar is
+        /// the candidate reversal; including it would let a strong hammer close drag the trend
+        /// measurement bullish and then be labelled as reversing the trend it just created.
+        /// </para>
+        ///
+        /// <para>
+        /// Returning null rather than guessing matters: the caller uses it to decide whether to
+        /// assert <c>IsReversal</c> at all. With no context the shape is still named, but nothing
+        /// downstream is told that a reversal has been identified.
+        /// </para>
+        /// </summary>
+        private bool? PriorTrendIsDown(IReadOnlyList<Ohlcv>? recent, Ohlcv? previous)
+        {
+            int look = Math.Max(1, _t.TrendLookbackBars);
+
+            if (recent != null && recent.Count >= look + 2)
+            {
+                // recent ends at the current bar, so the bar before it is at ^2.
+                var end = recent[^2];
+                var start = recent[recent.Count - 2 - look];
+                if (end.Close < start.Close) return true;
+                if (end.Close > start.Close) return false;
+                return null;                                  // dead flat: no trend to interrupt
+            }
+
+            // No usable context. Do NOT fall back to the previous candle's colour — that is the bug
+            // this method exists to remove. Say "unknown" and let the caller decline to claim a
+            // reversal. `previous` is accepted so callers reading the signature see that one bar is
+            // deliberately not enough.
+            _ = previous;
+            return null;
+        }
 
         private bool IsLargeBody(Ohlcv bar, bool bullish)
         {

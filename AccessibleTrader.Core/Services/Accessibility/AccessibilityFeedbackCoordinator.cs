@@ -9,6 +9,7 @@ using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Analysis;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Accessibility
@@ -32,6 +33,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IEventBus _eventBus;
         private readonly IEarconService _earconService;
         private readonly ISdkCandlePatternAnalyzer _patternAnalyzer;
+        private readonly IChartPatternDetector _chartPatterns;
         // Held purely to ensure AutoNarrationService is instantiated at startup.
         // All work is done inside that service via its own subscriptions.
         private readonly IAutoNarrationService _autoNarration;
@@ -54,6 +56,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IEventBus eventBus,
             IEarconService earconService,
             ISdkCandlePatternAnalyzer patternAnalyzer,
+            IChartPatternDetector chartPatterns,
             IAutoNarrationService autoNarration)
         {
             _store = store;
@@ -64,6 +67,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _eventBus = eventBus;
             _earconService = earconService;
             _patternAnalyzer = patternAnalyzer;
+            _chartPatterns = chartPatterns;
             _autoNarration = autoNarration;
             _previousState = store.State;
 
@@ -322,7 +326,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var data = state.Data;
             Ohlcv? prev  = (data != null && data.Count >= 2) ? data[^2] : (Ohlcv?)null;
             Ohlcv? prev2 = (data != null && data.Count >= 3) ? data[^3] : (Ohlcv?)null;
-            var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2);
+            var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2, data);
 
             string patternSuffix = FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true);
             string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
@@ -361,7 +365,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Debounce: don't announce more often than PatternDebounce.
             if (DateTime.UtcNow - _lastPatternAnnouncement < PatternDebounce) return;
 
-            var analysis = _patternAnalyzer.Analyze(e.CurrentBar, e.PreviousBar, e.TwoBarsAgo);
+            // The forming bar is not in state.Data yet, so the trend context is the stored history
+            // with the live bar appended — otherwise hammer-vs-hanging-man on the bar being watched
+            // in real time is the one place that still guesses.
+            var history = state.Data;
+            IReadOnlyList<Ohlcv>? context = history == null || history.Count == 0
+                ? null
+                : history.Append(e.CurrentBar).ToList();
+
+            var analysis = _patternAnalyzer.Analyze(e.CurrentBar, e.PreviousBar, e.TwoBarsAgo, context);
 
             bool patternChanged = analysis.Pattern != _lastAnnouncedPattern
                                || analysis.Type    != _lastAnnouncedType;
@@ -449,6 +461,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 case FeedbackType.Navigation:
                     _navManager.HandleNavigationFeedback(_store.State, e.IsXMove, e.IsYMove, e.Message ?? "", isJump: e.IsJump);
+                    // After the bar itself has been read, describe any chart formation the cursor is
+                    // now inside — but only when the user asked for it, and only on a move along the
+                    // time axis.
+                    if (e.IsXMove) AnnounceChartPatternsAtCursor();
                     break;
 
                 case FeedbackType.VolumeChange:
@@ -511,6 +527,60 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                     break;
             }
+        }
+
+        // ── Chart-pattern description (opt-in) ─────────────────────────────────
+
+        // Detection is O(swings^2) over the whole series, so it is cached per loaded dataset rather
+        // than recomputed on every arrow key. The cache key is the bar count plus the last bar's
+        // timestamp: cheap, and it changes on load, on timeframe switch, and when a live bar closes.
+        private IReadOnlyList<ChartPattern>? _cachedPatterns;
+        private (int Count, DateTime Last) _patternCacheKey;
+        private string _lastSpokenPatterns = "";
+
+        /// <summary>
+        /// Speak the formations the cursor is currently inside.
+        ///
+        /// <para>
+        /// Three gates, and each removes a way this feature would become annoying enough to be
+        /// switched off — at which point it protects nobody:
+        /// </para>
+        /// <list type="bullet">
+        ///   <item>Off unless <c>DescribeChartPatterns</c> is enabled. It is extra narration on an
+        ///         action the user performs constantly.</item>
+        ///   <item>Silent when the readout has not CHANGED, so panning through the middle of a
+        ///         sixty-bar triangle says it once rather than sixty times.</item>
+        ///   <item>Spoken on the Event channel without interrupting, so it never cuts off the bar
+        ///         reading that is the primary output of the keypress.</item>
+        /// </list>
+        /// </summary>
+        private void AnnounceChartPatternsAtCursor()
+        {
+            var state = _store.State;
+            if (!state.DescribeChartPatterns) return;
+
+            var data = state.Data;
+            if (data == null || data.Count < 30) return;
+
+            int idx = state.CurrentDataIndex;
+            if (idx < 0 || idx >= data.Count) return;
+
+            var key = (data.Count, data[^1].Date);
+            if (_cachedPatterns == null || _patternCacheKey != key)
+            {
+                _cachedPatterns = _chartPatterns.Detect(data);
+                _patternCacheKey = key;
+                _lastSpokenPatterns = "";
+            }
+
+            var here = ChartPatternNarrator.AtBar(_cachedPatterns, idx);
+            if (here.Count == 0) { _lastSpokenPatterns = ""; return; }
+
+            string msg = ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice);
+            if (string.IsNullOrEmpty(msg) || msg == _lastSpokenPatterns) return;
+
+            _lastSpokenPatterns = msg;
+            _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
         }
 
         public void Dispose()

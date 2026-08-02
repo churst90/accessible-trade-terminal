@@ -55,6 +55,7 @@ namespace AccessibleTrader.Core.Services
         bool ReadColumnHeaders { get; set; }
         string SpeechOrder { get; set; }
         bool AnnounceNewBars { get; set; }
+        bool DescribeChartPatterns { get; set; }
 
         // Viewport
         int PanningGranularity { get; set; }
@@ -187,6 +188,22 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.AnnounceNewBars, def: true);
             set => Set(SettingsKeys.AnnounceNewBars, value);
+        }
+
+        /// <summary>
+        /// Speak classical chart formations (double top, head and shoulders, triangles, flags) when
+        /// navigation lands inside one. Both patterns still forming and patterns already completed
+        /// are announced, with the forming ones hedged and carrying their trigger level.
+        ///
+        /// <para>
+        /// Default OFF. It adds continuous speech to a navigation action, and the standing
+        /// convention here is that extra narration is opted into, never imposed.
+        /// </para>
+        /// </summary>
+        public bool DescribeChartPatterns
+        {
+            get => GetBool(SettingsKeys.DescribeChartPatterns, def: false);
+            set => Set(SettingsKeys.DescribeChartPatterns, value);
         }
 
         public int PanningGranularity

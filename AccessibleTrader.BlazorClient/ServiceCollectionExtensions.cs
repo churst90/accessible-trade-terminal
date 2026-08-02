@@ -389,6 +389,13 @@ namespace AccessibleTrader.BlazorClient
             // average, multi-timeframe average, sloped line) is scored by the same analyzer.
             services.AddSingleton<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
             services.AddSingleton<IMaRespectRanker, MaRespectRanker>();
+
+            // Chart-pattern description — an accessibility feature, opt-in, and descriptive only.
+            // It reports patterns that are still FORMING (with the level that would confirm them)
+            // as well as completed ones, because a pattern announced only on completion cannot be
+            // acted on. Built on the swing analyzer so every shape inherits its confirmation lag.
+            services.AddSingleton<ISwingStructureAnalyzer, SwingStructureAnalyzer>();
+            services.AddSingleton<IChartPatternDetector, ChartPatternDetector>();
             services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
             services.AddSingleton<IReplayService, ReplayService>();
             services.AddSingleton<ISplitViewCoordinator, SplitViewCoordinator>();

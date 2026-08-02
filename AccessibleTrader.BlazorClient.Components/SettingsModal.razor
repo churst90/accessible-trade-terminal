@@ -163,6 +163,18 @@
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
                     </div>
 
+                    @* Off by default. It adds narration to arrow-key navigation, which the user
+                       performs constantly, so it is opted into rather than imposed — the same rule
+                       the visual-accessibility additions follow. Patterns still FORMING are read
+                       with their trigger level so they can be acted on; completed ones close the
+                       loop. Nothing is ever called bullish or bearish. *@
+                    <div class="modal-row">
+                        <label for="s-chart-patterns">Describe chart patterns while navigating</label>
+                        <input id="s-chart-patterns" type="checkbox"
+                               checked="@Store.State.DescribeChartPatterns"
+                               @onchange="e => _describeChartPatterns = e.Value is bool b ? b : Store.State.DescribeChartPatterns" />
+                    </div>
+
                     @if (_speechOutput is { IsBrowserTtsBackend: true })
                     {
                         <div class="modal-row">
@@ -1092,6 +1104,7 @@
     private bool _speakTimestamps;
     private bool _readHeaders;
     private bool _announceBars;
+    private bool _describeChartPatterns;
     private int _wasapiLatency;
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
@@ -1678,6 +1691,7 @@
         _speakTimestamps = Store.State.SpeakTimestamps;
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
+        _describeChartPatterns = Store.State.DescribeChartPatterns;
         _paperTradingMode = App.PaperTradingMode;
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
@@ -1779,6 +1793,7 @@
             SpeechOrder      = _speechOrder,
             ReadColumnHeaders = _readHeaders,
             AnnounceNewBars  = _announceBars,
+            DescribeChartPatterns = _describeChartPatterns,
             WasapiLatency    = _wasapiLatency,
             BackgroundColor  = _backgroundColor
         }));

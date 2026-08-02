@@ -1,0 +1,483 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using AccessibleTrader.Sdk.Models;
+
+namespace AccessibleTrader.Core.Services.Analysis
+{
+    /// <summary>The classical chart formations the terminal can describe.</summary>
+    public enum ChartPatternKind
+    {
+        DoubleTop, DoubleBottom,
+        HeadAndShoulders, InverseHeadAndShoulders,
+        AscendingTriangle, DescendingTriangle, SymmetricalTriangle,
+        RisingWedge, FallingWedge,
+        BullFlag, BearFlag
+    }
+
+    /// <summary>
+    /// Where a pattern is in its life. This distinction is the entire reason the feature is worth
+    /// having rather than being a curiosity.
+    /// </summary>
+    public enum ChartPatternState
+    {
+        /// <summary>
+        /// The structure is present and the level that would confirm it has NOT been reached. This
+        /// is the only state that can be acted on, because by the time a pattern completes the move
+        /// it names has already begun.
+        /// </summary>
+        Forming,
+
+        /// <summary>
+        /// Price has closed through the confirming level. Reported because "it did complete" is a
+        /// fact worth hearing, and because it closes the loop on a <see cref="Forming"/> report the
+        /// user already heard.
+        /// </summary>
+        Completed
+    }
+
+    /// <param name="KnownAtIndex">
+    /// The earliest bar at which this pattern's STRUCTURE could honestly have been announced. Every
+    /// pivot it rests on is only knowable <c>Span</c> bars after it printed, so this is the maximum
+    /// of those confirmation bars. Nothing may be announced before it. Without this the feature
+    /// would tell a user about a shape that was not visible at the time, which is the same lookahead
+    /// the Cipher SR proximity result turned out to be.
+    /// <para>
+    /// It is deliberately INDEPENDENT of whether the pattern later completed. An earlier version
+    /// overwrote it with the break bar for completed patterns, which meant the same pattern reported
+    /// a different "knowable at" depending on how much future data happened to be loaded — a
+    /// property a lookahead test caught immediately and a user never would have.
+    /// </para>
+    /// </param>
+    /// <param name="CompletedAtIndex">
+    /// The bar that closed through <paramref name="TriggerLevel"/>, or null while the pattern is
+    /// still forming. Always at or after <paramref name="KnownAtIndex"/>.
+    /// </param>
+    /// <param name="TriggerLevel">
+    /// The price that confirms the pattern — the neckline of a top or a head-and-shoulders, the
+    /// boundary of a triangle or flag. This is the actionable number: it is what a
+    /// <see cref="ChartPatternState.Forming"/> report exists to hand over.
+    /// </param>
+    public record ChartPattern(
+        ChartPatternKind Kind,
+        ChartPatternState State,
+        int StartBarIndex,
+        int EndBarIndex,
+        int KnownAtIndex,
+        double TriggerLevel,
+        DateTime StartTime,
+        DateTime EndTime,
+        int? CompletedAtIndex = null);
+
+    /// <param name="Span">Bars either side a pivot must dominate. Passed through to the swing analyzer.</param>
+    /// <param name="ToleranceAtr">
+    /// How close two highs (or two lows) must be to count as "equal", in ATR. Fixed percentages
+    /// break across instruments — 1% is nothing on a small cap and enormous on a bond ETF — so the
+    /// instrument's own volatility sets the scale.
+    /// </param>
+    /// <param name="MinPatternBars">
+    /// Shortest formation worth naming. Below this the "pattern" is three bars of noise, and naming
+    /// noise in a voice that sounds authoritative is worse than silence.
+    /// </param>
+    /// <param name="MaxPatternBars">
+    /// Longest formation to look back over. A double top whose two highs are two years apart is not
+    /// a double top, it is two highs.
+    /// </param>
+    public record ChartPatternOptions(
+        int Span = 5,
+        double ToleranceAtr = 0.75,
+        int MinPatternBars = 12,
+        int MaxPatternBars = 160,
+        double MinSwingAtr = 1.0)
+    {
+        public static ChartPatternOptions Default { get; } = new();
+    }
+
+    public interface IChartPatternDetector
+    {
+        /// <summary>
+        /// Every pattern present in <paramref name="bars"/>, ordered by when it became knowable.
+        /// </summary>
+        IReadOnlyList<ChartPattern> Detect(IReadOnlyList<Ohlcv> bars, ChartPatternOptions? options = null);
+    }
+
+    /// <summary>
+    /// Finds classical chart formations and reports them with a life stage.
+    ///
+    /// <para>
+    /// ── What this is for, and what it is emphatically not ───────────────────────
+    /// This is an <b>accessibility feature</b>. "Price has made two highs at roughly the same level
+    /// with a trough between them" is what a sighted person reads off a chart in one glance, and
+    /// delivering that by ear is the terminal's reason to exist. It is <b>description, never a
+    /// score and never a signal</b>, which is the same rule the strategy library enforces and for
+    /// the same reason: a marker in the product's own UI reads as the product's endorsement.
+    /// </para>
+    ///
+    /// <para>
+    /// The evidence says that is the correct posture. Every price-derived pattern claim tested in
+    /// this project has come back null — a random horizontal line was respected 59% of the time,
+    /// real swing levels held 46.2% against 46.7% for random lines, fib ratios did nothing across
+    /// 355,000 tests, and structure labels were indistinguishable from random in the confluence
+    /// work. So the detector names shapes and states facts about them. It never says what happens
+    /// next. (The one claim that would have to be true before a directional hint could be added —
+    /// "ascending triangles break up" — is queued as <c>triangle-direction-bias</c> and untested.)
+    /// </para>
+    ///
+    /// <para>
+    /// ── FORMING is the point ────────────────────────────────────────────────────
+    /// A detector that only reports completed patterns is useless: by the time a head and shoulders
+    /// completes, the neckline has broken and the move it names is underway. So every pattern is
+    /// reported from the moment its structure is knowable, as <see cref="ChartPatternState.Forming"/>,
+    /// carrying the <see cref="ChartPattern.TriggerLevel"/> that would confirm it. That is the number
+    /// a person can act on, and it is available before the event rather than after.
+    /// </para>
+    ///
+    /// <para>
+    /// ── NO LOOKAHEAD ────────────────────────────────────────────────────────────
+    /// Built on <see cref="ISwingStructureAnalyzer"/>, whose pivots carry a
+    /// <see cref="SwingPoint.ConfirmedAtIndex"/> — the bar at which the pivot could first be KNOWN,
+    /// which is Span bars after it printed. Every pattern's <see cref="ChartPattern.KnownAtIndex"/>
+    /// is derived from those, never from the pivot bars themselves. This is not a theoretical
+    /// nicety: a level anchored at a pivot only knowable N bars later is exactly what made the
+    /// Cipher SR proximity result a lookahead artifact.
+    /// </para>
+    /// </summary>
+    public sealed class ChartPatternDetector : IChartPatternDetector
+    {
+        private readonly ISwingStructureAnalyzer _swings;
+
+        public ChartPatternDetector(ISwingStructureAnalyzer swings) => _swings = swings;
+
+        public IReadOnlyList<ChartPattern> Detect(IReadOnlyList<Ohlcv> bars, ChartPatternOptions? options = null)
+        {
+            var o = options ?? ChartPatternOptions.Default;
+            var found = new List<ChartPattern>();
+            if (bars == null || bars.Count < o.MinPatternBars + o.Span * 2) return found;
+
+            var atr = Atr(bars, 14);
+            var structure = _swings.Analyze(bars, new SwingOptions(o.Span, o.MinSwingAtr));
+            var swings = structure.Swings;
+            if (swings.Count < 3) return found;
+
+            var highs = swings.Where(s => s.IsHigh).ToList();
+            var lows = swings.Where(s => !s.IsHigh).ToList();
+
+            found.AddRange(DoubleTops(bars, highs, lows, atr, o));
+            found.AddRange(DoubleBottoms(bars, highs, lows, atr, o));
+            found.AddRange(HeadAndShoulders(bars, highs, lows, atr, o, inverse: false));
+            found.AddRange(HeadAndShoulders(bars, lows, highs, atr, o, inverse: true));
+            found.AddRange(TrianglesAndWedges(bars, highs, lows, atr, o));
+            found.AddRange(Flags(bars, atr, o));
+
+            return found
+                .OrderBy(p => p.KnownAtIndex)
+                .ThenBy(p => p.Kind)
+                .ToList();
+        }
+
+        // ── Double top / bottom ─────────────────────────────────────────────────
+
+        private static IEnumerable<ChartPattern> DoubleTops(
+            IReadOnlyList<Ohlcv> bars, List<SwingPoint> highs, List<SwingPoint> lows,
+            double[] atr, ChartPatternOptions o)
+        {
+            for (int i = 1; i < highs.Count; i++)
+            {
+                var a = highs[i - 1];
+                var b = highs[i];
+                int width = b.BarIndex - a.BarIndex;
+                if (width < o.MinPatternBars || width > o.MaxPatternBars) continue;
+
+                double tol = atr[b.BarIndex] * o.ToleranceAtr;
+                if (tol <= 0 || Math.Abs(a.Price - b.Price) > tol) continue;
+
+                // The trough between them is the neckline. Without one there is no pattern, only two
+                // highs that happen to be level.
+                var trough = lows.Where(l => l.BarIndex > a.BarIndex && l.BarIndex < b.BarIndex)
+                                 .OrderBy(l => l.Price).FirstOrDefault();
+                if (trough == null) continue;
+                if (Math.Min(a.Price, b.Price) - trough.Price < tol) continue;   // too shallow to be a double top
+
+                int known = Math.Max(b.ConfirmedAtIndex, trough.ConfirmedAtIndex);
+                var p = Resolve(bars, known, trough.Price, breakBelow: true);
+                yield return new ChartPattern(ChartPatternKind.DoubleTop, p.State,
+                    a.BarIndex, b.BarIndex, known, trough.Price, a.Time, b.Time, p.CompletedAt);
+            }
+        }
+
+        private static IEnumerable<ChartPattern> DoubleBottoms(
+            IReadOnlyList<Ohlcv> bars, List<SwingPoint> highs, List<SwingPoint> lows,
+            double[] atr, ChartPatternOptions o)
+        {
+            for (int i = 1; i < lows.Count; i++)
+            {
+                var a = lows[i - 1];
+                var b = lows[i];
+                int width = b.BarIndex - a.BarIndex;
+                if (width < o.MinPatternBars || width > o.MaxPatternBars) continue;
+
+                double tol = atr[b.BarIndex] * o.ToleranceAtr;
+                if (tol <= 0 || Math.Abs(a.Price - b.Price) > tol) continue;
+
+                var peak = highs.Where(h => h.BarIndex > a.BarIndex && h.BarIndex < b.BarIndex)
+                                .OrderByDescending(h => h.Price).FirstOrDefault();
+                if (peak == null) continue;
+                if (peak.Price - Math.Max(a.Price, b.Price) < tol) continue;
+
+                int known = Math.Max(b.ConfirmedAtIndex, peak.ConfirmedAtIndex);
+                var p = Resolve(bars, known, peak.Price, breakBelow: false);
+                yield return new ChartPattern(ChartPatternKind.DoubleBottom, p.State,
+                    a.BarIndex, b.BarIndex, known, peak.Price, a.Time, b.Time, p.CompletedAt);
+            }
+        }
+
+        // ── Head and shoulders ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Three peaks with the middle one highest and the outer two roughly level; the neckline is
+        /// the higher of the two intervening troughs, which is the level a break must clear.
+        /// Inverted by swapping the roles of highs and lows, because the inverse pattern is the same
+        /// geometry reflected — writing it twice is how the two drift apart.
+        /// </summary>
+        private static IEnumerable<ChartPattern> HeadAndShoulders(
+            IReadOnlyList<Ohlcv> bars, List<SwingPoint> peaks, List<SwingPoint> troughs,
+            double[] atr, ChartPatternOptions o, bool inverse)
+        {
+            int sign = inverse ? -1 : 1;
+
+            for (int i = 2; i < peaks.Count; i++)
+            {
+                var left = peaks[i - 2];
+                var head = peaks[i - 1];
+                var right = peaks[i];
+
+                int width = right.BarIndex - left.BarIndex;
+                if (width < o.MinPatternBars || width > o.MaxPatternBars) continue;
+
+                double tol = atr[right.BarIndex] * o.ToleranceAtr;
+                if (tol <= 0) continue;
+
+                // The head must clearly exceed both shoulders, and the shoulders must be level with
+                // each other. "Clearly" is one tolerance unit — without it, any three peaks with a
+                // marginally taller middle one qualify.
+                if ((head.Price - left.Price) * sign < tol) continue;
+                if ((head.Price - right.Price) * sign < tol) continue;
+                if (Math.Abs(left.Price - right.Price) > tol * 1.5) continue;
+
+                var t1 = troughs.Where(t => t.BarIndex > left.BarIndex && t.BarIndex < head.BarIndex).ToList();
+                var t2 = troughs.Where(t => t.BarIndex > head.BarIndex && t.BarIndex < right.BarIndex).ToList();
+                if (t1.Count == 0 || t2.Count == 0) continue;
+
+                // The neckline is the trough closest to being broken — the conservative choice, so
+                // "completed" is never announced before a break that actually matters.
+                double neck = inverse
+                    ? Math.Min(t1.Min(t => t.Price), t2.Min(t => t.Price))
+                    : Math.Max(t1.Max(t => t.Price), t2.Max(t => t.Price));
+
+                int known = new[] { right.ConfirmedAtIndex, t1.Max(t => t.ConfirmedAtIndex), t2.Max(t => t.ConfirmedAtIndex) }.Max();
+                var p = Resolve(bars, known, neck, breakBelow: !inverse);
+
+                yield return new ChartPattern(
+                    inverse ? ChartPatternKind.InverseHeadAndShoulders : ChartPatternKind.HeadAndShoulders,
+                    p.State, left.BarIndex, right.BarIndex, known, neck, left.Time, right.Time, p.CompletedAt);
+            }
+        }
+
+        // ── Triangles and wedges ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Triangles and wedges are the same measurement — the slope of the last two highs against
+        /// the slope of the last two lows — read off a 3x3 grid of sign combinations. Splitting them
+        /// into separate detectors would mean maintaining the same geometry five times.
+        ///
+        /// <para>
+        /// A slope counts as flat when the two swings differ by less than one tolerance unit, which
+        /// is what stops a barely-sloping line from being called ascending.
+        /// </para>
+        /// </summary>
+        private static IEnumerable<ChartPattern> TrianglesAndWedges(
+            IReadOnlyList<Ohlcv> bars, List<SwingPoint> highs, List<SwingPoint> lows,
+            double[] atr, ChartPatternOptions o)
+        {
+            if (highs.Count < 2 || lows.Count < 2) yield break;
+
+            for (int i = 1; i < highs.Count; i++)
+            {
+                var h1 = highs[i - 1];
+                var h2 = highs[i];
+
+                // The two most recent lows that finished before this high pair did.
+                var l = lows.Where(x => x.BarIndex < h2.BarIndex && x.BarIndex > h1.BarIndex - o.MaxPatternBars)
+                            .OrderBy(x => x.BarIndex).ToList();
+                if (l.Count < 2) continue;
+                var l1 = l[^2];
+                var l2 = l[^1];
+
+                int start = Math.Min(h1.BarIndex, l1.BarIndex);
+                int end = Math.Max(h2.BarIndex, l2.BarIndex);
+                int width = end - start;
+                if (width < o.MinPatternBars || width > o.MaxPatternBars) continue;
+
+                double tol = atr[end] * o.ToleranceAtr;
+                if (tol <= 0) continue;
+
+                int hs = Sign(h2.Price - h1.Price, tol);
+                int ls = Sign(l2.Price - l1.Price, tol);
+
+                ChartPatternKind? kind = (hs, ls) switch
+                {
+                    (0, +1) => ChartPatternKind.AscendingTriangle,     // flat top, rising lows
+                    (-1, 0) => ChartPatternKind.DescendingTriangle,    // falling highs, flat bottom
+                    (-1, +1) => ChartPatternKind.SymmetricalTriangle,  // converging both sides
+                    (+1, +1) => ChartPatternKind.RisingWedge,
+                    (-1, -1) => ChartPatternKind.FallingWedge,
+                    _ => null
+                };
+                if (kind == null) continue;
+
+                // A wedge must actually converge — both boundaries sloping the same way is not
+                // enough, the gap between them has to be closing, or this is just a channel.
+                if (kind is ChartPatternKind.RisingWedge or ChartPatternKind.FallingWedge)
+                {
+                    double openGap = Math.Abs(h1.Price - l1.Price);
+                    double closeGap = Math.Abs(h2.Price - l2.Price);
+                    if (closeGap >= openGap) continue;
+                }
+
+                // The boundary a break would cross first. Ascending triangles and rising wedges are
+                // read against their flat/upper edge; the others against the lower.
+                bool breakBelow = kind is ChartPatternKind.DescendingTriangle
+                                       or ChartPatternKind.RisingWedge;
+                double trigger = breakBelow ? l2.Price : h2.Price;
+
+                int known = new[] { h2.ConfirmedAtIndex, l2.ConfirmedAtIndex }.Max();
+                var p = Resolve(bars, known, trigger, breakBelow);
+
+                yield return new ChartPattern(kind.Value, p.State, start, end, known, trigger,
+                    bars[Math.Min(start, bars.Count - 1)].Date, bars[Math.Min(end, bars.Count - 1)].Date,
+                    p.CompletedAt);
+            }
+        }
+
+        // ── Flags and pennants ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// A sharp directional impulse (the pole) followed by a shallow drift against it (the flag).
+        /// Measured on bars rather than swings, because a flag is usually too short to contain
+        /// confirmed pivots — which also means its "knowable at" bar is simply the last bar of the
+        /// consolidation, with no pivot confirmation to wait for.
+        /// </summary>
+        private static IEnumerable<ChartPattern> Flags(
+            IReadOnlyList<Ohlcv> bars, double[] atr, ChartPatternOptions o)
+        {
+            const int PoleBars = 8;
+            const int FlagMin = 4;
+            const int FlagMax = 20;
+            const double PoleAtr = 4.0;          // the impulse must be genuinely large
+            const double FlagRetraceMax = 0.5;   // and the drift genuinely shallow
+
+            for (int end = PoleBars + FlagMin; end < bars.Count; end++)
+            {
+                for (int flagLen = FlagMin; flagLen <= FlagMax; flagLen++)
+                {
+                    int flagStart = end - flagLen + 1;
+                    int poleStart = flagStart - PoleBars;
+                    if (poleStart < 1) break;
+
+                    double a = atr[flagStart];
+                    if (a <= 0) continue;
+
+                    double pole = bars[flagStart - 1].Close - bars[poleStart].Close;
+                    if (Math.Abs(pole) < PoleAtr * a) continue;
+
+                    bool bull = pole > 0;
+
+                    var flag = bars.Skip(flagStart).Take(flagLen).ToList();
+                    double flagHigh = flag.Max(b => b.High);
+                    double flagLow = flag.Min(b => b.Low);
+
+                    // Shallow: the consolidation must not give back much of the pole...
+                    double retrace = bull
+                        ? (bars[flagStart - 1].Close - flagLow) / Math.Abs(pole)
+                        : (flagHigh - bars[flagStart - 1].Close) / Math.Abs(pole);
+                    if (retrace < 0 || retrace > FlagRetraceMax) continue;
+
+                    // ...and must be tight relative to the impulse that preceded it.
+                    if (flagHigh - flagLow > Math.Abs(pole) * FlagRetraceMax) continue;
+
+                    double trigger = bull ? flagHigh : flagLow;
+                    int flagEnd = end;
+                    var p = Resolve(bars, flagEnd, trigger, breakBelow: !bull);
+
+                    yield return new ChartPattern(
+                        bull ? ChartPatternKind.BullFlag : ChartPatternKind.BearFlag,
+                        p.State, poleStart, end, flagEnd, trigger,
+                        bars[poleStart].Date, bars[end].Date, p.CompletedAt);
+
+                    end += flagLen;   // one flag per region — otherwise every length reports the same shape
+                    break;
+                }
+            }
+        }
+
+        // ── Shared ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Decide whether a pattern known at <paramref name="knownAt"/> has since been confirmed,
+        /// and at which bar.
+        ///
+        /// <para>
+        /// The scan starts AT the knowable bar, never before it. A pattern is Forming until a bar
+        /// CLOSES through the trigger — closes rather than wicks, because a wick through a level is
+        /// the single most common way a pattern reader is faked out, and reporting it as complete
+        /// would make the feature actively misleading.
+        /// </para>
+        /// </summary>
+        private static (ChartPatternState State, int? CompletedAt) Resolve(
+            IReadOnlyList<Ohlcv> bars, int knownAt, double trigger, bool breakBelow)
+        {
+            if (knownAt >= bars.Count) return (ChartPatternState.Forming, null);
+
+            for (int i = knownAt; i < bars.Count; i++)
+            {
+                bool through = breakBelow ? bars[i].Close < trigger : bars[i].Close > trigger;
+                if (through) return (ChartPatternState.Completed, i);
+            }
+            return (ChartPatternState.Forming, null);
+        }
+
+        private static int Sign(double delta, double tol)
+            => delta > tol ? +1 : delta < -tol ? -1 : 0;
+
+        /// <summary>
+        /// Wilder ATR, carried forward. Every tolerance in this file is expressed in ATR so the
+        /// detector behaves the same on a $3 small cap and a $600 index fund — a fixed percentage
+        /// would make one of them fire constantly and the other never.
+        /// </summary>
+        private static double[] Atr(IReadOnlyList<Ohlcv> bars, int period)
+        {
+            int n = bars.Count;
+            var atr = new double[n];
+            if (n == 0) return atr;
+
+            double sum = 0;
+            for (int i = 1; i < n; i++)
+            {
+                double tr = Math.Max(bars[i].High - bars[i].Low,
+                            Math.Max(Math.Abs(bars[i].High - bars[i - 1].Close),
+                                     Math.Abs(bars[i].Low - bars[i - 1].Close)));
+                if (i <= period)
+                {
+                    sum += tr;
+                    atr[i] = sum / i;
+                }
+                else
+                {
+                    atr[i] = (atr[i - 1] * (period - 1) + tr) / period;
+                }
+            }
+            atr[0] = atr.Length > 1 ? atr[1] : 0;
+            return atr;
+        }
+    }
+}

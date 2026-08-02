@@ -2,6 +2,7 @@ using System;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Tests.Mocks;
@@ -33,7 +34,8 @@ namespace AccessibleTrader.Tests
 
             var coordinator = new AccessibilityFeedbackCoordinator(
                 store, navMgr, speechRouter, audioRouter, formatter, eventBus,
-                earcons, new SdkCandlePatternAnalyzer(), new MockAutoNarrationService());
+                earcons, new SdkCandlePatternAnalyzer(),
+                new ChartPatternDetector(new SwingStructureAnalyzer()), new MockAutoNarrationService());
 
             return (coordinator, eventBus, speech, earcons);
         }

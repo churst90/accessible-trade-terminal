@@ -8,6 +8,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -59,6 +60,7 @@ namespace AccessibleTrader.Tests
                 eventBus,
                 new MockEarconService(),
                 new SdkCandlePatternAnalyzer(),
+                new ChartPatternDetector(new SwingStructureAnalyzer()),
                 new MockAutoNarrationService());
 
             // Act: NavigationEngine publishes FeedbackRequestEvent(Navigation) after each move.

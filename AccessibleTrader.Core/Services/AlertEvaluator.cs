@@ -218,7 +218,16 @@ namespace AccessibleTrader.Core.Services
         private bool EvaluatePattern(AlertDefinition alert, Ohlcv current, Ohlcv previous, WorkspaceState state)
         {
             if (alert.Pattern == null) return false;
-            var analysis = _patternAnalyzer.Analyze(current, previous, null);
+
+            // twoBarsAgo used to be passed as null here, which meant the four THREE-bar patterns —
+            // morning star, evening star, three white soldiers, three black crows — could never be
+            // detected on this path. An alert configured for any of them was silently dead: it
+            // saved, it listed, it never fired. They are public API on AlertDefinition, so the UI
+            // offering them was never the thing that made them reachable.
+            var data = state.Data;
+            Ohlcv? twoBarsAgo = (data != null && data.Count >= 3) ? data[^3] : (Ohlcv?)null;
+
+            var analysis = _patternAnalyzer.Analyze(current, previous, twoBarsAgo, data);
             return analysis.Pattern == alert.Pattern;
         }
 

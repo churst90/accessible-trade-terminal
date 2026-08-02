@@ -93,6 +93,17 @@ namespace AccessibleTrader.Sdk.Models
         string SpeechOrder,
         bool AnnounceNewBars,
         /// <summary>
+        /// Speak classical chart formations (double top, head and shoulders, triangles,
+        /// flags) when navigation lands inside one, both while they are still FORMING — with
+        /// the level that would confirm them — and once completed.
+        /// <para>
+        /// Default FALSE. It adds narration to an action the user performs constantly, and
+        /// the standing convention here is that continuous speech is opted into rather than
+        /// imposed. Mirrors <c>AppSettings.DescribeChartPatterns</c>.
+        /// </para>
+        /// </summary>
+        bool DescribeChartPatterns,
+        /// <summary>
         /// Number of empty future-space slots reserved on the right of the viewport.
         /// The last real bar always lands at slot (ViewportLength - RightMarginBars - 1).
         /// Allows trendlines and drawings to project into future space. Default: 10 bars
@@ -216,6 +227,7 @@ namespace AccessibleTrader.Sdk.Models
             ReadColumnHeaders: true,
             SpeechOrder: "HeaderValue",
             AnnounceNewBars: true,
+            DescribeChartPatterns: false,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

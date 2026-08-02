@@ -352,6 +352,10 @@ namespace AccessibleTrader.WebHost
             // Respect analysis — see the MAUI head's registration block for the rationale.
             services.AddScoped<ILevelRespectAnalyzer, LevelRespectAnalyzer>();
             services.AddScoped<IMaRespectRanker, MaRespectRanker>();
+
+            // Chart-pattern description — see the MAUI head's registration block for the rationale.
+            services.AddScoped<ISwingStructureAnalyzer, SwingStructureAnalyzer>();
+            services.AddScoped<IChartPatternDetector, ChartPatternDetector>();
             services.AddScoped<ILevelProvenanceService, LevelProvenanceService>();
             services.AddScoped<IReplayService, ReplayService>();
             services.AddScoped<ISplitViewCoordinator, SplitViewCoordinator>();
