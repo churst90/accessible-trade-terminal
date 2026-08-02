@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-02.1",
+  "registryVersion": "2026-08-02.2",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
@@ -1343,6 +1343,124 @@
       "reMeasure": {
         "command": "ladder",
         "implemented": true
+      }
+    },
+    {
+      "id": "moc-imbalance-pressure",
+      "title": "Market-on-close imbalance moves the index into the closing print",
+      "claim": "The notional dollar imbalance of market-on-close orders predicts the index's move into the closing auction, with roughly $400 million of net imbalance being the threshold that starts to move the S&P.",
+      "family": "microstructure",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 1,
+        "timeframe": "intraday",
+        "notes": "HIS ACTUAL EDGE, and the first claim in this series that is STRUCTURAL rather than pattern-based: a floor seat shows him the closing-bell order flow at 14:00 ET while the public sees it at 15:50. That specific advantage is information LATENCY and is not replicable by us at any price. What IS testable is the weaker public version: does the imbalance published at 15:50 predict the 15:50-to-close move, or the next open? BLOCKED ON DATA -- MOC imbalance is a paid exchange feed, not available free. Note also that the mechanism is well documented in the microstructure literature, so a positive result here would be replication rather than discovery, and the question is whether anything survives at the public dissemination time."
+      },
+      "effect": {
+        "measure": "index-move-per-$400m-notional-imbalance",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=I6OnphhSKMA",
+        "capturedOn": "2026-08-02",
+        "quote": "for every $400 million there is notional dollar value to buy or sell it will affect and move the market ... at 2:00 in the afternoon my handheld computer populates with all the orders for the closing bell ... at 3:50 this information goes out to the public"
+      },
+      "reMeasure": {
+        "command": "moc-imbalance (to build; needs a paid exchange feed)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "late-session-drift",
+      "title": "The 15:00 and 15:30 moves are worth following rather than fading",
+      "claim": "US equity indices make a directional move around 15:00 and 15:30 ET, and being on the same side of that move outperforms fading it.",
+      "family": "seasonality",
+      "scope": {
+        "assetClasses": [
+          "equities"
+        ],
+        "horizonBars": 1,
+        "timeframe": "5m",
+        "notes": "The one part of his floor knowledge he offered to retail, and it has a stated mechanism -- the closing-bell order flow populating on brokers' handhelds at 14:00 and updating through the afternoon, so the late-session move is the market absorbing imbalance information. TESTABLE WITH FREE DATA once we have US equity intraday bars; currently BLOCKED -- no Alpaca key on disk and no intraday equity snapshots. Controls needed: compare the 15:00-16:00 window's drift and its follow-through against every other hour of the session, because 'the market moves at 3pm' is true of every hour if you do not compare."
+      },
+      "effect": {
+        "measure": "follow-through-of-the-1500-and-1530-move-vs-other-hours",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "moc-imbalance-pressure",
+          "note": "same proposed mechanism -- this is the retail-observable shadow of the imbalance flow",
+          "correlation": null
+        }
+      ],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=I6OnphhSKMA",
+        "capturedOn": "2026-08-02",
+        "quote": "at 3:00 and at 3:30 usually the market make a big move ... your retail audience should know that you should rather be on the same side of the move that the market does at 3 and 330 rather than trying to be counterintuitive"
+      },
+      "reMeasure": {
+        "command": "late-session (to build; needs US equity intraday)",
+        "implemented": false
+      }
+    },
+    {
+      "id": "regime-labels-shortened-post-covid",
+      "title": "Market regimes now flip too fast for the traditional labels to mean anything",
+      "claim": "Since 2020 the persistence of trend and volatility regimes has shortened enough that terms like bull market, bear market and recession no longer describe distinguishable states.",
+      "family": "regime",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "TESTABLE NOW with snapshots already on disk, and the most interesting claim in the interview because it is falsifiable and nobody usually bothers. Measure the run-length distribution of a fixed regime label (above/below the 200-day, or a variance-ratio sign) pre-2020 versus post-2020, across the same instruments. His anecdote -- down 1,400 points at 11am and 'in a bull market' by 2pm -- is a claim about the PRESS's use of the words, so the test must use a mechanical label, not a journalist's. Watch the obvious confound: post-2020 is a shorter window with one enormous volatility event in it, so era slicing must be balanced by length rather than by calendar."
+      },
+      "effect": {
+        "measure": "median-regime-run-length-pre-vs-post-2020",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [],
+      "source": "",
+      "origin": {
+        "kind": "video",
+        "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
+        "url": "https://www.youtube.com/watch?v=I6OnphhSKMA",
+        "capturedOn": "2026-08-02",
+        "quote": "you cannot use a term like a bull market and a bare market ... when in January we were down 1400 points at 11:00 a.m. and the press was talking about oh my God we are now in a bare market ... and then the market reversed and by 2 o'clock in the afternoon we were actually in a bull market ... when you have something that historically used to take generations now happening over lunch, you need to re-evaluate these things"
+      },
+      "reMeasure": {
+        "command": "regime-persistence (to build)",
+        "implemented": false
       }
     }
   ]
