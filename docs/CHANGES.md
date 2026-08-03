@@ -4,7 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [2.2.0] — 2026-08-03
+
+### Fixes from the first hands-on pass (2026-08-03)
+
+Four defects, all found by using the terminal rather than by testing it. Version bumped to **2.2.0**.
+
+- **A formation's edge is now named by the bar, not by the direction you arrived from.** Arrowing
+  *left* across a formation's opening bar announced *"End of…"* — naming the wrong end of the shape
+  at exactly the moment you were trying to find its beginning. The first knowable bar now says
+  "Start of" whichever way you crossed it, and the resolution bar says "End of" whichever way you
+  crossed it. It was invisible to every test because the old method took the direction as an
+  argument, so a test could only confirm the mapping it had been handed.
+- **`FeedbackType.Boundary` was silently discarding its own message, at ten call sites.** Among them
+  *"No more [component] signals in this direction"* — which `SHORTCUTS.md` documents as spoken and
+  which had never spoken since the day it was written — plus *"Focused trendline has no anchors"* and
+  *"Focused trendline anchors are off-chart"*. Every one of them explains why a key the user just
+  pressed did nothing, which is the single case where silence is indistinguishable from a broken
+  binding. A bare boundary (the viewport edge) is still earcon-only, deliberately.
+- **`,` and `.` moved the cursor with formation description switched off**, then said nothing —
+  because the announcement that would explain the jump is exactly what the setting disables. They
+  now decline and say so.
+- **Heikin-Ashi is disclosed.** Formations are detected on standard candles even while HA is
+  displayed, because an HA close is an average of four prices rather than one anything traded at, and
+  the trigger and target are numbers a user might put into an order. Switching HA on with description
+  enabled now says: *"Heikin-Ashi candles. Chart formations are still read from standard candles."*
 
 ### The chart describes its own shapes, and says what price actually did (2026-08-02)
 

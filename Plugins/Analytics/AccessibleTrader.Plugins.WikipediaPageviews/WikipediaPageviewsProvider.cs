@@ -92,7 +92,7 @@ namespace AccessibleTrader.Plugins.WikipediaPageviews
             // Wikimedia's REST policy asks anonymous clients to identify themselves and throttles
             // those that do not. A generic agent string is the difference between a working provider
             // and intermittent 429s that would surface as an empty chart.
-            userAgent: "AccessibleTrader/2.1 (accessible-trade-terminal; contact via repository)");
+            userAgent: "AccessibleTrader/2.2 (accessible-trade-terminal; contact via repository)");
 
         private readonly RateLimiter _rateLimiter = new(100, TimeSpan.FromMinutes(1));
 

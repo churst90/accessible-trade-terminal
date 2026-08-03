@@ -160,11 +160,35 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// no way by ear to tell which way through the pattern you were travelling.
         /// </para>
         /// </summary>
-        public static string DescribeEntry(ChartPattern p, bool movingRight, Func<double, string> formatPrice)
+        public static string DescribeEntry(ChartPattern p, int barIndex, Func<double, string> formatPrice)
         {
-            string edge = movingRight ? "Start of" : "End of";
             int span = Math.Max(1, p.EndBarIndex - p.StartBarIndex);
-            return $"{edge} {Lowercase(Describe(p, formatPrice))} Spans {span} bars.";
+            return $"{EdgeWord(p, barIndex)} {Lowercase(Describe(p, formatPrice))} Spans {span} bars.";
+        }
+
+        /// <summary>
+        /// Which edge of the formation the cursor is standing on.
+        ///
+        /// <para>
+        /// <b>The edge is a property of the BAR, not of the direction you arrived from.</b> The
+        /// first version derived it from travel direction — moving right said "Start of", moving
+        /// left said "End of" — which is correct only when you happen to be walking into a
+        /// formation from outside it. Arrow LEFT across a formation's opening bar and it announced
+        /// "End of", naming the wrong end of the shape at the exact moment the user was trying to
+        /// locate its beginning. Reported from live use.
+        /// </para>
+        ///
+        /// <para>
+        /// The rule is now positional and direction-independent: the first knowable bar is the
+        /// start whichever way you crossed it, the resolution bar is the end whichever way you
+        /// crossed it, and a bar in between is neither.
+        /// </para>
+        /// </summary>
+        private static string EdgeWord(ChartPattern p, int barIndex)
+        {
+            if (barIndex <= p.KnownAtIndex) return "Start of";
+            if (barIndex >= p.ResolvesAt) return "End of";
+            return "Inside";
         }
 
         /// <summary>

@@ -409,12 +409,12 @@ namespace AccessibleTrader.BlazorClient
                 AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
                     "AssetDossier.Crypto",
                     new[] { "api.coingecko.com", "api.github.com" },
-                    userAgent: "AccessibleTrader/2.1 (accessible-trade-terminal)")));
+                    userAgent: "AccessibleTrader/2.2 (accessible-trade-terminal)")));
             services.AddSingleton<ICompanyProfileSource>(_ => new EdgarCompanyProfileSource(
                 AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
                     "AssetDossier.Company",
                     new[] { "data.sec.gov", "www.sec.gov" },
-                    userAgent: "AccessibleTrader/2.1 (codythurst@gmail.com)")));
+                    userAgent: "AccessibleTrader/2.2 (codythurst@gmail.com)")));
             services.AddSingleton<IAssetDossierService, AssetDossierService>();
             services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
             services.AddSingleton<IReplayService, ReplayService>();

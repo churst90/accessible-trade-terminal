@@ -87,7 +87,7 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 | Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
 | No focus / unknown | Next trendline crossing (fallback) |
 
-When no further event exists in the scan direction, speech announces: "No more [component name] signals in this direction."
+When no further event exists in the scan direction, speech announces: "No more [component name] signals in this direction." (This was silent until 2026-08-03 — boundary feedback carried the message but only played an earcon.)
 
 ---
 
@@ -101,6 +101,10 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 |-----|--------|
 | `,` | Previous formation edge |
 | `.` | Next formation edge |
+
+They require formation description to be on (Settings → *Describe chart patterns*). With it off they
+say so rather than moving you across the chart without explaining why — the announcement that would
+explain the jump is exactly what the setting disables.
 
 **The stops are edges, not formations.** Each one contributes two: the bar its structure first
 became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.
@@ -120,17 +124,19 @@ formation speaks twice over its whole life, not once per bar.
 
 | When | Example |
 |------|---------|
-| Crossing in, moving right | "Start of possible double top forming, neckline 42,100, measured target 39,400 if it breaks. Spans 22 bars." |
-| Crossing in, moving left | "End of double top: price closed below the neckline at 42,100, measured target 39,400. Spans 22 bars." |
+| The formation's first bar | "Start of possible double top forming, neckline 42,100, measured target 39,400 if it breaks. Spans 22 bars." |
+| Its resolution bar | "End of double top: price closed below the neckline at 42,100, measured target 39,400. Spans 22 bars." |
 | The bar it confirmed | "Double top confirmed here: closed below the neckline at 42,100, measured target 39,400." |
 | The bar it aged out | "Double top ends here without confirming — the neckline at 42,100 held." |
 | Overlapping formations | "…Plus 2 more formations here." (`Alt+Shift+D` reads them all) |
 
 Three properties are worth knowing, because each is a deliberate choice:
 
-- **The edge you crossed is named.** A formation is a region, not a point. Moving forward you meet
-  its structure first and its outcome later; moving backward you meet the outcome first. Without
-  the edge word the two are indistinguishable by ear.
+- **The edge is named, and it describes the BAR rather than your direction of travel.** A
+  formation's first bar says "Start of" whether you arrowed onto it going left or right; its last
+  bar says "End of" either way. If the word changed with direction, the same bar would describe
+  itself differently depending on how you reached it, and no picture of the chart could be built by
+  moving around in it.
 - **An outcome is stated as what price did, never as a verdict.** The word "completed" is never
   spoken: it could not tell you whether the pattern worked or failed, and it never meant either —
   only that price closed through a line. So the narration names the side and the level instead.

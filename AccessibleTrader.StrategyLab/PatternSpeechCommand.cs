@@ -110,7 +110,7 @@ internal static class PatternSpeechCommand
                 if (samples.Count < 3)
                 {
                     if (entered.Count > 0)
-                        samples.Add(ChartPatternNarrator.DescribeEntry(entered[0], true, Fmt));
+                        samples.Add(ChartPatternNarrator.DescribeEntry(entered[0], i, Fmt));
                     else
                         samples.Add(ChartPatternNarrator.DescribeResolution(resolved[0], Fmt));
                 }

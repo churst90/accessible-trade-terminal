@@ -1,6 +1,6 @@
 # What's New
 
-## Unreleased — the chart describes its own shapes
+## 2.2.0 — the chart describes its own shapes
 
 - **The terminal can now name chart formations as you move through them.** Turn on
   *Settings → Describe chart patterns*. Twelve shapes — double top and bottom, head and
@@ -36,6 +36,20 @@
   be verified" is the most useful sentence on the screen.
 - **Fixed: the dossier's Speak summary button did nothing.** It was calling a function that
   did not exist, and the failure was being swallowed.
+- **Fixed: arrowing left into a formation said "End of" when you were at its start.** The
+  edge word now describes the bar you are on, not the direction you came from — so a
+  formation's first bar always says "Start of" and its last always says "End of", whichever
+  way you reached them.
+- **Fixed: several keys explained themselves to nobody.** "No more signals in this
+  direction", "Focused trendline has no anchors" and a handful of others were being
+  produced and then thrown away before anything spoke them. Ten messages in total, some of
+  which had never been heard since the day they were written.
+- **Fixed: comma and period jumped you around the chart with pattern description turned
+  off**, without saying why. They now tell you to turn the setting on.
+- **Heikin-Ashi now says what it does not change.** Formations are read from standard
+  candles even when Heikin-Ashi is displayed, because a Heikin-Ashi price is an average
+  rather than something that traded — and a level you might put in an order has to be real.
+  Switching it on now tells you.
 
 ## Unreleased — the app stops recommending strategies
 

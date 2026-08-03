@@ -47,6 +47,21 @@ namespace AccessibleTrader.Core.Services.Analysis
             var data = state.Data;
             if (data == null || data.Count == 0) return;
 
+            // ── Refuse rather than move silently ────────────────────────────────
+            //
+            // These keys used to work with formation description switched off: the cursor jumped to
+            // the right bar and then said nothing about why, because the announcement that would
+            // have explained the jump is the thing the setting disables. Being teleported across a
+            // chart with no explanation is worse than the key doing nothing — the user cannot tell
+            // whether it worked, and has lost their place either way.
+            if (!state.DescribeChartPatterns)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Boundary,
+                    "Chart formation description is off. Turn it on in Settings to use these keys."));
+                return;
+            }
+
             var all = _patterns.For(data);
             if (all.Count == 0)
             {

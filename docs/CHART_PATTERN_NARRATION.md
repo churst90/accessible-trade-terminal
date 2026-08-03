@@ -3,7 +3,7 @@
 How the terminal describes double tops, head and shoulders, triangles, wedges and flags by ear —
 and, more importantly, what it refuses to say about them.
 
-Revised 2026-08-02 after live use. Suite 2743 green. Narration density measured on 22 real snapshots
+Revised 2026-08-03 after live use. Suite 2787 green. Narration density measured on 22 real snapshots
 with `StrategyLab pattern-speech`.
 
 ---
@@ -36,14 +36,23 @@ something.
 A formation is a **region**, not a point. The announcement is **edge-triggered** — twice over a
 pattern's whole life, not once per bar:
 
-- **Crossing in, moving right** → "*Start of* possible double top forming…"
-- **Crossing in, moving left** → "*End of* double top: price closed below…"
-- **The resolution bar** → "Double top confirmed here…" / "…ends here without confirming."
+- **The first knowable bar** → "*Start of* possible double top forming…"
+- **The resolution bar** → "*End of* double top: price closed below…" / "confirmed here…" / "…ends
+  here without confirming."
 - **Everything in between** → silence.
 
-The edge word is the point. Moving forward in time you meet the structure first and its outcome
-later; moving backward you meet the outcome first. Without naming the edge, both sound identical and
-there is no way by ear to tell which way through the formation you are travelling.
+**The edge word is a property of the BAR, not of the direction you arrived from.** The first version
+derived it from travel direction — right meant "Start of", left meant "End of" — which is correct
+only when walking into a formation from outside it. Arrowing LEFT across a formation's opening bar
+announced "End of", naming the wrong end of the shape at the exact moment the user was trying to
+find its beginning. Reported from live use, and invisible to every test because the old signature
+took the direction as an argument, so a test could only confirm the mapping it had been handed.
+
+The rule is now positional: the first knowable bar is the start whichever way you crossed it, the
+resolution bar is the end whichever way you crossed it, a bar between them is neither. That is the
+only arrangement in which the readout is a reliable map — if a bar described itself differently
+depending on how the cursor reached it, no picture of the chart could be built by moving around in
+it.
 
 The first implementation instead described whatever overlapped the current bar and suppressed
 repeats. That sounds equivalent and is not: as the overlapping set churned bar by bar — a flag
@@ -237,6 +246,51 @@ pattern on every bar, which nothing in the product does.
   "jump to the next candle pattern" would usually mean "move one bar right" — a key that does
   nothing the right arrow does not, while consuming a binding. Candle patterns are read on the bar
   you are standing on, which is the right place for something that common.
+
+---
+
+## Heikin-Ashi: detection stays on standard candles
+
+The chart can display Heikin-Ashi, and when it does the spoken open/high/low/close **are**
+Heikin-Ashi values. **Formation detection is not** — it always runs on standard candles, and the
+terminal says so when HA is switched on with description enabled:
+
+> "Heikin-Ashi candles. Chart formations are still read from standard candles."
+
+Two reasons, and the first is the decisive one:
+
+- **A Heikin-Ashi close is an average of four prices, not a price anything traded at.** The trigger
+  and the measured target are the numbers a user might put into an order ticket. A level derived
+  from a synthetic average cannot be one of those.
+- **HA smooths away the wicks that define the shapes.** A double top's two peaks are wick highs.
+  Detecting on HA would find shapes that do not exist in the market and miss ones that do.
+
+The alternative — detecting on whatever is displayed — is what charting platforms generally do with
+indicators, and it is exactly why those platforms warn against backtesting strategies on Heikin-Ashi:
+the fills are not real. Disclosure is the honest resolution here; recomputing on HA would produce
+levels that read as prices and are not.
+
+---
+
+## The announcement rate is an output, not a dial
+
+**Roughly 5 formations per 100 bars, and 8–9% of bars carry an announcement**, holding steady from
+1-hour to weekly. Nothing exposed to the user changes it, and nothing should: it is what the
+detector finds, and the ATR-relative tolerances are what keep it stable across instruments and
+timeframes.
+
+It is re-measured after every change to the feature because both real defects found so far were
+properties of a *rate* rather than of any single sentence — one version announced each formation on
+exactly one bar and never again, and every unit test still passed.
+
+The knobs exist (`ChartPatternOptions`: `Span`, `ToleranceAtr`, `MinPatternBars`, `MaxPatternBars`,
+`MinSwingAtr`) and are deliberately not surfaced. A sensitivity slider would let a user tune the
+density, and would also let them tune the detector into agreeing with whatever they already believed
+about the chart — which is the one thing a descriptive feature must not offer.
+
+**Nested formations are correct output.** A large inverse head and shoulders containing two
+ascending triangles is the same relationship a paragraph has to its sentences. The ranking exists to
+name the larger shape first, not to suppress the smaller ones.
 
 ---
 

@@ -984,18 +984,24 @@ you.
 A formation is a stretch of chart, not a single bar, and the announcement tells you which
 edge you just crossed:
 
-- Arrowing **right** into one: "**Start of** possible double top forming… Spans 22 bars."
-  You are at the left edge, the outcome has not happened, and the neckline is the number
-  to remember.
-- Arrowing **left** into one: "**End of** double top: price closed below the neckline…"
-  You are at the right edge, walking backwards into a shape that is already resolved.
-- On the bar where it resolved: "Double top **confirmed here**…" or "…**ends here** without
-  confirming."
+- On its **first bar**: "**Start of** possible double top forming… Spans 22 bars." The
+  outcome has not happened yet, and the neckline is the number to remember.
+- On the bar where it **resolved**: "**End of** double top: price closed below the
+  neckline…", or when reached going forward, "Double top **confirmed here**…" / "…**ends
+  here** without confirming."
 - Between those points: **silence.** It has already been described and nothing has changed.
+
+**The edge word describes the bar, not the direction you came from.** A formation's first
+bar says "Start of" whether you arrowed onto it going left or right, and its last bar says
+"End of" either way. That is the only arrangement in which the readout is a reliable map:
+if the word changed with your direction of travel, the same bar would describe itself
+differently depending on how you got there, and you could not build a picture of the chart
+by moving around in it.
 
 Press **`,`** and **`.`** to jump between formation edges — the start of each shape and the
 bar its story ended. Two keys walk you through every formation on the chart in the order
-they happened.
+they happened. They only work while formation description is on; with it off they say so
+rather than moving you somewhere without explaining why.
 
 Press **Alt+Shift+D** on any bar for the full list, including every overlapping formation
 with its own levels. If nothing is live where you are standing, it tells you what finished
@@ -1110,6 +1116,39 @@ flags.
 Detection runs once when a chart loads and is then cached, so it costs nothing as you
 navigate. On a 5,400-bar daily chart it takes about 20 milliseconds; on 328,000 intraday
 bars, about two seconds.
+
+#### Heikin-Ashi
+
+**Formations are always read from standard candles, even while Heikin-Ashi is displayed** —
+and the terminal tells you so when you switch HA on with formation description enabled.
+
+The reason is the levels. A Heikin-Ashi close is an average of four prices, not a price
+anything ever traded at, so a neckline measured from one cannot be put into an order. The
+trigger and the measured target are exactly the numbers you might act on, so they are taken
+from real prices. Heikin-Ashi also smooths away the wicks that define a double top's two
+peaks, which means shapes that exist on an HA chart may not exist in the market and vice
+versa.
+
+The practical consequence: with HA on, your spoken open/high/low/close **are** Heikin-Ashi
+values, but the formation levels beside them are not. Use HA to hear trend more clearly;
+trust the formation levels as real prices.
+
+#### How many formations to expect
+
+Roughly **5 formations per 100 bars**, and about **8–9% of bars** carry an announcement —
+one every twelve bars or so. That holds steady across 1-hour, 4-hour, daily, 2-day and
+weekly charts, because the detector measures everything in ATR.
+
+That rate is an *output*, not a dial: it is what the detector happens to find, and nothing
+you can set changes how the shapes are identified. It is measured after every change to the
+feature, because both real defects found in it so far were properties of a rate rather than
+of any single sentence — one version announced each formation on exactly one bar and never
+again, and every unit test still passed.
+
+**Nested formations are normal, not a fault.** A large inverse head and shoulders can
+genuinely contain two ascending triangles, in the same way a paragraph contains sentences.
+The larger shape is what the chart is making; the smaller ones are detail inside it. That is
+why the readout ranks by size and describes the biggest live one first.
 
 ### Value zones
 

@@ -125,7 +125,7 @@ public static class UniverseRecorderCommand
         }
 
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-        http.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/2.1 (accessible-trade-terminal)");
+        http.DefaultRequestHeaders.Add("User-Agent", "AccessibleTrader/2.2 (accessible-trade-terminal)");
 
         var rows = new List<Row>();
         for (int page = 1; page <= pages; page++)

@@ -115,7 +115,7 @@ namespace AccessibleTrader.Plugins.SecEdgar
         /// product tokens and parenthesised comments. Putting the address in a COMMENT satisfies both
         /// the parser and the SEC; verified 2026-08-02 that the parenthesised form returns 200.
         /// </summary>
-        internal static string UserAgentFor(string contact) => $"AccessibleTrader/2.1 ({contact})";
+        internal static string UserAgentFor(string contact) => $"AccessibleTrader/2.2 ({contact})";
 
         // The SEC's published ceiling is 10/sec. Sitting at 8 leaves headroom for the ticker-map
         // fetch that piggybacks on the same limiter.

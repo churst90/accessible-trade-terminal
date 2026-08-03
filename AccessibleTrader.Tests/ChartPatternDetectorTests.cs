@@ -383,20 +383,47 @@ public class ChartPatternDetectorTests
     /// was crossed the two are indistinguishable by ear.
     /// </summary>
     [Fact]
-    public void EntryNamesTheEdgeYouCrossedAndTheSpan()
+    public void EntryNamesTheEdgeYouAreOnAndTheSpan()
+    {
+        // Knowable at 45, expires at 75 → start bar 45, end bar 75.
+        var p = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today, ExpiresAtIndex: 75);
+
+        Assert.StartsWith("Start of ", ChartPatternNarrator.DescribeEntry(p, 45, Fmt));
+        Assert.StartsWith("End of ", ChartPatternNarrator.DescribeEntry(p, 75, Fmt));
+        Assert.Contains("Spans 30 bars", ChartPatternNarrator.DescribeEntry(p, 45, Fmt));
+        // The levels survive the prefix — an entry announcement that dropped them would be trivia.
+        Assert.Contains("42100", ChartPatternNarrator.DescribeEntry(p, 45, Fmt));
+        Assert.Contains("42100", ChartPatternNarrator.DescribeEntry(p, 75, Fmt));
+    }
+
+    /// <summary>
+    /// <b>The edge is a property of the BAR, not of the direction you arrived from.</b>
+    ///
+    /// <para>
+    /// The first version derived the word from travel direction — moving right said "Start of",
+    /// moving left said "End of" — which is right only when walking into a formation from outside
+    /// it. Arrowing LEFT across a formation's opening bar announced "End of", naming the wrong end
+    /// of the shape at the exact moment the user was trying to find its beginning. Reported from
+    /// live use, and invisible to every test because the old signature took the direction as an
+    /// argument, so the tests could only ever confirm the mapping they had been told.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheEdgeWordDoesNotDependOnTheDirectionOfTravel()
     {
         var p = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
-            10, 40, 45, 42100, DateTime.Today, DateTime.Today);
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today, ExpiresAtIndex: 75);
 
-        string right = ChartPatternNarrator.DescribeEntry(p, movingRight: true, Fmt);
-        string left  = ChartPatternNarrator.DescribeEntry(p, movingRight: false, Fmt);
+        // There is only one answer per bar, whichever way the cursor got there.
+        Assert.StartsWith("Start of ", ChartPatternNarrator.DescribeEntry(p, 45, Fmt));
+        Assert.StartsWith("End of ", ChartPatternNarrator.DescribeEntry(p, 75, Fmt));
 
-        Assert.StartsWith("Start of ", right);
-        Assert.StartsWith("End of ", left);
-        Assert.Contains("Spans 30 bars", right);
-        // The levels survive the prefix — an entry announcement that dropped them would be trivia.
-        Assert.Contains("42100", right);
-        Assert.Contains("42100", left);
+        // And a bar in the middle is neither end.
+        string middle = ChartPatternNarrator.DescribeEntry(p, 60, Fmt);
+        Assert.StartsWith("Inside ", middle);
+        Assert.DoesNotContain("Start of", middle);
+        Assert.DoesNotContain("End of", middle);
     }
 
     /// <summary>

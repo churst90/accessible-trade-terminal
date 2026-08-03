@@ -203,7 +203,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _speechRouter.Speak(state.IsEarconsEnabled ? "Earcons on" : "Earcons muted",
                     interrupt: true, channel: SpeechChannel.Critical);
             if (state.IsHeikinAshi != _previousState.IsHeikinAshi)
-                _speechRouter.Speak(state.IsHeikinAshi ? "Heikin-Ashi candles" : "Standard candles", interrupt: true);
+            {
+                // The caveat is spoken only when it applies — Heikin-Ashi going ON with formation
+                // description already enabled. Otherwise it is noise about a feature the user is
+                // not using.
+                //
+                // Formations are detected on STANDARD candles regardless of what is displayed, and
+                // the user has to be told, because their spoken bar values ARE Heikin-Ashi. Without
+                // this line the terminal reads HA opens and closes and then names a neckline that
+                // exists in neither of the numbers it just read. The reason for the split is that a
+                // Heikin-Ashi close is an average of four prices, not a price anything ever traded
+                // at — so a level derived from one cannot be put in an order, and the trigger and
+                // measured target are exactly the numbers a user might act on.
+                string msg = state.IsHeikinAshi
+                    ? (state.DescribeChartPatterns
+                        ? "Heikin-Ashi candles. Chart formations are still read from standard candles."
+                        : "Heikin-Ashi candles")
+                    : "Standard candles";
+                _speechRouter.Speak(msg, interrupt: true);
+            }
             if (state.IsLogScale != _previousState.IsLogScale)
                 _speechRouter.Speak(state.IsLogScale ? "Log scale" : "Linear scale", interrupt: true);
 
@@ -489,8 +507,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     break;
 
                 case FeedbackType.Boundary:
-                    // Earcon only — no spoken phrase at viewport boundaries per user preference.
+                    // Earcon always. A bare boundary — the viewport edge — is earcon ONLY, per user
+                    // preference: hitting the end of the chart is a routine event that does not need
+                    // a sentence every time.
+                    //
+                    // But a boundary carrying a MESSAGE is a different thing, and its message used
+                    // to be discarded here. Ten call sites passed one and none of them was ever
+                    // heard: "No more [component] signals in this direction", "Focused trendline has
+                    // no anchors", "Focused trendline anchors are off-chart", "No chart formations
+                    // on this chart". SHORTCUTS.md documents the first of those as spoken, and it
+                    // has never spoken. Each of them explains why a key the user just pressed did
+                    // nothing, which is precisely the case where silence is indistinguishable from a
+                    // broken binding — the exact failure the feedback contract forbids.
                     _audioRouter.PlayEarcon(FeedbackType.Boundary);
+                    if (!string.IsNullOrEmpty(e.Message))
+                        _speechRouter.Speak(e.Message, interrupt: true);
                     break;
 
                 case FeedbackType.Info:
@@ -595,7 +626,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
                 if (landedOnStart != null)
-                    return ChartPatternNarrator.DescribeEntry(landedOnStart, true, SpeechPriceFormatter.FormatPrice)
+                    return ChartPatternNarrator.DescribeEntry(landedOnStart, idx, SpeechPriceFormatter.FormatPrice)
                          + OverlapNote(here.Count);
 
                 var landedOnEnd = here.FirstOrDefault(p => p.ResolvesAt == idx);
@@ -635,7 +666,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 here.Where(p => !beforeKeys.Contains(p.Key) || p.KnownAtIndex == idx)).ToList();
             if (entered.Count > 0)
             {
-                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], movingRight, SpeechPriceFormatter.FormatPrice));
+                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], idx, SpeechPriceFormatter.FormatPrice));
                 if (entered.Count > 1) parts.Add(OverlapNote(entered.Count).TrimStart());
             }
 
