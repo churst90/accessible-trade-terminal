@@ -48,13 +48,33 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// The preferences that survive a restart.
+        ///
+        /// <para>
+        /// <b>Adding a preference means touching four places</b> — this record, <see cref="FromState"/>,
+        /// the seed dispatch, and the write-back — and nothing about the compiler makes you. That is
+        /// how <c>DescribeChartPatterns</c> shipped-wired: the settings dialog put it in the store,
+        /// so it worked perfectly all session, and it was silently dropped on exit because it never
+        /// reached the file. The user's report was "I have to turn it on every time I open the app".
+        /// </para>
+        ///
+        /// <para>
+        /// <c>PreferenceRoundTripTests</c> now reflects over the properties that exist on BOTH
+        /// <see cref="WorkspaceState"/> and <see cref="IAppSettings"/> and fails if any of them does
+        /// not survive a save-and-reload, so the next omission is caught by the build rather than by
+        /// a user noticing their setting reset.
+        /// </para>
+        /// </summary>
         private record struct Prefs(
             bool SpeakTimestamps, string TimestampReadLocation, bool ReadColumnHeaders,
-            string SpeechOrder, bool AnnounceNewBars, int WasapiLatency, int PanningGranularity);
+            string SpeechOrder, bool AnnounceNewBars, int WasapiLatency, int PanningGranularity,
+            bool DescribeChartPatterns);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
-            s.SpeechOrder, s.AnnounceNewBars, s.WasapiLatency, s.PanningGranularity);
+            s.SpeechOrder, s.AnnounceNewBars, s.WasapiLatency, s.PanningGranularity,
+            s.DescribeChartPatterns);
 
         public void Initialize()
         {
@@ -73,6 +93,7 @@ namespace AccessibleTrader.Core.Services
                     AnnounceNewBars = _settings.AnnounceNewBars,
                     WasapiLatency = _settings.WasapiLatency,
                     PanningGranularity = _settings.PanningGranularity,
+                    DescribeChartPatterns = _settings.DescribeChartPatterns,
                 }));
             }
             catch (Exception ex)
@@ -98,6 +119,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.AnnounceNewBars = p.AnnounceNewBars;
                         _settings.WasapiLatency = p.WasapiLatency;
                         _settings.PanningGranularity = p.PanningGranularity;
+                        _settings.DescribeChartPatterns = p.DescribeChartPatterns;
                         _settings.Save();
                     }
                     catch (Exception ex)
