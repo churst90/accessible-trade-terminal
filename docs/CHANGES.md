@@ -6,6 +6,99 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The chart describes its own shapes, and says what price actually did (2026-08-02)
+
+**What a user will notice:** an opt-in setting, **Settings → Describe chart patterns**, that names
+the multi-bar shapes a sighted trader reads in one glance — double tops, head and shoulders,
+triangles, wedges, flags and ranges — as you arrow through the chart. Off by default, because it is
+extra narration on an action you perform constantly.
+
+- **Twelve formations, with both mirrors of every reversal.** Double top and bottom, head and
+  shoulders and its inverse, ascending / descending / symmetrical triangles, rising and falling
+  wedges, bull and bear flags, and the horizontal **range** — which is the most common state a
+  market is in and was the one shape the detector could not name, because flat-against-flat fell
+  through a grid that only handled sloping combinations.
+- **Three outcomes, and the word "completed" is gone.** It could not tell you whether a pattern had
+  worked or failed, and it never meant either — only that price closed through a line. You now hear
+  *"Possible double top forming, neckline 42,100, measured target 39,400 if it breaks"*, then either
+  *"confirmed here: closed **below** the neckline"* or *"ends here without confirming — the neckline
+  **held**"*. Which side, which level, and nothing about what happens next.
+- **Announcements are positional.** A formation is a region, so the edge you crossed is named:
+  *"Start of…"* walking forward, *"End of…"* walking back. It speaks twice over its whole life —
+  crossing in, and at the resolution — not once per bar. A formation's first bar re-announces every
+  time you land on it, in either direction.
+- **`,` and `.`** step between formation edges. Chart-scoped, so they stay typable everywhere else.
+- **`Alt+Shift+D`** now lists every formation at the cursor with its own trigger and target, and when
+  nothing is live it names the most recent one and how it ended.
+- **Overlap is ranked, not hidden.** A region can genuinely be three patterns at once and two traders
+  would disagree; the leader is described and the rest counted — *"plus 2 more formations here."*
+- **Measured targets are spoken**, always as the *measured* target and always conditional on *if it
+  breaks*. They have never been tested here; the wording says so.
+
+**Speech ordering changed for everyone, not just pattern users.** What is *special* about a bar now
+comes before what the bar *is*: formations, then cross-series signals, then the value. Scanning with
+the arrow keys means most bars say the same unremarkable thing and attention moves on before the
+phrase ends, so anything notable has to arrive in the first syllables.
+
+- **Cross-series signals no longer require the candle series to be focused.** Support zones,
+  structure breaks and divergences are context you want wherever you are standing; the old gate made
+  the rest of the chart silent the moment focus left price. New per-indicator opt-out in Properties:
+  *"Announce this indicator's signals while another series has focus"*, on by default.
+- **The "Also:" lead-in is gone** from cross-series signal speech — filler on a phrase heard on most
+  bars.
+
+**Fixed: only one thing was ever spoken per keypress.** When a bar had a formation *and* a signal
+*and* a value, you heard one of them. Not a mute and not a race — on the web head speech is written
+into an ARIA live region, Blazor batches an entire keypress into one render, so the region was
+written three times and only the last value reached the screen reader. Everything true about a bar is
+now composed into a single utterance.
+
+**Fixed: `Alt+I` → Speak summary did nothing.** It called a JavaScript function that does not exist
+anywhere in the project; the error was swallowed and the button was silently dead.
+
+**Candle patterns:** four defects fixed in the analyzer, which had no tests at all. Hammer and
+hanging man were being decided by the previous candle's colour rather than the prior trend, which
+inverted the announcement; three-bar patterns could never fire in alerts.
+
+### The asset dossier — Alt+I (2026-08-02)
+
+A report on whatever is loaded on the active chart, built live when you open it. Tabs are
+**questions, not sources** — Chart read · Identity · Supply and dilution · Development · Disclosure ·
+Checks for crypto; Chart read · Company · Financials · Filing activity · Checks for equities — with
+every field naming its own source. The asset class comes from the market you loaded from, not from
+the ticker.
+
+- **Absence is reported as a finding.** Four states per row — Ok / No data / Not applicable /
+  Unavailable — never merged, because "the source says none" and "the source could not be reached"
+  are different facts. For an unlisted token it says so outright rather than showing a blank panel.
+- **It checks whether anyone is still building.** GitHub is queried directly, with an
+  organisation-level fallback when the listed repositories look stale. Worth knowing why: CoinGecko
+  reports **Kaspa at zero commits in four weeks** because it tracks a superseded repository, while
+  the real one was pushed the same day.
+- **Eleven checks, never summed.** A single number would read as a rating. None of the thresholds has
+  been tested against forward returns and the dossier says so.
+- **New `SecEdgarProvider`** — US company filings, keyless, stamped by filing date rather than period
+  end so it is point-in-time by construction.
+- **New `WikipediaPageviewsProvider`** — retail attention for 33 curated tickers, keyless.
+
+### Research: three forward archives, and a test that refused to conclude (2026-08-02)
+
+Internal to the research lab; no user-facing change.
+
+- **Analyst revision breadth is UNTESTED, not null.** The free data tier yields six usable monthly
+  cross-sections, a minimum detectable effect of **6.47% per month** against a literature effect
+  under 1%. The observed spread reads exactly like a null and is not one. `grades study` now prints
+  the minimum detectable effect and refuses to conclude when it is implausible.
+- **Forward recorders**, because delay costs history that no later work recovers: the daily crypto
+  universe (survivorship), GDELT news attention (the series is normalised, so the vendor can restate
+  it), and the monthly analyst rating mix.
+- **Crypto screener, layer 1** — the deterministic veto. Sorts by flags raised, never by expected
+  return. Kaspa and Bittensor pass clean; a memecoin raises three.
+- **Both recorders shipped with the same bug and it is worth naming:** neither could distinguish
+  *transient failure* from *genuine absence*, so one captured 1 symbol of 21 and reported success.
+  Both now classify failures, back off, and refuse a run that lost too much of the reachable
+  universe.
+
 ### The strategy library ships empty, and strategies now carry their evidence (2026-08-01)
 
 **What an upgrading user will notice:** nothing changes for an existing install — your

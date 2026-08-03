@@ -1,5 +1,42 @@
 # What's New
 
+## Unreleased — the chart describes its own shapes
+
+- **The terminal can now name chart formations as you move through them.** Turn on
+  *Settings → Describe chart patterns*. Twelve shapes — double top and bottom, head and
+  shoulders and its inverse, three kinds of triangle, two wedges, two flags, and the
+  horizontal range. You hear them the way you would read them: *"Start of possible double
+  top forming, neckline 42,100, measured target 39,400 if it breaks. Spans 22 bars."*
+- **You are told which side of the formation you walked in from.** "Start of" going
+  forward, "End of" going back, so you always know where you are inside a shape rather
+  than just that you are inside one.
+- **And you are told what price actually did.** The word "completed" is gone — it could
+  not tell you whether a pattern worked or failed, and it never meant either. Instead you
+  hear *"confirmed here: closed **below** the neckline at 42,100"*, or *"ends here without
+  confirming — the neckline **held**"*. Which side, which level. What it means is yours to
+  decide, and the manual explains how the two readings differ.
+- **Comma and period step between formations.** Two keys walk you through every shape on
+  the chart in the order it happened, landing on the bar each one starts and the bar each
+  one resolves.
+- **When several shapes fit at once, you hear the main one and a count** — *"plus 2 more
+  formations here"*. Traders disagree about these; the terminal is not going to pretend
+  otherwise by silently picking one. `Alt+Shift+D` reads them all.
+- **What is special about a bar is now spoken before the bar's value.** Support zones,
+  structure breaks, formations — they lead, and the routine value follows. When you are
+  scanning quickly, the first few words are what you actually hear.
+- **Indicator signals now follow you around the chart.** Previously a support zone or a
+  break of structure went silent the moment you moved focus off price. Each indicator can
+  opt out in its Properties if its signals only make sense inside its own pane.
+- **Fixed: only one thing was ever spoken per keypress.** If a bar had a formation *and* a
+  signal *and* a value, you heard one of them and never knew the others existed.
+- **New: `Alt+I` opens a dossier on whatever is on your chart.** For a coin: identity,
+  supply and dilution, whether anyone is still committing code, and whether it discloses a
+  whitepaper, source and explorer at all. For a company: filings straight from SEC EDGAR.
+  Where something is missing, it says so — because for a brand-new token, "nothing here can
+  be verified" is the most useful sentence on the screen.
+- **Fixed: the dossier's Speak summary button did nothing.** It was calling a function that
+  did not exist, and the failure was being swallowed.
+
 ## Unreleased — the app stops recommending strategies
 
 - **The strategy library ships empty now.** A fresh install opens the Strategy Manager

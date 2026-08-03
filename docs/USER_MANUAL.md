@@ -32,7 +32,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
 4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, split view, point analysis
-5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, drawing tools, volume profile, heatmap, the object tree
+5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, the asset dossier, drawing tools, volume profile, heatmap, the object tree
 6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
 8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
@@ -1199,6 +1199,96 @@ line with two touches and a 100% hold rate is not a reliable line, it is two
 coincidences, and rows below the threshold are marked "(thin sample)" when you
 untick it. **Re-measure** recomputes after you have loaded more history or
 changed indicators, and **Speak summary** reads the top of the ranking aloud.
+
+### The asset dossier (Alt+I)
+
+**`Alt+I`** — I for Instrument — opens a report on whatever is loaded on the active chart. There is
+no symbol picker inside it, deliberately: a second selection would drift out of sync with the chart
+you are reading, and "the dossier is describing a different asset than the chart" is a bug nobody
+would catch by ear. Choose market, provider and symbol on the toolbar, load the chart, press Alt+I.
+
+Everything is looked up live at the moment you open it. **The asset class comes from the market you
+loaded from, not from the ticker** — "ETH" is a coin on Bitstamp and could be an equity ticker
+elsewhere, and guessing from the symbol would produce a confident report about the wrong kind of
+thing.
+
+The tabs are **questions, not sources**. Tabs labelled "CoinGecko", "GitHub" and "SEC" would push
+the synthesis back onto you — four tabs and four half-answers to hold in your head to decide one
+thing. So you get:
+
+| Crypto | Equities |
+| --- | --- |
+| Chart read · Identity · Supply and dilution · Development · Disclosure · Checks | Chart read · Company · Financials · Filing activity · Checks |
+
+Every individual field still names its own source. The **chart read never needs a network** and is
+always the first tab, so the dossier is useful even with every remote source down.
+
+#### When there is nothing to show
+
+This is the case the feature exists to handle well, so every row carries one of four states and a
+blank row is treated as a defect:
+
+| State | Means |
+| --- | --- |
+| **Ok** | a real value |
+| **No data** | the source answered and the answer is "none" — often the interesting one |
+| **Not applicable** | meaningless for this asset class (R&D expense for a coin) |
+| **Unavailable** | the source could not be reached, or is not configured |
+
+*No data* and *unavailable* are never merged: the first is a finding, the second is a reason to
+retry. For an unlisted token the dossier says so outright — *"No listing found. For a very new token
+this is expected, and it means nothing here can be verified — treat every claim about it as
+unchecked."* That is the most informative thing the screen can say about a brand-new token, and it
+would be lost in a blank panel.
+
+#### What makes it more than a price page
+
+Price, market cap and rank **are** the front page, and repeating them adds nothing. Two things are
+not on any price page:
+
+**Is anyone still building it?** The dossier queries GitHub directly on the repositories a project
+lists, and when everything listed looks stale it sweeps the owning organisation for its most
+recently pushed work. This matters more than it sounds. Measured while building the feature:
+CoinGecko reported **Kaspa at zero commits in four weeks**, because it tracks a repository that was
+superseded — while the actual project repository had been pushed **that same day**. Reading the
+aggregator alone shows one of the most active projects in the market as abandoned. When the fallback
+sweep is used it is labelled as what it is: activity in the same organisation, not necessarily the
+flagship.
+
+**Does it disclose anything?** Website, whitepaper, public source, block explorer — present or
+**MISSING**. The absence is the measurement. No whitepaper or no public source is the loudest cheap
+signal there is.
+
+Plus supply and dilution (FDV against market cap, circulating share of maximum, uncapped issuance)
+and turnover, flagged at **both** ends — too little and you cannot exit, too much is a wash-trading
+tell.
+
+#### The checks are not a score
+
+Eleven checks for crypto, each one comparison over a value already on the screen, each shown with
+its own reasoning, and **never summed**. A single number would read as a rating.
+
+**None of these thresholds has been tested against forward returns.** They are conventional red
+flags and the dossier says so. Testing them properly needs point-in-time snapshots of a universe
+that still contains the tokens that died, and today's listings by construction do not — which is why
+this project records the crypto universe daily. The standing prediction, written down before any of
+it was built: **this works as a veto, not as a timing signal.** It should avoid losses; it should not
+pick winners.
+
+#### Reading it by ear
+
+The headline is a live region, so it is spoken when the dossier opens. **Speak summary** repeats it —
+useful when the summary is long, or when you have arrowed away and want it again. Tab moves between
+the tab strip and the panel; arrow keys move along the tabs.
+
+#### Limits worth knowing
+
+- **CoinGecko rate-limits** the free tier. The dossier makes one coin call plus up to four GitHub
+  calls per open.
+- **GitHub allows 60 unauthenticated requests an hour.** The organisation sweep only fires when the
+  listed repositories look stale, to conserve that budget.
+- **SEC EDGAR covers US filers only.** ETFs, index vehicles and non-US listings are not filers, and
+  the dossier says so rather than showing an error.
 
 ### Drawing tools
 
