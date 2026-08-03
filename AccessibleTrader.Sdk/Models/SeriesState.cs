@@ -26,6 +26,26 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private bool _speakHeaderFirst = true;
         [ObservableProperty] private bool _includeTimestamp = false;
 
+        /// <summary>
+        /// Whether this series' marker signals are spoken while focus is on a DIFFERENT series.
+        ///
+        /// <para>
+        /// The distinction the setting exists for: some indicators produce points of interest that
+        /// are worth knowing about wherever you are on the chart — a support zone, a break of
+        /// structure, a Cipher B divergence — while others produce output that only means something
+        /// inside their own context. Reading the latter while the user is navigating an unrelated
+        /// oscillator is noise, and noise is what makes people switch narration off entirely.
+        /// </para>
+        ///
+        /// <para>
+        /// Default true, because the common case is a sparse marker that a trader would want called
+        /// out anywhere. Turn it off for a busy indicator whose signals are only meaningful when you
+        /// are reading that indicator. Either way the series always speaks its own signals when it
+        /// IS the focused one — this governs the cross-series case only.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _announceAcrossSeries = true;
+
         public ObservableCollection<ComponentConfig> Components { get; set; } = new();
         public ObservableCollection<LevelConfig> Levels { get; set; } = new();
         /// <summary>Cloud fills between pairs of components. Visual-only — not navigable or audible.</summary>
@@ -64,6 +84,7 @@ namespace AccessibleTrader.Sdk.Models
                 Pane = Pane, IsMuted = IsMuted, Volume = Volume, IsVisible = IsVisible,
                 IsAutoNarrated = IsAutoNarrated,
                 SpeakHeaderFirst = SpeakHeaderFirst, IncludeTimestamp = IncludeTimestamp,
+                AnnounceAcrossSeries = AnnounceAcrossSeries,
                 RangeMin = RangeMin, RangeMax = RangeMax,
                 Drawing = Drawing
             };

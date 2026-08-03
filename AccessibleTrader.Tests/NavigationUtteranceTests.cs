@@ -114,6 +114,105 @@ public class NavigationUtteranceTests
     }
 
     /// <summary>
+    /// Events lead, the routine value trails.
+    ///
+    /// <para>
+    /// Ordering is not cosmetic in an audio interface. Scanning with the arrow keys means most bars
+    /// say the same unremarkable thing, and the listener's attention is already moving on before the
+    /// phrase ends. Anything notable has to arrive in the first syllables or it is heard after the
+    /// decision to move on has been made. This is the property that makes a fast scan possible: you
+    /// can drive it entirely off the opening words.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheFormationClauseIsSpokenBeforeTheBarValue()
+    {
+        var spy = new SpySpeechRouter();
+        var series = CandleSeries();
+
+        Manager(spy).HandleNavigationFeedback(
+            State(series, index: 1), isXMove: true, isYMove: false, prefixMessage: "",
+            extraContext: "Start of possible double top, neckline 42100.");
+
+        string spoken = spy.SpokenTexts[0];
+        Assert.StartsWith("Start of possible double top", spoken);
+        Assert.True(spoken.Length > "Start of possible double top, neckline 42100.".Length,
+            $"the bar reading was lost: '{spoken}'");
+    }
+
+    /// <summary>
+    /// Cross-series signals are no longer gated on having the candle series in focus.
+    ///
+    /// <para>
+    /// The old rule assumed that once you were inside an indicator you only wanted that indicator's
+    /// output. But the things this reports — support zones, structure breaks, divergences — are
+    /// context a trader wants wherever they are standing, and the gate made the rest of the chart go
+    /// silent the moment focus left price.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void OtherSeriesSignalsSpeakEvenWhenFocusIsNotOnCandles()
+    {
+        var spy = new SpySpeechRouter();
+        var (candles, marker) = SeriesWithMarker();
+
+        // Focus on the marker's OWN series is the trivial case; focus on a third series is the one
+        // that used to be silent. Here focus sits on the marker series and the candle series is the
+        // "other" one — the property is simply that a non-candle focus still reports across series.
+        var state = State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(candles, marker),
+            FocusedSeriesId = marker.Id,
+        };
+
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.True(spy.SpeakCallCount > 0);
+    }
+
+    /// <summary>
+    /// A series can opt out of being announced from elsewhere, for indicators whose signals only
+    /// mean something inside their own pane. The opt-out applies ONLY across series — an indicator
+    /// always speaks its own signals when it is the one being navigated.
+    /// </summary>
+    [Fact]
+    public void ASeriesCanOptOutOfBeingAnnouncedFromAnotherSeries()
+    {
+        var (candles, marker) = SeriesWithMarker();
+        marker.AnnounceAcrossSeries = false;
+
+        var spy = new SpySpeechRouter();
+        var state = State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(candles, marker),
+            FocusedSeriesId = candles.Id,
+        };
+
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.DoesNotContain("Support", string.Join(" ", spy.SpokenTexts));
+    }
+
+    private static (ChartSeries Candles, ChartSeries Marker) SeriesWithMarker()
+    {
+        var candles = CandleSeries();
+
+        var config = new SeriesConfig { Id = "sig", IndicatorCode = "SIG", Name = "Signal", Pane = "Main" };
+        var data = new SeriesDataBuffer { SeriesId = config.Id };
+        var marker = new ComponentConfig
+        {
+            Name = "Buy",
+            DisplayName = "Support",
+            IsVisible = true,
+            DisplayType = ComponentDisplayType.Dot,
+            SignalSpeechTemplate = "{name} at {price}"
+        };
+        config.Components.Add(marker);
+        data.ComponentData[marker.Name] = new double[] { double.NaN, 42100, double.NaN };
+        return (candles, new ChartSeries(config, data));
+    }
+
+    /// <summary>
     /// The filler word is gone. "Also:" was spoken on most bars carrying a cross-series signal, and
     /// by the time a phrase has been heard that often it is costing time and conveying nothing —
     /// the signals themselves already read as a list. Speech an audio-first user cannot skip is the

@@ -261,28 +261,47 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Composing first and speaking once is the only arrangement that is correct on every
             // head, and it also removes the interrupt ordering problem: a single utterance cannot
             // cut itself off half way through.
+            // ── EVENTS FIRST, THE ROUTINE VALUE LAST ────────────────────────────
+            //
+            // Ordering is not cosmetic in an audio interface. Scanning a chart with the arrow keys
+            // means most bars say the same unremarkable thing, and the listener's attention is
+            // already moving on before the phrase ends. Anything genuinely notable about a bar —
+            // a chart formation starting, a support zone, a break of structure — has to arrive in
+            // the first syllables or it is heard after the decision to move on has been made.
+            //
+            // So the order is: what is SPECIAL about this bar, then what this bar IS. On an ordinary
+            // bar nothing precedes the value and the reading is exactly as before; on a notable one
+            // the notable part leads. That also means a fast scan can be driven entirely off the
+            // opening words, which is what makes scanning by ear viable at all.
             var utterance = new List<string>();
-            if (!string.IsNullOrWhiteSpace(finalSpeech)) utterance.Add(finalSpeech.Trim());
 
-            // Additional signal speech: other active marker signals on the same bar, in the tier
-            // order used by the cluster audio tick system (Phase F).
-            // Only in Component context (Series context already speaks all components in summary).
-            // Only on X-axis moves (bar changes) to avoid repetition during Y navigation.
-            // Only when focused on the candle/price series — when navigating inside an indicator (Cipher A/B, SR, etc.)
-            // the user is already in that indicator's context; cross-indicator signal announcements are noise.
-            // Additional signal speech and zone proximity are suppressed on jump navigation (Home/End/Live)
-            // because the user is repositioning, not reading bar-by-bar — the extra context is noise.
-            if (!isJump)
+            // 1. Chart formations (composed by the caller — see AccessibilityFeedbackCoordinator).
+            if (!string.IsNullOrWhiteSpace(extraContext)) utterance.Add(extraContext.Trim());
+
+            // 2. Marker signals from OTHER series on this same bar, in the tier order used by the
+            //    cluster audio tick system (Phase F).
+            //
+            //    No longer gated on being focused on the candle series. The old rule assumed that
+            //    once you were inside an indicator you only wanted that indicator's output, but the
+            //    things this reports — support zones, structure breaks, divergences — are context a
+            //    trader wants wherever they are standing, and suppressing them made the rest of the
+            //    chart silent the moment focus moved off price. Per-series opt-out is
+            //    SeriesConfig.AnnounceAcrossSeries, for indicators whose signals only mean something
+            //    inside their own pane.
+            //
+            //    Still Component context only (Series context already summarises every component),
+            //    still X moves only (no repetition while moving up and down), and still suppressed
+            //    on a jump, where the user is repositioning rather than reading.
+            if (!isJump && isXMove && !isHeatmap && !isProfile
+                && state.LastInteractionContext == InteractionContext.Component)
             {
-                if (isXMove && !isHeatmap && !isProfile && focusedOnCandleSeries && state.LastInteractionContext == InteractionContext.Component)
-                {
-                    int focusedComp = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
-                    string additionalSignals = GetAdditionalSignalSpeech(state, state.CurrentDataIndex, s.Id, focusedComp);
-                    if (!string.IsNullOrWhiteSpace(additionalSignals)) utterance.Add(additionalSignals.Trim());
-                }
+                int focusedComp = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
+                string additionalSignals = GetAdditionalSignalSpeech(state, state.CurrentDataIndex, s.Id, focusedComp);
+                if (!string.IsNullOrWhiteSpace(additionalSignals)) utterance.Add(additionalSignals.Trim());
             }
 
-            if (!string.IsNullOrWhiteSpace(extraContext)) utterance.Add(extraContext.Trim());
+            // 3. The bar itself.
+            if (!string.IsNullOrWhiteSpace(finalSpeech)) utterance.Add(finalSpeech.Trim());
 
             if (utterance.Count > 0)
                 _speechRouter.Speak(string.Join(" ", utterance), interrupt: isUserInitiated);
@@ -380,6 +399,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (series.IsProfile || series.Components.Any(c =>
                     c.DisplayType == ComponentDisplayType.Heatmap ||
                     c.DisplayType == ComponentDisplayType.Profile)) continue;
+
+                // Per-series opt-out, for indicators whose signals only mean something inside their
+                // own context. It applies ONLY when this is not the series being navigated — an
+                // indicator always speaks its own signals when you are reading it.
+                if (series.Id != excludeSeriesId && !series.AnnounceAcrossSeries) continue;
 
                 // Only report cross-series signals from main-pane overlays.
                 // Oscillator-pane signals (Cipher B MF dots, etc.) are irrelevant context

@@ -586,10 +586,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var here = ChartPatternNarrator.AtBar(all, idx);
 
-            // Jump, or first move: no edge was crossed, so describe the neighbourhood instead.
+            // Jump, or first move: no edge was crossed, so describe where we landed. If that is
+            // exactly a formation's first or last bar — which is what the comma and period keys aim
+            // at — say which, so a jump reads the same way a step onto the same bar would.
             if (prev < 0 || Math.Abs(idx - prev) != 1)
-                return here.Count == 0 ? "" : ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice, max: 1)
-                                              + OverlapNote(here.Count);
+            {
+                if (here.Count == 0) return "";
+
+                var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
+                if (landedOnStart != null)
+                    return ChartPatternNarrator.DescribeEntry(landedOnStart, true, SpeechPriceFormatter.FormatPrice)
+                         + OverlapNote(here.Count);
+
+                var landedOnEnd = here.FirstOrDefault(p => p.ResolvesAt == idx);
+                if (landedOnEnd != null)
+                {
+                    string res = ChartPatternNarrator.DescribeResolution(landedOnEnd, SpeechPriceFormatter.FormatPrice);
+                    if (!string.IsNullOrEmpty(res)) return res + OverlapNote(here.Count);
+                }
+
+                return ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice, max: 1)
+                     + OverlapNote(here.Count);
+            }
 
             if (here.Count == 0) return "";
 
@@ -606,7 +624,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1. Regions crossed into on this step. Ranked, and only the leader is described in
             //    full — see ChartPatternNarrator.ByDominance for why overlap is ranked rather than
             //    hidden.
-            var entered = ChartPatternNarrator.ByDominance(here.Where(p => !beforeKeys.Contains(p.Key))).ToList();
+            // A formation's FIRST KNOWABLE BAR always speaks, in either direction of travel.
+            //
+            // Crossing-in alone is not enough: step right past the start bar and then step back
+            // onto it and the diff sees the formation on both bars, so nothing is said — the one
+            // bar where the shape actually begins goes silent precisely when the user is going back
+            // to re-read it. A bar that announced something once must announce it every time you
+            // stand on it, or the chart is not reproducible by ear.
+            var entered = ChartPatternNarrator.ByDominance(
+                here.Where(p => !beforeKeys.Contains(p.Key) || p.KnownAtIndex == idx)).ToList();
             if (entered.Count > 0)
             {
                 parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], movingRight, SpeechPriceFormatter.FormatPrice));

@@ -160,6 +160,12 @@ namespace AccessibleTrader.Sdk.Models
         public float Volume { get => Config.Volume; set => Config.Volume = value; }
         public bool IsVisible { get => Config.IsVisible; set => Config.IsVisible = value; }
         public bool IsAutoNarrated { get => Config.IsAutoNarrated; set => Config.IsAutoNarrated = value; }
+
+        /// <summary>
+        /// Whether this series' marker signals are spoken while focus is on a different series.
+        /// See <see cref="SeriesConfig.AnnounceAcrossSeries"/> for what the distinction is for.
+        /// </summary>
+        public bool AnnounceAcrossSeries { get => Config.AnnounceAcrossSeries; set => Config.AnnounceAcrossSeries = value; }
         
         public ObservableCollection<ComponentConfig> Components => Config.Components;
         public ObservableCollection<LevelConfig> Levels => Config.Levels;

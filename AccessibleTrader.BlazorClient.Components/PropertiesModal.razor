@@ -99,6 +99,29 @@
                                 </fieldset>
                             }
 
+                            @* Announcement scope. Only meaningful for a series that HAS marker
+                               signals — a plain line has nothing to call out from elsewhere. *@
+                            @if (!_series.IsDrawing && _series.Components.Any(c => c.SignalSpeechTemplate != null))
+                            {
+                                <fieldset>
+                                    <legend>Announcements</legend>
+                                    <div class="modal-row">
+                                        <label>
+                                            <input type="checkbox" checked="@_series.AnnounceAcrossSeries"
+                                                   @onchange="e => _series.AnnounceAcrossSeries = (bool)(e.Value ?? true)" />
+                                            Announce this indicator's signals while another series has focus
+                                        </label>
+                                    </div>
+                                    <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">
+                                        On by default. Leave it on for signals worth hearing anywhere on the chart —
+                                        support zones, structure breaks, divergences. Turn it off for an indicator
+                                        whose output only means something while you are reading that indicator, so it
+                                        does not talk over you elsewhere. This series always speaks its own signals
+                                        when it is the one you are navigating.
+                                    </p>
+                                </fieldset>
+                            }
+
                             @if (_series.IsDrawing && _series.Drawing != null)
                             {
                                 <fieldset>
