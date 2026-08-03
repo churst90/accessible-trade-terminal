@@ -315,6 +315,26 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.NavPatternPrev, ","));
             s.Add(new(SystemCommand.NavPatternNext, "."));
 
+            // Semicolon sits beside comma and period on a QWERTY keyboard, which puts the whole
+            // formation vocabulary under one hand.
+            s.Add(new(SystemCommand.CyclePatternFocus, ";"));
+            s.Add(new(SystemCommand.ClearPatternFocus, ";", Shift: true));
+
+            // ── Quick trade ──────────────────────────────────────────────────
+            // Three-modifier chords: these move money, so they must be impossible to
+            // hit by accident and must survive the WebHost's Ctrl+Shift remap untouched.
+            // The number row maps to increasing risk, and 0 — the key past 3 — cancels.
+            s.Add(new(SystemCommand.QuickArmRisk1, "1", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.QuickArmRisk2, "2", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.QuickArmRisk3, "3", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.QuickDisarm,   "0", Ctrl: true, Alt: true, Shift: true));
+            // X marks the stop. S was taken by Split View — caught by ShortcutConflictTests.
+            s.Add(new(SystemCommand.QuickSetStop,  "X", Ctrl: true, Alt: true, Shift: true));
+            s.Add(new(SystemCommand.QuickArmStatus,"Q", Ctrl: true, Alt: true, Shift: true));
+            // Enter only ever does anything while armed — see the dispatch guard.
+            s.Add(new(SystemCommand.QuickPlaceLimit,  "ENTER", Shift: true));
+            s.Add(new(SystemCommand.QuickPlaceMarket, "ENTER", Ctrl: true));
+
             // Detail summary: Ctrl+Shift+D speaks full candle pattern analysis for the current bar.
             s.Add(new(SystemCommand.DetailedPointSummary, "D", Ctrl: true, Shift: true));
             // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.

@@ -6,6 +6,52 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-03
 
+### Quick trades from the chart, nested formations, and builds you can identify (2026-08-03)
+
+**Quick trade.** Size a position from your risk budget and place it without opening the trading
+dashboard. `Ctrl+Alt+Shift+1/2/3` arms 0.5% / 1% / 2%, `Ctrl+Alt+Shift+X` makes the bar under the
+cursor your stop, then `Shift+Enter` places a limit there or `Ctrl+Enter` goes to market. `Escape`
+cancels, and takes precedence over cancelling a half-placed drawing.
+
+- **The stop comes before the size, and the state machine enforces it.** A risk percentage is a cash
+  budget; it becomes a quantity only once the stop distance is known, because that distance is what
+  one unit can lose. Arming without a stop cannot place.
+- **What you get back is the calculator, spoken** — *"Armed 1 percent. $1,000.00 at risk, stop
+  42,100, long 0.625 units, entry 43,700."*
+- **Direction is inferred** from which side the stop sits on, never asked.
+- **You are told you are armed on every bar you move to.** Forgetting is the failure this is designed
+  against.
+- The stop is always sent with the entry — a position sized from a stop that was not placed would
+  have a quantity justified by protection that does not exist.
+- Built on the same anchor state machine as the drawing tools, which had already earned the three
+  properties this needs more: a partial placement is always cancellable, every transition is
+  announced, and no invisible state survives a cancel.
+
+**Nested formations.** A formation inside a larger one now says so — *"…Inside a larger double bottom
+that began 12 March."* The container's start date is given rather than just its name, because that is
+what lets you go and find it. The immediate parent is named rather than the outermost.
+
+**Choosing which formation leads.** `;` cycles which of the overlapping shapes is described in full,
+`Shift+;` goes back to largest-first. The choice sticks per chart. Nothing is hidden either way.
+
+**MA Cloud narration rewritten.** It used to say "width 2.13" in raw price units, which is unreadable
+without knowing the instrument's scale. Now: which side price is on and by how far, whether the cloud
+just crossed, whether it is expanding or contracting, and the width — all as percentages of price.
+
+**Drawings can be named.** A trendline called "Weekly resistance from the January high" is announced
+that way when you move to it, instead of "Trendline 3". Properties → Name.
+
+**Builds are identifiable.** Settings → About now shows a **Build** row with the short commit id, and
+the version carries it as SemVer build metadata (`2.2.0+f82b61f2`). Most builds of this project are
+commits rather than releases, and two people both running "2.2.0" can be hundreds of commits apart.
+The suffix used to be deliberately stripped.
+
+**Fixed: "I have to enable pattern detection every time I open the terminal."** `DescribeChartPatterns`
+was dispatched into the workspace store — so it worked all session — but the persistence service
+carried a hardcoded list of seven preferences that did not include it, so it never reached disk. It
+was the only setting affected. A reflection test now derives the list of preferences that must
+round-trip rather than enumerating them by hand, so the next omission fails the build.
+
 ### Fixes from the first hands-on pass (2026-08-03)
 
 Four defects, all found by using the terminal rather than by testing it. Version bumped to **2.2.0**.

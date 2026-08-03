@@ -281,6 +281,53 @@ namespace AccessibleTrader.Core.Services.Analysis
         }
 
         /// <summary>
+        /// The smallest formation that fully contains <paramref name="p"/>, or null.
+        ///
+        /// <para>
+        /// Containment is what turns overlap from noise into structure. "Plus two more formations
+        /// here" tells a user something is being withheld; "inside a larger double bottom that began
+        /// on 12 March" tells them the shape they are standing in is a component of a bigger one —
+        /// which is the difference between a setup that stands alone and one that is a detail of
+        /// something still in play.
+        /// </para>
+        ///
+        /// <para>
+        /// The SMALLEST container is chosen rather than the largest. On a chart with three nested
+        /// shapes the immediate parent is the informative one; naming the outermost would skip the
+        /// level the user is actually inside. A formation must also be strictly larger to count as a
+        /// container, so two shapes over identical bars are siblings rather than one parenting the
+        /// other.
+        /// </para>
+        /// </summary>
+        public static ChartPattern? ContainerOf(ChartPattern p, IEnumerable<ChartPattern> candidates)
+            => candidates
+                .Where(c => c.Key != p.Key)
+                .Where(c => c.StartBarIndex <= p.StartBarIndex && c.EndBarIndex >= p.EndBarIndex)
+                .Where(c => c.EndBarIndex - c.StartBarIndex > p.EndBarIndex - p.StartBarIndex)
+                .OrderBy(c => c.EndBarIndex - c.StartBarIndex)
+                .FirstOrDefault();
+
+        /// <summary>
+        /// The containment clause, or "" when the formation stands alone.
+        ///
+        /// <para>
+        /// The container's START date is spoken rather than its name alone, because "a larger double
+        /// bottom" could be any of several and the date is what lets a user go and find it. It is
+        /// also the one piece of information that makes the relationship checkable by ear.
+        /// </para>
+        /// </summary>
+        public static string DescribeContainment(ChartPattern p, IEnumerable<ChartPattern> candidates)
+        {
+            var container = ContainerOf(p, candidates);
+            if (container == null) return "";
+
+            string when = container.StartTime == default
+                ? ""
+                : $" that began {container.StartTime:d MMMM}";
+            return $" Inside a larger {Name(container.Kind)}{when}.";
+        }
+
+        /// <summary>
         /// Patterns ranked by which one deserves the user's attention first.
         ///
         /// <para>

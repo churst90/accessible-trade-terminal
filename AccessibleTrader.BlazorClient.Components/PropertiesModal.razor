@@ -122,6 +122,28 @@
                                 </fieldset>
                             }
 
+                            @* A drawing's name is what navigation announces, what the object tree
+                               lists and what an alert refers to. "Trendline 3" tells a user nothing;
+                               "Weekly resistance from the January high" tells them why they drew it.
+                               For a keyboard user moving between a dozen drawings by ear, this is
+                               the difference between a list and an inventory. *@
+                            @if (_series.IsDrawing)
+                            {
+                                <fieldset>
+                                    <legend>Name</legend>
+                                    <div class="modal-row">
+                                        <label for="drawing-name">What this drawing is</label>
+                                        <input id="drawing-name" type="text" value="@_series.FriendlyName"
+                                               placeholder="e.g. Weekly resistance from the January high"
+                                               @onchange="e => RenameDrawing(e.Value?.ToString())" />
+                                    </div>
+                                    <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">
+                                        Spoken when you move to this drawing, and shown in the object tree.
+                                        Leave it blank to go back to the automatic name.
+                                    </p>
+                                </fieldset>
+                            }
+
                             @if (_series.IsDrawing && _series.Drawing != null)
                             {
                                 <fieldset>
@@ -1007,6 +1029,34 @@
         DrawingType.Rectangle => "End Date",
         _ => "End Date"
     };
+
+    /// <summary>
+    /// Rename a drawing so navigation announces something meaningful.
+    ///
+    /// <para>
+    /// Both <c>Name</c> and <c>FriendlyName</c> are set. Navigation speech reads <c>Name</c> — for
+    /// indicators that is deliberate, because <c>FriendlyName</c> carries baked-in parameter values
+    /// ("RSI 14") that are noise during navigation. A drawing has no parameters, so the two should
+    /// simply agree, and setting only one would leave the announcement and the object tree
+    /// disagreeing about what the same object is called.
+    /// </para>
+    ///
+    /// <para>
+    /// Blank restores the automatic name rather than leaving an unnamed drawing, because a series
+    /// with an empty name is announced as silence — which is indistinguishable from the navigation
+    /// having failed.
+    /// </para>
+    /// </summary>
+    private void RenameDrawing(string? raw)
+    {
+        string name = (raw ?? "").Trim();
+        if (name.Length == 0)
+            name = _series.Drawing?.Type.ToString() ?? "Drawing";
+
+        _series.Config.Name = name;
+        _series.Config.FriendlyName = name;
+        EventBus.Publish(new AnnouncementEvent($"Renamed to {name}.", true));
+    }
 
     private void UpdateDrawingPrice(int anchor, string? raw)
     {

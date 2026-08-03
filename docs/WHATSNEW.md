@@ -2,6 +2,37 @@
 
 ## 2.2.0 — the chart describes its own shapes
 
+- **Place a trade from the chart without opening the dashboard.** Press
+  `Ctrl+Alt+Shift+1` (or 2, or 3) to risk 0.5%, 1% or 2%. Arrow to the bar you want
+  your stop at and press `Ctrl+Alt+Shift+X`. Then arrow to your entry and press
+  `Shift+Enter` for a limit or `Ctrl+Enter` to go now. `Escape` cancels at any point.
+- **The position size is worked out for you and spoken.** *"Armed 1 percent. $1,000.00
+  at risk, stop 42,100, long 0.625 units, entry 43,700."* That is the sum you would
+  otherwise do in a position-size calculator, said at the moment you need it — and it
+  is why the stop has to come first, because until the app knows your stop, a
+  percentage is just a budget and not a quantity.
+- **You are reminded you are armed on every bar you move to.** Forgetting is the one
+  thing that could cost you here, so it says so until you place or cancel.
+- **Formations now tell you when they are part of something bigger** — *"…inside a
+  larger double bottom that began 12 March."* So you can tell a setup that stands on
+  its own from one that is a detail of a shape still in play.
+- **And you can pick which one leads.** When several overlap, `;` cycles through them
+  and the one you choose is described first from then on. `Shift+;` goes back to the
+  default. The terminal ranks by size because that is the only ordering that is not an
+  opinion — but your setup may care about the small one, and now it can.
+- **The MA Cloud actually says something useful.** It used to give a width in raw
+  price units, which means nothing unless you already know what the instrument costs.
+  Now it tells you which side of the cloud price is on and by how far, whether it just
+  crossed, whether it is opening up or pinching shut, and how wide it is — all in
+  percentages.
+- **Name your drawings.** A trendline can be "Weekly resistance from the January high"
+  instead of "Trendline 3", and that is what you hear when you move to it.
+- **Fixed: settings that reset every time you opened the app.** Chart pattern
+  description had to be switched on again at every launch — it was being kept in memory
+  and never written to disk.
+- **Settings → About now shows a Build row.** Quote it in a bug report; between
+  releases it is the only thing that says exactly which version you are running.
+
 - **The terminal can now name chart formations as you move through them.** Turn on
   *Settings → Describe chart patterns*. Twelve shapes — double top and bottom, head and
   shoulders and its inverse, three kinds of triangle, two wedges, two flags, and the

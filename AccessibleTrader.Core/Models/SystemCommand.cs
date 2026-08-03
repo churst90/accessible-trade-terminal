@@ -74,6 +74,32 @@ namespace AccessibleTrader.Core.Models
         /// <summary>Period — step forward to the next chart-formation edge.</summary>
         NavPatternNext,
 
+        /// <summary>
+        /// Semicolon — cycle which of the overlapping formations at this bar leads the readout.
+        /// Press again to move to the next; Shift+semicolon clears the choice.
+        /// <para>
+        /// The terminal ranks overlapping shapes by size because that is the only tie-break that is
+        /// not a directional opinion. This lets the user override that ranking with their own,
+        /// without the application acquiring one.
+        /// </para>
+        /// </summary>
+        CyclePatternFocus,
+
+        /// <summary>Shift+semicolon — stop pinning; return to the size ranking.</summary>
+        ClearPatternFocus,
+
+        // ── Quick trade from the chart ────────────────────────────────────────
+        // Arm a risk budget, set a stop from a bar, place. See QuickTradeService for
+        // why the stop must come before the size.
+        QuickArmRisk1,      // Ctrl+Alt+Shift+1 — 0.5%
+        QuickArmRisk2,      // Ctrl+Alt+Shift+2 — 1%
+        QuickArmRisk3,      // Ctrl+Alt+Shift+3 — 2%
+        QuickSetStop,       // Ctrl+Alt+Shift+S — the bar under the cursor becomes the stop
+        QuickPlaceLimit,    // Shift+Enter — limit at the cursor bar
+        QuickPlaceMarket,   // Ctrl+Enter — market now
+        QuickDisarm,        // Ctrl+Alt+Shift+0 — cancel
+        QuickArmStatus,     // Ctrl+Alt+Shift+Q — what am I armed with?
+
 
         // View/Zoom
         ZoomIn,

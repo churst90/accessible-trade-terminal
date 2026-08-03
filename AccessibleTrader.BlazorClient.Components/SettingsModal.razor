@@ -1074,7 +1074,12 @@
 
                 <table class="shortcuts-table" style="margin-top:4px;">
                     <tbody>
-                        <tr><td>Version</td><td>@AppVersion</td></tr>
+                        <tr><td>Version</td><td>@AppVersionNumber</td></tr>
+                        @* Separate row, not appended to the version, so a screen reader announces
+                           it as its own labelled field rather than running a sha into the version
+                           number as one unreadable string. This is the value to quote in a bug
+                           report — between releases it is the only thing that identifies a build. *@
+                        <tr><td>Build</td><td>@AppBuildId</td></tr>
                         <tr><td>Platform</td><td>.NET 10 — MAUI Blazor Hybrid + ASP.NET Core WebHost</td></tr>
                         <tr><td>Chart Engine</td><td>SkiaSharp</td></tr>
                         <tr><td>Audio Engine</td><td>128-voice polyphonic synthesis (cross-platform DSP)</td></tr>
@@ -1207,14 +1212,28 @@
 
     private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
 
-    // Single source of truth is the <Version> property in Directory.Build.props;
-    // it flows into the assembly informational version at build time. Strip any
-    // "+commitsha" suffix appended by SourceLink.
+    // Single source of truth is the <Version> property in Directory.Build.props; it flows into the
+    // assembly informational version at build time, and Directory.Build.props appends the short
+    // commit sha as SemVer build metadata.
+    //
+    // The "+sha" suffix used to be STRIPPED here, which threw away the only part that identifies
+    // the build. Most builds of this project are not releases, they are commits: two people both
+    // running "2.2.0" can be hundreds of commits apart, and a bug report carrying just the version
+    // cannot be tied to any particular state of the code. The sha is kept and shown.
     private static readonly string AppVersion =
-        (typeof(SettingsModal).Assembly
+        typeof(SettingsModal).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
          ?? typeof(SettingsModal).Assembly.GetName().Version?.ToString(3)
-         ?? "unknown").Split('+')[0];
+         ?? "unknown";
+
+    /// <summary>
+    /// The version split for speech. A screen reader reading "two point two point zero plus
+    /// a-b-c-1-2-3-4-5" as one run is unusable; the build is announced as a separate labelled
+    /// field so it can be skipped or read on demand.
+    /// </summary>
+    private static string AppVersionNumber => AppVersion.Split('+')[0];
+    private static string AppBuildId =>
+        AppVersion.Contains('+') ? AppVersion.Split('+')[1] : "not recorded";
 
     protected override void OnInitialized()
     {

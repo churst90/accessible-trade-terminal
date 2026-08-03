@@ -36,6 +36,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IBarDetailService _barDetailService;
         private readonly IndicatorCrossingEngine _crossingEngine;
         private readonly Analysis.ChartPatternNavigator? _patternNavigator;
+        private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
         private readonly IDisposable _modalSub;
@@ -74,7 +75,8 @@ namespace AccessibleTrader.Core.Services.Input
             IWorkspaceStore store,
             IBarDetailService barDetailService,
             IndicatorCrossingEngine crossingEngine,
-            Analysis.ChartPatternNavigator? patternNavigator = null)
+            Analysis.ChartPatternNavigator? patternNavigator = null,
+            Trading.IQuickTradeService? quickTrade = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -85,6 +87,7 @@ namespace AccessibleTrader.Core.Services.Input
             // DI always supplies it. When absent the comma/period keys report that there is
             // nothing to navigate rather than throwing.
             _patternNavigator = patternNavigator;
+            _quickTrade = quickTrade;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
                 .Subscribe(_ => SetChartActive(true));
@@ -477,12 +480,49 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
 
-                // Comma / period: step between chart-formation edges.
-                if (command == SystemCommand.NavPatternPrev || command == SystemCommand.NavPatternNext)
+                // ── Quick trade ──────────────────────────────────────────────
+                //
+                // Enter is the delicate one. Shift+Enter and Ctrl+Enter are ordinary chords a
+                // user may well press for other reasons, so when nothing is armed they are
+                // passed straight through as if unbound rather than answered. Announcing
+                // "nothing armed" on every stray Ctrl+Enter would be its own kind of noise.
+                if (command is SystemCommand.QuickArmRisk1 or SystemCommand.QuickArmRisk2
+                            or SystemCommand.QuickArmRisk3 or SystemCommand.QuickSetStop
+                            or SystemCommand.QuickPlaceLimit or SystemCommand.QuickPlaceMarket
+                            or SystemCommand.QuickDisarm or SystemCommand.QuickArmStatus)
                 {
-                    if (_patternNavigator != null) _patternNavigator.Jump(command);
-                    else _eventBus.Publish(new FeedbackRequestEvent(
-                        FeedbackType.Boundary, "Chart formation navigation is unavailable."));
+                    if (_quickTrade == null) return;
+
+                    bool isEnter = command is SystemCommand.QuickPlaceLimit or SystemCommand.QuickPlaceMarket;
+                    if (isEnter && _quickTrade.State.Stage == Trading.QuickTradeStage.Idle) return;
+
+                    switch (command)
+                    {
+                        case SystemCommand.QuickArmRisk1: _quickTrade.Arm(0.5); break;
+                        case SystemCommand.QuickArmRisk2: _quickTrade.Arm(1.0); break;
+                        case SystemCommand.QuickArmRisk3: _quickTrade.Arm(2.0); break;
+                        case SystemCommand.QuickSetStop:  _quickTrade.SetStopAtCursor(); break;
+                        case SystemCommand.QuickPlaceLimit:  _quickTrade.Place(market: false); break;
+                        case SystemCommand.QuickPlaceMarket: _quickTrade.Place(market: true); break;
+                        case SystemCommand.QuickDisarm:   _quickTrade.Disarm(); break;
+                        case SystemCommand.QuickArmStatus: _quickTrade.Announce(); break;
+                    }
+                    return;
+                }
+
+                // Comma / period: step between chart-formation edges.
+                // Semicolon: choose which overlapping formation leads the readout.
+                if (command is SystemCommand.NavPatternPrev or SystemCommand.NavPatternNext
+                            or SystemCommand.CyclePatternFocus or SystemCommand.ClearPatternFocus)
+                {
+                    if (_patternNavigator == null)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Boundary, "Chart formation navigation is unavailable."));
+                    }
+                    else if (command == SystemCommand.CyclePatternFocus) _patternNavigator.CycleFocus();
+                    else if (command == SystemCommand.ClearPatternFocus) _patternNavigator.ClearFocus();
+                    else _patternNavigator.Jump(command);
                     return;
                 }
 
@@ -521,8 +561,18 @@ namespace AccessibleTrader.Core.Services.Input
                 // Delete key: remove focused indicator series (ChartCommandManager guards against "candles").
                 case SystemCommand.RemoveSelectedSeries: _eventBus.Publish(new DeleteSeriesEvent()); break;
 
-                // Escape: cancel any in-progress drawing placement.
+                // Escape: cancel whatever placement is in progress.
+                //
+                // An armed quick trade takes precedence over a half-placed drawing, because it is
+                // the one that can cost money if it is forgotten. Escape is the key everyone
+                // reaches for to mean "stop", so it has to reach the most consequential pending
+                // thing first.
                 case SystemCommand.CancelDrawing:
+                    if (_quickTrade != null && _quickTrade.State.Stage != Trading.QuickTradeStage.Idle)
+                    {
+                        _quickTrade.Disarm();
+                        break;
+                    }
                     _eventBus.Publish(new CancelDrawingEvent());
                     break;
 
@@ -699,6 +749,19 @@ namespace AccessibleTrader.Core.Services.Input
                 // the application.
                 case SystemCommand.NavPatternPrev:
                 case SystemCommand.NavPatternNext:
+                case SystemCommand.CyclePatternFocus:
+                case SystemCommand.ClearPatternFocus:
+                // Quick trade is chart-scoped: the stop and the limit both come from the bar
+                // under the cursor, so these mean nothing without chart focus — and Shift+Enter
+                // must stay available to every form control in the application.
+                case SystemCommand.QuickArmRisk1:
+                case SystemCommand.QuickArmRisk2:
+                case SystemCommand.QuickArmRisk3:
+                case SystemCommand.QuickSetStop:
+                case SystemCommand.QuickPlaceLimit:
+                case SystemCommand.QuickPlaceMarket:
+                case SystemCommand.QuickDisarm:
+                case SystemCommand.QuickArmStatus:
                 case SystemCommand.JumpToLatest:
                 case SystemCommand.NavSubPaneNext:
                 case SystemCommand.NavSubPanePrev:

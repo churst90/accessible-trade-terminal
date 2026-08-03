@@ -145,32 +145,88 @@ namespace AccessibleTrader.Core.Services.Indicators
             return $"MA Cloud width {width:F4}. {trend}. Fast {fastType} {fast:F4}, Slow {slowType} {slow:F4}.";
         }
 
+        /// <summary>
+        /// What a trader actually wants to know about a cloud, in the order they want it.
+        ///
+        /// <para>
+        /// The previous version said "MA Cloud, bullish, width 2.13" — and the width was in raw
+        /// price units, which is unreadable without already knowing the instrument's scale. 2.13 is
+        /// enormous on a sub-dollar coin and invisible on an index fund. Every measurement here is
+        /// therefore expressed as a <b>percentage of price</b>, the same reasoning that puts every
+        /// chart-formation tolerance in ATR.
+        /// </para>
+        ///
+        /// <para>
+        /// The order is deliberate, because this is heard on every arrow key and the listener's
+        /// attention is on the first few words:
+        /// </para>
+        /// <list type="number">
+        ///   <item><b>Which side price is on, and by how far.</b> The single most actionable fact.
+        ///         Inside the cloud is its own answer — it means the two averages disagree about
+        ///         where price is, which is what "no trend" looks like mechanically.</item>
+        ///   <item><b>Whether it just crossed.</b> Fast crossing slow is THE event on this
+        ///         indicator, and it is invisible in a snapshot of the current bar — it is a
+        ///         property of two bars, so it has to be computed rather than read.</item>
+        ///   <item><b>Expanding or contracting.</b> A widening cloud is a trend gathering pace; a
+        ///         pinching one is compression. Direction of change carries more than the level.</item>
+        ///   <item><b>Width.</b> Last, because it is the number that needs the most context to
+        ///         interpret and the one a listener is least likely to act on directly.</item>
+        /// </list>
+        /// </summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
             if (!componentName.Equals(CompCloud, StringComparison.OrdinalIgnoreCase)) return null;
             if (double.IsNaN(value)) return "MA Cloud: no data";
 
-            bool bullish = value >= 0;
-            double width = Math.Abs(value);
-            string direction = bullish ? "bullish" : "bearish";
-
-            // Check price position relative to cloud.
-            string pricePos = "";
             double fast = GetVal(allComponentData, DataFastMA, dataIndex);
             double slow = GetVal(allComponentData, DataSlowMA, dataIndex);
-            if (!double.IsNaN(fast) && !double.IsNaN(slow))
+            double close = bar.Close;
+
+            if (double.IsNaN(fast) || double.IsNaN(slow) || close <= 0)
+                return $"MA Cloud, {(value >= 0 ? "bullish" : "bearish")}.";
+
+            double hi = Math.Max(fast, slow);
+            double lo = Math.Min(fast, slow);
+            var parts = new List<string>();
+
+            // 1. Side, with distance. Inside is a distinct state, not a missing answer.
+            if (close >= lo && close <= hi)
+                parts.Add("Price inside the cloud");
+            else if (close > hi)
+                parts.Add($"Price above the cloud by {Pct(close - hi, close)}");
+            else
+                parts.Add($"Price below the cloud by {Pct(lo - close, close)}");
+
+            // 2. A cross is a two-bar fact and cannot be seen in this bar alone.
+            double prev = GetVal(allComponentData, CompCloud, dataIndex - 1);
+            bool bullish = value >= 0;
+            if (dataIndex > 0 && !double.IsNaN(prev) && (prev >= 0) != bullish)
+                parts.Add(bullish ? "just crossed bullish" : "just crossed bearish");
+            else
+                parts.Add(bullish ? "bullish" : "bearish");
+
+            // 3. Direction of change in width. Needs the previous bar, same as the cross.
+            if (dataIndex > 0 && !double.IsNaN(prev))
             {
-                double hi = Math.Max(fast, slow);
-                double lo = Math.Min(fast, slow);
-                double close = bar.Close;
-                if (close >= lo && close <= hi) pricePos = " Price inside.";
-                else if (close > hi) pricePos = " Price above.";
-                else pricePos = " Price below.";
+                double now = Math.Abs(value), was = Math.Abs(prev);
+                // A 2% change in the width itself, so ordinary jitter does not read as a trend.
+                if (was > 0 && now > was * 1.02) parts.Add("expanding");
+                else if (was > 0 && now < was * 0.98) parts.Add("contracting");
             }
 
-            return $"MA Cloud, {direction}, width {width:F2}.{pricePos}";
+            // 4. Width last.
+            parts.Add($"width {Pct(Math.Abs(value), close)}");
+
+            return "MA Cloud. " + string.Join(", ", parts.Where(p => p.Length > 0)) + ".";
         }
+
+        /// <summary>
+        /// A distance as a percentage of price — scale-free, so it reads the same on a sub-dollar
+        /// coin and an index fund.
+        /// </summary>
+        private static string Pct(double distance, double price)
+            => price > 0 ? $"{Math.Abs(distance) / price * 100.0:F2} percent" : "unknown";
 
         // ── Helpers ───────────────────────────────────────────────────────────
 

@@ -34,6 +34,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IEarconService _earconService;
         private readonly ISdkCandlePatternAnalyzer _patternAnalyzer;
         private readonly IChartPatternCache _patternCache;
+        private readonly IChartPatternFocus _patternFocus;
+        private readonly Trading.QuickTradeService? _quickTrade;
         // Held purely to ensure AutoNarrationService is instantiated at startup.
         // All work is done inside that service via its own subscriptions.
         private readonly IAutoNarrationService _autoNarration;
@@ -57,7 +59,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IEarconService earconService,
             ISdkCandlePatternAnalyzer patternAnalyzer,
             IChartPatternCache patternCache,
-            IAutoNarrationService autoNarration)
+            IChartPatternFocus patternFocus,
+            IAutoNarrationService autoNarration,
+            Trading.IQuickTradeService? quickTrade = null)
         {
             _store = store;
             _navManager = navManager;
@@ -68,6 +72,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _earconService = earconService;
             _patternAnalyzer = patternAnalyzer;
             _patternCache = patternCache;
+            _patternFocus = patternFocus;
+            _quickTrade = quickTrade as Trading.QuickTradeService;
             _autoNarration = autoNarration;
             _previousState = store.State;
 
@@ -491,9 +497,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // single render, and only the last write to that region ever reaches the DOM —
                     // so the earlier phrase is silently dropped. Composing one utterance is the only
                     // arrangement in which everything true about a bar is actually heard.
+                    // The armed-trade reminder leads even the formation clause. While a trade is
+                    // armed it is the single most consequential fact about the current keystroke,
+                    // and a user who has forgotten they are armed is the failure mode the whole
+                    // feature is designed against.
+                    string? nav = e.IsXMove ? ChartPatternContext() : null;
+                    string armed = _quickTrade?.ArmedSuffix() ?? "";
+                    if (armed.Length > 0)
+                        nav = string.IsNullOrWhiteSpace(nav) ? armed : armed + " " + nav;
+
                     _navManager.HandleNavigationFeedback(
                         _store.State, e.IsXMove, e.IsYMove, e.Message ?? "", isJump: e.IsJump,
-                        extraContext: e.IsXMove ? ChartPatternContext() : null);
+                        extraContext: nav);
                     break;
 
                 case FeedbackType.VolumeChange:
@@ -621,7 +636,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (all.Count == 0) return "";
 
-            var here = ChartPatternNarrator.AtBar(all, idx);
+            // Ranked once, then the user's pin (if any) is floated to the front. Everything below
+            // reads from this list, so the pin applies identically to the jump path, the entry
+            // announcement and the overlap count.
+            string chartKey = ChartPatternCache.KeyFor(state.Identity);
+            var here = _patternFocus.Apply(chartKey,
+                ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList());
 
             // Jump, or first move: no edge was crossed, so describe where we landed. If that is
             // exactly a formation's first or last bar — which is what the comma and period keys aim
@@ -633,6 +653,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
                 if (landedOnStart != null)
                     return ChartPatternNarrator.DescribeEntry(landedOnStart, idx, SpeechPriceFormatter.FormatPrice)
+                         + ChartPatternNarrator.DescribeContainment(landedOnStart, all)
                          + OverlapNote(here.Count);
 
                 var landedOnEnd = here.FirstOrDefault(p => p.ResolvesAt == idx);
@@ -668,11 +689,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // bar where the shape actually begins goes silent precisely when the user is going back
             // to re-read it. A bar that announced something once must announce it every time you
             // stand on it, or the chart is not reproducible by ear.
-            var entered = ChartPatternNarrator.ByDominance(
-                here.Where(p => !beforeKeys.Contains(p.Key) || p.KnownAtIndex == idx)).ToList();
+            var entered = _patternFocus.Apply(chartKey,
+                here.Where(p => !beforeKeys.Contains(p.Key) || p.KnownAtIndex == idx).ToList());
             if (entered.Count > 0)
             {
-                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], idx, SpeechPriceFormatter.FormatPrice));
+                // Containment is appended to the LEADER only. Saying "inside a larger X" after every
+                // one of three overlapping shapes would restate the same parent three times.
+                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], idx, SpeechPriceFormatter.FormatPrice)
+                        + ChartPatternNarrator.DescribeContainment(entered[0], all));
                 if (entered.Count > 1) parts.Add(OverlapNote(entered.Count).TrimStart());
             }
 

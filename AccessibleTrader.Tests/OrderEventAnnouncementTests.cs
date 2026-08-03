@@ -35,7 +35,7 @@ namespace AccessibleTrader.Tests
             var coordinator = new AccessibilityFeedbackCoordinator(
                 store, navMgr, speechRouter, audioRouter, formatter, eventBus,
                 earcons, new SdkCandlePatternAnalyzer(),
-                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())), new MockAutoNarrationService());
+                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus(), new MockAutoNarrationService());
 
             return (coordinator, eventBus, speech, earcons);
         }

@@ -659,7 +659,26 @@ namespace AccessibleTrader.Core.Services
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null || !tp.IsConnected) return new List<Balance>();
-            try { return await tp.GetBalancesAsync().ConfigureAwait(false); }
+            try
+            {
+                var balances = await tp.GetBalancesAsync().ConfigureAwait(false);
+
+                // Feed the quick-trade sizer. It cannot fetch a balance itself — by design, so it
+                // stays unit-testable and can never place an order as a side effect — so whoever
+                // reads one publishes it here.
+                //
+                // CASH ONLY, never the sum of every balance. Balances are per-asset and in their
+                // own units: adding 0.5 BTC to 3000 USDT to 12 ETH produces a number that is not
+                // money in any currency, and it would then be multiplied by a risk percentage to
+                // size a real order. The risk budget is what you could lose in cash, so cash is
+                // what it must be a percentage of.
+                double equity = balances
+                    .Where(b => Trading.QuickTradeEquity.IsCashAsset(b.Asset))
+                    .Sum(b => b.Free + b.Locked);
+                Trading.QuickTradeEquity.Report(equity);
+
+                return balances;
+            }
             catch (Exception ex) { _logger.LogWarning(ex, "GetBalances failed"); return new List<Balance>(); }
         }
 

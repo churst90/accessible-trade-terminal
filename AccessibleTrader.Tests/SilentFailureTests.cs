@@ -195,7 +195,7 @@ public class SilentFailureTests
                 Bus,
                 new MockEarconService(),
                 new SdkCandlePatternAnalyzer(),
-                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())),
+                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus(),
                 new MockAutoNarrationService());
         }
     }

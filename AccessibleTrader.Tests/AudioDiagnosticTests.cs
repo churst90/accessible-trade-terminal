@@ -44,7 +44,7 @@ namespace AccessibleTrader.Tests
                 eventBus,
                 new MockEarconService(),
                 new SdkCandlePatternAnalyzer(),
-                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())),
+                new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus(),
                 new MockAutoNarrationService());
 
             return (coordinator, store, eventBus, mainThread, speech, sonify);

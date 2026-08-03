@@ -32,7 +32,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
 4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, split view, point analysis
-5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, the asset dossier, drawing tools, volume profile, heatmap, the object tree
+5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
 8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
@@ -1081,6 +1081,20 @@ would be exactly the untested claim this terminal refuses to make.
 
 **Alt+Shift+D** reads them all when you want the disagreement in full.
 
+**A formation inside a larger one says so.** *"…Inside a larger double bottom that began
+12 March."* The container's start date is given rather than just its name, because that is
+what lets you go and find it — and it is the difference between a setup that stands on its
+own and one that is a detail of a shape still in play. Where shapes nest three deep the
+*immediate* parent is named, not the outermost, because that is the level you are actually
+standing in.
+
+**And you can choose which one leads.** Press **`;`** to cycle through the overlapping
+formations at the current bar; the one you pick is described first from then on, on that
+chart, until you press **`Shift+;`** to go back to largest-first. The default ranking exists
+because size is the only ordering that is not a directional opinion — but your setup may
+well be built on the small one, and the terminal has no business insisting otherwise.
+Nothing is hidden either way.
+
 #### What the terminal will not tell you, and why
 
 You will never hear a formation called bullish or bearish, and you will never hear a
@@ -1329,6 +1343,58 @@ the tab strip and the panel; arrow keys move along the tabs.
 - **SEC EDGAR covers US filers only.** ETFs, index vehicles and non-US listings are not filers, and
   the dossier says so rather than showing an error.
 
+### Quick trade from the chart
+
+You can size and place a trade without leaving the chart or opening the trading dashboard.
+
+| Key | Action |
+| --- | --- |
+| `Ctrl+Alt+Shift+1` / `2` / `3` | Arm 0.5% / 1% / 2% risk |
+| `Ctrl+Alt+Shift+X` | Make the bar under the cursor your stop |
+| `Shift+Enter` | Place a limit at the bar under the cursor |
+| `Ctrl+Enter` | Place at market |
+| `Ctrl+Alt+Shift+Q` | Say what is armed right now |
+| `Ctrl+Alt+Shift+0`, or `Escape` | Cancel |
+
+#### Why the stop comes first
+
+**A risk percentage is not a position size.** "Risk 1%" is a cash budget — on a $100,000
+account, $1,000. Turning that into a quantity needs the distance to your stop, because that
+distance is what one unit of the instrument can lose. Entry 43,700 with a stop at 42,100 is
+1,600 of risk per unit, so $1,000 buys 0.625 units.
+
+So arming a percentage puts the terminal into *stop needed*, and it will not place an order
+until you have set one. What you get in return is the calculation itself, spoken at the
+moment you need it:
+
+> *"Armed 1 percent. $1,000.00 at risk, stop 42,100, long 0.625 units, entry 43,700."*
+
+That sum is what a sighted trader does in a position-size calculator before every trade. Not
+having to leave the chart to do it is the point of the feature.
+
+#### The rest of the behaviour
+
+**Direction is inferred, never asked.** A stop below the current price can only be protecting
+a long; above it, a short. There is exactly one right answer, so the terminal does not ask.
+
+**You are told you are armed on every bar you move to** — *"Armed 1 percent, ready."* It is
+short because you hear it constantly, and unconditional because forgetting you are armed and
+then pressing Enter for some other reason is the one way this feature could cost you money.
+
+**`Escape` always cancels**, and it reaches an armed trade before it reaches a half-placed
+drawing — the armed trade is the one with consequences.
+
+**The stop is always sent with the entry.** Your size was derived from the stop distance, so
+an entry placed without it would have a quantity justified by protection that does not exist.
+On brokers with native bracket support (Alpaca) all three legs go as one order; on the others
+the terminal verifies afterwards that something protective actually reached the exchange, and
+says so loudly if not.
+
+**Limits and markets price differently.** `Ctrl+Enter` uses the live price. `Shift+Enter`
+uses the bar under your cursor — and re-derives the size from there, because if you have
+moved a long way since setting the stop, the stop distance has changed and so has the correct
+quantity.
+
 ### Drawing tools
 
 Drawing tools place reference lines and shapes that then become audible as you
@@ -1371,6 +1437,17 @@ overlay you can focus and whose crossings you can jump between. And the Risk/Rew
 tool, after you set its entry and stop anchors, speaks the resulting risk and then
 asks for the target, announcing the full reward-to-risk ratio once you set it — the
 same measuring workflow described in the Trading chapter.
+
+### Naming your drawings
+
+A drawing's name is what you hear when you move to it, what the object tree lists, and what
+an alert refers to. By default that is "Trendline 3", which tells you nothing. Open
+**Properties** (`P`) on a drawing and set **Name** to why you drew it — "Weekly resistance
+from the January high" — and that is what is announced from then on. Clearing the field
+restores the automatic name.
+
+For a keyboard user moving between a dozen drawings by ear, this is the difference between a
+list and an inventory.
 
 ### The volume profile
 

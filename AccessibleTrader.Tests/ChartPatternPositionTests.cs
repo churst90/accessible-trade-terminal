@@ -589,6 +589,125 @@ public class ChartPatternPositionTests
         Assert.NotSame(firstEntry, cache.For(Id("SYM0"), bars));
     }
 
+
+    // ── Nesting and pinning ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Containment is what turns overlap from noise into structure. "Plus two more formations here"
+    /// says something is being withheld; "inside a larger double bottom that began 12 March" says
+    /// the shape you are standing in is a component of a bigger one — which is the difference
+    /// between a setup that stands alone and a detail of something still in play.
+    /// </summary>
+    [Fact]
+    public void ASmallFormationInsideALargerOneReportsItsContainer()
+    {
+        var big = P(kind: ChartPatternKind.DoubleBottom, start: 0, end: 200, known: 205);
+        var small = P(kind: ChartPatternKind.AscendingTriangle, start: 50, end: 90, known: 95);
+
+        Assert.Equal(big.Key, ChartPatternNarrator.ContainerOf(small, new[] { big, small })!.Key);
+        Assert.Null(ChartPatternNarrator.ContainerOf(big, new[] { big, small }));
+
+        string clause = ChartPatternNarrator.DescribeContainment(small, new[] { big, small });
+        Assert.Contains("Inside a larger double bottom", clause);
+    }
+
+    /// <summary>
+    /// The SMALLEST container wins. With three nested shapes the immediate parent is informative;
+    /// naming the outermost would skip the level the user is actually inside.
+    /// </summary>
+    [Fact]
+    public void TheImmediateParentIsNamedNotTheOutermost()
+    {
+        var outer = P(kind: ChartPatternKind.Rectangle, start: 0, end: 400, known: 405);
+        var middle = P(kind: ChartPatternKind.DoubleBottom, start: 40, end: 200, known: 205);
+        var inner = P(kind: ChartPatternKind.BullFlag, start: 60, end: 80, known: 85);
+
+        var found = ChartPatternNarrator.ContainerOf(inner, new[] { outer, middle, inner });
+
+        Assert.Equal(middle.Key, found!.Key);
+    }
+
+    /// <summary>
+    /// Two shapes over identical bars are siblings, not parent and child. Without the
+    /// strictly-larger rule they would each claim to contain the other.
+    /// </summary>
+    [Fact]
+    public void IdenticallySizedFormationsDoNotContainEachOther()
+    {
+        var a = P(kind: ChartPatternKind.DoubleTop, start: 10, end: 50, known: 55);
+        var b = P(kind: ChartPatternKind.SymmetricalTriangle, start: 10, end: 50, known: 55);
+
+        Assert.Null(ChartPatternNarrator.ContainerOf(a, new[] { a, b }));
+        Assert.Null(ChartPatternNarrator.ContainerOf(b, new[] { a, b }));
+    }
+
+    /// <summary>
+    /// Pinning lets the user override the size ranking with their own thesis, without the
+    /// application acquiring an opinion. The pinned formation leads; nothing is hidden.
+    /// </summary>
+    [Fact]
+    public void APinnedFormationLeadsTheReadout()
+    {
+        var focus = new ChartPatternFocus();
+        var big = P(kind: ChartPatternKind.Rectangle, start: 0, end: 200, known: 205);
+        var small = P(kind: ChartPatternKind.BullFlag, start: 50, end: 62, known: 65);
+        var ranked = new List<ChartPattern> { big, small };
+
+        Assert.Equal(big.Key, focus.Apply("chart", ranked)[0].Key);   // size ranking by default
+
+        focus.CycleAt("chart", ranked);                                // pins the first
+        focus.CycleAt("chart", ranked);                                // …then the second
+        Assert.Equal(small.Key, focus.Apply("chart", ranked)[0].Key);
+
+        // Everything is still present — pinning reorders, it does not filter.
+        Assert.Equal(2, focus.Apply("chart", ranked).Count);
+    }
+
+    /// <summary>
+    /// A pin survives walking away. The user is simply somewhere else on the chart, and coming back
+    /// should find their choice still in force rather than silently reset.
+    /// </summary>
+    [Fact]
+    public void APinIsNotClearedByMovingSomewhereItDoesNotApply()
+    {
+        var focus = new ChartPatternFocus();
+        var a = P(kind: ChartPatternKind.DoubleTop, start: 0, end: 40, known: 45);
+        var b = P(kind: ChartPatternKind.BullFlag, start: 10, end: 22, known: 25);
+        var atThisBar = new List<ChartPattern> { a, b };
+
+        focus.CycleAt("chart", atThisBar);
+        Assert.True(focus.IsPinned("chart"));
+
+        // A bar holding a completely different formation: the pin does not apply here…
+        var elsewhere = new List<ChartPattern> { P(kind: ChartPatternKind.BearFlag, start: 300, end: 320, known: 325) };
+        Assert.Equal(1, focus.Apply("chart", elsewhere).Count);
+
+        // …and is still in force when we come back.
+        Assert.True(focus.IsPinned("chart"));
+    }
+
+    [Fact]
+    public void ClearingThePinReportsWhetherThereWasOne()
+    {
+        var focus = new ChartPatternFocus();
+        Assert.False(focus.Clear("chart"));
+
+        focus.CycleAt("chart", new List<ChartPattern> { P() });
+        Assert.True(focus.Clear("chart"));
+        Assert.False(focus.IsPinned("chart"));
+    }
+
+    /// <summary>A pin belongs to one chart, for the same reason detection results do.</summary>
+    [Fact]
+    public void PinsAreScopedToOneChart()
+    {
+        var focus = new ChartPatternFocus();
+        focus.CycleAt("BTC", new List<ChartPattern> { P() });
+
+        Assert.True(focus.IsPinned("BTC"));
+        Assert.False(focus.IsPinned("TAO"));
+    }
+
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
     private static List<Ohlcv> RandomWalk(int n, int seed)

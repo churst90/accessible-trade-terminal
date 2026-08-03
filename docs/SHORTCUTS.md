@@ -102,9 +102,58 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 | `,` | Previous formation edge |
 | `.` | Next formation edge |
 
+| `;` | Choose which overlapping formation leads the readout (press again for the next) |
+| `Shift+;` | Stop choosing; go back to largest-first |
+
 They require formation description to be on (Settings → *Describe chart patterns*). With it off they
 say so rather than moving you across the chart without explaining why — the announcement that would
 explain the jump is exactly what the setting disables.
+
+**Choosing a formation.** When several shapes overlap, the terminal leads with the largest live one
+and counts the rest. Semicolon overrides that with your own choice — the twelve-bar flag inside the
+eighty-bar triangle may be exactly what your setup is built on, and the terminal has no business
+insisting otherwise. The choice sticks per chart until you clear it, and nothing is hidden either
+way: the others are still counted and `Alt+Shift+D` still reads them all.
+
+**Nesting.** A formation inside a larger one says so — *"…Inside a larger double bottom that began
+12 March."* The container's start date is given rather than just its name, because that is what lets
+you go and find it.
+
+---
+
+## Quick Trade (from the chart, no dashboard)
+
+Size a position from your risk budget and place it without leaving the chart.
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+Alt+Shift+1` | Arm 0.5% risk |
+| `Ctrl+Alt+Shift+2` | Arm 1% risk |
+| `Ctrl+Alt+Shift+3` | Arm 2% risk |
+| `Ctrl+Alt+Shift+X` | Use the bar under the cursor as the stop |
+| `Shift+Enter` | Place a limit at the bar under the cursor |
+| `Ctrl+Enter` | Place at market |
+| `Ctrl+Alt+Shift+Q` | Say what is currently armed |
+| `Ctrl+Alt+Shift+0` or `Escape` | Cancel |
+
+**The stop comes before the size, and that is not a formality.** A risk percentage is a *cash
+budget*; it becomes a quantity only once the distance to your stop is known, because that distance
+is what one unit can lose. So arming a percentage puts the system in "stop needed" and it refuses to
+place until you have set one. What you get in return is the arithmetic a sighted trader does in a
+position-size calculator — equity, risk, stop distance, quantity — spoken in one sentence at the
+moment of the decision:
+
+> *"Armed 1 percent. $1,000.00 at risk, stop 42,100, long 0.625 units, entry 43,700."*
+
+**Direction is inferred, not asked.** A stop below the current price can only be protecting a long;
+above it, a short.
+
+**You are told you are armed on every bar you move to** — *"Armed 1 percent, ready."* Forgetting is
+the failure this feature is designed against, so the reminder is short and unconditional. `Escape`
+always cancels, and takes precedence over cancelling a half-placed drawing.
+
+**The stop is always sent with the entry.** The size was derived from the stop distance, so a
+position placed without it would have a quantity justified by protection that does not exist.
 
 **The stops are edges, not formations.** Each one contributes two: the bar its structure first
 became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.

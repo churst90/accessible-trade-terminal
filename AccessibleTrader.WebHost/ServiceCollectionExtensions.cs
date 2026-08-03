@@ -360,6 +360,14 @@ namespace AccessibleTrader.WebHost
             // comma/period jump keys — three caches of the same derived value is three chances
             // for them to disagree about what is on the chart.
             services.AddScoped<IChartPatternCache, ChartPatternCache>();
+            services.AddScoped<IChartPatternFocus, ChartPatternFocus>();
+            // Quick trade. Equity is supplied as a delegate so the service can never reach a
+            // broker itself — sizing is arithmetic and must stay unit-testable.
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>
+                new AccessibleTrader.Core.Services.Trading.QuickTradeService(
+                    sp.GetRequiredService<IWorkspaceStore>(),
+                    sp.GetRequiredService<IEventBus>(),
+                    equitySource: () => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.Latest));
 
             // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
             // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and

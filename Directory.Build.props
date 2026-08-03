@@ -7,4 +7,36 @@
   <PropertyGroup>
     <Version>2.2.0</Version>
   </PropertyGroup>
+
+  <!-- ── Commit stamp ──────────────────────────────────────────────────────
+       Most builds of this project are NOT releases; they are commits. Between
+       tags the version number alone cannot answer the only question that
+       matters when a user reports something: "which build is that?" Two people
+       both running 2.2.0 can be four hundred commits apart.
+
+       So the informational version becomes `2.2.0+<short sha>`, which is what
+       Settings > About shows and what a bug report can be pinned to. SemVer
+       build metadata is the correct field for this — it is ignored for version
+       ordering, so it cannot affect any upgrade comparison.
+
+       Deliberately tolerant of having no git: a build from a source tarball or
+       an exported directory simply gets the bare version rather than failing.
+       ContinueOnError plus the exit-code guard mean a machine without git
+       installed builds exactly as it did before. -->
+  <Target Name="StampCommitId"
+          BeforeTargets="GetAssemblyAttributes"
+          Condition="'$(SuppressCommitStamp)' != 'true'">
+    <Exec Command="git rev-parse --short=8 HEAD"
+          ConsoleToMSBuild="true"
+          ContinueOnError="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitShortSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+    </Exec>
+
+    <PropertyGroup Condition="'$(_GitExitCode)' == '0' AND '$(_GitShortSha)' != ''">
+      <InformationalVersion>$(Version)+$(_GitShortSha.Trim())</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 </Project>

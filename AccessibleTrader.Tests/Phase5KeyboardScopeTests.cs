@@ -42,6 +42,15 @@ namespace AccessibleTrader.Tests
         // ordinary printable characters, and a global binding would swallow them in every text box.
         [InlineData(SystemCommand.NavPatternPrev)]
         [InlineData(SystemCommand.NavPatternNext)]
+        [InlineData(SystemCommand.CyclePatternFocus)]
+        [InlineData(SystemCommand.ClearPatternFocus)]
+        // Quick trade: the stop and the limit both come from the bar under the cursor, and
+        // Shift+Enter must stay available to every form control in the application.
+        [InlineData(SystemCommand.QuickArmRisk1)]
+        [InlineData(SystemCommand.QuickSetStop)]
+        [InlineData(SystemCommand.QuickPlaceLimit)]
+        [InlineData(SystemCommand.QuickPlaceMarket)]
+        [InlineData(SystemCommand.QuickDisarm)]
         // Viewport
         [InlineData(SystemCommand.ZoomIn)]
         [InlineData(SystemCommand.ZoomOut)]
@@ -189,6 +198,10 @@ namespace AccessibleTrader.Tests
                 SystemCommand.NavPageUp, SystemCommand.NavPageDown,
                 SystemCommand.NavLeftJump, SystemCommand.NavRightJump,
                 SystemCommand.NavPatternPrev, SystemCommand.NavPatternNext,
+                SystemCommand.CyclePatternFocus, SystemCommand.ClearPatternFocus,
+                SystemCommand.QuickArmRisk1, SystemCommand.QuickArmRisk2, SystemCommand.QuickArmRisk3,
+                SystemCommand.QuickSetStop, SystemCommand.QuickPlaceLimit, SystemCommand.QuickPlaceMarket,
+                SystemCommand.QuickDisarm, SystemCommand.QuickArmStatus,
                 SystemCommand.JumpToLatest, SystemCommand.NavSubPaneNext,
                 SystemCommand.NavSubPanePrev, SystemCommand.NavComponentInPaneNext,
                 SystemCommand.NavComponentInPanePrev, SystemCommand.SelectNextSeries,
