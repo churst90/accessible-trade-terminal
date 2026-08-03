@@ -240,6 +240,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool isTabSwitch = state.ActiveTabIndex != _previousState.ActiveTabIndex;
             if (isTabSwitch)
             {
+                // Forget where the cursor was. The formation diff compares the current bar against
+                // the previous one, and after a tab switch "the previous one" belonged to a
+                // different chart — so the very first arrow key on the new tab would diff bar 300
+                // of BTC against bar 300 of TAO. -1 means "no idea", which makes the next move take
+                // the jump path and simply describe what is here.
+                _lastPatternBar = -1;
                 _navManager.IsSpeechEnabled = state.IsSpeechEnabled;
                 _audioRouter.IsSonificationEnabled = state.IsSonificationEnabled;
                 _previousState = state;
@@ -609,7 +615,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int idx = state.CurrentDataIndex;
             if (data == null || idx < 0 || idx >= data.Count) { _lastPatternBar = -1; return ""; }
 
-            var all = _patternCache.For(data);
+            var all = _patternCache.For(state.Identity, data);
             int prev = _lastPatternBar;
             _lastPatternBar = idx;
 

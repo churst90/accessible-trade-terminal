@@ -62,7 +62,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return;
             }
 
-            var all = _patterns.For(data);
+            var all = _patterns.For(state.Identity, data);
             if (all.Count == 0)
             {
                 // Never silent. "There are none" and "the key did nothing" are indistinguishable by

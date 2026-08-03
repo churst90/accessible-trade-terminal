@@ -76,7 +76,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (_patterns == null) return "";
 
-            var all = _patterns.For(state.Data);
+            var all = _patterns.For(state.Identity, state.Data);
             if (all.Count == 0) return "";
 
             var here = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList();

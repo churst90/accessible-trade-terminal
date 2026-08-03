@@ -473,18 +473,92 @@ public class ChartPatternPositionTests
     /// list, or they will describe the chart differently and the disagreement will be indis-
     /// tinguishable by ear from a bug in the detector.
     /// </summary>
+    private static ChartIdentity Id(string symbol, string tf = "4h", string provider = "MEXC")
+        => new("Crypto", provider, symbol, tf);
+
     [Fact]
     public void TheCacheReturnsTheSameInstanceUntilTheDataChanges()
     {
         var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
         var bars = RandomWalk(400, seed: 3);
 
-        var a = cache.For(bars);
-        var b = cache.For(bars);
+        var a = cache.For(Id("TAOUSDT"), bars);
+        var b = cache.For(Id("TAOUSDT"), bars);
         Assert.Same(a, b);
 
         var longer = bars.Concat(RandomWalk(50, seed: 4)).ToList();
-        Assert.NotSame(a, cache.For(longer));
+        Assert.NotSame(a, cache.For(Id("TAOUSDT"), longer));
+    }
+
+    /// <summary>
+    /// <b>The cross-chart leak.</b> Reported from live use: open TAO 4h in one tab and BTC 4h in
+    /// another, and the second chart described the first chart's formations.
+    ///
+    /// <para>
+    /// The cache keyed on <c>(bar count, last bar timestamp)</c>, which looks like it identifies the
+    /// data and does — for one chart. Two crypto charts on the same timeframe load the same default
+    /// number of bars, and because crypto trades continuously the most recent 4-hour bar carries the
+    /// <b>identical</b> timestamp on both. The key collided exactly. This fixture reproduces that
+    /// precisely: same length, same final timestamp, completely different prices.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TwoChartsWithIdenticalBarCountsAndTimestampsDoNotShareAnEntry()
+    {
+        var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
+
+        var tao = RandomWalk(400, seed: 11);
+        var btc = RandomWalk(400, seed: 99);
+
+        // The collision condition, made exact.
+        Assert.Equal(tao.Count, btc.Count);
+        Assert.Equal(tao[^1].Date, btc[^1].Date);
+
+        var taoPatterns = cache.For(Id("TAOUSDT"), tao);
+        var btcPatterns = cache.For(Id("BTCUSDT"), btc);
+
+        Assert.NotSame(taoPatterns, btcPatterns);
+        // And the second chart's answer must actually come from the second chart's prices.
+        Assert.Equal(new ChartPatternDetector(new SwingStructureAnalyzer()).Detect(btc).Count,
+                     btcPatterns.Count);
+    }
+
+    /// <summary>
+    /// Switching back must not recompute. A single-entry cache would be correct after the fix and
+    /// would turn every alt-tab between two charts into a fresh O(swings²) scan.
+    /// </summary>
+    [Fact]
+    public void SwitchingBackToAPreviousChartIsFree()
+    {
+        var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
+        var tao = RandomWalk(400, seed: 11);
+        var btc = RandomWalk(400, seed: 99);
+
+        var first = cache.For(Id("TAOUSDT"), tao);
+        cache.For(Id("BTCUSDT"), btc);
+
+        Assert.Same(first, cache.For(Id("TAOUSDT"), tao));
+    }
+
+    /// <summary>
+    /// Symbol alone is not the identity. The same ticker at two timeframes is two different charts,
+    /// and the same ticker on two providers can carry different history.
+    /// </summary>
+    [Fact]
+    public void TimeframeAndProviderArePartOfTheIdentity()
+    {
+        var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
+        var bars = RandomWalk(400, seed: 5);
+
+        var fourHour = cache.For(Id("BTCUSDT", tf: "4h"), bars);
+        var daily = cache.For(Id("BTCUSDT", tf: "1d"), bars);
+        var other = cache.For(Id("BTCUSDT", tf: "4h", provider: "Bitstamp"), bars);
+
+        Assert.NotSame(fourHour, daily);
+        Assert.NotSame(fourHour, other);
+
+        Assert.NotEqual(ChartPatternCache.KeyFor(Id("BTCUSDT", tf: "4h")),
+                        ChartPatternCache.KeyFor(Id("BTCUSDT", tf: "1d")));
     }
 
     [Fact]
@@ -492,9 +566,27 @@ public class ChartPatternPositionTests
     {
         var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
 
-        Assert.Empty(cache.For(null));
-        Assert.Empty(cache.For(new List<Ohlcv>()));
-        Assert.Empty(cache.For(RandomWalk(5, seed: 1)));
+        Assert.Empty(cache.For(Id("BTCUSDT"), null));
+        Assert.Empty(cache.For(Id("BTCUSDT"), new List<Ohlcv>()));
+        Assert.Empty(cache.For(Id("BTCUSDT"), RandomWalk(5, seed: 1)));
+    }
+
+    /// <summary>
+    /// The cache is bounded. A user who opens many charts in a session must not accumulate a
+    /// detection result per chart forever.
+    /// </summary>
+    [Fact]
+    public void TheCacheEvictsRatherThanGrowingWithoutBound()
+    {
+        var cache = new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer()));
+        var bars = RandomWalk(200, seed: 2);
+
+        var firstEntry = cache.For(Id("SYM0"), bars);
+        for (int i = 1; i <= ChartPatternCache.MaxEntries + 2; i++)
+            cache.For(Id("SYM" + i), bars);
+
+        // SYM0 was pushed out, so asking again recomputes rather than returning the old instance.
+        Assert.NotSame(firstEntry, cache.For(Id("SYM0"), bars));
     }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────
