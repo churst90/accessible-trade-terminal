@@ -742,21 +742,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         body["type"] = "market";
                     }
 
-                    // Protective legs — ONLY valid when the entry is market/limit. A
-                    // stop/stop-limit entry is itself a protective order; Alpaca rejects
-                    // a bracket parented by a stop, and signal.StopLoss there is the
-                    // ENTRY trigger, not a child. Alpaca also needs `bracket` for both
-                    // legs and `oto` for a single leg (a one-leg `bracket` is rejected).
-                    bool entryIsMarketOrLimit = signal.Type is OrderType.Market or OrderType.Limit;
-                    if (entryIsMarketOrLimit && (signal.StopLoss.HasValue || signal.TakeProfit.HasValue))
-                    {
-                        bool both = signal.StopLoss.HasValue && signal.TakeProfit.HasValue;
-                        body["order_class"] = both ? "bracket" : "oto";
-                        if (signal.StopLoss.HasValue)
-                            body["stop_loss"] = new JObject { ["stop_price"] = signal.StopLoss.Value };
-                        if (signal.TakeProfit.HasValue)
-                            body["take_profit"] = new JObject { ["limit_price"] = signal.TakeProfit.Value };
-                    }
+                    ApplyProtectiveLegs(body, signal);
 
                     if (!string.IsNullOrEmpty(signal.ClientOid))
                         body["client_order_id"] = signal.ClientOid;
@@ -771,6 +757,51 @@ namespace AccessibleTrader.Plugins.Alpaca
                 });
             }
             catch (Exception ex) { _errorStream.OnNext($"Alpaca order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
+        }
+
+        /// <summary>
+        /// Attach the stop loss and take profit to an order body, as Alpaca wants them.
+        ///
+        /// <para>
+        /// <b>This is where bracket atomicity comes from, and it is worth being explicit about.</b>
+        /// Alpaca accepts the entry and both protective legs as a SINGLE order with
+        /// <c>order_class</c> set, so the broker itself guarantees there is never a moment where the
+        /// entry exists and the stop does not. Verified against a paper account on 2026-08-03: one
+        /// POST returned a parent plus two legs already in <c>held</c> status. That is a stronger
+        /// guarantee than the application could build on top of a broker that attached legs
+        /// separately, where a failed second call leaves a naked position — which is what
+        /// <c>GeneralOrderService.VerifyProtectiveOrdersAsync</c> exists to catch elsewhere.
+        /// </para>
+        ///
+        /// <para>
+        /// Extracted from the request builder so the three rules below can be tested without a
+        /// network call. Each of them is a rejection waiting to happen if it is got wrong:
+        /// </para>
+        /// <list type="number">
+        ///   <item><b>Legs only when the entry is market or limit.</b> A stop or stop-limit ENTRY is
+        ///         itself a protective order — Alpaca rejects a bracket parented by a stop, and in
+        ///         that case <c>signal.StopLoss</c> is the entry trigger rather than a child leg.
+        ///         Passing it as a leg would both fail and mean something different.</item>
+        ///   <item><b><c>bracket</c> for two legs, <c>oto</c> for one.</b> A one-leg
+        ///         <c>bracket</c> is rejected outright.</item>
+        ///   <item><b>Stop legs carry <c>stop_price</c>, target legs carry <c>limit_price</c>.</b>
+        ///         The two are not interchangeable and swapping them is silently wrong in the
+        ///         dangerous direction — a stop posted as a limit does not protect anything.</item>
+        /// </list>
+        /// </summary>
+        internal static void ApplyProtectiveLegs(JObject body, TradeSignal signal)
+        {
+            bool entryIsMarketOrLimit = signal.Type is OrderType.Market or OrderType.Limit;
+            if (!entryIsMarketOrLimit) return;
+            if (!signal.StopLoss.HasValue && !signal.TakeProfit.HasValue) return;
+
+            bool both = signal.StopLoss.HasValue && signal.TakeProfit.HasValue;
+            body["order_class"] = both ? "bracket" : "oto";
+
+            if (signal.StopLoss.HasValue)
+                body["stop_loss"] = new JObject { ["stop_price"] = signal.StopLoss.Value };
+            if (signal.TakeProfit.HasValue)
+                body["take_profit"] = new JObject { ["limit_price"] = signal.TakeProfit.Value };
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

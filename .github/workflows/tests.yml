@@ -72,3 +72,48 @@ jobs:
           name: test-results
           path: AccessibleTrader.Tests/TestResults/*.trx
           retention-days: 14
+
+  # ── MAUI head compile check ────────────────────────────────────────────────
+  #
+  # The MAUI desktop head was ONLY built by release.yml, which runs on a tag.
+  # That meant a compile break in it surfaced at the moment of cutting a
+  # release — the most expensive point possible — and it is why two releases
+  # in a row shipped that head having never been built during their own
+  # development cycle. This job moves the discovery to the commit that caused
+  # it.
+  #
+  # It BUILDS, it does not publish: publishing adds several minutes of
+  # self-contained trimming that proves nothing extra about whether the code
+  # compiles, and release.yml still does the real publish. It also cannot
+  # prove the head RUNS — app.css is not compiled and no CI job launches a
+  # window — so the hands-on launch stays on the release checklist.
+  #
+  # Push-to-main and manual dispatch only, deliberately. Windows runners bill
+  # at a higher multiplier than Ubuntu, and catching a break within one commit
+  # is worth far more than catching it one PR iteration earlier.
+  maui-windows-build:
+    name: MAUI Windows head compiles
+    runs-on: windows-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui
+
+      # Same TFM release.yml publishes. The Razor source generator is disabled
+      # for the same reason it is everywhere else in this repo: SDK 10.0.301
+      # miscompiles `<text>` and same-line code-block markup.
+      - name: Build MAUI Windows head
+        shell: pwsh
+        run: |
+          dotnet build AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
+            --framework net10.0-windows10.0.19041.0 `
+            --configuration Release `
+            -p:UseRazorSourceGenerator=false
