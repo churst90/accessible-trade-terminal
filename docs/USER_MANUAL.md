@@ -127,6 +127,16 @@ signals — they are not written to the Journal, and none of them changes with y
 strategy setup. If you hear one lone high beep while arrowing across an RSI, that is
 the approach ping.
 
+**Adding a level of your own.** Press `0` with a series focused and the terminal drops a reference
+line on it. What it does depends on which pane you are on, because a level only means something in
+the units of the thing it sits on. On an oscillator — MACD, a momentum reading, anything that swings
+around a centre — it goes at **zero**, which is the line that matters there. On the price chart there
+is no meaningful zero, so it goes at **the price of the bar under your cursor**: arrow to the level
+you care about, press `0`, and you have marked it. You will hear which one you got — *"Zero line
+added"* or *"Level added at 63,920.11"*. From then on that line speaks and pings like any other, so
+you can hear price approach and cross the level you chose. Levels are saved with the workspace and
+survive a restart; remove one from the series Properties dialog.
+
 Two more cues round out the picture. Stereo position places you in time: the
 leftmost visible bar plays hard in the left channel and the rightmost hard in the
 right, so as playback advances or you move the cursor rightward the sound travels

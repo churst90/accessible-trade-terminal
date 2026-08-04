@@ -782,7 +782,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 |----------|--------|
 | Alt+A | Open Add Indicator dialog |
 | P or Shift+F12 | Open properties for focused indicator |
-| 0 (zero) | Add zero reference line to focused indicator |
+| 0 (zero) | Add a reference line to the focused series — at zero on an oscillator, at the price under the cursor on the price chart |
 | Delete | Remove focused indicator series |
 | Alt+C | Toggle Heikin-Ashi candle mode |
 | Alt+L | Toggle logarithmic scale |

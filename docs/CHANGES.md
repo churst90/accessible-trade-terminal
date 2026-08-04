@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### The price axis that ran to zero (2026-08-04)
+
+- **Fixed: pressing `0` on the price series put a reference level at zero**, and the viewport then
+  stretched the y-axis all the way to the origin — squashing every candle into the top tenth of the
+  pane, at every launch, because levels are saved with the workspace. The key was written for
+  oscillators, where a zero line is exactly right; nothing had ever asked what it should mean on a
+  chart trading near 64,000.
+- **`0` now places the level in the units of the pane it lands on.** Zero on an oscillator; the
+  **price under the cursor** on the price pane — which is what "mark a level here" should have meant
+  all along. When there is no price to use it says so instead of falling back.
+- **The viewport now refuses a level that is not in its units.** A level more than three times the
+  visible data span outside it is a different quantity, not a generous zone, and cannot expand the
+  range. This holds however the level got there, so it also covers saved overrides and misassigned
+  panes. Fear & Greed zone lines, which the expansion was added for, still draw.
+- **A new test enumerates every indicator** and fails if anything on the price pane declares a fixed
+  reference level — a constant in source cannot be a price. It passes today, which is the evidence
+  that no shipped indicator has this defect.
+
+If your chart still opens with a squashed axis, an old `Zero` level is saved on the price series;
+delete it from Properties. It can no longer distort the scale either way.
+
 ### Formations on the canvas, and a null (2026-08-04)
 
 - **Settings → Appearance → Draw chart formations.** Off by default. Shades each formation's span,

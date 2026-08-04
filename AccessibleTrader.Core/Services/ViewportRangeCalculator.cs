@@ -32,6 +32,23 @@ namespace AccessibleTrader.Core.Services
             // Expand main range to include any reference levels on main-pane series
             // (e.g. analytics hint-injected FNG 25/50/75 zones). Otherwise the pane
             // auto-scales too tight and the zones clip off-screen.
+            //
+            // ── But a level must be in the same UNITS as the pane ────────────────
+            //
+            // A series whose Pane is unset falls back to "Main" above, and some indicators declare
+            // reference lines in their own units rather than in price. LoukasCyclesProvider is the
+            // worked example: it declares "DC Floor" at 0.0, "DC Window Open" at 35.0 and
+            // "DC Overdue" at 90.0 — those are BAR COUNTS, days into a cycle. Let one of those
+            // expand a BTC chart and the price axis runs 0 to 70,000, compressing every candle into
+            // the top tenth of the pane. Reported from a screenshot; the chart was unreadable and
+            // nothing errored.
+            //
+            // The guard is a ratio rather than a pane-bookkeeping fix, because it encodes the actual
+            // invariant — a reference level on a price pane has to be a price — and so it holds even
+            // when a series' pane assignment is wrong or missing. A level within a few multiples of
+            // the visible data range is plausibly the same quantity; one sixty times outside it is
+            // measuring something else.
+            double dataSpan = mainMax - mainMin;
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
@@ -39,6 +56,7 @@ namespace AccessibleTrader.Core.Services
                 foreach (var lvl in s.Levels)
                 {
                     if (!lvl.IsVisible) continue;
+                    if (!IsPlausiblySamePane(lvl.Value, mainMin, mainMax, dataSpan)) continue;
                     if (lvl.Value < mainMin) mainMin = lvl.Value;
                     if (lvl.Value > mainMax) mainMax = lvl.Value;
                 }
@@ -174,5 +192,39 @@ namespace AccessibleTrader.Core.Services
 
             return new ViewportRangeResult((mainMin, mainMax), paneRanges.ToImmutableDictionary());
         }
-    }
+    
+        /// <summary>
+        /// Whether a reference level is in the same units as the pane it would expand.
+        ///
+        /// <para>
+        /// <b>How far outside the data is too far.</b> A level a little beyond the visible window is
+        /// exactly what this expansion exists for — a Fear &amp; Greed chart showing 10–90 should
+        /// still draw its 0 and 100 zone lines. A level sixty times the data span away is not a
+        /// generous zone, it is a different quantity: a bar count, a percentage, an oscillator
+        /// bound, on a pane measured in dollars.
+        /// </para>
+        ///
+        /// <para>
+        /// <see cref="MaxLevelSpanMultiple"/> is the dividing line. Three is deliberately loose —
+        /// this guard exists to catch a unit mismatch, not to police legitimate zones, and being
+        /// too strict would silently clip the very thing the expansion was added for.
+        /// </para>
+        /// </summary>
+        internal static bool IsPlausiblySamePane(double level, double dataMin, double dataMax, double dataSpan)
+        {
+            if (!double.IsFinite(level)) return false;
+
+            // A flat series has no span to judge against, so nothing can be ruled out.
+            if (dataSpan <= 0) return true;
+
+            double distance = level < dataMin ? dataMin - level
+                            : level > dataMax ? level - dataMax
+                            : 0;
+
+            return distance <= dataSpan * MaxLevelSpanMultiple;
+        }
+
+        /// <summary>How many multiples of the visible data span a reference level may sit outside it.</summary>
+        internal const double MaxLevelSpanMultiple = 3.0;
+}
 }

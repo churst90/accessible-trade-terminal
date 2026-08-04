@@ -330,23 +330,39 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
                 case SystemCommand.AddReferenceLevel:
                 {
-                    // Add a zero-line to the focused indicator series (not a freehand drawing).
+                    // Add a reference level to the focused indicator series (not a freehand drawing).
                     // Drawings are for price-anchored objects; reference levels belong on the series itself.
+                    //
+                    // WHERE the level goes depends on the pane, and getting that wrong is not cosmetic:
+                    // this used to add a level at literal zero regardless, and on the price series that
+                    // dragged the whole y-axis down to the origin — permanently, because levels persist
+                    // in the workspace. See ReferenceLevelPlacement for the full account.
                     var focusedId = _store.State.FocusedSeriesId ?? string.Empty;
                     var focused = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == focusedId);
-                    if (focused != null && !focused.IsDrawing)
+                    if (focused == null || focused.IsDrawing)
                     {
-                        var level = new LevelConfig
-                        {
-                            Name = "Zero",
-                            Value = 0,
-                            ColorHex = "#888888",
-                            DashStyle = DashStyle.Dash,
-                            IsVisible = true
-                        };
-                        _store.Dispatch(new AddLevelAction(focusedId, level));
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "Zero line added", true));
+                        // Never silently: to a screen-reader user this is indistinguishable from an
+                        // unbound key.
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                            "Focus a series first — a reference level belongs to a series.", true));
+                        return;
                     }
+
+                    var bars = _store.State.Data;
+                    int cursor = _store.State.CurrentDataIndex;
+                    double cursorPrice = bars != null && cursor >= 0 && cursor < bars.Count
+                        ? (double)bars[cursor].Close
+                        : double.NaN;
+
+                    var level = ReferenceLevelPlacement.For(focused.Pane, cursorPrice, out string levelReason);
+                    if (level == null)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, levelReason, true));
+                        return;
+                    }
+
+                    _store.Dispatch(new AddLevelAction(focusedId, level));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, levelReason, true));
                     return;
                 }
                 case SystemCommand.ToggleSpeech: _store.Dispatch(new ToggleSpeechAction()); return;

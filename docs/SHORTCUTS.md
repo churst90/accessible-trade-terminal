@@ -287,7 +287,7 @@ Also on the toolbar's second row as **Split**, which shows its own pressed state
 |-----|--------|-----------------|
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
-| 0 (zero) | Add a zero reference line to the focused indicator series | "Zero line added" |
+| 0 (zero) | Add a reference line to the focused series. On an **oscillator** pane it goes at zero; on the **price** pane there is no meaningful zero, so it goes at the price under the cursor. | "Zero line added" / "Level added at 63920.11" / "No price under the cursor to place a level at." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 
 ---

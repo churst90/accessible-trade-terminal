@@ -15,7 +15,7 @@ into invisibility.
 project has made, and it is the kind of change a test suite is worst at judging: every sentence can
 be individually well-formed while the experience of moving through a chart is wrong.
 
-That is not a hypothesis. **Seven defects were found by using the terminal, none by the 2,857-test
+That is not a hypothesis. **Eight defects were found by using the terminal, none by the 2,875-test
 suite:**
 
 | Defect | Why the suite could not see it |
@@ -28,6 +28,7 @@ suite:**
 | Chart pattern description reset at every launch | It lived in the store, so it worked perfectly all session; nothing tested that it reached disk |
 | Formation labels overprinted into an illegible smear | Every drawing test asked whether rendering *threw*, not whether the result was readable |
 | The new render tests **aborted the whole suite** | Undisposed `SKSurface` handles. It never presented as a failing test — the run simply died at a different count each time (761, 1,472, 1,843 of 2,849) |
+| The `0` key put a level at zero on the **price** pane, stretching the axis to the origin | The command did exactly what it was written to do; the defect was that the same key had to mean something different on a price pane than on an oscillator |
 
 Every one is a defect of *behaviour over time* or *silence*, and those are the two things unit tests
 systematically miss.
@@ -39,7 +40,7 @@ systematically miss.
 **Build and suite**
 - [x] Core, SDK, WebHost, Components, StrategyLab, Tests all build clean
 - [x] **Zero compiler warnings** (the last two, redundant `@inject` in `LabelTextModal`, removed)
-- [x] **2,849 tests pass, 0 failed, 0 skipped — three consecutive clean runs**, because an
+- [x] **2,875 tests pass, 0 failed, 0 skipped — three consecutive clean runs**, because an
       intermittent abort was found and fixed during this pass (see below)
 - [x] Edge registry validates — 42 edges, structurally sound
 - [x] Doc-drift guard green (README plugin count, test count, shortcut table)
@@ -87,8 +88,8 @@ systematically miss.
 - [x] Formation edge naming, `,`/`.` behaviour → **produced three defects**
 - [x] Tab switching → **produced the pattern-cache collision**
 - [x] Settings persistence → **produced the DescribeChartPatterns reset**
-- [x] A screenshot of the drawn formations → **produced the label-collision defect, and surfaced a
-      pre-existing y-axis problem** (see below)
+- [x] A screenshot of the drawn formations → **produced the label-collision defect, and surfaced the
+      pre-existing y-axis-to-zero defect, now traced to the `0` shortcut and closed** (item 7 below)
 
 **Research completed in-cycle**
 - [x] Analyst revision breadth — **UNTESTED** (minimum detectable effect 6.47%/month), not null
@@ -167,15 +168,55 @@ five seconds" and persists across runs from the same address. Options, none bloc
 raise the spacing well beyond 10s, split the themes across two daily runs, or move to GDELT's
 bulk/ngrams dataset. **Do not tag on the assumption the GDELT archive is usable yet.**
 
-**7. A main-pane indicator forces the price axis to include zero.** Found in a maintainer screenshot
-of BTC 4h: the y-axis ran 0 → 70,000, compressing all price action into the top tenth of the pane.
+**7. ~~A main-pane indicator forces the price axis to include zero.~~ CLOSED — and it was not an
+indicator.**
 
-`ViewportRangeCalculator` expands the main range to include any **visible `Level` on a main-pane
-series**, which is correct behaviour for a bounded metric like Fear & Greed but wrong when some
-indicator declares a level at zero on a price chart. This is **pre-existing and unrelated to the
-2.2.0 work** — formations are not part of that calculation — but it makes the price pane close to
-unusable when it fires, and it is worth identifying which indicator is responsible before the tag.
-The chart in question carried "+5 more" series beyond the two named in the legend.
+Found in a maintainer screenshot of BTC 4h: the y-axis ran 0 → 70,000, compressing all price action
+into the top tenth of the pane.
+
+**The cause.** The `0` shortcut (`SystemCommand.AddReferenceLevel`) added a level at **literal zero**
+to whatever series held focus. It was written for oscillators, where zero is a real and useful
+constant — but pressed with the **price** series focused it put a level at 0 on a chart trading near
+64,000. `ViewportRangeCalculator` expands the price range to cover any visible main-pane level, so
+the axis stretched to the origin. Levels persist in the workspace, so the chart came back broken at
+every launch.
+
+It was confirmed by reading the maintainer's own saved workspace rather than by inference. The entry
+was still sitting there:
+
+```json
+{ "Name": "Zero", "Value": 0.0, "ColorHex": "#888888", "IsVisible": true }   // on the CANDLES series
+```
+
+**Why the first suspect was wrong, and why that matters.** `LoukasCyclesProvider` declares "DC Floor"
+at 0.0, "DC Window Open" at 35.0 and "DC Overdue" at 90.0 — bar counts, not prices — which looked
+like an exact match. It was not the cause: pane assignment is decided by `PaneAssignmentService` from
+the indicator *code*, **not** by the provider's own `DefaultPane` property, and the two disagree for
+several providers. Checking the property would have cleared the wrong indicator and convicted it in
+the same breath.
+
+**Three fixes, deliberately at different levels:**
+
+1. **`ReferenceLevelPlacement`** — the `0` key now places the level in the units of the pane. Zero on
+   an oscillator; the **price under the cursor** on a price pane; a spoken refusal when there is no
+   price to use. 8 tests.
+2. **A units guard in `ViewportRangeCalculator`** — a level more than 3× the visible data span
+   outside it is not the same quantity as the pane and cannot expand it. This holds regardless of how
+   the level got there, so it also covers saved overrides, analytics hints, and a series whose pane
+   assignment is wrong. 7 tests. The Fear & Greed case the expansion was added for still works.
+3. **`MainPaneLevelUnitsTests`** — enumerates every constructible provider, asks
+   `PaneAssignmentService` where each of its codes lands, and fails if anything on "Main" declares a
+   fixed level. A constant in source cannot be a price, so this is statically checkable. It currently
+   passes, which is the evidence that **no shipped indicator has this defect**.
+
+**One residue.** The stale `Zero` level is still in the maintainer's `__last-session__.json`. It is
+now harmless — the guard stops it expanding the axis, and it renders off-screen rather than clamped
+to an edge — but it can be deleted from the series Properties dialog.
+
+**What this one is really an instance of.** Three of this cycle's defects — the pattern-cache key,
+the unpersisted preference, and this — were found by *reading state that had been written to disk*
+rather than by reasoning about code. The workspace file named the culprit in one line after two
+rounds of source inspection had produced only a plausible-and-wrong suspect.
 
 ---
 
@@ -196,5 +237,5 @@ accepted them — recorded, with a name against the decision, rather than forgot
 
 ## For 2.2.1, if one becomes necessary
 
-In order: the MAUI head launch, the dialog sweep on both heads, the quick-trade paper walkthrough,
-and identifying whichever main-pane indicator declares a zero level.
+In order: the MAUI head launch, the dialog sweep on both heads, and the quick-trade paper
+walkthrough. The zero-axis defect (item 7) is closed and does not carry forward.

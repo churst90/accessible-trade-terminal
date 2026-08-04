@@ -227,8 +227,8 @@ namespace AccessibleTrader.Core.Services
                 componentOverrides: null,
                 restoreId: restoreId);
 
-            // InjectDefaultLevels is the service layer's responsibility (factory doesn't have
-            // IndicatorReferenceLevels knowledge), so call it here after factory creation.
+            // InjectDefaultLevels is the service layer's responsibility — the factory has no access to
+            // the user's saved level preferences — so it is called here, after factory creation.
             InjectDefaultLevels(series, codeUp, series.Config.Parameters ?? new());
 
             _store.Dispatch(new AddSeriesAction(series));
@@ -378,11 +378,22 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>
         /// Adds reference level lines to a newly created indicator series.
-        /// Two-tier lookup:
-        ///   1. Provider's GetDefaultLevels(code) — custom providers declare their own levels here.
-        ///   2. IndicatorReferenceLevels.GetLevels(code) — fallback for Skender (reflection-generated) indicators.
-        /// User-supplied threshold parameters (e.g. custom overbought/oversold values) override
-        /// the defaults for bounded oscillators.
+        ///
+        /// <para>
+        /// Two tiers, in order: the provider's own <c>GetDefaultLevels(code)</c>, then the user's
+        /// saved per-indicator level preferences on top. User-supplied threshold parameters (custom
+        /// overbought/oversold values) override the defaults for bounded oscillators.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>A default level must be in the units of the pane the indicator lands on</b>, and pane
+        /// assignment is decided by <see cref="PaneAssignmentService"/> from the indicator code —
+        /// not by the provider's own <c>DefaultPane</c>, which several providers set to a value the
+        /// assignment service never returns. A fixed constant can never be a price, so no indicator
+        /// that resolves to the "Main" pane may declare one; <c>MainPaneLevelUnitsTests</c> enforces
+        /// that across every provider. The consequence of getting it wrong is not cosmetic — the
+        /// viewport expands the price range to reach any visible main-pane level.
+        /// </para>
         /// </summary>
         private void InjectDefaultLevels(ChartSeries series, string codeUp, Dictionary<string, double> parameters)
         {
