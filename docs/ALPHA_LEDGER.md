@@ -89,6 +89,14 @@ Four of the last six theses died on a control that was cheap to add and that the
 the test omitted. Before running a study, ask **what is the cheapest thing that would produce this
 same result without the claimed mechanism**, and build that first as a named control in the output.
 
+**When a conditioning variable and an outcome are both fractions of the same total, they are ONE
+variable.** Added 2026-08-04, after shipping the mistake. The right-translation test measured
+"faster" as decline share — `(nextLow−high)/length` — against a translation of `(high−low)/length`.
+They sum to exactly 1, so it reported a −0.524 effect for a +0.524 translation gap and looked like a
+strong confirmation. It was arithmetic restating its own input. Check that two variables cannot be
+added to a constant before interpreting any spread between them.
+(`TRANSLATION_FINDINGS.md`)
+
 **Breadth is now recorded, not just described.** Added 2026-08-04. Every scorable edge carries
 `breadth: {held, tested, notes}` in `edges.json`, and `StrategyLab edges breadth` ranks them by it.
 A p-value says a pooled number is unlikely by chance; breadth says whether it showed up in more than
