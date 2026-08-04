@@ -1,6 +1,8 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Core.Services.Trading
+@using Microsoft.AspNetCore.Components.Web
 @using AccessibleTrader.Sdk.Plugins
 @using AccessibleTrader.Sdk.Enums
 @using AccessibleTrader.BlazorClient.Services
@@ -328,7 +330,7 @@
                                 {
                                     <table class="mini-table">
                                         <caption class="sr-only">Open positions</caption>
-                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Leverage</th><th scope="col">Liq. price</th><th scope="col">Action</th></tr></thead>
+                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Stop loss</th><th scope="col">Take profit</th><th scope="col">Leverage</th><th scope="col">Liq. price</th><th scope="col">Action</th></tr></thead>
                                         <tbody>
                                             @foreach (var p in _positions)
                                             {
@@ -338,6 +340,12 @@
                                                     <td>@PriceFormatter.FormatPrice(p.AveragePrice)</td>
                                                     <td>@PriceFormatter.FormatPrice(p.MarketValue)</td>
                                                     <td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td>
+                                                    @* Stop and target are the two numbers that decide what a position can cost
+                                                       and what it can make, and they were the two the table did not show. Each
+                                                       cell is a button that becomes a field: type, press Enter, and the value
+                                                       is checked against the current price before anything is sent. *@
+                                                    <td>@RenderProtective(p, ProtectiveLevel.StopLoss)</td>
+                                                    <td>@RenderProtective(p, ProtectiveLevel.TakeProfit)</td>
                                                     <td>@p.Leverage.ToString("0.##")×</td>
                                                     <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
                                                     <td><button aria-label="@($"Close {p.Symbol} position")" @onclick="() => ClosePosition(p)">Close</button></td>
@@ -345,7 +353,7 @@
                                             }
                                             @if (!_positions.Any())
                                             {
-                                                <tr><td colspan="8">No open positions.</td></tr>
+                                                <tr><td colspan="10">No open positions.</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -660,8 +668,164 @@
 
         await LoadAccountDataAsync();
         
-        // Start background refresh for order book
-        _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshBookAsync), null, 0, 2000);
+        // Refreshes the order book AND the account. The account used to be loaded once, when the
+        // dashboard opened, and never again — so unrealised P&L was frozen at whatever it happened
+        // to be at that moment, and a position opened while the dashboard was up never appeared.
+        // A P&L that looks live and is not is worse than one that is obviously stale.
+        _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshLiveAsync), null, 0, 2000);
+    }
+
+    // ── Protective levels on the positions table ────────────────────────────
+    //
+    // Position (the SDK record every provider returns) carries no stop or target, and widening it
+    // would break every plugin. It does not need to: a protective order IS an open order, so the
+    // levels are derived from the open-orders list by matching symbol and order type. That also
+    // means what the table shows is the order that actually exists at the venue, rather than a
+    // remembered intention that may have been cancelled behind our back.
+
+    /// <summary>Which cell, if any, is currently being edited. Null when nothing is.</summary>
+    private (string Symbol, ProtectiveLevel Level)? _editing;
+    private string _editText = "";
+
+    private OpenOrder? ProtectiveOrderFor(Position p, ProtectiveLevel level)
+    {
+        bool wantStop = level == ProtectiveLevel.StopLoss;
+        return _openOrders.FirstOrDefault(o =>
+            string.Equals(o.Symbol, p.Symbol, StringComparison.OrdinalIgnoreCase) &&
+            (wantStop
+                ? o.Type is OrderType.StopMarket or OrderType.StopLimit
+                : o.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit));
+    }
+
+    private RenderFragment RenderProtective(Position p, ProtectiveLevel level) => builder =>
+    {
+        bool isEditing = _editing.HasValue
+            && _editing.Value.Symbol == p.Symbol && _editing.Value.Level == level;
+
+        var existing = ProtectiveOrderFor(p, level);
+        string name = level == ProtectiveLevel.StopLoss ? "stop loss" : "take profit";
+        string shown = existing != null ? PriceFormatter.FormatPrice(existing.Price) : "not set";
+
+        if (isEditing)
+        {
+            builder.OpenElement(0, "input");
+            builder.AddAttribute(1, "type", "text");
+            builder.AddAttribute(2, "value", _editText);
+            builder.AddAttribute(3, "aria-label", $"{name} for {p.Symbol}. Type a price and press Enter. Escape cancels.");
+            builder.AddAttribute(4, "style", "width:110px;");
+            builder.AddAttribute(5, "autofocus", true);
+            builder.AddAttribute(6, "oninput",
+                EventCallback.Factory.Create<ChangeEventArgs>(this, e => _editText = e.Value?.ToString() ?? ""));
+            builder.AddAttribute(7, "onkeydown",
+                EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnProtectiveKeyAsync(e, p, level)));
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(0, "button");
+        builder.AddAttribute(1, "type", "button");
+        builder.AddAttribute(2, "class", "link-button");
+        // The label carries the distance as well as the price, because "63,300" alone does not say
+        // whether that stop is prudent or a hair away — and on a screen reader there is no glance.
+        builder.AddAttribute(3, "aria-label", existing != null
+            ? $"{name} {PriceFormatter.FormatPrice(existing.Price)}, {ProtectiveLevelValidator.DistanceFromPrice(existing.Price, CurrentPriceFor(p))}. Activate to edit."
+            : $"No {name} set for {p.Symbol}. Activate to add one.");
+        builder.AddAttribute(4, "onclick",
+            EventCallback.Factory.Create(this, () => BeginEdit(p, level, existing)));
+        builder.AddContent(5, shown);
+        builder.CloseElement();
+    };
+
+    private void BeginEdit(Position p, ProtectiveLevel level, OpenOrder? existing)
+    {
+        _editing = (p.Symbol, level);
+        _editText = existing != null
+            ? existing.Price.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture)
+            : "";
+        StateHasChanged();
+    }
+
+    private async Task OnProtectiveKeyAsync(KeyboardEventArgs e, Position p, ProtectiveLevel level)
+    {
+        if (e.Key == "Escape")
+        {
+            _editing = null;
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Left unchanged."));
+            StateHasChanged();
+            return;
+        }
+        if (e.Key != "Enter") return;
+
+        await CommitProtectiveAsync(p, level);
+    }
+
+    /// <summary>The current price the level is judged against.</summary>
+    private double CurrentPriceFor(Position p)
+    {
+        var st = Store.State;
+        if (st.Data != null && st.Data.Count > 0 &&
+            string.Equals(st.Identity.Symbol, p.Symbol, StringComparison.OrdinalIgnoreCase))
+            return (double)st.Data[st.Data.Count - 1].Close;
+
+        // Fall back to the position's own mark, which is what the venue last valued it at.
+        return p.Quantity != 0 ? Math.Abs(p.MarketValue / p.Quantity) : p.AveragePrice;
+    }
+
+    /// <summary>
+    /// Validates, then replaces the protective order: cancel the old one, place the new one.
+    ///
+    /// <para>
+    /// Cancel-then-place rather than a modify call, because <c>IOrderExecutionService</c> has no
+    /// modify and inventing one per provider is a larger change than this warrants. The order matters
+    /// — placing first could leave two stops on one position, and two stops is worse than none for
+    /// the few seconds it takes to notice.
+    /// </para>
+    /// </summary>
+    private async Task CommitProtectiveAsync(Position p, ProtectiveLevel level)
+    {
+        bool isLong = p.Quantity > 0;
+        var check = ProtectiveLevelValidator.Validate(_editText, level, isLong, CurrentPriceFor(p));
+
+        if (!check.Ok)
+        {
+            // Stay in the field so the value can be corrected rather than retyped.
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, check.Message, true));
+            StateHasChanged();
+            return;
+        }
+
+        var provider = Store.State.Identity.Provider;
+        if (string.IsNullOrEmpty(provider))
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No trading provider for this chart.", true));
+            return;
+        }
+
+        var existing = ProtectiveOrderFor(p, level);
+        if (existing != null)
+            await OrderService.CancelOrderAsync(provider, existing.Id, p.Symbol);
+
+        // A protective order closes the position, so it is the opposite side and the same quantity.
+        var exitSide = isLong ? OrderSide.Sell : OrderSide.Buy;
+        var signal = new TradeSignal(
+            Symbol: p.Symbol,
+            Side: exitSide,
+            Quantity: Math.Abs(p.Quantity),
+            Type: level == ProtectiveLevel.StopLoss ? OrderType.StopMarket : OrderType.TakeProfitMarket,
+            Price: null,
+            StopLoss: level == ProtectiveLevel.StopLoss ? check.Value : null,
+            TakeProfit: level == ProtectiveLevel.TakeProfit ? check.Value : null);
+
+        string result = await OrderService.PlaceOrderAsync(provider, signal);
+        string? failure = OrderResult.DescribeFailure(result);
+
+        _editing = null;
+        await LoadAccountDataAsync();
+
+        EventBus.Publish(failure != null
+            ? new FeedbackRequestEvent(FeedbackType.Error, failure, true)
+            : new FeedbackRequestEvent(FeedbackType.StateChange, check.Message));
+        StateHasChanged();
     }
 
     private async Task LoadAccountDataAsync()
@@ -693,6 +857,23 @@
             || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
         var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
         _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
+    }
+
+    /// <summary>
+    /// One tick of the live refresh: the book, and the account behind it.
+    ///
+    /// <para>
+    /// The account read is skipped while a protective level is being edited — repainting the table
+    /// under someone mid-edit would throw away what they had typed, and doing it every two seconds
+    /// would make the field unusable.
+    /// </para>
+    /// </summary>
+    private async Task RefreshLiveAsync()
+    {
+        await RefreshBookAsync();
+        if (_editing.HasValue) return;
+        try { await LoadAccountDataAsync(); } catch { /* a transient read must not kill the timer */ }
+        StateHasChanged();
     }
 
     private async Task RefreshBookAsync()

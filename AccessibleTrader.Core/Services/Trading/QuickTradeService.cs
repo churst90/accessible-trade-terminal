@@ -305,9 +305,25 @@ namespace AccessibleTrader.Core.Services.Trading
                 return $"Armed {Trim(s.RiskPercent)} percent, {Money(s.RiskCash)} at risk. No stop yet.";
 
             string size = s.PositionSize.HasValue ? Qty(s.PositionSize.Value) : "unknown";
-            return $"Armed {Trim(s.RiskPercent)} percent. {Money(s.RiskCash)} at risk, "
-                 + $"stop {Price(s.StopPrice ?? 0)}, {(s.IsLong ? "long" : "short")} "
-                 + $"{size} units, entry {Price(s.EntryPrice ?? 0)}.";
+
+            // ── Say what the position COSTS, not just what it risks ──────────────
+            //
+            // The percentage is a percentage of the account AT RISK, never of the account deployed,
+            // and the two are wildly different numbers. Risking 0.5% of $100,000 with a stop $700
+            // below a $64,000 entry buys 0.714 BTC — a $45,700 position. That is arithmetically
+            // right, and it reads as a bug if the only figures you were given were "0.5 percent" and
+            // "$500 at risk": the position turns out to be ninety times the number you last heard.
+            //
+            // So both are spoken, and the risk is named as "if the stop is hit" — which is the
+            // sentence that makes the relationship between them obvious.
+            string cost = s.PositionSize is double q && s.EntryPrice is double e && q > 0 && e > 0
+                ? $" Position value {Money(q * e)}."
+                : "";
+
+            return $"{(s.IsLong ? "Long" : "Short")} {size} units, entry {Price(s.EntryPrice ?? 0)}, "
+                 + $"stop {Price(s.StopPrice ?? 0)}.{cost} "
+                 + $"Risking {Money(s.RiskCash)}, {Trim(s.RiskPercent)} percent of the account, "
+                 + "if the stop is hit.";
         }
 
         private (Ohlcv Bar, bool Ok) CursorBar()

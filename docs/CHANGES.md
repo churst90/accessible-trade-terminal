@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Positions you can manage, and sizing that explains itself (2026-08-04)
+
+- **Stop loss and take profit are now columns in the positions table, and both are editable in
+  place.** Activate the cell, type a price, press Enter. Escape leaves it alone. The value is
+  checked before anything is sent: a long's stop must be below the current price and its target
+  above, inverted for a short. That check is not left to the exchange — several venues *accept* a
+  stop on the wrong side and trigger it immediately, closing the position the instant it is placed.
+  The spoken label carries the distance as a percentage too, because "63,300" alone does not say
+  whether that stop is prudent or a hair away.
+- **Fixed: unrealised P&L never updated.** The 2-second timer refreshed only the order book; the
+  account was read once when the dashboard opened and never again. So P&L was frozen at whatever it
+  was on open, and a position taken while the dashboard was up never appeared at all. Both now
+  refresh on the same tick — except while you are mid-edit, because repainting the table under
+  someone typing would throw away what they had typed.
+- **The sizing announcement now says what the position is worth, not only what it risks.** *"0.5
+  percent, $500 at risk"* followed by a 0.7 BTC position reads like a bug, and it is not: risking
+  $500 with a stop $700 below a $64,000 entry buys 0.714 BTC, a **$45,700 position**, which loses
+  exactly $500 if the stop is hit. The percentage was always *account at risk*, never *account
+  deployed* — two very different numbers. Both are now spoken, and the risk is phrased as "if the
+  stop is hit", which is the sentence that makes the relationship obvious.
+
 ### Quick trade had never placed an order (2026-08-04)
 
 - **`QuickTradeExecutor` — the half of the feature that actually sends the order — was never

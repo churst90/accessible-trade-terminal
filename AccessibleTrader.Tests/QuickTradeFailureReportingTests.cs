@@ -31,8 +31,8 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void AnOrderIdIsNotTreatedAsAFailure()
     {
-        Assert.Null(QuickTradeExecutor.DescribeFailure("paper-9f2c1a4b7e03"));
-        Assert.Null(QuickTradeExecutor.DescribeFailure("12345678"));
+        Assert.Null(OrderResult.DescribeFailure("paper-9f2c1a4b7e03"));
+        Assert.Null(OrderResult.DescribeFailure("12345678"));
     }
 
     /// <summary>
@@ -43,7 +43,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void InsufficientBalanceExplainsWhyAndWhatToDo()
     {
-        string? msg = QuickTradeExecutor.DescribeFailure(
+        string? msg = OrderResult.DescribeFailure(
             "ORDER_FAILED:insufficient paper balance — that position needs 134,000.00 USDT and the account holds 100,000.00");
 
         Assert.NotNull(msg);
@@ -54,7 +54,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void NoLivePriceIsReportedPlainly()
     {
-        string? msg = QuickTradeExecutor.DescribeFailure("ORDER_FAILED:no live price for symbol — load its chart first");
+        string? msg = OrderResult.DescribeFailure("ORDER_FAILED:no live price for symbol — load its chart first");
         Assert.NotNull(msg);
         Assert.Contains("no live price", msg!, StringComparison.OrdinalIgnoreCase);
     }
@@ -66,7 +66,7 @@ public class QuickTradeFailureReportingTests
     [InlineData("ORDER_FAILED")]
     public void EveryKnownFailureCodeProducesSomethingToSay(string code)
     {
-        string? msg = QuickTradeExecutor.DescribeFailure(code);
+        string? msg = OrderResult.DescribeFailure(code);
         Assert.False(string.IsNullOrWhiteSpace(msg), $"{code} would be silent.");
         Assert.Contains("Not placed", msg!, StringComparison.OrdinalIgnoreCase);
     }
@@ -78,7 +78,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void AnUnknownFailureReasonIsStillPassedOn()
     {
-        string? msg = QuickTradeExecutor.DescribeFailure("ORDER_FAILED:market is closed for maintenance");
+        string? msg = OrderResult.DescribeFailure("ORDER_FAILED:market is closed for maintenance");
         Assert.NotNull(msg);
         Assert.Contains("market is closed for maintenance", msg!);
     }
@@ -88,7 +88,7 @@ public class QuickTradeFailureReportingTests
     [InlineData("")]
     [InlineData("   ")]
     public void AnEmptyAnswerIsAFailureNotASuccess(string? result)
-        => Assert.False(string.IsNullOrWhiteSpace(QuickTradeExecutor.DescribeFailure(result)));
+        => Assert.False(string.IsNullOrWhiteSpace(OrderResult.DescribeFailure(result)));
 
     // ── The pre-flight caution ───────────────────────────────────────────────
 
