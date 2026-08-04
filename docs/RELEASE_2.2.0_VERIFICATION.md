@@ -15,7 +15,7 @@ into invisibility.
 project has made, and it is the kind of change a test suite is worst at judging: every sentence can
 be individually well-formed while the experience of moving through a chart is wrong.
 
-That is not a hypothesis. **Eight defects were found by using the terminal, none by the 2,875-test
+That is not a hypothesis. **Eight defects were found by using the terminal, none by the 3,012-test
 suite:**
 
 | Defect | Why the suite could not see it |
@@ -40,7 +40,7 @@ systematically miss.
 **Build and suite**
 - [x] Core, SDK, WebHost, Components, StrategyLab, Tests all build clean
 - [x] **Zero compiler warnings** (the last two, redundant `@inject` in `LabelTextModal`, removed)
-- [x] **2,875 tests pass, 0 failed, 0 skipped — three consecutive clean runs**, because an
+- [x] **3,012 tests pass, 0 failed, 0 skipped — three consecutive clean runs**, because an
       intermittent abort was found and fixed during this pass (see below)
 - [x] Edge registry validates — 42 edges, structurally sound
 - [x] Doc-drift guard green (README plugin count, test count, shortcut table)
@@ -217,6 +217,25 @@ to an edge — but it can be deleted from the series Properties dialog.
 the unpersisted preference, and this — were found by *reading state that had been written to disk*
 rather than by reasoning about code. The workspace file named the culprit in one line after two
 rounds of source inspection had produced only a plausible-and-wrong suspect.
+
+---
+
+## Trading: what this session changed, and what it opened
+
+A hands-on paper-trading pass on 2026-08-04 found **nine** defects, none of which the suite could see.
+The largest: **quick trade had never placed an order in its life** — `QuickTradeExecutor` was never
+registered in DI, so the request event had no subscriber. Also fixed: shifted-digit and ENTER/RETURN
+bindings that made six of eight quick-trade keys unreachable, an equity cache nothing populated, a
+discarded `ORDER_FAILED` status, sizes rendered as `7.42E+07`, a `PAPER` badge never placed on a page,
+frozen P&L, and a positions table with no stop or target columns.
+
+**Sizing was settled by decision, not by fix.** The percentage now means *position value* by default —
+the stop no longer changes the size — with risk-at-stop available in settings.
+
+**Newly open, scoped in `docs/TRADING_SURFACE_SCOPE.md`:** the paper broker is spot-only while
+declaring `Leverage`, and **6 of 7 capability flags gate nothing in the UI**, so the dashboard shows
+the same controls on every provider regardless of what it supports. Neither blocks 2.2.0 — both are
+pre-existing — but the capability gating is the cheapest honesty fix available and should lead 2.3.
 
 ---
 
