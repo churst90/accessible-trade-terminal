@@ -301,22 +301,49 @@ plugins build with **zero warnings**.
 
 ---
 
-## The tag
+## The tag — decided 2026-08-04
+
+**Cody Hurst accepted items 1, 2 and 3 and cut the release on 2026-08-04.** Recorded here with a name
+against it, in the same form 2.1.0 used, rather than left to age into invisibility:
+
+- **Item 1 (MAUI heads never launched)** — accepted, unchanged from 2.1.0. Cannot be closed from a
+  Linux box; CI now *builds* the head on every push to main, which closes the compile-break
+  mechanism but not the launch question.
+- **Item 2 (dialog sweep on both heads)** — accepted, unchanged from 2.1.0.
+- **Item 3 (quick trade never driven by a person)** — **deferred, not dropped.** The 11-step
+  walkthrough above stands and should be run against the tagged build. Rationale for not blocking:
+  the hosted demo has been waiting on a release for 84 commits, and quick trade's arithmetic has
+  fifteen tests including a hand-worked sizing case with bracket atomicity verified against a real
+  Alpaca paper account.
+
+**Not in this release, by decision:** short selling in paper trading. It was withdrawn rather than
+left advertised-and-broken (see the paper audit above). Restoring it properly needs collateral
+accounting — locked balances, an initial margin requirement, and an enforced liquidation price —
+because there is no such thing as shorting without a borrow or a contract, and both need collateral.
+That work is **1× collateralised shorting, planned for 2.2.1**, ahead of the full leverage model in
+2.3. Deliberately not rushed into 2.2.0: liquidation is a number that decides money, and a paper
+account that never liquidates teaches a lesson that gets expensive later.
 
 ```bash
 git tag v2.2.0
+git push origin main
 git push origin v2.2.0
 ```
 
 `.github/workflows/release.yml` produces four self-contained WebHost builds (linux-x64, win-x64,
 osx-x64, osx-arm64), the two unsigned MAUI heads, and `SHA256SUMS.txt`.
 
-**Do not tag until items 1 and 2 are either closed or explicitly accepted**, in the same way 2.1.0
-accepted them — recorded, with a name against the decision, rather than forgotten.
+~~**Do not tag until items 1 and 2 are either closed or explicitly accepted**~~ — done above.
 
 ---
 
-## For 2.2.1, if one becomes necessary
+## For 2.2.1
 
-In order: the MAUI head launch, the dialog sweep on both heads, and the quick-trade paper
-walkthrough. The zero-axis defect (item 7) is closed and does not carry forward.
+Now expected rather than conditional, in order:
+
+1. **1× collateralised shorting in paper** — locked collateral, real `Balance.Locked`, an enforced
+   liquidation price, and `Shorting` restored to the capability flags once it is true.
+2. The quick-trade paper walkthrough (item 3 above), against the tagged build.
+3. The MAUI head launch and the dialog sweep on both heads (items 1 and 2).
+
+The zero-axis defect (item 7) is closed and does not carry forward.
