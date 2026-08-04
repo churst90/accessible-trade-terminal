@@ -245,6 +245,12 @@ try
             GetFlag(args.Skip(1).ToArray(), "--out") ?? "gdelt-archive"),
         "grades" => await GradesCommand.RunAsync(args.Skip(1).ToArray(),
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data"),
+        "translation" => TranslationCommand.Run(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
+            GetFlag(args.Skip(1).ToArray(), "--only"),
+            GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--span"), out var trs) ? trs : 20,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var trg) ? trg : 400),
         "pattern-speech" => PatternSpeechCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
@@ -308,6 +314,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab screen-crypto [--min-flags 3] [--show-clean] [--only KAS,TAO]");
     Console.WriteLine("  StrategyLab grades fetch --key <fmp> | grades study [--horizon 21]");
     Console.WriteLine("  StrategyLab pattern-speech [--tf 1d]                     # chart-formation narration density");
+    Console.WriteLine("  StrategyLab translation [--tf 1d] [--span 20]            # does a late cycle high mean a harder fall?");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000");

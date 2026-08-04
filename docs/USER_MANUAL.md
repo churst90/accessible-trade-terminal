@@ -1110,6 +1110,24 @@ are how you build a picture of the chart. Whether acting on them makes money is 
 question, and one this project has repeatedly failed to answer in their favour. Use them to
 understand where you are, and get your edge somewhere you have tested.
 
+#### Seeing them, if that helps
+
+**Settings → Appearance → Draw chart formations.** Off by default. It shades each formation's span,
+draws the trigger level solid, and draws the conventional measured target faint and dashed.
+
+The audience is anyone who is not listening: a low-vision user, a sighted trading partner, a
+screenshot in a bug report. If you are working by ear you already have everything the drawing shows,
+in more detail.
+
+The two levels are drawn with deliberately different weight, and the reason is the same reason the
+wording is careful. Speech can hedge — *"measured target 39,400 **if it breaks**"* — but a bold line
+at 39,400 simply says *target*. So the trigger is solid, because it is a real price where the
+formation really does confirm; the measured target is faint, dashed and labelled, because it is a
+convention nobody here has tested. **The visual weight is the disclaimer.**
+
+At most three formations are drawn at once, for the same reason the spoken readout describes one and
+counts the rest: five overlapping shapes hide the price they are describing.
+
 #### Timeframes
 
 Every tolerance in the detector is expressed in **ATR** — the instrument's own volatility —

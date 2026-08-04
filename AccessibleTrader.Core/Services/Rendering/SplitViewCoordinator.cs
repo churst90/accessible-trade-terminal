@@ -89,9 +89,12 @@ namespace AccessibleTrader.Core.Services.Rendering
         private readonly IWorkspaceStore? _store;
         private readonly IDisposable? _commandSub;
 
-        public SplitViewCoordinator(ChartRenderer? renderer, IEventBus? eventBus = null, IWorkspaceStore? store = null)
+        public SplitViewCoordinator(ChartRenderer? renderer, IEventBus? eventBus = null, IWorkspaceStore? store = null,
+            Analysis.IChartPatternCache? patternCache = null, IAppSettings? settings = null)
         {
             _renderer = renderer;
+            _patternCache = patternCache;
+            _settings = settings;
             _eventBus = eventBus;
             _store = store;
 
@@ -220,19 +223,38 @@ namespace AccessibleTrader.Core.Services.Rendering
             return true;
         }
 
+        private readonly Analysis.IChartPatternCache? _patternCache;
+        private readonly IAppSettings? _settings;
+
+        /// <summary>
+        /// The formations to draw this frame, or null when the drawing is switched off.
+        ///
+        /// <para>
+        /// Resolved here rather than inside the renderer because only this layer has the whole
+        /// series and the chart's identity. The renderer sees just the visible slice, and detecting
+        /// on a moving window would make formations appear and disappear as the user pans.
+        /// </para>
+        /// </summary>
+        private IReadOnlyList<Analysis.ChartPattern>? Formations(ChartIdentity id, IReadOnlyList<Ohlcv>? data)
+        {
+            if (_patternCache == null || data == null) return null;
+            if (_settings?.ShowChartPatternVisuals != true) return null;
+            return _patternCache.For(id, data);
+        }
+
         private void RenderActive(SKCanvas canvas, SKRect rect, WorkspaceState s, float density) =>
             InRect(canvas, rect, (w, h) => _renderer?.Render(
                 canvas, w, h, s.Data, s.ActiveSeries, s.CurrentDataIndex,
                 s.ViewportStartIndex, s.ViewportLength, s.ViewportRange, s.PaneRanges,
                 s.IsHeikinAshi, s.IsLogScale, density, s.PaneHeightRatios,
-                s.IndicatorPaneScrollIndex, s.RightMarginBars));
+                s.IndicatorPaneScrollIndex, s.RightMarginBars, Formations(s.Identity, s.Data)));
 
         private void RenderSnapshot(SKCanvas canvas, SKRect rect, TabSnapshot t, float density) =>
             InRect(canvas, rect, (w, h) => _renderer?.Render(
                 canvas, w, h, t.Data, t.ActiveSeries, t.CurrentDataIndex,
                 t.ViewportStartIndex, t.ViewportLength, t.ViewportRange, t.PaneRanges,
                 t.IsHeikinAshi, t.IsLogScale, density, t.PaneHeightRatios,
-                t.IndicatorPaneScrollIndex, t.RightMarginBars));
+                t.IndicatorPaneScrollIndex, t.RightMarginBars, Formations(t.Identity, t.Data)));
 
         /// <summary>
         /// Clips and translates so the renderer can keep drawing from its own origin. It takes

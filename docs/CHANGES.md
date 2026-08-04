@@ -4,7 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [2.2.0] — 2026-08-03
+## [2.2.0] — 2026-08-04
+
+### Formations on the canvas, and a null (2026-08-04)
+
+- **Settings → Appearance → Draw chart formations.** Off by default. Shades each formation's span,
+  draws the trigger solid and the measured target faint and dashed — the visual weight carries the
+  same hedge the wording does, because a bold line asserts more than "if it breaks" does. Capped at
+  three at once. For low-vision and sighted viewers; a blind user already has all of it by ear.
+- **Right translation tested and FALSIFIED.** The claim that a late cycle high is followed by a
+  faster, deeper decline. Late cycles do fall faster (1.03 vs 0.46 %/bar over 4,472 cycles, 49
+  symbols) — but sorting on plain trailing advance reproduces **97.7%** of the gap, and a third of
+  shuffled-return surrogates match it. Translation is momentum in cycle vocabulary.
+  `docs/TRANSLATION_FINDINGS.md`.
+- **Host parity is now enforced by a test.** The MAUI head is built only by CI and has never been
+  launched, so a service registered on one head and forgotten on the other would throw at startup
+  there and nowhere else. 167 registrations match; the five differences are host-specific and listed
+  by name. The same test compares the two `app.css` theme variable sets, which nothing compiles.
+
+### Earlier in 2.2.0 — 2026-08-03
 
 ### Quick trades from the chart, nested formations, and builds you can identify (2026-08-03)
 

@@ -56,6 +56,7 @@ namespace AccessibleTrader.Core.Services
         string SpeechOrder { get; set; }
         bool AnnounceNewBars { get; set; }
         bool DescribeChartPatterns { get; set; }
+        bool ShowChartPatternVisuals { get; set; }
 
         // Viewport
         int PanningGranularity { get; set; }
@@ -204,6 +205,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.DescribeChartPatterns, def: false);
             set => Set(SettingsKeys.DescribeChartPatterns, value);
+        }
+
+        /// <summary>
+        /// Draw the formations on the chart. Default OFF — a chart carrying five formations at once
+        /// becomes unreadable, and the audience for the drawing is the secondary one.
+        /// </summary>
+        public bool ShowChartPatternVisuals
+        {
+            get => GetBool(SettingsKeys.ShowChartPatternVisuals, def: false);
+            set => Set(SettingsKeys.ShowChartPatternVisuals, value);
         }
 
         public int PanningGranularity

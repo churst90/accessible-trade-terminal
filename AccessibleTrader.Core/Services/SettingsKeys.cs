@@ -70,6 +70,12 @@ namespace AccessibleTrader.Core.Services
         // opt-in rule the visual-accessibility additions follow.
         public const string DescribeChartPatterns = "speech.describeChartPatterns";
 
+        /// <summary>
+        /// Draw chart formations on the canvas. Appearance rather than speech: the audience is a
+        /// low-vision or sighted viewer, since a blind user already has the whole formation by ear.
+        /// </summary>
+        public const string ShowChartPatternVisuals = "appearance.showChartPatternVisuals";
+
         // ── Viewport ─────────────────────────────────────────────────────────
         public const string PanningGranularity  = "viewport.panningGranularity";
 

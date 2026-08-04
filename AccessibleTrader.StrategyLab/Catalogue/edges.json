@@ -1833,17 +1833,23 @@
         ],
         "horizonBars": 0,
         "timeframe": "1d",
-        "notes": "The one genuinely new and mechanically testable claim from this source, and it is a CONDITIONAL SHAPE claim rather than a timing claim, which is why it survives the objection that killed the cycle counts. Strong prior against: our own cycle work already found translation is momentum in cycle vocabulary and splits crypto/equity like everything else, so the cheap alternative -- 'what went up fast comes down fast', i.e. plain trailing return -- must be a named control arm. Also needs phase-randomised surrogates, since the detector that defines the cycle was itself shown to manufacture cycle lengths."
+        "notes": "FALSIFIED 2026-08-04 on 4,472 cycles across 49 symbols, daily bars, 20-bar pivot with matching confirmation lag. Killed twice: the cheap alternative explains 98% of it, and a third of surrogates reproduce it. Second claim from this source to die on surrogates for the same reason \u2014 both rest on a cycle boundary a swing detector will impose on random data. The RISK-PLACEMENT claim from the same source is untouched by this and remains open."
       },
       "effect": {
-        "measure": "not yet measured",
-        "value": null,
-        "unit": "not yet measured"
+        "measure": "decline velocity gap, late minus early translation tercile",
+        "value": 0.005722,
+        "unit": "fraction per bar",
+        "n": 4472,
+        "notes": "Late-translated cycles DO fall faster (1.0342 vs 0.4620 %/bar) but sorting on plain trailing advance reproduces 97.7% of the gap, and 32.5% of shuffled-return surrogates match or beat it. Translation is momentum in cycle vocabulary. NOTE the first run measured 'decline share', which is EXACTLY 1 minus translation and therefore a tautology."
       },
-      "controls": [],
-      "evidence": "Untested",
-      "firstMeasured": "",
-      "lastMeasured": "",
+      "controls": [
+        "cheap-alternative-trailing-advance-reproduces-98pct",
+        "shuffled-return-surrogates-same-detector-p-0.33",
+        "tautology-check-decline-share-is-1-minus-translation"
+      ],
+      "evidence": "Falsified",
+      "firstMeasured": "2026-08-04",
+      "lastMeasured": "2026-08-04",
       "decay": [],
       "correlatesWith": [
         {
@@ -1852,7 +1858,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/CAMEL_CYCLE_LIVE_READ.md",
+      "source": "docs/TRANSLATION_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Camel Finance, daily market update",
@@ -1861,8 +1867,8 @@
         "quote": "when we overextend an extra right translate like this, we typically come down harder and faster to correct the four-year cycle ... we tend to puke into the low after heavily right translating"
       },
       "reMeasure": {
-        "command": "cycles --translation --control trailing-return --surrogates 200",
-        "implemented": false
+        "command": "translation --tf 1d --surrogates 400",
+        "implemented": true
       }
     }
   ]

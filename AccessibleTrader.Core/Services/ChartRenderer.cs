@@ -26,6 +26,19 @@ namespace AccessibleTrader.Core.Services
         private readonly List<IRenderLayer> _layers;
         private readonly ProfileRenderLayer _profileLayer;
 
+        /// <summary>
+        /// Chart formations, supplied per frame by the caller rather than detected here.
+        ///
+        /// <para>
+        /// The renderer only ever sees the VISIBLE slice of bars, and detecting on a moving window
+        /// would produce different shapes at every scroll position — a formation that appears and
+        /// disappears as you pan is worse than no drawing at all. The caller holds the whole series
+        /// and the cache, so it passes the answer in.
+        /// </para>
+        /// </summary>
+        private readonly ChartFormationLayer _formationLayer = new();
+        private IReadOnlyList<Analysis.ChartPattern>? _frameFormations;
+
         // Cross-pane Anchor Polarity hand-off. Set at the top of <see cref="Render"/>
         // from the first CipherB-style series that exposes an "Anchor Polarity"
         // component and consumed inside <see cref="RenderPane"/> when the "Main"
@@ -56,7 +69,7 @@ namespace AccessibleTrader.Core.Services
             _profileLayer = new ProfileRenderLayer(profileService, _theme, appLogger);
         }
 
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 10)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)
         {
             try
             {
@@ -106,6 +119,7 @@ namespace AccessibleTrader.Core.Services
                 // in its own sub-pane; this lets the Main pane tint its background with
                 // the HTF regime color so sighted users see bull/bear context while
                 // looking at price, not only while looking at the oscillator.
+                _frameFormations = formations;
                 _crossPaneAnchorPolarity = seriesList
                     .Where(s => s.IsVisible)
                     .Select(s => s.GetComponentData("Anchor Polarity"))
@@ -305,6 +319,11 @@ namespace AccessibleTrader.Core.Services
                 if (li == 0 && paneName == "Main" && _crossPaneTbdDistribution != null)
                     RenderTbdDistributionTint(ctx, _crossPaneTbdDistribution);
             }
+            // Formations draw AFTER every data layer so their levels sit on top of the candles
+            // rather than under them — a trigger line hidden behind a wick communicates nothing.
+            if (paneName == "Main" && _frameFormations is { Count: > 0 })
+                _formationLayer.Render(ctx, _frameFormations);
+
             if (profileSeries.Any()) _profileLayer.Render(ctx, profileSeries);
             canvas.Restore();
 
