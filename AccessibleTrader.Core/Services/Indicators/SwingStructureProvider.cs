@@ -93,7 +93,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultColorHex = "#EF5350", DefaultThickness = 8f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 660,
-                        DefaultSignalSpeechTemplate = "Swing high.",
+                        // The price is the point of a swing marker: "swing high" alone tells you a pivot is
+                        // here, not what level it set. {price} expands through SpeechPriceFormatter.
+                        DefaultSignalSpeechTemplate = "Swing high {price}.",
                     },
                     new()
                     {
@@ -103,7 +105,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultColorHex = "#26A69A", DefaultThickness = 8f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         DefaultEnvelopeType = "Ping", DefaultBaseFrequency = 330,
-                        DefaultSignalSpeechTemplate = "Swing low.",
+                        DefaultSignalSpeechTemplate = "Swing low {price}.",
                     },
                     new()
                     {

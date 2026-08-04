@@ -437,14 +437,35 @@ namespace AccessibleTrader.Core.Services
                 if (lp.EarconVolume.HasValue)     target.EarconVolume    = lp.EarconVolume.Value;
                 if (lp.ZoneNoiseAmount.HasValue)  target.ZoneNoiseAmount = lp.ZoneNoiseAmount.Value;
                 if (lp.ZoneNoiseType != null)     target.ZoneNoiseType   = lp.ZoneNoiseType;
+                if (lp.ColorHex != null)          target.ColorHex        = lp.ColorHex;
+                if (lp.Thickness.HasValue)        target.Thickness       = lp.Thickness.Value;
+                if (lp.DashStyle.HasValue)        target.DashStyle       = lp.DashStyle.Value;
+                if (lp.CrossDirection.HasValue)   target.CrossDirection  = lp.CrossDirection.Value;
             }
         }
 
+        /// <summary>
+        /// Restores the provider's own levels, <b>keeping any the user placed by hand</b>.
+        ///
+        /// <para>
+        /// "Reset to defaults" means restore what the indicator ships with. A level someone marked on
+        /// the chart is not part of the indicator's configuration — it is their annotation, it may be
+        /// the price they are watching, and wiping it as collateral damage of resetting an unrelated
+        /// colour would be indefensible. Provider levels are keyed by name, so a user level cannot be
+        /// re-injected as a duplicate either.
+        /// </para>
+        /// </summary>
         public void ResetLevelsToProviderDefaults(ChartSeries series)
         {
             var codeUp = series.Config?.IndicatorCode?.ToUpperInvariant() ?? "";
+            var userLevels = series.Levels.Where(l => l.IsUserDefined).Select(l => l.Clone()).ToList();
+
             series.Levels.Clear();
             InjectDefaultLevels(series, codeUp, series.Config?.Parameters ?? new());
+
+            foreach (var l in userLevels)
+                if (!series.Levels.Any(x => string.Equals(x.Name, l.Name, StringComparison.OrdinalIgnoreCase)))
+                    series.Levels.Add(l);
         }
 
         public void AddCustomIndicator(ICustomIndicator indicator, WorkspaceState state)

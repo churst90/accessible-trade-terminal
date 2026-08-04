@@ -208,7 +208,7 @@ namespace AccessibleTrader.Core.Services
             SelectSeriesAction or SetPrimarySeriesIdAction or SelectComponentAction
                 or SelectBinAction or SetInteractionContextAction
                 or ToggleMuteAction or ToggleHideAction or ToggleNarrationAction
-                or AddSeriesAction or RemoveSeriesAction or AddLevelAction
+                or AddSeriesAction or RemoveSeriesAction or AddLevelAction or RemoveLevelAction
                 or UpdateSeriesAction or UpdateSeriesDataAction
                 or UpdateSeriesZoneBandsAction or UpdateSeriesParametersAction
                 => SeriesReducer.Reduce(state, action, _eventBus),

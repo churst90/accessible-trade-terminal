@@ -121,12 +121,17 @@ namespace AccessibleTrader.Tests
         {
             var mgr = new ShortcutManager(_paths);
 
-            // NavLeft has two default bindings (LEFT and ARROWLEFT). Stealing just one
-            // of them leaves NavLeft still bound, so it must NOT be reported as stranded.
-            var displaced = mgr.UpdateBinding(SystemCommand.OpenHelp, "ARROWLEFT");
+            // JumpToLatest genuinely has two default bindings — "OEM5" and "\\" — which are DIFFERENT
+            // keys that normalise to different lookups. Stealing one leaves the other, so it must
+            // not be reported as stranded.
+            //
+            // This test used to use NavLeft's "LEFT" and "ARROWLEFT" pair, which was not a real
+            // example: the normaliser rewrites ARROWLEFT to LEFT, so those were one binding written
+            // twice and the second could never fire. The duplicates have been removed.
+            var displaced = mgr.UpdateBinding(SystemCommand.OpenHelp, "OEM5");
 
-            Assert.DoesNotContain(SystemCommand.NavLeft, displaced);
-            Assert.Equal(SystemCommand.NavLeft, mgr.GetCommand("LEFT", false, false, false));
+            Assert.DoesNotContain(SystemCommand.JumpToLatest, displaced);
+            Assert.Equal(SystemCommand.JumpToLatest, mgr.GetCommand("\\", false, false, false));
         }
 
         [Fact]

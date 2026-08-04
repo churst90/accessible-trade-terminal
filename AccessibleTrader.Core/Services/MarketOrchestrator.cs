@@ -204,6 +204,42 @@ namespace AccessibleTrader.Core.Services
             {
                 var state = _store.State;
                 int switchedToIndex = state.ActiveTabIndex;
+
+                // ── Toolbar sync happens for EVERY switch, before anything else ──────
+                //
+                // This used to live inside the `if (symbol is not empty)` block below, together with
+                // the data catch-up — so switching to a tab whose data had not loaded yet synced
+                // nothing at all, and the dropdowns went on showing the previous tab's market,
+                // provider and symbol. That is the state every tab is in immediately after launch,
+                // which is exactly when a maintainer hit it.
+                //
+                // The two concerns are not the same. The catch-up genuinely needs a symbol to fetch.
+                // Describing which chart you are looking at needs only an identity, and getting it
+                // wrong is worse than cosmetic: pressing Load would have loaded the symbol named in
+                // the dropdown rather than the one on screen.
+                var switchIdentity = state.Identity;
+                if (!string.IsNullOrEmpty(switchIdentity.Provider))  _selectedProvider  = switchIdentity.Provider;
+                if (!string.IsNullOrEmpty(switchIdentity.Symbol))    _selectedSymbol    = switchIdentity.Symbol;
+                if (!string.IsNullOrEmpty(switchIdentity.Timeframe)) _selectedTimeframe = switchIdentity.Timeframe;
+                if (!string.IsNullOrEmpty(switchIdentity.Market))    _selectedSubType   = switchIdentity.Market;
+                if (!string.IsNullOrEmpty(switchIdentity.Symbol))    _dataManager.Identity = switchIdentity;
+
+                // Cheap, immediate correction so the toolbar stops lying before any await.
+                _pipelineUpdated.OnNext(Unit.Default);
+
+                // The market name and the option lists need a provider lookup, so they are async —
+                // but still unconditional, because a list that cannot render the new symbol leaves
+                // the dropdown blank even once the value is right. Failures are swallowed: a
+                // cosmetic desync must never take down a tab switch.
+                if (!string.IsNullOrEmpty(switchIdentity.Provider))
+                {
+                    Task.Run(async () =>
+                    {
+                        try { await SyncMarketToProviderAsync(switchIdentity).ConfigureAwait(false); }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Toolbar sync failed: {ex.Message}"); }
+                    });
+                }
+
                 if (!string.IsNullOrEmpty(state.Identity.Symbol))
                 {
                     // Cancel any in-flight refresh from a previous switch.
@@ -222,27 +258,8 @@ namespace AccessibleTrader.Core.Services
                         {
                             if (_store.State.ActiveTabIndex != switchedToIndex) return;
 
-                            // Sync local selection state with the restored tab's identity, then
-                            // TELL THE TOOLBAR. Writing the private fields alone left the
-                            // dropdowns showing whatever the previously-active tab had selected —
-                            // so a TAOUSDT/MEXC tab could display "Stock / Tradier / API key
-                            // required", and pressing Load would have loaded that instead of the
-                            // symbol on screen. The lists are refreshed too, because a stale
-                            // options list cannot render the new symbol even once the value is
-                            // right. Failures here are swallowed: a cosmetic desync must never
-                            // take down the tab's data catch-up.
-                            _selectedProvider  = capturedIdentity.Provider;
-                            _selectedSymbol    = capturedIdentity.Symbol;
-                            _selectedTimeframe = capturedIdentity.Timeframe;
-                            if (!string.IsNullOrEmpty(capturedIdentity.Market))
-                                _selectedSubType = capturedIdentity.Market;
-                            _dataManager.Identity = capturedIdentity;
-
-                            // Immediate, cheap correction so the toolbar stops lying right away.
-                            _pipelineUpdated.OnNext(Unit.Default);
-
-                            try { await SyncMarketToProviderAsync(capturedIdentity).ConfigureAwait(false); }
-                            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Toolbar sync failed: {ex.Message}"); }
+                            // Toolbar selection and the option lists were already synced above,
+                            // unconditionally, before this task started.
 
                             // Browser-title readiness: this catch-up path (like the resume path)
                             // sets DataStatus=Ready but historically NOT InitStatus, so the

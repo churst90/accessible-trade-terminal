@@ -522,10 +522,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             // Zone proximity is communicated via speech only (no audio ping).
+            //
+            // Through SpeechPriceFormatter, not a fixed precision. These two lines used ":F0" and so
+            // read every sub-dollar asset's level as "0" — Kaspa near $0.083 announced "Near support
+            // at 0", which is not a wrong price so much as no price at all. Any spoken price goes
+            // through the formatter; it is the only thing that knows an instrument's magnitude.
             if (resistanceFreq.HasValue && !double.IsNaN(resistanceVal))
-                _speechRouter.Speak($"Near resistance at {resistanceVal:F0}", interrupt: false);
+                _speechRouter.Speak($"Near resistance at {SpeechPriceFormatter.FormatPrice(resistanceVal)}", interrupt: false);
             if (supportFreq.HasValue && !double.IsNaN(supportVal))
-                _speechRouter.Speak($"Near support at {supportVal:F0}", interrupt: false);
+                _speechRouter.Speak($"Near support at {SpeechPriceFormatter.FormatPrice(supportVal)}", interrupt: false);
         }
 
         /// <summary>

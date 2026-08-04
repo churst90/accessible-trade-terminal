@@ -326,6 +326,18 @@ namespace AccessibleTrader.Sdk.Models
     public record RemoveSeriesAction(string SeriesId) : WorkspaceAction;
     /// <summary>Adds a reference level line to an existing indicator series.</summary>
     public record AddLevelAction(string SeriesId, LevelConfig Level) : WorkspaceAction;
+
+    /// <summary>
+    /// Removes a reference level from a series by name.
+    ///
+    /// <para>
+    /// There was no removal path of any kind until 2026-08-04 — levels could be added from the
+    /// keyboard and edited in Properties, but never deleted. That is how a stray level at zero, added
+    /// by an accidental keypress on the price series, survived in a maintainer's workspace and broke
+    /// the price axis at every launch: there was literally no way to take it back out.
+    /// </para>
+    /// </summary>
+    public record RemoveLevelAction(string SeriesId, string LevelName) : WorkspaceAction;
     public record UpdateSeriesAction(ImmutableList<ChartSeries> Series) : WorkspaceAction;
     public record UpdateSeriesDataAction(string SeriesId, SeriesDataBuffer Data) : WorkspaceAction;
     /// <summary>

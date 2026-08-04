@@ -106,9 +106,21 @@ namespace AccessibleTrader.Core.Services
             return _lookup.TryGetValue(lookupKey, out var definition) ? definition.Command : SystemCommand.None;
         }
 
+        /// <summary>
+        /// Builds the lookup key for a combination, normalising the key <b>on both sides</b>.
+        ///
+        /// <para>
+        /// Both the stored bindings and the incoming keypress come through here, which is the point:
+        /// when only one side was normalised, a binding spelled <c>"ENTER"</c> could never match an
+        /// incoming key that the normaliser rewrites to <c>"RETURN"</c>, and the shortcut was dead
+        /// with nothing anywhere reporting a problem. <c>ShortcutReachabilityTests</c> now proves
+        /// every default binding can be produced by a keyboard.
+        /// </para>
+        /// </summary>
         private string GenerateLookupKey(string key, bool shift, bool ctrl, bool alt)
         {
-            return $"{key.ToUpperInvariant()}|S:{shift}|C:{ctrl}|A:{alt}";
+            string normalized = Input.KeyNormalizationService.NormalizeKey(key);
+            return $"{normalized.ToUpperInvariant()}|S:{shift}|C:{ctrl}|A:{alt}";
         }
 
         public IReadOnlyList<ShortcutDisplayBinding> GetAllBindings()
@@ -165,10 +177,14 @@ namespace AccessibleTrader.Core.Services
             var s = p.Shortcuts;
 
             // Navigation - X Axis
+            //
+            // One binding per direction, not two. "ARROWLEFT" and "LEFT" were both listed, but the
+            // key normaliser rewrites the former to the latter before any lookup — so the second
+            // entry could never be reached on its own and merely looked like a spare binding. That
+            // illusion mattered: rebinding "ARROWLEFT" to something else appeared to leave arrow
+            // navigation intact while actually taking it away.
             s.Add(new(SystemCommand.NavLeft, "LEFT"));
-            s.Add(new(SystemCommand.NavLeft, "ARROWLEFT"));
             s.Add(new(SystemCommand.NavRight, "RIGHT"));
-            s.Add(new(SystemCommand.NavRight, "ARROWRIGHT"));
             s.Add(new(SystemCommand.NavHome, "HOME"));
             s.Add(new(SystemCommand.NavEnd, "END"));
             s.Add(new(SystemCommand.JumpToLatest, "OEM5")); // \ key
@@ -176,9 +192,7 @@ namespace AccessibleTrader.Core.Services
 
             // Navigation - Y Axis (Components)
             s.Add(new(SystemCommand.NavUp, "UP"));
-            s.Add(new(SystemCommand.NavUp, "ARROWUP"));
             s.Add(new(SystemCommand.NavDown, "DOWN"));
-            s.Add(new(SystemCommand.NavDown, "ARROWDOWN"));
 
             // Navigation - Series Switching
             s.Add(new(SystemCommand.NavPageUp, "PAGEUP"));

@@ -39,6 +39,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             AddSeriesAction a                => AddSeries(state, a.Series),
             RemoveSeriesAction a             => RemoveSeries(state, a.SeriesId),
             AddLevelAction a                 => AddLevel(state, a.SeriesId, a.Level),
+            RemoveLevelAction a              => RemoveLevel(state, a.SeriesId, a.LevelName),
             UpdateSeriesAction a             => state with { ActiveSeries = a.Series },
             UpdateSeriesDataAction a         => state with {
                 ActiveSeries = state.ActiveSeries.Select(s =>
@@ -96,6 +97,28 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // post-mutation collection before the StateStream notification fires.
             var updated = target.Clone();
             updated.Levels.Add(level);
+            return state with {
+                ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
+            };
+        }
+
+        /// <summary>
+        /// Removes a level by name, cloning the target for the same reason <see cref="AddLevel"/>
+        /// does — a subscriber holding an earlier state reference must not observe the mutation
+        /// before the StateStream notification fires.
+        /// </summary>
+        private static WorkspaceState RemoveLevel(WorkspaceState state, string seriesId, string levelName)
+        {
+            var target = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
+            if (target == null) return state;
+
+            var updated = target.Clone();
+            var doomed = updated.Levels
+                .Where(l => string.Equals(l.Name, levelName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (doomed.Count == 0) return state;
+            foreach (var l in doomed) updated.Levels.Remove(l);
+
             return state with {
                 ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
             };

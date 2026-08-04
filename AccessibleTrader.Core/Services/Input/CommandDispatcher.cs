@@ -354,7 +354,20 @@ namespace AccessibleTrader.Core.Services.Input
                         ? (double)bars[cursor].Close
                         : double.NaN;
 
-                    var level = ReferenceLevelPlacement.For(focused.Pane, cursorPrice, out string levelReason);
+                    // The key toggles. Pressing it where one of your own levels already sits removes
+                    // that level — which is the only way to remove one from the keyboard, and until
+                    // 2026-08-04 there was no way to remove one at all.
+                    var doomed = ReferenceLevelPlacement.FindRemovable(focused.Levels, focused.Pane, cursorPrice);
+                    if (doomed != null)
+                    {
+                        _store.Dispatch(new RemoveLevelAction(focusedId, doomed.Name));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
+                            $"{doomed.Name} removed.", true));
+                        return;
+                    }
+
+                    var level = ReferenceLevelPlacement.For(
+                        focused.Pane, cursorPrice, focused.Levels, out string levelReason);
                     if (level == null)
                     {
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, levelReason, true));

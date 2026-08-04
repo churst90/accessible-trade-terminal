@@ -62,6 +62,20 @@ namespace AccessibleTrader.Core.Services.Audio
             public int ConsecutiveBeyond;
             public bool SustainedFired;
             public bool ApproachFired;
+
+            /// <summary>
+            /// Which side of the level the value sat on last bar: +1 above, -1 below, 0 not yet seen.
+            /// Only used for two-sided levels, where "beyond" has no fixed meaning and has to be
+            /// discovered from the crossing itself.
+            /// </summary>
+            public int LastSide;
+
+            /// <summary>
+            /// Whether the value has actually crossed since this level was first observed.
+            /// Without it, loading a chart with price already above a hand-placed level would fire
+            /// the "held beyond" tone a few bars later, reporting a crossing that never happened.
+            /// </summary>
+            public bool HasCrossed;
         }
 
         public LevelCrossingMonitor(INavigationSonifier sonifier, ISoundPatchLibrary? patchLibrary = null)
@@ -116,28 +130,41 @@ namespace AccessibleTrader.Core.Services.Audio
                 {
                     if (!lc.IsVisible || !lc.PlayEarcon) continue;
 
-                    string n = lc.Name;
-                    bool isOb = n.Contains("Overbought", StringComparison.OrdinalIgnoreCase) ||
-                                n.Contains("Extreme OB",  StringComparison.OrdinalIgnoreCase);
-                    bool isOs = n.Contains("Oversold",    StringComparison.OrdinalIgnoreCase) ||
-                                n.Contains("Extreme OS",  StringComparison.OrdinalIgnoreCase);
-                    if (!isOb && !isOs) continue;
-
-                    ProcessLevel(state, series, lc, val, isOb);
+                    // Direction used to be sniffed from the level's NAME here, and any level that
+                    // was not called "Overbought" or "Oversold" was skipped outright — so a level a
+                    // person placed themselves, with "Play Earcon on Crossing" ticked, made no sound
+                    // and gave no reason. LevelConfig.EffectiveCrossDirection keeps that inference
+                    // for provider levels but resolves everything else to Both.
+                    ProcessLevel(state, series, lc, val, lc.EffectiveCrossDirection);
                 }
             }
         }
 
-        private void ProcessLevel(WorkspaceState state, ChartSeries series, LevelConfig lc, double val, bool isOb)
+        private void ProcessLevel(WorkspaceState state, ChartSeries series, LevelConfig lc,
+            double val, LevelCrossDirection direction)
         {
-            string key = series.Id + "::" + lc.Name;
+            // Keyed by value as well as name: two hand-placed levels can share a name, and sharing a
+            // tracker would make each one cancel the other's approach and sustained state.
+            string key = series.Id + "::" + lc.Name + "::" + lc.Value.ToString("R",
+                System.Globalization.CultureInfo.InvariantCulture);
             if (!_states.TryGetValue(key, out var s))
             {
                 s = new LevelTrackerState();
                 _states[key] = s;
             }
 
-            bool beyond = isOb ? val > lc.Value : val < lc.Value;
+            int side = val > lc.Value ? 1 : val < lc.Value ? -1 : 0;
+            bool crossedThisBar = side != 0 && s.LastSide != 0 && side != s.LastSide;
+            if (side != 0) s.LastSide = side;
+            if (crossedThisBar) s.HasCrossed = true;
+
+            if (direction == LevelCrossDirection.Both)
+            {
+                TwoSided(state, lc, val, s, crossedThisBar);
+                return;
+            }
+
+            bool beyond = direction == LevelCrossDirection.Above ? val > lc.Value : val < lc.Value;
 
             if (beyond)
             {
@@ -158,18 +185,78 @@ namespace AccessibleTrader.Core.Services.Audio
             s.ConsecutiveBeyond = 0;
             s.SustainedFired = false;
 
-            // Tier 1 approach ping. Scale amplitude with proximity.
+            Approach(state, lc, val, s, direction);
+        }
+
+        /// <summary>
+        /// A level with no fixed "beyond" side — the kind a person places on a price chart.
+        ///
+        /// <para>
+        /// The one-sided path can return early once the value is inside the zone, because for an
+        /// overbought line "inside" is a lasting condition and approaching it again is meaningless
+        /// until it leaves. A two-sided level has no inside: price is always on one side of it, so
+        /// the two tiers have to run <b>together</b> rather than as alternatives.
+        /// </para>
+        ///
+        /// <list type="bullet">
+        ///   <item><b>Sustained</b> means "crossed your line and stayed past it", so the counter
+        ///         restarts at every crossing and the tone fires once per crossing — not once per
+        ///         chart.</item>
+        ///   <item><b>Approach</b> fires from either direction, because someone who marked a price
+        ///         wants to hear it coming whichever way it arrives.</item>
+        /// </list>
+        ///
+        /// <para>
+        /// Nothing fires before the first crossing. Loading a chart whose price already sits above a
+        /// hand-placed level must not announce a crossing that never happened.
+        /// </para>
+        /// </summary>
+        private void TwoSided(WorkspaceState state, LevelConfig lc, double val,
+            LevelTrackerState s, bool crossedThisBar)
+        {
+            if (crossedThisBar)
+            {
+                s.ConsecutiveBeyond = 0;
+                s.SustainedFired = false;
+            }
+
+            if (s.HasCrossed)
+            {
+                s.ConsecutiveBeyond++;
+                if (!s.SustainedFired && s.ConsecutiveBeyond > SustainedBarsThreshold)
+                {
+                    s.SustainedFired = true;
+                    float pan = ComputePan(state);
+                    if (!TryPlayCuePatch(EarconPatchPlayer.SustainedKey, lc.EarconVolume, pan))
+                        _sonifier.PlayNote(Tier3Freq, Tier3Dur, "sine", Tier3Vol * lc.EarconVolume, pan);
+                }
+            }
+
+            Approach(state, lc, val, s, LevelCrossDirection.Both);
+        }
+
+        /// <summary>
+        /// Tier 1: a short high ping when the value comes within <see cref="ApproachBandFraction"/> of
+        /// the level, louder the closer it is. Fires once per approach episode and re-arms when the
+        /// value leaves the band.
+        /// </summary>
+        private void Approach(WorkspaceState state, LevelConfig lc, double val,
+            LevelTrackerState s, LevelCrossDirection direction)
+        {
             double levelAbs = Math.Abs(lc.Value);
             double band = (levelAbs > 0 ? levelAbs : 1.0) * ApproachBandFraction;
             double distance = Math.Abs(val - lc.Value);
 
             bool approaching = distance > 0 && distance <= band;
-            // Direction gate: only ping when value is on the "outside" of the level
-            // (approaching from below an OB line, or approaching from above an OS line).
-            // Otherwise a value drifting away from the level on the wrong side would
-            // still trigger pings, which would feel random.
-            if (isOb && val >= lc.Value) approaching = false;
-            if (!isOb && val <= lc.Value) approaching = false;
+
+            // Direction gate: only ping when the value is on the "outside" of the level
+            // (approaching from below an OB line, or from above an OS line). Otherwise a value
+            // drifting away from the level on the wrong side would still ping, which feels random.
+            //
+            // A two-sided level has no outside, so it pings from either direction — which is exactly
+            // what marking a price and wanting to hear it approach should do.
+            if (direction == LevelCrossDirection.Above && val >= lc.Value) approaching = false;
+            if (direction == LevelCrossDirection.Below && val <= lc.Value) approaching = false;
 
             if (approaching && !s.ApproachFired)
             {

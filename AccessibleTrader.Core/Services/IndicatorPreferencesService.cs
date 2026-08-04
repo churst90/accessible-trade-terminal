@@ -51,6 +51,15 @@ namespace AccessibleTrader.Core.Services
     /// <summary>
     /// Per-level preference snapshot. Only non-null fields are applied as overrides.
     /// </summary>
+    /// <summary>
+    /// A user's saved overrides for one reference level, applied on top of the provider's defaults
+    /// when a series is created.
+    ///
+    /// <para>
+    /// Every field is nullable and every null means "leave the provider's value alone", so adding a
+    /// field here never disturbs a preference file written before it existed.
+    /// </para>
+    /// </summary>
     public class LevelPreference
     {
         public string  Name            { get; set; } = "";
@@ -60,6 +69,16 @@ namespace AccessibleTrader.Core.Services
         public float?  EarconVolume    { get; set; }
         public float?  ZoneNoiseAmount { get; set; }
         public string? ZoneNoiseType   { get; set; }
+
+        // ── Appearance ──────────────────────────────────────────────────────
+        // The renderer has always honoured all three; only the audio settings were ever saved, so a
+        // restyled level reverted to grey dashes at the next launch.
+        public string?  ColorHex  { get; set; }
+        public float?   Thickness { get; set; }
+        public DashStyle? DashStyle { get; set; }
+
+        /// <summary>Which crossings this level reports. Null keeps <c>Auto</c> name inference.</summary>
+        public LevelCrossDirection? CrossDirection { get; set; }
     }
 
     /// <summary>
