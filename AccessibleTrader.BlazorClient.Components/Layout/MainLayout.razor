@@ -43,6 +43,14 @@
    is the thing that turns a committed quick trade into an actual order — a service nobody resolves
    is a service that never runs, and the whole feature silently placed nothing. *@
 @inject AccessibleTrader.Core.Services.Trading.QuickTradeExecutor _quickTradeExecutor
+@* Same reason again, for the pair that keeps a background position alive. The paper
+   broker subscribes to MonitoredBarEvent on construction (that is what fills a resting
+   order in an unfocused tab), and the monitoring service subscribes to tab and order
+   events and is what starts a monitor for a symbol the account has money on. Both were
+   reachable only through the Settings dialog, so until the user opened Settings a
+   position in another tab was neither priced nor filled. *@
+@inject IPaperTradingProvider _paperBroker
+@inject AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService _backgroundMonitoring
 @* Per-circuit pipeline init: on the multi-user web host every browser connection is its
    own DI scope, so the data/indicator/input/accessibility pipeline is initialized HERE,
    once per visitor (it used to run once at app start). MainLayout is the parent of the

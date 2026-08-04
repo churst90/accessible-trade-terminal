@@ -110,19 +110,42 @@ public class EventSubscriberRegistrationTests
     /// Registration alone is not enough: lazy construction means a subscriber nobody injects still
     /// never runs. Something has to resolve it.
     /// </summary>
-    [Fact]
-    public void TheQuickTradeExecutorIsActuallyResolvedBySomething()
+    /// <summary>
+    /// Services whose subscriptions must be live from app start, and why. Being
+    /// injected by a DIALOG is not enough: that defers construction until the user
+    /// happens to open it. <c>MainLayout</c> is the one component always present.
+    /// </summary>
+    public static readonly (string Type, string Why)[] MustBeLiveAtStartup =
     {
-        string root = RepoRoot();
-        bool injected = Directory
-            .EnumerateFiles(Path.Combine(root, "AccessibleTrader.BlazorClient.Components"), "*.razor",
-                            SearchOption.AllDirectories)
-            .Any(f => File.ReadAllText(f).Contains("QuickTradeExecutor", StringComparison.Ordinal));
+        ("QuickTradeExecutor",
+         "turns a committed quick trade into an order; unresolved, the feature placed nothing"),
+        ("IPaperTradingProvider",
+         "subscribes to MonitoredBarEvent, which is what fills a resting order in an unfocused tab"),
+        ("IBackgroundMonitoringService",
+         "starts the monitors that price open positions; via Settings only, a background position "
+       + "went unwatched until the user opened a dialog"),
+    };
 
-        Assert.True(injected,
-            "QuickTradeExecutor is registered but nothing injects it. DI constructs scoped and "
-          + "singleton services lazily, so a subscriber nobody resolves is never built and never "
-          + "subscribes — indistinguishable from not being registered at all.");
+    [Theory]
+    [MemberData(nameof(StartupServices))]
+    public void SubscribersThatMustRunAtStartupAreResolvedByMainLayout(string type, string why)
+    {
+        string layout = Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components",
+                                     "Layout", "MainLayout.razor");
+        Assert.True(File.Exists(layout), $"MainLayout.razor not found at {layout}");
+
+        Assert.True(File.ReadAllText(layout).Contains(type, StringComparison.Ordinal),
+            $"{type} is not injected into MainLayout, so DI never constructs it at startup and its "
+          + $"constructor subscriptions never happen. It {why}. Registration is not enough — scoped "
+          + "and singleton services are built lazily, so a subscriber nobody resolves is "
+          + "indistinguishable from one that was never registered.");
+    }
+
+    public static TheoryData<string, string> StartupServices()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var (type, why) in MustBeLiveAtStartup) data.Add(type, why);
+        return data;
     }
 
     /// <summary>

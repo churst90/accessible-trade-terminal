@@ -233,6 +233,20 @@ namespace AccessibleTrader.Core.Models
     public record OrderCancelledEvent(OrderUpdate Order);
     public record MarginWarningEvent(string Symbol, double MarginLevel, string Message);
 
+    /// <summary>
+    /// A background workspace monitor finished a poll and has fresh bars for a
+    /// chart the user is NOT currently looking at.
+    ///
+    /// <para>
+    /// The monitors were fetching these bars all along and spending them only on
+    /// alerts and strategies. The paper broker listened to the focused chart
+    /// alone, so a resting order in any other tab could not fill and an open
+    /// position there reported a frozen price — the case where a trader is side
+    /// tracked and forgets an open position is exactly the case that broke.
+    /// </para>
+    /// </summary>
+    public record MonitoredBarEvent(ChartIdentity Identity, Ohlcv Latest);
+
     /// <summary>Raised when the user toggles paper trading mode in settings.</summary>
     public record PaperModeToggledEvent(bool Enabled);
 

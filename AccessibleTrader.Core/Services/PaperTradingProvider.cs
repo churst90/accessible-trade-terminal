@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
@@ -37,6 +38,17 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>The quote-currency balance the account resets to.</summary>
         double StartingBalance { get; }
+
+        /// <summary>
+        /// Charts the account has an open position or a resting order on. The
+        /// monitoring service watches these regardless of which tabs are open, so
+        /// a position the user has navigated away from still fills and still
+        /// reports.
+        /// </summary>
+        IReadOnlyList<ChartIdentity> ExposedIdentities();
+
+        /// <summary>Feed one bar of any symbol into the fill engine.</summary>
+        void ProcessBar(string symbol, Ohlcv bar);
     }
 
     public sealed class PaperTradingProvider : IPaperTradingProvider, IDisposable
@@ -49,18 +61,27 @@ namespace AccessibleTrader.Core.Services
         private readonly string _statePath;
         private readonly object _lock = new();
         private readonly IDisposable _priceSub;
+        private readonly IDisposable? _monitorSub;
 
         private readonly Subject<OrderUpdate> _orderUpdates = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates.AsObservable();
 
         private const double FeeRate = 0.0004;   // simulated 0.04% taker fee per fill
         private double _cash;
+        // Last price seen for each symbol, from the focused chart or a background
+        // monitor. Deliberately NOT persisted: a price restored from disk would be
+        // stale by an unknown amount and would price positions off it.
+        private readonly Dictionary<string, double> _lastPrice = new(StringComparer.OrdinalIgnoreCase);
+        // The chart each traded symbol was traded under, so exposure can be priced
+        // after its tab is gone. Persisted, unlike _lastPrice.
+        private readonly Dictionary<string, ChartIdentity> _exposureIdentity = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, (double Qty, double Avg)> _positions = new();
         private readonly Dictionary<string, double> _leverage = new();
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
 
-        public PaperTradingProvider(IWorkspaceStore store, IPlatformPathService paths, ILogger<PaperTradingProvider> logger)
+        public PaperTradingProvider(IWorkspaceStore store, IPlatformPathService paths,
+            ILogger<PaperTradingProvider> logger, IEventBus? eventBus = null)
         {
             _store = store;
             _logger = logger;
@@ -70,6 +91,12 @@ namespace AccessibleTrader.Core.Services
             // Drive resting-order fills off the live chart state. StateStream emits
             // on every data change, including each live tick into the forming bar.
             _priceSub = _store.StateStream.Subscribe(OnState);
+
+            // …and off background monitors, which are the only price source for a
+            // symbol whose tab is not the focused one. Without this the engine was
+            // blind to every chart but the one on screen.
+            _monitorSub = eventBus?.Subscribe<MonitoredBarEvent>(
+                e => ProcessBar(e.Identity.Symbol ?? "", e.Latest));
         }
 
         // ── IProviderPlugin ───────────────────────────────────────────────────
@@ -192,6 +219,12 @@ namespace AccessibleTrader.Core.Services
             {
                 if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
+                // Remember which chart this symbol trades on, so the monitoring
+                // service can keep pricing it after the tab is closed.
+                var live = _store.State.Identity;
+                if (string.Equals(live.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                    _exposureIdentity[symbol] = live;
+
                 if (signal.Type == OrderType.Market)
                 {
                     double px = PriceFor(symbol, 0);
@@ -302,6 +335,8 @@ namespace AccessibleTrader.Core.Services
                 _open.Clear();
                 _leverage.Clear();
                 _history.Clear();
+                _exposureIdentity.Clear();
+                _lastPrice.Clear();
                 Persist();
             }
         }
@@ -313,10 +348,31 @@ namespace AccessibleTrader.Core.Services
             var data = st.Data;
             string sym = (st.Identity.Symbol ?? "").ToUpperInvariant();
             if (data == null || data.Count == 0 || sym.Length == 0) return;
-            var bar = data[data.Count - 1];
+            ProcessBar(sym, data[data.Count - 1]);
+        }
+
+        /// <summary>
+        /// Drive the fill engine from one bar of any symbol, focused chart or not.
+        ///
+        /// <para>
+        /// The engine used to be reachable only from the focused chart's state
+        /// stream, so a resting order in another tab could never fill and an open
+        /// position there reported a frozen entry price as its market price.
+        /// Background monitors already fetch bars for unfocused tabs; this is the
+        /// entry point that lets those bars count.
+        /// </para>
+        /// </summary>
+        public void ProcessBar(string symbol, Ohlcv bar)
+        {
+            string sym = (symbol ?? "").ToUpperInvariant();
+            if (sym.Length == 0) return;
 
             lock (_lock)
             {
+                // Remember the price even when nothing fills: it is what makes
+                // unrealized P&L live for a position whose chart is not on screen.
+                _lastPrice[sym] = bar.Close;
+
                 // Advance trailing stops first so this tick uses the moved trigger.
                 bool trailMoved = false;
                 foreach (var o in _open)
@@ -515,13 +571,47 @@ namespace AccessibleTrader.Core.Services
             if (_history.Count > 200) _history.RemoveRange(200, _history.Count - 200);
         }
 
+        /// <summary>
+        /// The most recent price known for a symbol: the focused chart's live bar
+        /// when it is that symbol, otherwise the last bar any background monitor
+        /// reported for it. The fallback is only reached for a symbol nothing has
+        /// ever priced.
+        /// </summary>
         private double PriceFor(string symbol, double fallback)
         {
             var st = _store.State;
             if (st.Data != null && st.Data.Count > 0 &&
                 string.Equals(st.Identity.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
                 return st.Data[st.Data.Count - 1].Close;
-            return fallback;
+            return _lastPrice.TryGetValue(symbol.ToUpperInvariant(), out double p) && p > 0 ? p : fallback;
+        }
+
+        /// <summary>
+        /// Every chart the account has money riding on — an open position or a
+        /// resting order — as the identity it was traded under.
+        ///
+        /// <para>
+        /// The identity is recorded at order time and persisted, so exposure
+        /// outlives the tab: closing the chart, or reopening the app the next day,
+        /// does not strand a position without a price. That is the whole point —
+        /// the position you forget about is the one that needs watching, and it is
+        /// the one least likely to still have a tab.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<ChartIdentity> ExposedIdentities()
+        {
+            lock (_lock)
+            {
+                var symbols = _positions.Where(kv => Math.Abs(kv.Value.Qty) > 1e-12).Select(kv => kv.Key)
+                    .Concat(_open.Select(o => o.Symbol.ToUpperInvariant()))
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+
+                var list = new List<ChartIdentity>();
+                foreach (string s in symbols)
+                    if (_exposureIdentity.TryGetValue(s, out var id) && !string.IsNullOrWhiteSpace(id.Symbol))
+                        list.Add(id);
+                return list.Distinct().ToList();
+            }
         }
 
         private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false, string? reason = null)
@@ -547,7 +637,12 @@ namespace AccessibleTrader.Core.Services
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
                         Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId
                     }).ToList(),
-                    History = _history.ToList()
+                    History = _history.ToList(),
+                    Charts = _exposureIdentity.Select(kv => new IdentDto
+                    {
+                        Symbol = kv.Key, Market = kv.Value.Market,
+                        Provider = kv.Value.Provider, Timeframe = kv.Value.Timeframe
+                    }).ToList()
                 };
                 AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
             }
@@ -573,6 +668,8 @@ namespace AccessibleTrader.Core.Services
                         Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
                         o.Activation, o.Armed, o.Oco));
                 if (dto.History != null) _history.AddRange(dto.History);
+                foreach (var c in dto.Charts ?? new List<IdentDto>())
+                    _exposureIdentity[c.Symbol] = new ChartIdentity(c.Market, c.Provider, c.Symbol, c.Timeframe);
             }
             catch (Exception ex)
             {
@@ -584,6 +681,7 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
+            _monitorSub?.Dispose();
             _priceSub.Dispose();
             _orderUpdates.OnCompleted();
             _orderUpdates.Dispose();
@@ -628,8 +726,16 @@ namespace AccessibleTrader.Core.Services
             public List<LevDto> Leverage { get; set; } = new();
             public List<OrderDto> Open { get; set; } = new();
             public List<TradeFill> History { get; set; } = new();
+            public List<IdentDto> Charts { get; set; } = new();
         }
         private sealed class PosDto { public string Symbol { get; set; } = ""; public double Qty { get; set; } public double Avg { get; set; } }
+        private sealed class IdentDto
+        {
+            public string Symbol { get; set; } = "";
+            public string Market { get; set; } = "";
+            public string Provider { get; set; } = "";
+            public string Timeframe { get; set; } = "";
+        }
         private sealed class LevDto { public string Symbol { get; set; } = ""; public double Value { get; set; } }
         private sealed class OrderDto
         {

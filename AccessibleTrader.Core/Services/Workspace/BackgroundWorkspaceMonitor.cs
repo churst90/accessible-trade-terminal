@@ -142,6 +142,12 @@ namespace AccessibleTrader.Core.Services.Workspace
             LastBarCount = bars.Count;
             LastEvaluatedUtc = DateTime.UtcNow;
 
+            // These bars are the only live price this symbol has while its tab is
+            // unfocused. Publishing them costs nothing extra — they are already
+            // fetched — and it is what lets the paper broker fill resting orders
+            // and keep P&L moving on a chart the user is not watching.
+            _eventBus.Publish(new MonitoredBarEvent(_identity, bars[bars.Count - 1]));
+
             EvaluateAlerts(state, bars);
             EvaluateStrategies(state, bars);
         }

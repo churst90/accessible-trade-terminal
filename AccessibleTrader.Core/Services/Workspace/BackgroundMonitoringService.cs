@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
@@ -58,6 +59,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IAlertEvaluator _alertEvaluator;
         private readonly IStrategyEngine _strategyEngine;
         private readonly ILogger<BackgroundMonitoringService> _logger;
+        private readonly IPaperTradingProvider? _paper;
 
         private readonly object _gate = new();
         // Keyed by identity — two tabs on the same identity coalesce into one monitor.
@@ -75,7 +77,8 @@ namespace AccessibleTrader.Core.Services.Workspace
             IAlertOrchestrator alerts,
             IAlertEvaluator alertEvaluator,
             IStrategyEngine strategyEngine,
-            ILogger<BackgroundMonitoringService> logger)
+            ILogger<BackgroundMonitoringService> logger,
+            IPaperTradingProvider? paper = null)
         {
             _store = store;
             _eventBus = eventBus;
@@ -87,6 +90,14 @@ namespace AccessibleTrader.Core.Services.Workspace
             _alertEvaluator = alertEvaluator;
             _strategyEngine = strategyEngine;
             _logger = logger;
+            _paper = paper;
+
+            // Exposure changes what must be watched, so every order event is a
+            // reconcile trigger: a new position starts a monitor, a closed one
+            // stops it. Without this a position opened on the focused chart would
+            // go unwatched the moment the user switched tabs.
+            _subs.Add(eventBus.Subscribe<OrderFilledEvent>(_ => Reconcile()));
+            _subs.Add(eventBus.Subscribe<OrderCancelledEvent>(_ => Reconcile()));
 
             // Tab switches change which tab is "background"; snapshot-list changes
             // (add/close tab) change what exists to monitor.
@@ -120,19 +131,45 @@ namespace AccessibleTrader.Core.Services.Workspace
         {
             lock (_gate)
             {
-                if (!IsEnabled)
+                var state = _store.State;
+                var tabs = state.TabSnapshots ?? System.Collections.Immutable.ImmutableList<TabSnapshot>.Empty;
+
+                // Discretionary monitoring: every inactive tab, when the user has
+                // opted in. This is the resource-hungry half — N charts the user
+                // merely has open — and it stays opt-in and desktop-only.
+                var wanted = IsEnabled
+                    ? tabs.Where(t => !string.IsNullOrWhiteSpace(t.Identity.Symbol))
+                          .GroupBy(t => t.Identity) // coalesce duplicate identities → one monitor
+                          .ToDictionary(g => g.Key, g => (Name: g.First().SymbolDisplayName, Series: g.First().ActiveSeries))
+                    : new Dictionary<ChartIdentity, (string Name, ImmutableList<ChartSeries> Series)>();
+
+                // Exposure monitoring: any chart the paper account has a position or
+                // a resting order on, whether or not its tab is open and whether or
+                // not discretionary monitoring is. Money at risk is not a power
+                // feature — an order that cannot fill because the user looked at a
+                // different chart is a broken order, and the position someone forgot
+                // about is exactly the one that needs to keep reporting.
+                //
+                // It is bounded by real exposure rather than by how many charts are
+                // open, which is what makes it affordable on the hosted host too.
+                foreach (var id in ExposedIdentities())
+                {
+                    if (wanted.ContainsKey(id) || id.Equals(state.Identity)) continue;
+                    // Prefer the user's own series setup for this chart when a tab
+                    // still has one, so alerts and strategies resolve against exactly
+                    // what was configured. With no tab there is nothing to evaluate —
+                    // the monitor exists to fetch bars, and bars are what the fill
+                    // engine and P&L need.
+                    var snap = tabs.FirstOrDefault(t => t.Identity.Equals(id));
+                    wanted[id] = (snap?.SymbolDisplayName ?? "", snap?.ActiveSeries ?? ImmutableList<ChartSeries>.Empty);
+                }
+
+                if (wanted.Count == 0)
                 {
                     StopAllLocked(announce: _announcedEnable);
                     _announcedEnable = false;
                     return;
                 }
-
-                var state = _store.State;
-                // Every inactive tab with a real symbol is a monitoring candidate.
-                var wanted = (state.TabSnapshots ?? System.Collections.Immutable.ImmutableList<TabSnapshot>.Empty)
-                    .Where(t => !string.IsNullOrWhiteSpace(t.Identity.Symbol))
-                    .GroupBy(t => t.Identity) // coalesce duplicate identities → one monitor
-                    .ToDictionary(g => g.Key, g => g.First());
 
                 // Stop monitors whose tab was closed or became focused.
                 foreach (var key in _monitors.Keys.ToList())
@@ -152,8 +189,8 @@ namespace AccessibleTrader.Core.Services.Workspace
 
                     var monitor = new BackgroundWorkspaceMonitor(
                         identity,
-                        string.IsNullOrWhiteSpace(snap.SymbolDisplayName) ? identity.Symbol : snap.SymbolDisplayName,
-                        snap.ActiveSeries,
+                        string.IsNullOrWhiteSpace(snap.Name) ? identity.Symbol : snap.Name,
+                        snap.Series,
                         _feeds, _indicators, _alerts, _alertEvaluator,
                         _strategyEngine, _eventBus, _logger,
                         PollInterval);
@@ -174,6 +211,22 @@ namespace AccessibleTrader.Core.Services.Workspace
             }
         }
 
+        /// <summary>
+        /// Charts the paper account has money on. Never throws into
+        /// <see cref="Reconcile"/> — a broker that cannot answer must degrade to
+        /// "no exposure", not take tab monitoring down with it.
+        /// </summary>
+        private IReadOnlyList<ChartIdentity> ExposedIdentities()
+        {
+            if (_paper == null) return Array.Empty<ChartIdentity>();
+            try { return _paper.ExposedIdentities(); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not read paper exposure for monitoring.");
+                return Array.Empty<ChartIdentity>();
+            }
+        }
+
         private void StopAllLocked(bool announce)
         {
             if (_monitors.Count == 0) return;
@@ -189,12 +242,26 @@ namespace AccessibleTrader.Core.Services.Workspace
             List<BackgroundWorkspaceMonitor> monitors;
             lock (_gate) monitors = _monitors.Values.ToList();
 
-            if (!IsEnabled)
+            // "Off" must not be said while monitors are running. With discretionary
+            // monitoring off, exposure monitors can still be watching open positions
+            // — reporting that as "off" would tell the user their forgotten trade is
+            // unattended when it is not.
+            if (!IsEnabled && monitors.Count == 0)
             {
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
                     _policy.AllowBackgroundMonitoring
-                        ? "Background monitoring is off. Enable it in Settings, General."
+                        ? "Background monitoring is off, and no positions are open. Enable it in Settings, General."
                         : "Background monitoring is not available on this host.",
+                    Interrupt: true));
+                return;
+            }
+
+            if (!IsEnabled)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
+                    $"Background monitoring is off, but {monitors.Count} " +
+                    $"{(monitors.Count == 1 ? "chart is" : "charts are")} watched for open paper positions and orders: " +
+                    string.Join(", ", monitors.Select(m => m.SymbolDisplayName).OrderBy(s => s)) + ".",
                     Interrupt: true));
                 return;
             }
