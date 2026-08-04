@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Quick trade had never placed an order (2026-08-04)
+
+- **`QuickTradeExecutor` — the half of the feature that actually sends the order — was never
+  registered in DI and never instantiated.** `QuickTradeService` published its request event into a
+  void: nothing was subscribed, so no order was ever placed. That is why it said "sent" and then
+  produced no fill, no rejection and no position, at any risk percentage. The feature had not placed
+  a single order since it was written.
+- Registered on both heads, and injected into `MainLayout` — because registration alone is not
+  enough. DI builds scoped and singleton services lazily, so a subscriber nobody resolves is never
+  constructed and never subscribes, which behaves identically to not being registered at all.
+- **A new test closes the whole class of defect.** It finds every type that subscribes to the event
+  bus in its constructor, and fails if any of them is missing from either head's registrations — plus
+  a check that the executor is genuinely resolved by something. Nothing else could have caught this:
+  it compiled, its own unit tests passed because they construct it directly, and the container never
+  complained because nothing asked for a service that was not there.
+
 ### The order that was never placed, and never said so (2026-08-04)
 
 - **Fixed: a refused order was completely silent.** `PlaceOrderAsync` returns a status string, and

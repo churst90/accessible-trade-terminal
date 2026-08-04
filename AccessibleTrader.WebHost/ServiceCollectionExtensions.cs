@@ -385,6 +385,15 @@ namespace AccessibleTrader.WebHost
                         await orders.GetBalancesAsync(store.State.Identity.Provider ?? string.Empty);
                     }));
 
+            // The half of quick trade that actually places the order.
+            //
+            // It was never registered. QuickTradeService published QuickTradeRequestedEvent, nothing
+            // was subscribed, and the order was never sent — so the feature announced "sent",
+            // produced no fill, no rejection and no position, and had never placed a single order in
+            // its life. Registering is only half of it: this subscribes in its constructor, so it
+            // also has to be RESOLVED for that constructor to run. MainLayout injects it.
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.QuickTradeExecutor>();
+
             // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
             // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and
             // GitHub rejects requests with no agent at all. Both are registered even when unused --

@@ -39,6 +39,10 @@
 @inject AccessibleTrader.Core.Services.ThemeService _themeService
 @inject DemoPolicy Demo
 @inject ISettingsManager _settings
+@* Injected purely to construct it. It subscribes to QuickTradeRequestedEvent in its constructor and
+   is the thing that turns a committed quick trade into an actual order — a service nobody resolves
+   is a service that never runs, and the whole feature silently placed nothing. *@
+@inject AccessibleTrader.Core.Services.Trading.QuickTradeExecutor _quickTradeExecutor
 @* Per-circuit pipeline init: on the multi-user web host every browser connection is its
    own DI scope, so the data/indicator/input/accessibility pipeline is initialized HERE,
    once per visitor (it used to run once at app start). MainLayout is the parent of the
