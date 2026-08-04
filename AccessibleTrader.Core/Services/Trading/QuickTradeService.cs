@@ -203,6 +203,23 @@ namespace AccessibleTrader.Core.Services.Trading
                 return;
             }
 
+            // ── Speak BEFORE publishing, and say little ──────────────────────────
+            //
+            // Two things went wrong here and they were the same mistake.
+            //
+            // ORDER. Publishing first meant the executor ran synchronously into the paper broker,
+            // which fills a market order immediately and announces "Order filled…" with interrupt.
+            // Control then returned here and this line interrupted THAT — so the last thing a user
+            // heard after committing real size was the word "Sent", and the fill, the price and the
+            // quantity were cut off. The outcome must never be talked over by the intent.
+            //
+            // LENGTH. This used to repeat the whole calculator — side, quantity, entry, stop, cash
+            // at risk — every word of which was already spoken when the stop was set, one keypress
+            // earlier. Followed by the broker's own fill announcement carrying the same numbers
+            // again, one action produced three recitals of the same trade. What is genuinely new at
+            // this moment is only that it went, and whether it was a limit or a market.
+            Say($"{(market ? "Market" : "Limit")} {(final.IsLong ? "buy" : "sell")} sent.");
+
             _eventBus.Publish(new QuickTradeRequestedEvent(
                 Symbol: _store.State.Identity.Symbol ?? "",
                 IsLong: final.IsLong,
@@ -210,10 +227,6 @@ namespace AccessibleTrader.Core.Services.Trading
                 EntryPrice: market ? null : entry,
                 StopPrice: final.StopPrice!.Value,
                 RiskCash: final.RiskCash));
-
-            Say($"{(market ? "Market" : "Limit")} {(final.IsLong ? "buy" : "sell")} "
-              + $"{Qty(final.PositionSize!.Value)} at {Price(entry)}, stop {Price(final.StopPrice!.Value)}, "
-              + $"risking {Money(final.RiskCash)}. Sent.");
 
             Disarm(announce: false);
         }

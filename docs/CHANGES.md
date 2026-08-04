@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Placing a paper trade: the fill, the chatter, and the exponents (2026-08-04)
+
+- **Fixed: "sent" was the last thing you heard.** `Place()` published the order first, the paper
+  broker filled it immediately and announced "Order filled…", and then the placement line
+  **interrupted that**. The intent talked over the outcome — so after committing real size, the fill,
+  the price and the quantity were all cut off. The confirmation is now spoken *before* the order is
+  published, so the fill always gets the last word. **Yes, it says "filled"** — with the quantity,
+  the price and, on a closing fill, the realised profit or loss.
+- **Fixed: three recitals of one trade.** The placement line repeated the whole calculator — side,
+  quantity, entry, stop, cash at risk — all of which was spoken one keypress earlier when the stop
+  was set, and all of which the fill announcement then said again. It is now just *"Market buy
+  sent."* The numbers live where they are decided and where they are confirmed.
+- **Fixed: order book sizes shown as `7.42E+07`.** The `G4` format switches to scientific notation
+  once the exponent reaches the precision, so a Kaspa book with 74,200,000 on the bid read out as
+  "seven point four two E plus zero seven". Prices had the mirror problem — `G6` turned 0.0000123
+  into `1.23E-05`. Both now use magnitude-aware formatters, applied at all 19 sites.
+- **The trading dashboard opens on Positions.** It used to open on Balances, with the order book
+  taking the whole right-hand column above it — so the thing you open a trading dashboard to see was
+  below the fold and behind a click. **The order book is now its own tab.** The dedicated Alt+B panel
+  and the toolbar button are unchanged, for when the book is what you actually want.
+
 ### Quick trade could never be armed, and the PAPER badge was never on screen (2026-08-04)
 
 - **Fixed: arming always said "no account equity available".** Equity is a cached number, published

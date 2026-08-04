@@ -290,74 +290,20 @@
 
                     @* Right Column: Order Book & Account *@
                     <div class="dash-col">
-                        <section class="panel order-book" aria-labelledby="ob-heading-dash">
-                            <h3 id="ob-heading-dash">Order Book</h3>
-
-                            @if (_bookLoading)
-                            {
-                                <p style="font-size:0.85rem; color:var(--text-muted);">Loading order book…</p>
-                            }
-                            else
-                            {
-                                @* No aria-live here: the book refreshes every 2s and a live region
-                                   would re-announce the spread endlessly. The order book reads on
-                                   demand (Tab through it) and via the dedicated Alt+B panel. *@
-                                <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 6px;">
-                                    Spread: <strong>@GetSpread()</strong>
-                                </p>
-
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                                    <section aria-labelledby="ob-asks-dash">
-                                        <h4 id="ob-asks-dash" style="font-size:0.8rem; color:#f44; margin:0 0 4px;">Asks</h4>
-                                        <table role="table" aria-label="Ask orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
-                                                    <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (var ask in _asks.TakeLast(5))
-                                                {
-                                                    <tr>
-                                                        <td style="padding:2px 4px; color:#f44;">@ask.Price.ToString("G6")</td>
-                                                        <td style="padding:2px 4px; text-align:right;">@ask.Quantity.ToString("G4")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </section>
-
-                                    <section aria-labelledby="ob-bids-dash">
-                                        <h4 id="ob-bids-dash" style="font-size:0.8rem; color:#4f4; margin:0 0 4px;">Bids</h4>
-                                        <table role="table" aria-label="Bid orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
-                                                    <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (var bid in _bids.Take(5))
-                                                {
-                                                    <tr>
-                                                        <td style="padding:2px 4px; color:#4f4;">@bid.Price.ToString("G6")</td>
-                                                        <td style="padding:2px 4px; text-align:right;">@bid.Quantity.ToString("G4")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </section>
-                                </div>
-                            }
-                        </section>
-
                         <section class="panel account-data">
+                            @* Positions first: "what am I actually holding?" is the question this dashboard is
+                               opened to answer, and it used to open on Balances with the order book above it,
+                               so the one thing a trader wants was below the fold and behind a click.
+
+                               The order book is a tab rather than a permanent fixture — it is reference
+                               data that refreshes every two seconds and it was crowding out the account.
+                               The dedicated Alt+B panel and the toolbar button are unchanged. *@
                             <div class="tabs-mini" role="tablist" aria-label="Account data">
-                                <button role="tab" id="acct-tab-balances" aria-selected="@(_accountTab == "Balances" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => SelectAccountTab("Balances")'>Balances</button>
                                 <button role="tab" id="acct-tab-positions" aria-selected="@(_accountTab == "Positions" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => SelectAccountTab("Positions")'>Positions</button>
+                                <button role="tab" id="acct-tab-balances" aria-selected="@(_accountTab == "Balances" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => SelectAccountTab("Balances")'>Balances</button>
                                 <button role="tab" id="acct-tab-orders" aria-selected="@(_accountTab == "Orders" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => SelectAccountTab("Orders")'>Orders</button>
                                 <button role="tab" id="acct-tab-history" aria-selected="@(_accountTab == "History" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "History" ? "active" : "")" @onclick='() => SelectAccountTab("History")'>History</button>
+                                <button role="tab" id="acct-tab-book" aria-selected="@(_accountTab == "Book" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Book" ? "active" : "")" @onclick='() => SelectAccountTab("Book")'>Order Book</button>
                             </div>
                             
                             <div id="acct-panel" class="account-content" role="tabpanel" aria-labelledby="@($"acct-tab-{_accountTab.ToLowerInvariant()}")">
@@ -452,6 +398,70 @@
                                             }
                                         </tbody>
                                     </table>
+                                }
+                                else if (_accountTab == "Book")
+                                {
+                                <section class="panel order-book" aria-labelledby="ob-heading-dash">
+                                    <h3 id="ob-heading-dash">Order Book</h3>
+
+                                    @if (_bookLoading)
+                                    {
+                                        <p style="font-size:0.85rem; color:var(--text-muted);">Loading order book…</p>
+                                    }
+                                    else
+                                    {
+                                        @* No aria-live here: the book refreshes every 2s and a live region
+                                           would re-announce the spread endlessly. The order book reads on
+                                           demand (Tab through it) and via the dedicated Alt+B panel. *@
+                                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 6px;">
+                                            Spread: <strong>@GetSpread()</strong>
+                                        </p>
+
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                            <section aria-labelledby="ob-asks-dash">
+                                                <h4 id="ob-asks-dash" style="font-size:0.8rem; color:#f44; margin:0 0 4px;">Asks</h4>
+                                                <table role="table" aria-label="Ask orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
+                                                            <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var ask in _asks.TakeLast(5))
+                                                        {
+                                                            <tr>
+                                                                <td style="padding:2px 4px; color:#f44;">@AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(ask.Price)</td>
+                                                                <td style="padding:2px 4px; text-align:right;">@AccessibleTrader.Core.Services.Accessibility.QuantityFormatter.FormatCompact(ask.Quantity)</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </section>
+
+                                            <section aria-labelledby="ob-bids-dash">
+                                                <h4 id="ob-bids-dash" style="font-size:0.8rem; color:#4f4; margin:0 0 4px;">Bids</h4>
+                                                <table role="table" aria-label="Bid orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col" style="text-align:left; padding:2px 4px; border-bottom:1px solid #333;">Price</th>
+                                                            <th scope="col" style="text-align:right; padding:2px 4px; border-bottom:1px solid #333;">Size</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var bid in _bids.Take(5))
+                                                        {
+                                                            <tr>
+                                                                <td style="padding:2px 4px; color:#4f4;">@AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bid.Price)</td>
+                                                                <td style="padding:2px 4px; text-align:right;">@AccessibleTrader.Core.Services.Accessibility.QuantityFormatter.FormatCompact(bid.Quantity)</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </section>
+                                        </div>
+                                    }
+                                </section>
                                 }
                             </div>
                         </section>
@@ -587,7 +597,8 @@
     private List<ApiKeyConfig> _availableKeys = new();
     private string _activeKeyNickname = "";
     
-    private string _accountTab = "Balances";
+    // Positions is what a trader opens this dashboard to see.
+    private string _accountTab = "Positions";
     private bool _isLiveEnvironment;
     private bool _tradingNotSupported;
     private bool _paperMode;
