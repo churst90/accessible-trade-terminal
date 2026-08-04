@@ -1655,16 +1655,33 @@ against simulated money. Open Settings with F12, and on the General tab tick "Pa
 trading mode"; the terminal confirms "Paper trading enabled" and a small paper
 indicator appears in the status bar (announced as "Paper trading enabled"). From
 then on, every order you place — on any chart, with any provider — is routed to a
-built-in simulator instead of a real exchange. Fills are driven by the **real
-live price** of the chart you are watching: a market order fills at the current
-price, and a stop, target, or trailing order fills the moment live price action
-actually crosses it. You start with a virtual balance, the account persists between
-sessions, and a "Reset paper account" button on the same settings tab wipes it back
-to the starting balance whenever you want a clean slate. While paper mode is on the
-dashboard shows the environment as "Paper (simulated)" with a paper banner, and the
-red live-funds banner is suppressed. Everything described in the rest of this
-chapter behaves identically in paper and live — so practise here until the spoken
-feedback is second nature, then switch a real key in.
+built-in simulator instead of a real exchange. Fills are driven by **real live
+prices**: a market order fills at the current price, and a stop, target, or trailing
+order fills the moment live price action actually crosses it. You start with a
+virtual balance, the account persists between sessions, and a "Reset paper account"
+button on the same settings tab wipes it back to the starting balance whenever you
+want a clean slate. While paper mode is on the dashboard shows the environment as
+"Paper (simulated)" with a paper banner, and the red live-funds banner is
+suppressed. Everything described in the rest of this chapter behaves identically in
+paper and live — so practise here until the spoken feedback is second nature, then
+switch a real key in.
+
+**Your trades keep running when you look elsewhere.** A chart you have an open
+position or a resting order on is watched in the background, so a stop fires and a
+limit fills while you are on a different tab entirely, and the position's profit and
+loss keeps moving rather than sitting still until you go back. This works even after
+you close that chart's tab, and after you close and reopen the app — the terminal
+remembers which chart each position was opened on. You do **not** need to switch
+background monitoring on for this; that setting governs watching charts you merely
+have open, while a chart with money on it is watched either way.
+
+**What the paper account deliberately cannot do.** It settles like a spot exchange
+out of a single cash balance, so it will refuse to sell an asset you do not hold and
+refuse a buy you cannot afford — telling you by how much in both cases. There is no
+borrowing, so **short selling and leverage are not available in paper trading**;
+they were previously offered and did nothing, and they return when margin is properly
+modelled. Brackets, one-cancels-other pairs, trailing stops and trailing take-profits
+are all fully simulated.
 
 On the **hosted web terminal** (the logged-in, multi-user build) this choice is made
 for you: paper trading is **always on and cannot be switched off**, so pressing Alt+T

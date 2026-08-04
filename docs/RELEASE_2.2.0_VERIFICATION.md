@@ -150,6 +150,24 @@ the path from *hotkey → armed → stop set → Enter → order* has not been w
 It is the only feature in the terminal where a keystroke sizes and sends a real order with no dialog
 in between, so it should be exercised once on paper before the tag.
 
+**This is the one open item that is both closeable here and worth closing.** Ten minutes on paper:
+
+| Step | Do | Expect to hear |
+|---|---|---|
+| 1 | `F12` | Paper trading on; `PAPER` badge visible |
+| 2 | Load a liquid chart (BTC 1h) and let it tick | — |
+| 3 | `Ctrl+Alt+Shift+1` | *"Armed 0.5 percent…"* with a position value **and** the loss at the stop |
+| 4 | Arrow to a bar below price, `Ctrl+Alt+Shift+X` | Stop confirmed at that bar's level |
+| 5 | Arrow to your entry, `Shift+Enter` | Limit placed — check it appears under Orders |
+| 6 | Repeat step 3–4, then `Ctrl+Enter` | Fills immediately; Positions shows quantity **named in the base asset**, not "units" |
+| 7 | Open the dashboard, set a stop **and** a target on that position | Both appear in the Positions row |
+| 8 | Switch to a different chart and leave it there | — |
+| 9 | Wait for the stop or target to hit | It **fires while you are on the other chart**, and the other leg is cancelled — not left resting |
+| 10 | `Escape` mid-arm on a fresh attempt | Cancels cleanly and says so |
+| 11 | Try to sell an asset you hold none of | *"Order rejected … the account holds none"* — a reason, not just "rejected" |
+
+Steps 9 and 11 are the new behaviour and are the two most worth confirming by ear.
+
 **4. Live trading is unverified.** Paper is verified end to end. A live account has not placed an
 order. The 2.2.0 changes do not touch order routing, so this is not a regression risk — it is a
 standing gap.
@@ -232,10 +250,54 @@ frozen P&L, and a positions table with no stop or target columns.
 **Sizing was settled by decision, not by fix.** The percentage now means *position value* by default —
 the stop no longer changes the size — with risk-at-stop available in settings.
 
-**Newly open, scoped in `docs/TRADING_SURFACE_SCOPE.md`:** the paper broker is spot-only while
-declaring `Leverage`, and **6 of 7 capability flags gate nothing in the UI**, so the dashboard shows
-the same controls on every provider regardless of what it supports. Neither blocks 2.2.0 — both are
-pre-existing — but the capability gating is the cheapest honesty fix available and should lead 2.3.
+**Newly open, scoped in `docs/TRADING_SURFACE_SCOPE.md`:** **6 of 7 capability flags gate nothing in
+the UI**, so the dashboard shows the same controls on every provider regardless of what it supports.
+This does not block 2.2.0 — it is pre-existing — but capability gating is the cheapest honesty fix
+available and leads 2.3.
+
+---
+
+## Paper trading brought up to release standard (2026-08-04, after the above)
+
+The hosted terminal runs on paper trading, so *"paper trading fully working"* became a condition of
+tagging. An audit of `PaperTradingProvider` found **six defects**, each pinned by a failing test
+before being fixed. None was visible to the suite.
+
+| Defect | Consequence |
+|---|---|
+| Bracket legs carried no OCO group | Stop closed the trade, target stayed live and later opened a **naked reversed position** |
+| Sell side never checked holdings | A sell with no position **credited cash** for an asset never owned |
+| No affordability check at fill time | A resting limit buy filled into **−89,075** cash |
+| Balances returned quote cash only | Held assets invisible on the tab the hosted demo leads with |
+| `TrailingStop` implemented, undeclared | Working trailing fields **hidden** — the dashboard gates on that flag |
+| `Leverage` / `Shorting` declared, absent | A leverage selector that changed nothing; a sell side with no borrow |
+
+Plus two on the announcement path: `OrderUpdate` had no way to carry a refusal reason (so every
+rejection sounded identical and the order service was synthesising "Order &lt;guid&gt; rejected"), and
+a **rejected** protective order was announced as "Stop hit" because the routing keyed on the leg flag
+rather than on whether anything executed.
+
+**And the multi-tab gap.** The fill engine was driven only by the focused chart's state stream, so a
+resting order in any other tab could not fill and a position there reported P&L frozen at zero.
+Background monitors were already fetching those bars for alerts and strategies; they now publish them
+and the broker consumes them. Exposure (an open position or resting order) is now its own reason to
+monitor a chart — independent of tabs, independent of the opt-in monitoring setting, and persisted so
+it survives closing the tab or the app. Discretionary all-tabs monitoring remains opt-in and
+desktop-only; exposure monitoring is bounded by real positions, which is what makes it affordable on
+the hosted host.
+
+`IPaperTradingProvider` and `IBackgroundMonitoringService` were injected **only by `SettingsModal`**,
+so DI did not construct either until the user opened Settings — the same lazy-construction defect that
+hid the quick-trade executor. Both are now resolved by `MainLayout`, and
+`EventSubscriberRegistrationTests` grew a table of services that must be live at startup, with the
+reason for each, replacing a check that named one service by hand.
+
+**New test assets:** `PaperCapabilityConformanceTests` (exercises the behaviour behind every declared
+capability, and the refusal behind every undeclared one — the seed of the per-provider conformance
+harness 2.3 needs) and `PaperBackgroundFillTests`.
+
+**Suite: 3,034 pass, 0 failed, 0 skipped.** Sdk, Core, Components, WebHost, StrategyLab and all
+plugins build with **zero warnings**.
 
 ---
 

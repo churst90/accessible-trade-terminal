@@ -6,6 +6,51 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Paper trading: the account can no longer do the impossible (2026-08-04)
+
+Paper trading is what the hosted terminal runs on, so it was audited the way a live broker would be.
+Six defects, each confirmed by a failing test before it was fixed, none of which the 3,012-test suite
+could see.
+
+- **A bracket's stop and target were not linked.** They were attached to the entry with no
+  one-cancels-other group, so when the stop closed the trade the target stayed on the book — and the
+  next rally filled it, opening a short nobody asked for. Explicitly-grouped OCO pairs always worked;
+  the bracket path simply never set the id.
+- **Selling an asset you did not hold credited cash for it.** Spot settlement has no borrow, but only
+  the buy side was ever checked. Both sides now go through one affordability check, and it runs again
+  when a resting order triggers.
+- **A resting buy could fill into negative cash.** Affording an order when you place it is not
+  affording it when it fills; a limit buy left resting while the money was spent elsewhere took the
+  account to **−89,075**. It is now dropped with a spoken reason instead.
+- **Balances showed cash and hid your assets.** On a spot account a position *is* a balance. The
+  Balances tab listed quote cash only, so half the account was invisible there.
+- **Trailing stops were switched off in the interface.** Trailing stop and trailing take-profit are
+  fully simulated and persisted in paper trading, but the broker never declared the capability the
+  dashboard gates those fields on — so a complete, working feature was unreachable. It is declared
+  now, and a conformance test checks every capability claim in both directions.
+- **Leverage and short selling were advertised and not implemented.** Both are withdrawn until the
+  margin work lands, so nothing on screen promises what the account cannot do.
+
+**Rejections now tell you why.** "Order rejected" was all you heard, whatever the cause. It now says
+which: not enough balance and how much short, or nothing of that asset to sell. Relatedly, a
+protective order that was *refused* used to announce "Stop hit" — the opposite of what happened.
+
+### Open positions stay live in tabs you are not looking at (2026-08-04)
+
+A resting order on a chart you had navigated away from **could not fill**, and an open position there
+reported its profit and loss frozen at zero however far price moved. Only the chart on screen drove
+paper trading.
+
+Background monitors were already fetching prices for your other tabs. They now feed paper trading
+too, so stops fire, limits fill and P&L keeps moving wherever the trade is. Any chart with an open
+position or a resting order is watched **whether or not its tab is open, and whether or not
+background monitoring is switched on** — watching charts you merely have open stays an opt-in desktop
+feature, but a chart with your money on it is not optional. The chart a symbol was traded on is
+remembered, so closing the tab, or the app, does not leave a position unwatched.
+
+Two of the services this depends on were previously only created when you opened Settings, so until
+then none of it ran at all.
+
 ### What "0.5 percent" means is now your choice, and quantities name their asset (2026-08-04)
 
 **Two established ways to size a trade. The terminal supported one and called it "percent", which is

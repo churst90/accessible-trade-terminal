@@ -76,16 +76,26 @@ Data-only (no `ITradingProvider`): Finnhub, FMP, Polygon, TwelveData.
 **Caveat, stated plainly:** this table is what the *code declares*, read from source. It is not a
 verified statement about what each venue's API offers — see §5.
 
-### 1.4 The paper broker is spot-only, and says otherwise
+### 1.4 The paper broker is spot-only, and said otherwise — FIXED 2026-08-04
 
-`PaperTradingProvider` declares `Leverage | Brackets | Shorting | OCO`. Its own comment is honest:
+`PaperTradingProvider` declared `Leverage | Brackets | Shorting | OCO` while funding every position
+from cash at 1× and having no borrow at all. It now declares `Brackets | OCO | TrailingStop`, with
+`SupportsMarginTrading` and `SupportsFuturesTrading` false and `MaxLeverage` 1.
 
-> *"leverage is recorded and reported but not used"*
+The audit that followed found the flags were wrong in **both** directions, which is the more useful
+finding:
 
-So it stores a leverage number, reports it back on positions, and funds every position from cash at
-1×. A `$134,000` notional on a `$100,000` account is refused rather than opened on 2× margin. The
-capability flag is a lie the code tells about itself, and it is exactly the kind of thing §1.2's fix
-would surface.
+- **Declared and absent** — `Leverage` (a selector that changed nothing) and `Shorting` (no borrow
+  existed, so a sell with no position credited cash for an asset never owned).
+- **Present and undeclared** — `TrailingStop`. Trailing stops and trailing take-profits are fully
+  simulated, armed, persisted and tested in the paper broker, and the dashboard gates its trailing
+  fields on that flag. A complete, working feature was unreachable in paper mode.
+
+The second kind is invisible to every audit that starts from "what does it claim". `PaperCapability
+ConformanceTests` now exercises the behaviour behind each flag in both directions.
+
+Margin, shorting and futures return together in the margin rewrite (§2.2). Until then the flags say
+what is true.
 
 ---
 
@@ -246,19 +256,33 @@ wrong in an instructive way. The maintainer is **US-based and uses neither**:
 
 ### 5.2 The constraint that reshapes the leverage work
 
-**For a US trader, most crypto leverage is simply not reachable**, and this is a structural fact
-rather than an integration gap. Offshore perpetual venues do not serve US retail. So the leverage that
-is actually available here comes from:
+> **Corrected 2026-08-04.** The paragraph below overstated the constraint, and the maintainer caught
+> it: *"coinbase is available in the us and they offer leverage, I think, so yes equities have
+> leverage but so does crypto and Kraken as well."* That is right. What is unreachable from the US is
+> **offshore perpetual venues**, not crypto leverage as such — Coinbase and Kraken are both US venues
+> with leveraged crypto products. Read the rest of this section as "offshore perps are out", not "US
+> crypto leverage is out".
+>
+> **And the authoritative source is not a documentation page.** Eligibility for crypto margin and
+> derivatives is decided **per customer** — residency, account status, and approval — so no
+> published matrix can say what a given account may actually do. The maintainer holds Coinbase,
+> Kraken and Schwab accounts and can fund them with a few dollars, which makes the account itself
+> the source of truth. See §5.5a.
 
+**For a US trader, offshore perpetual venues are not reachable**, and this is a structural fact
+rather than an integration gap. So the leverage available here comes from:
+
+- **Crypto margin and derivatives on US venues** — Coinbase and Kraken both offer leveraged crypto
+  products to eligible US customers. This is a first-class target, not a footnote.
 - **Equities margin** — Reg T territory: roughly 2:1 overnight, more intraday for pattern-day-trader
   accounts. Alpaca, Schwab, Tradier, IBKR.
 - **Futures** — CME and friends, via IBKR. Genuine leverage, entirely different contract model.
-- **Crypto margin where a US venue offers it** — Kraken, for eligible customers.
 
-**This inverts §2's ordering.** Inverse perpetuals were scoped as the hardest and last piece; for this
-maintainer they may be *unreachable in practice* and worth deferring indefinitely. The work that pays
-is **equities margin (buying power, Reg T, PDT rules) and futures contract handling** — which the
-document had not scoped at all, because it was written assuming crypto perps.
+**This partly inverts §2's ordering.** *Inverse* perpetuals — base-asset settlement, where every
+formula flips — remain the hardest piece and stay last, because they are an offshore-perp shape. But
+linear crypto margin is back in scope for the venues above, alongside **equities margin (buying
+power, Reg T, PDT rules) and futures contract handling**, which this document had not scoped at all
+because it was written assuming offshore crypto perps were the only leverage in play.
 
 **Verify before building.** Margin rules are regulatory, they change, and they differ per broker and
 per account type. Do not encode a number like "2:1" from this document — read the broker's current
@@ -315,7 +339,48 @@ before any order path exists, and it is independently useful for a discretionary
 
 ---
 
-## 5.5 Wallets, addresses and transfers — thinking-out-loud, captured
+## 5.5a Verify against the accounts, not against the docs
+
+The maintainer holds **Coinbase, Kraken and Schwab** accounts, can issue API keys, and can fund each
+with a few dollars. That changes how §5's table should be completed.
+
+Margin eligibility, available leverage, whether perps are reachable on a given key type, and whether
+positions come back at all are **per-account facts**. A published capability matrix cannot answer
+them, and one written from memory would be confidently wrong — which is why §5 was left deliberately
+unfinished.
+
+**First slice of the trading work: a capability prober.** A read-only command that connects with real
+keys and reports, per provider, what the account actually returns — margin eligibility, buying power,
+maximum leverage, whether `GetPositionsAsync` returns anything, whether wallet endpoints answer.
+Its output *becomes* §1.3's table, verified rather than declared. Read-only keys and a few dollars
+cover everything except order placement.
+
+Verification order, given which accounts exist: **Alpaca (already done) → Coinbase → Kraken →
+Schwab → IBKR.**
+
+## 5.5 Wallets, addresses and transfers — DECIDED, see WALLET_AND_PORTFOLIO_DESIGN.md
+
+> **Resolved 2026-08-04.** Full design in `docs/WALLET_AND_PORTFOLIO_DESIGN.md`. Summary of what the
+> maintainer decided, against the recommendations below:
+>
+> - **Portfolio snapshot: yes** (open question 4 closed). The Balances tab was `Asset / Free /
+>   Locked` with no value, total, allocation or day change.
+> - **Deposit addresses: yes** (open question 5 closed), on **every** provider whose API supports
+>   them — explicitly *not* a curated shortlist: *"don't gate crypto wallet features to just a few
+>   exchanges like coinbase and kraken, if the exchange api supports it, then implement it."*
+> - **Chunked speech: rejected.** *"crypto addresses are long and hard to understand so breaking them
+>   up wouldn't be helpful. They'll be written down so the person can just read them manually to
+>   verify."* The address is shown whole and made arrow-navigable so the review cursor and braille
+>   display walk it — braille carries case, which matters because most address formats are
+>   case-sensitive and speech drops case.
+> - **Withdrawals: in scope, later.** *"a provider supported feature and if it is available through
+>   the api then it needs to be implemented but we can work on that later."* This overrides the
+>   recommendation below to leave them out; the design gates them behind a separate
+>   withdrawal-enabled credential so a trading key cannot move funds.
+>
+> Original notes preserved below.
+
+## 5.5 (original) Wallets, addresses and transfers — thinking-out-loud, captured
 
 The suggestion: a toolbar "Wallet" button opening deposit addresses when the provider is a crypto
 exchange, plus an at-a-glance portfolio snapshot per provider.
@@ -344,25 +409,35 @@ transfer happens once, the trading happens daily.
 
 ## 6. Suggested order of work
 
-Ordered by value per unit of risk, not by size. Revised after §5.1–5.3.
+Ordered by value per unit of risk, not by size. Revised 2026-08-04 after §5.1–5.5a and the paper
+audit. This is the 2.3 plan.
 
-1. **Capability-gated dashboard** (§3). Cheap, removes a whole class of silent disappointment, and it
-   *surfaces* every lie the capability flags currently tell — including the paper broker's.
-2. **Command/button audit + the "every command has a handler" test** (§4). Cheap, and this session
-   proved the failure mode is real and invisible.
-3. **Spot/futures market-type selector on the ticket** (§5.3). `SubType` already exists; nothing sets
+1. **Capability prober against the real accounts** (§5.5a). Everything below plans against its
+   output, and planning against a guessed capability table is how this document went wrong once
+   already.
+2. **Capability-gated dashboard** (§3), plus the three detectors the paper audit showed are needed:
+   a contract field nothing sets, a flag nothing gates, and a flag whose implementation is fake.
+   `PaperCapabilityConformanceTests` is the pattern for the third.
+3. **Command/button audit + the "every command has a handler" test** (§4).
+4. **Spot/futures market-type selector on the ticket** (§5.3). `SubType` already exists; nothing sets
    it. Small, and it is the visible half of everything below.
-4. **Contract extension for margin reporting** (§2.3). One deliberate breaking pass over ten plugins.
-5. **Paper margin accounting: margin, liquidation, isolated/cross** (§2.2 items 1–3). The substantial
-   piece; everything downstream depends on it being right.
-6. **Equities margin and buying power, Alpaca first** (§5.2). Displaced crypto perps as the leverage
-   that is actually reachable from the US. Prefer the broker's own buying-power endpoint over
-   computing Reg T rules ourselves.
-7. **Provider verification pass** in the §5.1 order — Alpaca, Coinbase, Kraken, Schwab/Tradier, IBKR.
-8. **Read-only options chains** (§5.4), if the maintainer wants to pursue it.
-9. **Futures contracts via IBKR** (§5.2).
-10. **Funding, hedge mode, inverse perpetuals** (§2.2 items 4–6). Deferred, possibly indefinitely —
-    these serve offshore crypto perps, which a US trader largely cannot reach.
+5. **Contract extension** (§2.3): margin reporting fields, plus a "not supported" vs "no data"
+   distinction so a provider returning an empty list stops being indistinguishable from one that
+   cannot answer. One deliberate breaking pass over ten plugins.
+6. **Portfolio valuation on the Balances tab** (`WALLET_AND_PORTFOLIO_DESIGN.md` §1). Small, no new
+   API surface.
+7. **Paper margin accounting: margin, liquidation, isolated/cross** (§2.2 items 1–3), including
+   multi-currency cash settlement. The substantial piece; everything downstream depends on it being
+   right, and it restores shorting and leverage to the paper broker honestly.
+8. **`IWalletProvider`: deposit addresses and history**, on every venue whose API supports them
+   (design doc §2).
+9. **Live margin and buying power** — crypto on Coinbase/Kraken and equities on Alpaca/Schwab, from
+   the brokers' own account endpoints rather than computed rules (§5.2).
+10. **Withdrawals**, behind a separate withdrawal-enabled credential (design doc §3).
+11. **Read-only options chains** (§5.4), if the maintainer wants to pursue it.
+12. **Futures contracts via IBKR** (§5.2).
+13. **Funding, hedge mode, inverse perpetuals** (§2.2 items 4–6). Still last — these serve offshore
+    perps specifically, and inverse settlement is its own arithmetic.
 
 ## 7. Open questions — answered 2026-08-04
 
@@ -374,12 +449,16 @@ Ordered by value per unit of risk, not by size. Revised after §5.1–5.3.
 3. ~~Options?~~ **Interesting, under consideration.** Scoped enough to think against in §5.4;
    read-only chains are the recommended first slice.
 
+4. ~~Does a portfolio snapshot per provider earn a place?~~ **Yes.** The Balances tab shows quantities
+   with no value, total, allocation or day change. See `WALLET_AND_PORTFOLIO_DESIGN.md` §1.
+5. ~~Are deposit addresses worth the trust-path cost?~~ **Yes, on every venue whose API supports
+   them**, and **withdrawals too**, behind a separate withdrawal-enabled credential. Chunked speech
+   was rejected in favour of an arrow-navigable whole address. See §5.5 above and the design doc.
+
 Still open:
 
-4. **Does a portfolio snapshot per provider (total value, allocation, day change) earn a place**, or
-   is the Balances tab enough? §5.5.
-5. **Are deposit addresses worth the trust-path cost?** §5.5 argues for addresses without withdrawals,
-   and for spoken verification in grouped chunks before any copy affordance.
+6. **Which capabilities do the maintainer's actual accounts have?** §5.5a — answered by running the
+   prober, not by reading documentation.
 
 ## Cross-references
 

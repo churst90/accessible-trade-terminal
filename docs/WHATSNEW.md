@@ -2,6 +2,27 @@
 
 ## 2.2.0 — the chart describes its own shapes
 
+- **Your open trades stay live in tabs you are not looking at.** Before, a resting order
+  on any chart but the one on screen simply never filled, and an open position there
+  showed its profit and loss stuck at zero no matter what price did. Now stops fire,
+  limit orders fill and P&L keeps moving wherever the trade is — and a chart with money
+  on it is watched even after you close its tab or restart the app. The trade you forget
+  about is the one that most needs watching.
+- **Paper trading had six ways to reach an impossible account, and no longer does.** A
+  bracket's stop and target were not linked, so the target survived the stop closing the
+  trade and later opened a position in the opposite direction. Selling something you did
+  not own paid you for it. A resting buy could fill after the money had been spent,
+  taking the balance to minus eighty-nine thousand. Your assets did not appear on the
+  Balances tab at all.
+- **Trailing stops were working the whole time and the interface would not show them.**
+  Paper trading simulates trailing stops and trailing take-profits fully; the fields were
+  hidden behind a capability the broker never declared.
+- **A refused order now tells you why.** It used to say only "Order rejected". Now it
+  says which — not enough balance and by how much, or nothing of that asset to sell.
+- **Leverage and short selling have been withdrawn from paper trading** until the margin
+  work is done, because they were offered and never actually worked. Nothing on screen
+  now promises something the account cannot do.
+
 - **Place a trade from the chart without opening the dashboard.** Press
   `Ctrl+Alt+Shift+1` (or 2, or 3) to risk 0.5%, 1% or 2%. Arrow to the bar you want
   your stop at and press `Ctrl+Alt+Shift+X`. Then arrow to your entry and press
