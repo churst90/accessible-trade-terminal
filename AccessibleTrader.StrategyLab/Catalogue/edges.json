@@ -1776,6 +1776,94 @@
         "command": "grades study --horizon 21",
         "implemented": true
       }
+    },
+    {
+      "id": "weekly-cycle-spacing-regularity",
+      "title": "Weekly cycle lows are spaced more regularly than chance",
+      "claim": "Weekly cycle lows occur at a consistent 28-35 week spacing (average ~31), and each weekly cycle decomposes into three daily cycles plus one inversion.",
+      "family": "cycle",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "DISTINCT from camel-cycle-counts, which tested the DAILY cycle length and found it reproduced by shuffled surrogates. This is a claim about the regularity of SPACING at the weekly level and about the 3-dailies-per-weekly decomposition, neither of which was tested. The band he states is tight (28-35 weeks, enumerated as 31/32/28/35/32/28) which makes it falsifiable. HARD REQUIREMENT: the labelling rule must be fixed in advance with a confirmation lag -- he revises the count as price arrives, using 'inversion' and 'failed cycle' as escape hatches, so adopting his live count would test his judgement rather than the system."
+      },
+      "effect": {
+        "measure": "not yet measured",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "camel-cycle-counts",
+          "note": "same source system; the daily-cycle LENGTH claim from it is already Falsified as a detector artifact, so any test here must not reuse that detector",
+          "correlation": null
+        }
+      ],
+      "source": "docs/CAMEL_CYCLE_LIVE_READ.md",
+      "origin": {
+        "kind": "video",
+        "who": "Camel Finance, daily market update",
+        "url": "https://www.youtube.com/watch?v=JoRNW_4jCVc",
+        "capturedOn": "2026-08-04",
+        "quote": "all of these weekly cycles are pretty equally spaced apart ... spaced between 28 and 32 weeks with an average of about 30 or 31 weeks"
+      },
+      "reMeasure": {
+        "command": "cycles --level weekly --surrogates 200",
+        "implemented": false
+      }
+    },
+    {
+      "id": "right-translation-predicts-decline-shape",
+      "title": "A late cycle high predicts a faster, deeper decline",
+      "claim": "When a cycle's high prints late in the cycle (right translation), the subsequent decline into the next cycle low is faster and deeper than after an early high.",
+      "family": "cycle",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "horizonBars": 0,
+        "timeframe": "1d",
+        "notes": "The one genuinely new and mechanically testable claim from this source, and it is a CONDITIONAL SHAPE claim rather than a timing claim, which is why it survives the objection that killed the cycle counts. Strong prior against: our own cycle work already found translation is momentum in cycle vocabulary and splits crypto/equity like everything else, so the cheap alternative -- 'what went up fast comes down fast', i.e. plain trailing return -- must be a named control arm. Also needs phase-randomised surrogates, since the detector that defines the cycle was itself shown to manufacture cycle lengths."
+      },
+      "effect": {
+        "measure": "not yet measured",
+        "value": null,
+        "unit": "not yet measured"
+      },
+      "controls": [],
+      "evidence": "Untested",
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "decay": [],
+      "correlatesWith": [
+        {
+          "id": "camel-cycle-counts",
+          "note": "same source system; the daily-cycle LENGTH claim from it is already Falsified as a detector artifact, so any test here must not reuse that detector",
+          "correlation": null
+        }
+      ],
+      "source": "docs/CAMEL_CYCLE_LIVE_READ.md",
+      "origin": {
+        "kind": "video",
+        "who": "Camel Finance, daily market update",
+        "url": "https://www.youtube.com/watch?v=JoRNW_4jCVc",
+        "capturedOn": "2026-08-04",
+        "quote": "when we overextend an extra right translate like this, we typically come down harder and faster to correct the four-year cycle ... we tend to puke into the low after heavily right translating"
+      },
+      "reMeasure": {
+        "command": "cycles --translation --control trailing-return --surrogates 200",
+        "implemented": false
+      }
     }
   ]
 }

@@ -146,3 +146,35 @@ edge being present.
 
 Cross-references: `ALPHA_LEDGER.md` · `XSMOMENTUM_FINDINGS.md` · `POLARITY_AND_GATE_FINDINGS.md` ·
 `WALKFORWARD_FINDINGS.md` · `.claude/skills/strategy-research`.
+
+---
+
+## Companion video: "$100,000 in a single month"
+
+<https://www.youtube.com/watch?v=RetsRS5u-8Q> · same presenter · 4,022 words.
+
+**$66,000 → $169,000 in May. 155% in thirty days.** Claude picked the strategy, screened the names,
+chose the option contracts, and monitored the book daily. Positions: **LEAPS** (long-dated calls) on
+ServiceNow, Nokia, HIMS, NBIS, plus shares in small caps (OSCR, MP).
+
+**This is not evidence of anything, and it is worth being precise about why** — because the same
+presenter produced the careful 9,000-backtest study above, and the two should not be given equal
+weight just because they share a channel.
+
+| Problem | Why it is disqualifying |
+|---|---|
+| **n = 1 month** | One draw from a wide distribution. His own overfitting section makes exactly this point about single backtests |
+| **No benchmark** | 155% in a month of long-only leveraged calls says nothing without the market's return over the same month. LEAPS are *levered beta* — in a rising month they multiply the index |
+| **Survivorship at the source** | A month that had gone the other way does not become a video |
+| **Not backtestable, and he says so** | *"This part is obviously not back-testable just because we're asking qualitative questions"* |
+| **Selection is the whole strategy** | Six names chosen by an LLM from a qualitative brief. There is no rule to test |
+
+**The one thing worth taking:** the *portfolio-monitoring dashboard* is a sensible artefact —
+aggregate Greeks, theta decay, strike ladder, alerts on positions. That is a **reporting** tool, not
+a strategy, and reporting tools do not need an edge to be useful. It is also, incidentally, close to
+what our own trading dashboard already does.
+
+**The contrast between his two videos is itself the lesson.** The 9,000-backtest video argues at
+length that a single good-looking result is usually noise, that overfitting kills more than half of
+strategies, and that a backtest without validation is worthless. This video is a single
+good-looking result with no validation. Both are presented with the same confidence.
