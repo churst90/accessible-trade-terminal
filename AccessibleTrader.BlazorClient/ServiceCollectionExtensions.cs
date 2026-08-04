@@ -423,6 +423,16 @@ namespace AccessibleTrader.BlazorClient
                         if (orders == null) return;
                         var store = sp.GetRequiredService<IWorkspaceStore>();
                         await orders.GetBalancesAsync(store.State.Identity.Provider ?? string.Empty);
+                    },
+                    // Read live rather than captured, so changing it in settings takes effect on the
+                    // next keypress instead of the next restart.
+                    sizingMode: () =>
+                    {
+                        var settings = sp.GetService<ISettingsManager>();
+                        int raw = settings?.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
+                        return System.Enum.IsDefined(typeof(AccessibleTrader.Core.Services.Trading.QuickTradeSizingMode), raw)
+                            ? (AccessibleTrader.Core.Services.Trading.QuickTradeSizingMode)raw
+                            : AccessibleTrader.Core.Services.Trading.QuickTradeSizingMode.PositionValue;
                     }));
 
             // The half of quick trade that actually places the order.

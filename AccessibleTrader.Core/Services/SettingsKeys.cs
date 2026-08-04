@@ -85,6 +85,14 @@ namespace AccessibleTrader.Core.Services
         // ── Trading ──────────────────────────────────────────────────────────
         public const string PaperTradingMode   = "trading.paperTradingMode";
 
+        /// <summary>
+        /// What the quick-trade risk percentage is a percentage OF — see
+        /// <see cref="Trading.QuickTradeSizingMode"/>. Stored as the enum's integer value.
+        /// Defaults to position value, which is what an exchange order ticket does and what most
+        /// people mean by "half a percent".
+        /// </summary>
+        public const string QuickTradeSizingMode = "trading.quickTradeSizingMode";
+
         // ── Workspace ────────────────────────────────────────────────────────
         public const string BackgroundMonitoring = "workspace.backgroundMonitoring";
         public const string MonitorPollSeconds   = "workspace.monitorPollSeconds";

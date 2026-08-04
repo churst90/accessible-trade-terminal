@@ -6,6 +6,31 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### What "0.5 percent" means is now your choice, and quantities name their asset (2026-08-04)
+
+**Two established ways to size a trade. The terminal supported one and called it "percent", which is
+ambiguous between them.** Settings → Quick trade: the risk percentage means…
+
+- **The position's value** *(new, and now the default)*. 0.5% of a $100,000 account buys **$500
+  worth**, whatever the stop is — the way an exchange order ticket behaves, and what most people mean
+  by "half a percent". The stop is then purely protective and decides what you stand to lose: 1% away
+  risks $5, 20% away risks $100.
+- **What I lose if the stop is hit** *(what the terminal did before)*. Size is risk ÷ stop distance,
+  so the position grows as the stop tightens: $500 of risk with a stop $700 below a $64,000 entry
+  buys 0.714 BTC — a **$45,700** position that loses exactly $500. This is what the "1% rule" of risk
+  management actually refers to, and it makes every trade's downside identical. It can also ask for
+  more than a cash account holds.
+
+Neither is wrong; they answer different questions. **Both figures are now spoken in both modes** —
+the position value and the loss at the stop — because each mode controls one and lets the other
+float, and the one it does not control is exactly the one that surprises.
+
+**Quantities name their asset.** "0.714 units" gives a number and withholds the noun. On `BTCUSDT` the
+position is measured in **BTC** while the money, the risk and the P&L are in **USDT** — two assets in
+one sentence, with nothing to tell them apart if you cannot see the screen. Announcements and the
+positions table now say "0.714 BTC". Symbols that cannot be split still say "units", because a wrong
+unit beside a size is worse than a vague one.
+
 ### Positions you can manage, and sizing that explains itself (2026-08-04)
 
 - **Stop loss and take profit are now columns in the positions table, and both are editable in

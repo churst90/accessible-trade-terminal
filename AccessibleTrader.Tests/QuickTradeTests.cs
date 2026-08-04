@@ -41,7 +41,11 @@ public class QuickTradeTests
         });
 
         var bus = new SpyEventBus();
-        return (new QuickTradeService(store, bus, () => equity), bus, store);
+        // These tests are about the RISK-AT-STOP arithmetic — size derived from the stop distance.
+        // It is no longer the default (position-value is, being what an exchange order ticket does
+        // and what most people mean by a percentage), so the mode is stated rather than assumed.
+        return (new QuickTradeService(store, bus, () => equity,
+                    sizingMode: () => QuickTradeSizingMode.RiskAtStop), bus, store);
     }
 
     private static string Spoken(SpyEventBus bus) =>
@@ -62,7 +66,7 @@ public class QuickTradeTests
     public void PositionSizeIsRiskCashDividedByStopDistance()
     {
         var state = new QuickTradeState(QuickTradeStage.Ready, RiskPercent: 1.0,
-            AccountEquity: 100_000, StopPrice: 95, EntryPrice: 100, IsLong: true);
+            AccountEquity: 100_000, StopPrice: 95, EntryPrice: 100, IsLong: true, SizingMode: QuickTradeSizingMode.RiskAtStop);
 
         Assert.Equal(1_000, state.RiskCash, 6);
         Assert.Equal(5, state.StopDistance!.Value, 6);
@@ -78,7 +82,7 @@ public class QuickTradeTests
     public void AZeroStopDistanceHasNoSizeRatherThanAHugeOne()
     {
         var state = new QuickTradeState(QuickTradeStage.Ready, 1.0, 100_000,
-            StopPrice: 100, EntryPrice: 100, IsLong: true);
+            StopPrice: 100, EntryPrice: 100, IsLong: true, SizingMode: QuickTradeSizingMode.RiskAtStop);
 
         Assert.Null(state.PositionSize);
         Assert.False(state.CanPlace);
@@ -87,9 +91,10 @@ public class QuickTradeTests
     [Fact]
     public void SizeScalesWithRiskAndInverselyWithStopDistance()
     {
-        var tight = new QuickTradeState(QuickTradeStage.Ready, 1.0, 100_000, 99, 100, true);
-        var wide  = new QuickTradeState(QuickTradeStage.Ready, 1.0, 100_000, 90, 100, true);
-        var twice = new QuickTradeState(QuickTradeStage.Ready, 2.0, 100_000, 99, 100, true);
+        const QuickTradeSizingMode Risk = QuickTradeSizingMode.RiskAtStop;
+        var tight = new QuickTradeState(QuickTradeStage.Ready, 1.0, 100_000, 99, 100, true, Risk);
+        var wide  = new QuickTradeState(QuickTradeStage.Ready, 1.0, 100_000, 90, 100, true, Risk);
+        var twice = new QuickTradeState(QuickTradeStage.Ready, 2.0, 100_000, 99, 100, true, Risk);
 
         Assert.Equal(1_000, tight.PositionSize!.Value, 6);   // $1000 / $1
         Assert.Equal(100, wide.PositionSize!.Value, 6);      // $1000 / $10

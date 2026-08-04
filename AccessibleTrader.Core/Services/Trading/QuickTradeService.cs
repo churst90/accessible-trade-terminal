@@ -84,14 +84,24 @@ namespace AccessibleTrader.Core.Services.Trading
         /// <summary>Guards against a second fetch while one is already in flight.</summary>
         private int _fetching;
 
+        private readonly Func<QuickTradeSizingMode>? _sizingMode;
+
         public QuickTradeService(IWorkspaceStore store, IEventBus eventBus,
-            Func<double>? equitySource = null, Func<Task>? equityRefresh = null)
+            Func<double>? equitySource = null, Func<Task>? equityRefresh = null,
+            Func<QuickTradeSizingMode>? sizingMode = null)
         {
             _store = store;
             _eventBus = eventBus;
             _equitySource = equitySource;
             _equityRefresh = equityRefresh;
+            _sizingMode = sizingMode;
         }
+
+        private QuickTradeSizingMode Mode => _sizingMode?.Invoke() ?? QuickTradeSizingMode.PositionValue;
+
+        /// <summary>The instrument's own name for a unit — "BTC", not "units".</summary>
+        private string Units(double qty) =>
+            SymbolAssets.WithBaseUnit(qty, _store.State.Identity.Symbol, Qty(qty));
 
         // ── Arming ──────────────────────────────────────────────────────────────
 
@@ -133,6 +143,11 @@ namespace AccessibleTrader.Core.Services.Trading
                 Stage = QuickTradeStage.AwaitingStop,
                 RiskPercent = riskPercent,
                 AccountEquity = equity,
+                SizingMode = Mode,
+                // In position-value mode the size is known the moment the budget is — it does not
+                // wait on a stop — so the entry is seeded now and the arming line can state the
+                // quantity straight away.
+                EntryPrice = Mode == QuickTradeSizingMode.PositionValue ? LatestClose() : null,
             };
 
             Say($"Armed {Trim(riskPercent)} percent, {Money(State.RiskCash)} at risk. "
@@ -193,6 +208,8 @@ namespace AccessibleTrader.Core.Services.Trading
         /// </summary>
         private string NotionalCaution()
         {
+            // Position-value mode spends exactly the budget, so it cannot overspend the account.
+            if (State.SizingMode == QuickTradeSizingMode.PositionValue) return "";
             if (State.PositionSize is not double qty || State.EntryPrice is not double entry) return "";
             if (State.AccountEquity <= 0 || entry <= 0) return "";
 
@@ -298,32 +315,44 @@ namespace AccessibleTrader.Core.Services.Trading
         /// </summary>
         internal const double MaxRiskPercent = 10.0;
 
+        /// <summary>
+        /// The armed state in one sentence, in the vocabulary of the sizing mode in force.
+        ///
+        /// <para>
+        /// Both modes state the position value AND the loss at the stop, because each mode controls
+        /// one of those and lets the other float — and the one it does not control is exactly the
+        /// one a user will be surprised by. Quantities carry the instrument's own unit: "0.0078 BTC",
+        /// never "0.0078 units", which names a number and withholds the noun.
+        /// </para>
+        /// </summary>
         private string Summary()
         {
             var s = State;
+            string quote = SymbolAssets.QuoteOf(_store.State.Identity.Symbol);
+            string inQuote = quote.Length > 0 ? " " + quote : "";
+
             if (s.Stage == QuickTradeStage.AwaitingStop)
-                return $"Armed {Trim(s.RiskPercent)} percent, {Money(s.RiskCash)} at risk. No stop yet.";
+            {
+                if (s.SizingMode == QuickTradeSizingMode.PositionValue)
+                {
+                    string qty = s.PositionSize is double q0
+                        ? $" — about {Units(q0)} at {Price(s.EntryPrice ?? 0)}"
+                        : "";
+                    return $"Armed to buy {Money(s.RiskCash)}{inQuote} worth, "
+                         + $"{Trim(s.RiskPercent)} percent of the account{qty}. No stop yet.";
+                }
 
-            string size = s.PositionSize.HasValue ? Qty(s.PositionSize.Value) : "unknown";
+                return $"Armed to risk {Money(s.RiskCash)}{inQuote}, {Trim(s.RiskPercent)} percent of "
+                     + "the account, if the stop is hit. No stop yet — the size depends on it.";
+            }
 
-            // ── Say what the position COSTS, not just what it risks ──────────────
-            //
-            // The percentage is a percentage of the account AT RISK, never of the account deployed,
-            // and the two are wildly different numbers. Risking 0.5% of $100,000 with a stop $700
-            // below a $64,000 entry buys 0.714 BTC — a $45,700 position. That is arithmetically
-            // right, and it reads as a bug if the only figures you were given were "0.5 percent" and
-            // "$500 at risk": the position turns out to be ninety times the number you last heard.
-            //
-            // So both are spoken, and the risk is named as "if the stop is hit" — which is the
-            // sentence that makes the relationship between them obvious.
-            string cost = s.PositionSize is double q && s.EntryPrice is double e && q > 0 && e > 0
-                ? $" Position value {Money(q * e)}."
-                : "";
+            string size = s.PositionSize is double q ? Units(q) : "unknown size";
+            string value = s.Notional is double n ? Money(n) + inQuote : "unknown";
+            string loss = s.RiskAtStop is double r ? Money(r) + inQuote : "unknown";
 
-            return $"{(s.IsLong ? "Long" : "Short")} {size} units, entry {Price(s.EntryPrice ?? 0)}, "
-                 + $"stop {Price(s.StopPrice ?? 0)}.{cost} "
-                 + $"Risking {Money(s.RiskCash)}, {Trim(s.RiskPercent)} percent of the account, "
-                 + "if the stop is hit.";
+            return $"{(s.IsLong ? "Long" : "Short")} {size}, entry {Price(s.EntryPrice ?? 0)}, "
+                 + $"stop {Price(s.StopPrice ?? 0)}. "
+                 + $"Position value {value}. If the stop is hit you lose {loss}.";
         }
 
         private (Ohlcv Bar, bool Ok) CursorBar()

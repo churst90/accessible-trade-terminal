@@ -217,6 +217,33 @@
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. Nothing reaches a broker and no money moves.</p>
 
                     }
+                    @* Two established, genuinely different ways to size a trade. The terminal
+                       supported only one of them while calling it "percent", which is ambiguous
+                       between them — and a maintainer armed "0.5%" expecting a $500 position and got
+                       a $45,700 one. Both are correct; only one is what you meant. *@
+                    <div class="modal-row">
+                        <label for="s-quick-sizing">Quick trade: the risk percentage means</label>
+                        <select id="s-quick-sizing" @onchange="e => _quickSizingMode = int.TryParse(e.Value?.ToString(), out int v) ? v : 0">
+                            <option value="0" selected="@(_quickSizingMode == 0)">The position's value</option>
+                            <option value="1" selected="@(_quickSizingMode == 1)">What I lose if the stop is hit</option>
+                        </select>
+                    </div>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        @if (_quickSizingMode == 0)
+                        {
+                            <text><strong>Position value.</strong> 0.5% of a $100,000 account buys $500 worth, whatever the stop is —
+                            the way an exchange order ticket works. Your stop then decides what you stand to lose: 1% away risks $5,
+                            20% away risks $100.</text>
+                        }
+                        else
+                        {
+                            <text><strong>Risk at the stop.</strong> 0.5% of a $100,000 account means you lose $500 if the stop is hit,
+                            so the position grows as the stop tightens — a stop $700 below a $64,000 entry buys 0.714 BTC, a $45,700
+                            position. This is what the "1% rule" of risk management refers to, and it makes every trade's downside
+                            identical. It can ask for more than a cash account holds.</text>
+                        }
+                    </p>
+
                     <div class="modal-row">
                         <label for="s-paper-reset">Paper account</label>
                         <button id="s-paper-reset" type="button" @onclick="ResetPaperAccount">Reset paper account</button>
@@ -1146,6 +1173,7 @@
         new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
         new("Speech output on this device", "General", "s-speech-output", "double speech screen reader browser voice orca tts"),
         new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
+        new("Quick trade sizing", "General", "s-quick-sizing", "position size risk percent notional allocation stop"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
         new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
         new("Sonification enabled", "General", "s-sonif-enabled", "tones audio sound music"),
@@ -1407,6 +1435,7 @@
     }
 
     private bool _paperTradingMode;
+    private int _quickSizingMode;
     private bool _paperTradingModeInitial;
     private bool _bgMonitoring;
     private bool _liveBgTabs;
@@ -1749,6 +1778,7 @@
         _announceBars = Store.State.AnnounceNewBars;
         _describeChartPatterns = Store.State.DescribeChartPatterns;
         _paperTradingMode = App.PaperTradingMode;
+        _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
         _liveBgTabs    = App.LiveBackgroundTabs;
@@ -1857,6 +1887,7 @@
         PersistAlertSettings();
 
         App.PaperTradingMode = _paperTradingMode;
+        Settings.SetSetting(SettingsKeys.QuickTradeSizingMode, Newtonsoft.Json.Linq.JToken.FromObject(_quickSizingMode));
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
         App.TimestampReadLocation = _timestampWhere;

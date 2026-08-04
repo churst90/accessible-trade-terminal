@@ -3,6 +3,44 @@ using System;
 namespace AccessibleTrader.Core.Services.Trading
 {
     /// <summary>
+    /// What the risk percentage is a percentage <i>of</i>.
+    ///
+    /// <para>
+    /// These are two established and genuinely different ways to size a trade, and the terminal
+    /// supported only one of them while calling it "percent", which is ambiguous between them.
+    /// </para>
+    /// </summary>
+    public enum QuickTradeSizingMode
+    {
+        /// <summary>
+        /// <b>The percentage is the position's value.</b> 0.5% of a $100,000 account buys $500 worth
+        /// of the instrument, whatever the stop is. This is how an exchange order ticket behaves —
+        /// you say how much you want to buy — and it is what most people mean by "half a percent".
+        ///
+        /// <para>
+        /// The stop is then purely protective, and what you stand to lose depends on where you put
+        /// it: a stop 1% away loses $5 of that $500, a stop 20% away loses $100.
+        /// </para>
+        /// </summary>
+        PositionValue = 0,
+
+        /// <summary>
+        /// <b>The percentage is what you lose if the stop is hit.</b> Size is risk divided by stop
+        /// distance, so the position grows as the stop tightens. Risking 0.5% of $100,000 with a
+        /// stop $700 below a $64,000 entry buys 0.714 BTC — a $45,700 position that loses exactly
+        /// $500.
+        ///
+        /// <para>
+        /// This is the sizing the "1% rule" of risk management actually refers to, and it makes every
+        /// trade's downside identical regardless of instrument or volatility. It is also the one that
+        /// surprises people, because the position value is not the number they named and can be many
+        /// times the account on a tight stop.
+        /// </para>
+        /// </summary>
+        RiskAtStop = 1,
+    }
+
+    /// <summary>
     /// What the quick-trade system is currently holding.
     ///
     /// <para>
@@ -53,13 +91,38 @@ namespace AccessibleTrader.Core.Services.Trading
         double AccountEquity,
         double? StopPrice,
         double? EntryPrice,
-        bool IsLong)
+        bool IsLong,
+        QuickTradeSizingMode SizingMode = QuickTradeSizingMode.PositionValue)
     {
         public static QuickTradeState Idle { get; } =
             new(QuickTradeStage.Idle, 0, 0, null, null, IsLong: true);
 
-        /// <summary>The cash the trade is allowed to lose. Risk percent of equity, nothing else.</summary>
+        /// <summary>
+        /// The cash the percentage refers to. What it BUYS in
+        /// <see cref="QuickTradeSizingMode.PositionValue"/>; what it can LOSE in
+        /// <see cref="QuickTradeSizingMode.RiskAtStop"/>.
+        /// </summary>
         public double RiskCash => AccountEquity * RiskPercent / 100.0;
+
+        /// <summary>
+        /// What the position is worth — quantity times entry. In position-value mode this is the
+        /// budget by construction; in risk mode it is the number that surprises people.
+        /// </summary>
+        public double? Notional =>
+            PositionSize is double q && EntryPrice is double e && q > 0 && e > 0 ? q * e : null;
+
+        /// <summary>
+        /// What is actually lost if the stop is hit — quantity times stop distance.
+        ///
+        /// <para>
+        /// In risk mode this equals <see cref="RiskCash"/> by construction. In position-value mode it
+        /// is derived, and it is the figure that matters: a $500 position with a stop 1% away risks
+        /// $5, and with a stop 20% away risks $100. Announcing it is how the mode stays honest about
+        /// what it is not controlling.
+        /// </para>
+        /// </summary>
+        public double? RiskAtStop =>
+            PositionSize is double q && StopDistance is double d && q > 0 && d > 0 ? q * d : null;
 
         /// <summary>
         /// Distance from entry to stop, per unit. The denominator of the whole calculation.
@@ -82,6 +145,15 @@ namespace AccessibleTrader.Core.Services.Trading
         {
             get
             {
+                if (SizingMode == QuickTradeSizingMode.PositionValue)
+                {
+                    // The budget IS the position's value, so the quantity is simply what that buys.
+                    // The stop does not enter into it — it decides the loss, not the size.
+                    if (EntryPrice is not double px || px <= 0) return null;
+                    double units = RiskCash / px;
+                    return double.IsFinite(units) && units > 0 ? units : null;
+                }
+
                 double? d = StopDistance;
                 if (!d.HasValue || d.Value <= 0) return null;
                 double size = RiskCash / d.Value;

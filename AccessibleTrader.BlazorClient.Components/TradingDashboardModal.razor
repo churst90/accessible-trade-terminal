@@ -336,7 +336,7 @@
                                             {
                                                 <tr @key="p.Symbol">
                                                     <td>@p.Symbol</td>
-                                                    <td>@PriceFormatter.FormatQuantity(p.Quantity)</td>
+                                                    <td>@SymbolAssets.WithBaseUnit(p.Quantity, p.Symbol, PriceFormatter.FormatQuantity(p.Quantity))</td>
                                                     <td>@PriceFormatter.FormatPrice(p.AveragePrice)</td>
                                                     <td>@PriceFormatter.FormatPrice(p.MarketValue)</td>
                                                     <td class='@(p.UnrealizedPnL >= 0 ? "plus" : "minus")'>@PriceFormatter.FormatPnL(p.UnrealizedPnL)</td>

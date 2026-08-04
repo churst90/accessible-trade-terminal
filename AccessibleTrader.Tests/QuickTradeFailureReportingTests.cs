@@ -109,7 +109,10 @@ public class QuickTradeFailureReportingTests
         });
 
         var bus = new SpyEventBus();
-        var svc = new QuickTradeService(store, bus, () => equity);
+        // The overspend caution belongs to risk-at-stop sizing: only there can the position exceed
+        // the account, because there the stop distance sets the size.
+        var svc = new QuickTradeService(store, bus, () => equity,
+            sizingMode: () => QuickTradeSizingMode.RiskAtStop);
         svc.Arm(1.0);
         return (svc, bus);
     }
