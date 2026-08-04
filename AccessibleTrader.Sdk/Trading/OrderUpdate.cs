@@ -24,5 +24,10 @@ public record OrderUpdate(
     // True when this fill came from a trailing stop / trailing take-profit, so
     // the speech layer can announce "Trailing stop hit" / "Trailing take profit
     // hit" instead of the fixed-level wording.
-    bool Trailing = false
+    bool Trailing = false,
+    // Why a Rejected or Cancelled update happened, in words meant to be spoken.
+    // An order that declines to fill has to say why: a resting order that simply
+    // vanishes from the book is indistinguishable from one that was never placed.
+    // Null on fills and on cancels the user asked for.
+    string? Reason = null
 );

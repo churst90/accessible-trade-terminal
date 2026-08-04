@@ -118,12 +118,18 @@ namespace AccessibleTrader.Core.Services
 
         private void PublishOrderEvent(OrderUpdate update)
         {
-            if (update.StopTriggered)
+            // The stop/take-profit flags say which LEG this update belongs to, not
+            // that it executed. A protective leg can also be rejected or cancelled,
+            // and announcing "stop hit" for a stop that was refused reports the
+            // opposite of what happened — so only an actual execution takes these
+            // branches.
+            bool executed = update.Status is OrderStatus.Filled or OrderStatus.PartialFill;
+            if (executed && update.StopTriggered)
             {
                 _eventBus.Publish(new StopHitEvent(update));
                 return;
             }
-            if (update.TakeProfitTriggered)
+            if (executed && update.TakeProfitTriggered)
             {
                 _eventBus.Publish(new TakeProfitHitEvent(update));
                 return;
@@ -138,7 +144,12 @@ namespace AccessibleTrader.Core.Services
                     _eventBus.Publish(new OrderPartialFillEvent(update));
                     break;
                 case OrderStatus.Rejected:
-                    _eventBus.Publish(new OrderRejectedEvent(update, $"Order {update.OrderId} rejected"));
+                    // The broker's own words when it gave any. The old fallback text
+                    // named the order id — a guid, spoken aloud, telling the user
+                    // nothing they could act on — so absent a reason we say none
+                    // rather than reciting one.
+                    _logger.LogInformation("Order {OrderId} rejected: {Reason}", update.OrderId, update.Reason ?? "(no reason given)");
+                    _eventBus.Publish(new OrderRejectedEvent(update, update.Reason ?? ""));
                     break;
                 case OrderStatus.Cancelled:
                     _logger.LogInformation("Order {OrderId} cancelled", update.OrderId);

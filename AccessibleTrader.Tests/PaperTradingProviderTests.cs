@@ -54,6 +54,11 @@ namespace AccessibleTrader.Tests
                     new Ohlcv(DateTime.UtcNow, open, high, low, close, 1000)),
             };
 
+        /// <summary>The quote-currency row. Balances also list held assets, so a
+        /// cash assertion has to name the one it means.</summary>
+        private static Balance Cash(List<Balance> balances) =>
+            Assert.Single(balances, b => b.Asset == "USDT");
+
         private static List<OrderUpdate> Collect(PaperTradingProvider paper)
         {
             var updates = new List<OrderUpdate>();
@@ -225,7 +230,7 @@ namespace AccessibleTrader.Tests
 
             await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0));
 
-            var bal = Assert.Single(await paper.GetBalancesAsync());
+            var bal = Cash(await paper.GetBalancesAsync());
             // 100,000 − (1 × 100 notional) − (100 × 0.04% fee) = 99,899.96
             Assert.Equal(100_000.0 - 100.0 - 0.04, bal.Free, 8);
 
@@ -268,7 +273,7 @@ namespace AccessibleTrader.Tests
 
             var paperB = Make(out _);
 
-            var bal = Assert.Single(await paperB.GetBalancesAsync());
+            var bal = Cash(await paperB.GetBalancesAsync());
             Assert.Equal(100_000.0 - 100.0 - 0.04, bal.Free, 8);
             var pos = Assert.Single(await paperB.GetPositionsAsync());
             Assert.Equal(1.0, pos.Quantity);
@@ -409,5 +414,123 @@ namespace AccessibleTrader.Tests
             Assert.Equal(stopId, open[0].Id); // the stop still rests
         }
 
+        // ── Brackets: the two legs must cancel each other ────────────────────
+        //
+        // A bracket is an OCO pair whether or not the caller says so. Before this
+        // was fixed the legs were attached with no group id, so the surviving leg
+        // stayed live after its sibling closed the position — and then filled,
+        // opening a brand new position in the opposite direction. On a demo
+        // account left running that is the difference between a flat book and a
+        // naked short nobody asked for.
+
+        [Fact]
+        public async Task Bracket_stop_fill_cancels_the_take_profit()
+        {
+            var paper = Make(out var store);
+            var updates = Collect(paper);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0, StopLoss: 95, TakeProfit: 110));
+            updates.Clear();
+
+            store.EmitState(StateWith(Btc, 99, 99, 94, 94));    // stop hit — position closes
+
+            Assert.Contains(updates, u => u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));
+            Assert.Empty(await paper.GetPositionsAsync());
+
+            // The target must be gone. If it were still resting this bar would fill
+            // it and leave a short.
+            store.EmitState(StateWith(Btc, 108, 112, 107, 111));
+            Assert.Empty(await paper.GetPositionsAsync());
+        }
+
+        [Fact]
+        public async Task Bracket_take_profit_fill_cancels_the_stop()
+        {
+            var paper = Make(out var store);
+            var updates = Collect(paper);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0, StopLoss: 95, TakeProfit: 110));
+            updates.Clear();
+
+            store.EmitState(StateWith(Btc, 108, 112, 107, 111)); // target hit
+
+            Assert.Contains(updates, u => u.Status == OrderStatus.Cancelled);
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));
+            Assert.Empty(await paper.GetPositionsAsync());
+
+            store.EmitState(StateWith(Btc, 99, 99, 94, 94));     // would have hit the stop
+            Assert.Empty(await paper.GetPositionsAsync());
+        }
+
+        // ── An account cannot spend or sell what it does not have ────────────
+
+        [Fact]
+        public async Task Selling_an_asset_the_account_does_not_hold_is_refused()
+        {
+            // Spot-style accounting has no borrow: a sell with no position credited
+            // cash for an asset that was never owned, which minted money.
+            var paper = Make(out var store);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+
+            var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0));
+
+            Assert.StartsWith("ORDER_FAILED", result);
+            Assert.Empty(await paper.GetPositionsAsync());
+            Assert.Equal(100_000.0, Cash(await paper.GetBalancesAsync()).Free, 6);   // untouched
+        }
+
+        [Fact]
+        public async Task Selling_more_than_is_held_is_refused()
+        {
+            var paper = Make(out var store);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0));
+
+            var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 2.5));
+
+            Assert.StartsWith("ORDER_FAILED", result);
+            var pos = Assert.Single(await paper.GetPositionsAsync());
+            Assert.Equal(1.0, pos.Quantity, 6);      // still exactly what was bought
+        }
+
+        [Fact]
+        public async Task Resting_buy_that_the_account_can_no_longer_afford_is_cancelled_not_filled()
+        {
+            // Placement affordability is not fill affordability: the cash can be
+            // spent elsewhere while the order rests. Filling anyway drove cash
+            // negative, which no exchange would do.
+            var paper = Make(out var store);
+            var updates = Collect(paper);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+
+            // Rest a buy needing 99,000, then spend the account down with a market buy.
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 990.0, OrderType.Limit, Price: 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 900.0));   // ~90,000 spent
+            updates.Clear();
+
+            store.EmitState(StateWith(Btc, 100, 101, 99, 100)); // limit is touched
+
+            var balance = Cash(await paper.GetBalancesAsync());
+            Assert.True(balance.Free >= 0, $"cash went negative: {balance.Free}");
+            Assert.Empty(await paper.GetOpenOrdersAsync(Btc));  // dropped, not left resting
+            Assert.Contains(updates, u => u.Status is OrderStatus.Cancelled or OrderStatus.Rejected);
+        }
+
+        [Fact]
+        public async Task Balances_report_held_assets_and_not_only_quote_cash()
+        {
+            // The Balances tab is the demo's account view. A spot account holding
+            // BTC has a BTC balance; reporting only the quote made half the
+            // account invisible there.
+            var paper = Make(out var store);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 2.0));
+
+            var balances = await paper.GetBalancesAsync();
+
+            Assert.Contains(balances, b => b.Asset == "BTC" && Math.Abs(b.Free - 2.0) < 1e-9);
+            Assert.Contains(balances, b => b.Asset == "USDT");
+        }
     }
 }

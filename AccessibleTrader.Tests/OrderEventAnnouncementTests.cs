@@ -111,17 +111,35 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void OrderRejected_SpeaksSymbolWithoutOrderIdNoise()
+        public void OrderRejected_SpeaksTheReason()
         {
+            // The reason was reaching this handler and being dropped, so every
+            // rejection sounded the same: the user learned something had not
+            // happened and never what to change. Insufficient balance and a sell
+            // with nothing to sell are different problems with different fixes.
             var (_, bus, speech, _) = CreateHarness();
 
             bus.Publish(new OrderRejectedEvent(
                 Update(qty: 0, price: 0, status: OrderStatus.Rejected),
-                "Order ord-123 rejected"));
+                "insufficient paper balance — that position needs 45,000.00 USDT and the account holds 1,200.00"));
 
             Assert.Contains("Order rejected", speech.LastSpokenText);
             Assert.Contains("BTCUSD", speech.LastSpokenText);
-            // GUID-ish order ids are unreadable in speech — they must stay out.
+            Assert.Contains("insufficient paper balance", speech.LastSpokenText);
+            Assert.Contains("1,200.00", speech.LastSpokenText);
+        }
+
+        [Fact]
+        public void OrderRejected_WithNoReason_SpeaksNoTrailingNoise()
+        {
+            // A broker that gives no reason must not have one invented for it.
+            // The old fallback recited the order id, which is a guid read aloud.
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderRejectedEvent(
+                Update(qty: 0, price: 0, status: OrderStatus.Rejected), ""));
+
+            Assert.Equal("Order rejected for BTCUSD.", speech.LastSpokenText);
             Assert.DoesNotContain("ord-123", speech.LastSpokenText);
         }
 
@@ -138,6 +156,24 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Order cancelled", speech.LastSpokenText);
             Assert.Contains("BTCUSD", speech.LastSpokenText);
             Assert.DoesNotContain("ord-123", speech.LastSpokenText);
+        }
+
+        [Fact]
+        public void RejectedStopLeg_IsNotAnnouncedAsAStopHit()
+        {
+            // The stop/take-profit flags say which LEG an update belongs to, not
+            // that it executed. Routing on the flag alone announced "Stop hit" for
+            // a protective order the broker had REFUSED — the opposite of what
+            // happened, on the one channel a trader acts on immediately.
+            var (_, bus, speech, earcons) = CreateHarness();
+
+            bus.Publish(new OrderRejectedEvent(
+                Update(qty: 0, price: 0, status: OrderStatus.Rejected, stop: true),
+                "cannot sell 1 BTC — the account holds none"));
+
+            Assert.Contains("Order rejected", speech.LastSpokenText);
+            Assert.DoesNotContain("Stop hit", speech.LastSpokenText);
+            Assert.Equal(0, earcons.StopHitCount);
         }
 
         [Fact]

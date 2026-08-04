@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -74,22 +75,65 @@ namespace AccessibleTrader.Core.Services
         // ── IProviderPlugin ───────────────────────────────────────────────────
         public string Name => "Paper";
         public string Description => "Paper trading (simulated)";
+
+        /// <summary>
+        /// Only what the broker actually does — and everything it does.
+        ///
+        /// <para>
+        /// It previously declared <c>Leverage</c> and <c>Shorting</c> while
+        /// funding every position from cash at 1× and having no borrow at all, so
+        /// the dashboard offered a leverage selector that changed nothing and a
+        /// sell side that minted money. Margin, shorting and futures return
+        /// together in the margin rewrite; until then the flags say what is true.
+        /// </para>
+        ///
+        /// <para>
+        /// The omission cut the other way too: <c>TrailingStop</c> was never
+        /// declared even though trailing stops and trailing take-profits are
+        /// fully simulated, armed, persisted and tested here. The dashboard gates
+        /// its trailing fields on that flag, so a complete feature was
+        /// unreachable in paper mode. A capability list is a claim in both
+        /// directions, and <c>PaperCapabilityConformanceTests</c> now checks both.
+        /// </para>
+        /// </summary>
         public ProviderCapabilities Capabilities =>
-            ProviderCapabilities.Leverage | ProviderCapabilities.Brackets | ProviderCapabilities.Shorting | ProviderCapabilities.OCO;
+            ProviderCapabilities.Brackets | ProviderCapabilities.OCO | ProviderCapabilities.TrailingStop;
         public T? GetCapability<T>() where T : class => this as T;
 
         // ── ITradingProvider flags ────────────────────────────────────────────
         public bool IsConnected => true;
-        public bool SupportsMarginTrading => true;
-        public bool SupportsFuturesTrading => true;
-        public double MaxLeverage => 125.0;
+        public bool SupportsMarginTrading => false;
+        public bool SupportsFuturesTrading => false;
+        public double MaxLeverage => 1.0;
 
         // ── Account queries ───────────────────────────────────────────────────
 
+        /// <summary>
+        /// Quote cash plus every asset the account holds. On a spot account a
+        /// position IS a balance — reporting only the cash left half the account
+        /// invisible on the Balances tab, which is the account view the hosted
+        /// demo leads with.
+        /// </summary>
         public Task<List<Balance>> GetBalancesAsync()
         {
             lock (_lock)
-                return Task.FromResult(new List<Balance> { new Balance(Quote, _cash, 0) });
+            {
+                var list = new List<Balance> { new Balance(Quote, _cash, 0) };
+                foreach (var kv in _positions.Where(kv => Math.Abs(kv.Value.Qty) > 1e-12))
+                {
+                    var pair = SymbolAssets.Split(kv.Key);
+                    // An unsplittable symbol would name the wrong asset beside a
+                    // number, which is worse than omitting the row.
+                    if (!pair.Recognised || pair.Base.Length == 0) continue;
+
+                    // One asset can back several pairs (BTC/USDT and BTC/USD are
+                    // both BTC), so holdings accumulate into a single row.
+                    int at = list.FindIndex(b => b.Asset == pair.Base);
+                    if (at >= 0) list[at] = list[at] with { Free = list[at].Free + kv.Value.Qty };
+                    else         list.Add(new Balance(pair.Base, kv.Value.Qty, 0));
+                }
+                return Task.FromResult(list);
+            }
         }
 
         public Task<List<Position>> GetPositionsAsync()
@@ -146,23 +190,16 @@ namespace AccessibleTrader.Core.Services
 
             lock (_lock)
             {
-                if (signal.Leverage is > 1) _leverage[symbol] = signal.Leverage.Value;
+                if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
                 if (signal.Type == OrderType.Market)
                 {
                     double px = PriceFor(symbol, 0);
                     if (px <= 0) return Task.FromResult("ORDER_FAILED:no live price for symbol — load its chart first");
-                    if (signal.Side == OrderSide.Buy && _cash < signal.Quantity * px)
+                    if (!CanFill(symbol, signal.Side, signal.Quantity, px, out string? why))
                     {
-                        // The numbers, not just the verdict. A risk-sized crypto position on a tight
-                        // stop routinely asks for several times the account in notional, and "insufficient
-                        // balance" alone leaves the user guessing by how much.
-                        double needed = signal.Quantity * px;
-                        Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Rejected, false, false);
-                        return Task.FromResult(
-                            $"ORDER_FAILED:insufficient paper balance — that position needs "
-                          + $"{needed.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {Quote} "
-                          + $"and the account holds {_cash.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)}");
+                        Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Rejected, false, false, reason: why);
+                        return Task.FromResult("ORDER_FAILED:" + why);
                     }
 
                     string id = NewId();
@@ -171,17 +208,27 @@ namespace AccessibleTrader.Core.Services
                     RecordFill(symbol, signal.Side, signal.Quantity, px, pnl, id);
 
                     // Attach protective resting orders (reduce-only by nature here).
+                    //
+                    // Both legs share one OCO group. A bracket IS a one-cancels-other
+                    // pair whether or not the caller supplied a group id, and without
+                    // it the surviving leg outlived the position it was protecting:
+                    // the stop closed the trade, the target stayed on the book, and
+                    // the next rally filled it into a short nobody opened.
                     var exit = signal.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
+                    string bracket = signal.OcoGroupId ?? "bracket-" + id;
                     if (signal.TrailStopValue is > 0 && signal.TrailStopMode != null)
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, px, true, false,
-                            signal.TrailStopMode, signal.TrailStopValue, px));    // trailing stop anchored at entry
+                            signal.TrailStopMode, signal.TrailStopValue, px, ocoGroupId: bracket));    // trailing stop anchored at entry
                     else if (signal.StopLoss is > 0)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, signal.StopLoss, true, false));
+                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, signal.StopLoss, true, false,
+                            ocoGroupId: bracket));
                     if (signal.TakeProfit is > 0)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, signal.TakeProfit, false, true));
+                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, signal.TakeProfit, false, true,
+                            ocoGroupId: bracket));
                     if (signal.TrailTpValue is > 0 && signal.TrailTpMode != null)
                         _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, null, false, true,
-                            signal.TrailTpMode, signal.TrailTpValue, null, signal.TrailTpActivation, armed: signal.TrailTpActivation == null));  // trailing take-profit
+                            signal.TrailTpMode, signal.TrailTpValue, null, signal.TrailTpActivation, armed: signal.TrailTpActivation == null,
+                            ocoGroupId: bracket));  // trailing take-profit
 
                     Persist();
                     return Task.FromResult(id);
@@ -291,6 +338,17 @@ namespace AccessibleTrader.Core.Services
                     // get a spurious Cancelled. _open.Remove returns false when already gone.
                     if (!_open.Remove(o)) continue;
                     double px = o.Trigger ?? o.Price ?? bar.Close;
+
+                    // Affording an order when it was placed does not mean affording it
+                    // when it triggers — the cash can be spent, or the position sold,
+                    // while the order rests. Filling regardless drove the account cash
+                    // negative and sold assets it no longer held.
+                    if (!CanFill(o.Symbol, o.Side, o.Quantity, px, out string? why))
+                    {
+                        Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Rejected, o.IsStop, o.IsTp, reason: why);
+                        continue;
+                    }
+
                     var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
                     Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
                     RecordFill(o.Symbol, o.Side, o.Quantity, px, pnl, o.Id);
@@ -357,6 +415,61 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        // ── Order validation (caller holds _lock) ─────────────────────────────
+
+        /// <summary>
+        /// Whether the account can actually settle this fill, with the reason in
+        /// spoken words when it cannot.
+        ///
+        /// <para>
+        /// The paper broker settles spot-style out of one cash pool and has no
+        /// borrow, so there are exactly two ways an order is impossible: not
+        /// enough quote currency to buy, or not enough of the asset to sell.
+        /// Both were previously unchecked on at least one path, which let a sell
+        /// with no position credit cash for an asset that had never been owned.
+        /// </para>
+        ///
+        /// <para>
+        /// This is a refusal of the <i>impossible</i>, not a refusal on taste —
+        /// a real spot venue rejects both of these too.
+        /// </para>
+        /// </summary>
+        private bool CanFill(string symbol, OrderSide side, double qty, double price, out string? reason)
+        {
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            var pair = SymbolAssets.Split(symbol);
+            string asset = pair.Recognised && pair.Base.Length > 0 ? pair.Base : symbol;
+
+            if (side == OrderSide.Buy)
+            {
+                // The numbers, not just the verdict. A risk-sized crypto position on a tight
+                // stop routinely asks for several times the account in notional, and
+                // "insufficient balance" alone leaves the user guessing by how much.
+                double needed = qty * price;
+                if (_cash + 1e-9 < needed)
+                {
+                    reason = $"insufficient paper balance — that position needs {needed.ToString("N2", ci)} {Quote} "
+                           + $"and the account holds {_cash.ToString("N2", ci)}";
+                    return false;
+                }
+                reason = null;
+                return true;
+            }
+
+            double held = _positions.TryGetValue(symbol, out var p) ? p.Qty : 0.0;
+            if (held + 1e-9 < qty)
+            {
+                reason = held <= 1e-12
+                    ? $"cannot sell {qty.ToString("0.########", ci)} {asset} — the account holds none. "
+                    + "Paper trading is spot only; short selling arrives with margin support"
+                    : $"cannot sell {qty.ToString("0.########", ci)} {asset} — the account holds only "
+                    + $"{held.ToString("0.########", ci)}";
+                return false;
+            }
+            reason = null;
+            return true;
+        }
+
         // ── Account mutation (caller holds _lock) ─────────────────────────────
 
         // Returns realized P&L (quote currency) for the portion of this fill that
@@ -411,8 +524,8 @@ namespace AccessibleTrader.Core.Services
             return fallback;
         }
 
-        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false)
-            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing));
+        private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false, string? reason = null)
+            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing, reason));
 
         private static string NewId() => "paper-" + Guid.NewGuid().ToString("N").Substring(0, 12);
 

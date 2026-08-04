@@ -125,10 +125,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _earconService.PlayTakeProfitHit();
                 _speechRouter.Speak(FormatFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order), interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
+            // The reason was being carried on the event and dropped here, so every
+            // rejection sounded identical — the user learned that something did not
+            // happen and never what to change about it. Insufficient balance, a
+            // sell with nothing to sell and a venue refusal are different problems
+            // with different fixes.
             _subscriptions.Add(_eventBus.Subscribe<OrderRejectedEvent>(e =>
             {
                 _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
-                _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.", interrupt: true, channel: SpeechChannel.OrderEvent);
+                string why = string.IsNullOrWhiteSpace(e.Reason) ? "" : " " + e.Reason.TrimEnd('.') + ".";
+                _speechRouter.Speak($"Order rejected for {e.Order.Symbol}.{why}", interrupt: true, channel: SpeechChannel.OrderEvent);
             }));
             // Cancels were the one order state change that vanished silently
             // (2026-07-22 audit). Not an error earcon — user-initiated cancels are
