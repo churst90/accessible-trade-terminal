@@ -15,7 +15,7 @@ into invisibility.
 project has made, and it is the kind of change a test suite is worst at judging: every sentence can
 be individually well-formed while the experience of moving through a chart is wrong.
 
-That is not a hypothesis. **Five defects were found by using the terminal, none by the 2,791-test
+That is not a hypothesis. **Seven defects were found by using the terminal, none by the 2,857-test
 suite:**
 
 | Defect | Why the suite could not see it |
@@ -25,6 +25,9 @@ suite:**
 | "End of" said when arrowing **left** onto a formation's start | The method **took the direction as an argument**, so a test could only confirm the mapping it was handed |
 | `FeedbackType.Boundary` discarded its message at **10 call sites** | The events were published and observed; nothing asserted they were *heard* |
 | Two 4h charts shared one pattern-cache entry | The key collided only for same-timeframe charts of the same asset class — the ordinary case, not an edge case |
+| Chart pattern description reset at every launch | It lived in the store, so it worked perfectly all session; nothing tested that it reached disk |
+| Formation labels overprinted into an illegible smear | Every drawing test asked whether rendering *threw*, not whether the result was readable |
+| The new render tests **aborted the whole suite** | Undisposed `SKSurface` handles. It never presented as a failing test — the run simply died at a different count each time (761, 1,472, 1,843 of 2,849) |
 
 Every one is a defect of *behaviour over time* or *silence*, and those are the two things unit tests
 systematically miss.
@@ -36,9 +39,23 @@ systematically miss.
 **Build and suite**
 - [x] Core, SDK, WebHost, Components, StrategyLab, Tests all build clean
 - [x] **Zero compiler warnings** (the last two, redundant `@inject` in `LabelTextModal`, removed)
-- [x] **2,798 tests pass, 0 failed, 0 skipped**
-- [x] Edge registry validates — 40 edges, structurally sound
+- [x] **2,849 tests pass, 0 failed, 0 skipped — three consecutive clean runs**, because an
+      intermittent abort was found and fixed during this pass (see below)
+- [x] Edge registry validates — 42 edges, structurally sound
+- [x] Doc-drift guard green (README plugin count, test count, shortcut table)
 - [x] MAUI head now compiled by CI on every push to main, not only at tag time
+- [x] **Host parity enforced by test** — 167 DI registrations match across both heads; the 5
+      differences are host-specific and named. Same test compares both `app.css` theme-variable
+      sets, which nothing compiles.
+
+**Features added since the first draft of this document**
+- [x] Quick trade from the chart (arm risk → stop → limit/market), 15 tests incl. hand-worked sizing
+- [x] Nested formation reporting and formation pinning (`;` / `Shift+;`)
+- [x] Formation drawing on the canvas, off by default
+- [x] MA cloud narration rewritten to percentages of price
+- [x] Drawing names
+- [x] Build id in About (`2.2.0+<sha>`)
+- [x] Breadth recorded and required for every scorable edge
 
 **MAUI head, from Linux**
 - [x] `app.css` theme custom properties **identical** between the WebHost and MAUI copies —
@@ -67,7 +84,16 @@ systematically miss.
 - [x] Alt+I dossier — tab strip and content
 - [x] The new per-indicator Properties checkbox
 - [x] Chart formation narration density — judged acceptable at 8–9% of bars
-- [x] Formation edge naming, `,`/`.` behaviour → **produced three of the five defects above**
+- [x] Formation edge naming, `,`/`.` behaviour → **produced three defects**
+- [x] Tab switching → **produced the pattern-cache collision**
+- [x] Settings persistence → **produced the DescribeChartPatterns reset**
+- [x] A screenshot of the drawn formations → **produced the label-collision defect, and surfaced a
+      pre-existing y-axis problem** (see below)
+
+**Research completed in-cycle**
+- [x] Analyst revision breadth — **UNTESTED** (minimum detectable effect 6.47%/month), not null
+- [x] Right translation — **FALSIFIED** twice over (`TRANSLATION_FINDINGS.md`)
+- [x] Three forward archives recording: universe (2 days), GDELT, analyst grades
 
 **Docs**
 - [x] `CHANGES.md` — `[Unreleased]` closed as `[2.2.0]`, and the day of work that was missing from it
@@ -117,16 +143,39 @@ the release.
 
 Several were on the WebHost this cycle, and doing so is what found the defects above.
 
-**3. Live trading is unverified.** Paper is verified end to end. A live account has not placed an
+**3. Quick trade has never been driven by a person.** The arithmetic has fifteen tests including a
+hand-worked sizing case, and bracket atomicity is verified against a real Alpaca paper account — but
+the path from *hotkey → armed → stop set → Enter → order* has not been walked end to end by a human.
+It is the only feature in the terminal where a keystroke sizes and sends a real order with no dialog
+in between, so it should be exercised once on paper before the tag.
+
+**4. Live trading is unverified.** Paper is verified end to end. A live account has not placed an
 order. The 2.2.0 changes do not touch order routing, so this is not a regression risk — it is a
 standing gap.
 
-**4. The forward recorders are one day old.** `record-universe`, `record-gdelt` and `grades record`
+**5. The forward recorders are new.** `record-universe`, `record-gdelt` and `grades record`
 each hold a single run. Their failure-classification and refuse-partial-write logic was written the
 same day it was first exercised. Two more clean runs each before anyone relies on the archives.
 
-**5. GDELT is missing two themes** (`interestrate`, `gold`) from the only run so far, throttled out.
-Recoverable — GDELT re-serves its whole window — but the next run must be checked for backfill.
+**6. GDELT throttling is worse than the retry budget handles.** The first run captured 8 of 10
+themes; a second run on 2026-08-04 lost **7 of 10** and was correctly refused rather than written as
+a partial snapshot. The refusal is the recorder working as designed — but it means the archive is
+still one run deep and the two missing themes are not yet backfilled.
+
+The cause is GDELT's IP-level throttle, which is stickier than its documented "one request every
+five seconds" and persists across runs from the same address. Options, none blocking for 2.2.0:
+raise the spacing well beyond 10s, split the themes across two daily runs, or move to GDELT's
+bulk/ngrams dataset. **Do not tag on the assumption the GDELT archive is usable yet.**
+
+**7. A main-pane indicator forces the price axis to include zero.** Found in a maintainer screenshot
+of BTC 4h: the y-axis ran 0 → 70,000, compressing all price action into the top tenth of the pane.
+
+`ViewportRangeCalculator` expands the main range to include any **visible `Level` on a main-pane
+series**, which is correct behaviour for a bounded metric like Fear & Greed but wrong when some
+indicator declares a level at zero on a price chart. This is **pre-existing and unrelated to the
+2.2.0 work** — formations are not part of that calculation — but it makes the price pane close to
+unusable when it fires, and it is worth identifying which indicator is responsible before the tag.
+The chart in question carried "+5 more" series beyond the two named in the legend.
 
 ---
 
@@ -147,5 +196,5 @@ accepted them — recorded, with a name against the decision, rather than forgot
 
 ## For 2.2.1, if one becomes necessary
 
-In order: the MAUI head launch, the dialog sweep on both heads, and a second run of each forward
-recorder.
+In order: the MAUI head launch, the dialog sweep on both heads, the quick-trade paper walkthrough,
+and identifying whichever main-pane indicator declares a zero level.

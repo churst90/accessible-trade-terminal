@@ -66,10 +66,15 @@ namespace AccessibleTrader.Core.Services.Rendering
                 .Take(MaxDrawn)
                 .ToList();
 
-            foreach (var p in onScreen) Draw(ctx, p, firstVisible, lastVisible);
+            // Labels are placed with knowledge of the ones already drawn, so three formations whose
+            // triggers sit at nearly the same price do not overprint into an unreadable smear —
+            // which is exactly what the first version produced on a real BTC chart.
+            var takenLabelRows = new List<float>();
+            foreach (var p in onScreen) Draw(ctx, p, firstVisible, lastVisible, takenLabelRows);
         }
 
-        private static void Draw(RenderContext ctx, ChartPattern p, int firstVisible, int lastVisible)
+        private static void Draw(RenderContext ctx, ChartPattern p, int firstVisible, int lastVisible,
+            List<float> takenLabelRows)
         {
             var theme = ctx.Theme;
 
@@ -92,6 +97,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             ctx.Canvas.DrawRect(new SKRect(x1, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom), span);
 
             // ── The trigger: solid, because it is a real price ──────────────────
+            //
+            // Skipped entirely when the level is off the visible price range. A line clamped to the
+            // top or bottom edge does not say "this level is off screen", it says "this level is
+            // HERE" — and on a chart whose scale has been stretched by something else, a trigger
+            // from a formation years old would be drawn as though it were current price.
+            if (!IsOnScreen(ctx, p.TriggerLevel)) return;
+
             float yTrigger = YFor(ctx, p.TriggerLevel);
             using var trigger = new SKPaint
             {
@@ -101,14 +113,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 Color = theme.Accent,
             };
             ctx.Canvas.DrawLine(x1, yTrigger, xEnd, yTrigger, trigger);
-            Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} · trigger", x1 + 4 * ctx.Density, yTrigger, theme.Accent);
+            Label(ctx, ChartPatternNarrator.Name(p.Kind), x1 + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
 
             // A range has a second boundary and it is every bit as real as the first.
-            if (p.SecondaryLevel is double bottom)
+            if (p.SecondaryLevel is double bottom && IsOnScreen(ctx, bottom))
             {
                 float yBottom = YFor(ctx, bottom);
                 ctx.Canvas.DrawLine(x1, yBottom, xEnd, yBottom, trigger);
-                Label(ctx, "range · bottom", x1 + 4 * ctx.Density, yBottom, theme.Accent);
+                Label(ctx, "range bottom", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
             }
 
             // ── The measured target: faint, dashed, and labelled as a convention ─
@@ -116,7 +128,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             // Never drawn for a formation that did not confirm — there is no break to project from,
             // and a target line hanging under a shape that never triggered is an assertion about
             // something that did not happen.
-            if (p.MeasuredTarget is double target && target > 0 && p.State != ChartPatternState.Expired)
+            if (p.MeasuredTarget is double target && target > 0
+                && p.State != ChartPatternState.Expired && IsOnScreen(ctx, target))
             {
                 float yTarget = YFor(ctx, target);
                 using var dash = SKPathEffect.CreateDash(new[] { 6f * ctx.Density, 6f * ctx.Density }, 0);
@@ -129,18 +142,47 @@ namespace AccessibleTrader.Core.Services.Rendering
                     Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 110),
                 };
                 ctx.Canvas.DrawLine(x1, yTarget, xEnd, yTarget, targetPaint);
-                Label(ctx, "measured target (untested)", x1 + 4 * ctx.Density, yTarget,
-                      new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150));
+                Label(ctx, "measured target", x1 + 4 * ctx.Density, yTarget,
+                      new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
             }
         }
 
-        private static void Label(RenderContext ctx, string text, float x, float y, SKColor colour)
+        /// <summary>
+        /// A label above its line, nudged clear of labels already placed and kept inside the pane.
+        ///
+        /// <para>
+        /// The first version drew every label at its own line's y with no awareness of the others.
+        /// On a real chart carrying three formations whose triggers sat within a few hundred dollars
+        /// of each other, all three labels landed on the same pixel row and overprinted into an
+        /// illegible smear — and any label near the top of the range was drawn above the pane
+        /// entirely. Both were obvious in a screenshot and invisible to a test that only asks
+        /// whether drawing throws.
+        /// </para>
+        /// </summary>
+        private static void Label(RenderContext ctx, string text, float x, float y, SKColor colour,
+            List<float> taken)
         {
+            float lineHeight = 12f * ctx.Density;
+            float row = y - 3 * ctx.Density;
+
+            // Push down past anything already occupying this row.
+            while (taken.Any(t => Math.Abs(t - row) < lineHeight)) row += lineHeight;
+
+            // Never outside the pane: a label drawn above the top edge is simply lost.
+            row = Math.Clamp(row, ctx.PaneRect.Top + lineHeight, ctx.PaneRect.Bottom - 2 * ctx.Density);
+            taken.Add(row);
+
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
-            // Above the line, so the label never sits on top of the price it is annotating.
-            ctx.Canvas.DrawText(text, x, y - 3 * ctx.Density, SKTextAlign.Left, font, paint);
+            ctx.Canvas.DrawText(text, x, row, SKTextAlign.Left, font, paint);
         }
+
+        /// <summary>
+        /// Whether a price is inside the pane's visible range. Anything outside is not drawn at all
+        /// rather than clamped to an edge — a clamped line asserts a level is somewhere it is not.
+        /// </summary>
+        private static bool IsOnScreen(RenderContext ctx, double price) =>
+            price >= ctx.Min && price <= ctx.Max;
 
         private static float XFor(RenderContext ctx, int barIndex) =>
             ctx.PaneRect.Left + (barIndex - ctx.ViewportStart) * ctx.ItemWidth;
