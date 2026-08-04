@@ -154,8 +154,15 @@ namespace AccessibleTrader.Core.Services
                     if (px <= 0) return Task.FromResult("ORDER_FAILED:no live price for symbol — load its chart first");
                     if (signal.Side == OrderSide.Buy && _cash < signal.Quantity * px)
                     {
+                        // The numbers, not just the verdict. A risk-sized crypto position on a tight
+                        // stop routinely asks for several times the account in notional, and "insufficient
+                        // balance" alone leaves the user guessing by how much.
+                        double needed = signal.Quantity * px;
                         Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Rejected, false, false);
-                        return Task.FromResult("ORDER_FAILED:insufficient paper balance");
+                        return Task.FromResult(
+                            $"ORDER_FAILED:insufficient paper balance — that position needs "
+                          + $"{needed.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {Quote} "
+                          + $"and the account holds {_cash.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)}");
                     }
 
                     string id = NewId();

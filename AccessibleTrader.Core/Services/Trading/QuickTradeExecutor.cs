@@ -65,7 +65,22 @@ namespace AccessibleTrader.Core.Services.Trading
                     Price: e.EntryPrice,
                     StopLoss: e.StopPrice);
 
-                await _orders.PlaceOrderAsync(provider, signal).ConfigureAwait(false);
+                string result = await _orders.PlaceOrderAsync(provider, signal).ConfigureAwait(false);
+
+                // ── Read the answer ──────────────────────────────────────────────
+                //
+                // PlaceOrderAsync returns a status string, and this call used to DISCARD it. Every
+                // refusal — no price for the symbol, not enough paper balance, a quantity past the
+                // sanity ceiling — came back here and was dropped on the floor. The user had already
+                // been told the order was sent, so the result was the worst combination available:
+                // a confirmed order, no fill, no position, and nothing said. Exactly what the catch
+                // block below was written to prevent, defeated by a return value nobody looked at.
+                string? failure = DescribeFailure(result);
+                if (failure != null)
+                {
+                    _logger.LogWarning("Quick trade for {Symbol} was not placed: {Result}", e.Symbol, result);
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, failure, true));
+                }
             }
             catch (Exception ex)
             {
@@ -76,6 +91,45 @@ namespace AccessibleTrader.Core.Services.Trading
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
                     $"The quick trade for {e.Symbol} failed to place. Check your open orders.", true));
             }
+        }
+
+        /// <summary>
+        /// Turns an order status string into something worth hearing, or <c>null</c> when the order
+        /// went through.
+        ///
+        /// <para>
+        /// The codes are terse and mostly meant for logs, so each one is translated into what the
+        /// user should do about it. "ORDER_FAILED:insufficient paper balance" is true but unhelpful;
+        /// what a person needs to know is that a risk-based size on a tight stop asks for more
+        /// notional than the account holds, and that a wider stop is the fix.
+        /// </para>
+        /// </summary>
+        internal static string? DescribeFailure(string? result)
+        {
+            if (string.IsNullOrWhiteSpace(result)) return "The order was not placed — the provider returned nothing.";
+
+            if (result.StartsWith("ORDER_FAILED:", StringComparison.OrdinalIgnoreCase))
+            {
+                string reason = result.Substring("ORDER_FAILED:".Length).Trim();
+
+                if (reason.Contains("insufficient", StringComparison.OrdinalIgnoreCase))
+                    return "Not placed: that position costs more than the account holds. "
+                         + "A risk-based size grows as the stop gets tighter, so choose a stop further away.";
+
+                if (reason.Contains("no live price", StringComparison.OrdinalIgnoreCase))
+                    return "Not placed: there is no live price for this symbol, so it cannot be filled.";
+
+                return "Not placed: " + reason + ".";
+            }
+
+            return result switch
+            {
+                "ORDER_REJECTED_QUANTITY" => "Not placed: the position size is outside the allowed range.",
+                "ORDER_REJECTED_PRICE"    => "Not placed: the limit price was not usable.",
+                "ORDER_DUPLICATE_SUPPRESSED" => "Not placed: that looked like a duplicate of an order just sent.",
+                "ORDER_FAILED"            => "Not placed: the provider rejected the order.",
+                _ => null,   // an order id — it went.
+            };
         }
 
         public void Dispose() => _sub.Dispose();

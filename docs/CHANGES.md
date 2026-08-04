@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### The order that was never placed, and never said so (2026-08-04)
+
+- **Fixed: a refused order was completely silent.** `PlaceOrderAsync` returns a status string, and
+  the quick-trade executor **discarded it**. Every refusal came back through that return value and
+  was dropped — no live price, insufficient balance, quantity past the sanity ceiling, duplicate
+  suppression. You were told "sent", and then nothing happened, with nothing to explain why and no
+  position to show for it. Failures are now spoken, with the reason and what to do about it.
+- **Why it was refused, most likely.** Risk-based sizing means quantity is your risk divided by the
+  stop distance — so **halving the stop distance doubles the position**. On a $100,000 paper cash
+  account, a 1% risk with a tight daily stop on a sub-cent coin asks for several hundred thousand in
+  notional. The trade is sensible; the funding is not there.
+- **You are now warned before committing, not after.** When the stop is set, if the position costs
+  more than the account holds, the announcement says so and points at the remedy: *"Caution: this
+  position costs $1,000,000, more than the $100,000 in the account. On a cash account it will be
+  refused — a stop further away makes it smaller."* It is a caution, never a block: margin and
+  futures accounts routinely hold far more than their cash, and refusing would forbid ordinary
+  leveraged trades on a spot-account assumption.
+- The paper broker's refusal now carries the numbers — what the position needed and what the account
+  holds — instead of just "insufficient paper balance".
+
 ### Placing a paper trade: the fill, the chatter, and the exponents (2026-08-04)
 
 - **Fixed: "sent" was the last thing you heard.** `Place()` published the order first, the paper

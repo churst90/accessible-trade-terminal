@@ -170,7 +170,38 @@ namespace AccessibleTrader.Core.Services.Trading
                 IsLong = isLong,
             };
 
-            Say(Summary() + " Shift enter for a limit at the cursor, control enter for market. Escape cancels.");
+            Say(Summary() + NotionalCaution() + " Shift enter for a limit at the cursor, control enter for market. Escape cancels.");
+        }
+
+        /// <summary>
+        /// Warns when the position costs more than the account holds, at the moment the size becomes
+        /// known rather than after the order is refused.
+        ///
+        /// <para>
+        /// This is not an edge case, it is the normal consequence of risk-based sizing: quantity is
+        /// risk divided by stop distance, so halving the stop distance doubles the position and
+        /// doubles what it costs to hold. On a cash account a 1% risk with a tight stop routinely
+        /// asks for several times the balance in notional. The trade is perfectly sensible; it is
+        /// the funding that is not there.
+        /// </para>
+        ///
+        /// <para>
+        /// A caution rather than a refusal. Margin and futures accounts hold positions far larger
+        /// than their cash, so blocking here would forbid ordinary leveraged trades on the strength
+        /// of a spot-account assumption. The user is told and left to decide.
+        /// </para>
+        /// </summary>
+        private string NotionalCaution()
+        {
+            if (State.PositionSize is not double qty || State.EntryPrice is not double entry) return "";
+            if (State.AccountEquity <= 0 || entry <= 0) return "";
+
+            double notional = qty * entry;
+            if (notional <= State.AccountEquity) return "";
+
+            return $" Caution: this position costs {Money(notional)}, more than the "
+                 + $"{Money(State.AccountEquity)} in the account. On a cash account it will be refused — "
+                 + "a stop further away makes it smaller.";
         }
 
         // ── Placing ─────────────────────────────────────────────────────────────
