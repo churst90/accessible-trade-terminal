@@ -44,6 +44,7 @@ public static class EdgesCommand
             "show"     => Show(registry, args),
             "scorable" => Scorable(registry, args),
             "overlaps" => Overlaps(registry),
+            "breadth"  => Breadth(registry),
             "stale"    => Stale(registry, args),
             "validate" => Validate(registry),
             _          => Usage($"unknown edges subcommand '{sub}'"),
@@ -58,6 +59,7 @@ public static class EdgesCommand
         Console.WriteLine("  StrategyLab edges show <edge-id>");
         Console.WriteLine("  StrategyLab edges scorable [--class <asset-class>]");
         Console.WriteLine("  StrategyLab edges overlaps");
+        Console.WriteLine("  StrategyLab edges breadth        # on how many instruments did each edge hold");
         Console.WriteLine("  StrategyLab edges stale [--days 180]");
         Console.WriteLine("  StrategyLab edges validate");
         Console.WriteLine();
@@ -105,6 +107,57 @@ public static class EdgesCommand
         return 0;
     }
 
+    /// <summary>
+    /// Every measured edge ranked by how widely it held.
+    ///
+    /// <para>
+    /// The question this answers is the one a p-value cannot: <b>did it show up in more than one
+    /// place?</b> A pooled result that is significant across thirty symbols but driven by two of
+    /// them is one instrument's behaviour wearing a statistic. Ranking by share puts the edges that
+    /// generalise at the top and makes the narrow ones impossible to mistake for broad ones.
+    /// </para>
+    ///
+    /// <para>
+    /// Narrow is not the same as bad. The signal-reversed exit held on 2 of 4 and is one of the
+    /// better results here — because the two it held on are crypto and the two it failed on are
+    /// equities, which is the asset-class fork rather than noise. The column exists to make that
+    /// visible, not to penalise it.
+    /// </para>
+    /// </summary>
+    private static int Breadth(EdgeRegistry reg)
+    {
+        var measured = reg.Edges
+            .Where(e => e.Evidence != StrategyEvidenceLevel.Untested)
+            .OrderByDescending(e => e.Breadth?.Share ?? -1)
+            .ThenByDescending(e => e.Breadth?.Tested ?? 0)
+            .ToList();
+
+        Console.WriteLine();
+        Console.WriteLine("How widely did each measured edge actually hold?");
+        Console.WriteLine();
+        Console.WriteLine($"{"edge",-34}{"evidence",-16}{"held",8}{"share",8}");
+        Console.WriteLine(new string('-', 68));
+
+        foreach (var e in measured)
+        {
+            string held = e.Breadth?.Summary ?? "—";
+            string share = e.Breadth?.Share is double s ? $"{s * 100:F0}%" : "—";
+            Console.WriteLine($"{Trunc(e.Id, 33),-34}{e.Evidence,-16}{held,8}{share,8}");
+        }
+
+        int missing = measured.Count(e => e.Breadth == null);
+        Console.WriteLine(new string('-', 68));
+        Console.WriteLine($"{measured.Count} measured edges, {missing} with no breadth recorded.");
+        Console.WriteLine();
+        Console.WriteLine("A low share is not automatically a weakness — the signal-reversed exit held");
+        Console.WriteLine("on 2 of 4 because the two it failed on were equities, which is the asset-class");
+        Console.WriteLine("fork rather than noise. Read the note on each edge before judging the number.");
+        Console.WriteLine();
+        return 0;
+    }
+
+    private static string Trunc(string s, int n) => s.Length <= n ? s : s[..(n - 1)] + "…";
+
     private static int Show(EdgeRegistry reg, string[] args)
     {
         string? id = args.Skip(1).FirstOrDefault(a => !a.StartsWith("--"));
@@ -131,6 +184,24 @@ public static class EdgesCommand
         Console.WriteLine($"effect:    {Describe(e.Effect)}");
         if (!string.IsNullOrWhiteSpace(e.Effect.Notes))
             Console.WriteLine($"           {e.Effect.Notes}");
+
+        // Breadth sits directly beneath the effect and above the controls, deliberately. A
+        // p-value says "this pooled number is unlikely by chance"; breadth says "and it showed up
+        // in more than one place" — which is the question that catches one symbol's behaviour
+        // wearing a statistic, and this project has been caught by that shape before.
+        if (e.Breadth is { } b)
+        {
+            Console.WriteLine($"breadth:   held on {b.Summary} instruments"
+                            + (b.Share is double sh ? $" ({sh * 100:F0}%)" : ""));
+            if (b.Instruments.Count > 0)
+                Console.WriteLine($"           {string.Join(", ", b.Instruments)}");
+            if (!string.IsNullOrWhiteSpace(b.Notes))
+                Console.WriteLine($"           {b.Notes}");
+        }
+        else if (e.Evidence == StrategyEvidenceLevel.ControlTested)
+        {
+            Console.WriteLine("breadth:   NOT RECORDED — required for a scorable edge.");
+        }
 
         Console.WriteLine("controls:");
         foreach (var c in e.Controls) Console.WriteLine($"           · {c}");

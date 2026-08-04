@@ -173,6 +173,24 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                 if (e.Evidence == StrategyEvidenceLevel.ControlTested && e.Controls.Count < 2)
                     problems.Add($"{where}: marked ControlTested with fewer than two named controls.");
 
+                // Breadth is required of a SCORABLE edge and optional everywhere else. A claim the
+                // application is willing to act on has to say how many independent instruments it
+                // actually held on — a pooled significance with a breadth of one is one symbol's
+                // behaviour wearing a statistic, and that is a shape this project has been caught
+                // by before.
+                if (e.Evidence == StrategyEvidenceLevel.ControlTested)
+                {
+                    if (e.Breadth == null)
+                        problems.Add($"{where}: ControlTested with no breadth recorded — on how many instruments did it hold?");
+                    else if (e.Breadth.Tested <= 0)
+                        problems.Add($"{where}: breadth records {e.Breadth.Held} held but nothing tested.");
+                    else if (e.Breadth.Held > e.Breadth.Tested)
+                        problems.Add($"{where}: breadth held ({e.Breadth.Held}) exceeds tested ({e.Breadth.Tested}).");
+                }
+
+                if (e.Breadth != null && e.Breadth.Held < 0)
+                    problems.Add($"{where}: negative breadth.");
+
                 // An untested edge is a QUEUE ENTRY. Without an origin nobody can re-read the
                 // claim in its original words, and an ambiguous result becomes unresolvable.
                 if (e.Evidence == StrategyEvidenceLevel.Untested && e.Origin == null)
@@ -212,6 +230,12 @@ namespace AccessibleTrader.StrategyLab.Catalogue
 
         /// <summary>The controls this claim was measured against. The most important field here.</summary>
         public IReadOnlyList<string> Controls { get; init; } = Array.Empty<string>();
+
+        /// <summary>
+        /// On how many independent instruments the claim held. See <see cref="EdgeBreadth"/> for why
+        /// this sits beside the p-value rather than inside the notes.
+        /// </summary>
+        public EdgeBreadth? Breadth { get; init; }
 
         public StrategyEvidenceLevel Evidence { get; init; } = StrategyEvidenceLevel.Untested;
 
@@ -265,6 +289,57 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         public double? P { get; init; }
         public double? N { get; init; }
         public string? Notes { get; init; }
+    }
+
+    /// <summary>
+    /// On how many independent instruments did this claim actually hold?
+    ///
+    /// <para>
+    /// A p-value answers "could this pooled number have arisen by chance". Breadth answers a
+    /// different and often more useful question: <b>does it show up in more than one place</b>. A
+    /// result that is significant across a pooled sample but present on two symbols out of thirty is
+    /// one symbol's behaviour wearing a statistic — and this project has been caught by exactly that
+    /// shape before, which is why "per-symbol and per-era breakdown" is already a standing control.
+    /// </para>
+    ///
+    /// <para>
+    /// Recorded as a field because a breakdown that lives only in prose cannot be queried, sorted or
+    /// compared between edges. Prompted by an outside analysis whose single best idea was treating
+    /// "survived on twenty unrelated tickers" as a first-class criterion rather than a footnote.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Instruments must be independent for the count to mean anything.</b> The same asset from two
+    /// providers is one instrument; SPY and VOO are very nearly one instrument. <see cref="Notes"/>
+    /// is where that judgement is written down, because it cannot be inferred from the number.
+    /// </para>
+    /// </summary>
+    public sealed record EdgeBreadth
+    {
+        /// <summary>How many instruments the claim held on.</summary>
+        public int Held { get; init; }
+
+        /// <summary>How many were tested. <c>Held</c> out of <c>Tested</c> is the whole point.</summary>
+        public int Tested { get; init; }
+
+        /// <summary>
+        /// Which ones held, when the list is short enough to be worth naming. Optional — for a
+        /// forty-symbol sweep the count is the finding and the list is noise.
+        /// </summary>
+        public IReadOnlyList<string> Instruments { get; init; } = Array.Empty<string>();
+
+        /// <summary>
+        /// How independence was judged, and anything that qualifies the count — deduplication,
+        /// correlated pairs, an arm that was underpowered rather than negative.
+        /// </summary>
+        public string? Notes { get; init; }
+
+        /// <summary>Share of tested instruments on which the claim held, or null when nothing was tested.</summary>
+        [JsonIgnore]
+        public double? Share => Tested > 0 ? (double)Held / Tested : null;
+
+        [JsonIgnore]
+        public string Summary => Tested > 0 ? $"{Held}/{Tested}" : "not recorded";
     }
 
     public sealed record EdgeDecayPoint

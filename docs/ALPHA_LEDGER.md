@@ -89,6 +89,17 @@ Four of the last six theses died on a control that was cheap to add and that the
 the test omitted. Before running a study, ask **what is the cheapest thing that would produce this
 same result without the claimed mechanism**, and build that first as a named control in the output.
 
+**Breadth is now recorded, not just described.** Added 2026-08-04. Every scorable edge carries
+`breadth: {held, tested, notes}` in `edges.json`, and `StrategyLab edges breadth` ranks them by it.
+A p-value says a pooled number is unlikely by chance; breadth says whether it showed up in more than
+one place — and a result significant across thirty symbols but driven by two is one instrument's
+behaviour wearing a statistic. Current spread: polarity 51/51, volume 48/48, POC 38/38, Trading
+Cross 10/13, FOMC 4/6, signal-exit 2/4, trend-family 1/3.
+
+**A low share is not automatically a weakness.** The signal-reversed exit held on 2 of 4 because the
+two it failed on were equities and the two it held on were crypto — the asset-class fork, not noise.
+The note field exists so the number cannot be read without the reason.
+
 **Controls that have changed a verdict here:** random-entry baseline · exposure-matched timing null
 (same days in market, random contiguous blocks) · a cheap alternative doing the same job
 (`close > SMA(200)`) · within-class and demeaned tests · noise injection · random-parameter arms ·

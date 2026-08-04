@@ -45,6 +45,14 @@
       "reMeasure": {
         "command": "xsmom --universe equity",
         "implemented": true
+      },
+      "breadth": {
+        "held": 1,
+        "tested": 2,
+        "instruments": [
+          "equity universe (39 names)"
+        ],
+        "notes": "A cross-sectional basket, so the unit of breadth is the UNIVERSE, not the symbol \u2014 the rule ranks names against each other and cannot hold on one. Held on the 39-name equity universe across 8 of 8 lookbacks, monotone. The crypto universe is a null but with 10 names a tercile is 3 names: underpowered rather than disproven, so it counts as tested and not held."
       }
     },
     {
@@ -91,6 +99,14 @@
       "reMeasure": {
         "command": "walkfwd",
         "implemented": true
+      },
+      "breadth": {
+        "held": 1,
+        "tested": 3,
+        "instruments": [
+          "BTC"
+        ],
+        "notes": "Out-of-sample multiple-of-hold on BTC. Equities and gold are recorded as crash insurance rather than as the edge holding \u2014 a drawdown property, not the claim. The family works; the specific parameters do not, and a random-parameter arm beat the optimiser."
       }
     },
     {
@@ -141,6 +157,11 @@
       "reMeasure": {
         "command": "polarity",
         "implemented": true
+      },
+      "breadth": {
+        "held": 51,
+        "tested": 51,
+        "notes": "51 symbols, and the fork itself has now been reached five independent ways \u2014 POC deviation, Value Deviation, the Trading Cross, volume, and cycle translation. Breadth here means every symbol landed on the side its asset class predicts; it does NOT mean a continuous polarity variable works, which was tested and failed."
       }
     },
     {
@@ -190,6 +211,11 @@
       "reMeasure": {
         "command": "volume",
         "implemented": true
+      },
+      "breadth": {
+        "held": 48,
+        "tested": 48,
+        "notes": "48 symbols, 385k bar observations. Every symbol contributes to a class-level result: crypto +1.26 ATR and equities \u22120.19 ATR, both p=0.0002. Breadth is full because the claim is about the SIGN differing by class, and both signs held across three independent volume buckets."
       }
     },
     {
@@ -233,6 +259,11 @@
       "reMeasure": {
         "command": "poc-dev",
         "implemented": true
+      },
+      "breadth": {
+        "held": 38,
+        "tested": 38,
+        "notes": "38 symbols, 348k bars. Small but consistent; the crypto arm reverses to momentum, which is the polarity fork again rather than a failure of this edge."
       }
     },
     {
@@ -268,6 +299,15 @@
       "reMeasure": {
         "command": "exits",
         "implemented": true
+      },
+      "breadth": {
+        "held": 2,
+        "tested": 4,
+        "instruments": [
+          "BTC",
+          "ETH"
+        ],
+        "notes": "BTC 32.34x (p=0.003) and ETH 4.35x (p=0.034) against a random same-length exit. SPY and QQQ are flat null (0.53x, 0.84x) \u2014 this is a crypto-only edge and the breadth says so."
       }
     },
     {
@@ -310,6 +350,11 @@
       "reMeasure": {
         "command": "fomc",
         "implemented": true
+      },
+      "breadth": {
+        "held": 4,
+        "tested": 6,
+        "notes": "Four US equity vehicles at the SAME offset with the same sign, which is what makes it credible. Gold and crypto show nothing. Note the decay: roughly 70% of the effect is gone post-2015, so breadth here is a pre-publication number."
       }
     },
     {
@@ -392,6 +437,11 @@
       "reMeasure": {
         "command": "cross",
         "implemented": true
+      },
+      "breadth": {
+        "held": 10,
+        "tested": 13,
+        "notes": "10 of 10 crypto names beat hold; 0 of 3 traditional. The cleanest breadth split in the registry, and the reason this is scoped crypto-only. It is drawdown-avoidance rather than return generation."
       }
     },
     {

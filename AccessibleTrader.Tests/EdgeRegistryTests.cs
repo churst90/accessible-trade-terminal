@@ -271,5 +271,101 @@ namespace AccessibleTrader.Tests
             Assert.NotNull(dir);
             return dir!.FullName;
         }
+
+        // ── Breadth ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// <b>Every scorable edge must say how widely it held.</b>
+        ///
+        /// <para>
+        /// A p-value answers "could this pooled number have arisen by chance". Breadth answers a
+        /// different question that catches a different failure: <b>did it show up in more than one
+        /// place?</b> A result significant across thirty symbols but driven by two of them is one
+        /// instrument's behaviour wearing a statistic — and "per-symbol and per-era breakdown" is
+        /// already a standing control here precisely because that shape has caught us before.
+        /// </para>
+        ///
+        /// <para>
+        /// Required only of ControlTested edges, because those are the ones the application is
+        /// willing to act on. A falsified edge needs no breadth; it is already dead.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void EveryScorableEdgeRecordsItsBreadth()
+        {
+            var missing = Registry().Scorable
+                .Where(e => e.Breadth == null)
+                .Select(e => e.Id)
+                .ToList();
+
+            Assert.True(missing.Count == 0,
+                "These edges may contribute to a score but do not say on how many independent "
+              + "instruments they held: " + string.Join(", ", missing));
+        }
+
+        /// <summary>Held cannot exceed tested, and tested cannot be zero if anything held.</summary>
+        [Fact]
+        public void BreadthCountsAreInternallyConsistent()
+        {
+            foreach (var e in Registry().Edges.Where(x => x.Breadth != null))
+            {
+                var b = e.Breadth!;
+                Assert.True(b.Held >= 0, $"{e.Id}: negative breadth.");
+                Assert.True(b.Tested > 0, $"{e.Id}: {b.Held} held but nothing tested.");
+                Assert.True(b.Held <= b.Tested, $"{e.Id}: held {b.Held} of {b.Tested}.");
+            }
+        }
+
+        /// <summary>
+        /// A bare count is not enough. "2 of 4" is a weakness or an asset-class fork depending on
+        /// WHICH two, and only the note can say which — the signal-reversed exit held on BTC and ETH
+        /// and failed on SPY and QQQ, which is the polarity split rather than noise.
+        /// </summary>
+        [Fact]
+        public void EveryBreadthRecordExplainsItself()
+        {
+            foreach (var e in Registry().Edges.Where(x => x.Breadth != null))
+                Assert.False(string.IsNullOrWhiteSpace(e.Breadth!.Notes),
+                    $"{e.Id}: breadth {e.Breadth.Summary} with no note saying which instruments and why.");
+        }
+
+        /// <summary>The validator must actually enforce the rule, not merely document it.</summary>
+        [Fact]
+        public void ValidationRejectsAScorableEdgeWithNoBreadth()
+        {
+            var reg = new EdgeRegistry
+            {
+                SchemaVersion = 1,
+                RegistryVersion = "test",
+                Edges = new[]
+                {
+                    new Edge
+                    {
+                        Id = "probe",
+                        Title = "Probe",
+                        Claim = "A claim long enough to satisfy the falsifiability length check in the validator.",
+                        Family = "test",
+                        Scope = new EdgeScope { AssetClasses = new[] { "equities" } },
+                        Controls = new[] { "one", "two" },
+                        Evidence = StrategyEvidenceLevel.ControlTested,
+                        FirstMeasured = "2026-01-01",
+                        LastMeasured = "2026-01-01",
+                        Source = "docs/PROBE.md",
+                        Breadth = null,
+                    }
+                }
+            };
+
+            Assert.Contains(reg.Validate(), p => p.Contains("breadth", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Share is the ranking key for `edges breadth`, so it must be right.</summary>
+        [Fact]
+        public void ShareIsHeldOverTested()
+        {
+            Assert.Equal(0.5, new EdgeBreadth { Held = 2, Tested = 4 }.Share!.Value, 6);
+            Assert.Equal(1.0, new EdgeBreadth { Held = 51, Tested = 51 }.Share!.Value, 6);
+            Assert.Null(new EdgeBreadth { Held = 0, Tested = 0 }.Share);
+        }
     }
 }
