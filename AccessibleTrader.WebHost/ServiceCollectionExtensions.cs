@@ -367,7 +367,23 @@ namespace AccessibleTrader.WebHost
                 new AccessibleTrader.Core.Services.Trading.QuickTradeService(
                     sp.GetRequiredService<IWorkspaceStore>(),
                     sp.GetRequiredService<IEventBus>(),
-                    equitySource: () => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.Latest));
+                    equitySource: () => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.Latest,
+                    // Lets arming ASK for a balance when none has been cached yet. Without this the
+                    // cache was only ever filled as a side effect of opening the trading dashboard,
+                    // so anyone who ticked paper trading and went straight to the chart hit "connect
+                    // a trading provider first" with one already connected.
+                    //
+                    // Reading the balance of the provider on screen — which, in paper mode, the order
+                    // service reroutes to the paper broker, so practising works on any chart.
+                    // GetService rather than GetRequiredService: a missing registration should
+                    // degrade to a spoken refusal, not throw inside a keystroke.
+                    equityRefresh: async () =>
+                    {
+                        var orders = sp.GetService<IOrderExecutionService>();
+                        if (orders == null) return;
+                        var store = sp.GetRequiredService<IWorkspaceStore>();
+                        await orders.GetBalancesAsync(store.State.Identity.Provider ?? string.Empty);
+                    }));
 
             // Asset dossier (Alt+I). The two remote sources get their own capped, allow-listed
             // HttpClients: SEC requires a contact email in the User-Agent or www.sec.gov 403s, and

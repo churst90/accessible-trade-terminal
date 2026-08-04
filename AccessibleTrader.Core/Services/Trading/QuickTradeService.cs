@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Globalization;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
@@ -78,12 +79,18 @@ namespace AccessibleTrader.Core.Services.Trading
         public QuickTradeState State { get; private set; } = QuickTradeState.Idle;
 
         private readonly Func<double>? _equitySource;
+        private readonly Func<Task>? _equityRefresh;
 
-        public QuickTradeService(IWorkspaceStore store, IEventBus eventBus, Func<double>? equitySource = null)
+        /// <summary>Guards against a second fetch while one is already in flight.</summary>
+        private int _fetching;
+
+        public QuickTradeService(IWorkspaceStore store, IEventBus eventBus,
+            Func<double>? equitySource = null, Func<Task>? equityRefresh = null)
         {
             _store = store;
             _eventBus = eventBus;
             _equitySource = equitySource;
+            _equityRefresh = equityRefresh;
         }
 
         // ── Arming ──────────────────────────────────────────────────────────────
@@ -106,8 +113,18 @@ namespace AccessibleTrader.Core.Services.Trading
             double equity = ResolveEquity();
             if (equity <= 0)
             {
-                Say("No account equity available, so a position size cannot be worked out. "
-                  + "Connect a trading provider first.");
+                // ── Ask for the balance rather than blaming the user for its absence ──
+                //
+                // Equity is a cached number, published by whatever last read a balance — which in
+                // practice meant the trading dashboard. Someone who ticks paper trading and goes
+                // straight to the chart has never opened it, so the cache is empty and arming
+                // refused with "connect a trading provider first" while a perfectly good provider
+                // was connected. The advice was wrong and the feature was unreachable.
+                //
+                // Fetching stays off the keystroke path: the read happens in the background and the
+                // arm completes when it lands. The alternative — awaiting a broker inside the key
+                // handler — would deliver the spoken size after the user had already pressed Enter.
+                BeginEquityFetch(riskPercent);
                 return;
             }
 
@@ -282,6 +299,67 @@ namespace AccessibleTrader.Core.Services.Trading
         /// </para>
         /// </summary>
         private double ResolveEquity() => _equitySource?.Invoke() ?? 0;
+
+        /// <summary>
+        /// Reads the account balance in the background, then completes the arm that asked for it.
+        ///
+        /// <para>
+        /// Every exit from here speaks. A key that goes quiet is indistinguishable from one that is
+        /// not bound, and this one is quiet for as long as a network round trip — so it says what it
+        /// is doing first, and says how it turned out either way.
+        /// </para>
+        ///
+        /// <para>
+        /// The re-arm is a normal <see cref="Arm"/> call rather than a special path, so the fetched
+        /// case and the cached case cannot drift apart. It only proceeds if nothing else has armed
+        /// or cancelled in the meantime — the user is allowed to change their mind while a balance
+        /// is being fetched, and their newer intent wins.
+        /// </para>
+        /// </summary>
+        private void BeginEquityFetch(double riskPercent)
+        {
+            if (_equityRefresh == null)
+            {
+                Say("No account equity available, so a position size cannot be worked out. "
+                  + "Connect a trading provider, or turn on paper trading in settings.");
+                return;
+            }
+
+            if (System.Threading.Interlocked.Exchange(ref _fetching, 1) == 1)
+            {
+                Say("Still fetching your balance.");
+                return;
+            }
+
+            Say("Fetching your account balance.");
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _equityRefresh().ConfigureAwait(false);
+
+                    if (ResolveEquity() > 0)
+                    {
+                        // Only if the user has not moved on. Arm() re-reads equity, which is now warm.
+                        if (State.Stage == QuickTradeStage.Idle) Arm(riskPercent);
+                    }
+                    else
+                    {
+                        Say("Your account balance came back empty, so there is nothing to size a "
+                          + "position from. Check the trading provider is connected and funded.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Say("Could not read your account balance. " + ex.Message);
+                }
+                finally
+                {
+                    System.Threading.Volatile.Write(ref _fetching, 0);
+                }
+            });
+        }
 
         private void Say(string message) =>
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, true));

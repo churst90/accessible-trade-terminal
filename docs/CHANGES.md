@@ -6,6 +6,29 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Quick trade could never be armed, and the PAPER badge was never on screen (2026-08-04)
+
+- **Fixed: arming always said "no account equity available".** Equity is a cached number, published
+  by whatever last read a balance — and the only thing that ever read one was the trading dashboard.
+  Tick paper trading, go straight to the chart, press the arm key, and you were told to "connect a
+  trading provider" with one connected and funded. **Arming now asks for the balance itself**: it
+  says "Fetching your account balance", reads it in the background, and completes the arm when it
+  lands. The fetch stays off the keystroke path deliberately — awaiting a broker inside a key handler
+  would deliver the spoken position size after you had already pressed Enter.
+- The refusals that remain are accurate. An empty account says it came back empty; a broker error
+  says what went wrong; pressing the key repeatedly says "still fetching" rather than starting a
+  fetch per press.
+- **The equity used is the balance on the provider you are viewing**, and in paper mode the order
+  service reroutes that to the paper broker — so practising works on any chart, including a
+  data-only one. Only **cash** counts: adding 0.5 BTC to 3,000 USDT to 12 ETH gives a number that is
+  not money in any currency, and it would then be multiplied by your risk percentage.
+- **Fixed: the PAPER badge was never displayed.** The status bar carrying it — the one persistent
+  visual reminder that orders are simulated — was fully built, styled and labelled for screen
+  readers, and never placed on a page. It now sits above the footer.
+
+Paper trading mode itself was persisting correctly all along; it is stored under
+`trading.paperTradingMode` and survives a restart.
+
 ### Reference levels you can actually use, and profiles that mean what they say (2026-08-04)
 
 **Reference levels are now a complete feature rather than a key that creates something.**
