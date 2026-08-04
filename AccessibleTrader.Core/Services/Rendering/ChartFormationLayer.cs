@@ -88,13 +88,28 @@ namespace AccessibleTrader.Core.Services.Rendering
             // the line everywhere except where it is used.
             float xEnd = ctx.PaneRect.Right;
 
+            // A formation can span a third of the chart, and three of them at alpha 22 turned the
+            // whole pane into bands of colour with the price action swimming underneath — visible in
+            // a screenshot of a real KAS daily chart. The span is context, not the subject: it is
+            // barely-there fill plus a marked edge at each end, so you can see WHERE the shape
+            // begins and ends without the shading competing with the candles.
             using var span = new SKPaint
             {
                 IsAntialias = true,
                 Style = SKPaintStyle.Fill,
-                Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 22),
+                Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 9),
             };
             ctx.Canvas.DrawRect(new SKRect(x1, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom), span);
+
+            using var edge = new SKPaint
+            {
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 1f * ctx.Density,
+                Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 70),
+            };
+            ctx.Canvas.DrawLine(x1, ctx.PaneRect.Top, x1, ctx.PaneRect.Bottom, edge);
+            ctx.Canvas.DrawLine(x2, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom, edge);
 
             // ── The trigger: solid, because it is a real price ──────────────────
             //
@@ -120,7 +135,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 float yBottom = YFor(ctx, bottom);
                 ctx.Canvas.DrawLine(x1, yBottom, xEnd, yBottom, trigger);
-                Label(ctx, "range bottom", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
+                Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} floor", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
             }
 
             // ── The measured target: faint, dashed, and labelled as a convention ─
@@ -142,7 +157,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                     Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 110),
                 };
                 ctx.Canvas.DrawLine(x1, yTarget, xEnd, yTarget, targetPaint);
-                Label(ctx, "measured target", x1 + 4 * ctx.Density, yTarget,
+                // Named, because a chart carrying three formations drew three lines all labelled
+                // "measured target" and none of them said whose.
+                Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} target", x1 + 4 * ctx.Density, yTarget,
                       new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
             }
         }
@@ -174,6 +191,25 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
+
+            // A backing plate, because these labels land on top of candles. In the screenshot that
+            // prompted this, "head and shoulders" ran straight across a green candle body and
+            // "descending triangle" over a support line — legible only if you already knew what it
+            // said. Staggering them fixed labels colliding with EACH OTHER; this fixes them
+            // colliding with the chart.
+            float pad = 3f * ctx.Density;
+            float width = font.MeasureText(text);
+            var plate = new SKRect(x - pad, row - font.Size, x + width + pad, row + pad);
+
+            using var platePaint = new SKPaint
+            {
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+                Color = new SKColor(ctx.Theme.Background.Red, ctx.Theme.Background.Green,
+                                    ctx.Theme.Background.Blue, 205),
+            };
+            ctx.Canvas.DrawRoundRect(plate, 2f * ctx.Density, 2f * ctx.Density, platePaint);
+
             ctx.Canvas.DrawText(text, x, row, SKTextAlign.Left, font, paint);
         }
 

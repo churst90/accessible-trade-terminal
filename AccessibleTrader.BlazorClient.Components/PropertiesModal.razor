@@ -312,20 +312,25 @@
                                 </fieldset>
                             }
 
-                            @if (_series.Levels.Any())
-                            {
-                                <fieldset>
+                            <fieldset>
                                     <legend>Reference Levels</legend>
+                                    @if (!_series.Levels.Any())
+                                    {
+                                        <p>No reference levels on this series yet.</p>
+                                    }
                                     @foreach (var level in _series.Levels)
                                     {
                                         <div style="border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
                                             <div class="modal-row" style="font-weight:bold; margin-bottom:4px;">
-                                                <span>@level.Name</span>
+                                                <span>@level.Name@(level.IsUserDefined ? " (yours)" : "")</span>
                                                 <label style="margin-left:auto;">
                                                     <input type="checkbox" checked="@level.IsVisible"
                                                            @onchange='e => level.IsVisible = (bool)(e.Value ?? true)' />
                                                     Visible
                                                 </label>
+                                                <button type="button" class="btn-secondary"
+                                                        aria-label="@($"Remove level {level.Name}")"
+                                                        @onclick="() => RemoveLevel(level)">Remove</button>
                                             </div>
                                             <div class="modal-row">
                                                 <label>Value</label>
@@ -334,9 +339,17 @@
                                                 <input type="color" value="@level.ColorHex"
                                                        @onchange='e => level.ColorHex = e.Value?.ToString() ?? "#888"' />
                                                 <select value="@level.DashStyle" style="width:80px;"
+                                                        aria-label="Line style"
                                                         @onchange='e => level.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Dash")'>
                                                     @foreach (var style in Enum.GetValues<DashStyle>()) { <option value="@style">@style</option> }
                                                 </select>
+                                            </div>
+                                            <div class="modal-row">
+                                                <label for="@($"lvl-thick-{level.Name}")">Thickness</label>
+                                                <input id="@($"lvl-thick-{level.Name}")" type="range" min="0.5" max="5" step="0.5"
+                                                       value="@level.Thickness"
+                                                       @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float tv)) level.Thickness = tv; }' />
+                                                <span>@level.Thickness.ToString("0.#") pixels</span>
                                             </div>
                                             <div class="modal-row">
                                                 <label>
@@ -348,9 +361,27 @@
                                                 {
                                                     <label>Vol @((level.EarconVolume * 100).ToString("F0"))%</label>
                                                     <input type="range" min="0" max="1" step="0.05" value="@level.EarconVolume"
+                                                           aria-label="Earcon volume"
                                                            @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float ev)) level.EarconVolume = ev; }' />
                                                 }
                                             </div>
+                                            @if (level.PlayEarcon)
+                                            {
+                                                @* Which crossings to report. This used to be decided by sniffing the
+                                                   level's NAME for "Overbought"/"Oversold", and any level that matched
+                                                   neither was silently skipped — so the checkbox above did nothing at
+                                                   all on a level you placed yourself. *@
+                                                <div class="modal-row">
+                                                    <label for="@($"lvl-dir-{level.Name}")">Report crossings</label>
+                                                    <select id="@($"lvl-dir-{level.Name}")" style="width:200px;"
+                                                            @onchange='e => level.CrossDirection = Enum.Parse<LevelCrossDirection>(e.Value?.ToString() ?? "Auto")'>
+                                                        <option value="Auto" selected="@(level.CrossDirection == LevelCrossDirection.Auto)">Automatic (@level.EffectiveCrossDirection)</option>
+                                                        <option value="Both" selected="@(level.CrossDirection == LevelCrossDirection.Both)">Either direction</option>
+                                                        <option value="Above" selected="@(level.CrossDirection == LevelCrossDirection.Above)">Only rising through</option>
+                                                        <option value="Below" selected="@(level.CrossDirection == LevelCrossDirection.Below)">Only falling through</option>
+                                                    </select>
+                                                </div>
+                                            }
                                             <div class="modal-row">
                                                 <label>Zone Texture @((level.ZoneNoiseAmount * 100).ToString("F0"))%</label>
                                                 <input type="range" min="0" max="1" step="0.05" value="@level.ZoneNoiseAmount"
@@ -364,8 +395,13 @@
                                             </div>
                                         </div>
                                     }
+                                    <div class="modal-row">
+                                        <button type="button" class="btn-secondary" @onclick="AddLevelHere">
+                                            Add a level at the cursor
+                                        </button>
+                                        <span>Or press 0 on the chart. Pressing 0 again where one of your levels sits removes it.</span>
+                                    </div>
                                 </fieldset>
-                            }
                         </div>
                         break;
 
@@ -897,6 +933,66 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// Deletes a reference level.
+    ///
+    /// <para>
+    /// Until 2026-08-04 there was no way to remove a level from anywhere in the application. A stray
+    /// one added by an accidental keypress was permanent — which is how a level at zero, sitting on
+    /// the price series, went on breaking a maintainer's y-axis at every launch.
+    /// </para>
+    /// </summary>
+    private void RemoveLevel(LevelConfig level)
+    {
+        if (_series == null) return;
+
+        Store.Dispatch(new RemoveLevelAction(_series.Id, level.Name));
+        _series.Levels.Remove(level);
+
+        SeriesManager.PersistWorkspace();
+        EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{level.Name} removed"));
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Adds a level from the dialog, at the same place the <c>0</c> key would put one — the cursor's
+    /// price on a price pane, zero on an oscillator.
+    ///
+    /// <para>
+    /// The placement decision lives in <c>ReferenceLevelPlacement</c> so that the button and the key
+    /// cannot drift apart, and so the rule that a level must be in the units of its pane is stated
+    /// once rather than in two places that might disagree.
+    /// </para>
+    /// </summary>
+    private void AddLevelHere()
+    {
+        if (_series == null) return;
+
+        var state = Store.State;
+        int cursor = state.CurrentDataIndex;
+        double cursorPrice = state.Data != null && cursor >= 0 && cursor < state.Data.Count
+            ? (double)state.Data[cursor].Close
+            : double.NaN;
+
+        var level = AccessibleTrader.Core.Services.Input.ReferenceLevelPlacement.For(
+            _series.Pane, cursorPrice, _series.Levels, out string reason);
+
+        if (level == null)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, reason, true));
+            return;
+        }
+
+        Store.Dispatch(new AddLevelAction(_series.Id, level));
+        _series.Levels.Add(level);
+
+        SeriesManager.PersistWorkspace();
+        EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, reason));
+        StateHasChanged();
+    }
+
     private void SaveAsDefaults()
     {
         if (_series == null) return;
@@ -937,6 +1033,10 @@
                 EarconVolume    = level.EarconVolume,
                 ZoneNoiseAmount = level.ZoneNoiseAmount,
                 ZoneNoiseType   = level.ZoneNoiseType,
+                ColorHex        = level.ColorHex,
+                Thickness       = level.Thickness,
+                DashStyle       = level.DashStyle,
+                CrossDirection  = level.CrossDirection,
             });
         }
 

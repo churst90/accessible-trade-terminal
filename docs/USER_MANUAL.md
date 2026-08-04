@@ -134,8 +134,16 @@ around a centre — it goes at **zero**, which is the line that matters there. O
 is no meaningful zero, so it goes at **the price of the bar under your cursor**: arrow to the level
 you care about, press `0`, and you have marked it. You will hear which one you got — *"Zero line
 added"* or *"Level added at 63,920.11"*. From then on that line speaks and pings like any other, so
-you can hear price approach and cross the level you chose. Levels are saved with the workspace and
-survive a restart; remove one from the series Properties dialog.
+you can hear price approach and cross the level you chose — from either direction, straight away,
+without visiting any settings.
+
+**Removing one.** Press `0` again on the same bar and the level comes off; you will hear "Level
+removed". Levels an indicator declared for itself — an RSI's 30 and 70 lines — are never removed this
+way, because they are part of what the indicator is; those live in Properties. Properties also gives
+every level a Remove button, a colour, a line style, a thickness, and a choice of which crossings to
+report: either direction, only rising through, or only falling through. All of it is saved with the
+workspace and survives a restart, and "Reset to defaults" restores the indicator's own levels while
+leaving yours alone.
 
 Two more cues round out the picture. Stereo position places you in time: the
 leftmost visible bar plays hard in the left channel and the rightmost hard in the

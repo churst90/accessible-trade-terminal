@@ -45,8 +45,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Code        = "VPFR",
                 Name        = "Volume Profile (Fixed Range)",
                 Category    = "Profile",
-                Description = "Volume profile anchored to the bars loaded at time of creation. " +
-                              "Does not change when the viewport moves.",
+                Description = "Volume profile anchored to the range you were viewing when you added it. " +
+                              "Pan and zoom freely — it stays put, so you can compare current price " +
+                              "against a fixed reference. POC in gold; Value Area (70%) in teal.",
                 Components  = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Profile", DisplayType = ComponentDisplayType.Bar }
@@ -63,8 +64,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Code        = "TPO",
                 Name        = "Market Profile (TPO)",
                 Category    = "Profile",
-                Description = "Time-Price Opportunity: counts how many time periods price visited each " +
-                              "level. Highlights price acceptance and rejection zones.",
+                Description = "Time-Price Opportunity: counts how many time PERIODS price visited each " +
+                              "level, rather than how much volume traded there — so a level price " +
+                              "lingered at ranks highly even on thin volume. Covers the visible range " +
+                              "and recomputes as you pan or zoom. Highlights acceptance and rejection.",
                 Components  = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Profile", DisplayType = ComponentDisplayType.Bar }

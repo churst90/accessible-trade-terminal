@@ -160,6 +160,22 @@ namespace AccessibleTrader.Core.Services
                 foreach (var comp in config.Components) comp.DisplayType = isHeatmap ? ComponentDisplayType.Heatmap : ComponentDisplayType.Distribution;
             }
 
+            // A fixed-range profile has to record WHICH range, and the only moment that information
+            // exists is now — the viewport the user was looking at when they added it. Recorded as
+            // timestamps so that loading older history later cannot slide the profile onto a
+            // different stretch of chart, which bar indices would.
+            if (isProfile && !ProfileAnchoring.FollowsViewport(codeUp))
+            {
+                config.Parameters ??= new();
+                if (!config.Parameters.ContainsKey(ProfileAnchoring.AnchorStartParam))
+                {
+                    var st = _store.State;
+                    if (st.Data != null && st.Data.Count > 0)
+                        ProfileAnchoring.CaptureAnchor(config.Parameters, st.Data.ToList(),
+                            st.ViewportStartIndex, st.ViewportLength);
+                }
+            }
+
             var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = seriesId })
             {
                 IsProfile = isProfile || isHeatmap

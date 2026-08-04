@@ -6,6 +6,42 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] — 2026-08-04
 
+### Reference levels you can actually use, and profiles that mean what they say (2026-08-04)
+
+**Reference levels are now a complete feature rather than a key that creates something.**
+
+- **`0` places a level in the units of its pane** — zero on an oscillator, the price under the cursor
+  on the price chart. **Press `0` again where one of your levels sits and it is removed.**
+- **Levels can be deleted.** There was no removal path anywhere in the application before this: a
+  level added by a stray keypress was permanent, which is exactly how a stray one at zero went on
+  breaking a price axis at every launch. There is now a Remove button per level in Properties too.
+- **A level you place is audible immediately.** It reports crossings from either direction, without
+  visiting settings — the point of marking a price on an audio-first terminal is hearing price reach
+  it.
+- **Fixed: "Play Earcon on Crossing" did nothing on most levels.** The crossing monitor chose what to
+  watch by matching each level's *name* against "Overbought"/"Oversold" and silently skipped
+  everything else. The checkbox was live UI over a dead code path. Direction is now an explicit
+  setting — *automatic*, *either direction*, *only rising through*, *only falling through* — and
+  automatic still infers the old behaviour for indicator-declared levels, so an RSI is unchanged.
+- **Thickness, colour and line style now persist.** Only the audio settings were saved before, so a
+  restyled level reverted to grey dashes at the next launch.
+- **"Reset to defaults" no longer deletes levels you placed.** It restores the indicator's own levels
+  and keeps your annotations, which were never part of the indicator's configuration.
+
+**Volume Profile (Fixed Range) was not fixed.** The rule deciding whether a profile follows the
+viewport was `!code.Contains("FIXED")` — and `"VPFR"` does not contain the string `"FIXED"`, so it
+was sliced to the visible viewport exactly like VPVR. Two catalogue entries, two descriptions, one
+behaviour. VPFR now anchors to the range you were viewing when you added it and stays there while you
+pan and zoom. The anchor is stored as timestamps, so loading older history cannot slide the profile
+onto a different stretch of chart. Market Profile (TPO) follows the viewport by design, and its
+description now says so.
+
+**Formation drawing, after seeing it on a real chart.** The span shading was heavy enough that three
+formations turned the pane into bands of colour with the price action underneath — it is now a faint
+wash with a marked edge at each end. Labels get a backing plate so they are readable over candles
+rather than only over background. Target and range lines name which formation they belong to, instead
+of three lines all labelled "measured target".
+
 ### The price axis that ran to zero (2026-08-04)
 
 - **Fixed: pressing `0` on the price series put a reference level at zero**, and the viewport then

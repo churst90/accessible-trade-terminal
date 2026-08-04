@@ -85,12 +85,29 @@ namespace AccessibleTrader.Core.Services
                 // 2. PROFILE (VPVR, VPFR, TPO)
                 else if (isProfile)
                 {
+                    // ── Which bars does this profile cover? ──────────────────────────
+                    //
+                    // The gate here used to read `!codeUpper.Contains("FIXED")`, and "VPFR" does not
+                    // contain the string "FIXED" — so the Fixed Range profile was sliced to the
+                    // viewport exactly like the Visible Range one. The two indicators were the same
+                    // indicator with different names, and nothing said so.
+                    //
+                    // Named explicitly now. A guess about a code string is not a policy.
                     var profileData = data;
-                    if (codeUpper == "VPVR" || codeUpper == "TPO" || !codeUpper.Contains("FIXED"))
+                    if (ProfileAnchoring.FollowsViewport(codeUpper))
                     {
                         int start = Math.Clamp(state.ViewportStartIndex, 0, data.Count - 1);
                         int length = Math.Clamp(state.ViewportLength, 1, data.Count - start);
                         profileData = data.Skip(start).Take(length).ToList();
+                    }
+                    else
+                    {
+                        // A fixed-range profile covers the window it was anchored to when you created
+                        // it — panning and zooming must not change it, because the whole point is a
+                        // reference that stays put while you look around. With no anchor recorded it
+                        // covers every loaded bar, which is still fixed: it does not follow the
+                        // viewport.
+                        profileData = ProfileAnchoring.SliceToAnchor(data, s.Config?.Parameters);
                     }
                     
                     if (profileData.Any())

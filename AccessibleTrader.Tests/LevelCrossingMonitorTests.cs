@@ -210,5 +210,117 @@ namespace AccessibleTrader.Tests
 
             Assert.True(spy1.Notes[0].Vol > spy2.Notes[0].Vol);
         }
+
+        /// <summary>
+        /// A price series carrying one hand-placed level — the case the monitor used to ignore
+        /// entirely, because it chose which levels to watch by matching their NAME against
+        /// "Overbought" / "Oversold" and skipped everything else.
+        /// </summary>
+        private static ChartSeries BuildPriceWithUserLevel(double[] closes, double levelValue)
+        {
+            var cfg = new SeriesConfig { Id = "px", Name = "px", IndicatorCode = "CANDLES", Pane = "Main" };
+            cfg.Components.Add(new ComponentConfig
+            {
+                Name = "Close", DisplayName = "Close", IsVisible = true,
+                Role = ComponentRole.Signal, DisplayType = ComponentDisplayType.Line,
+            });
+            cfg.Levels.Add(new LevelConfig
+            {
+                Name = "Level", Value = levelValue, PlayEarcon = true, EarconVolume = 1.0f,
+                IsVisible = true, IsUserDefined = true, CrossDirection = LevelCrossDirection.Both,
+            });
+
+            var buf = new SeriesDataBuffer { SeriesId = "px" };
+            buf.ComponentData["Close"] = closes;
+            return new ChartSeries(cfg, buf);
+        }
+
+        /// <summary>
+        /// The headline regression: a level named "Level" produced no sound at all, however the
+        /// "Play Earcon on Crossing" checkbox was set.
+        /// </summary>
+        [Fact]
+        public void AUserLevelIsWatchedEvenThoughItIsNotCalledOverboughtOrOversold()
+        {
+            // 100 → approaches 99 from below, within the 5% band.
+            var series = BuildPriceWithUserLevel(new double[] { 90, 99 }, 100);
+            var spy = new SpySonifier();
+            var mon = new LevelCrossingMonitor(spy);
+
+            mon.OnBarNavigated(StateAt(series, 0, 2));
+            mon.OnBarNavigated(StateAt(series, 1, 2));
+
+            Assert.NotEmpty(spy.Notes);
+        }
+
+        /// <summary>
+        /// A two-sided level has no fixed "outside", so it must ping on an approach from ABOVE as
+        /// well. The one-sided gate would have suppressed this.
+        /// </summary>
+        [Fact]
+        public void ATwoSidedLevelPingsOnApproachFromEitherSide()
+        {
+            var fromAbove = BuildPriceWithUserLevel(new double[] { 120, 101 }, 100);
+            var spy = new SpySonifier();
+            var mon = new LevelCrossingMonitor(spy);
+
+            mon.OnBarNavigated(StateAt(fromAbove, 0, 2));
+            mon.OnBarNavigated(StateAt(fromAbove, 1, 2));
+
+            Assert.NotEmpty(spy.Notes);
+        }
+
+        /// <summary>
+        /// Nothing may be announced before a crossing actually happens. Opening a chart whose price
+        /// already sits above a level must not report holding past it a few bars later — that would
+        /// be announcing an event that never occurred.
+        /// </summary>
+        [Fact]
+        public void NoSustainedToneWithoutAnActualCrossing()
+        {
+            // Well above the level and far outside the approach band for every bar.
+            var series = BuildPriceWithUserLevel(new double[] { 200, 201, 202, 203, 204, 205 }, 100);
+            var spy = new SpySonifier();
+            var mon = new LevelCrossingMonitor(spy);
+
+            for (int i = 0; i < 6; i++) mon.OnBarNavigated(StateAt(series, i, 6));
+
+            Assert.Empty(spy.Notes);
+        }
+
+        /// <summary>
+        /// Once price does cross and stays past the level, the confirmation tone fires — once.
+        /// </summary>
+        [Fact]
+        public void CrossingThenHoldingFiresTheSustainedToneExactlyOnce()
+        {
+            // Starts below, crosses at bar 1, then holds well clear of the approach band.
+            var series = BuildPriceWithUserLevel(new double[] { 50, 200, 205, 210, 215, 220, 225 }, 100);
+            var spy = new SpySonifier();
+            var mon = new LevelCrossingMonitor(spy);
+
+            for (int i = 0; i < 7; i++) mon.OnBarNavigated(StateAt(series, i, 7));
+
+            Assert.Single(spy.Notes);
+            Assert.Equal(220.0, spy.Notes[0].Freq, 1);   // Tier 3, not the 1400 Hz approach ping
+        }
+
+        /// <summary>
+        /// Provider levels must behave exactly as before — the name inference is preserved for them,
+        /// so this whole change is invisible to an RSI.
+        /// </summary>
+        [Fact]
+        public void OverboughtStillOnlyWatchesAbove()
+        {
+            // Drifting away below an overbought line must stay silent.
+            var series = BuildRsi(new double[] { 40, 35 });
+            var spy = new SpySonifier();
+            var mon = new LevelCrossingMonitor(spy);
+
+            mon.OnBarNavigated(StateAt(series, 0, 2));
+            mon.OnBarNavigated(StateAt(series, 1, 2));
+
+            Assert.Empty(spy.Notes);
+        }
     }
 }
