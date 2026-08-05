@@ -140,25 +140,37 @@ namespace AccessibleTrader.Tests
         // ── Not declared, therefore it must refuse ───────────────────────────
 
         [Fact]
-        public async Task Does_not_declare_Shorting_and_refuses_to_sell_what_is_not_held()
+        public async Task Declares_Shorting_and_a_short_is_collateralised_and_liquidatable()
         {
+            // Declared only once it was real. The claim is not merely "a sell with no
+            // position is accepted" — that was the money-minting bug — but that it
+            // costs collateral and reports the price it will be bought in at.
             var paper = Make(out var store);
-            Assert.False(paper.Capabilities.HasFlag(ProviderCapabilities.Shorting));
+            Assert.True(paper.Capabilities.HasFlag(ProviderCapabilities.Shorting));
 
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
             var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0));
 
-            Assert.StartsWith("ORDER_FAILED", result);
-            Assert.Empty(await paper.GetPositionsAsync());
+            Assert.StartsWith("paper-", result);
+            var pos = Assert.Single(await paper.GetPositionsAsync());
+            Assert.Equal(-1.0, pos.Quantity, 6);
+            Assert.Equal(200.0, pos.LiquidationPrice, 6);          // twice the entry, at 1x
+
+            var cash = Assert.Single(await paper.GetBalancesAsync(), b => b.Asset == "USDT");
+            Assert.True(cash.Locked > 0, "a short must lock collateral, or it is the old bug again");
+            Assert.True(cash.Free < 100_000.0, "a short must COST free cash, never pay it out");
         }
 
         [Fact]
-        public async Task Does_not_declare_Leverage_and_reports_no_margin_surface()
+        public async Task Does_not_declare_Leverage_above_one_even_though_margin_now_exists()
         {
+            // Shorting is a borrow, so MarginTrading is now true. Leverage is a
+            // different claim — position larger than collateral — and it is still
+            // not implemented, so it is still not claimed.
             var paper = Make(out _);
 
+            Assert.True(paper.SupportsMarginTrading);
             Assert.False(paper.Capabilities.HasFlag(ProviderCapabilities.Leverage));
-            Assert.False(paper.SupportsMarginTrading);
             Assert.False(paper.SupportsFuturesTrading);
             Assert.Equal(1.0, paper.MaxLeverage);
 
@@ -175,11 +187,13 @@ namespace AccessibleTrader.Tests
             var updates = Collect(paper);
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
 
-            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 3.0));
+            // Big enough that the account cannot post the collateral: 5,000 BTC at
+            // 100 needs 500,000 against a 100,000 account.
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 5000.0));
 
             var rejected = Assert.Single(updates.FindAll(u => u.Status == OrderStatus.Rejected));
             Assert.False(string.IsNullOrWhiteSpace(rejected.Reason));
-            Assert.Contains("BTC", rejected.Reason);      // names the asset, never "units"
+            Assert.Contains("collateral", rejected.Reason);   // says WHY a sell can fail
         }
     }
 }

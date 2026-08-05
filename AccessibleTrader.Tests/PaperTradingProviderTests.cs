@@ -466,22 +466,26 @@ namespace AccessibleTrader.Tests
         // ── An account cannot spend or sell what it does not have ────────────
 
         [Fact]
-        public async Task Selling_an_asset_the_account_does_not_hold_is_refused()
+        public async Task Selling_an_asset_the_account_does_not_hold_opens_a_collateralised_short()
         {
-            // Spot-style accounting has no borrow: a sell with no position credited
-            // cash for an asset that was never owned, which minted money.
+            // This USED to mint money: the sale credited cash for an asset that had
+            // never been owned. It then briefly refused outright, because there is no
+            // shorting without a borrow. Now the borrow is modelled — the proceeds and
+            // an equal margin are locked — so the sell is a short, and it costs
+            // collateral rather than paying out. Full arithmetic in PaperShortingTests.
             var paper = Make(out var store);
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
 
             var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0));
 
-            Assert.StartsWith("ORDER_FAILED", result);
-            Assert.Empty(await paper.GetPositionsAsync());
-            Assert.Equal(100_000.0, Cash(await paper.GetBalancesAsync()).Free, 6);   // untouched
+            Assert.StartsWith("paper-", result);
+            Assert.Equal(-1.0, (await paper.GetPositionsAsync()).Single().Quantity, 6);
+            // Free cash FELL — the one thing that must never happen is it rising.
+            Assert.True(Cash(await paper.GetBalancesAsync()).Free < 100_000.0);
         }
 
         [Fact]
-        public async Task Selling_more_than_is_held_is_refused()
+        public async Task Selling_more_than_is_held_flips_into_a_short_for_the_excess()
         {
             var paper = Make(out var store);
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
@@ -489,9 +493,9 @@ namespace AccessibleTrader.Tests
 
             var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 2.5));
 
-            Assert.StartsWith("ORDER_FAILED", result);
+            Assert.StartsWith("paper-", result);
             var pos = Assert.Single(await paper.GetPositionsAsync());
-            Assert.Equal(1.0, pos.Quantity, 6);      // still exactly what was bought
+            Assert.Equal(-1.5, pos.Quantity, 6);     // the long closed, the excess is short
         }
 
         [Fact]

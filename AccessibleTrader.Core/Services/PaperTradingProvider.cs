@@ -26,10 +26,16 @@ namespace AccessibleTrader.Core.Services
     /// <see cref="OrderUpdate"/> records as a real provider, so every fill / stop /
     /// take-profit announcement works unchanged.
     ///
-    /// v1 simplifications (intentional): cash-flow (spot-style) accounting in a
-    /// single quote currency; leverage is recorded and reported but not used to
-    /// reduce required cash; no partial fills; fills assume the trigger price with
-    /// no slippage. Resting orders only fill while their symbol is the loaded chart.
+    /// Shorting is simulated at 1× — fully collateralised, so shorting N costs the
+    /// same free cash as buying N and the position is liquidated at twice its entry
+    /// price. That liquidation is ENFORCED, because a short can go to infinity where
+    /// a long can only go to zero, and a paper account that never buys you in teaches
+    /// that shorting is free money.
+    ///
+    /// Remaining simplifications (intentional): a single quote currency; leverage
+    /// above 1× is recorded and reported but not used to reduce required margin; no
+    /// partial fills; fills assume the trigger price with no slippage; no borrow
+    /// interest or funding.
     /// </summary>
     public interface IPaperTradingProvider : ITradingProvider
     {
@@ -76,6 +82,24 @@ namespace AccessibleTrader.Core.Services
         // after its tab is gone. Persisted, unlike _lastPrice.
         private readonly Dictionary<string, ChartIdentity> _exposureIdentity = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, (double Qty, double Avg)> _positions = new();
+
+        /// <summary>
+        /// Quote currency locked against a short: the sale proceeds (which are owed
+        /// back as the asset) plus the initial margin. Not spendable, and reported as
+        /// <c>Balance.Locked</c> — the field that was hardcoded to zero until shorting
+        /// gave it something to mean.
+        /// </summary>
+        private readonly Dictionary<string, double> _collateral = new();
+
+        /// <summary>
+        /// Margin posted on top of the proceeds, as a fraction of notional. 1.0 is
+        /// full collateralisation — "1×" — which makes shorting N cost exactly the
+        /// same free cash as buying N, and puts liquidation at twice the entry price.
+        /// Deliberately more conservative than real venues: a paper account that
+        /// teaches thinner margin than reality teaches the wrong lesson, and the
+        /// configurable version belongs with the leverage work.
+        /// </summary>
+        private const double InitialMarginRate = 1.0;
         private readonly Dictionary<string, double> _leverage = new();
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
@@ -107,11 +131,12 @@ namespace AccessibleTrader.Core.Services
         /// Only what the broker actually does — and everything it does.
         ///
         /// <para>
-        /// It previously declared <c>Leverage</c> and <c>Shorting</c> while
-        /// funding every position from cash at 1× and having no borrow at all, so
-        /// the dashboard offered a leverage selector that changed nothing and a
-        /// sell side that minted money. Margin, shorting and futures return
-        /// together in the margin rewrite; until then the flags say what is true.
+        /// It once declared <c>Leverage</c> and <c>Shorting</c> while funding
+        /// every position from cash and having no borrow at all, so the dashboard
+        /// offered a leverage selector that changed nothing and a sell side that
+        /// minted money. Both were withdrawn. <c>Shorting</c> is back, earned:
+        /// shorts are collateralised and liquidated. <c>Leverage</c> stays absent
+        /// until margin above 1× is real, and <c>FuturesTrading</c> with it.
         /// </para>
         ///
         /// <para>
@@ -124,7 +149,8 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         public ProviderCapabilities Capabilities =>
-            ProviderCapabilities.Brackets | ProviderCapabilities.OCO | ProviderCapabilities.TrailingStop;
+            ProviderCapabilities.Brackets | ProviderCapabilities.OCO | ProviderCapabilities.TrailingStop |
+            ProviderCapabilities.Shorting | ProviderCapabilities.MarginTrading;
         public T? GetCapability<T>() where T : class => this as T;
 
         // ── ITradingProvider flags ────────────────────────────────────────────
@@ -148,7 +174,9 @@ namespace AccessibleTrader.Core.Services
         {
             lock (_lock)
             {
-                var list = new List<Balance> { new Balance(Quote, _cash, 0) };
+                // Locked is real at last: quote currency held against open shorts,
+                // which is spendable by nobody until the position closes.
+                var list = new List<Balance> { new Balance(Quote, _cash, _collateral.Values.Sum()) };
                 foreach (var kv in _positions.Where(kv => Math.Abs(kv.Value.Qty) > 1e-12))
                 {
                     var pair = SymbolAssets.Split(kv.Key);
@@ -176,11 +204,16 @@ namespace AccessibleTrader.Core.Services
                     {
                         double price = PriceFor(kv.Key, kv.Value.Avg);
                         double lev = _leverage.TryGetValue(kv.Key, out var l) ? l : 1.0;
+                        // Longs have no liquidation price — a spot long simply goes to
+                        // zero — so 0 there means "not applicable", not "at zero".
+                        double liq = kv.Value.Qty < 0 && CollateralOf(kv.Key) > 0
+                            ? CollateralOf(kv.Key) / Math.Abs(kv.Value.Qty)
+                            : 0;
                         return new Position(
                             kv.Key, kv.Value.Qty, kv.Value.Avg,
                             kv.Value.Qty * price,
                             (price - kv.Value.Avg) * kv.Value.Qty,
-                            lev, 0);
+                            lev, liq);
                     })
                     .ToList();
                 return Task.FromResult(list);
@@ -340,6 +373,7 @@ namespace AccessibleTrader.Core.Services
                 _history.Clear();
                 _exposureIdentity.Clear();
                 _lastPrice.Clear();
+                _collateral.Clear();
                 Persist();
             }
         }
@@ -375,6 +409,11 @@ namespace AccessibleTrader.Core.Services
                 // Remember the price even when nothing fills: it is what makes
                 // unrealized P&L live for a position whose chart is not on screen.
                 _lastPrice[sym] = bar.Close;
+
+                // Liquidation before anything else this tick. A short whose collateral
+                // is gone is not a position any more, and letting resting orders act on
+                // it first would report fills against something that no longer exists.
+                LiquidateIfCollateralExhausted(sym, bar);
 
                 // Advance trailing stops first so this tick uses the moved trigger.
                 bool trailMoved = false;
@@ -415,6 +454,56 @@ namespace AccessibleTrader.Core.Services
                 }
                 Persist();
             }
+        }
+
+        /// <summary>
+        /// Buys a short back when what it owes reaches what is held against it.
+        ///
+        /// <para>
+        /// **This is the whole reason shorting needed collateral accounting rather
+        /// than a permissive sell.** A long can only go to zero; a short can go to
+        /// infinity, and liquidation is the mechanism that stops it. A paper account
+        /// that lets you short without ever being bought in does not teach shorting —
+        /// it teaches that shorting is free money with no ruin risk, which is the
+        /// opposite of the truth and worse than not offering it at all.
+        /// </para>
+        ///
+        /// <para>
+        /// Uses the bar's HIGH, not its close: the collateral is gone at the moment
+        /// price touches the level, and a bar that spiked through and recovered still
+        /// liquidated you on a real venue. Caller holds the lock.
+        /// </para>
+        /// </summary>
+        private void LiquidateIfCollateralExhausted(string symbol, Ohlcv bar)
+        {
+            if (!_positions.TryGetValue(symbol, out var pos) || pos.Qty >= 0) return;
+
+            double locked = CollateralOf(symbol);
+            if (locked <= 0) return;
+
+            double shortQty = Math.Abs(pos.Qty);
+            double liqPrice = locked / shortQty;
+            if (bar.High < liqPrice) return;
+
+            // Bought back AT the liquidation price: that is where the collateral runs
+            // out, and it is what the account is left with either way.
+            string id = NewId();
+            var pnl = ApplyFill(symbol, OrderSide.Buy, shortQty, liqPrice);
+            Emit(id, symbol, OrderSide.Buy, shortQty, liqPrice, 0, OrderStatus.Filled, false, false, pnl,
+                reason: $"LIQUIDATED — the short's collateral was exhausted at "
+                      + liqPrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            RecordFill(symbol, OrderSide.Buy, shortQty, liqPrice, pnl, id);
+
+            // Its protective orders protect nothing now, and leaving them resting
+            // would reopen the position on the next touch.
+            foreach (var o in _open.Where(o => string.Equals(o.Symbol, symbol, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                _open.Remove(o);
+                Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Cancelled, false, false,
+                    reason: "the position was liquidated");
+            }
+
+            _logger.LogWarning("Paper short on {Symbol} liquidated at {Price}", symbol, liqPrice);
         }
 
         private static bool Crossed(PaperOrder o, Ohlcv bar)
@@ -493,41 +582,121 @@ namespace AccessibleTrader.Core.Services
         /// a real spot venue rejects both of these too.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// How a fill would settle: what it closes, what it opens, and what that does
+        /// to free cash and to locked collateral.
+        ///
+        /// <para>
+        /// **One calculation, used by both the check and the mutation.** A guard that
+        /// computes affordability differently from the code that spends the money is
+        /// worse than no guard, because it passes the cases it should refuse and
+        /// refuses the ones it should pass — and both look like arithmetic bugs
+        /// somewhere else entirely.
+        /// </para>
+        ///
+        /// <para>
+        /// A fill is split into the part that CLOSES existing exposure and the part
+        /// that OPENS new exposure, because the two settle by different rules. A sell
+        /// of 2.5 against a long of 1 closes the long at spot and opens a 1.5 short
+        /// on collateral.
+        /// </para>
+        /// </summary>
+        private Settlement Settle(string symbol, OrderSide side, double qty, double price)
+        {
+            var pos = _positions.TryGetValue(symbol, out var p) ? p : (Qty: 0.0, Avg: 0.0);
+            double signed = side == OrderSide.Buy ? qty : -qty;
+
+            double closingQty = 0, openingQty = qty;
+            if (pos.Qty != 0 && Math.Sign(signed) != Math.Sign(pos.Qty))
+            {
+                closingQty = Math.Min(qty, Math.Abs(pos.Qty));
+                openingQty = qty - closingQty;
+            }
+
+            double cash = 0, collateral = 0;
+
+            if (closingQty > 0)
+            {
+                if (pos.Qty < 0)
+                {
+                    // Closing a short: the buy-back is funded out of the collateral
+                    // that was locked when it opened, not out of free cash. Releasing
+                    // proportionally keeps a partial close honest.
+                    double release = CollateralOf(symbol) * (closingQty / Math.Abs(pos.Qty));
+                    collateral -= release;
+                    cash       += release - closingQty * price;
+                }
+                else
+                {
+                    cash += closingQty * price;      // ordinary spot sale
+                }
+            }
+
+            if (openingQty > 0)
+            {
+                double notional = openingQty * price;
+                if (signed < 0)
+                {
+                    // Opening a short. The proceeds are received and immediately
+                    // locked — you owe the asset back — and an equal amount of margin
+                    // is locked on top. So shorting N costs N of free cash, exactly
+                    // as buying N does, and the position is liquidated at twice its
+                    // entry price where the collateral runs out.
+                    cash       -= notional;
+                    collateral += notional * (1.0 + InitialMarginRate);
+                }
+                else
+                {
+                    cash -= notional;                // ordinary spot purchase
+                }
+            }
+
+            return new Settlement(closingQty, openingQty, cash, collateral, pos.Qty < 0);
+        }
+
+        private readonly record struct Settlement(
+            double ClosingQty, double OpeningQty, double CashDelta, double CollateralDelta, bool WasShort);
+
+        /// <summary>
+        /// Whether the account can settle this fill, with the reason in spoken words
+        /// when it cannot.
+        ///
+        /// <para>
+        /// There is exactly one way to be unable to settle: free cash would go
+        /// negative. Buying spends it, opening a short posts margin from it, and
+        /// closing either returns it. Everything else — including selling an asset
+        /// you do not hold, which is now a short rather than an impossibility —
+        /// falls out of that single test.
+        /// </para>
+        /// </summary>
         private bool CanFill(string symbol, OrderSide side, double qty, double price, out string? reason)
         {
             var ci = System.Globalization.CultureInfo.InvariantCulture;
-            var pair = SymbolAssets.Split(symbol);
-            string asset = pair.Recognised && pair.Base.Length > 0 ? pair.Base : symbol;
+            var s = Settle(symbol, side, qty, price);
 
-            if (side == OrderSide.Buy)
+            if (_cash + s.CashDelta + 1e-9 >= 0)
             {
-                // The numbers, not just the verdict. A risk-sized crypto position on a tight
-                // stop routinely asks for several times the account in notional, and
-                // "insufficient balance" alone leaves the user guessing by how much.
-                double needed = qty * price;
-                if (_cash + 1e-9 < needed)
-                {
-                    reason = $"insufficient paper balance — that position needs {needed.ToString("N2", ci)} {Quote} "
-                           + $"and the account holds {_cash.ToString("N2", ci)}";
-                    return false;
-                }
                 reason = null;
                 return true;
             }
 
-            double held = _positions.TryGetValue(symbol, out var p) ? p.Qty : 0.0;
-            if (held + 1e-9 < qty)
-            {
-                reason = held <= 1e-12
-                    ? $"cannot sell {qty.ToString("0.########", ci)} {asset} — the account holds none. "
-                    + "Paper trading is spot only; short selling arrives with margin support"
-                    : $"cannot sell {qty.ToString("0.########", ci)} {asset} — the account holds only "
-                    + $"{held.ToString("0.########", ci)}";
-                return false;
-            }
-            reason = null;
-            return true;
+            double needed = -s.CashDelta;
+            bool opensShort = s.OpeningQty > 0 && side == OrderSide.Sell;
+
+            // The numbers, not just the verdict — and for a short, the fact that the
+            // cost is collateral rather than a purchase, because "insufficient
+            // balance" on a SELL reads as nonsense otherwise.
+            reason = opensShort
+                ? $"insufficient paper balance — shorting that much needs {needed.ToString("N2", ci)} {Quote} "
+                + $"of collateral and the account holds {_cash.ToString("N2", ci)}. A short is "
+                + "collateralised at 1 times its value here"
+                : $"insufficient paper balance — that position needs {needed.ToString("N2", ci)} {Quote} "
+                + $"and the account holds {_cash.ToString("N2", ci)}";
+            return false;
         }
+
+        private double CollateralOf(string symbol) =>
+            _collateral.TryGetValue(symbol, out double c) ? c : 0.0;
 
         // ── Account mutation (caller holds _lock) ─────────────────────────────
 
@@ -539,19 +708,25 @@ namespace AccessibleTrader.Core.Services
             double signed = side == OrderSide.Buy ? qty : -qty;
             double newQty = pos.Qty + signed;
 
-            // Spot-style cash flow: buying spends quote, selling returns it.
-            _cash += (side == OrderSide.Buy ? -1 : 1) * qty * price;
+            // The SAME settlement the affordability check used, so the two can never
+            // disagree about what a fill costs.
+            var s = Settle(symbol, side, qty, price);
+            _cash += s.CashDelta;
+
+            double newCollateral = CollateralOf(symbol) + s.CollateralDelta;
+            if (newCollateral > 1e-9) _collateral[symbol] = newCollateral;
+            else                      _collateral.Remove(symbol);
 
             double? realized = null;
-            if (pos.Qty != 0 && Math.Sign(signed) != Math.Sign(pos.Qty))
-            {
-                double closedQty = Math.Min(Math.Abs(signed), Math.Abs(pos.Qty));
-                realized = pos.Qty > 0 ? (price - pos.Avg) * closedQty : (pos.Avg - price) * closedQty;
-            }
+            if (s.ClosingQty > 0)
+                realized = pos.Qty > 0 ? (price - pos.Avg) * s.ClosingQty : (pos.Avg - price) * s.ClosingQty;
 
             if (Math.Abs(newQty) < 1e-12)
             {
                 _positions.Remove(symbol);
+                // Nothing is owed any more, so nothing stays locked. Guards against
+                // rounding dust holding a few cents hostage forever.
+                _collateral.Remove(symbol);
                 return realized;
             }
             double avg;
@@ -641,6 +816,7 @@ namespace AccessibleTrader.Core.Services
                         Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId
                     }).ToList(),
                     History = _history.ToList(),
+                    Collateral = _collateral.Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
                     Charts = _exposureIdentity.Select(kv => new IdentDto
                     {
                         Symbol = kv.Key, Market = kv.Value.Market,
@@ -671,6 +847,7 @@ namespace AccessibleTrader.Core.Services
                         Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
                         o.Activation, o.Armed, o.Oco));
                 if (dto.History != null) _history.AddRange(dto.History);
+                foreach (var c in dto.Collateral ?? new List<LevDto>()) _collateral[c.Symbol] = c.Value;
                 foreach (var c in dto.Charts ?? new List<IdentDto>())
                     _exposureIdentity[c.Symbol] = new ChartIdentity(c.Market, c.Provider, c.Symbol, c.Timeframe);
             }
@@ -730,6 +907,9 @@ namespace AccessibleTrader.Core.Services
             public List<OrderDto> Open { get; set; } = new();
             public List<TradeFill> History { get; set; } = new();
             public List<IdentDto> Charts { get; set; } = new();
+            // Locked against open shorts. Restoring positions without it would hand
+            // back collateral the account still owes — free money on every restart.
+            public List<LevDto> Collateral { get; set; } = new();
         }
         private sealed class PosDto { public string Symbol { get; set; } = ""; public double Qty { get; set; } public double Avg { get; set; } }
         private sealed class IdentDto
