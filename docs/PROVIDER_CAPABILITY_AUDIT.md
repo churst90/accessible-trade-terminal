@@ -15,7 +15,7 @@ those need the live probe and real keys.
 | InteractiveBrokersProvider | FuturesTrading, L2, Leverage, MarginTrading, Shorting | yes | yes | 4 |
 | KrakenProvider | Brackets, L2, Leverage, MarginTrading, MarketDepth | yes | no | 5 |
 | MexcProvider | FuturesTrading, IsolatedMargin, L2, Leverage, MarketDepth | no | yes | 200 |
-| OandaProvider | Leverage, MarginTrading, Shorting | yes | no | 50 |
+| OandaProvider | Leverage, MarginTrading, Shorting, TrailingStop | yes | no | 50 |
 | SchwabProvider | Brackets | no | no | 1 |
 | TradierProvider | Brackets | no | no | 1 |
 

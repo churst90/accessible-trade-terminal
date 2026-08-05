@@ -64,15 +64,14 @@ namespace AccessibleTrader.Plugins.Oanda
         public override int MaxBarsPerRequest => 5000;
         /// <summary>
         /// <c>TrailingStop</c> was declared here and never implemented — the string
-        /// "Trail" appeared nowhere else in this file. The dashboard gates its
-        /// trailing distance and mode fields on that flag, so the controls rendered
-        /// and the order went out without a trail. Withdrawn rather than left
-        /// advertised; OANDA's API does offer trailing stops, so this is a genuine
-        /// gap to fill rather than a capability the venue lacks.
+        /// "Trail" appeared nowhere else in this file — so the dashboard drew its
+        /// trailing fields and the order went out with no trail attached. The flag
+        /// was withdrawn, and is back now that <c>trailingStopLossOnFill</c> is
+        /// really sent.
         /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.Leverage | ProviderCapabilities.Shorting |
-            ProviderCapabilities.MarginTrading;
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.TrailingStop;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
@@ -721,6 +720,47 @@ namespace AccessibleTrader.Plugins.Oanda
                         {
                             ["price"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture)
                         };
+                    }
+
+                    // Attach a trailing stop on fill.
+                    //
+                    // This provider DECLARED TrailingStop and implemented none of it —
+                    // the string "Trail" appeared nowhere else in the file — while the
+                    // dashboard gates its trailing distance and mode fields on that
+                    // flag. So the controls rendered, the user set a trail, and the
+                    // order went out with nothing attached.
+                    //
+                    // OANDA takes a price DISTANCE, not a level and not a percentage.
+                    if (signal.TrailStopValue is > 0 && signal.TrailStopMode is { } trailMode)
+                    {
+                        double? distance = trailMode switch
+                        {
+                            TrailMode.Amount  => signal.TrailStopValue,
+                            // A percentage needs a price to be a percentage OF. The
+                            // only one available at submission is a limit/stop level;
+                            // a market order has none here, and inventing a reference
+                            // would silently place a trail at the wrong distance.
+                            TrailMode.Percent => signal.Price is > 0
+                                ? signal.Price.Value * signal.TrailStopValue.Value / 100.0
+                                : (double?)null,
+                            _ => null,
+                        };
+
+                        if (distance is > 0)
+                        {
+                            orderRequest["trailingStopLossOnFill"] = new JObject
+                            {
+                                ["distance"]    = distance.Value.ToString("0.#####", CultureInfo.InvariantCulture),
+                                ["timeInForce"] = "GTC"
+                            };
+                        }
+                        else
+                        {
+                            // Refusing beats attaching a wrong trail, and saying so
+                            // beats refusing silently.
+                            return "ORDER_FAILED:a percentage trailing stop needs a reference price on this "
+                                 + "provider — set the trail as an amount, or use a limit order";
+                        }
                     }
 
                     var body = new JObject { ["order"] = orderRequest };

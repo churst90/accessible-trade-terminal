@@ -171,17 +171,15 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Oanda_no_longer_advertises_a_trailing_stop_it_never_implemented()
+        public void Oandas_trailing_stop_is_declared_because_it_is_now_sent()
         {
-            // Found by the static audit: the flag was declared and the string "Trail"
-            // appeared nowhere else in the file. The dashboard gates its trailing
-            // distance and mode fields on this, so the controls rendered and the order
-            // went out with no trail attached. OANDA's API does offer trailing stops,
-            // so this is a gap to fill, not a capability the venue lacks — when it is
-            // implemented, this test flips to asserting the flag is present.
+            // The static audit found this flag declared with the string "Trail"
+            // appearing nowhere else in the file — the dashboard drew its trailing
+            // fields and the order went out with nothing attached. The flag was
+            // withdrawn, then earned back by sending trailingStopLossOnFill.
             var oanda = new AccessibleTrader.Plugins.Oanda.OandaProvider();
 
-            Assert.False(oanda.Capabilities.HasFlag(ProviderCapabilities.TrailingStop));
+            Assert.True(oanda.Capabilities.HasFlag(ProviderCapabilities.TrailingStop));
         }
 
         [Fact]

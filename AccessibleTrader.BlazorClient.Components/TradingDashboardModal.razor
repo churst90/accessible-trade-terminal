@@ -9,6 +9,7 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject PortfolioValuationService Portfolio
+@inject IDataService Data
 @inject ILogger<TradingDashboardModal> _layoutLogger
 @inject IOrderExecutionService OrderService
 @inject IApiKeyService ApiKeyService
@@ -91,6 +92,25 @@
                                 </button>
                             </div>
                             
+                            @* Beside the symbol, not buried in settings, because it changes what
+                               every other control here means — leverage, margin mode, reduce-only
+                               and hedge-mode position side are all futures concepts, and the same
+                               symbol can price differently on the two books. Only shown when the
+                               provider genuinely has more than one, which it is asked rather than
+                               assumed. *@
+                            @if (_subTypes.Count > 1)
+                            {
+                                <div class="entry-row">
+                                    <label for="order-market">Market</label>
+                                    <select id="order-market" aria-label="Market type for this order" @bind="_subType">
+                                        @foreach (var st in _subTypes)
+                                        {
+                                            <option value="@st">@st</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
                             <div class="entry-row">
                                 <label for="order-qty">Quantity</label>
                                 <input id="order-qty" type="number" step="0.01" aria-label="Order quantity" @bind="_orderQty" />
@@ -681,6 +701,16 @@
     private PortfolioSnapshot? _portfolio;
 
     /// <summary>
+    /// Which book the order goes to — "Spot", "Futures", and whatever else a venue
+    /// declares. It belongs beside the symbol rather than in settings because it
+    /// changes what every other control on the ticket MEANS: leverage, margin mode,
+    /// reduce-only and hedge-mode position side are futures concepts, and the same
+    /// symbol can price differently on the two books.
+    /// </summary>
+    private string _subType = "";
+    private List<string> _subTypes = new();
+
+    /// <summary>
     /// What the portfolio is measured in. USD rather than the venue's own quote so
     /// a mixed account does not silently add USDT to EUR — the price source treats
     /// the dollar stablecoins as interchangeable for valuation only.
@@ -766,6 +796,15 @@
         _activeKeyNickname = active?.Nickname ?? "";
 
         _caps           = supported ? await OrderService.GetCapabilitiesAsync(provider) : ProviderCapabilities.None;
+
+        // Ask the provider which books it has rather than assuming Spot/Futures.
+        // Venues differ, and a hardcoded pair would offer futures on exchanges that
+        // have none and miss anything they call something else.
+        string marketType = (Store.State.Identity.Market ?? "").Split('|')[0];
+        _subTypes = supported ? await Data.GetSupportedSubTypesAsync(provider, marketType) : new List<string>();
+        string fromChart = (Store.State.Identity.Market ?? "").Contains('|')
+            ? Store.State.Identity.Market!.Split('|')[1] : "";
+        _subType = _subTypes.Contains(fromChart) ? fromChart : (_subTypes.FirstOrDefault() ?? "");
         _supportsOco    = supported && await OrderService.SupportsOcoPairsAsync(provider);
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
         _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
@@ -1123,11 +1162,11 @@
             double? trailTpVal = IsEntryType && trailTpMode != null && _trailTpValue > 0 ? _trailTpValue : (double?)null;
             double? trailTpAct = trailTpVal != null && _trailTpActivation > 0 ? _trailTpActivation : (double?)null;
 
-            // Parse sub-type from the market identity (e.g. "Crypto|Futures" → "Futures")
-            string? subType = null;
-            var marketKey = Store.State.Identity.Market ?? "";
-            if (marketKey.Contains("|"))
-                subType = marketKey.Split('|')[1];
+            // The market type the ticket is set to. TradeSignal.SubType has existed
+            // since the contract was written and nothing ever set it from here — the
+            // value was inferred from the chart's identity, so the futures book was
+            // unreachable unless you had already loaded a futures chart.
+            string? subType = string.IsNullOrEmpty(_subType) ? null : _subType;
 
             var signal = new TradeSignal(
                 Symbol:     Store.State.Identity.Symbol!,
