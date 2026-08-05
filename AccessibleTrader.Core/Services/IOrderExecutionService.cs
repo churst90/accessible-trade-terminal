@@ -35,14 +35,18 @@ namespace AccessibleTrader.Core.Services
             Sdk.Plugins.OrderSide side, double quantity, double limitPrice, double stopTriggerPrice);
 
         // ── Account data (requires ITradingProvider) ───────────────────────────
-        /// <summary>Returns all asset balances for the given provider. Empty list if unsupported.</summary>
-        Task<List<Balance>>   GetBalancesAsync(string provider);
+        /// <summary>All asset balances for the given provider, or why they could not be read.</summary>
+        Task<ProviderResult<List<Balance>>>   GetBalancesAsync(string provider);
 
-        /// <summary>Returns all open positions for the given provider. Empty list if unsupported or spot-only.</summary>
-        Task<List<Position>>  GetPositionsAsync(string provider);
+        /// <summary>
+        /// Open positions, or WHY there are none — a spot-only venue has no positions
+        /// concept, which differs from "you have none" and differs again from a failed
+        /// fetch. Callers that write state from this MUST refuse on anything but Ok.
+        /// </summary>
+        Task<ProviderResult<List<Position>>>  GetPositionsAsync(string provider);
 
-        /// <summary>Returns open orders, optionally filtered by symbol.</summary>
-        Task<List<OpenOrder>> GetOpenOrdersAsync(string provider, string? symbol = null);
+        /// <summary>Open orders, optionally filtered by symbol, or why they could not be read.</summary>
+        Task<ProviderResult<List<OpenOrder>>> GetOpenOrdersAsync(string provider, string? symbol = null);
 
         /// <summary>Returns the maximum leverage multiplier supported by the provider (1.0 if unsupported).</summary>
         Task<double> GetMaxLeverageAsync(string provider);
@@ -70,8 +74,8 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string provider, string symbol);
 
-        /// <summary>Returns recent filled trades for the account on the given provider.</summary>
-        Task<List<TradeFill>> GetFillsAsync(string provider, string? symbol = null, int limit = 50);
+        /// <summary>Recent filled trades for the account, or why they could not be read.</summary>
+        Task<ProviderResult<List<TradeFill>>> GetFillsAsync(string provider, string? symbol = null, int limit = 50);
 
         /// <summary>Returns true when the provider supports margin / leverage trading (Isolated or Cross).</summary>
         Task<bool> SupportsMarginTradingAsync(string provider);

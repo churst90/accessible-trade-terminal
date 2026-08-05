@@ -20,6 +20,13 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class TradingReconciliationTests
 {
+    /// <summary>
+    /// A successful read. Explicit because the point of <see cref="ProviderResult{T}"/>
+    /// is that a bare list no longer says whether the fetch worked — these tests
+    /// have to state which they mean, and most of them mean "it worked".
+    /// </summary>
+    private static ProviderResult<List<T>> Ok<T>(List<T> items) => ProviderResult<List<T>>.Ok(items);
+
     private static Position Pos(string sym = "BTC/USDT") => new(sym, 1.0, 100.0, 100.0, 0.0);
     private static OpenOrder Ord(string id = "o1") =>
         new(id, "BTC/USDT", OrderSide.Buy, OrderType.Limit, 1.0, 100.0, "open");
@@ -105,8 +112,8 @@ public class TradingReconciliationTests
     {
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Binance").Returns(true);
-        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position> { Pos() });
-        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+        h.Orders.GetPositionsAsync("Binance").Returns(Ok(new List<Position> { Pos() }));
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
         await SettleAsync(() => Announcements(h.Bus).Count > 0);
@@ -121,8 +128,8 @@ public class TradingReconciliationTests
     {
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Binance").Returns(true);
-        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position> { Pos() });
-        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+        h.Orders.GetPositionsAsync("Binance").Returns(Ok(new List<Position> { Pos() }));
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
         h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up again"));
@@ -165,8 +172,8 @@ public class TradingReconciliationTests
     {
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        h.Orders.GetPositionsAsync("Kraken").Returns(new List<Position>());
-        h.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        h.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position>()));
+        h.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Kraken", ConnectionState.Connected, "up"));
         await Task.Delay(50);
@@ -191,23 +198,23 @@ public class TradingReconciliationTests
         // Session 1: long 0.5 BTC on Kraken — snapshot persisted on reconcile.
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s1.Orders.GetPositionsAsync("Kraken").Returns(new List<Position>
+        s1.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position>
         {
             new("BTC/USD", 0.5, 90000, 45000, 0.0),
-        });
-        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        }));
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s1, "Kraken");
         s1.Coordinator.Dispose();
 
         // Session 2: the stop fired overnight — flat account, closing fill on record.
         var s2 = Build(paperMode: false, dataDir: dir);
         s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s2.Orders.GetPositionsAsync("Kraken").Returns(new List<Position>());
-        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
-        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(new List<TradeFill>
+        s2.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position>()));
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(Ok(new List<TradeFill>
         {
             new("f1", "BTC/USD", OrderSide.Sell, 0.5, 92300, DateTime.UtcNow, OrderId: "o9", RealizedPnL: 1150),
-        });
+        }));
         await ConnectAsync(s2, "Kraken");
 
         var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
@@ -225,22 +232,22 @@ public class TradingReconciliationTests
 
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Tradier").Returns(true);
-        s1.Orders.GetPositionsAsync("Tradier").Returns(new List<Position>
+        s1.Orders.GetPositionsAsync("Tradier").Returns(Ok(new List<Position>
         {
             new("AAPL", 10, 200, 2000, 0.0), // long 10 @ 200
-        });
-        s1.Orders.GetOpenOrdersAsync("Tradier").Returns(new List<OpenOrder>());
+        }));
+        s1.Orders.GetOpenOrdersAsync("Tradier").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s1, "Tradier");
         s1.Coordinator.Dispose();
 
         var s2 = Build(paperMode: false, dataDir: dir);
         s2.Orders.SupportsTradingAsync("Tradier").Returns(true);
-        s2.Orders.GetPositionsAsync("Tradier").Returns(new List<Position>());
-        s2.Orders.GetOpenOrdersAsync("Tradier").Returns(new List<OpenOrder>());
-        s2.Orders.GetFillsAsync("Tradier", "AAPL", Arg.Any<int>()).Returns(new List<TradeFill>
+        s2.Orders.GetPositionsAsync("Tradier").Returns(Ok(new List<Position>()));
+        s2.Orders.GetOpenOrdersAsync("Tradier").Returns(Ok(new List<OpenOrder>()));
+        s2.Orders.GetFillsAsync("Tradier", "AAPL", Arg.Any<int>()).Returns(Ok(new List<TradeFill>
         {
             new("f1", "AAPL", OrderSide.Sell, 10, 190, DateTime.UtcNow), // RealizedPnL 0 → approximate
-        });
+        }));
         await ConnectAsync(s2, "Tradier");
 
         var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
@@ -257,15 +264,15 @@ public class TradingReconciliationTests
 
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s1.Orders.GetPositionsAsync("Kraken").Returns(positions);
-        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        s1.Orders.GetPositionsAsync("Kraken").Returns(Ok(positions));
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s1, "Kraken");
         s1.Coordinator.Dispose();
 
         var s2 = Build(paperMode: false, dataDir: dir);
         s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s2.Orders.GetPositionsAsync("Kraken").Returns(positions); // unchanged
-        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        s2.Orders.GetPositionsAsync("Kraken").Returns(Ok(positions)); // unchanged
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s2, "Kraken");
 
         Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("While you were away"));
@@ -283,11 +290,11 @@ public class TradingReconciliationTests
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Binance").Returns(true);
         // Long 1 BTC, mark 100 (MarketValue/Quantity), liquidation at 92 → 8% away (< 15%).
-        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position>
+        h.Orders.GetPositionsAsync("Binance").Returns(Ok(new List<Position>
         {
             new("BTC/USD", 1.0, 100.0, 100.0, 0.0, Leverage: 10.0, LiquidationPrice: 92.0),
-        });
-        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+        }));
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
         await SettleAsync(() => MarginWarnings(h.Bus).Count > 0);
@@ -305,11 +312,11 @@ public class TradingReconciliationTests
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Binance").Returns(true);
         // Mark 100, liquidation at 50 → 50% away, well outside the 15% band.
-        h.Orders.GetPositionsAsync("Binance").Returns(new List<Position>
+        h.Orders.GetPositionsAsync("Binance").Returns(Ok(new List<Position>
         {
             new("BTC/USD", 1.0, 100.0, 100.0, 0.0, Leverage: 2.0, LiquidationPrice: 50.0),
-        });
-        h.Orders.GetOpenOrdersAsync("Binance").Returns(new List<OpenOrder>());
+        }));
+        h.Orders.GetOpenOrdersAsync("Binance").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Connected, "up"));
         await SettleAsync(() => Announcements(h.Bus).Count > 0);
@@ -324,11 +331,11 @@ public class TradingReconciliationTests
         var h = Build(paperMode: false);
         h.Orders.SupportsTradingAsync("Coinbase").Returns(true);
         // Spot holding: LiquidationPrice defaults to 0 → not a margin position.
-        h.Orders.GetPositionsAsync("Coinbase").Returns(new List<Position>
+        h.Orders.GetPositionsAsync("Coinbase").Returns(Ok(new List<Position>
         {
             new("BTC/USD", 1.0, 100.0, 100.0, 0.0),
-        });
-        h.Orders.GetOpenOrdersAsync("Coinbase").Returns(new List<OpenOrder>());
+        }));
+        h.Orders.GetOpenOrdersAsync("Coinbase").Returns(Ok(new List<OpenOrder>()));
 
         h.Bus.Publish(new ConnectionStatusEvent("Coinbase", ConnectionState.Connected, "up"));
         await SettleAsync(() => Announcements(h.Bus).Count > 0);
@@ -344,21 +351,104 @@ public class TradingReconciliationTests
 
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s1.Orders.GetPositionsAsync("Kraken").Returns(new List<Position> { new("BTC/USD", 1.0, 90000, 90000, 0.0) });
-        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
+        s1.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position> { new("BTC/USD", 1.0, 90000, 90000, 0.0) }));
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s1, "Kraken");
         s1.Coordinator.Dispose();
 
         var s2 = Build(paperMode: false, dataDir: dir);
         s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
-        s2.Orders.GetPositionsAsync("Kraken").Returns(new List<Position> { new("BTC/USD", 0.4, 90000, 36000, 0.0) });
-        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(new List<OpenOrder>());
-        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(new List<TradeFill>());
+        s2.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position> { new("BTC/USD", 0.4, 90000, 36000, 0.0) }));
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+        s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(Ok(new List<TradeFill>()));
         await ConnectAsync(s2, "Kraken");
 
         var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
         Assert.NotNull(away);
         Assert.Contains("reduced to 0.4", away!.Message);
         s2.Coordinator.Dispose();
+    }
+
+    // ── A failed read is not a flat account ──────────────────────────────────
+    //
+    // The reason ProviderResult exists. Reconciliation received an empty list for
+    // a FAILED positions fetch and could not tell it from a flat account: it
+    // announced every position as closed while you were away, then overwrote the
+    // snapshot with the empty result — so one network hiccup reported the account
+    // flat AND destroyed the record that would have corrected it next time.
+
+    [Fact]
+    public async Task A_failed_positions_read_is_never_reported_as_positions_closing()
+    {
+        var dir = System.IO.Directory.CreateTempSubdirectory("att-failread-").FullName;
+
+        // Session 1: a real position, snapshotted.
+        var s1 = Build(paperMode: false, dataDir: dir);
+        s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s1.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position>
+        {
+            new("BTC/USD", 0.5, 90000, 45000, 0.0),
+        }));
+        s1.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+        await ConnectAsync(s1, "Kraken");
+        s1.Coordinator.Dispose();
+
+        // Session 2: the venue is down. Not flat — unknown.
+        var s2 = Build(paperMode: false, dataDir: dir);
+        s2.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s2.Orders.GetPositionsAsync("Kraken")
+            .Returns(ProviderResult<List<Position>>.Failed("Reading positions failed: connection reset"));
+        s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+        await ConnectAsync(s2, "Kraken");
+
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("While you were away"));
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("closed"));
+        s2.Coordinator.Dispose();
+
+        // …and the snapshot must be INTACT, so a later good read still sees the
+        // position it had. If the failure had been persisted, session 3 would now
+        // believe the account was always flat.
+        var s3 = Build(paperMode: false, dataDir: dir);
+        s3.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        s3.Orders.GetPositionsAsync("Kraken").Returns(Ok(new List<Position>()));
+        s3.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+        s3.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(Ok(new List<TradeFill>()));
+        await ConnectAsync(s3, "Kraken");
+
+        Assert.Contains(Announcements(s3.Bus), a => a.Message.Contains("While you were away"));
+        s3.Coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task A_permission_failure_is_spoken_because_the_user_can_fix_it()
+    {
+        // A key missing a scope, or unfinished verification, is actionable at the
+        // venue — so it is said out loud, unlike a transient timeout.
+        var h = Build(paperMode: false);
+        h.Orders.SupportsTradingAsync("Kraken").Returns(true);
+        h.Orders.GetPositionsAsync("Kraken").Returns(
+            ProviderResult<List<Position>>.NotPermitted("check the API key's permissions on the venue"));
+        h.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
+
+        await ConnectAsync(h, "Kraken");
+
+        var msg = Assert.Single(Announcements(h.Bus), a => a.Message.Contains("permissions"));
+        Assert.Equal(FeedbackType.Error, msg.Type);
+    }
+
+    [Fact]
+    public async Task A_spot_only_provider_reports_no_positions_without_announcing_anything()
+    {
+        // NotSupported is not an error and not a change — a spot venue simply has
+        // no positions concept. Nothing to interrupt the user with.
+        var h = Build(paperMode: false);
+        h.Orders.SupportsTradingAsync("Coinbase").Returns(true);
+        h.Orders.GetPositionsAsync("Coinbase").Returns(
+            ProviderResult<List<Position>>.NotSupported("Coinbase is spot only"));
+        h.Orders.GetOpenOrdersAsync("Coinbase").Returns(Ok(new List<OpenOrder>()));
+
+        await ConnectAsync(h, "Coinbase");
+
+        Assert.Empty(Announcements(h.Bus));
     }
 }

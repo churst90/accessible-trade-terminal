@@ -350,7 +350,7 @@
                                             }
                                             @if (!_balances.Any(b => b.Free > 0 || b.Locked > 0))
                                             {
-                                                <tr><td colspan="3">No balances.</td></tr>
+                                                <tr><td colspan="3">@(_balancesNote ?? "No balances.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -387,9 +387,10 @@
                                                    no positions concept: what you hold IS your balance,
                                                    so say that and point at the tab that has it. *@
                                                 <tr><td colspan="10">
-                                                    @(IsSpotOnly
-                                                        ? "This provider is spot only, so it has no separate positions — what you hold is shown on the Balances tab."
-                                                        : "No open positions.")
+                                                    @(_positionsNote
+                                                      ?? (IsSpotOnly
+                                                          ? "This provider is spot only, so it has no separate positions — what you hold is shown on the Balances tab."
+                                                          : "No open positions."))
                                                 </td></tr>
                                             }
                                         </tbody>
@@ -414,7 +415,7 @@
                                             }
                                             @if (!_openOrders.Any())
                                             {
-                                                <tr><td colspan="6">No open orders.</td></tr>
+                                                <tr><td colspan="6">@(_openOrdersNote ?? "No open orders.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -439,7 +440,7 @@
                                             }
                                             @if (!_fills.Any())
                                             {
-                                                <tr><td colspan="7">No trade history.</td></tr>
+                                                <tr><td colspan="7">@(_fillsNote ?? "No trade history.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -639,6 +640,22 @@
     /// instead of showing an empty table, which reads as a bug or, worse, as
     /// "your position is gone".
     /// </summary>
+    private string? _balancesNote, _positionsNote, _openOrdersNote, _fillsNote;
+
+    /// <summary>
+    /// What to say in place of a table when a read did not return data. Null when
+    /// the read succeeded — an empty table is then the honest answer, because the
+    /// account really does hold nothing.
+    /// </summary>
+    private static string? EmptyNote<T>(ProviderResult<List<T>> r) => r.Kind switch
+    {
+        ResultKind.Ok           => null,
+        ResultKind.NotSupported => r.Reason,
+        ResultKind.NotPermitted => $"Not permitted — {r.Reason}",
+        ResultKind.Unavailable  => $"Unavailable — {r.Reason}",
+        _                       => $"Could not be read — {r.Reason}. This is NOT a statement that you have none.",
+    };
+
     private bool IsSpotOnly =>
         !Can(ProviderCapabilities.MarginTrading) && !Can(ProviderCapabilities.FuturesTrading);
     private ProviderCapabilities _caps;
@@ -885,10 +902,23 @@
         var provider = Store.State.Identity.Provider;
         if (string.IsNullOrEmpty(provider)) return;
 
-        _balances   = await OrderService.GetBalancesAsync(provider);
-        _positions  = await OrderService.GetPositionsAsync(provider);
-        _openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
-        _fills      = await OrderService.GetFillsAsync(provider);
+        // Each tab keeps WHY it is empty, so a failed read never renders as "you
+        // have none". Those are opposite messages and a trader would act
+        // differently on each.
+        var balances   = await OrderService.GetBalancesAsync(provider);
+        var positions  = await OrderService.GetPositionsAsync(provider);
+        var openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
+        var fills      = await OrderService.GetFillsAsync(provider);
+
+        _balances   = balances.OrElse(new List<Balance>());
+        _positions  = positions.OrElse(new List<Position>());
+        _openOrders = openOrders.OrElse(new List<OpenOrder>());
+        _fills      = fills.OrElse(new List<TradeFill>());
+
+        _balancesNote   = EmptyNote(balances);
+        _positionsNote  = EmptyNote(positions);
+        _openOrdersNote = EmptyNote(openOrders);
+        _fillsNote      = EmptyNote(fills);
 
         RefreshTradingEnvironment();
 

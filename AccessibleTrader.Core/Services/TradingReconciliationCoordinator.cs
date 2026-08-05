@@ -152,11 +152,40 @@ namespace AccessibleTrader.Core.Services
 
                 var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
                 var orders = await _orders.GetOpenOrdersAsync(provider).ConfigureAwait(false);
-                Announce(provider, positions.Count, orders.Count);
-                CheckMargin(provider, positions);
 
-                await ReportClosedWhileAwayAsync(provider, positions).ConfigureAwait(false);
-                SaveSnapshotFor(provider, positions);
+                // Refuse to reconcile against a read that did not succeed.
+                //
+                // This used to receive an empty list for a FAILED fetch and could not
+                // tell it from a flat account. It then compared that emptiness with the
+                // saved snapshot, announced every position as "closed while you were
+                // away", and overwrote the snapshot with the empty result — so one
+                // network hiccup reported the account flat and destroyed the record
+                // that would have corrected it on the next run.
+                if (!positions.IsOk)
+                {
+                    _logger.LogInformation("Skipping reconciliation for {Provider}: {Reason}",
+                        provider, positions.Reason);
+
+                    // A venue refusal is actionable by the user — the key is missing a
+                    // scope, or verification is incomplete — so it is said out loud.
+                    // Transient failures and "spot has no positions" are not worth
+                    // interrupting for.
+                    if (positions.Kind == ResultKind.NotPermitted)
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                            $"{provider}: {positions.Reason}", Interrupt: false, IsUserInitiated: false));
+
+                    // Crucially, the snapshot is NOT touched. Whatever was last known
+                    // to be true stays known.
+                    lock (_reconciledLock) _reconciled.Remove(provider);   // let it retry
+                    return;
+                }
+
+                var open = positions.OrElse(new List<Position>());
+                Announce(provider, open.Count, orders.OrElse(new List<OpenOrder>()).Count);
+                CheckMargin(provider, open);
+
+                await ReportClosedWhileAwayAsync(provider, open).ConfigureAwait(false);
+                SaveSnapshotFor(provider, open);
             }
             catch (Exception ex)
             {
@@ -185,7 +214,8 @@ namespace AccessibleTrader.Core.Services
                 {
                     // The closing fill is the freshest fill on the OPPOSITE side of
                     // the old position, after the snapshot was taken.
-                    var fills = await _orders.GetFillsAsync(provider, old.Symbol, 20).ConfigureAwait(false);
+                    var fillsResult = await _orders.GetFillsAsync(provider, old.Symbol, 20).ConfigureAwait(false);
+                    var fills = fillsResult.OrElse(new List<TradeFill>());
                     var closingSide = old.Quantity > 0 ? OrderSide.Sell : OrderSide.Buy;
                     var closing = fills.Find(f =>
                         f.Side == closingSide && f.FilledAt >= snapshot.SavedAtUtc.AddMinutes(-5));
@@ -274,8 +304,10 @@ namespace AccessibleTrader.Core.Services
                         try
                         {
                             var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
-                            SaveSnapshotFor(provider, positions);
-                            CheckMargin(provider, positions);
+                            // Same rule: never persist a snapshot from a read that failed.
+                            if (!positions.IsOk) continue;
+                            SaveSnapshotFor(provider, positions.OrElse(new List<Position>()));
+                            CheckMargin(provider, positions.OrElse(new List<Position>()));
                         }
                         catch (Exception ex)
                         {
@@ -315,7 +347,9 @@ namespace AccessibleTrader.Core.Services
                             foreach (var provider in providers)
                             {
                                 var positions = await _orders.GetPositionsAsync(provider).ConfigureAwait(false);
-                                CheckMargin(provider, positions);
+                                // A margin warning computed from a failed read is worse
+                                // than none: it would report a healthy margin level.
+                                if (positions.IsOk) CheckMargin(provider, positions.OrElse(new List<Position>()));
                             }
                         }
                     }

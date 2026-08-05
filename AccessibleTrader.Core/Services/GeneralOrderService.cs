@@ -666,10 +666,11 @@ namespace AccessibleTrader.Core.Services
 
         // ── Account data ───────────────────────────────────────────────────────
 
-        public async Task<List<Balance>> GetBalancesAsync(string providerName)
+        public async Task<ProviderResult<List<Balance>>> GetBalancesAsync(string providerName)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null || !tp.IsConnected) return new List<Balance>();
+            if (tp == null) return ProviderResult<List<Balance>>.Unavailable("no trading provider is configured");
+            if (!tp.IsConnected) return ProviderResult<List<Balance>>.Unavailable("the provider is not connected");
             try
             {
                 var balances = await tp.GetBalancesAsync().ConfigureAwait(false);
@@ -688,25 +689,53 @@ namespace AccessibleTrader.Core.Services
                     .Sum(b => b.Free + b.Locked);
                 Trading.QuickTradeEquity.Report(equity);
 
-                return balances;
+                return ProviderResult<List<Balance>>.Ok(balances);
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "GetBalances failed"); return new List<Balance>(); }
+            catch (Exception ex)
+            {
+                // Deliberately does NOT report an equity of zero on failure. The
+                // sizer would then treat the account as empty and refuse every
+                // trade, and the reason would be invisible.
+                _logger.LogWarning(ex, "GetBalances failed for {Provider}", providerName);
+                return ProviderResult.FromException<List<Balance>>(ex, "Reading balances");
+            }
         }
 
-        public async Task<List<Position>> GetPositionsAsync(string providerName)
+        /// <summary>
+        /// Positions, or the reason there are none to show. A spot-only venue has
+        /// no positions concept at all, which is a different answer from "you have
+        /// none" and very different from "the fetch failed".
+        /// </summary>
+        public async Task<ProviderResult<List<Position>>> GetPositionsAsync(string providerName)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null || !tp.IsConnected) return new List<Position>();
-            try { return await tp.GetPositionsAsync().ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "GetPositions failed"); return new List<Position>(); }
+            if (tp == null) return ProviderResult<List<Position>>.Unavailable("no trading provider is configured");
+            if (!tp.IsConnected) return ProviderResult<List<Position>>.Unavailable("the provider is not connected");
+
+            if (!tp.Capabilities.HasFlag(ProviderCapabilities.MarginTrading) &&
+                !tp.Capabilities.HasFlag(ProviderCapabilities.FuturesTrading))
+                return ProviderResult<List<Position>>.NotSupported(
+                    $"{providerName} is spot only, so it has no separate positions — what you hold is on the Balances tab");
+
+            try { return ProviderResult<List<Position>>.Ok(await tp.GetPositionsAsync().ConfigureAwait(false)); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "GetPositions failed for {Provider}", providerName);
+                return ProviderResult.FromException<List<Position>>(ex, "Reading positions");
+            }
         }
 
-        public async Task<List<OpenOrder>> GetOpenOrdersAsync(string providerName, string? symbol = null)
+        public async Task<ProviderResult<List<OpenOrder>>> GetOpenOrdersAsync(string providerName, string? symbol = null)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null || !tp.IsConnected) return new List<OpenOrder>();
-            try { return await tp.GetOpenOrdersAsync(symbol).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "GetOpenOrders failed"); return new List<OpenOrder>(); }
+            if (tp == null) return ProviderResult<List<OpenOrder>>.Unavailable("no trading provider is configured");
+            if (!tp.IsConnected) return ProviderResult<List<OpenOrder>>.Unavailable("the provider is not connected");
+            try { return ProviderResult<List<OpenOrder>>.Ok(await tp.GetOpenOrdersAsync(symbol).ConfigureAwait(false)); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "GetOpenOrders failed for {Provider}", providerName);
+                return ProviderResult.FromException<List<OpenOrder>>(ex, "Reading open orders");
+            }
         }
 
         public async Task<double> GetMaxLeverageAsync(string providerName)
@@ -758,15 +787,15 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public async Task<List<TradeFill>> GetFillsAsync(string providerName, string? symbol = null, int limit = 50)
+        public async Task<ProviderResult<List<TradeFill>>> GetFillsAsync(string providerName, string? symbol = null, int limit = 50)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null) return new List<TradeFill>();
-            try { return await tp.GetFillsAsync(symbol, limit).ConfigureAwait(false); }
+            if (tp == null) return ProviderResult<List<TradeFill>>.Unavailable("no trading provider is configured");
+            try { return ProviderResult<List<TradeFill>>.Ok(await tp.GetFillsAsync(symbol, limit).ConfigureAwait(false)); }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "GetFillsAsync failed for {Provider}", providerName);
-                return new List<TradeFill>();
+                return ProviderResult.FromException<List<TradeFill>>(ex, "Reading fill history");
             }
         }
 
