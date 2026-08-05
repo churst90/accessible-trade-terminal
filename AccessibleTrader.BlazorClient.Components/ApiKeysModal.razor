@@ -290,6 +290,12 @@
             _formError = null;
             StateHasChanged();
 
+            // Configuring the provider is only half of it. The market cascade had
+            // already filled its symbol list with the "API key required" sentinel,
+            // and nothing recomputed it — so the dropdown went on demanding a key
+            // that had just been added, and only a restart cleared it.
+            EventBus.Publish(new ApiKeysChangedEvent(config.Provider));
+
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 autoActivate
                     ? $"Profile {config.Nickname} saved and activated"
@@ -312,6 +318,9 @@
             await DataService.ConfigureStoredKeyProvidersAsync();
             _keys = await ApiKeyService.GetAllKeysAsync();
             StateHasChanged();
+
+            EventBus.Publish(new ApiKeysChangedEvent(
+                _keys.FirstOrDefault(k => k.Nickname == nickname)?.Provider ?? ""));
 
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 $"{nickname} set as active"));

@@ -79,6 +79,7 @@ namespace AccessibleTrader.Core.Services
         private readonly Subject<Unit> _pipelineUpdated = new();
         private readonly MarketStateMachine _stateMachine;
         private IDisposable? _tabSwitchedSub;
+        private IDisposable? _apiKeysChangedSub;
 
         private string _selectedMarket = "";
         private string _selectedProvider = "";
@@ -200,6 +201,31 @@ namespace AccessibleTrader.Core.Services
             // Race-condition guard: each new tab switch cancels any in-flight refresh from the
             // previous switch. RefreshDataAsync checks the token after the network fetch so
             // stale dispatches never land on the wrong tab.
+            // A key was added, activated or removed, so the symbol list may have been
+            // wrong ever since. RefreshSymbolsAsync gates on IsConfigured and, when a
+            // provider lacked a key, filled the list with the "API key required"
+            // sentinel — a value nothing recomputed. The provider was reconfigured on
+            // save, so it worked; the dropdown just went on demanding a key the user
+            // had already supplied, and restarting the app was the only way out.
+            //
+            // Refreshed regardless of WHICH provider changed: the cascade only holds
+            // one provider's symbols, and a key for a provider we are not looking at
+            // cannot make the current list wrong — but a re-run is cheap and gets the
+            // "activated a second profile for the provider I AM on" case right too.
+            _apiKeysChangedSub = _eventBus.Subscribe<ApiKeysChangedEvent>(evt =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await RefreshSymbolsAsync().ConfigureAwait(false); }
+                    catch
+                    {
+                        // Swallowed for the same reason the tab-switch sync below is:
+                        // a cosmetic recovery must never take the app down. The worst
+                        // case is the pre-existing behaviour — a stale dropdown.
+                    }
+                });
+            });
+
             _tabSwitchedSub = _eventBus.Subscribe<TabSwitchedEvent>(e =>
             {
                 var state = _store.State;
@@ -766,6 +792,7 @@ namespace AccessibleTrader.Core.Services
         public void Dispose()
         {
             _tabSwitchedSub?.Dispose();
+            _apiKeysChangedSub?.Dispose();
             _tabSwitchCts.Cancel();
             _tabSwitchCts.Dispose();
             _pipelineUpdated.Dispose();

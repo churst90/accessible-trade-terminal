@@ -78,6 +78,19 @@ namespace AccessibleTrader.Core.Models
     public record OpenApiKeysEvent();
 
     /// <summary>
+    /// An API key was saved, activated or removed.
+    ///
+    /// <para>
+    /// Raised so the market cascade can recompute. Adding a key configures the
+    /// provider, but the symbol list had already been filled with the "API key
+    /// required" sentinel and nothing recomputed it — so the dropdown went on
+    /// telling the user to add a key they had just added, and the only way out was
+    /// to restart the app.
+    /// </para>
+    /// </summary>
+    public record ApiKeysChangedEvent(string Provider);
+
+    /// <summary>
     /// Open the deposit-address dialog. Only ever raised for a provider that
     /// implements <c>IWalletProvider</c>; equity brokers have no wallet and the
     /// button that raises this is absent for them.
