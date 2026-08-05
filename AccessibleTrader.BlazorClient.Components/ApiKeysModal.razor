@@ -237,11 +237,16 @@
     private bool   _newAllowsWithdrawal;
     private string? _formError;
 
+    // KrakenFutures and MEXC were MISSING here even though both plugins trade —
+    // so their keys literally could not be saved through this dropdown, and the
+    // Kraken Futures verification instructions pointed at a flow that did not
+    // exist. A provider that takes a key belongs in this list the day it ships.
     private static readonly List<string> _knownProviders = new()
     {
         "Alpaca", "BGeometrics", "Binance", "Bitstamp", "Coinbase", "CoinMetrics",
-        "DefiLlama", "Etherscan", "Finnhub", "FMP", "FRED", "Glassnode",
-        "Kraken", "Mempool", "Oanda", "Polygon", "Schwab", "Tradier", "TwelveData", "Custom"
+        "DefiLlama", "Etherscan", "Finnhub", "FMP", "FRED", "Gemini", "Glassnode",
+        "Kraken", "KrakenFutures", "Mempool", "MEXC", "Oanda", "Polygon", "Schwab",
+        "Tradier", "TwelveData", "Custom"
     };
 
     protected override void OnInitialized()

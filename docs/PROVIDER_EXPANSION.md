@@ -58,28 +58,34 @@ worth building against until a key actually exists.
 
 ## 3. Recommended order
 
-### First: **Bybit**
+> **Revised 2026-08-05, same day:** measured from the maintainer's machine, Bybit's
+> API is **geo-blocked from the US at the CDN — the testnet API included**
+> (CloudFront answers "configured to block access from your country" on every
+> endpoint; the testnet *website* loads, the API does not). So "self-service
+> testnet = verifiable from the US" was wrong: not one call, public market data
+> included, can be tested from here. Every other candidate's public API answered
+> HTTP 200 from the same machine, Gemini's sandbox among them. By this document's
+> own criterion the order flips: **Gemini first**, Bybit only if built blind for
+> international users and verified by someone who can reach it.
 
-Not because it is the biggest, but because it is the most *verifiable*:
-
-- **Self-service testnet** — a full plugin can be built and proven end to end with
-  no funds, no approval queue, and no dependency on the maintainer's location
-- Genuinely good documentation, and a v5 API unified across spot and derivatives,
-  so one plugin covers both books
-- Very large international user base — the single biggest reach-per-plugin on the
-  list
-- Its API shape is the one several smaller venues clone, so the work is partly
-  reusable
-
-### Second: **Gemini**
+### First: **Gemini** *(was second)*
 
 The strongest **US-usable** addition, and the one the maintainer can verify on a
 real account with real (small) funds:
 
 - US-regulated, so it stays available to US users
-- Clean, well documented API with a sandbox
+- Clean, well documented API with a sandbox — reachable from the US, with
+  self-service sandbox accounts and paper funds
 - Fills a real gap: of the US venues we support, Coinbase is our thinnest plugin
   and Kraken is currently blocked behind identity verification
+
+### Second: **Bybit** *(was first — see the revision note above)*
+
+Everything said about its documentation, unified v5 API, and reach still holds.
+What failed is verifiability: the API is unreachable from the maintainer's
+country, testnet included. Build it when either a trusted international verifier
+exists or the block is confirmed lifted — and re-probe before starting, exactly
+as the Kraken Futures demo taught.
 
 ### Third: **OKX**
 

@@ -65,6 +65,7 @@
     -->
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.KrakenFutures\AccessibleTrader.Plugins.KrakenFutures.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Gemini\AccessibleTrader.Plugins.Gemini.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Coinbase\AccessibleTrader.Plugins.Coinbase.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />

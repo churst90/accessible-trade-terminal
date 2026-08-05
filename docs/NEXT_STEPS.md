@@ -70,9 +70,19 @@ of `tag` / `memo` / `destination_tag` is present.
 
 ## 4. Provider expansion — see `docs/PROVIDER_EXPANSION.md`
 
-Requested: KuCoin, LBank, Bybit, plus suggestions. Analysis and a recommended
-order are in that document. Short version: **Bybit first**, for reasons that are
-about verifiability rather than popularity.
+Requested: KuCoin, LBank, Bybit, plus suggestions. The order in that document
+was revised 2026-08-05: **Bybit's API is geo-blocked from the US, testnet
+included** (probed before building — the Kraken-demo lesson), so by the
+document's own verifiability criterion **Gemini moved first — and shipped the
+same day**: spot market data, order book, and trading (limit, stop-limit,
+emulated market via IOC), sandbox routed through Environment = Paper, signature
+pinned against independently computed vectors, public read path verified live
+against the sandbox.
+
+Remaining for Gemini: a person driving the sandbox end to end — create an
+account at exchange.sandbox.gemini.com, generate a key, add it in API Keys as
+Gemini with Environment = Paper, load a BTCUSD chart, place and cancel a limit
+order, check balances. Then Bybit-blind or OKX per the doc.
 
 ---
 

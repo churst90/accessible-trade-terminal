@@ -42,6 +42,7 @@ namespace AccessibleTrader.Tests
             yield return new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
             yield return new AccessibleTrader.Plugins.Oanda.OandaProvider();
             yield return new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
+            yield return new AccessibleTrader.Plugins.Gemini.GeminiProvider();
         }
 
         /// <summary>
