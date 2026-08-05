@@ -8,16 +8,16 @@ those need the live probe and real keys.
 
 | Provider | Declared | Margin | Futures | MaxLeverage |
 |---|---|---|---|---|
-| AlpacaProvider | Brackets, L2 | — | — | 1 |
-| BinanceProvider | Brackets, FuturesTrading, HedgeMode, L2, Leverage, MarginTrading, MarketDepth, OCO, PostOnly, ReduceOnly, TimeInForce, TrailingStop | — | — | 125 |
-| BitstampProvider | L2, MarketDepth | — | — | 1 |
-| CoinbaseProvider | L2 | — | — | 1 |
-| InteractiveBrokersProvider | FuturesTrading, L2, Leverage, MarginTrading, Shorting | — | — | 4 |
-| KrakenProvider | Brackets, L2, Leverage, MarginTrading, MarketDepth | — | — | 5 |
-| MexcProvider | FuturesTrading, IsolatedMargin, L2, Leverage, MarketDepth | — | — | 200 |
-| OandaProvider | Leverage, MarginTrading, Shorting | — | — | 50 |
-| SchwabProvider | Brackets | — | — | 1 |
-| TradierProvider | Brackets | — | — | 1 |
+| AlpacaProvider | Brackets, L2 | no | no | 1 |
+| BinanceProvider | Brackets, FuturesTrading, HedgeMode, L2, Leverage, MarginTrading, MarketDepth, OCO, PostOnly, ReduceOnly, TimeInForce, TrailingStop | yes | yes | 125 |
+| BitstampProvider | L2, MarketDepth | no | no | 1 |
+| CoinbaseProvider | L2 | no | no | 1 |
+| InteractiveBrokersProvider | FuturesTrading, L2, Leverage, MarginTrading, Shorting | yes | yes | 4 |
+| KrakenProvider | Brackets, L2, Leverage, MarginTrading, MarketDepth | yes | no | 5 |
+| MexcProvider | FuturesTrading, IsolatedMargin, L2, Leverage, MarketDepth | no | yes | 200 |
+| OandaProvider | Leverage, MarginTrading, Shorting | yes | no | 50 |
+| SchwabProvider | Brackets | no | no | 1 |
+| TradierProvider | Brackets | no | no | 1 |
 
 ## Claims that do not match the code
 

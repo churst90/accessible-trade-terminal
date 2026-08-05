@@ -201,8 +201,12 @@ namespace AccessibleTrader.StrategyLab
         private static ProviderAudit AuditOne(string name, string relPath, string src)
         {
             var (declared, parsed) = ParseCapabilities(src);
-            bool? margin  = ParseBool(src, "SupportsMarginTrading");
-            bool? futures = ParseBool(src, "SupportsFuturesTrading");
+            // Read from the FLAGS, not from overridable bools. Those overrides were
+            // removed when the two were folded together; still parsing them would
+            // report "—" for every provider, which reads as unknown when it is now
+            // knowable — the report would be lying in the quietest possible way.
+            bool? margin  = parsed ? declared.Contains("MarginTrading")  : null;
+            bool? futures = parsed ? declared.Contains("FuturesTrading") : null;
             double? maxLev = ParseDouble(src, "MaxLeverage");
 
             var stubs = ReadPaths.Where(m => IsConstantReturnStub(src, m)).ToList();
