@@ -13,7 +13,7 @@ those need the live probe and real keys.
 | BitstampProvider | L2, MarketDepth | no | no | 1 |
 | CoinbaseProvider | L2 | no | no | 1 |
 | InteractiveBrokersProvider | FuturesTrading, L2, Leverage, MarginTrading, Shorting | yes | yes | 4 |
-| KrakenProvider | Brackets, L2, Leverage, MarginTrading, MarketDepth | yes | no | 5 |
+| KrakenProvider | Brackets, DepositAddresses, L2, Leverage, MarginTrading, MarketDepth | yes | no | 5 |
 | MexcProvider | FuturesTrading, IsolatedMargin, L2, Leverage, MarketDepth | no | yes | 200 |
 | OandaProvider | Leverage, MarginTrading, Shorting, TrailingStop | yes | no | 50 |
 | SchwabProvider | Brackets | no | no | 1 |

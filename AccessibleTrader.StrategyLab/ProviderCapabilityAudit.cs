@@ -161,9 +161,15 @@ namespace AccessibleTrader.StrategyLab
                 { new EvidenceGroup("wallet interface", new[] { Ev.Interface("IWalletProvider") }) },
                 "not built yet — see docs/WALLET_AND_PORTFOLIO_DESIGN.md"),
 
+            // Deliberately a DIFFERENT interface from deposits. IWalletProvider is
+            // read-only by design, so implementing it is not evidence of being able
+            // to move funds — the audit correctly flagged Kraken the moment its
+            // deposit support landed, and the rule was the thing that was wrong.
+            // IWithdrawalProvider does not exist yet; when it does, it will carry a
+            // separate withdrawal-enabled credential and this rule already knows it.
             new CapabilityRule("Withdrawals", new[]
-                { new EvidenceGroup("wallet interface", new[] { Ev.Interface("IWalletProvider") }) },
-                "not built yet — and gated on a separate withdrawal-enabled credential"),
+                { new EvidenceGroup("withdrawal interface", new[] { Ev.Interface("IWithdrawalProvider") }) },
+                "not built yet — and will be gated on a separate withdrawal-enabled credential"),
         };
 
         /// <summary>Read-path methods whose constant-return stub is indistinguishable from real emptiness.</summary>

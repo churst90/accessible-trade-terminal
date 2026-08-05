@@ -19,7 +19,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
 {
-    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider
+    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -74,7 +74,7 @@ namespace AccessibleTrader.Plugins.Kraken
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
             ProviderCapabilities.Leverage | ProviderCapabilities.Brackets |
-            ProviderCapabilities.MarginTrading;
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.DepositAddresses;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
@@ -852,6 +852,157 @@ namespace AccessibleTrader.Plugins.Kraken
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) =>
             Task.FromResult(Math.Clamp(leverage, 1, MaxLeverage));
+
+        // ── IWalletProvider ─────────────────────────────────────────────────
+        //
+        // Kraken calls a chain a "method": DepositMethods returns entries such as
+        // "Bitcoin", "Ethereum (ERC20)" and "Tether USD (TRC20)", and that same
+        // string is what DepositAddresses wants back. So Kraken's method IS our
+        // network, and no translation table is needed — which is fortunate, because
+        // a hand-maintained one would be a list of ways to send funds to the wrong
+        // chain.
+        //
+        // Deliberately does NOT swallow failures into empty lists, unlike the older
+        // read paths in this file: WalletService needs to tell "cannot deposit this
+        // asset" from "your key lacks the scope" from "the call failed", and it can
+        // only do that if the exception reaches it.
+
+        public async Task<IReadOnlyList<string>> GetDepositNetworksAsync(
+            string asset, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                var result = await PostPrivateAsync("/0/private/DepositMethods",
+                    new Dictionary<string, string> { ["asset"] = NormaliseAsset(asset) });
+
+                ThrowOnKrakenError(result, $"deposit methods for {asset}");
+
+                var methods = JObject.Parse(result)["result"] as JArray;
+                if (methods == null) return (IReadOnlyList<string>)Array.Empty<string>();
+
+                return methods
+                    .Select(m => m?["method"]?.ToString())
+                    .Where(m => !string.IsNullOrWhiteSpace(m))
+                    .Select(m => m!)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+            });
+        }
+
+        public async Task<DepositAddress> GetDepositAddressAsync(
+            string asset, string network, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                // `new=false`: ask for an EXISTING address rather than minting one on
+                // every open. Kraken rotates addresses and keeps old ones fundable,
+                // so generating per view would litter the account and make the "is
+                // this the address I wrote down?" check fail for no reason.
+                var result = await PostPrivateAsync("/0/private/DepositAddresses",
+                    new Dictionary<string, string>
+                    {
+                        ["asset"]  = NormaliseAsset(asset),
+                        ["method"] = network,
+                    });
+
+                ThrowOnKrakenError(result, $"deposit address for {asset} on {network}");
+
+                var addresses = JObject.Parse(result)["result"] as JArray;
+                var first = addresses?.FirstOrDefault() as JObject
+                    ?? throw new InvalidOperationException(
+                        $"Kraken returned no {asset} address for {network}. If this asset is new to "
+                      + "your account, generate the first address on kraken.com.");
+
+                string? addr = first["address"]?.ToString();
+                if (string.IsNullOrWhiteSpace(addr))
+                    throw new InvalidOperationException("Kraken returned an address entry with no address in it.");
+
+                // Kraken names the destination tag differently per asset, and does not
+                // always send one. Read whichever key is present rather than assuming;
+                // a memo silently dropped loses the deposit as completely as a wrong
+                // address does.
+                string? memo = first["tag"]?.ToString()
+                            ?? first["memo"]?.ToString()
+                            ?? first["destination_tag"]?.ToString();
+                string? memoLabel = first["tag"] != null ? "destination tag"
+                                  : first["memo"] != null ? "memo"
+                                  : first["destination_tag"] != null ? "destination tag" : null;
+
+                return new DepositAddress(
+                    Asset:     asset.ToUpperInvariant(),
+                    Network:   network,
+                    Address:   addr!,
+                    Memo:      string.IsNullOrWhiteSpace(memo) ? null : memo,
+                    MemoLabel: memoLabel);
+            });
+        }
+
+        public async Task<IReadOnlyList<DepositRecord>> GetDepositsAsync(
+            string? asset = null, int limit = 50, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                var args = new Dictionary<string, string>();
+                if (!string.IsNullOrWhiteSpace(asset)) args["asset"] = NormaliseAsset(asset!);
+
+                var result = await PostPrivateAsync("/0/private/DepositStatus", args);
+                ThrowOnKrakenError(result, "deposit history");
+
+                var rows = JObject.Parse(result)["result"] as JArray;
+                if (rows == null) return (IReadOnlyList<DepositRecord>)Array.Empty<DepositRecord>();
+
+                return rows.OfType<JObject>().Take(limit).Select(r =>
+                {
+                    double.TryParse(r["amount"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double amt);
+                    double.TryParse(r["time"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double unix);
+                    return new DepositRecord(
+                        Asset:     r["asset"]?.ToString() ?? asset?.ToUpperInvariant() ?? "",
+                        Network:   r["method"]?.ToString() ?? "",
+                        Amount:    amt,
+                        Status:    r["status"]?.ToString() ?? "unknown",
+                        SeenAtUtc: DateTimeOffset.FromUnixTimeSeconds((long)unix).UtcDateTime,
+                        TxId:      r["txid"]?.ToString());
+                }).ToList();
+            });
+        }
+
+        /// <summary>
+        /// Kraken answers HTTP 200 with an <c>error</c> array for permission and
+        /// argument problems, so a caller that only checks the status code sees
+        /// success and an empty result. Turning it into an exception is what lets
+        /// <c>WalletService</c> classify it — and "EAPI:Invalid permissions" is
+        /// exactly the case the user can fix, by editing the key on kraken.com.
+        /// </summary>
+        private static void ThrowOnKrakenError(string body, string what)
+        {
+            var errors = JObject.Parse(body)["error"] as JArray;
+            if (errors == null || errors.Count == 0) return;
+
+            string joined = string.Join("; ", errors.Select(e => e?.ToString()));
+            if (joined.Contains("permission", StringComparison.OrdinalIgnoreCase)
+             || joined.Contains("EAPI:Invalid key", StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException(
+                    $"Kraken refused {what}: {joined}. Check the key's Funding permissions on kraken.com.");
+
+            throw new InvalidOperationException($"Kraken could not return {what}: {joined}");
+        }
+
+        /// <summary>
+        /// Kraken's own asset codes — XBT for bitcoin, and the X/Z prefixes on its
+        /// older listings. The API accepts the common spelling for most assets, but
+        /// not BTC, which is the one holding most likely to be asked for.
+        /// </summary>
+        private static string NormaliseAsset(string asset)
+        {
+            string a = asset.Trim().ToUpperInvariant();
+            return a switch { "BTC" => "XBT", "DOGE" => "XDG", _ => a };
+        }
 
         // ── Auth helpers (HMAC-SHA512) ──────────────────────────────────────
 
