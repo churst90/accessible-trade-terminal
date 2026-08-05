@@ -22,6 +22,13 @@ namespace AccessibleTrader.Tests
     {
         // Trading-capable providers with parameterless constructors (Capabilities is a pure
         // property — no credentials or network needed to read it).
+        //
+        // Coinbase, Bitstamp and Oanda were MISSING from this list, which is why every
+        // invariant below was passing on seven of ten providers while calling itself a
+        // sweep. Oanda is the one that mattered: it declared TrailingStop with no
+        // trailing implementation at all, and no test here could see it because Oanda
+        // was not enumerated. A sweep that does not enumerate everything is a spot
+        // check wearing a sweep's name — see AllTradingProvidersAreEnumeratedHere.
         private static IEnumerable<BaseMarketDataProvider> TradingProviders()
         {
             yield return new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider();
@@ -31,6 +38,38 @@ namespace AccessibleTrader.Tests
             yield return new AccessibleTrader.Plugins.Tradier.TradierProvider();
             yield return new AccessibleTrader.Plugins.Schwab.SchwabProvider();
             yield return new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+            yield return new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider();
+            yield return new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+            yield return new AccessibleTrader.Plugins.Oanda.OandaProvider();
+        }
+
+        /// <summary>
+        /// The list above must not fall behind the repo. A hand-maintained roster
+        /// silently stops covering anything added after it was written, and every
+        /// assertion that iterates it keeps passing — which is exactly what happened.
+        /// The audit's own file sweep is the cross-check.
+        /// </summary>
+        [Fact]
+        public void AllTradingProvidersAreEnumeratedHere()
+        {
+            var onDisk = AccessibleTrader.StrategyLab.ProviderCapabilityAudit
+                .Run(RepoRoot()).Select(a => a.Name).ToHashSet();
+            var enumerated = TradingProviders().Select(p => p.GetType().Name).ToHashSet();
+
+            Assert.True(onDisk.SetEquals(enumerated),
+                "TradingProviders() has drifted from the trading providers in the repo. "
+              + "Missing here: " + string.Join(", ", onDisk.Except(enumerated).DefaultIfEmpty("none"))
+              + ". Listed but not found on disk: "
+              + string.Join(", ", enumerated.Except(onDisk).DefaultIfEmpty("none")));
+        }
+
+        private static string RepoRoot()
+        {
+            var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
+                dir = dir.Parent;
+            Assert.NotNull(dir);
+            return dir!.FullName;
         }
 
         [Fact]
@@ -91,22 +130,58 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Leverage_flag_agrees_with_margin_or_futures_trading()
+        public void Leverage_requires_a_product_for_it_to_apply_to()
         {
-            // Leverage is available when EITHER spot margin OR futures is supported
-            // (MEXC's leverage is futures-only; Kraken's is spot margin). The flag and
-            // the bools gate the same feature from different call sites, so they must
-            // agree, and leverage must actually exceed 1x where declared.
+            // Leverage needs EITHER spot margin OR futures — MEXC's is futures-only,
+            // Kraken's is spot margin, and a leverage selector with neither product
+            // behind it has nothing to multiply.
+            //
+            // This used to compare the flag against the SupportsMarginTrading and
+            // SupportsFuturesTrading BOOLS, which were independently overridable and
+            // so could disagree with it. Those bools are now derived from the flags,
+            // which makes that particular disagreement impossible to express rather
+            // than merely detectable — so the check moved up a level, to whether the
+            // flags themselves are coherent with each other.
             foreach (var p in TradingProviders())
             {
-                bool flag = p.Capabilities.HasFlag(ProviderCapabilities.Leverage);
-                bool leveraged = p.SupportsMarginTrading || p.SupportsFuturesTrading;
-                Assert.True(flag == leveraged,
-                    $"{p.GetType().Name}: Leverage flag ({flag}) disagrees with margin-or-futures ({leveraged}).");
-                if (flag)
-                    Assert.True(p.MaxLeverage > 1.0,
-                        $"{p.GetType().Name} declares Leverage but MaxLeverage is {p.MaxLeverage}.");
+                if (!p.Capabilities.HasFlag(ProviderCapabilities.Leverage)) continue;
+
+                Assert.True(
+                    p.Capabilities.HasFlag(ProviderCapabilities.MarginTrading) ||
+                    p.Capabilities.HasFlag(ProviderCapabilities.FuturesTrading),
+                    $"{p.GetType().Name} declares Leverage with neither MarginTrading nor "
+                  + "FuturesTrading — there is no product for the leverage to apply to.");
+
+                Assert.True(p.MaxLeverage > 1.0,
+                    $"{p.GetType().Name} declares Leverage but MaxLeverage is {p.MaxLeverage}, "
+                  + "so the selector has exactly one position.");
             }
+        }
+
+        [Fact]
+        public void The_derived_bools_cannot_disagree_with_the_flags()
+        {
+            // Guards the fold itself. If anyone reintroduces an override of these,
+            // the two-fields-one-fact problem returns and this catches it.
+            foreach (var p in TradingProviders())
+            {
+                Assert.Equal(p.Capabilities.HasFlag(ProviderCapabilities.MarginTrading), p.SupportsMarginTrading);
+                Assert.Equal(p.Capabilities.HasFlag(ProviderCapabilities.FuturesTrading), p.SupportsFuturesTrading);
+            }
+        }
+
+        [Fact]
+        public void Oanda_no_longer_advertises_a_trailing_stop_it_never_implemented()
+        {
+            // Found by the static audit: the flag was declared and the string "Trail"
+            // appeared nowhere else in the file. The dashboard gates its trailing
+            // distance and mode fields on this, so the controls rendered and the order
+            // went out with no trail attached. OANDA's API does offer trailing stops,
+            // so this is a gap to fill, not a capability the venue lacks — when it is
+            // implemented, this test flips to asserting the flag is present.
+            var oanda = new AccessibleTrader.Plugins.Oanda.OandaProvider();
+
+            Assert.False(oanda.Capabilities.HasFlag(ProviderCapabilities.TrailingStop));
         }
 
         [Fact]

@@ -75,10 +75,22 @@ namespace AccessibleTrader.Plugins.Binance
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => _isTestnet ? ProviderEnvironment.Paper : ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
-        public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth | ProviderCapabilities.TrailingStop | ProviderCapabilities.OCO | ProviderCapabilities.Leverage | ProviderCapabilities.Brackets;
+        /// <summary>
+        /// The four order-feature flags at the end were added from audit evidence,
+        /// not from judgement: the code already honours <c>signal.ReduceOnly</c>,
+        /// <c>signal.PostOnly</c>, <c>signal.TimeInForce</c> (both futures and spot)
+        /// and <c>signal.PositionSide</c>, and had no way to say so — which is why
+        /// the dashboard could not offer those controls on the provider that
+        /// implements them most fully.
+        /// </summary>
+        public override ProviderCapabilities Capabilities =>
+            ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
+            ProviderCapabilities.TrailingStop | ProviderCapabilities.OCO |
+            ProviderCapabilities.Leverage | ProviderCapabilities.Brackets |
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.FuturesTrading |
+            ProviderCapabilities.ReduceOnly | ProviderCapabilities.PostOnly |
+            ProviderCapabilities.TimeInForce | ProviderCapabilities.HedgeMode;
 
-        public override bool SupportsMarginTrading  => true;
-        public override bool SupportsFuturesTrading => true;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 125.0;

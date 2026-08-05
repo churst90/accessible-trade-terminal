@@ -95,8 +95,6 @@ namespace AccessibleTrader.Plugins.Schwab
         public override int MaxBarsPerRequest => 20000;
         public override ProviderCapabilities Capabilities => ProviderCapabilities.Brackets;
 
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 1.0;

@@ -85,8 +85,6 @@ namespace AccessibleTrader.Plugins.Alpaca
 
         public bool IsConnected => IsConfigured;
 
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 1.0;

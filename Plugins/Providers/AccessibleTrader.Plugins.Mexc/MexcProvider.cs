@@ -66,11 +66,19 @@ namespace AccessibleTrader.Plugins.Mexc
         public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 500;
+        /// <summary>
+        /// Leverage here is futures-only — there is no spot margin, so
+        /// <c>MarginTrading</c> is absent while <c>FuturesTrading</c> is present.
+        /// That combination reads like a contradiction and is not one, which an
+        /// earlier draft of the audit got wrong before the probe corrected it.
+        /// <c>IsolatedMargin</c> is added on evidence: the futures order body sets
+        /// <c>openType</c> from <c>signal.MarginType</c>.
+        /// </summary>
         public override ProviderCapabilities Capabilities =>
-            ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth | ProviderCapabilities.Leverage;
+            ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
+            ProviderCapabilities.Leverage | ProviderCapabilities.FuturesTrading |
+            ProviderCapabilities.IsolatedMargin;
 
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => true;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 200.0;

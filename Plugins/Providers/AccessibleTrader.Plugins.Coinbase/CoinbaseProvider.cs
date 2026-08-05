@@ -68,8 +68,6 @@ namespace AccessibleTrader.Plugins.Coinbase
         };
 
         public bool IsConnected => IsConfigured;
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => false;
         public override double MaxLeverage          => 1.0;

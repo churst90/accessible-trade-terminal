@@ -46,14 +46,15 @@ namespace AccessibleTrader.Tests
         /// </summary>
         private static readonly (string Provider, string Capability)[] KnownMismatches =
         {
-            // Declares L2 but does not implement IOrderBookProvider — the interface
-            // that backs the order-book panel. Its GetOrderBookAsync is the base
-            // class's bid/ask tuple, which is a different method sharing a name.
-            ("InteractiveBrokersProvider", "L2"),
-            // Declares TrailingStop and the string "Trail" appears nowhere else in
-            // the file. The dashboard gates trailing controls on this flag, so this
-            // renders fields that cannot do anything.
-            ("OandaProvider", "TrailingStop"),
+            // Empty, and it should stay that way.
+            //
+            // It briefly held two entries. OandaProvider/TrailingStop was real — the
+            // flag was declared and the string "Trail" appeared nowhere else in the
+            // file — and the flag has been withdrawn. InteractiveBrokersProvider/L2
+            // was the AUDIT's mistake, not the provider's: it required
+            // IOrderBookProvider (live streaming) when the panel reads snapshots
+            // through a different method of the same name, and L2 is now marked not
+            // statically verifiable for that reason.
         };
 
         // ── The instrument ───────────────────────────────────────────────────
@@ -190,6 +191,9 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Shorting", unverifiable);
             Assert.Contains("MarketDepth", unverifiable);
             Assert.Contains("Brackets", unverifiable);
+            Assert.Contains("L2", unverifiable);
+            Assert.Contains("FuturesTrading", unverifiable);
+            Assert.Contains("MarginTrading", unverifiable);
 
             foreach (var r in ProviderCapabilityAudit.Rules.Where(r => r.Groups.Count == 0))
                 Assert.Contains("NOT STATICALLY VERIFIABLE", r.Why);

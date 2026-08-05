@@ -78,8 +78,6 @@ namespace AccessibleTrader.Plugins.Bitstamp
         };
 
         public bool IsConnected => _ws?.IsConnected ?? false;
-        public override bool SupportsMarginTrading  => false;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => false;
         public override bool SupportsTakeProfit     => false;
         public override double MaxLeverage          => 1.0;

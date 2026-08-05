@@ -75,10 +75,9 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         // bare order with no linked/protective legs. Single stop-loss and take-profit orders
         // ARE supported and stay advertised via SupportsStopLoss / SupportsTakeProfit below.
         public override ProviderCapabilities Capabilities =>
-            ProviderCapabilities.L2 | ProviderCapabilities.Shorting | ProviderCapabilities.Leverage;
+            ProviderCapabilities.L2 | ProviderCapabilities.Shorting | ProviderCapabilities.Leverage |
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.FuturesTrading;
 
-        public override bool SupportsMarginTrading  => true;
-        public override bool SupportsFuturesTrading => true;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 4.0;  // Reg-T margin

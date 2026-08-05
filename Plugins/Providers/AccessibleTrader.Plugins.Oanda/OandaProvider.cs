@@ -62,11 +62,18 @@ namespace AccessibleTrader.Plugins.Oanda
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => _isPractice ? ProviderEnvironment.Paper : ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 5000;
+        /// <summary>
+        /// <c>TrailingStop</c> was declared here and never implemented — the string
+        /// "Trail" appeared nowhere else in this file. The dashboard gates its
+        /// trailing distance and mode fields on that flag, so the controls rendered
+        /// and the order went out without a trail. Withdrawn rather than left
+        /// advertised; OANDA's API does offer trailing stops, so this is a genuine
+        /// gap to fill rather than a capability the venue lacks.
+        /// </summary>
         public override ProviderCapabilities Capabilities =>
-            ProviderCapabilities.Leverage | ProviderCapabilities.Shorting | ProviderCapabilities.TrailingStop;
+            ProviderCapabilities.Leverage | ProviderCapabilities.Shorting |
+            ProviderCapabilities.MarginTrading;
 
-        public override bool SupportsMarginTrading  => true;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 50.0;

@@ -65,12 +65,17 @@ namespace AccessibleTrader.Plugins.Kraken
         public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 720;
+        /// <summary>
+        /// Kraken's leverage is SPOT MARGIN — the venue lends the asset or the quote
+        /// against the same order book — which is a different product from futures
+        /// and is why <c>MarginTrading</c> is set and <c>FuturesTrading</c> is not.
+        /// (Kraken Futures is a separate API this plugin does not talk to.)
+        /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
-            ProviderCapabilities.Leverage | ProviderCapabilities.Brackets;
+            ProviderCapabilities.Leverage | ProviderCapabilities.Brackets |
+            ProviderCapabilities.MarginTrading;
 
-        public override bool SupportsMarginTrading  => true;
-        public override bool SupportsFuturesTrading => false;
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 5.0;

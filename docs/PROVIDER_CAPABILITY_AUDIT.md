@@ -8,23 +8,20 @@ those need the live probe and real keys.
 
 | Provider | Declared | Margin | Futures | MaxLeverage |
 |---|---|---|---|---|
-| AlpacaProvider | Brackets, L2 | no | no | 1 |
-| BinanceProvider | Brackets, L2, Leverage, MarketDepth, OCO, TrailingStop | yes | yes | 125 |
-| BitstampProvider | L2, MarketDepth | no | no | 1 |
-| CoinbaseProvider | L2 | no | no | 1 |
-| InteractiveBrokersProvider | L2, Leverage, Shorting | yes | yes | 4 |
-| KrakenProvider | Brackets, L2, Leverage, MarketDepth | yes | no | 5 |
-| MexcProvider | L2, Leverage, MarketDepth | no | yes | 200 |
-| OandaProvider | Leverage, Shorting, TrailingStop | yes | no | 50 |
-| SchwabProvider | Brackets | no | no | 1 |
-| TradierProvider | Brackets | no | no | 1 |
+| AlpacaProvider | Brackets, L2 | — | — | 1 |
+| BinanceProvider | Brackets, FuturesTrading, HedgeMode, L2, Leverage, MarginTrading, MarketDepth, OCO, PostOnly, ReduceOnly, TimeInForce, TrailingStop | — | — | 125 |
+| BitstampProvider | L2, MarketDepth | — | — | 1 |
+| CoinbaseProvider | L2 | — | — | 1 |
+| InteractiveBrokersProvider | FuturesTrading, L2, Leverage, MarginTrading, Shorting | — | — | 4 |
+| KrakenProvider | Brackets, L2, Leverage, MarginTrading, MarketDepth | — | — | 5 |
+| MexcProvider | FuturesTrading, IsolatedMargin, L2, Leverage, MarketDepth | — | — | 200 |
+| OandaProvider | Leverage, MarginTrading, Shorting | — | — | 50 |
+| SchwabProvider | Brackets | — | — | 1 |
+| TradierProvider | Brackets | — | — | 1 |
 
 ## Claims that do not match the code
 
-| Provider | Capability | Verdict | Evidence |
-|---|---|---|---|
-| InteractiveBrokersProvider | L2 | **DECLARED, NOT BACKED** | no evidence: implements IOrderBookProvider |
-| OandaProvider | TrailingStop | **DECLARED, NOT BACKED** | no evidence: reads signal.TrailStopValue or reads signal.TrailTpValue |
+None.
 
 ## Providers that contradict themselves
 
@@ -46,5 +43,8 @@ not-supported signal the UI can say out loud.
 Named rather than given a check that would always pass and look like verification.
 
 - **Brackets** — NOT STATICALLY VERIFIABLE — reading the stop field is equally consistent with mapping a standalone stop order, which is a different capability
+- **L2** — NOT STATICALLY VERIFIABLE — snapshot and streaming books are separate mechanisms here, and L1-versus-L2 depth is a venue entitlement invisible in source
 - **MarketDepth** — NOT STATICALLY VERIFIABLE — 'full depth beyond standard L2' is a difference of degree in the same endpoint, with nothing in the source that separates them
 - **Shorting** — NOT STATICALLY VERIFIABLE — shorting rides OrderSide, which every provider already reads for ordinary sells
+- **MarginTrading** — NOT STATICALLY VERIFIABLE — spot margin is the same order path as spot, distinguished only by account configuration at the venue
+- **FuturesTrading** — NOT STATICALLY VERIFIABLE — SubType routes market types generally; two providers read it for options, not futures

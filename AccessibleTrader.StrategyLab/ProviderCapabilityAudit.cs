@@ -92,16 +92,23 @@ namespace AccessibleTrader.StrategyLab
                 },
                 "without one of these nothing can cancel the sibling leg"),
 
-            new CapabilityRule("L2", new[]
-                {
-                    // Deliberately the INTERFACE, not the method name. Several providers
-                    // override IMarketDataProvider.GetOrderBookAsync (a bid/ask tuple)
-                    // without implementing IOrderBookProvider (a real depth snapshot).
-                    // They are two different methods sharing a name, and conflating them
-                    // produced eight false findings.
-                    new EvidenceGroup("depth snapshot", new[] { Ev.Interface("IOrderBookProvider") }),
-                },
-                "the order book panel and Alt+B read this"),
+            // Third attempt, and the honest answer is that it cannot be decided here.
+            //
+            // Round 1 used the METHOD name and accused eight providers, because
+            // IMarketDataProvider.GetOrderBookAsync and IOrderBookProvider
+            // .GetOrderBookAsync are different methods sharing a name. Round 2 used
+            // the INTERFACE and accused Interactive Brokers, which was also wrong:
+            // the panel reads SNAPSHOTS through the base method (IB has one) while
+            // the interface backs live STREAMING (IB has none). Both are "L2".
+            //
+            // And even resolving that leaves the real question undecidable — whether
+            // a broker's book is genuine level-2 depth or just top-of-book level 1 is
+            // an entitlement at the venue, invisible in our source. Two mechanisms
+            // and an unobservable distinction is a flag that needs splitting, not a
+            // check that needs tightening.
+            new CapabilityRule("L2", Array.Empty<EvidenceGroup>(),
+                "NOT STATICALLY VERIFIABLE — snapshot and streaming books are separate mechanisms "
+              + "here, and L1-versus-L2 depth is a venue entitlement invisible in source"),
 
             // Not statically decidable, said plainly rather than given a check that
             // would always pass and look like verification.
@@ -112,6 +119,51 @@ namespace AccessibleTrader.StrategyLab
             new CapabilityRule("Shorting", Array.Empty<EvidenceGroup>(),
                 "NOT STATICALLY VERIFIABLE — shorting rides OrderSide, which every provider "
               + "already reads for ordinary sells"),
+
+            // These five ARE cleanly decidable, and more so than Brackets was: there
+            // is no second reason to read signal.ReduceOnly. The field exists only to
+            // express the capability, so reading it is the capability and ignoring it
+            // means the dashboard's control is decoration.
+            new CapabilityRule("ReduceOnly", new[]
+                { new EvidenceGroup("honours the flag", new[] { Ev.Field("ReduceOnly") }) },
+                "the ticket's reduce-only checkbox is otherwise decoration"),
+
+            new CapabilityRule("PostOnly", new[]
+                { new EvidenceGroup("honours the flag", new[] { Ev.Field("PostOnly") }) },
+                "a maker-only order silently sent as a taker pays the wrong fee"),
+
+            new CapabilityRule("TimeInForce", new[]
+                { new EvidenceGroup("honours the field", new[] { Ev.Field("TimeInForce") }) },
+                "an IOC order silently sent as GTC rests when it was meant to vanish"),
+
+            new CapabilityRule("HedgeMode", new[]
+                { new EvidenceGroup("honours position side", new[] { Ev.Field("PositionSide") }) },
+                "without it a hedge-mode short closes the long instead of opening a short"),
+
+            new CapabilityRule("IsolatedMargin", new[]
+                { new EvidenceGroup("honours margin type", new[] { Ev.Field("MarginType") }) },
+                "cross and isolated have different liquidation maths; picking one that is "
+              + "ignored is worse than not offering the choice"),
+
+            new CapabilityRule("MarginTrading", Array.Empty<EvidenceGroup>(),
+                "NOT STATICALLY VERIFIABLE — spot margin is the same order path as spot, "
+              + "distinguished only by account configuration at the venue"),
+
+            // Demoted after claiming Schwab and Tradier support futures. They read
+            // signal.SubType to route to OPTIONS ("OPTION" / isOption), not futures —
+            // SubType is a general market-type router, so reading it says nothing
+            // about which markets. The same trap as Brackets and signal.StopLoss.
+            new CapabilityRule("FuturesTrading", Array.Empty<EvidenceGroup>(),
+                "NOT STATICALLY VERIFIABLE — SubType routes market types generally; two providers "
+              + "read it for options, not futures"),
+
+            new CapabilityRule("DepositAddresses", new[]
+                { new EvidenceGroup("wallet interface", new[] { Ev.Interface("IWalletProvider") }) },
+                "not built yet — see docs/WALLET_AND_PORTFOLIO_DESIGN.md"),
+
+            new CapabilityRule("Withdrawals", new[]
+                { new EvidenceGroup("wallet interface", new[] { Ev.Interface("IWalletProvider") }) },
+                "not built yet — and gated on a separate withdrawal-enabled credential"),
         };
 
         /// <summary>Read-path methods whose constant-return stub is indistinguishable from real emptiness.</summary>
@@ -282,13 +334,21 @@ namespace AccessibleTrader.StrategyLab
         }
 
         /// <summary>
-        /// Whether the provider ever reads this <c>TradeSignal</c> field. Every
-        /// provider names the parameter <c>signal</c> (checked, not assumed), so
-        /// matching that one name exactly beats a looser alias pattern that could
-        /// match an unrelated local.
+        /// Whether the provider ever reads this <c>TradeSignal</c> field, on any
+        /// receiver.
+        ///
+        /// <para>
+        /// An earlier version matched <c>signal.Field</c> only, having checked that
+        /// every <c>PlaceOrderAsync</c> names its parameter <c>signal</c>. That was
+        /// true and still wrong: Binance resolves time-in-force in HELPER methods
+        /// whose parameter is <c>s</c>, so a fully-honoured capability read as
+        /// unimplemented. The field names this is used with are distinctive to
+        /// <c>TradeSignal</c>, so matching any receiver is safe — and every finding
+        /// is verified against the source before it is acted on.
+        /// </para>
         /// </summary>
         internal static bool ReadsSignalField(string src, string field) =>
-            Regex.IsMatch(src, $@"\bsignal\s*\.\s*{Regex.Escape(field)}\b");
+            Regex.IsMatch(src, $@"\b\w+\s*\.\s*{Regex.Escape(field)}\b");
 
         /// <summary>
         /// Whether the provider's type declaration names this interface. Read from

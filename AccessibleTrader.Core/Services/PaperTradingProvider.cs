@@ -129,8 +129,11 @@ namespace AccessibleTrader.Core.Services
 
         // ── ITradingProvider flags ────────────────────────────────────────────
         public bool IsConnected => true;
-        public bool SupportsMarginTrading => false;
-        public bool SupportsFuturesTrading => false;
+
+        // Derived from the flags, matching BaseMarketDataProvider, so this broker
+        // cannot state one of these facts in two places and disagree with itself.
+        public bool SupportsMarginTrading  => Capabilities.HasFlag(ProviderCapabilities.MarginTrading);
+        public bool SupportsFuturesTrading => Capabilities.HasFlag(ProviderCapabilities.FuturesTrading);
         public double MaxLeverage => 1.0;
 
         // ── Account queries ───────────────────────────────────────────────────

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
 
@@ -127,11 +128,26 @@ namespace AccessibleTrader.Sdk.Plugins
         // Data-only providers return false/0 by default. Providers that also implement
         // ITradingProvider should override these to reflect their actual capabilities.
 
-        /// <summary>True if this provider supports margin / cross-collateral accounts.</summary>
-        public virtual bool SupportsMarginTrading  => false;
+        /// <summary>
+        /// True if this provider supports margin / cross-collateral accounts.
+        ///
+        /// <para>
+        /// **Derived, and deliberately NOT virtual.** This used to be an independent
+        /// overridable bool, which meant a provider could declare
+        /// <c>ProviderCapabilities.Leverage</c> and answer false here — two fields
+        /// stating one fact, free to disagree, with an invariant test standing
+        /// between them. Computing it from the flag removes the possibility rather
+        /// than policing it: there is now one place to state this, so there is no
+        /// second place to state it wrongly.
+        /// </para>
+        /// </summary>
+        public bool SupportsMarginTrading  => Capabilities.HasFlag(ProviderCapabilities.MarginTrading);
 
-        /// <summary>True if this provider offers futures/perpetuals contracts.</summary>
-        public virtual bool SupportsFuturesTrading => false;
+        /// <summary>
+        /// True if this provider offers futures/perpetuals contracts. Derived from
+        /// <see cref="ProviderCapabilities.FuturesTrading"/>; see the note above.
+        /// </summary>
+        public bool SupportsFuturesTrading => Capabilities.HasFlag(ProviderCapabilities.FuturesTrading);
 
         /// <summary>True if stop-loss orders can be attached to positions.</summary>
         public virtual bool SupportsStopLoss       => false;
