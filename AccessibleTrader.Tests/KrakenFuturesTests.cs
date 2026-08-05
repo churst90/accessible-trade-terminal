@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AccessibleTrader.Plugins.KrakenFutures;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
@@ -14,11 +15,11 @@ namespace AccessibleTrader.Tests
     /// different signature.
     ///
     /// <para>
-    /// The network calls need a real futures key and are verified by hand against
-    /// the demo venue. What is pinned here is everything that can be wrong without
-    /// one — and the signature above all, because it is the single thing that is
-    /// either exactly right or rejects every authenticated call with no clue as to
-    /// why.
+    /// The network calls need a real futures key — and since Kraken decommissioned
+    /// the demo venue (2026-07-14, no replacement), a real key means a funded live
+    /// account. What is pinned here is everything that can be wrong without one —
+    /// and the signature above all, because it is the single thing that is either
+    /// exactly right or rejects every authenticated call with no clue as to why.
     /// </para>
     /// </summary>
     [Collection("ProviderCredentialBridge")]
@@ -147,17 +148,43 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void A_paper_key_profile_routes_to_the_demo_venue()
+        public void A_paper_key_profile_still_reports_the_paper_environment()
         {
-            // demo-futures.kraken.com is a real environment with its own keys and
-            // paper funds — not a simulation we run — and it is reachable without
-            // the account verification that gates real funding.
+            // The routing is kept even though the venue it led to is gone (below):
+            // the profile's environment label must stay truthful, and a revived
+            // demo venue would be one constant away.
             var p = new KrakenFuturesProvider();
             Assert.Equal(ProviderEnvironment.Live, p.Environment);
 
             p.Configure(new Dictionary<string, string> { ["Environment"] = "Paper" });
 
             Assert.Equal(ProviderEnvironment.Paper, p.Environment);
+        }
+
+        [Fact]
+        public async Task A_paper_profile_refuses_with_the_decommission_not_a_parse_error()
+        {
+            // demo-futures.kraken.com was decommissioned on 2026-07-14; every path,
+            // REST API included, 301s to a marketing page. Without this guard the
+            // failure surfaces as an allow-list violation or HTML fed to the JSON
+            // parser — either of which reads as a bug in OUR signing code and sends
+            // someone debugging the wrong thing. No network in this test: the
+            // refusal must fire before any request leaves.
+            var p = new KrakenFuturesProvider();
+            p.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "k",
+                ["ApiSecret"] = Convert.ToBase64String(new byte[32]),
+                ["Environment"] = "Paper",
+            });
+
+            var (ok, message) = await p.ValidateApiKeyAsync();
+
+            Assert.False(ok);
+            Assert.Contains("decommissioned", message);
+            Assert.Contains("demo-futures.kraken.com", message);
+            // Says what still works, not merely what is gone.
+            Assert.Contains("F12", message);
         }
 
         // ── Timeframes ───────────────────────────────────────────────────────

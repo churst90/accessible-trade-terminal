@@ -120,7 +120,11 @@ namespace AccessibleTrader.Core.Services
 
             foreach (var k in keys)
             {
-                if (!k.IsActive || string.IsNullOrEmpty(k.ApiKey)) continue;
+                // AllowsWithdrawal is checked even though such profiles are never
+                // active through the UI: the flag predates its checkbox and was set
+                // by editing storage, so an active withdrawal profile can exist —
+                // and its key must never become a provider's session credential.
+                if (!k.IsActive || k.AllowsWithdrawal || string.IsNullOrEmpty(k.ApiKey)) continue;
                 var provider = _providers.FirstOrDefault(p => p.Name.Equals(k.Provider, StringComparison.OrdinalIgnoreCase));
                 if (provider == null || provider.IsConfigured) continue;
                 try

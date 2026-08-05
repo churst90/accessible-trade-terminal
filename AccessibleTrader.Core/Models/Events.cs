@@ -96,6 +96,15 @@ namespace AccessibleTrader.Core.Models
     /// button that raises this is absent for them.
     /// </summary>
     public record OpenWalletEvent();
+
+    /// <summary>
+    /// Open the withdrawal dialog. Only ever raised when
+    /// <c>WithdrawalService.CanWithdrawAsync</c> is true — the provider implements
+    /// <c>IWithdrawalProvider</c> AND a withdrawal-enabled key profile exists. The
+    /// button that raises this is absent otherwise, so the dialog never opens onto
+    /// a refusal it could have predicted.
+    /// </summary>
+    public record OpenWithdrawEvent();
     public record OpenOrderBookEvent();
     public record OpenAddIndicatorEvent();
     public record OpenDrawingToolsEvent();

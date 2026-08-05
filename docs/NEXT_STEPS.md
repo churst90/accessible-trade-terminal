@@ -7,57 +7,49 @@ here is speculative about what was built — see `git log` and
 
 ---
 
-## 1. Finish withdrawals — the two named gaps
+## 1. Finish withdrawals — DONE 2026-08-05, unverified by a person
 
-Withdrawals shipped as **service and provider only**. They are not reachable by a
-user, and that is stated plainly rather than allowed to pass as done.
+Both named gaps are closed:
 
-### 1a. No UI
+- **1a. The withdrawal dialog exists** (`WithdrawModal.razor`): asset →
+  whitelist-only destination picker (no free-text address field anywhere; the
+  address display is readonly with copy + character-by-character reading) → quote
+  with fee and **what arrives**, spoken in full via
+  `WithdrawalService.Confirmation(...)` → typed `WITHDRAW` field. Any edit voids
+  the quote and the typed word, so what was read aloud is exactly what is sent.
+  The toolbar button appears only when `CanWithdrawAsync` is true.
+- **1b. The API Keys modal has the withdrawal checkbox**, as its own explained
+  block. One withdrawal profile per provider is enforced in the form; the service
+  refuses to ACTIVATE a withdrawal profile (activation is a trading concept), and
+  provider configuration skips withdrawal profiles even if storage was hand-edited.
 
-There is no withdrawal dialog. It needs:
-
-- an asset picker, then a **destination picker populated from the venue's
-  whitelist** (never a free-text address field — the SDK has no parameter for one
-  and it must stay that way)
-- the quote read back before confirmation: amount, fee, and **what arrives**
-- a text field for the typed `WITHDRAW` confirmation, with the same read-only /
-  arrow-navigable treatment the deposit address gets
-- an unmistakable spoken readback; this is the one action in the terminal that
-  cannot be undone
-
-`WithdrawalService.Confirmation(...)` already produces the sentence to speak.
-
-### 1b. No way to create a withdrawal profile
-
-`ApiKeyConfig.AllowsWithdrawal` exists, is persisted, and is enforced on both
-sides — but the API Keys modal has **no checkbox for it**, so the flag can only be
-set by editing storage. Until that checkbox exists, `CanWithdrawAsync` returns
-false for everyone and the whole feature is unreachable.
-
-When adding it: it should read as a deliberate, separate act — its own row, its
-own explanation of why a trading key must not carry this, and it should NOT be
-offered on the same form flow as an ordinary trading key without comment.
+Pinned by `WithdrawalReachabilityTests`, `ApiKeyServiceTests`, and the toolbar
+checklist. **Not yet driven by a person** — no live withdrawal-enabled key has
+exercised the dialog end to end. That verification still needs Cody, a Kraken
+account that clears identity review, and a whitelisted address.
 
 ---
 
-## 2. Verify Kraken Futures against the demo venue
+## 2. ~~Verify Kraken Futures against the demo venue~~ — DEAD: the venue no longer exists
 
-The highest-value verification available right now, because it needs **no account
-verification at all**.
+Kraken **decommissioned `demo-futures.kraken.com` on 2026-07-14** with no
+announced replacement (found 2026-08-05 when the sign-up page 301'd to
+marketing). Every path on the old host — the REST API included — now redirects to
+a marketing page; `demo.kraken.com` exists but serves a block page and has no
+documented self-service keys; Kraken's own developer docs still describe the dead
+host. There is nothing to sign up for.
 
-`demo-futures.kraken.com` is a real environment with its own self-service keys and
-paper funds. Steps:
+Consequences, all handled in code:
 
-1. Generate a key at demo-futures.kraken.com
-2. Add it in API Keys with **Environment = Paper** (that is what routes the plugin
-   to the demo host)
-3. Load a `PI_XBTUSD` chart, confirm candles arrive
-4. Check balances, place and cancel a limit order, confirm it appears and clears
-
-What this proves that no test can: that the **signature is right against a live
-venue**. The algorithm is verified against an independent implementation of
-Kraken's documented example, which is strong — but only a real 200 response
-settles it.
+- The plugin now **refuses Paper-environment calls with the decommission message**
+  (thrown before any request leaves) instead of surfacing an allow-list violation
+  or an HTML-into-JSON parse error that would read as a signing bug.
+- The signature stays verified only against the independent implementation of
+  Kraken's documented example. A real-venue confirmation now requires a **funded
+  non-US live account** — not available to this project's maintainer.
+- The venue-signature-verification role this item played **transfers to Bybit's
+  testnet** (self-service, US-accessible) — which was already first in
+  `docs/PROVIDER_EXPANSION.md` for exactly this property.
 
 ## 3. Verify Kraken spot deposits once verification clears
 

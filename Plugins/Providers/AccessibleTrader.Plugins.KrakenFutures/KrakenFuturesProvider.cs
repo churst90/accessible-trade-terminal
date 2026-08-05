@@ -36,11 +36,14 @@ namespace AccessibleTrader.Plugins.KrakenFutures
     /// </para>
     ///
     /// <para>
-    /// **The demo environment is a first-class target**, not an afterthought.
-    /// <c>demo-futures.kraken.com</c> is identical in structure and takes paper
-    /// funds, so the whole plugin can be exercised end to end without money and —
-    /// importantly — without the account verification that gates real funding.
-    /// Set <c>Environment</c> to Paper on the key profile to use it.
+    /// **The demo environment is gone.** <c>demo-futures.kraken.com</c> was a real
+    /// venue with self-service keys and paper funds, and this plugin was built to
+    /// treat it as a first-class target (Environment = Paper routed there). Kraken
+    /// decommissioned it on 2026-07-14 with no announced replacement; every path on
+    /// the old host, the REST API included, now answers with a 301 to a marketing
+    /// page. A Paper profile therefore refuses with an explanation instead of
+    /// letting HTML reach the JSON parser — see <see cref="Host"/>. The routing and
+    /// the host allow-list are kept so that a revived demo is one constant away.
     /// </para>
     /// </summary>
     public class KrakenFuturesProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
@@ -70,7 +73,28 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 allowedHosts: new[] { "futures.kraken.com", "demo-futures.kraken.com" });
         }
 
-        private string Host => _useDemo ? DemoHost : LiveHost;
+        /// <summary>
+        /// The message a Paper profile gets on every call. Thrown before any request
+        /// leaves, because the alternative is worse in a specific way: the dead host
+        /// 301-redirects every path to a marketing page, so the failure would
+        /// otherwise surface as an allow-list violation or an HTML-into-JSON parse
+        /// error — both of which read as OUR bug and would send someone debugging
+        /// the signature code that is not at fault.
+        /// </summary>
+        internal const string DemoDecommissionedMessage =
+            "Kraken decommissioned its demo futures venue (demo-futures.kraken.com) on 14 July 2026, "
+          + "with no replacement, so a Paper profile has nowhere to go. Kraken Futures now requires a "
+          + "Live profile with a funded account. The app-wide paper simulator (F12) still works for "
+          + "practice against live prices.";
+
+        private string Host
+        {
+            get
+            {
+                if (_useDemo) throw new InvalidOperationException(DemoDecommissionedMessage);
+                return LiveHost;
+            }
+        }
 
         // ── IProviderPlugin ───────────────────────────────────────────────────
 

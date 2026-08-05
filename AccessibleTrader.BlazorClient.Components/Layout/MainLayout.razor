@@ -117,6 +117,10 @@
        has none of. The button that opens it is separately gated on the provider
        actually implementing IWalletProvider. *@
     @if (Demo.AllowTrading)          { <WalletModal /> }
+    @* Withdrawals. Same gate as deposits, and the opening event is only ever
+       raised when CanWithdrawAsync is true — provider capability AND a
+       withdrawal-enabled key profile, both checked in the service. *@
+    @if (Demo.AllowTrading)          { <WithdrawModal /> }
     @if (Demo.AllowStrategies)       { <StrategyModal /> }
     @if (Demo.AllowAlerts)           { <AlertsModal /> }
     @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }

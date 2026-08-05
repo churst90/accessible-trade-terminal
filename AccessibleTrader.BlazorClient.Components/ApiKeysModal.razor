@@ -55,7 +55,18 @@
                                 @k.MarketType
                             </span>
 
-                            @if (k.IsActive)
+                            @if (k.AllowsWithdrawal)
+                            {
+                                @* No Activate button: a withdrawal profile is found by its
+                                   flag, never by activation — and activating it would
+                                   deactivate the real trading profile for this provider. *@
+                                <span aria-label="Withdrawal profile, used only by the Withdraw screen"
+                                      title="Used only to move funds off the venue, never for trading"
+                                      style="color:#a50; font-size:0.78rem; font-weight:600; min-width:50px;">
+                                    Withdrawal
+                                </span>
+                            }
+                            else if (k.IsActive)
                             {
                                 <span aria-label="Active profile" style="color:#060; font-size:0.78rem; min-width:50px;">✔ Active</span>
                             }
@@ -164,6 +175,30 @@
                            @bind="_newPassphrase" aria-label="Passphrase (optional)" style="flex:1;" />
                 </div>
 
+                @* Deliberately its own bordered block rather than one more row: marking
+                   a profile withdrawal-enabled is a different act from adding a trading
+                   key, and the form should make the user stop on it rather than tick it
+                   in passing. The explanation is part of the control — without the WHY,
+                   the obvious "fix" is to grant withdrawal to the trading key. *@
+                <div style="border:1px solid var(--border-color); padding:10px 12px; margin-top:12px;">
+                    <div class="modal-row" style="margin:0;">
+                        <input id="key-withdrawal" type="checkbox"
+                               @bind="_newAllowsWithdrawal"
+                               aria-describedby="key-withdrawal-why" />
+                        <label for="key-withdrawal" style="font-weight:600;">
+                            Withdrawal profile — used only to move funds off the venue, never for trading
+                        </label>
+                    </div>
+                    <p id="key-withdrawal-why" style="color:var(--text-muted); font-size:0.82rem; margin:6px 0 0;">
+                        Leave unchecked for an ordinary trading or data key.
+                        Checked: this profile is used exclusively by the Withdraw screen and is
+                        excluded from every trading lookup. Create a separate key on the venue's
+                        site with withdrawal permission and WITHOUT trading permission — keeping
+                        the two powers on different keys means a leaked trading key cannot empty
+                        the account. One withdrawal profile per provider.
+                    </p>
+                </div>
+
                 @if (!string.IsNullOrEmpty(_formError))
                 {
                     <p role="alert" style="color:#c00; margin-top:6px; font-size:0.88rem;">@_formError</p>
@@ -199,6 +234,7 @@
     private string _newApiKey      = "";
     private string _newApiSecret   = "";
     private string _newPassphrase  = "";
+    private bool   _newAllowsWithdrawal;
     private string? _formError;
 
     private static readonly List<string> _knownProviders = new()
@@ -253,13 +289,31 @@
             return;
         }
 
+        // One withdrawal profile per provider: the withdrawal path takes the FIRST
+        // flagged profile it finds, so a second one would be silently ignored — the
+        // user would believe the new key is in use while the old one still moves the
+        // money. Refusing with the fix beats an arbitrary winner.
+        if (_newAllowsWithdrawal &&
+            _keys.Any(k => k.AllowsWithdrawal &&
+                           k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase)))
+        {
+            _formError = $"{_newProvider} already has a withdrawal profile "
+                       + $"(\"{_keys.First(k => k.AllowsWithdrawal && k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase)).Nickname}\"). "
+                       + "Remove it first — only one withdrawal profile per provider is used.";
+            return;
+        }
+
         try
         {
             // Auto-activate when this is the provider's only profile (or its first
             // active one). Saving a key that then sat INACTIVE was a silent trap:
             // ConfigureStoredKeyProviders skips inactive keys, so the provider stayed
             // on the "API key required" sentinel and the user had no idea why.
-            bool autoActivate = !_keys.Any(k =>
+            // Withdrawal profiles sit outside activation entirely: they are never
+            // activated, and their presence must not stop the NEXT trading key from
+            // auto-activating.
+            bool autoActivate = !_newAllowsWithdrawal && !_keys.Any(k =>
+                !k.AllowsWithdrawal &&
                 k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase) && k.IsActive);
 
             var config = new ApiKeyConfig(
@@ -270,7 +324,8 @@
                 Passphrase:  _newPassphrase,
                 MarketType:  _newMarketType,
                 Environment: _newEnvironment,
-                IsActive:    false);
+                IsActive:    false,
+                AllowsWithdrawal: _newAllowsWithdrawal);
 
             await ApiKeyService.SaveKeyAsync(config);
             if (autoActivate)
@@ -287,6 +342,7 @@
             _newApiKey = "";
             _newApiSecret = "";
             _newPassphrase = "";
+            _newAllowsWithdrawal = false;
             _formError = null;
             StateHasChanged();
 
@@ -297,9 +353,12 @@
             EventBus.Publish(new ApiKeysChangedEvent(config.Provider));
 
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                autoActivate
-                    ? $"Profile {config.Nickname} saved and activated"
-                    : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
+                config.AllowsWithdrawal
+                    ? $"Withdrawal profile {config.Nickname} saved for {config.Provider}. "
+                      + "It will be used only by the Withdraw screen, never for trading."
+                    : autoActivate
+                        ? $"Profile {config.Nickname} saved and activated"
+                        : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
         }
         catch (Exception ex)
         {
@@ -336,9 +395,16 @@
     {
         try
         {
+            string provider = _keys.FirstOrDefault(k => k.Nickname == nickname)?.Provider ?? "";
             await ApiKeyService.RemoveKeyAsync(nickname);
             _keys = await ApiKeyService.GetAllKeysAsync();
             StateHasChanged();
+
+            // Removal changes the same answers saving does — including whether the
+            // toolbar may still offer Withdraw for this provider. A removed
+            // withdrawal profile must retract the button, not leave it to open
+            // onto a refusal.
+            EventBus.Publish(new ApiKeysChangedEvent(provider));
         }
         catch (Exception ex)
         {
@@ -419,7 +485,8 @@
     private string GetKeyLabel(ApiKeyConfig k)
     {
         string active = k.IsActive ? ", active" : "";
-        return $"{k.Nickname}, {k.Provider}, {k.Environment}, {k.MarketType}{active}";
+        string withdrawal = k.AllowsWithdrawal ? ", withdrawal profile" : "";
+        return $"{k.Nickname}, {k.Provider}, {k.Environment}, {k.MarketType}{active}{withdrawal}";
     }
 
     public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }

@@ -61,6 +61,8 @@ namespace AccessibleTrader.Tests
             new object[] { "Strategies",             "OpenStrategiesEvent" },
             new object[] { "Alerts",                 "OpenAlertsEvent" },
             new object[] { "API keys",               "OpenApiKeysEvent" },
+            new object[] { "Deposit address",        "OpenWalletEvent" },
+            new object[] { "Withdraw",               "OpenWithdrawEvent" },
         };
 
         [Theory]

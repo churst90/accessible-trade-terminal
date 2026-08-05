@@ -39,8 +39,8 @@ public class ApiKeyServiceTests
 
     private static ApiKeyConfig Config(string nickname, string provider = "Kraken",
         string market = "Spot", string env = "Live", bool active = false,
-        string key = "k", string secret = "s", string pass = "p")
-        => new(provider, nickname, key, secret, pass, market, env, active);
+        string key = "k", string secret = "s", string pass = "p", bool withdrawal = false)
+        => new(provider, nickname, key, secret, pass, market, env, active, withdrawal);
 
     [Fact]
     public async Task SaveKey_RoundTrips_MetadataAndSecrets()
@@ -173,6 +173,66 @@ public class ApiKeyServiceTests
 
         var got = Assert.Single(await svc.GetAllKeysAsync());
         Assert.Equal("new", got.ApiKey);
+    }
+
+    // ── Withdrawal profiles ──────────────────────────────────────────────
+    // The flag's enforcement on the lookup paths is pinned here; the checkbox in
+    // the API Keys modal is only a way to set it.
+
+    [Fact]
+    public async Task AllowsWithdrawal_RoundTrips_ThroughSaveAndLoad()
+    {
+        var storage = new InMemorySecureStorage();
+        var svc = NewService(storage);
+
+        await svc.SaveKeyAsync(Config("wd", withdrawal: true));
+
+        var got = Assert.Single(await svc.GetAllKeysAsync());
+        Assert.True(got.AllowsWithdrawal);
+    }
+
+    [Fact]
+    public async Task TradingLookups_NeverReturnAWithdrawalProfile_EvenWhenItIsTheOnlyOne()
+    {
+        // The generous fallbacks in GetKeyForProviderAsync are exactly the shape of
+        // code that would quietly hand the withdrawal key to the order path.
+        var storage = new InMemorySecureStorage();
+        var svc = NewService(storage);
+        await svc.SaveKeyAsync(Config("wd", withdrawal: true, active: true));
+
+        Assert.Null(await svc.GetKeyForProviderAsync("Kraken", "Spot"));
+        Assert.Null(await svc.GetActiveKeyForProviderAsync("Kraken", "Live"));
+    }
+
+    [Fact]
+    public async Task GetWithdrawalKey_FindsTheFlaggedProfile_AndOnlyThat()
+    {
+        var storage = new InMemorySecureStorage();
+        var svc = NewService(storage);
+        await svc.SaveKeyAsync(Config("trade", active: true));
+        await svc.SaveKeyAsync(Config("wd", withdrawal: true));
+
+        var got = await svc.GetWithdrawalKeyAsync("Kraken");
+        Assert.Equal("wd", got!.Nickname);
+        Assert.Null(await svc.GetWithdrawalKeyAsync("Binance"));
+    }
+
+    [Fact]
+    public async Task SetActiveKey_RefusesAWithdrawalProfile_AndLeavesTheTradingProfileActive()
+    {
+        // Activation means "use for trading sessions" — which a withdrawal profile
+        // never is. Activating one would also deactivate the real trading profile
+        // for the provider+environment, silently breaking trading.
+        var storage = new InMemorySecureStorage();
+        var svc = NewService(storage);
+        await svc.SaveKeyAsync(Config("trade", active: true));
+        await svc.SaveKeyAsync(Config("wd", withdrawal: true));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SetActiveKeyAsync("wd"));
+
+        var all = await svc.GetAllKeysAsync();
+        Assert.True(all.Single(k => k.Nickname == "trade").IsActive);
+        Assert.False(all.Single(k => k.Nickname == "wd").IsActive);
     }
 
     [Fact]

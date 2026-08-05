@@ -1,0 +1,371 @@
+@*
+    Withdrawing funds from the connected venue — the one action in the terminal
+    that cannot be undone.
+
+    The form runs strictly in the order in which each answer narrows the next:
+      1. Asset        — what is being sent.
+      2. Destination  — chosen from the venue's OWN whitelist. There is no
+                        free-text address field anywhere in this dialog, and the
+                        SDK has no parameter to pass one through: even a fully
+                        compromised terminal cannot send funds anywhere the user
+                        did not pre-approve on the venue's site, behind the
+                        venue's own 2FA. Adding a destination happens THERE.
+      3. Amount, then the QUOTE — fee and the amount that ARRIVES, read back
+                        before any confirmation is accepted, because the fee is
+                        the number people are surprised by afterwards.
+      4. The typed word — WITHDRAW, typed in full. A word rather than a button
+                        because a button is one keystroke from anywhere. The
+                        service checks the phrase again itself, so this screen
+                        is a convenience over the control, not the control.
+
+    Any edit to the asset, destination or amount voids the quote and the typed
+    confirmation: what was read aloud must be exactly what is sent, or the
+    readback is theatre.
+
+    The destination's address gets the same treatment as a deposit address:
+    readonly (not disabled, which would hide it from keyboard navigation), plus
+    copy and a character-by-character reading that names capitals — speech drops
+    case, and case is part of the address.
+*@
+@inherits ModalBase
+@using System.Globalization
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Trading
+@using AccessibleTrader.Sdk.Plugins
+@inject WithdrawalService Withdrawals
+@inject IWorkspaceStore Store
+@inject ISpeechManager Speech
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="withdraw-title" @onclick:stopPropagation="true"
+             style="max-width: 640px;">
+
+            <h2 id="withdraw-title" tabindex="-1">Withdraw — @_provider</h2>
+
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:0;">
+                Destinations come only from the addresses already saved on
+                @(_provider)'s own site. Nothing here can send funds anywhere else.
+            </p>
+
+            <div class="modal-row">
+                <label for="withdraw-asset">Asset</label>
+                <input id="withdraw-asset" type="text"
+                       value="@_asset" @oninput="OnAssetInput"
+                       aria-label="Asset to withdraw, for example BTC"
+                       placeholder="BTC" style="width:8em;" />
+                <button type="button" @onclick="LoadDestinationsAsync"
+                        aria-label="Look up saved withdrawal destinations for this asset">
+                    Destinations
+                </button>
+            </div>
+
+            @if (_destinationsNote is not null)
+            {
+                <p role="status" class="wallet-note">@_destinationsNote</p>
+            }
+
+            @if (_destinations.Count > 0)
+            {
+                @* No default: picking one for the user is picking where their money
+                   goes. *@
+                <div class="modal-row">
+                    <label for="withdraw-destination">Destination</label>
+                    <select id="withdraw-destination" value="@_destinationKey"
+                            @onchange="OnDestinationChanged"
+                            aria-label="Saved destination to send to">
+                        <option value="">— choose a destination —</option>
+                        @foreach (var d in _destinations)
+                        {
+                            <option value="@d.Key">@DescribeDestination(d)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (Selected is { Address: { Length: > 0 } } sel)
+                {
+                    <div class="modal-row">
+                        <label for="withdraw-address-field">Destination address</label>
+                        <input id="withdraw-address-field" type="text" readonly
+                               value="@sel.Address"
+                               aria-label="@($"Address of destination {sel.Key}. Read only. Shown to confirm which destination this is — it is the venue's saved address and cannot be edited here.")"
+                               spellcheck="false" autocomplete="off"
+                               style="flex:1; min-width:24em; font-family:monospace;" />
+                        <button type="button" @onclick='() => CopyAsync(sel.Address!, "Address")'
+                                aria-label="Copy the destination address to the clipboard">Copy</button>
+                        <button type="button" @onclick="ReadCharacters"
+                                aria-label="Read the destination address one character at a time, saying which letters are capitals">
+                            Read characters
+                        </button>
+                    </div>
+                    @if (_copied is not null)
+                    {
+                        <span role="status">@_copied</span>
+                    }
+                }
+            }
+
+            @if (_destinationKey.Length > 0)
+            {
+                <div class="modal-row">
+                    <label for="withdraw-amount">Amount (@_asset.ToUpperInvariant())</label>
+                    <input id="withdraw-amount" type="text" inputmode="decimal"
+                           value="@_amountText" @oninput="OnAmountInput"
+                           aria-label="@($"Amount of {_asset.ToUpperInvariant()} to withdraw")"
+                           spellcheck="false" autocomplete="off" style="width:12em;" />
+                    <button type="button" @onclick="LoadQuoteAsync"
+                            disabled="@(!CanQuote)"
+                            aria-label="Get the fee and the amount that will arrive, without sending anything">
+                        Get quote
+                    </button>
+                </div>
+            }
+
+            @if (_error is not null)
+            {
+                <p role="alert" class="wallet-error">@_error</p>
+            }
+
+            @if (_quote is not null && Selected is not null)
+            {
+                <div class="wallet-address">
+                    @* The full readback, on screen and spoken. Leads with what
+                       ARRIVES; ends with how to proceed and how to escape. *@
+                    <p role="status" id="withdraw-readback">@_readback</p>
+
+                    <div class="modal-row">
+                        <label for="withdraw-confirm">Type @WithdrawalService.ConfirmationPhrase to send</label>
+                        <input id="withdraw-confirm" type="text"
+                               value="@_typedConfirmation" @oninput="OnConfirmationInput"
+                               aria-label="@($"Confirmation. Type the word {WithdrawalService.ConfirmationPhrase} in capitals to send this withdrawal, or leave empty and close to cancel.")"
+                               aria-describedby="withdraw-readback"
+                               spellcheck="false" autocomplete="off"
+                               style="width:12em; font-family:monospace;" />
+                        <button type="button" class="primary" @onclick="SendAsync"
+                                disabled="@_sending"
+                                aria-label="Send the withdrawal now. This cannot be undone.">
+                            @(_sending ? "Sending…" : "Send")
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @if (_result is not null)
+            {
+                <p role="status" style="font-weight:600;">@_result</p>
+            }
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _provider = "";
+    private string _asset = "";
+    private string _destinationKey = "";
+    private string _amountText = "";
+    private string _typedConfirmation = "";
+    private List<WithdrawalDestination> _destinations = new();
+    private WithdrawalQuote? _quote;
+    private string _readback = "";
+    private string? _destinationsNote, _error, _result, _copied;
+    private bool _sending;
+
+    private WithdrawalDestination? Selected =>
+        _destinations.FirstOrDefault(d => d.Key == _destinationKey);
+
+    private double Amount =>
+        double.TryParse(_amountText, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0;
+
+    private bool CanQuote => Selected is not null && Amount > 0;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenWithdrawEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _provider = Store.State.Identity.Provider ?? "";
+        // Nothing survives a close: destinations are re-fetched from the venue on
+        // every open (the whitelist may have changed there), and no half-confirmed
+        // withdrawal can be resumed by reopening the dialog.
+        _asset = ""; _destinationKey = ""; _amountText = ""; _typedConfirmation = "";
+        _destinations.Clear();
+        _quote = null; _readback = "";
+        _destinationsNote = _error = _result = _copied = null;
+        _sending = false;
+
+        await ShowModalAsync("withdraw-title");
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "withdraw-asset"); }
+        catch { /* focus is best-effort; Tab still reaches it */ }
+    }
+
+    // ── Staleness: any edit voids the quote and the typed word ───────────────
+    // What was read aloud must be exactly what is sent. A quote kept alive across
+    // an amount edit would speak one number and send another.
+
+    private void OnAssetInput(ChangeEventArgs e)
+    {
+        _asset = e.Value?.ToString() ?? "";
+        _destinations.Clear(); _destinationKey = "";
+        VoidQuote();
+    }
+
+    private void OnDestinationChanged(ChangeEventArgs e)
+    {
+        _destinationKey = e.Value?.ToString() ?? "";
+        VoidQuote();
+    }
+
+    private void OnAmountInput(ChangeEventArgs e)
+    {
+        _amountText = e.Value?.ToString() ?? "";
+        VoidQuote();
+    }
+
+    private void OnConfirmationInput(ChangeEventArgs e)
+        => _typedConfirmation = e.Value?.ToString() ?? "";
+
+    private void VoidQuote()
+    {
+        _quote = null; _readback = ""; _typedConfirmation = "";
+        _error = null; _result = null;
+    }
+
+    // ── The three venue calls, in order ──────────────────────────────────────
+
+    private async Task LoadDestinationsAsync()
+    {
+        _destinations.Clear(); _destinationKey = "";
+        VoidQuote(); _destinationsNote = null;
+        if (string.IsNullOrWhiteSpace(_asset)) { _destinationsNote = "Enter an asset first."; return; }
+
+        var r = await Withdrawals.GetDestinationsAsync(_provider, _asset.Trim().ToUpperInvariant());
+        if (r.IsOk)
+        {
+            _destinations = new List<WithdrawalDestination>(r.Value!);
+            _destinationsNote = $"{_destinations.Count} saved destination{(_destinations.Count == 1 ? "" : "s")}. Choose one.";
+        }
+        else
+        {
+            // Says WHICH kind of nothing: no whitelist entries, no withdrawal
+            // profile, and a failed call are different problems with different
+            // fixes, and the service words each one.
+            _destinationsNote = r.Reason;
+        }
+        Speech.Speak(_destinationsNote ?? "", interrupt: true);
+        StateHasChanged();
+    }
+
+    private async Task LoadQuoteAsync()
+    {
+        VoidQuote();
+        if (!CanQuote) return;
+
+        var r = await Withdrawals.GetQuoteAsync(
+            _provider, _asset.Trim().ToUpperInvariant(), _destinationKey, Amount);
+        if (r.IsOk)
+        {
+            _quote = r.Value;
+            _readback = WithdrawalService.Confirmation(_quote!, Selected!);
+            // Spoken immediately, interrupting, in full. This is the moment the
+            // decision is actually made; everything after it is typing.
+            Speech.Speak(_readback, interrupt: true);
+        }
+        else
+        {
+            _error = r.Reason;
+            Speech.Speak(r.Reason ?? "No quote.", interrupt: true);
+        }
+        StateHasChanged();
+    }
+
+    private async Task SendAsync()
+    {
+        if (_sending || _quote is null) return;
+        _sending = true; _error = null;
+        StateHasChanged();
+        try
+        {
+            // The typed phrase is passed through verbatim — the SERVICE decides
+            // whether it matches, so this button cannot become a bypass.
+            var r = await Withdrawals.WithdrawAsync(
+                _provider, _quote.Asset, _destinationKey, _quote.Amount, _typedConfirmation);
+            if (r.IsOk)
+            {
+                string sent = $"Withdrawal sent. Reference {r.Value!.ReferenceId}, status {r.Value.Status}. "
+                            + $"{Fmt(_quote.NetAmount)} {_quote.Asset} should arrive at {_destinationKey}.";
+                // A second send must start from a fresh quote, deliberately.
+                VoidQuote();
+                _amountText = "";
+                _result = sent;
+                Speech.Speak(sent, interrupt: true);
+            }
+            else
+            {
+                _error = r.Reason;
+                Speech.Speak(r.Reason ?? "The withdrawal was not sent.", interrupt: true);
+            }
+        }
+        finally
+        {
+            _sending = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Address review helpers, matching the deposit dialog ──────────────────
+
+    private async Task CopyAsync(string text, string what)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _copied = $"{what} copied.";
+        }
+        catch
+        {
+            // A copy that silently did nothing would have the user paste whatever
+            // was on the clipboard before.
+            _copied = $"{what} could NOT be copied — select the field and copy manually.";
+        }
+        Speech.Speak(_copied, interrupt: true);
+    }
+
+    /// <summary>
+    /// Spells the selected destination's address, naming capitals — speech drops
+    /// case, and case-sensitive address formats make "b" and "B" different
+    /// addresses.
+    /// </summary>
+    private void ReadCharacters()
+    {
+        var addr = Selected?.Address;
+        if (string.IsNullOrEmpty(addr)) return;
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in addr)
+        {
+            if (char.IsUpper(c)) sb.Append("capital ").Append(c);
+            else sb.Append(c);
+            sb.Append(", ");
+        }
+        Speech.Speak(sb.ToString(), interrupt: true);
+    }
+
+    private static string DescribeDestination(WithdrawalDestination d)
+    {
+        string network = d.Network is null ? "" : $", {d.Network}";
+        string addr = string.IsNullOrEmpty(d.Address) ? ""
+            : $" ({(d.Address.Length > 12 ? d.Address[..6] + "…" + d.Address[^4..] : d.Address)})";
+        string unverified = d.Verified ? "" : " — not yet verified at the venue";
+        return $"{d.Key}{network}{addr}{unverified}";
+    }
+
+    private static string Fmt(double v) => v.ToString("0.########", CultureInfo.InvariantCulture);
+}

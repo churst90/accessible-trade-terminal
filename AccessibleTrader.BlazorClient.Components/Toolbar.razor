@@ -129,6 +129,17 @@
                                   AriaLabel="Deposit address"
                                   OnClick="() => EventBus.Publish(new OpenWalletEvent())" />
             }
+            @* Present only when a withdrawal is actually possible: the provider
+               implements IWithdrawalProvider AND a withdrawal-enabled key profile
+               exists. Both are checked by CanWithdrawAsync — showing the button on
+               capability alone would open a dialog whose every path is a refusal. *@
+            @if (_canWithdraw)
+            {
+                <ToolbarIconButton Icon="api-keys" Label="Withdraw" Variant="warning"
+                                  Tooltip="Withdraw funds to an address saved at the venue"
+                                  AriaLabel="Withdraw funds"
+                                  OnClick="() => EventBus.Publish(new OpenWithdrawEvent())" />
+            }
         </div>
 
         @* ── Workspace persistence ──────────────────────────────────────── *@
@@ -425,6 +436,7 @@
     private IDisposable? _stateSub;
     private IDisposable? _splitSub;
     private IDisposable? _replaySub;
+    private IDisposable? _apiKeysSub;
     private string? _loadError;
 
     // ── Custom timeframe composer state ──────────────────────────────────
@@ -450,6 +462,7 @@
     // workspace change because switching provider changes the answer, and cached in
     // a field because the check is async and the render path is not.
     private bool _hasWallet;
+    private bool _canWithdraw;
     private string _walletCheckedFor = "";
 
     private async Task RefreshWalletAsync()
@@ -465,6 +478,15 @@
             _hasWallet = wallet is not null
                       && !string.IsNullOrEmpty(provider)
                       && await wallet.HasWalletAsync(provider);
+
+            // Withdraw is gated harder than Deposit: capability AND a
+            // withdrawal-enabled key profile. Key changes re-run this through the
+            // ApiKeysChangedEvent subscription below, which clears the per-provider
+            // cache — so the button appears the moment the profile is saved.
+            var withdrawals = Services.GetService<AccessibleTrader.Core.Services.Trading.WithdrawalService>();
+            _canWithdraw = withdrawals is not null
+                        && !string.IsNullOrEmpty(provider)
+                        && await withdrawals.CanWithdrawAsync(provider);
         }
         StateHasChanged();
     }
@@ -528,6 +550,17 @@
         // showing the opposite of the truth. A control that lies about its own state is worse
         // than one that is missing.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(RefreshWalletAsync));
+
+        // Saving or removing a key can change the answer to CanWithdrawAsync for
+        // the CURRENT provider — and RefreshWalletAsync caches per provider name,
+        // so without this the Withdraw button would not appear until the user
+        // switched providers. Add the withdrawal profile, close the modal, and the
+        // button must simply be there.
+        _apiKeysSub = EventBus.Subscribe<ApiKeysChangedEvent>(_ => InvokeAsync(() =>
+        {
+            _walletCheckedFor = "";
+            return RefreshWalletAsync();
+        }));
 
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
@@ -795,5 +828,6 @@
         _stateSub?.Dispose();
         _splitSub?.Dispose();
         _replaySub?.Dispose();
+        _apiKeysSub?.Dispose();
     }
 }

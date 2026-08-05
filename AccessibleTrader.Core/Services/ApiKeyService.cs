@@ -202,6 +202,17 @@ namespace AccessibleTrader.Core.Services
                 var target = _cache.FirstOrDefault(k => k.Nickname == nickname);
                 if (target == null) return;
 
+                // A withdrawal profile can never be the ACTIVE profile. Activation
+                // only means "use this for trading sessions", which a withdrawal
+                // profile must never be — and activating one would deactivate the
+                // real trading profile for the same provider+environment, silently
+                // breaking trading. The withdrawal path finds its credential by the
+                // flag alone and never looks at IsActive.
+                if (target.AllowsWithdrawal)
+                    throw new InvalidOperationException(
+                        $"{nickname} is a withdrawal profile. It is used automatically for withdrawals "
+                      + "and cannot be made the active trading profile.");
+
                 // Deactivate other profiles for same provider+environment, activate this one.
                 for (int i = 0; i < _cache.Count; i++)
                 {
