@@ -8,6 +8,8 @@
 @using AccessibleTrader.BlazorClient.Services
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
+@inject PortfolioValuationService Portfolio
+@inject ILogger<TradingDashboardModal> _layoutLogger
 @inject IOrderExecutionService OrderService
 @inject IApiKeyService ApiKeyService
 @inject ISettingsManager Settings
@@ -340,20 +342,54 @@
                             <div id="acct-panel" class="account-content" role="tabpanel" aria-labelledby="@($"acct-tab-{_accountTab.ToLowerInvariant()}")">
                                 @if (_accountTab == "Balances")
                                 {
+                                    @* The summary leads, because "what is this worth" is the question
+                                       the tab is opened to answer and it was the one thing the table
+                                       could not say. When the total is partial it says so here rather
+                                       than quietly excluding a holding from a number people act on. *@
+                                    @if (_portfolio is { TotalCount: > 0 })
+                                    {
+                                        <p class="portfolio-summary" role="status">@PortfolioValuationService.Summarise(_portfolio)</p>
+                                    }
                                     <table class="mini-table">
-                                        <caption class="sr-only">Account balances</caption>
-                                        <thead><tr><th scope="col">Asset</th><th scope="col">Free</th><th scope="col">Locked</th></tr></thead>
+                                        <caption class="sr-only">Account balances and value</caption>
+                                        <thead><tr>
+                                            <th scope="col">Asset</th><th scope="col">Free</th><th scope="col">Locked</th>
+                                            <th scope="col">Value</th><th scope="col">Share</th><th scope="col">Day</th>
+                                        </tr></thead>
                                         <tbody>
                                             @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
                                             {
-                                                <tr @key="b.Asset"><td>@b.Asset</td><td>@PriceFormatter.FormatQuantity(b.Free)</td><td>@PriceFormatter.FormatQuantity(b.Locked)</td></tr>
+                                                var v = _portfolio?.Assets.FirstOrDefault(a => a.Asset == b.Asset);
+                                                <tr @key="b.Asset">
+                                                    <td>@b.Asset</td>
+                                                    <td>@PriceFormatter.FormatQuantity(b.Free)</td>
+                                                    <td>@PriceFormatter.FormatQuantity(b.Locked)</td>
+                                                    @* An unpriceable holding shows WHY, never a zero.
+                                                       A zero here would read as "worth nothing", which
+                                                       is a different and much worse claim. *@
+                                                    <td>@(v is null ? "—"
+                                                          : v.IsPriced ? PriceFormatter.FormatPrice(v.Value ?? 0)
+                                                          : "unpriced")</td>
+                                                    <td>@(PortfolioValuationService.AllocationPercent(v ?? new AssetValuation(b.Asset, 0, null, null, null, "x"), _portfolio!) is double p
+                                                          ? p.ToString("0.#") + "%" : "—")</td>
+                                                    <td class='@(v?.DayChangePct >= 0 ? "plus" : "minus")'>
+                                                        @(v?.DayChangePct is double d ? (d >= 0 ? "+" : "") + d.ToString("0.##") + "%" : "—")
+                                                    </td>
+                                                </tr>
                                             }
                                             @if (!_balances.Any(b => b.Free > 0 || b.Locked > 0))
                                             {
-                                                <tr><td colspan="3">@(_balancesNote ?? "No balances.")</td></tr>
+                                                <tr><td colspan="6">@(_balancesNote ?? "No balances.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
+                                    @if (_portfolio is { IsComplete: false })
+                                    {
+                                        <p class="portfolio-note">
+                                            The total covers @_portfolio.PricedCount of @_portfolio.TotalCount assets.
+                                            @string.Join(", ", _portfolio.Assets.Where(a => !a.IsPriced).Select(a => $"{a.Asset}: {a.Unpriced}"))
+                                        </p>
+                                    }
                                 }
                                 else if (_accountTab == "Positions")
                                 {
@@ -642,6 +678,15 @@
     /// </summary>
     private string? _balancesNote, _positionsNote, _openOrdersNote, _fillsNote;
 
+    private PortfolioSnapshot? _portfolio;
+
+    /// <summary>
+    /// What the portfolio is measured in. USD rather than the venue's own quote so
+    /// a mixed account does not silently add USDT to EUR — the price source treats
+    /// the dollar stablecoins as interchangeable for valuation only.
+    /// </summary>
+    private const string PortfolioQuote = "USD";
+
     /// <summary>
     /// What to say in place of a table when a read did not return data. Null when
     /// the read succeeded — an empty table is then the honest answer, because the
@@ -914,6 +959,18 @@
         _positions  = positions.OrElse(new List<Position>());
         _openOrders = openOrders.OrElse(new List<OpenOrder>());
         _fills      = fills.OrElse(new List<TradeFill>());
+
+        // Valued after the balances land, and never allowed to take the tab down
+        // with it — a pricing outage must cost the value column, not the balances.
+        try
+        {
+            _portfolio = await Portfolio.ValueAsync(provider, _balances, PortfolioQuote);
+        }
+        catch (Exception ex)
+        {
+            _layoutLogger?.LogWarning(ex, "Portfolio valuation failed for {Provider}", provider);
+            _portfolio = null;
+        }
 
         _balancesNote   = EmptyNote(balances);
         _positionsNote  = EmptyNote(positions);

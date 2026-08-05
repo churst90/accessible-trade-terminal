@@ -346,6 +346,12 @@ namespace AccessibleTrader.BlazorClient
 
             // Order execution, trading strategies, and scripting.
             services.AddSingleton<IPaperTradingProvider, PaperTradingProvider>();
+            // Portfolio valuation: the Balances tab showed quantities with no value,
+            // total, allocation or day change. The price source is separate so the
+            // arithmetic that decides the number a user reads is testable offline.
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.IAssetPriceSource,
+                             AccessibleTrader.Core.Services.Trading.MarketDataPriceSource>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();

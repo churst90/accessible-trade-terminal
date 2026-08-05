@@ -327,6 +327,12 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IDataExportService, DataExportService>();
 
             services.AddScoped<IPaperTradingProvider, PaperTradingProvider>();
+            // Portfolio valuation: the Balances tab showed quantities with no value,
+            // total, allocation or day change. The price source is separate so the
+            // arithmetic that decides the number a user reads is testable offline.
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.IAssetPriceSource,
+                             AccessibleTrader.Core.Services.Trading.MarketDataPriceSource>();
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
             services.AddScoped<IOrderExecutionService, GeneralOrderService>();
             services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddScoped<IStrategyEngine, StrategyEngine>();
