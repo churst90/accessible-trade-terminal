@@ -32,6 +32,7 @@
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Bitstamp\AccessibleTrader.Plugins.Bitstamp.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Mexc\AccessibleTrader.Plugins.Mexc.csproj" />
     <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Alpaca\AccessibleTrader.Plugins.Alpaca.csproj" />
+    <ProjectReference Include="..\Plugins\Providers\AccessibleTrader.Plugins.Kraken\AccessibleTrader.Plugins.Kraken.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.OkxDerivatives\AccessibleTrader.Plugins.OkxDerivatives.csproj" />
     <ProjectReference Include="..\Plugins\Analytics\AccessibleTrader.Plugins.AlternativeMe\AccessibleTrader.Plugins.AlternativeMe.csproj" />
   </ItemGroup>

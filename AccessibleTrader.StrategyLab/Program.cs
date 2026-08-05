@@ -194,6 +194,7 @@ try
         "catalogue" or "catalog" => CatalogueCommand.Run(args.Skip(1).ToArray()),
         "edges" or "edge" => EdgesCommand.Run(args.Skip(1).ToArray()),
         "capabilities" or "caps" => ProbeCommand.Run(args.Skip(1).ToArray()),
+        "wallet-probe" => await WalletProbeCommand.RunAsync(args.Skip(1).ToArray()),
         "ladder" => LadderCommand.Run(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
