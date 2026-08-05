@@ -14,7 +14,11 @@ namespace AccessibleTrader.Core.Services
     // (encrypted at rest) rather than as plaintext JSON on disk — the plaintext file
     // leaked which exchanges a user trades on and the profile nicknames/environments.
     internal record ApiKeyMetadata(string Provider, string Nickname, string MarketType,
-        string Environment = "Paper", bool IsActive = false);
+        string Environment = "Paper", bool IsActive = false,
+        // Appended with a default so existing stored metadata deserialises as
+        // withdrawal-DISABLED. A migration that silently enabled it would be the
+        // worst possible default on the one flag that moves money.
+        bool AllowsWithdrawal = false);
 
     public class ApiKeyService : IApiKeyService
     {
@@ -105,7 +109,8 @@ namespace AccessibleTrader.Core.Services
             string key = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_key").ConfigureAwait(false) ?? "";
             string secret = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_secret").ConfigureAwait(false) ?? "";
             string pass = await _secureStorage.GetAsync($"apikey_{meta.Nickname}_passphrase").ConfigureAwait(false) ?? "";
-            return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType, meta.Environment, meta.IsActive);
+            return new ApiKeyConfig(meta.Provider, meta.Nickname, key, secret, pass, meta.MarketType,
+                                    meta.Environment, meta.IsActive, meta.AllowsWithdrawal);
         }
 
         public async Task<List<ApiKeyConfig>> GetAllKeysAsync()
@@ -130,7 +135,13 @@ namespace AccessibleTrader.Core.Services
         public async Task<ApiKeyConfig?> GetKeyForProviderAsync(string provider, string marketType = "Spot")
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
+            // Withdrawal profiles are excluded from EVERY trading lookup, including
+            // the fallbacks below. Separating the credentials is worth nothing if a
+            // fallback quietly hands the withdrawal-enabled key to the order path —
+            // and the fallbacks here are deliberately generous, which is exactly the
+            // shape of mistake that would do it.
             var meta = _cache.FirstOrDefault(k =>
+                !k.AllowsWithdrawal &&
                 k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.MarketType.Equals(marketType, StringComparison.OrdinalIgnoreCase));
 
@@ -141,8 +152,10 @@ namespace AccessibleTrader.Core.Services
             // equal a sub-type, so an exact-match-only lookup would strand a good key.
             if (meta == null)
                 meta = _cache.FirstOrDefault(k =>
+                            !k.AllowsWithdrawal &&
                             k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) && k.IsActive)
                     ?? _cache.FirstOrDefault(k =>
+                            !k.AllowsWithdrawal &&
                             k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
             if (meta == null) return null;
@@ -153,9 +166,28 @@ namespace AccessibleTrader.Core.Services
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
             var meta = _cache.FirstOrDefault(k =>
+                !k.AllowsWithdrawal &&
                 k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.Environment.Equals(environment, StringComparison.OrdinalIgnoreCase) &&
                 k.IsActive);
+
+            if (meta == null) return null;
+            return await ToConfigAsync(meta).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Deliberately has NO fallback to the trading key. If no profile is marked
+        /// withdrawal-enabled the answer is null, and the caller must refuse — a
+        /// convenience fallback here would silently rejoin the two powers this
+        /// separation exists to keep apart, and it would do so on the one path where
+        /// being wrong moves money.
+        /// </summary>
+        public async Task<ApiKeyConfig?> GetWithdrawalKeyAsync(string provider)
+        {
+            await EnsureLoadedAsync().ConfigureAwait(false);
+            var meta = _cache.FirstOrDefault(k =>
+                k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
+                k.AllowsWithdrawal);
 
             if (meta == null) return null;
             return await ToConfigAsync(meta).ConfigureAwait(false);
@@ -208,7 +240,8 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 _cache.RemoveAll(k => k.Nickname == config.Nickname);
-                _cache.Add(new ApiKeyMetadata(config.Provider, config.Nickname, config.MarketType, config.Environment, config.IsActive));
+                _cache.Add(new ApiKeyMetadata(config.Provider, config.Nickname, config.MarketType,
+                                              config.Environment, config.IsActive, config.AllowsWithdrawal));
                 await SaveLockedAsync().ConfigureAwait(false);
             }
             finally

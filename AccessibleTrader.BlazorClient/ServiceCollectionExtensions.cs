@@ -353,6 +353,7 @@ namespace AccessibleTrader.BlazorClient
                              AccessibleTrader.Core.Services.Trading.MarketDataPriceSource>();
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.WalletService>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.WithdrawalService>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();

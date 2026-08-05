@@ -19,7 +19,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
 {
-    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider
+    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -74,7 +74,8 @@ namespace AccessibleTrader.Plugins.Kraken
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
             ProviderCapabilities.Leverage | ProviderCapabilities.Brackets |
-            ProviderCapabilities.MarginTrading | ProviderCapabilities.DepositAddresses;
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.DepositAddresses |
+            ProviderCapabilities.Withdrawals;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
@@ -971,6 +972,106 @@ namespace AccessibleTrader.Plugins.Kraken
                 }).ToList();
             });
         }
+
+        // ── IWithdrawalProvider ─────────────────────────────────────────────
+        //
+        // Kraken's Withdraw endpoint takes a `key` — the NAME of a withdrawal
+        // address the user saved on kraken.com — and not an address. That is the
+        // property the whole withdrawal design rests on: this terminal cannot
+        // invent a destination, so even fully compromised it could only send funds
+        // somewhere the user had personally whitelisted behind Kraken's own 2FA.
+        //
+        // These are reached only with a credential from a withdrawal-enabled key
+        // profile; the ordinary trading key cannot get here.
+
+        public async Task<IReadOnlyList<WithdrawalDestination>> GetWithdrawalDestinationsAsync(
+            string asset, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                var result = await PostPrivateAsync("/0/private/WithdrawAddresses",
+                    new Dictionary<string, string> { ["asset"] = NormaliseAsset(asset) });
+                ThrowOnKrakenError(result, $"withdrawal addresses for {asset}");
+
+                var rows = JObject.Parse(result)["result"] as JArray;
+                if (rows == null) return (IReadOnlyList<WithdrawalDestination>)Array.Empty<WithdrawalDestination>();
+
+                return rows.OfType<JObject>().Select(r => new WithdrawalDestination(
+                    Key:      r["key"]?.ToString() ?? "",
+                    Asset:    asset.ToUpperInvariant(),
+                    Address:  r["address"]?.ToString(),
+                    Network:  r["method"]?.ToString(),
+                    // Kraken holds new addresses for a period before they can be
+                    // used. Sending to an unverified one fails at the venue, so it
+                    // is surfaced rather than discovered at the confirmation step.
+                    Verified: r["verified"]?.Value<bool>() ?? true))
+                    .Where(d => !string.IsNullOrEmpty(d.Key))
+                    .ToList();
+            });
+        }
+
+        public async Task<WithdrawalQuote> GetWithdrawalQuoteAsync(
+            string asset, string destinationKey, double amount, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                var result = await PostPrivateAsync("/0/private/WithdrawInfo", new Dictionary<string, string>
+                {
+                    ["asset"]  = NormaliseAsset(asset),
+                    ["key"]    = destinationKey,
+                    ["amount"] = amount.ToString("0.########", CultureInfo.InvariantCulture),
+                });
+                ThrowOnKrakenError(result, $"withdrawal fees for {asset}");
+
+                var r = JObject.Parse(result)["result"] as JObject
+                    ?? throw new InvalidOperationException("Kraken returned no withdrawal quote.");
+
+                double fee = Num(r["fee"]);
+                // Kraken's `amount` here is what ARRIVES, and `limit` is the most
+                // that may still be withdrawn. Reading `amount` as the amount SENT
+                // would understate the cost by the fee, on the number the user is
+                // deciding about.
+                double net = Num(r["amount"]);
+                return new WithdrawalQuote(
+                    asset.ToUpperInvariant(), amount, fee,
+                    net > 0 ? net : amount - fee,
+                    MinimumAmount: null,
+                    RemainingDailyLimit: r["limit"] != null ? Num(r["limit"]) : null);
+            });
+        }
+
+        public async Task<WithdrawalResult> WithdrawAsync(
+            string asset, string destinationKey, double amount, CancellationToken ct = default)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
+
+            return await _privateRateLimiter.ExecuteAsync(async () =>
+            {
+                var result = await PostPrivateAsync("/0/private/Withdraw", new Dictionary<string, string>
+                {
+                    ["asset"]  = NormaliseAsset(asset),
+                    ["key"]    = destinationKey,
+                    ["amount"] = amount.ToString("0.########", CultureInfo.InvariantCulture),
+                });
+                ThrowOnKrakenError(result, "the withdrawal");
+
+                string? refId = JObject.Parse(result)["result"]?["refid"]?.ToString();
+                return string.IsNullOrEmpty(refId)
+                    // Kraken accepted the call but named no reference. Treated as a
+                    // failure rather than a success, because a withdrawal we cannot
+                    // point at is one the user cannot follow up.
+                    ? throw new InvalidOperationException(
+                        "Kraken accepted the withdrawal but returned no reference id — check its status on kraken.com")
+                    : new WithdrawalResult(refId!, "initiated");
+            });
+        }
+
+        private static double Num(JToken? t) =>
+            double.TryParse(t?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double v) ? v : 0;
 
         /// <summary>
         /// Kraken answers HTTP 200 with an <c>error</c> array for permission and

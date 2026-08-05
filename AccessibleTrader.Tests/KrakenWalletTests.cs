@@ -37,12 +37,31 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Kraken_does_not_declare_withdrawals()
+        public void Withdrawals_are_a_separate_interface_from_deposits()
         {
-            // IWalletProvider is read-only by design. Deposits arriving must not be
-            // mistaken for the ability to move funds OUT, which needs a separate
-            // interface and a separate withdrawal-enabled credential.
-            Assert.False(new KrakenProvider().Capabilities.HasFlag(ProviderCapabilities.Withdrawals));
+            // IWalletProvider is read-only by design, so implementing it says nothing
+            // about being able to move funds OUT — the capability audit caught that
+            // assumption the day deposits landed. Kraken now implements both, and
+            // they remain two distinct interfaces with two distinct credentials.
+            var kraken = new KrakenProvider();
+
+            Assert.IsAssignableFrom<IWalletProvider>(kraken);
+            Assert.IsAssignableFrom<IWithdrawalProvider>(kraken);
+            Assert.True(kraken.Capabilities.HasFlag(ProviderCapabilities.Withdrawals));
+        }
+
+        [Fact]
+        public void Withdrawing_takes_a_saved_destination_key_and_not_an_address()
+        {
+            // Kraken's Withdraw endpoint accepts the NAME of an address saved on
+            // kraken.com, never an address — which is why a compromised terminal
+            // could not send funds anywhere the user had not personally whitelisted
+            // behind Kraken's own 2FA.
+            var m = typeof(KrakenProvider).GetMethod(nameof(IWithdrawalProvider.WithdrawAsync))!;
+            var names = m.GetParameters().Select(p => p.Name!.ToLowerInvariant()).ToList();
+
+            Assert.Contains("destinationkey", names);
+            Assert.DoesNotContain(names, n => n.Contains("address"));
         }
 
         // ── Kraken's own asset codes ─────────────────────────────────────────
