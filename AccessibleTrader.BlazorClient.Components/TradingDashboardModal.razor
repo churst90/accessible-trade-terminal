@@ -120,6 +120,13 @@
                                     <label for="limit-price">Limit Price</label>
                                     <input id="limit-price" type="number" step="any" aria-label="Limit price" @bind="_limitPrice" />
                                 </div>
+                                @* Both are gated: an IOC order silently sent as GTC rests when it
+                                   was meant to vanish, and a maker-only order sent as a taker pays
+                                   the wrong fee. Neither failure is visible at the moment it
+                                   happens, which is why the control must be absent rather than
+                                   present and ignored. *@
+                                @if (_caps.HasFlag(ProviderCapabilities.TimeInForce))
+                                {
                                 <div class="entry-row">
                                     <label for="order-tif">Time in force</label>
                                     <select id="order-tif" aria-label="Time in force" @bind="_tif">
@@ -128,10 +135,14 @@
                                         <option value="FOK">FOK — fill or kill</option>
                                     </select>
                                 </div>
+                                }
+                                @if (_caps.HasFlag(ProviderCapabilities.PostOnly))
+                                {
                                 <div class="entry-row">
                                     <label for="post-only">Post-only (maker)</label>
                                     <input id="post-only" type="checkbox" checked="@_postOnly" @onchange="e => _postOnly = e.Value is bool b && b" />
                                 </div>
+                                }
                             }
 
                             @if (IsEntryType)
@@ -189,7 +200,14 @@
                                 }
                             }
 
-                            @if (_supportsMargin)
+                            @* These four used to share one gate — SupportsMarginTrading — and so
+                               appeared and disappeared together regardless of which the provider
+                               actually honoured. They are four unrelated features: MEXC honours
+                               cross/isolated but our code never set leverage per order, Binance
+                               honours hedge-mode position side and reduce-only, and an equity
+                               broker with margin has none of the three. Each now gates on its own
+                               capability. *@
+                            @if (_caps.HasFlag(ProviderCapabilities.IsolatedMargin))
                             {
                                 <div class="entry-row">
                                     <label for="margin-type-select">Margin</label>
@@ -200,7 +218,12 @@
                                         <option value="Isolated">Isolated</option>
                                     </select>
                                 </div>
+                            }
 
+                            @* MaxLeverage as well as the flag: a provider that declares Leverage
+                               but caps at 1x offers a selector with one position. *@
+                            @if (_caps.HasFlag(ProviderCapabilities.Leverage) && _maxLeverage > 1)
+                            {
                                 <div class="entry-row">
                                     <label for="leverage-input">Leverage</label>
                                     <input id="leverage-input" type="number" min="1" max="@_maxLeverage" step="1"
@@ -208,7 +231,10 @@
                                            @bind="_leverage" />
                                     <span style="font-size:0.8rem; color:var(--text-muted);">×&nbsp;(max @_maxLeverage)</span>
                                 </div>
+                            }
 
+                            @if (_caps.HasFlag(ProviderCapabilities.HedgeMode))
+                            {
                                 <div class="entry-row">
                                     <label for="pos-side">Position side</label>
                                     <select id="pos-side" aria-label="Position side" @bind="_positionSide">
@@ -217,7 +243,10 @@
                                         <option value="SHORT">Short</option>
                                     </select>
                                 </div>
+                            }
 
+                            @if (_caps.HasFlag(ProviderCapabilities.ReduceOnly))
+                            {
                                 <div class="entry-row">
                                     <label for="reduce-only">Reduce-only</label>
                                     <input id="reduce-only" type="checkbox" checked="@_reduceOnly" @onchange="e => _reduceOnly = e.Value is bool b && b" />
@@ -353,7 +382,15 @@
                                             }
                                             @if (!_positions.Any())
                                             {
-                                                <tr><td colspan="10">No open positions.</td></tr>
+                                                @* An empty table on a spot venue reads as a bug, or
+                                                   worse as "your position has gone". On spot there is
+                                                   no positions concept: what you hold IS your balance,
+                                                   so say that and point at the tab that has it. *@
+                                                <tr><td colspan="10">
+                                                    @(IsSpotOnly
+                                                        ? "This provider is spot only, so it has no separate positions — what you hold is shown on the Balances tab."
+                                                        : "No open positions.")
+                                                </td></tr>
                                             }
                                         </tbody>
                                     </table>
@@ -587,7 +624,23 @@
     private bool _orderError;
 
     // Margin / leverage state
-    private bool   _supportsMargin;
+    /// <summary>
+    /// Whether the connected provider honours this capability. Every control in the
+    /// ticket is drawn through this, and every field on the outgoing signal is set
+    /// through it, so the two can never drift apart — a drawn control that sends
+    /// nothing and a sent field with no control are the same defect seen from
+    /// opposite ends.
+    /// </summary>
+    private bool Can(ProviderCapabilities c) => _caps.HasFlag(c);
+
+    /// <summary>
+    /// True when this provider has no positions concept at all — a spot venue,
+    /// where what you hold IS your balance. Used to say so on the Positions tab
+    /// instead of showing an empty table, which reads as a bug or, worse, as
+    /// "your position is gone".
+    /// </summary>
+    private bool IsSpotOnly =>
+        !Can(ProviderCapabilities.MarginTrading) && !Can(ProviderCapabilities.FuturesTrading);
     private ProviderCapabilities _caps;
     private double _maxLeverage = 1.0;
     private bool   _bookLoading;
@@ -650,11 +703,10 @@
         var active = _availableKeys.FirstOrDefault(k => k.IsActive) ?? _availableKeys.FirstOrDefault();
         _activeKeyNickname = active?.Nickname ?? "";
 
-        _supportsMargin = supported && await OrderService.SupportsMarginTradingAsync(provider);
         _caps           = supported ? await OrderService.GetCapabilitiesAsync(provider) : ProviderCapabilities.None;
         _supportsOco    = supported && await OrderService.SupportsOcoPairsAsync(provider);
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
-        _leverage       = _supportsMargin ? Math.Min(_leverage, _maxLeverage) : 1.0;
+        _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
         _limitPrice  = GetCurrentPrice();
         _isVisible   = true;
@@ -971,11 +1023,15 @@
             double? trigger = NeedsTrigger ? _triggerPrice : (double?)null;
             double? sl  = IsEntryType && _stopLoss   > 0 ? _stopLoss   : (double?)null;
             double? tp  = IsEntryType && _takeProfit > 0 ? _takeProfit : (double?)null;
-            double? lev = _supportsMargin && _leverage > 1 ? _leverage : null;
+            // Gated on the SAME capability that decides whether the control is drawn.
+            // The two must agree: a field set here but ignored by the provider is the
+            // silent half of the same defect as a control drawn over nothing — the
+            // order goes out looking like the one that was asked for.
+            double? lev = Can(ProviderCapabilities.Leverage) && _leverage > 1 ? _leverage : null;
             TrailMode? trailMode = _trailMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
             double? trailVal = IsEntryType && trailMode != null && _trailValue > 0 ? _trailValue : (double?)null;
-            string? tif = NeedsLimit ? _tif : null;
-            string? posSide = _supportsMargin && _positionSide != "BOTH" ? _positionSide : null;
+            string? tif = NeedsLimit && Can(ProviderCapabilities.TimeInForce) ? _tif : null;
+            string? posSide = Can(ProviderCapabilities.HedgeMode) && _positionSide != "BOTH" ? _positionSide : null;
             TrailMode? trailTpMode = _trailTpMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
             double? trailTpVal = IsEntryType && trailTpMode != null && _trailTpValue > 0 ? _trailTpValue : (double?)null;
             double? trailTpAct = trailTpVal != null && _trailTpActivation > 0 ? _trailTpActivation : (double?)null;
@@ -996,7 +1052,7 @@
                 TakeProfit: tp,
                 Leverage:     lev,
                 SubType:      subType,
-                MarginType:     _supportsMargin ? _marginType : null,
+                MarginType:     Can(ProviderCapabilities.IsolatedMargin) ? _marginType : null,
                 TriggerPrice:   trigger,
                 TrailStopMode:  trailVal != null ? trailMode : null,
                 TrailStopValue: trailVal,
@@ -1004,8 +1060,8 @@
                 TrailTpValue:   trailTpVal,
                 TrailTpActivation: trailTpAct,
                 TimeInForce:    tif,
-                ReduceOnly:     _supportsMargin && _reduceOnly,
-                PostOnly:       NeedsLimit && _postOnly,
+                ReduceOnly:     Can(ProviderCapabilities.ReduceOnly) && _reduceOnly,
+                PostOnly:       NeedsLimit && Can(ProviderCapabilities.PostOnly) && _postOnly,
                 PositionSide:   posSide);
 
             string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
