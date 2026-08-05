@@ -112,6 +112,11 @@
     @if (Demo.AllowTrading)          { <TradingDashboardModal /> }
     @if (Demo.AllowOrderBook)        { <OrderBookModal /> }
     @if (Demo.AllowApiKeysModal)     { <ApiKeysModal /> }
+    @* Deposit addresses. Gated on real trading rather than the demo: it reads from
+       an authenticated wallet API with the user's own keys, which the locked demo
+       has none of. The button that opens it is separately gated on the provider
+       actually implementing IWalletProvider. *@
+    @if (Demo.AllowTrading)          { <WalletModal /> }
     @if (Demo.AllowStrategies)       { <StrategyModal /> }
     @if (Demo.AllowAlerts)           { <AlertsModal /> }
     @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }

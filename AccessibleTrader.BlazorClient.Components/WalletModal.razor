@@ -1,0 +1,247 @@
+@*
+    Deposit addresses for the connected venue.
+
+    Only opens for providers that implement IWalletProvider — a compiler-enforced
+    fact rather than a declared flag, because the failure mode here is showing
+    someone the wrong address to send money to.
+
+    The order of the form is the order in which getting it wrong costs you
+    everything:
+      1. Asset      — what you are sending
+      2. NETWORK    — which chain. Sending USDC to an Ethereum address over Solana
+                      destroys it, and that loses more deposits than any attack.
+      3. Address    — read-only field plus a copy button, so it can be selected,
+                      arrowed through by the screen-reader review cursor, and read
+                      cell-by-cell on a braille display. Braille is the only channel
+                      that carries CASE, which matters because most address formats
+                      are case-sensitive and speech drops case entirely.
+
+    A memo / destination tag, where the chain needs one, gets its own field with the
+    same treatment — omitting it loses the funds exactly as completely as a wrong
+    address, so it is not a footnote.
+
+    Nothing here is cached or persisted. Every open re-fetches from the
+    authenticated API: address substitution needs a stored copy to substitute, and
+    this way there is not one. Several venues also hand out a fresh address per
+    request, so a cached one would be wrong as well as unsafe.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Trading
+@using AccessibleTrader.Sdk.Plugins
+@using AccessibleTrader.Sdk.Trading
+@inject WalletService Wallet
+@inject IWorkspaceStore Store
+@inject ISpeechManager Speech
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content" role="dialog" aria-modal="true"
+             aria-labelledby="wallet-title" @onclick:stopPropagation="true"
+             style="max-width: 640px;">
+
+            <h2 id="wallet-title" tabindex="-1">Deposit — @_provider</h2>
+
+            <div class="modal-row">
+                <label for="wallet-asset">Asset</label>
+                <input id="wallet-asset" type="text" @bind="_asset" @bind:event="oninput"
+                       aria-label="Asset to deposit, for example BTC"
+                       placeholder="BTC" style="width:8em;" />
+                <button type="button" @onclick="LoadNetworksAsync"
+                        aria-label="Look up deposit networks for this asset">Networks</button>
+            </div>
+
+            @if (_networksNote is not null)
+            {
+                <p role="status" class="wallet-note">@_networksNote</p>
+            }
+
+            @if (_networks.Count > 0)
+            {
+                @* Chosen BEFORE an address is fetched, never after. There is no
+                   default: picking one for the user is picking which chain their
+                   money goes to. *@
+                <div class="modal-row">
+                    <label for="wallet-network">Network</label>
+                    <select id="wallet-network" @bind="_network" aria-label="Network to deposit over">
+                        <option value="">— choose a network —</option>
+                        @foreach (var n in _networks)
+                        {
+                            <option value="@n">@n</option>
+                        }
+                    </select>
+                    <button type="button" @onclick="LoadAddressAsync" disabled="@(string.IsNullOrEmpty(_network))"
+                            aria-label="Get the deposit address for this asset and network">Get address</button>
+                </div>
+            }
+
+            @if (_addressNote is not null)
+            {
+                <p role="alert" class="wallet-error">@_addressNote</p>
+            }
+
+            @if (_checked is not null)
+            {
+                <div class="wallet-address">
+                    <p role="status">@WalletService.Announce(_checked)</p>
+
+                    <div class="modal-row">
+                        <label for="wallet-address-field">@_checked.Address.Asset address (@_checked.Address.Network)</label>
+                        @* readonly, not disabled: a disabled field is skipped by
+                           keyboard navigation, which would put the address out of
+                           reach of the review cursor entirely. *@
+                        <input id="wallet-address-field" type="text" readonly
+                               value="@_checked.Address.Address"
+                               aria-label="@($"{_checked.Address.Asset} deposit address on {_checked.Address.Network}. Read only.")"
+                               spellcheck="false" autocomplete="off"
+                               style="flex:1; min-width:24em; font-family:monospace;" />
+                        <button type="button" @onclick='() => CopyAsync(_checked!.Address.Address, "Address")'
+                                aria-label="Copy the deposit address to the clipboard">Copy</button>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_checked.Address.Memo))
+                    {
+                        <div class="modal-row">
+                            <label for="wallet-memo-field">
+                                @(_checked.Address.MemoLabel ?? "Memo") — required
+                            </label>
+                            <input id="wallet-memo-field" type="text" readonly
+                                   value="@_checked.Address.Memo"
+                                   aria-label="@($"{_checked.Address.MemoLabel ?? "Memo"}, required for this deposit. Read only.")"
+                                   spellcheck="false" autocomplete="off"
+                                   style="flex:1; font-family:monospace;" />
+                            <button type="button" @onclick='() => CopyAsync(_checked!.Address.Memo!, _checked!.Address.MemoLabel ?? "Memo")'
+                                    aria-label="Copy the memo to the clipboard">Copy</button>
+                        </div>
+                        <p class="wallet-warn" role="note">
+                            This deposit will be <strong>lost</strong> without the
+                            @(_checked.Address.MemoLabel ?? "memo"). Send both.
+                        </p>
+                    }
+
+                    @* For anyone without a review cursor or a braille display. Speech
+                       drops case, and b and B are different addresses. *@
+                    <div class="modal-row">
+                        <button type="button" @onclick="ReadCharacters"
+                                aria-label="Read the address one character at a time, saying which letters are capitals">
+                            Read character by character
+                        </button>
+                        @if (_copied is not null)
+                        {
+                            <span role="status">@_copied</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" @onclick="CloseModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _provider = "";
+    private string _asset = "";
+    private string _network = "";
+    private List<string> _networks = new();
+    private CheckedDepositAddress? _checked;
+    private string? _networksNote, _addressNote, _copied;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenWalletEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _provider = Store.State.Identity.Provider ?? "";
+        // Nothing survives a close. See the file header: no stored copy, nothing to
+        // substitute, and no stale address from a venue that rotates them.
+        _asset = ""; _network = ""; _networks.Clear();
+        _checked = null; _networksNote = _addressNote = _copied = null;
+
+        await ShowModalAsync("wallet-title");
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "wallet-asset"); }
+        catch { /* focus is best-effort; Tab still reaches it */ }
+    }
+
+    private async Task LoadNetworksAsync()
+    {
+        _networks.Clear(); _checked = null; _addressNote = null; _network = "";
+        if (string.IsNullOrWhiteSpace(_asset)) { _networksNote = "Enter an asset first."; return; }
+
+        var r = await Wallet.GetNetworksAsync(_provider, _asset.Trim().ToUpperInvariant());
+        if (r.IsOk)
+        {
+            _networks = new List<string>(r.Value!);
+            _networksNote = $"{_networks.Count} network{(_networks.Count == 1 ? "" : "s")} available. Choose one.";
+        }
+        else
+        {
+            // Says WHICH kind of nothing: unsupported asset, missing permission, or
+            // a failed call are three different problems with three different fixes.
+            _networksNote = r.Reason;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadAddressAsync()
+    {
+        _checked = null; _addressNote = null; _copied = null;
+        if (string.IsNullOrEmpty(_network)) return;
+
+        var r = await Wallet.GetAddressAsync(_provider, _asset.Trim().ToUpperInvariant(), _network);
+        if (r.IsOk)
+        {
+            _checked = r.Value;
+            // Spoken immediately and interrupting: network and memo are the two
+            // facts that decide whether the money arrives.
+            Speech.Speak(WalletService.Announce(_checked!), interrupt: true);
+        }
+        else
+        {
+            _addressNote = r.Reason;
+            Speech.Speak(r.Reason ?? "No address.", interrupt: true);
+        }
+        StateHasChanged();
+    }
+
+    private async Task CopyAsync(string text, string what)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _copied = $"{what} copied.";
+        }
+        catch
+        {
+            // A copy that silently did nothing is the worst outcome here — the user
+            // would paste whatever was on the clipboard before.
+            _copied = $"{what} could NOT be copied — select the field and copy manually.";
+        }
+        Speech.Speak(_copied, interrupt: true);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Spells the address out, naming capitals. Base58 and checksummed hex are
+    /// case-sensitive and ordinary speech drops case, so "b" and "B" would be
+    /// indistinguishable — and they are different addresses.
+    /// </summary>
+    private void ReadCharacters()
+    {
+        if (_checked is null) return;
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in _checked.Address.Address)
+        {
+            if (char.IsUpper(c)) sb.Append("capital ").Append(c);
+            else sb.Append(c);
+            sb.Append(", ");
+        }
+        Speech.Speak(sb.ToString(), interrupt: true);
+    }
+}

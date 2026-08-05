@@ -76,6 +76,13 @@ namespace AccessibleTrader.Core.Models
     public record OpenAssetDossierEvent();
     public record OpenHelpEvent();
     public record OpenApiKeysEvent();
+
+    /// <summary>
+    /// Open the deposit-address dialog. Only ever raised for a provider that
+    /// implements <c>IWalletProvider</c>; equity brokers have no wallet and the
+    /// button that raises this is absent for them.
+    /// </summary>
+    public record OpenWalletEvent();
     public record OpenOrderBookEvent();
     public record OpenAddIndicatorEvent();
     public record OpenDrawingToolsEvent();

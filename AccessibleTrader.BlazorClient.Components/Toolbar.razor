@@ -118,6 +118,17 @@
                                   AriaLabel="API Keys"
                                   OnClick="() => EventBus.Publish(new OpenApiKeysEvent())" />
             }
+            @* Present only when the connected provider genuinely has a wallet API.
+               That is `provider is IWalletProvider` — a compiler-enforced fact, not
+               a declared flag — so this button cannot appear over nothing. Equity
+               brokers are not crypto custodians and never show it. *@
+            @if (_hasWallet)
+            {
+                <ToolbarIconButton Icon="api-keys" Label="Deposit" Variant="neutral"
+                                  Tooltip="Show a deposit address for this exchange"
+                                  AriaLabel="Deposit address"
+                                  OnClick="() => EventBus.Publish(new OpenWalletEvent())" />
+            }
         </div>
 
         @* ── Workspace persistence ──────────────────────────────────────── *@
@@ -434,6 +445,30 @@
     private ISplitViewCoordinator? SplitView => Services.GetService<ISplitViewCoordinator>();
     private IReplayService?        Replay    => Services.GetService<IReplayService>();
 
+    // ── Deposit button ───────────────────────────────────────────────────
+    // Whether the CURRENT provider implements IWalletProvider. Recomputed on every
+    // workspace change because switching provider changes the answer, and cached in
+    // a field because the check is async and the render path is not.
+    private bool _hasWallet;
+    private string _walletCheckedFor = "";
+
+    private async Task RefreshWalletAsync()
+    {
+        string provider = Store.State.Identity.Provider ?? "";
+        if (provider != _walletCheckedFor)
+        {
+            _walletCheckedFor = provider;
+            var wallet = Services.GetService<AccessibleTrader.Core.Services.Trading.WalletService>();
+            // Resolved through the service provider for the same reason as the two
+            // above: a host that does not stand up trading should lose the button,
+            // not the whole toolbar.
+            _hasWallet = wallet is not null
+                      && !string.IsNullOrEmpty(provider)
+                      && await wallet.HasWalletAsync(provider);
+        }
+        StateHasChanged();
+    }
+
     private bool IsSplitActive  => SplitView?.IsEnabled ?? false;
     private bool IsReplayActive => Replay?.IsActive ?? false;
 
@@ -492,7 +527,7 @@
         // out over a chart full of data, and toggling Heikin from the keyboard left the button
         // showing the opposite of the truth. A control that lies about its own state is worse
         // than one that is missing.
-        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(RefreshWalletAsync));
 
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
