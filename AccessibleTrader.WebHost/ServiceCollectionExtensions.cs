@@ -333,6 +333,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Trading.IAssetPriceSource,
                              AccessibleTrader.Core.Services.Trading.MarketDataPriceSource>();
             services.AddScoped<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.WalletService>();
             services.AddScoped<IOrderExecutionService, GeneralOrderService>();
             services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddScoped<IStrategyEngine, StrategyEngine>();
