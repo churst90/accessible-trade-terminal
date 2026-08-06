@@ -51,20 +51,35 @@ Consequences, all handled in code:
   testnet** (self-service, US-accessible) — which was already first in
   `docs/PROVIDER_EXPANSION.md` for exactly this property.
 
-## 3. Verify Kraken spot deposits once verification clears
+## 3. Verify Kraken spot deposits — verification CLEARED, probed 2026-08-05
 
-Blocked on Kraken's identity review, not on us. When it clears:
+Kraken's identity review passed (no funds on the account — none are needed for
+this). The BTC probe now gets much further, and the picture is specific:
 
-```
-StrategyLab wallet-probe --provider Kraken --asset BTC
-```
+- **Credential OK and the Funding scope works**: `DepositMethods` returns six
+  BTC networks (Bitcoin, Lightning, four kBTC L2s). The old
+  `EFunding:No funding method` is gone — it was the account, as recorded.
+- **Bitcoin**: no address exists yet. The plugin deliberately reads existing
+  addresses only (`new=false`, documented in `GetDepositAddressAsync`), so the
+  FIRST address must be generated once on kraken.com → Funding → Deposit →
+  Bitcoin. **That is the next human step**; then re-run the probe and the
+  Deposit dialog shows it end to end.
+- **Lightning and all four kBTC networks answer `EAPI:Invalid key`** even
+  though Funding clearly works for the primary network — confirmed on the full
+  6-network probe. Root cause still unproven; the working hypothesis is that
+  Kraken returns this error for address types it will not issue over the API
+  (on-demand invoices / unified L2 addresses). The plugin's error hint was
+  FIXED the same day to name both readings instead of only "check the key's
+  Funding permissions" (pinned in `KrakenWalletTests`). Do not debug the
+  signature; it authenticates.
+- Deposit history reads fine (0 deposits, correctly).
+- The probe is SLOW by design — the client-side private rate limiter paces
+  funding calls (~1/min) to avoid Kraken lockouts. A full 6-network probe takes
+  several minutes; it is not hung.
 
-Currently returns `EFunding:No funding method` on every asset while the credential
-itself validates OK — which is the account, not the code.
-
-Worth probing **XRP** as well as BTC: that exercises the destination-tag path, and
-real data beats the defensive coding that currently reads the tag from whichever
-of `tag` / `memo` / `destination_tag` is present.
+Still worth probing **XRP** after BTC works: that exercises the destination-tag
+path, and real data beats the defensive coding that currently reads the tag from
+whichever of `tag` / `memo` / `destination_tag` is present.
 
 ---
 
@@ -79,10 +94,28 @@ emulated market via IOC), sandbox routed through Environment = Paper, signature
 pinned against independently computed vectors, public read path verified live
 against the sandbox.
 
-Remaining for Gemini: a person driving the sandbox end to end — create an
-account at exchange.sandbox.gemini.com, generate a key, add it in API Keys as
-Gemini with Environment = Paper, load a BTCUSD chart, place and cancel a limit
-order, check balances. Then Bybit-blind or OKX per the doc.
+**Gemini sandbox verification COMPLETE 2026-08-05, same evening.** Cody made a
+sandbox account and key; the live signed path then caught two real bugs that no
+offline test could see, both fixed and pinned the same hour:
+
+- **The nonce must be SECONDS, not milliseconds** — Gemini's timestamp-nonce
+  keys (the current default) reject anything outside ±30s of server time.
+- **Sandbox keys are master-scoped** and require `account` in every payload;
+  the plugin learns this from the venue's first `MissingAccounts` refusal and
+  remembers, so both key kinds work.
+
+Verified live end to end with paper funds: credential validation, balances
+($100k USD / 1000 BTC preloaded), resting limit order placed → Working →
+listed → cancelled → Cancelled, and an emulated market buy (IOC 1% through the
+touch) that FILLED at the ask — the slippage bound worked and the venue
+price-improved to the touch. Known sandbox quirk, documented in the plugin:
+`/v1/mytrades` returns empty even after a confirmed fill; order/status reports
+fills correctly and that is the path the poller uses. Fresh sandbox keys ship
+as Auditor (read-only) — the Trader role must be assigned on the site.
+
+Remaining for Gemini: drive it from the TERMINAL UI (chart, dashboard order,
+cancel via the open-orders list) rather than the harness. Then Bybit-blind or
+OKX per the doc.
 
 ---
 

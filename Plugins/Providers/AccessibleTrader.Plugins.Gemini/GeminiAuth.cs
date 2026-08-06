@@ -38,15 +38,20 @@ namespace AccessibleTrader.Plugins.Gemini
         }
 
         /// <summary>
-        /// Milliseconds since the epoch. Gemini requires each request's nonce to be
-        /// strictly greater than the last one seen for the session; monotonic within
-        /// the process so two calls in the same millisecond cannot collide — a
-        /// repeated nonce is rejected as <c>InvalidNonce</c>, which reads like an
-        /// auth problem and would be debugged in the wrong place.
+        /// **SECONDS** since the epoch, not milliseconds — found live against the
+        /// sandbox on the first signed call: keys created with Gemini's
+        /// timestamp-nonce mode (the current default) reject anything not within
+        /// 30 seconds of server time, and a millisecond value reads as the year
+        /// 58,000. Seconds also satisfy the legacy increasing-integer mode, so
+        /// this works for both key types. Monotonic within the process — two
+        /// calls in the same second get n and n+1, still inside the 30-second
+        /// window — because a repeated nonce is rejected as <c>InvalidNonce</c>,
+        /// which reads like an auth problem and would be debugged in the wrong
+        /// place.
         /// </summary>
         public static long Nonce()
         {
-            long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             lock (NonceGate)
             {
                 if (now <= _lastNonce) now = _lastNonce + 1;

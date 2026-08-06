@@ -118,8 +118,15 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void An_invalid_key_is_also_treated_as_a_permission_problem()
         {
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            var ex = Assert.Throws<UnauthorizedAccessException>(() =>
                 Throw("{\"error\":[\"EAPI:Invalid key\"]}", "deposit address"));
+
+            // Observed live 2026-08-05: Kraken answers EAPI:Invalid key for address
+            // types it will not issue over the API (Lightning, kBTC L2) even when
+            // the key's Funding scope demonstrably works. A message that only said
+            // "check permissions" sent the user to re-make a key that was fine.
+            Assert.Contains("address types it does not issue over the API", ex.Message);
+            Assert.Contains("Funding permissions", ex.Message);
         }
 
         [Fact]

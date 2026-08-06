@@ -431,6 +431,14 @@ namespace AccessibleTrader.Plugins.Gemini
             }
         }
 
+        /// <summary>
+        /// Recent fills via <c>/v1/mytrades</c>. Sandbox caveat, verified live
+        /// 2026-08-05: the sandbox returns an EMPTY list here even minutes after a
+        /// confirmed fill (the fill is real — order/status shows it — the sandbox
+        /// just does not serve trade history). Order resolution does not depend on
+        /// this: the poller uses <see cref="GetOrderStatusAsync"/>, which reports
+        /// fills correctly in both environments.
+        /// </summary>
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             var payload = new JObject { ["limit_trades"] = Math.Clamp(limit, 1, 500) };
@@ -503,15 +511,39 @@ namespace AccessibleTrader.Plugins.Gemini
             return json;
         }
 
+        // Master-scoped keys (the sandbox's default kind) must name the account in
+        // every payload; account-scoped keys must not. Which kind THIS key is only
+        // shows at the first refusal, so it is learned once from the venue's own
+        // answer rather than asked of the user — who was never shown the
+        // distinction when Gemini created the key.
+        private bool _sendAccountField;
+
         /// <summary>
         /// Private POST. Everything — the endpoint path included — travels in the
         /// signed payload headers; the body is empty by the venue's design.
         /// </summary>
         private async Task<JToken> PostPrivateAsync(string path, JObject? args = null)
         {
-            var payload = args ?? new JObject();
+            try
+            {
+                return await PostPrivateOnceAsync(path, args, _sendAccountField).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException ex) when (!_sendAccountField && ex.Message.Contains("MissingAccounts"))
+            {
+                // A master key. "primary" is the account every Gemini master
+                // account starts with; remembered so every later call skips the
+                // failed first attempt.
+                _sendAccountField = true;
+                return await PostPrivateOnceAsync(path, args, true).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<JToken> PostPrivateOnceAsync(string path, JObject? args, bool withAccount)
+        {
+            var payload = args is null ? new JObject() : (JObject)args.DeepClone();
             payload["request"] = path;
             payload["nonce"]   = GeminiAuth.Nonce();
+            if (withAccount) payload["account"] = "primary";
 
             string b64 = GeminiAuth.Payload(payload.ToString(Formatting.None));
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{Host}{path}");
@@ -542,8 +574,17 @@ namespace AccessibleTrader.Plugins.Gemini
             string reason  = obj["reason"]?.ToString() ?? "unspecified";
             string message = obj["message"]?.ToString() ?? "";
 
+            // MissingRole: the key is real and correctly signed, it just lacks a
+            // scope — and Gemini's own message already names the key, the missing
+            // roles, and the settings page. Appending the sandbox-vs-live hint
+            // there would point at the one thing that is NOT wrong. Verified live:
+            // a fresh sandbox key ships as Auditor (read-only) until the Trader
+            // role is assigned on the site.
+            if (reason is "MissingRole")
+                throw new UnauthorizedAccessException($"Gemini refused the request ({reason}): {message}");
+
             if (reason is "InvalidApiKey" or "InvalidSignature" or "MissingSecurityHeaders"
-                       or "InvalidNonce" or "NotAuthorized" or "MissingRole")
+                       or "InvalidNonce" or "NotAuthorized")
                 throw new UnauthorizedAccessException(
                     $"Gemini refused the credentials ({reason}): {message}. Sandbox and live keys are "
                   + $"separate — this profile targets {(_useSandbox ? "the SANDBOX (exchange.sandbox.gemini.com)" : "the LIVE venue (exchange.gemini.com)")}, "

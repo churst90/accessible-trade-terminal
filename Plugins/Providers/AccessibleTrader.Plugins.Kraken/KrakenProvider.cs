@@ -1088,8 +1088,17 @@ namespace AccessibleTrader.Plugins.Kraken
             string joined = string.Join("; ", errors.Select(e => e?.ToString()));
             if (joined.Contains("permission", StringComparison.OrdinalIgnoreCase)
              || joined.Contains("EAPI:Invalid key", StringComparison.OrdinalIgnoreCase))
+                // "EAPI:Invalid key" is NOT only about the credential. Observed live
+                // 2026-08-05: a key whose Funding scope demonstrably worked (deposit
+                // methods and the primary Bitcoin address both answered) still got
+                // EAPI:Invalid key for Lightning and the kBTC L2 networks — Kraken
+                // answers it for address types it will not issue over the API. The
+                // message names both readings so the user checks the right one.
                 throw new UnauthorizedAccessException(
-                    $"Kraken refused {what}: {joined}. Check the key's Funding permissions on kraken.com.");
+                    $"Kraken refused {what}: {joined}. If other funding calls work with this key, Kraken "
+                  + "gives this same error for address types it does not issue over the API (Lightning "
+                  + "invoices, kBTC L2 addresses) — use kraken.com for those. Otherwise check the key's "
+                  + "Funding permissions on kraken.com.");
 
             throw new InvalidOperationException($"Kraken could not return {what}: {joined}");
         }

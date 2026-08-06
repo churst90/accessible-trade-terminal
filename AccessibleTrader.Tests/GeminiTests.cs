@@ -88,7 +88,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Nonces_never_repeat_even_within_the_same_millisecond()
+        public void Nonces_never_repeat_even_within_the_same_second()
         {
             // A repeated nonce is rejected as InvalidNonce, which presents as an
             // auth problem — so it would be debugged in the wrong place entirely.
@@ -96,6 +96,19 @@ namespace AccessibleTrader.Tests
 
             Assert.Equal(seen.Count, seen.Distinct().Count());
             Assert.Equal(seen.OrderBy(n => n), seen);   // and they only go up
+        }
+
+        [Fact]
+        public void The_nonce_is_seconds_not_milliseconds()
+        {
+            // Found live on the sandbox's first signed call: timestamp-mode keys
+            // (Gemini's current default) reject any nonce not within 30 seconds of
+            // server time, and a millisecond nonce reads as the year 58,000. This
+            // pins the SCALE, which no monotonicity test can see.
+            long nonce = GeminiAuth.Nonce();
+            long nowSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            Assert.InRange(nonce, nowSeconds - 30, nowSeconds + 600);
         }
 
         // ── Wiring ───────────────────────────────────────────────────────────
