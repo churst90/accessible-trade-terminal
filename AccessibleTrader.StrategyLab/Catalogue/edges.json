@@ -1870,6 +1870,155 @@
         "command": "translation --tf 1d --surrogates 400",
         "implemented": true
       }
+    },
+    {
+      "id": "halving-anchored-top-timing",
+      "title": "Bitcoin cycle top timed from the halving",
+      "family": "cycle",
+      "claim": "Bitcoin's cycle top arrives a near-constant number of days after each halving, so the halving date forecasts the top to within a few weeks.",
+      "evidence": "Fragile",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 1460,
+        "notes": "BTC only, and only BTC can have this scope - the halving exists on no other instrument. Breadth cannot be raised."
+      },
+      "effect": {
+        "measure": "sd-of-halving-to-top-interval",
+        "value": 9.0,
+        "unit": "days",
+        "n": 3,
+        "p": 0.0025,
+        "notes": "Intervals 525, 546, 535 days for the 2016/2020/2024 halvings - 21-day spread on a ~1460-day cycle. The 2012 halving does not fit (132d). Stable for every drawdown threshold 0.55-0.75 (plateau, not peak). 0 of 400 shuffled-return surrogates run through the same detector from the same anchors cluster this tightly."
+      },
+      "controls": [
+        "surrogate-detector-on-shuffled-returns-0of400",
+        "threshold-plateau-0.55-to-0.75",
+        "exogenous-anchor-replaces-retrospective-selection"
+      ],
+      "breadth": {
+        "tested": 1,
+        "held": 1,
+        "instruments": [
+          "BTC"
+        ],
+        "notes": "Breadth 1 and unimprovable. This is why the record is Fragile and not ControlTested: n=3 observations on one asset, the halving is perfectly collinear with the US election cycle in this sample so the mechanism is unidentified, and the 2025-10-06 top is UNCONFIRMED at a 0.60 threshold (drawdown only -51%). A new ATH above $124,728 deletes the fourth point."
+      },
+      "firstMeasured": "2026-08-06",
+      "lastMeasured": "2026-08-06",
+      "source": "docs/CYCLE_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "camel-cycle-counts",
+          "note": "Same family, opposite verdict, and the difference is the anchor: Camel lows are picked by the analyst looking back, halvings are fixed by protocol years ahead. That contrast is the reusable lesson."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "halving --anchor-surrogate",
+        "implemented": false
+      }
+    },
+    {
+      "id": "midterm-year-monthly-seasonality",
+      "title": "US midterm-year monthly seasonality in Bitcoin",
+      "family": "cycle",
+      "claim": "In US midterm years Bitcoin rises in July and falls in August and September, so the calendar month conditioned on the midterm year predicts direction.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 30,
+        "notes": "BTC, midterm years 2014/2018/2022/2026 against all years 2012-2025."
+      },
+      "effect": {
+        "measure": "midterm-month-effect-net-of-unconditional-month",
+        "value": 0.0,
+        "unit": "indistinguishable",
+        "n": 3,
+        "p": null,
+        "notes": "July is +9.6% in midterms and +10.0% in ALL years - the midterm conditioning adds nothing, and July is only 2 of 3 green in midterms (2014 was -9.2%). August and September are already BTC's two weakest months unconditionally (Aug median -6.5%, Sep the only negative-mean month). 13 of 42 midterm-year month cells are green (31%) against ~60% unconditionally: the finding is that midterm YEARS are down years, and the month claim largely restates it."
+      },
+      "controls": [
+        "same-month-all-years-baseline",
+        "green-cell-count-vs-unconditional",
+        "n-equals-3-multiple-comparison-accounting"
+      ],
+      "breadth": {
+        "tested": 1,
+        "held": 0,
+        "instruments": [
+          "BTC"
+        ],
+        "notes": "BTC only. Held on 0 of 1: the July/August/September pattern is present in BTC but is not specific to midterm years, so the instrument is tested and the claim does not hold on it. Breadth cannot be raised meaningfully - the claim is about US midterm years and there are only three completed ones in BTC's history, so the sample is 3 observations per month cell regardless of how many instruments are added."
+      },
+      "firstMeasured": "2026-08-06",
+      "lastMeasured": "2026-08-06",
+      "source": "docs/CYCLE_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "right-translation-predicts-decline-shape",
+          "note": "Same tautology shape: a conditioner and an outcome that are two views of one variable."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "seasonality --conditional midterm",
+        "implemented": false
+      }
+    },
+    {
+      "id": "absorption-volume-per-range",
+      "title": "Absorption - volume without price movement marks a defended level",
+      "family": "volume",
+      "claim": "A large participant refills a resting bid/offer as it is consumed, so the tell is volume WITHOUT range: bars with high volume and a small true range mark a level that is being defended, and price subsequently moves away from that level in the defender's direction.",
+      "evidence": "Untested",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 10,
+        "notes": "Testable on OHLCV alone - no order book needed - because the hypothesis is about the RATIO of volume to range, not about seeing the orders. Intraday 5m bars exist for SPY/QQQ/IWM/DIA/AAPL if a finer test is wanted. CONFOUND TO CONTROL: this quantity is the reciprocal of the Amihud illiquidity ratio (|return|/volume), a priced factor in the literature - so the first control must show it is not re-deriving a liquidity risk premium, and the second must show it beats plain trailing volume, which already carries forward information in crypto and reverses in equities."
+      },
+      "effect": {
+        "measure": "forward-return-by-absorption-quintile",
+        "value": null,
+        "unit": "ATR",
+        "n": 0,
+        "p": null
+      },
+      "controls": [],
+      "origin": {
+        "who": "Cody (project owner), while digesting the Benjamin Cowen batch",
+        "kind": "hypothesis",
+        "capturedOn": "2026-08-06",
+        "quote": "you can see their moves when you see volume, but they know this and won't let you see volume until they want to make the move and they don't place their buys all at once. i'd bet once their wall is getting eaten through they just add more at that level so their entire order gets filled"
+      },
+      "breadth": null,
+      "firstMeasured": "",
+      "lastMeasured": "",
+      "source": "",
+      "correlatesWith": [
+        {
+          "id": "volume-informative-crypto",
+          "note": "Volume already carries forward information in crypto and REVERSES in equities. This claim must be tested inside that split, and must beat plain trailing volume as its cheap alternative."
+        },
+        {
+          "id": "poc-mean-reversion-equities",
+          "note": "The POC is where volume concentrated - a defended level by another name. Check the overlap before interpreting any result."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "absorption --quintiles --by-class --vs trailing-volume",
+        "implemented": false
+      }
     }
   ]
 }

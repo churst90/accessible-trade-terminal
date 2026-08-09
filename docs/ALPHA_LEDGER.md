@@ -148,3 +148,26 @@ lookahead · a test that shares the code's misunderstanding.
 `ONCHAIN_FINDINGS.md` · `CROWDING_FINDINGS.md` · `POSITIONING_AND_EVENTS_FINDINGS.md` ·
 `TRADING_CROSS_FINDINGS.md` · `CYCLE_FINDINGS.md` · `CONFLUENCE_SENTIMENT_FINDINGS.md` ·
 `ML_CONFIDENCE_FINDINGS.md` · `ASSET_PROFILE_FINDINGS.md` · `FIB_GANN_FINDINGS.md`
+
+---
+
+## Addition, 2026-08-06 — the Bitcoin four-year cycle (Benjamin Cowen)
+
+Two edges, from 22 videos. Full working in `docs/CYCLE_FINDINGS.md` (addendum); dated predictions
+in `docs/FORECAST_LEDGER.md`.
+
+| Claim | Verdict | The control that decided it |
+|---|---|---|
+| **BTC cycle top timed from the HALVING** — 525 / 546 / 535 days for the 2016/2020/2024 halvings, a 21-day spread on a ~1,460-day cycle | **Fragile.** Passes its control decisively and still cannot be acted on | **0 of 400** shuffled-return surrogates through the same detector from the same anchors cluster that tightly; stable across every threshold 0.55–0.75 (plateau, not peak). But **n = 3**, breadth **1 and unimprovable**, the halving is **perfectly collinear with the US election cycle**, and the 2025 top is unconfirmed |
+| **BTC midterm-year monthly seasonality** — July green, Aug/Sep red | **Falsified as a month claim** | The same months in **all** years: July is +10.0% unconditionally and only 2-of-3 green in midterms; Aug/Sep are already BTC's weakest months. 13 of 42 midterm month-cells green vs ~60% baseline — **midterm *years* are down years**, and the month claim restates it |
+
+**The methodological keeper:** *re-anchor a cycle claim on an exogenous, pre-scheduled event and the
+circularity disappears.* Camel cycle counts and Cowen's low-to-low counts both fail because the
+analyst picks the anchors looking backwards; the same claim measured from the halving — a date fixed
+by protocol years ahead — is testable, and it passed. **Then check the anchor is not collinear with
+something else on the same period.** Here it is, fatally: halvings are always US election years.
+
+**A base-rate discipline this batch forced:** his S&P call ("10–20% correction starting Aug–Sept")
+is correct about 2 of the last 4 midterm years *and* about 2023, 2024 and 2021, which were not
+midterm years. **11 of 19 SPY years had a 9–25% drawdown.** Record the unconditional base rate next
+to any conditional forecast, or a coin flip reads as a cycle.
