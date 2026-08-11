@@ -31,15 +31,66 @@ namespace AccessibleTrader.Core.Services.Trading
     /// </summary>
     public sealed class WithdrawalService
     {
+        /// <summary>
+        /// Whether the withdrawal path is offered to users at all. **False for
+        /// 2.3.0, deliberately.**
+        ///
+        /// <para>
+        /// Everything below this line is built, tested and believed correct — but
+        /// no human has ever driven it against a live venue with a real
+        /// withdrawal-enabled key. Every other unverified thing in this release
+        /// costs a user a wasted click. This one moves money off an exchange, and
+        /// a first run that discovers something is the wrong way to learn it.
+        /// </para>
+        ///
+        /// <para>
+        /// So the code ships dark rather than being reverted: reverting would
+        /// throw away work that is probably right and would have to be rebuilt
+        /// from a diff, while a flag keeps the tests running against real markup
+        /// every build. Flip this to <c>true</c> for 2.3.1 once Cody has run one
+        /// real withdrawal end to end — that is the ONLY thing standing between
+        /// here and released.
+        /// </para>
+        ///
+        /// <para>
+        /// Not a <c>const</c> on purpose: a const would fold at compile time and
+        /// make the gated branches unreachable code, which reads as dead rather
+        /// than as a decision, and would silence the compiler on the day it is
+        /// flipped back.
+        /// </para>
+        /// </summary>
+        public static readonly bool Released = false;
+
         private readonly IDataService _data;
         private readonly IApiKeyService _keys;
         private readonly ILogger<WithdrawalService> _logger;
 
+        private readonly bool _released;
+
         public WithdrawalService(IDataService data, IApiKeyService keys, ILogger<WithdrawalService> logger)
+            : this(data, keys, logger, Released) { }
+
+        /// <summary>
+        /// Takes the release gate explicitly so the tests can exercise the built
+        /// behaviour — the code 2.3.1 will turn on — while the DI container keeps
+        /// getting the dark default. An <c>internal</c> constructor rather than a
+        /// mutable static: xUnit runs test classes in parallel, and a global flag
+        /// one class flipped would make another class's "it stays dark" assertion
+        /// fail at random.
+        ///
+        /// <para>
+        /// Deliberately NOT an optional parameter on the public constructor:
+        /// Microsoft's DI container does not honour default parameter values, so
+        /// that would resolve to a runtime failure at registration instead.
+        /// </para>
+        /// </summary>
+        internal WithdrawalService(IDataService data, IApiKeyService keys,
+                                   ILogger<WithdrawalService> logger, bool released)
         {
             _data = data;
             _keys = keys;
             _logger = logger;
+            _released = released;
         }
 
         /// <summary>
@@ -49,6 +100,10 @@ namespace AccessibleTrader.Core.Services.Trading
         /// </summary>
         public async Task<bool> CanWithdrawAsync(string provider)
         {
+            // The release gate comes first: while it is closed there is no
+            // provider and no key that can make this true, so the toolbar button
+            // never appears and no other surface has to know why.
+            if (!_released) return false;
             if (await ProviderAsync(provider).ConfigureAwait(false) is null) return false;
             return await _keys.GetWithdrawalKeyAsync(provider).ConfigureAwait(false) is not null;
         }
@@ -65,6 +120,13 @@ namespace AccessibleTrader.Core.Services.Trading
         /// </summary>
         private async Task<(IWithdrawalProvider? P, string? Refusal)> ReadyAsync(string provider)
         {
+            // Belt and braces. CanWithdrawAsync already keeps every surface dark,
+            // but this is the single choke point every venue-reaching call passes
+            // through, and a UI gate someone forgets is exactly how a dark feature
+            // stops being dark. A refusal here means no request leaves the machine.
+            if (!_released)
+                return (null, "withdrawals are not enabled in this build");
+
             var p = await ProviderAsync(provider).ConfigureAwait(false);
             if (p is null)
                 return (null, $"{provider} does not support withdrawals through its API");

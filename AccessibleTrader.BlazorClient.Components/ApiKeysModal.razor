@@ -179,25 +179,35 @@
                    a profile withdrawal-enabled is a different act from adding a trading
                    key, and the form should make the user stop on it rather than tick it
                    in passing. The explanation is part of the control — without the WHY,
-                   the obvious "fix" is to grant withdrawal to the trading key. *@
-                <div style="border:1px solid var(--border-color); padding:10px 12px; margin-top:12px;">
-                    <div class="modal-row" style="margin:0;">
-                        <input id="key-withdrawal" type="checkbox"
-                               @bind="_newAllowsWithdrawal"
-                               aria-describedby="key-withdrawal-why" />
-                        <label for="key-withdrawal" style="font-weight:600;">
-                            Withdrawal profile — used only to move funds off the venue, never for trading
-                        </label>
+                   the obvious "fix" is to grant withdrawal to the trading key.
+
+                   Hidden while WithdrawalService.Released is false (2.3.0): offering a
+                   checkbox that creates a profile nothing can use would be worse than
+                   offering nothing, because the user would go to the venue, mint a
+                   withdrawal key, and find no screen that takes it. _newAllowsWithdrawal
+                   stays false when this block does not render, so the saved profile is
+                   an ordinary one. *@
+                @if (AccessibleTrader.Core.Services.Trading.WithdrawalService.Released)
+                {
+                    <div style="border:1px solid var(--border-color); padding:10px 12px; margin-top:12px;">
+                        <div class="modal-row" style="margin:0;">
+                            <input id="key-withdrawal" type="checkbox"
+                                   @bind="_newAllowsWithdrawal"
+                                   aria-describedby="key-withdrawal-why" />
+                            <label for="key-withdrawal" style="font-weight:600;">
+                                Withdrawal profile — used only to move funds off the venue, never for trading
+                            </label>
+                        </div>
+                        <p id="key-withdrawal-why" style="color:var(--text-muted); font-size:0.82rem; margin:6px 0 0;">
+                            Leave unchecked for an ordinary trading or data key.
+                            Checked: this profile is used exclusively by the Withdraw screen and is
+                            excluded from every trading lookup. Create a separate key on the venue's
+                            site with withdrawal permission and WITHOUT trading permission — keeping
+                            the two powers on different keys means a leaked trading key cannot empty
+                            the account. One withdrawal profile per provider.
+                        </p>
                     </div>
-                    <p id="key-withdrawal-why" style="color:var(--text-muted); font-size:0.82rem; margin:6px 0 0;">
-                        Leave unchecked for an ordinary trading or data key.
-                        Checked: this profile is used exclusively by the Withdraw screen and is
-                        excluded from every trading lookup. Create a separate key on the venue's
-                        site with withdrawal permission and WITHOUT trading permission — keeping
-                        the two powers on different keys means a leaked trading key cannot empty
-                        the account. One withdrawal profile per provider.
-                    </p>
-                </div>
+                }
 
                 @if (!string.IsNullOrEmpty(_formError))
                 {

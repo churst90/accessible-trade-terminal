@@ -7,7 +7,14 @@ here is speculative about what was built — see `git log` and
 
 ---
 
-## 1. Finish withdrawals — DONE 2026-08-05, unverified by a person
+## 1. Finish withdrawals — DONE 2026-08-05, unverified by a person, SHIPPED DARK in 2.3.0
+
+> **Update 2026-08-09.** Cody's call at the 2.3.0 tag: withdrawals are **switched off in the
+> release** rather than shipped unverified, because this is the only path that moves money off a
+> venue. The gate is `WithdrawalService.Released` (false), it refuses at the service before any
+> request leaves the machine, and both UI surfaces are hidden. Five tests in
+> `WithdrawalReleaseGateTests` pin it dark. **Flipping it is the whole of 2.3.1** — see
+> `docs/RELEASE_2.3.0_VERIFICATION.md` item 1. Everything below still describes what is built.
 
 Both named gaps are closed:
 

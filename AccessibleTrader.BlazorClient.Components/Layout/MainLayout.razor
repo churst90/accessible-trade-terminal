@@ -119,8 +119,14 @@
     @if (Demo.AllowTrading)          { <WalletModal /> }
     @* Withdrawals. Same gate as deposits, and the opening event is only ever
        raised when CanWithdrawAsync is true — provider capability AND a
-       withdrawal-enabled key profile, both checked in the service. *@
-    @if (Demo.AllowTrading)          { <WithdrawModal /> }
+       withdrawal-enabled key profile, both checked in the service.
+
+       Plus the release gate: WithdrawalService.Released is false for 2.3.0, so the
+       dialog is not even instantiated. Not strictly required — CanWithdrawAsync
+       already refuses, so nothing raises the event — but a modal that cannot open
+       should not be in the render tree waiting for one. *@
+    @if (Demo.AllowTrading && AccessibleTrader.Core.Services.Trading.WithdrawalService.Released)
+                                     { <WithdrawModal /> }
     @if (Demo.AllowStrategies)       { <StrategyModal /> }
     @if (Demo.AllowAlerts)           { <AlertsModal /> }
     @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }

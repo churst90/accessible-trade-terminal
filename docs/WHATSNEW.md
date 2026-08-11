@@ -1,5 +1,48 @@
 # What's New
 
+## 2.3.0 — the account, not just the chart
+
+- **You can short again, and this time the account does the arithmetic that makes it
+  honest.** Shorting was withdrawn in 2.2.0 because it was offered and did not work.
+  It is back at 1x, modelled properly: selling something you do not own means somebody
+  lent it to you and you owe it back at whatever it ends up costing, so the sale
+  proceeds are locked and an equal amount of margin is locked beside them. You are told
+  what a short costs to open, what it is worth now, and how far price can go against you
+  before the position is liquidated — because a short that cannot say where it dies is
+  not a short, it is a trap.
+- **Two new venues.** **Gemini** — US-regulated, spot market data, order book and
+  trading, with its sandbox reachable through Paper. And **Kraken Futures**, which is
+  its own venue rather than a setting on Kraken: different host, different signing,
+  and its own API keys minted somewhere else entirely. Folding it into Kraken would have
+  meant one credential slot holding two credentials, and you would have met that as an
+  authentication failure with no explanation.
+- **The Balances tab can say what your account is worth.** It used to show quantities —
+  asset, free, locked — and no values at all. Now: what each holding is worth, the
+  total, what share of the account each one is, and the day's change. Those are the
+  numbers that answer "how am I doing", and they were the ones missing.
+- **Deposit addresses, read out properly.** Ask for a deposit address and it arrives in a
+  read-only field with a copy button, which means your screen reader's review cursor and
+  your braille display walk it character by character without anything special from us.
+  The address is checksum-verified before you ever see it, and case survives the trip —
+  which matters, because for some networks the capitals *are* the checksum. Kraken is
+  the first venue behind it.
+- **Every control on the order ticket now answers to what your broker can actually do.**
+  The capability surface was audited against reality rather than against its own
+  documentation, and it was wrong in both directions — claiming things providers could
+  not do, and hiding things they could. If a control is there, the venue supports it.
+- **Fixed: adding an API key kept insisting you needed an API key.** Add a key, activate
+  it, and the symbol list went on saying "API key required" for the very provider you had
+  just supplied — until you restarted the app. Found by using the terminal rather than by
+  a test, which is its own lesson.
+- **An empty list stops meaning five different things.** "Nothing here" and "we could not
+  reach the venue" and "your key cannot read this" now read as what they are.
+
+**Not in this release, deliberately: moving funds off a venue.** The withdrawal path is
+built and tested, but no one has yet run a real withdrawal with it, and that is the one
+place in this terminal where being wrong loses money directly rather than through a
+trade. It stays switched off until it has been driven end to end against a live venue.
+Everything else here has been exercised; that has not, so it does not ship.
+
 ## 2.2.0 — the chart describes its own shapes
 
 - **Your open trades stay live in tabs you are not looking at.** Before, a resting order

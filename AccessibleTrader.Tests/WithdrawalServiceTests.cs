@@ -39,7 +39,12 @@ namespace AccessibleTrader.Tests
                     ? new ApiKeyConfig(Provider, "withdrawals", "k", "s", AllowsWithdrawal: true)
                     : null));
 
-            return (new WithdrawalService(data, keys, NullLogger<WithdrawalService>.Instance),
+            // released: true — this class tests the withdrawal BEHAVIOUR, which is
+            // built and shipped dark in 2.3.0 (WithdrawalService.Released is false).
+            // Testing it through the closed gate would assert nothing but the gate,
+            // and the controls below are exactly what must still hold on the day it
+            // opens. The gate itself is pinned in WithdrawalReleaseGateTests.
+            return (new WithdrawalService(data, keys, NullLogger<WithdrawalService>.Instance, released: true),
                     (IWithdrawalProvider)provider, keys);
         }
 
@@ -88,8 +93,11 @@ namespace AccessibleTrader.Tests
             var plain = Substitute.For<IMarketDataProvider>();
             plain.GetCapability<IWithdrawalProvider>().Returns((IWithdrawalProvider?)null);
             data.GetProviderAsync("Alpaca").Returns(Task.FromResult<IMarketDataProvider?>(plain));
+            // released: true so a false here means the CAPABILITY check refused,
+            // not the release gate — otherwise this test would pass in 2.3.0 for
+            // the wrong reason and stop guarding anything.
             var svc = new WithdrawalService(data, Substitute.For<IApiKeyService>(),
-                                            NullLogger<WithdrawalService>.Instance);
+                                            NullLogger<WithdrawalService>.Instance, released: true);
 
             Assert.False(await svc.CanWithdrawAsync("Alpaca"));
         }
