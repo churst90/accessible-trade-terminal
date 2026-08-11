@@ -50,15 +50,30 @@ jobs:
     outputs:
       tag: ${{ steps.v.outputs.tag }}
       version: ${{ steps.v.outputs.version }}
+      display_version: ${{ steps.v.outputs.display_version }}
     steps:
       - id: v
         shell: bash
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
-          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building tag=$TAG version=$VERSION"
+
+          # MAUI's Resizetizer requires ApplicationDisplayVersion to be a bare
+          # 3-part version: it rejects "2.3.0-rc1" outright. That collided with
+          # the very thing RELEASING.md tells you to do — validate the MAUI jobs
+          # with a throwaway pre-release tag — so the check could never pass on
+          # the tag shape it was documented for. Found by v2.3.0-rc1, 2026-08-11.
+          #
+          # Artifact names and the GitHub Release still carry the FULL version,
+          # so a pre-release build is never mistakable for the real one; only the
+          # embedded display version is trimmed, because that field cannot hold
+          # the suffix at all.
+          DISPLAY_VERSION="${VERSION%%-*}"
+
+          echo "tag=$TAG"                         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"                 >> "$GITHUB_OUTPUT"
+          echo "display_version=$DISPLAY_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building tag=$TAG version=$VERSION display=$DISPLAY_VERSION"
 
   # ---------------------------------------------------------------------------
   # WebHost — all four RIDs from a single Ubuntu runner.
@@ -141,7 +156,7 @@ jobs:
             --configuration Release `
             -p:ReleasePublish=true `
             -p:Version=${{ needs.meta.outputs.version }} `
-            -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} `
+            -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} `
             --output publish/maui-win
 
       - name: Locate + zip
@@ -218,7 +233,7 @@ jobs:
               -p:ReleasePublish=true \
               -p:CreatePackage=false \
               -p:Version=${{ needs.meta.outputs.version }} \
-              -p:ApplicationDisplayVersion=${{ needs.meta.outputs.version }} 2>&1 | tee /tmp/pub.log
+              -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} 2>&1 | tee /tmp/pub.log
             return ${PIPESTATUS[0]}
           }
           publish && exit 0

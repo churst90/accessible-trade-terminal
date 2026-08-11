@@ -100,8 +100,8 @@
                     }
                     else
                     {
-                        var section = _dossier.Sections.FirstOrDefault(x => x.Title == _tab);
-                        if (section == null)
+                        var tabSection = _dossier.Sections.FirstOrDefault(x => x.Title == _tab);
+                        if (tabSection == null)
                         {
                             <p role="status">Section not found.</p>
                         }
@@ -110,10 +110,10 @@
                             @* Absence is stated in words, always. A blank panel would be
                                indistinguishable from a broken one. *@
                             <p role="status">
-                                @switch (section.Status)
+                                @switch (tabSection.Status)
                                 {
                                     case DossierStatus.Ok:
-                                        <text>As of @(section.AsOf?.ToString("yyyy-MM-dd HH:mm") ?? "unknown") UTC.</text>
+                                        <text>As of @(tabSection.AsOf?.ToString("yyyy-MM-dd HH:mm") ?? "unknown") UTC.</text>
                                         break;
                                     case DossierStatus.NoData:
                                         <text>The source answered and had nothing for this asset.</text>
@@ -125,16 +125,16 @@
                                         <text>Not applicable to this asset class.</text>
                                         break;
                                 }
-                                @if (!string.IsNullOrEmpty(section.StatusNote))
+                                @if (!string.IsNullOrEmpty(tabSection.StatusNote))
                                 {
-                                    <text> @section.StatusNote</text>
+                                    <text> @tabSection.StatusNote</text>
                                 }
                             </p>
 
-                            @if (section.Fields.Count > 0)
+                            @if (tabSection.Fields.Count > 0)
                             {
                                 <table style="width:100%; border-collapse:collapse;">
-                                    <caption class="visually-hidden">@section.Title, with the source of each value</caption>
+                                    <caption class="visually-hidden">@tabSection.Title, with the source of each value</caption>
                                     <thead>
                                         <tr>
                                             <th scope="col">Item</th>
@@ -143,7 +143,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var f in section.Fields)
+                                        @foreach (var f in tabSection.Fields)
                                         {
                                             <tr>
                                                 <th scope="row">@f.Label</th>
