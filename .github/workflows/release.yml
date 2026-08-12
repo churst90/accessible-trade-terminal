@@ -296,6 +296,12 @@ jobs:
           name: ${{ needs.meta.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # A validation tag published as a full release becomes "Latest" on the
+          # releases page — so the throwaway build is what every visitor is offered
+          # to download. v2.3.0-rc2 did exactly that on 2026-08-11 and had to be
+          # demoted by hand. Any tag carrying a prerelease suffix is now marked as
+          # one, which also stops it displacing the real release as Latest.
+          prerelease: ${{ needs.meta.outputs.version != needs.meta.outputs.display_version }}
           files: |
             release/*.zip
             release/SHA256SUMS.txt

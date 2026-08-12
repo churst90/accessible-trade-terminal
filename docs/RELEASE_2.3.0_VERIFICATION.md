@@ -29,8 +29,13 @@ against the real venue.
 ## Checked ✅
 
 **Build and suite**
-- [x] Sdk, Core, Components, WebHost, StrategyLab and all 33 plugins build **clean, zero warnings**
+- [x] Sdk, Core, Components, WebHost, StrategyLab and all 33 plugins build with **0 errors**
+      (2 warnings in shipped code — see item 7, which corrects a claim this document made in an
+      earlier draft)
 - [x] **3,240 tests pass, 0 failed, 0 skipped** (~11s)
+- [x] **Both MAUI heads build and produce artifacts — for the first time.** Verified by
+      `v2.3.0-rc2`, after `v2.3.0-rc1` failed both. All 8 jobs green.
+- [x] Doc-drift guard passes (it had been **red on main since 2026-08-06** — see below)
 - [x] Provider capability honesty tests green, including the roster-drift guard that catches a new
       trading provider not added to `ProviderCapabilityHonestyTests.TradingProviders()`
 - [x] Edge registry validates
@@ -134,41 +139,62 @@ This should be walked through before or immediately after the tag.
 Paper is verified end to end. **No live account has placed an order through this terminal.** True at
 2.1.0, true at 2.2.0, true here.
 
-### 7. Test-project warnings have drifted
+### 7. The "zero warnings" standard has not held for at least a release
 
-2.2.0 was tagged at **zero warnings everywhere**. The shipping projects still are. The **test project
-now carries ~25** — nullability (`CS8602` ×11, `CS8621` ×2, `CS8620`, `CS8634` ×2, `CS0649`) and
-analyzer style (`xUnit2013` ×7 — `Assert.Equal` for collection size, `xUnit2000` — swapped
-expected/actual).
+An earlier draft of this document repeated 2.2.0's claim that the shipping projects build clean. **On
+a clean rebuild they do not**, and the mistake is worth recording because of how it was made: the
+check was run as an *incremental* build, where Razor components already up to date do not re-emit
+their warnings. It looked like zero because nothing recompiled.
 
-None affects shipped code and none is release-blocking. It is recorded because "zero warnings" was a
-standard this project held and has quietly stopped holding, and a standard that erodes silently is
-worth naming while it is still 25 and not 250.
+- **Shipped code: 2 warnings.** `PropertiesModal.razor:1154` and `:1156`, both `CS8602`
+  (dereference of a possibly null reference) in `RenameDrawing`. **Pre-existing** — that file has not
+  changed since `v2.2.0`, so the 2.2.0 claim did not hold either. Deliberately *not* fixed here: the
+  obvious guard is an early return, which converts a crash into a drawing that silently fails to
+  rename, and that is a behaviour decision about an accessibility path rather than a warning cleanup
+  to slip into a release commit.
+- **Test project: ~25 warnings.** Nullability (`CS8602` ×11, `CS8621` ×2, `CS8620`, `CS8634` ×2,
+  `CS0649`) and analyzer style (`xUnit2013` ×7 — `Assert.Equal` for collection size, `xUnit2000` —
+  swapped expected/actual).
+
+None is release-blocking. It is recorded because "zero warnings" was a standard this project held and
+has quietly stopped holding, and a standard that erodes silently is worth naming while it is still 27
+and not 270. **Whoever fixes it should verify with `-t:Rebuild`**, or they will measure the same
+nothing.
+
+### 8. What the release-candidate tags actually caught
+
+`v2.3.0-rc1` was pushed to validate the MAUI jobs, which had never produced an artifact. It was worth
+it, and not for the reason `RELEASING.md` predicted.
+
+| Failure | Real? | Cause |
+|---|---|---|
+| **maui-mac**, `RZ2005` / `RZ1011` ×4 | **Yes — would have failed the real tag** | `AssetDossierModal` named a loop variable `section`, so `@section.Title` parsed as Razor's `@section` **directive**. Only the mac job pins .NET 10 GA, whose parser is stricter; every other job's SDK accepted it |
+| **maui-windows**, invalid `ApplicationDisplayVersion` | No — an artifact of the rc tag | Resizetizer demands a bare 3-part version and rejected `2.3.0-rc1`. The real `v2.3.0` would have passed — but `RELEASING.md` *tells* you to validate with a pre-release tag, so the documented validation path could not build the tag shape it documents |
+| **The release was published as "Latest"** | Yes — outward-facing | The workflow marked the throwaway `v2.3.0-rc2` as a full release, making the validation build what every visitor to the releases page was offered. Demoted by hand; the workflow now sets `prerelease` automatically for any suffixed tag |
+
+Both code fixes and both workflow fixes are in. `v2.3.0-rc2` ran **all 8 jobs green**.
+
+**A correction to the 2.2.0 record while it matters:** that document recorded "MAUI head now compiled
+by CI on every push to main, not only at tag time" as closing the compile-break mechanism. **It did
+not.** `tests.yml` builds on a runner whose SDK tolerated the `@section` collision; only the mac
+release job, on pinned GA, caught it. A head that CI compiles on one SDK is not a head that builds.
 
 ---
 
-## The MAUI release jobs have never run
+## The MAUI release jobs — now validated
 
-`RELEASING.md` warns that the two MAUI jobs depend on the `maui` workload and on publish-output paths
-that shift between SDK versions, and recommends validating with a throwaway pre-release tag. **Those
-jobs have never produced an artifact**, and the release workflow will attach unsigned MAUI heads to
-2.3.0 regardless of whether anyone can launch them.
+They had never produced an artifact. As of `v2.3.0-rc2` they do: `AccessibleTrader-Windows-…zip`
+(7m28s) and `AccessibleTrader-macOS-…universal.zip` (3m32s), alongside the four WebHost builds,
+`SHA256SUMS.txt` and the plugin trust manifest.
 
-Validate first:
-
-```bash
-git tag v2.3.0-rc1
-git push origin v2.3.0-rc1
-gh run watch
-```
-
-If a MAUI job fails at "Locate + zip", the publish succeeded and the artifact glob needs adjusting.
+**Building is not launching.** Both heads remain unsigned, and item 5 — that nobody has ever *run*
+either of them — is untouched by this. What closed is the question of whether the jobs work at all.
 
 ---
 
 ## Tagging
 
-Once the pre-release run is green:
+The rc2 run is green, so:
 
 ```bash
 git tag v2.3.0
