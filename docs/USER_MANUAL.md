@@ -99,7 +99,9 @@ softer triangle warmth below it, so you can hear which side you are on without
 checking a number; a candle's body adds a deep sub-octave weight that grows with the
 body's size — a big conviction candle sounds *heavier* than a doji at the same
 loudness, so size reads as character rather than volume — and wicks ring as clean
-pings whose grit grows with their length. Meanwhile, and when a reading pushes into an
+pings whose grit grows with their length, the upper wick a bright tone and the lower
+a deep one, each roughening in proportion to its own reach so a candle with a long
+tail below and none above is unmistakable by ear. Meanwhile, and when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
 tone so the extremity itself is audible. It is a pronounced roughness, not a faint
@@ -1113,6 +1115,19 @@ because size is the only ordering that is not a directional opinion — but your
 well be built on the small one, and the terminal has no business insisting otherwise.
 Nothing is hidden either way.
 
+The cycle covers **every** formation over the bar you are standing on, container and
+contained alike — a range, the double bottom inside it, and the flag inside that are three
+presses apart, and a fourth press wraps back to the first. Each announcement says which of
+how many you are on ("2 of 3"), so you always know the size of the set you are walking.
+
+**While one is chosen, `,` and `.` walk that formation's edges only** — its start and its
+ending, nothing else. Choosing a shape and then being carried to a different one's break bar
+is the behaviour this replaced, and it made the choice feel as though it had not registered:
+you would hear *"leading with ascending triangle"* and, one keypress later, *"double bottom
+confirmed here."* Both were true. The key had simply gone somewhere you did not ask to go.
+When you reach the end of a chosen formation the terminal names it and reminds you that
+`Shift+;` releases it.
+
 #### What the terminal will not tell you, and why
 
 You will never hear a formation called bullish or bearish, and you will never hear a
@@ -1182,6 +1197,13 @@ versa.
 The practical consequence: with HA on, your spoken open/high/low/close **are** Heikin-Ashi
 values, but the formation levels beside them are not. Use HA to hear trend more clearly;
 trust the formation levels as real prices.
+
+The same applies to the body and wick percentages, from both the arrow keys and the detail
+key: with HA on they describe the Heikin-Ashi candle you are looking at, not the raw bar
+underneath it. That matters more than it sounds, because a trending HA series routinely
+produces candles with **no shadow at all** on one side — the shaved look is the whole point
+of the smoothing — where the underlying bar has one. If those two ever disagree for you,
+the readout is wrong and worth reporting: they are meant to describe the same candle.
 
 #### How many formations to expect
 

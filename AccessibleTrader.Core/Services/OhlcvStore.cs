@@ -76,7 +76,8 @@ namespace AccessibleTrader.Core.Services
         {
             if (limit <= 0) return new List<Ohlcv>();
 
-            long barMs = TimeframeUtility.ToMilliseconds(timeframe ?? "");
+            timeframe ??= "";
+            long barMs = TimeframeUtility.ToMilliseconds(timeframe);
             if (barMs <= 0) return new List<Ohlcv>();
 
             try
@@ -119,7 +120,11 @@ namespace AccessibleTrader.Core.Services
         {
             if (bars == null || bars.Count == 0) return;
 
-            long barMs = TimeframeUtility.ToMilliseconds(timeframe ?? "");
+            // Normalised once, so the value written to the row is the same one the interval was
+            // derived from. The `?? ""` used to sit inline in the call below, which told the flow
+            // analysis the parameter was nullable and left every later use of it warning.
+            timeframe ??= "";
+            long barMs = TimeframeUtility.ToMilliseconds(timeframe);
             if (barMs <= 0) return;
 
             // Drop the forming bar: its close, high, low and volume are all still moving.

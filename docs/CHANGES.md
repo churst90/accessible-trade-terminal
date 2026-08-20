@@ -2,6 +2,76 @@
 
 All notable changes to this project will be documented in this file.
 
+> **Gap:** there is no `[2.3.0]` section below, though 2.3.0 shipped on 2026-08-11. That release
+> documented itself in [WHATSNEW.md](WHATSNEW.md) and
+> [RELEASE_2.3.0_VERIFICATION.md](RELEASE_2.3.0_VERIFICATION.md) and never came back here. Writing
+> it retrospectively means reconstructing nineteen commits from their messages, which is a
+> different job from recording them as they land — so it is named as missing rather than
+> approximated.
+
+---
+
+## [Unreleased]
+
+### Both wicks were the same wick (2026-08-20)
+
+Four reports from live use of the audio and formation surfaces, three of them real defects. Each
+was reproduced by a failing test before it was fixed.
+
+- **Both candle wicks were sonified as the lower one.** The sonifier decided which end of the
+  candle it was playing with `Name.Contains("Upper") || Name.Contains("High")`, written when the
+  components were called "Upper Wick". Phase 2 renamed them to the snake_case machine ids the
+  indicator metadata declares — `upper_wick` / `lower_wick` — and against a lowercase name that
+  test is false for **both**. Every wick on every candle therefore got the lower wick's 220 Hz
+  pitch *and* grit computed from the lower shadow's length: a candle with a long upper wick and no
+  lower one played a clean ping for the long wick and a rough one for the wick that was not there.
+  The side now comes from `DataMapping`, the binding that decides which price the component draws
+  from, which cannot drift from its meaning the way a display string can.
+- **Wick length was inaudible regardless.** Grit divided the wick's length by the *viewport* range
+  — the height of the whole pane — so every wick came out at the same near-zero roughness. On a
+  6:1 length difference both wicks measured 0.045. It now normalises by the bar's own range, as
+  the body beside it always did.
+- **Body and wick percentages described the wrong candle under Heikin-Ashi.** The detail readout
+  took the raw bar while the navigation path applied the HA transform, so the two disagreed about
+  the same bar and the detail key described a candle that was not on screen. A trending HA series
+  routinely has no shadow on one side where the raw bar has one, which is how "lower wick 19%"
+  came out of a candle drawn without a lower wick. The numbers were never wrong about the raw bar;
+  they were about the wrong bar.
+- **The formation pin did not reach the jump keys.** Pinning reordered the readout while `,` and
+  `.` kept computing their stops from every pattern on the chart, so `;` announced "leading with
+  ascending triangle" and the next keypress landed on "double bottom confirmed here". A pin now
+  scopes those keys to its own formation, and running out of edges names the pin and the key that
+  clears it.
+- `ChartPatternNavigator` no longer accepts a null focus with a private fallback instance. A
+  dropped registration would have split the pin into an object nobody reads — the key announcing a
+  choice that never took effect, with nothing failing anywhere.
+
+### My Data listed a market with nothing behind it (2026-08-20)
+
+`LoadProvidersByMarketTypeAsync` sorts providers by declared `DataShape`: analytics markets take
+`SingleValueLine`, everything else takes `Ohlcv`. MyData is not in the analytics list, so it fell
+to the `Ohlcv` branch — and `MyDataProvider` declares `SingleValueLine`, because for imported CSVs
+the shape belongs to the *symbol* (an OHLCV import is candles, a budget column is a line) and the
+provider answers per symbol. `LoadAvailableMarketsAsync` applies no shape filter, so the market
+listed anyway: My Data appeared in the dropdown with an empty provider list behind it and an
+Import button leading to a chart that could never load. On desktop as well as hosted.
+
+### The path trap, in the seven places it was left (2026-08-20)
+
+On Unix `Environment.GetFolderPath(LocalApplicationData)` returns an **empty string** when the
+directory it resolves to does not exist, making the combined path *relative* to the process's
+working directory. Four call sites were fixed when this was found; seven were not. All seven now
+go through `PlatformPaths` (absolute) or `IPlatformPathService` (per-user), chosen by what the
+path holds — indicator preferences and the security event log were user state shared by every
+hosted account, while plugin drop-in directories stay deliberately machine-level because they hold
+executable code.
+
+Also in this batch: hosted providers whose server key is missing now say so at startup instead of
+rendering an unfixable "API key required"; `OhlcvStore` logs at Error when its table is unusable,
+because `EnsureCreated` will not alter an existing database and a silently dead cache is
+indistinguishable from a cold one; `MarketOrchestrator`'s Economic fallback said `FMPAnalytics`
+where the provider is `FMP Analytics`; and `DemoPolicy.HostedProviders` omitted `My Data`.
+
 ---
 
 ## [2.2.0] — 2026-08-04

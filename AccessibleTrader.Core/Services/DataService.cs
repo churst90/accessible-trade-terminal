@@ -187,16 +187,13 @@ namespace AccessibleTrader.Core.Services
                     type == MarketType.Derivatives ||
                     type == MarketType.Sentiment;
 
-                // MyData is exempt: it is the user's own imported CSVs, where the shape is a
-                // property of the SYMBOL, not the provider — an OHLCV import charts as candles,
-                // a budget column as a line, and MyDataProvider answers that per symbol through
-                // GetDataShapeForSymbol. Its class-level DataShape is only the default for the
-                // ambiguous case, and reading that default as a verdict dropped the one provider
-                // this market has: the market listed (LoadAvailableMarketsAsync applies no shape
-                // filter) with an empty provider dropdown behind it, so Import led to a chart
-                // that could never load. The rule above is defense-in-depth against a plugin
-                // mis-declaring SupportedMarkets; MyData has exactly one built-in provider and
-                // nothing to defend against.
+                // MyData is exempt: for imported CSVs the shape belongs to the SYMBOL, not the
+                // provider (an OHLCV import is candles, a budget column is a line), and
+                // MyDataProvider answers per symbol via GetDataShapeForSymbol. Reading its
+                // class-level default as a verdict dropped the only provider this market has,
+                // leaving My Data listed — LoadAvailableMarketsAsync applies no shape filter —
+                // with an empty provider dropdown behind it. The rule above guards against a
+                // plugin mis-declaring SupportedMarkets; MyData has nothing to guard against.
                 bool shapeIsPerSymbol = type == MarketType.MyData;
 
                 return Task.FromResult(_providers

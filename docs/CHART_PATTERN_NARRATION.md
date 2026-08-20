@@ -105,6 +105,28 @@ untested claim the whole feature refuses to make.
 right place for it: arrow-key navigation must stay short, but "tell me everything about this bar" is
 the one request that should not be summarised.
 
+### Overriding the ranking: the pin
+
+`;` pins one of the overlapping formations so it leads instead; `Shift+;` clears it. The ranking is
+the application's ordering, and the pin is how a user says theirs is different — the twelve-bar flag
+inside the eighty-bar triangle may be exactly what their setup is built on. The set walked is every
+formation whose window covers the current bar, so containers and their contents are equally
+reachable, and it wraps.
+
+**A pin scopes `,` and `.` to its own formation.** This was not true at first, and the gap produced
+a report that read as the pin not working at all: pinning reordered the *readout* while the jump
+keys kept computing their stops from every pattern on the chart, so `;` announced *"leading with
+ascending triangle"* and the very next keypress landed on the double bottom's break bar and said
+*"double bottom confirmed here."* Every sentence was individually correct, which is why it survived
+review — the defect was in which bar the key chose, not in what was said once it got there.
+
+The general lesson, and the third time this feature has taught it: **the pieces were each right and
+the composition was wrong.** The edge words, the no-lookahead projection and the pin all behave
+correctly in isolation and all three defects to date have been in how they combine. That composition
+is now reachable from a test (`AccessibilityFeedbackCoordinator.ChartPatternContext` is `internal`
+rather than `private`) instead of requiring the whole navigation stack to be stood up, which is why
+it went unchecked for so long. See `ChartPatternPinNarrationTests`.
+
 When **nothing** is live at the cursor, `Alt+Shift+D` names the last formation that finished and how
 — *"No formation here. Most recent, 20 bars ago: double top: price closed below the neckline at
 42,100."* A formation drops out of the live window the moment it resolves, which is right for

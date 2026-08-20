@@ -218,4 +218,82 @@ public sealed class ChartPatternPinNarrationTests
         Assert.True(doubleBottom < 0 || triangle < doubleBottom,
             $"pinned formation must lead after a jump, got: {spoken}");
     }
+
+    /// <summary>
+    /// Nesting is the case the pin exists for: a twelve-bar flag inside an eighty-bar triangle may
+    /// be exactly what a setup is built on. Every formation covering the bar has to be reachable by
+    /// repeated presses, container and contained alike, and the walk has to wrap rather than stop
+    /// at the innermost.
+    /// </summary>
+    [Fact]
+    public void NestedFormationsCanAllBeCycledThrough()
+    {
+        var outer = new ChartPattern(
+            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Forming,
+            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
+            TriggerLevel: 110, StartTime: default, EndTime: default,
+            ExpiresAtIndex: 300, SecondaryLevel: 90);
+        var middle = new ChartPattern(
+            Kind: ChartPatternKind.DoubleBottom, State: ChartPatternState.Forming,
+            StartBarIndex: 20, EndBarIndex: 120, KnownAtIndex: 62,
+            TriggerLevel: 100, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var inner = new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Forming,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+
+        var h = Build(outer, middle, inner);
+        StandOn(h, 70);
+
+        var led = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            h.Bus.Log.Clear();
+            h.Navigator.CycleFocus();
+            led.Add(string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message)));
+        }
+
+        Assert.Contains("range", led[0]);
+        Assert.Contains("double bottom", led[1]);
+        Assert.Contains("bull flag", led[2]);
+        Assert.Contains("range", led[3]);          // wraps rather than stopping at the innermost
+        Assert.All(led, l => Assert.Contains("of 3", l));   // and always says how many there are
+    }
+
+    /// <summary>
+    /// Pinning the INNER formation must then scope the jump keys to it, not to its container —
+    /// otherwise choosing the flag and pressing the next-formation key walks the triangle.
+    /// </summary>
+    [Fact]
+    public void PinningAContainedFormationScopesTheJumpKeysToIt()
+    {
+        var outer = new ChartPattern(
+            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Completed,
+            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
+            TriggerLevel: 110, StartTime: default, EndTime: default,
+            CompletedAtIndex: 115, ExpiresAtIndex: 300, SecondaryLevel: 90);
+        var inner = new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Completed,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: default, EndTime: default,
+            CompletedAtIndex: 85, ExpiresAtIndex: 300);
+
+        var h = Build(outer, inner);
+        StandOn(h, 70);
+
+        for (int i = 0; i < 4; i++)
+        {
+            h.Navigator.CycleFocus();
+            var ranked = ChartPatternNarrator.ByDominance(new[] { outer, inner }).ToList();
+            if (h.Focus.Apply(ChartPatternCache.KeyFor(h.Store.State.Identity), ranked)[0].Key
+                    .Equals(inner.Key)) break;
+        }
+
+        h.Store.DispatchedActions.Clear();
+        h.Navigator.Jump(SystemCommand.NavPatternNext);
+
+        var nav = h.Store.DispatchedActions.OfType<NavigateAction>().LastOrDefault();
+        Assert.NotNull(nav);
+        Assert.Equal(85, nav!.NewIndex);   // the flag's break, not the container's at 115
+    }
 }

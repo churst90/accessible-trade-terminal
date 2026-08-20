@@ -6,6 +6,47 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Open after the 2026-08-20 hosted-tier and audio batch
+
+Everything else in that batch is closed (see [CHANGES.md](CHANGES.md)). These are what was found
+and deliberately not fixed, each with the reason.
+
+- [ ] **`trader_local.db` is not under `Accounts__DataRoot`.** It resolves to
+  `$XDG_DATA_HOME/AccessibleTrader/`, because the DbContext factory must stay a singleton and so
+  cannot read the per-circuit path service. Contents are public market data, so sharing is harmless
+  — but two services on one box write to one file unless each gets its own `XDG_DATA_HOME`. Same
+  isolation the secret store needs; documented in [SERVER_SETUP.md](SERVER_SETUP.md), not enforced.
+- [ ] **`OhlcvStore` has no schema migration path.** `EnsureCreated` will not alter an existing
+  database, so any change to `OhlcvEntity` means deleting the file on deploy. It logs at Error when
+  the table is unusable, which is the signal — but the deletion is manual.
+- [ ] **Server-side state migration for existing hosted installs.** Workspaces, `alerts.json` and
+  indicator preferences moved under `users/{id}/`. Anything left in the old shared directory is
+  intact on disk and invisible to the app, and background alert monitoring stays quiet until
+  `alerts.json` moves. Commands are in [SERVER_SETUP.md](SERVER_SETUP.md); with more than one
+  account there is no correct automatic answer, because the shared directory has no record of who
+  wrote what.
+- [ ] **`BackfillManager` is dead code.** No callers, still registered in both hosts, still has
+  passing tests. `OhlcvStore` supersedes it. Deleting a class plus its test file is a judgement
+  call, not a cleanup.
+- [ ] **The analytics cache key has no user or credential dimension.** Correct today — hosted keys
+  are server-seeded and desktop is single-user — but if per-user API keys ever reach hosted, one
+  user's paid Glassnode data would be served to another from the shared cache directory.
+- [ ] **Three candle classifiers.** `BarDetailService.ClassifyBar`,
+  `SpeechFormatter.ClassifyCandleType` and `SdkCandlePatternAnalyzer` each implement the same
+  thresholds, and they already disagree: one says "Bearish Marubozu" where another says "Marubozu",
+  one returns "Standard Candle" where another returns "". Not user-visible yet. Three copies of one
+  rule will drift.
+- [ ] **Upper and lower wicks share a waveform.** They are now correctly distinguished by pitch
+  (880 / 220 Hz) and each roughens with its own length. Whether they should *also* differ in timbre
+  — the way the body already colours direction with a touch of square or triangle — is an open
+  design question, not a defect.
+- [ ] **`AccessibleTrader.BlazorClient` cannot be built on this machine** (`NETSDK1147:
+  maui-android workload not installed`), so its edits in the 2026-08-20 batch are the only changes
+  no compiler has checked. They mirror WebHost edits that do compile. Worth a build on a machine
+  with the workload before shipping a desktop build.
+- [ ] **No `[2.3.0]` section in [CHANGES.md](CHANGES.md).** 2.3.0 documented itself in WHATSNEW and
+  its verification doc and never came back to the changelog.
+
 ## Terminal / lab split (2026-08-01)
 
 The app ships tools, not opinions. Reasoning in
