@@ -40,6 +40,13 @@ and deliberately not fixed, each with the reason.
   (880 / 220 Hz) and each roughens with its own length. Whether they should *also* differ in timbre
   — the way the body already colours direction with a touch of square or triangle — is an open
   design question, not a defect.
+- [x] **The rest of the audio surface now has assertions.** `SonificationTimbreTests` pins the
+  design rules for the body, the volume bed, oscillators, histograms and the price line, plus the
+  cross-cutting ones (muting is absolute, a user patch opts out of the built-in partials, NaN is
+  silent). All fifteen passed on first run — the wick path was the broken one — but they exist so
+  the next rename breaks a test instead of a user's ears, which is exactly what the wick defects
+  did not do. Writing them also caught three comments in `SonificationProfileProvider` that had
+  drifted to describe sawtooth partials the code does not use.
 - [ ] **`AccessibleTrader.BlazorClient` cannot be built on this machine** (`NETSDK1147:
   maui-android workload not installed`), so its edits in the 2026-08-20 batch are the only changes
   no compiler has checked. They mirror WebHost edits that do compile. Worth a build on a machine

@@ -45,6 +45,16 @@ was reproduced by a failing test before it was fixed.
 - `ChartPatternNavigator` no longer accepts a null focus with a private fallback instance. A
   dropped registration would have split the pin into an object nobody reads — the key announcing a
   choice that never took effect, with nothing failing anywhere.
+- **The rest of the audio surface now has assertions.** Both wick defects were regressions nothing
+  could catch: a renamed field left the sonifier's idea of a component's identity pointing at
+  nothing, and a wrong denominator flattened a whole dimension of the output. Neither threw and
+  neither failed a build, because nothing anywhere asserted what a voice is supposed to *sound*
+  like. `SonificationTimbreTests` now pins the body, the volume bed, oscillators, histograms and
+  the price line, plus the rules that cut across them — loudness never encodes size, muting is
+  absolute, a user patch opts out of the built-in partials, a NaN is silent. All fifteen passed on
+  first run; the wick path was the broken one. Writing them caught three comments in
+  `SonificationProfileProvider` that had drifted to describe sawtooth partials the code does not
+  use and a wick split keyed on a name the code no longer reads.
 
 ### My Data listed a market with nothing behind it (2026-08-20)
 

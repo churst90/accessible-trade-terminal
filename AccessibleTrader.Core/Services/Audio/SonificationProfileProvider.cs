@@ -30,16 +30,19 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
 
         // 2. Wicks: sine pings with fixed-frequency tones — upper=880 Hz, lower=220 Hz.
         // PitchMapping.None with BaseFrequency=440, FreqMultiplier=1.0.
-        // The actual 880/220 split is applied per-component in DefaultSonificationStrategy.CreateAudioPoint
-        // based on comp.Name ("Upper"/"Lower"), since one profile covers both wick components.
+        // One profile covers both wick components, so the 880/220 split and the per-wick grit are
+        // applied in DefaultSonificationStrategy.CreateAudioPoint. Which end a component describes
+        // is decided from its DataMapping ("high"/"low"), NOT its name — see
+        // DefaultSonificationStrategy.IsUpperWick for the rename that made a name test useless.
         if (role == ComponentRole.Wick || displayType == ComponentDisplayType.Wick)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.None, 440, 1.0, false, "Ping");
 
-        // 3a. Volume bars: base SINE with a light sawtooth partial mixed in (SawMix ∝ bar size,
-        //     set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as GRIT, not
-        //     loudness — quiet bars stay clearly audible instead of dropping toward silence. Low
-        //     base pitch (330 Hz) seats it under the candle body / price line as its own distinct
-        //     instrument, and a sustained envelope makes it a continuous bed during playback.
+        // 3a. Volume bars: base SINE with a brown-noise tinge and a SUB-OCTAVE saw weight ∝ bar
+        //     size (both set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as
+        //     GRIT, not loudness — quiet bars stay clearly audible instead of dropping toward
+        //     silence. Sub-octave rather than same-octave: the latter fizzes. Low base pitch
+        //     (330 Hz) seats it under the candle body / price line as its own distinct instrument,
+        //     and a sustained envelope makes it a continuous bed during playback.
         if (role == ComponentRole.Volume)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 330, 1.0, false, "Sustain");
 
@@ -49,9 +52,11 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (role == ComponentRole.Histogram || displayType == ComponentDisplayType.Bar || displayType == ComponentDisplayType.Histogram)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.Size, PitchMapping.PriceDirection, 440, 1.0, false, "Sustain");
 
-        // 4. Oscillators: base SINE; above/below the reference level are differentiated by a
-        //     sawtooth partial (SawMix set in CreateAudioPoint when val ≥ ReferenceLevel), not by
-        //     swapping the whole waveform — so it's bright/gritty above and pure sine below.
+        // 4. Oscillators: base SINE; the upper and lower halves are differentiated by a square
+        //     (bright) or triangle (warm) partial set in CreateAudioPoint, not by swapping the
+        //     whole waveform. NEVER sawtooth — a same-octave saw fizzes, and this voice sounds
+        //     continuously. The split is on the visible-range MIDPOINT rather than ReferenceLevel,
+        //     because many oscillators leave that unset and the zone must always be audible.
         if (displayType == ComponentDisplayType.Oscillator)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, true, "Sustain");
 
