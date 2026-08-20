@@ -44,6 +44,21 @@ namespace AccessibleTrader.Core.Services.Analysis
 
         /// <summary>Whether this chart currently has a pinned formation.</summary>
         bool IsPinned(string chartKey);
+
+        /// <summary>
+        /// The pinned formation as it appears among <paramref name="candidates"/>, or null when
+        /// nothing is pinned or the pinned shape is not in that set.
+        ///
+        /// <para>
+        /// Exists so the JUMP keys can respect the pin. Reordering a readout was only half of what
+        /// pinning has to mean: a user who pins a formation and then presses the next-formation key
+        /// is asking to travel to <i>that</i> formation's edges, and the keys used to compute their
+        /// stops from every pattern on the chart. The result was a pin that changed which shape was
+        /// described but not which shape you landed on — so "leading with ascending triangle" was
+        /// followed, one keypress later, by "double bottom confirmed here". Reported from live use.
+        /// </para>
+        /// </summary>
+        ChartPattern? PinnedIn(string chartKey, IEnumerable<ChartPattern> candidates);
     }
 
     public sealed class ChartPatternFocus : IChartPatternFocus
@@ -102,6 +117,17 @@ namespace AccessibleTrader.Core.Services.Analysis
         public bool IsPinned(string chartKey)
         {
             lock (_gate) return _pinned.ContainsKey(chartKey);
+        }
+
+        public ChartPattern? PinnedIn(string chartKey, IEnumerable<ChartPattern> candidates)
+        {
+            lock (_gate)
+            {
+                if (!_pinned.TryGetValue(chartKey, out var key)) return null;
+                foreach (var c in candidates)
+                    if (c.Key.Equals(key)) return c;
+                return null;
+            }
         }
     }
 }

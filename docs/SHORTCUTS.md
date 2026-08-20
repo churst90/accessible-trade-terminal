@@ -115,6 +115,13 @@ eighty-bar triangle may be exactly what your setup is built on, and the terminal
 insisting otherwise. The choice sticks per chart until you clear it, and nothing is hidden either
 way: the others are still counted and `Alt+Shift+D` still reads them all.
 
+**While a formation is chosen, `,` and `.` walk that formation's edges only** — its start and its
+ending, and nothing else. Choosing a shape and then being taken to a different one's break bar was
+the old behaviour and it made the choice feel as though it had not registered: you would hear
+*"leading with ascending triangle"* and, one keypress later, *"double bottom confirmed here."* Both
+sentences were true; the key had simply travelled somewhere you had not asked to go. When you run
+out of edges the terminal names the pin and reminds you that `Shift+;` releases it.
+
 **Nesting.** A formation inside a larger one says so — *"…Inside a larger double bottom that began
 12 March."* The container's start date is given rather than just its name, because that is what lets
 you go and find it.

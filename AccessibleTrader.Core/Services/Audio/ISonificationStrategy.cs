@@ -36,6 +36,39 @@ namespace AccessibleTrader.Core.Services.Audio
             _patchLibrary = patchLibrary;
         }
 
+        /// <summary>
+        /// Which end of the candle a wick component describes.
+        ///
+        /// <para>
+        /// <b>Decided from <see cref="ComponentConfig.DataMapping"/>, not the name.</b> The test
+        /// was <c>Name.Contains("Upper") || Name.Contains("High")</c>, written when components
+        /// were named "Upper Wick". Phase 2 renamed them to the snake_case machine ids the
+        /// indicator metadata actually declares — <c>upper_wick</c> / <c>lower_wick</c> — and
+        /// against a lowercase name that test is false for BOTH. Every wick on every candle was
+        /// therefore sonified as a lower wick: same 220 Hz pitch, and grit computed from the
+        /// lower shadow's length even when the component being played was the upper one. A candle
+        /// with a long upper wick and no lower one played a clean ping for the long wick and a
+        /// rough one for the wick that was not there. Reported from live use as "both wicks are
+        /// the same tone".
+        /// </para>
+        ///
+        /// <para>
+        /// DataMapping is the binding that decides which price the component draws from, so it
+        /// cannot drift from the component's meaning the way a display string can. The name check
+        /// is kept as a case-insensitive fallback for saved workspaces written before the rename.
+        /// </para>
+        /// </summary>
+        internal static bool IsUpperWick(ComponentConfig comp)
+        {
+            if (string.Equals(comp.DataMapping, "high", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(comp.DataMapping, "low", StringComparison.OrdinalIgnoreCase)) return false;
+
+            return comp.Name.Contains("upper", StringComparison.OrdinalIgnoreCase)
+                || comp.Name.Contains("high", StringComparison.OrdinalIgnoreCase)
+                || comp.DisplayName.Contains("upper", StringComparison.OrdinalIgnoreCase)
+                || comp.DisplayName.Contains("high", StringComparison.OrdinalIgnoreCase);
+        }
+
         public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null)
         {
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
@@ -55,8 +88,7 @@ namespace AccessibleTrader.Core.Services.Audio
             {
                 // Wicks use fixed tones regardless of PitchMapping so upper and lower are always
                 // distinguishable: upper wick = 880 Hz (bright), lower wick = 220 Hz (deep).
-                bool isUpperWick = comp.Name.Contains("Upper") || comp.Name.Contains("High");
-                freq = isUpperWick ? 880.0 : 220.0;
+                freq = IsUpperWick(comp) ? 880.0 : 220.0;
                 // FreqMultiplier still applies so users can tune per-component in Properties dialog.
                 freq *= comp.FreqMultiplier;
             }
@@ -338,11 +370,20 @@ namespace AccessibleTrader.Core.Services.Audio
                     // see the DeltaFromPrice block above). Upper/lower wicks otherwise differ
                     // only by pitch (880 / 220 Hz). The wick's grit range matches the body's
                     // (0.25–0.30) so "how big" reads on the same scale across the candle.
-                    bool isUpperW = comp.Name.Contains("Upper") || comp.Name.Contains("High");
+                    //
+                    // Normalised by THIS BAR's range, exactly as bodySizeNorm above is. It used to
+                    // divide by the VIEWPORT range, which is the height of the whole pane: a wick
+                    // is a small fraction of that, so every wick on every candle came out at
+                    // essentially the same near-zero grit and length was inaudible. Dividing by
+                    // the bar puts a wick and a body on one scale, which is what the comment
+                    // above always claimed and never did. Zero-length wick → zero grit, so a
+                    // candle with no lower shadow pings clean rather than lying about a shadow.
+                    bool isUpperW = IsUpperWick(comp);
                     double bodyHi = Math.Max(point.Open, point.Close);
                     double bodyLo = Math.Min(point.Open, point.Close);
                     double wickLen = isUpperW ? (point.High - bodyHi) : (bodyLo - point.Low);
-                    double wickNorm = Math.Clamp(wickLen / rangeSpan * 3.0, 0.0, 1.0);
+                    double wickBarRange = Math.Max((double)(point.High - point.Low), 1e-10);
+                    double wickNorm = Math.Clamp(wickLen / wickBarRange, 0.0, 1.0);
                     subSawMix = (float)(0.30 * wickNorm);
                 }
                 else if (comp.DisplayType == ComponentDisplayType.Oscillator)

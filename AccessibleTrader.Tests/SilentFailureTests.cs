@@ -85,7 +85,7 @@ public class SilentFailureTests
         var store = StoreWith(StateWithBars(describePatterns: false));
         var bus = new SpyEventBus();
         var nav = new ChartPatternNavigator(store, bus, new ChartPatternCache(
-            new ChartPatternDetector(new SwingStructureAnalyzer())));
+            new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus());
 
         int before = store.State.CurrentDataIndex;
         nav.Jump(SystemCommand.NavPatternNext);
@@ -102,7 +102,7 @@ public class SilentFailureTests
         var store = StoreWith(StateWithBars(describePatterns: true));
         var bus = new SpyEventBus();
         var nav = new ChartPatternNavigator(store, bus, new ChartPatternCache(
-            new ChartPatternDetector(new SwingStructureAnalyzer())));
+            new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus());
 
         nav.Jump(SystemCommand.NavPatternNext);
 
@@ -132,7 +132,7 @@ public class SilentFailureTests
         });
         var bus = new SpyEventBus();
         var nav = new ChartPatternNavigator(store, bus, new ChartPatternCache(
-            new ChartPatternDetector(new SwingStructureAnalyzer())));
+            new ChartPatternDetector(new SwingStructureAnalyzer())), new ChartPatternFocus());
 
         nav.Jump(SystemCommand.NavPatternNext);
 

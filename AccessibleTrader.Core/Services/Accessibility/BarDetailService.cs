@@ -38,7 +38,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (series == null) return;
 
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
-            var bar = state.Data[idx];
+            var bar = BarAsDrawn(state, idx);
 
             // Build a lookback slice (up to 50 bars before the current index) so GetDetailFact
             // can perform pattern/context analysis on real price data.
@@ -119,6 +119,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int ago = idx - last.ResolvesAt;
             string what = ChartPatternNarrator.Describe(last, SpeechPriceFormatter.FormatPrice);
             return $"No formation here. Most recent, {ago} {(ago == 1 ? "bar" : "bars")} ago: {what}";
+        }
+
+        /// <summary>
+        /// The bar as the user is actually looking at it: the raw candle normally, its Heikin-Ashi
+        /// equivalent when that mode is on.
+        ///
+        /// <para>
+        /// This readout used to take <c>state.Data[idx]</c> unconditionally while
+        /// <see cref="NavigationFeedbackManager"/> applied the Heikin-Ashi transform — so with HA
+        /// active the two paths described the same bar differently, and the detail key described a
+        /// candle that was not on screen. Body and wick percentages are where that showed up
+        /// loudest: HA candles routinely have NO shadow on one side (that is the shaved look of a
+        /// trending HA series) while the raw bar underneath has one, so the terminal reported a
+        /// lower wick of 19% for a candle drawn without a lower wick at all. Reported from live
+        /// use, and the numbers were never wrong about the raw bar — they were about the wrong bar.
+        /// </para>
+        /// </summary>
+        private static Ohlcv BarAsDrawn(WorkspaceState state, int idx)
+        {
+            var raw = state.Data![idx];
+            if (!state.IsHeikinAshi || state.Data.Count <= 1) return raw;
+
+            var slice = new List<Ohlcv>(idx + 1);
+            for (int i = 0; i <= idx; i++) slice.Add(state.Data[i]);
+            var ha = ChartMath.CalculateHeikinAshi(slice);
+            return ha.Count > 0 ? ha[^1] : raw;
         }
 
         private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)

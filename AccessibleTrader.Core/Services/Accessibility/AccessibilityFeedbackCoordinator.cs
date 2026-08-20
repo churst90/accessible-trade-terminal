@@ -627,7 +627,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// back to describing what is here, which is exactly what "where am I?" wants.
         /// </para>
         /// </summary>
-        private string ChartPatternContext()
+        // Internal, not private: this is the third defect to land in formation narration, and each
+        // one was in how the pieces combine — the pin, the diff, the edge words — rather than in
+        // any piece alone. None of it was reachable from a test without standing up the whole
+        // navigation stack, which is why the composition kept going unchecked.
+        // See ChartPatternPinNarrationTests.
+        internal string ChartPatternContext()
         {
             var state = _store.State;
             if (!state.DescribeChartPatterns) { _lastPatternBar = -1; return ""; }

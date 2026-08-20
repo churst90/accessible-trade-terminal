@@ -34,13 +34,18 @@ namespace AccessibleTrader.Core.Services.Analysis
         private readonly IChartPatternCache _patterns;
         private readonly IChartPatternFocus _focus;
 
+        // The focus is REQUIRED, not optional-with-a-fallback. It used to default to a private
+        // `new ChartPatternFocus()`, which meant that if the DI registration were ever dropped this
+        // class would pin into an instance nobody else reads: semicolon would announce "leading
+        // with …" and the readout would never change, with nothing failing anywhere. A missing
+        // registration should be a startup error, not a feature that half works.
         public ChartPatternNavigator(IWorkspaceStore store, IEventBus eventBus,
-            IChartPatternCache patterns, IChartPatternFocus? focus = null)
+            IChartPatternCache patterns, IChartPatternFocus focus)
         {
             _store = store;
             _eventBus = eventBus;
             _patterns = patterns;
-            _focus = focus ?? new ChartPatternFocus();
+            _focus = focus;
         }
 
         /// <summary>
@@ -138,12 +143,28 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return;
             }
 
-            int target = NextEdge(all, state.CurrentDataIndex, forward, data.Count);
+            // A pin scopes these keys to the formation it names. Pinning used to reorder the
+            // readout only, while the jump keys kept computing their stops from every pattern on
+            // the chart — so pressing semicolon and then the next-formation key announced
+            // "leading with ascending triangle" and landed one keypress later on "double bottom
+            // confirmed here". The pin said which shape the user cared about; travelling to a
+            // different one's edges ignored the only instruction they had given.
+            string chartKey = ChartPatternCache.KeyFor(state.Identity);
+            var pinned = _focus.PinnedIn(chartKey, all);
+            var scope = pinned != null ? new[] { pinned } : all;
+
+            int target = NextEdge(scope, state.CurrentDataIndex, forward, data.Count);
             if (target < 0)
             {
+                // Naming the pin matters here: with one pinned there are only two stops on the
+                // whole chart, so running out is normal rather than a sign the feature is broken —
+                // and the user needs to be told which key gets the rest of the chart back.
                 _eventBus.Publish(new FeedbackRequestEvent(
                     FeedbackType.Boundary,
-                    forward ? "No further chart formations." : "No earlier chart formations."));
+                    pinned != null
+                        ? $"No {(forward ? "further" : "earlier")} edges in the pinned "
+                          + $"{ChartPatternNarrator.Name(pinned.Kind)}. Shift+semicolon clears the pin."
+                        : forward ? "No further chart formations." : "No earlier chart formations."));
                 return;
             }
 
