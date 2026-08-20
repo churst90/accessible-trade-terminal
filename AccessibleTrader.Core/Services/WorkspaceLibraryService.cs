@@ -39,13 +39,34 @@ namespace AccessibleTrader.Core.Services
 
         private readonly Sdk.Strategies.IStrategyEngine? _engine;
 
+        /// <summary>
+        /// Workspaces live under <see cref="IPlatformPathService.AppDataDirectory"/>, which is the
+        /// PER-USER directory when hosted accounts are enabled.
+        ///
+        /// <para>
+        /// This class used to build its own path from
+        /// <c>Environment.GetFolderPath(LocalApplicationData)</c>, ignoring the path service
+        /// entirely. On the hosted server that had two consequences: every logged-in user shared
+        /// ONE workspace library — including the <c>__last-session__</c> autosave, so whoever used
+        /// the terminal last overwrote everyone else's, and any saved profile was visible to all —
+        /// and the path could resolve relative (see <see cref="PlatformPaths"/>), landing inside
+        /// the deployment directory. Settings, strategies and paper accounts were always routed
+        /// correctly through the path service; workspaces were the one thing that wasn't.
+        /// </para>
+        ///
+        /// <para>
+        /// Desktop/local is unaffected: there <c>AppDataDirectory</c> is
+        /// <c>~/.local/share/AccessibleTrader</c>, so the library stays exactly where it was.
+        /// </para>
+        /// </summary>
         public WorkspaceLibraryService(ILogger<WorkspaceLibraryService> logger,
+            IPlatformPathService paths,
             Sdk.Strategies.IStrategyEngine? engine = null)
         {
             _logger = logger;
             _engine = engine;
-            _libraryDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AccessibleTrader", "Workspaces");
-            if (!Directory.Exists(_libraryDir)) Directory.CreateDirectory(_libraryDir);
+            _libraryDir = Path.Combine(paths.AppDataDirectory, "Workspaces");
+            Directory.CreateDirectory(_libraryDir);
         }
 
         /// <summary>Test seam: redirect the library to a temp directory. Also the

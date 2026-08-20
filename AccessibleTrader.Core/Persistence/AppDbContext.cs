@@ -32,10 +32,10 @@ namespace AccessibleTrader.Core.Persistence
         {
             if (!optionsBuilder.IsConfigured)
             {
-                var dbDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AccessibleTrader");
-                if (!Directory.Exists(dbDir)) Directory.CreateDirectory(dbDir);
+                // PlatformPaths, not GetFolderPath: the latter returns an empty string on Unix
+                // when the target does not exist, which would put trader_local.db in whatever
+                // directory the process happens to be running from.
+                var dbDir = AccessibleTrader.Core.Services.PlatformPaths.AppDataRoot();
                 var dbPath = Path.Combine(dbDir, "trader_local.db");
                 optionsBuilder.UseSqlite($"Data Source={dbPath}");
             }

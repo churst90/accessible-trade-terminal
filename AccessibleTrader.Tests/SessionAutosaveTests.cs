@@ -162,7 +162,7 @@ namespace AccessibleTrader.Tests
             var dir = System.IO.Directory.CreateTempSubdirectory("att-autosave-").FullName;
             try
             {
-                var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+                var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())
                     { LibraryDirectoryOverride = dir };
                 System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "my-setup.json"), "{}");
                 System.IO.File.WriteAllText(System.IO.Path.Combine(dir,

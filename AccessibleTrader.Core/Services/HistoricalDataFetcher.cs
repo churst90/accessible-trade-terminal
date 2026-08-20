@@ -18,25 +18,28 @@ namespace AccessibleTrader.Core.Services
 {
     public class HistoricalDataFetcher
     {
-        private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
         private readonly IDataService _dataService;
         private readonly IResamplerService _resampler;
         private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<HistoricalDataFetcher> _logger;
+        private readonly IOhlcvStore? _store;
         private readonly ConcurrentDictionary<string, IAsyncPolicy> _providerPolicies = new();
 
+        // No IDbContextFactory: the fetcher no longer touches the database directly. All OHLCV
+        // persistence goes through IOhlcvStore, which owns the closed-window and all-or-nothing
+        // rules that made the old inline reader unsafe to keep alongside it.
         public HistoricalDataFetcher(
-            IDbContextFactory<AppDbContext> dbContextFactory, 
-            IDataService dataService, 
-            IResamplerService resampler, 
+            IDataService dataService,
+            IResamplerService resampler,
             IGlobalErrorCoordinator errorCoordinator,
-            ILogger<HistoricalDataFetcher> logger)
+            ILogger<HistoricalDataFetcher> logger,
+            IOhlcvStore? store = null)
         {
-            _dbContextFactory = dbContextFactory;
             _dataService = dataService;
             _resampler = resampler;
             _errorCoordinator = errorCoordinator;
             _logger = logger;
+            _store = store;
         }
 
         private IAsyncPolicy GetProviderPolicy(string provider)
@@ -69,24 +72,24 @@ namespace AccessibleTrader.Core.Services
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider == null) return new List<Ohlcv>();
 
-            int localLimit = Math.Min((limit ?? 200) * 5, 1000);
-            try
+            // ── Served from the on-disk store? ───────────────────────────────────────────
+            // Only for a window that has entirely closed — in practice the scrollback/prepend
+            // path, which asks for the 200 bars before a fixed point. Those bars are immutable,
+            // they are the bulk of what gets re-fetched, and serving them costs nothing in
+            // freshness. A live-edge request always goes to the provider: its newest bar is still
+            // forming, and a stale last price is a worse failure than a slow chart because
+            // nothing about it looks wrong. See OhlcvStore.
+            if (_store != null && until.HasValue && IsClosedWindow(until.Value, timeframe))
             {
-                // FIX: Only attempt local cache fetch if the target timeframe is 1m,
-                // OR if we implement a more robust multi-timeframe cache later.
-                // Currently, the DB only stores 1m bars for resampling.
-                if (timeframe == "1m")
+                var stored = await _store
+                    .TryReadClosedWindowAsync(market, providerName, symbol, timeframe, until.Value, limit ?? 200)
+                    .ConfigureAwait(false);
+                if (stored.Count > 0)
                 {
-                    var local1mData = await FetchFromLocalCache(market, providerName, symbol, "1m", since, until, localLimit).ConfigureAwait(false);
-                    if (local1mData.Any())
-                    {
-                        return ApplyFinalFilters(local1mData, since, until, limit ?? 200);
-                    }
+                    _logger.LogInformation("Served {Count} {Timeframe} bars for {Symbol} from the local store.",
+                        stored.Count, timeframe, symbol);
+                    return ApplyFinalFilters(stored, since, until, limit ?? 200);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Local cache fetch skipped.");
             }
 
             bool needsResample = !provider.NativelySupportedTimeframes.Contains(timeframe);
@@ -140,12 +143,22 @@ namespace AccessibleTrader.Core.Services
                         }
                     }
 
-                    if (actualNeedsResample)
+                    // Store what the user actually charts — post-resample, at the REQUESTED
+                    // timeframe. The old read path only ever looked at 1m, which is why a
+                    // 1h or 1d chart could never be served from disk.
+                    var finalBars = actualNeedsResample
+                        ? ApplyFinalFilters(_resampler.Resample(nativeBars, timeframe), since, until, limit ?? 200)
+                        : ApplyFinalFilters(nativeBars, since, until, limit ?? 200);
+
+                    if (_store != null && finalBars.Count > 0)
                     {
-                        var resampled = _resampler.Resample(nativeBars, timeframe);
-                        return ApplyFinalFilters(resampled, since, until, limit ?? 200);
+                        // Fire-and-forget would race the next read; awaiting costs a few ms of
+                        // local I/O against a network fetch we just paid for.
+                        await _store.SaveAsync(market, providerName, symbol, timeframe, finalBars)
+                            .ConfigureAwait(false);
                     }
-                    return ApplyFinalFilters(nativeBars, since, until, limit ?? 200);
+
+                    return finalBars;
                 }
             }
             catch (BrokenCircuitException)
@@ -160,30 +173,23 @@ namespace AccessibleTrader.Core.Services
             return new List<Ohlcv>();
         }
 
-        private async Task<List<Ohlcv>> FetchFromLocalCache(string market, string provider, string symbol, string timeframe, long? since, long? until, int? limit)
+        /// <summary>
+        /// True when every bar up to <paramref name="until"/> has closed, so the window can never
+        /// change again and is safe to serve from disk.
+        /// </summary>
+        private static bool IsClosedWindow(long until, string timeframe)
         {
-            using var dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
-            var query = dbContext.OhlcvData
-                .Where(e => e.Market == market && e.Provider == provider && e.Symbol == symbol && e.Timeframe == timeframe);
-
-            if (since.HasValue) query = query.Where(e => e.Timestamp >= since.Value);
-            if (until.HasValue) query = query.Where(e => e.Timestamp <= until.Value); // INCLUSIVE FILTERING
-
-            var entities = await query.OrderBy(e => e.Timestamp).ToListAsync().ConfigureAwait(false);
-
-            var result = entities.Select(e => new Ohlcv
-            {
-                Date = DateTimeOffset.FromUnixTimeMilliseconds(e.Timestamp).UtcDateTime,
-                Open = e.Open,
-                High = e.High,
-                Low = e.Low,
-                Close = e.Close,
-                Volume = e.Volume
-            }).ToList();
-
-            if (limit.HasValue && result.Count > limit.Value) return result.TakeLast(limit.Value).ToList();
-            return result;
+            long barMs = TimeframeUtility.ToMilliseconds(timeframe ?? "");
+            if (barMs <= 0) return false;
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            return until <= nowMs - barMs;
         }
+
+        // FetchFromLocalCache lived here. It was the 1m-only read path that the OhlcvStore read
+        // above replaced, and once that landed nothing called it — the comment claiming it was
+        // "retained for the 1m resampling path and for tests" was already untrue when written.
+        // Removed rather than left as a second, differently-behaved reader of the same table
+        // (it had neither the closed-window rule nor the all-or-nothing rule).
 
         private List<Ohlcv> ApplyFinalFilters(List<Ohlcv> bars, long? since, long? until, int limit)
         {

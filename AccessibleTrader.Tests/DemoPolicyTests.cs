@@ -109,21 +109,58 @@ public class DemoPolicyTests
     }
 
     [Fact]
-    public void Hosted_CuratesProvidersAndMarkets_LikeDemo()
+    public void Hosted_OffersEveryProviderThatNeedsNoUserKey()
     {
-        // No user broker keys server-side, so only the seeded providers are offered.
+        // Hosted used to reuse the DEMO whitelist, so a logged-in user saw two providers and no
+        // analytics at all. The rule now is capability, not tier: if it works with no user key
+        // (or the server seeds the key), hosted offers it.
         Assert.True(Hosted.IsProviderAllowed("Bitstamp"));
-        Assert.True(Hosted.IsProviderAllowed("Twelve Data"));
-        Assert.False(Hosted.IsProviderAllowed("Binance"));
+        Assert.True(Hosted.IsProviderAllowed("Twelve Data"));   // server-seeded key
+        Assert.True(Hosted.IsProviderAllowed("FRED"));          // server-seeded key
+        Assert.True(Hosted.IsProviderAllowed("MEXC"));          // keyless public data
+        Assert.True(Hosted.IsProviderAllowed("Binance"));
+        Assert.True(Hosted.IsProviderAllowed("Kraken"));
+        Assert.True(Hosted.IsProviderAllowed("CoinGecko"));
 
-        Assert.Equal(new[] { "Bitstamp", "Twelve Data" },
-            Hosted.FilterProviders(new[] { "Bitstamp", "Binance", "Twelve Data", "Coinbase" }).ToArray());
-        Assert.Equal(new[] { "Crypto", "Stock", "Forex" },
+        // Still excluded: anything that would send the user to the API-keys modal, which hosted
+        // has switched off — it could only ever render as a dead-end "API key required".
+        Assert.False(Hosted.IsProviderAllowed("Coinbase"));
+        Assert.False(Hosted.IsProviderAllowed("Alpaca"));
+        Assert.False(Hosted.IsProviderAllowed("Polygon"));
+        Assert.False(Hosted.IsProviderAllowed("Glassnode"));
+
+        Assert.Equal(new[] { "Bitstamp", "Binance", "MEXC" },
+            Hosted.FilterProviders(new[] { "Bitstamp", "Binance", "MEXC", "Coinbase" }).ToArray());
+        Assert.Equal(new[] { "Crypto", "Stock", "Forex", "OnChain", "Economic" },
             Hosted.FilterMarkets(new[] { "Crypto", "Stock", "Forex", "OnChain", "Economic" }).ToArray());
+    }
 
-        // Twelve Data has no free WebSocket, so it stays historical-only in hosted too.
+    [Fact]
+    public void Hosted_StreamsOnlyWhereAPublicWebSocketExists()
+    {
+        // The venues with a public WS feed stream live...
         Assert.True(Hosted.AllowsLiveStream("Bitstamp"));
+        Assert.True(Hosted.AllowsLiveStream("MEXC"));
+        Assert.True(Hosted.AllowsLiveStream("Binance"));
+        Assert.True(Hosted.AllowsLiveStream("Kraken"));
+
+        // ...everything else stays historical-only. Asking a provider with no stream to stream
+        // just loops on reconnects — the failure Twelve Data's free tier taught us in the demo.
         Assert.False(Hosted.AllowsLiveStream("Twelve Data"));
+        Assert.False(Hosted.AllowsLiveStream("FRED"));
+        Assert.False(Hosted.AllowsLiveStream("Gemini"));
+    }
+
+    [Fact]
+    public void Demo_StaysLockedDown_WhenHostedOpensUp()
+    {
+        // The anonymous demo is a guided taste and must NOT inherit the hosted breadth.
+        Assert.False(Demo.IsProviderAllowed("MEXC"));
+        Assert.False(Demo.IsProviderAllowed("Binance"));
+        Assert.False(Demo.IsProviderAllowed("FRED"));
+        Assert.Equal(new[] { "Bitstamp", "Twelve Data" },
+            Demo.FilterProviders(new[] { "Bitstamp", "Binance", "MEXC", "Twelve Data" }).ToArray());
+        Assert.False(Demo.AllowsLiveStream("MEXC"));
     }
 
     [Fact]

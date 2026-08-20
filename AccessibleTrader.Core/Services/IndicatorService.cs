@@ -55,8 +55,13 @@ namespace AccessibleTrader.Core.Services
             var dirs = new[]
             {
                 Path.Combine(baseDir, "Plugins", "Indicators"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AccessibleTrader", "Plugins", "Indicators")
+                // PlatformPaths, not GetFolderPath: the latter returns an empty string on Unix
+                // when the target does not exist, and the resulting RELATIVE path would scan
+                // whatever directory the process happens to be running from for loadable DLLs.
+                // Deliberately MACHINE-level, not per-user (IPlatformPathService): these are
+                // executable plugins, and a hosted account must not be able to drop code into a
+                // directory the server loads.
+                Path.Combine(PlatformPaths.AppDataRoot(), "Plugins", "Indicators")
             };
 
             foreach (var dir in dirs)

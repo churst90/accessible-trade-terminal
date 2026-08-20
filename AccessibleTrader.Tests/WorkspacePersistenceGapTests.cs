@@ -36,7 +36,7 @@ namespace AccessibleTrader.Tests
             // unexplained blank workspace and let the next save clobber the original.
             CorruptFileQuarantine.ClearSessionReports();
             File.WriteAllText(Path.Combine(_dir, "broken.json"), "{ this is not valid json ");
-            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())
                 { LibraryDirectoryOverride = _dir };
 
             var result = lib.LoadProfile("broken");
@@ -52,7 +52,7 @@ namespace AccessibleTrader.Tests
         {
             CorruptFileQuarantine.ClearSessionReports();
             File.WriteAllText(Path.Combine(_dir, "alerts.json"), "not json at all");
-            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())
                 { LibraryDirectoryOverride = _dir };
 
             var result = lib.LoadAlerts();
@@ -88,7 +88,7 @@ namespace AccessibleTrader.Tests
                 new ActiveStrategy("i2", strategy, new Dictionary<string, object>(),
                     StrategyExecutionMode.Suggestion, IsPaused: false, "ETH/USD", SpecId: null)); // ad-hoc script
 
-            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, engine)
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths(), engine)
                 { LibraryDirectoryOverride = _dir };
             lib.SaveWorkspaceProfile("test", StoreWith(WorkspaceState.Initial));
 
@@ -162,7 +162,7 @@ namespace AccessibleTrader.Tests
             var series = new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "d1" }) { Drawing = drawing };
             var state = WorkspaceState.Initial with { ActiveSeries = ImmutableList.Create(series) };
 
-            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance)
+            var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())
                 { LibraryDirectoryOverride = _dir };
             lib.SaveWorkspaceProfile("draw", StoreWith(state));
 

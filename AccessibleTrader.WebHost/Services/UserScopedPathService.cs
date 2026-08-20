@@ -33,8 +33,10 @@ namespace AccessibleTrader.WebHost.Services
             _user = user;
             _accountsEnabled = accountsEnabled;
 
+            // PlatformPaths guarantees an absolute root — see WebHostPathService for why that
+            // is not something GetFolderPath gives you on Unix.
             _legacyAppData = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolderName);
+                AccessibleTrader.Core.Services.PlatformPaths.LocalAppDataRoot(), AppFolderName);
 
             _dataRoot = string.IsNullOrWhiteSpace(dataRoot) ? _legacyAppData : dataRoot!;
 

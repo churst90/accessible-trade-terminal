@@ -33,9 +33,11 @@ namespace AccessibleTrader.Core.Services
         private bool _isLoaded;
 
         public ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage)
+            // PlatformPaths, not GetFolderPath: an empty return on Unix would make this RELATIVE,
+            // so the legacy-plaintext migration would look in the process's working directory and
+            // silently find nothing to migrate.
             : this(logger, secureStorage,
-                   Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                "AccessibleTrader", "apikeys_meta.json"))
+                   Path.Combine(PlatformPaths.AppDataRoot(), "apikeys_meta.json"))
         {
         }
 

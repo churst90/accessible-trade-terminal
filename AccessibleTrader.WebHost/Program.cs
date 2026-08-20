@@ -441,29 +441,61 @@ if (autoLaunch)
 // market data, not a trading credential — hosted trading is paper-only.)
 if (demoMode || accountsEnabled)
 {
-    var tdKey = Environment.GetEnvironmentVariable("TWELVEDATA_APIKEY")
-                ?? Environment.GetEnvironmentVariable("DEMO_TWELVEDATA_APIKEY");
-    if (!string.IsNullOrWhiteSpace(tdKey))
+    // Each entry: the provider's Name, the env vars to read (first non-empty wins), and the
+    // MarketType to store the key under — the sub-type the data path looks it up by
+    // (GetKeyForProviderAsync matches MarketType == subType). Seeding "Stock" for Twelve Data
+    // would never match → the provider stays unconfigured; FRED's sub-type is "Standard".
+    var seeds = new[]
     {
+        (Provider: "Twelve Data",
+         EnvVars:  new[] { "TWELVEDATA_APIKEY", "DEMO_TWELVEDATA_APIKEY" },
+         Market:   "Spot"),
+        // FRED unlocks the Economic market (CPI, NFP, GDP, unemployment, fed funds, yields).
+        // Read-only public research data; there is nothing to trade with it, so it is safe to
+        // hold server-side and share across hosted users exactly like the Twelve Data key.
+        (Provider: "FRED",
+         EnvVars:  new[] { "FRED_APIKEY", "FRED_API_KEY" },
+         Market:   "Standard"),
+    };
+
+    var seedLogger = app.Services.GetService<ILogger<Program>>();
+    foreach (var seed in seeds)
+    {
+        var key = seed.EnvVars
+            .Select(Environment.GetEnvironmentVariable)
+            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            // DemoPolicy.HostedProviders is a static list, but whether these providers actually
+            // WORK depends on the environment. An unseeded provider still appears in the hosted
+            // dropdown and can only render "API key required" — with the API-keys modal gated off,
+            // that is a dead end the user cannot clear. Say so at startup, where an operator can
+            // see it, rather than leaving it to be discovered from the UI.
+            seedLogger?.LogWarning(
+                "No server-side key for {Provider}: set one of {EnvVars}. It is offered in the " +
+                "hosted provider list but will render as \"API key required\", which a hosted " +
+                "user cannot resolve.",
+                seed.Provider, string.Join(" or ", seed.EnvVars));
+            continue;
+        }
+
         try
         {
             var apiKeys = app.Services.GetRequiredService<IApiKeyService>();
             await apiKeys.SaveKeyAsync(new ApiKeyConfig(
-                Provider:    "Twelve Data",
+                Provider:    seed.Provider,
                 Nickname:    "demo",
-                ApiKey:      tdKey,
+                ApiKey:      key,
                 ApiSecret:   "",
                 Passphrase:  "",
-                // "Spot" — the sub-type the symbol/data path looks the key up by
-                // (GetKeyForProviderAsync matches on MarketType==subType, default
-                // "Spot"). Seeding "Stock" here would never match → unconfigured.
-                MarketType:  "Spot",
+                MarketType:  seed.Market,
                 Environment: "Live",
                 IsActive:    true));
+            seedLogger?.LogInformation("Seeded server-side API key for {Provider}.", seed.Provider);
         }
         catch (Exception ex)
         {
-            app.Services.GetService<ILogger<Program>>()?.LogWarning(ex, "Demo Twelve Data key seed failed.");
+            seedLogger?.LogWarning(ex, "Server-side key seed failed for {Provider}.", seed.Provider);
         }
     }
 }

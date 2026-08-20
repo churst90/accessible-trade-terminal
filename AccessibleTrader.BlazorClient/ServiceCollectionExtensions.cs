@@ -125,10 +125,13 @@ namespace AccessibleTrader.BlazorClient
                       || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
                 if (!persistEnabled) return ringBuffer;
 
+                // IPlatformPathService, not GetFolderPath: the latter returns an empty string on
+                // Unix when the target does not exist, which would write the audit log into the
+                // process's working directory instead of app data. Same path on desktop as before.
                 string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
                     ?? Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "AccessibleTrader", "SecurityEvents");
+                        sp.GetRequiredService<IPlatformPathService>().AppDataDirectory,
+                        "SecurityEvents");
 
                 var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
@@ -218,6 +221,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IOrderBookHistoryService, OrderBookHistoryService>();
             services.AddSingleton<IDataCacheService, DataCacheService>();
             services.AddSingleton<ICacheService, FileCacheService>();
+            // Historical OHLCV store (see OhlcvStore): shared public market data, one writer.
+            services.AddSingleton<IOhlcvStore, OhlcvStore>();
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IConnectionManager, ConnectionManager>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();

@@ -59,10 +59,10 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
             if (_initialized) return;
             try
             {
+                // PlatformPaths, not GetFolderPath: an empty return on Unix would drop dotpad.log
+                // into the process's working directory rather than app data.
                 string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_DOTPAD_LOG_DIR")
-                    ?? Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "AccessibleTrader");
+                    ?? AccessibleTrader.Core.Services.PlatformPaths.AppDataRoot();
                 Directory.CreateDirectory(dir);
                 _path = Path.Combine(dir, "dotpad.log");
                 _size = File.Exists(_path) ? new FileInfo(_path).Length : 0;

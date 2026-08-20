@@ -212,14 +212,24 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>
         /// Creates a new series instance using the CURRENT configuration but NEW data.
         /// This is the primary method for Orchestrators to update results without clobbering UI state.
+        ///
+        /// EVERY non-Config field must be carried across. This method runs on the very first
+        /// calculation of a series (UpdateSeriesDataAction → SeriesReducer), so anything dropped
+        /// here is dropped permanently — the store never sees the factory-built instance again.
+        /// <see cref="RequiresFullRecalcOnTick"/> used to be omitted, which silently downgraded
+        /// the pivot-based indicators (Market Structure, Value Deviation) to the scalar
+        /// incremental path forever: their historical bars kept whatever was computed the first
+        /// time, so a symbol change left the PREVIOUS asset's swings on the chart until the user
+        /// removed and re-added the indicator.
         /// </summary>
         public ChartSeries WithData(SeriesDataBuffer newData)
         {
-            return new ChartSeries(Config, newData) 
+            return new ChartSeries(Config, newData)
             {
                 Drawing = Drawing,
                 IsProfile = IsProfile,
-                FocusedBinIndex = FocusedBinIndex
+                FocusedBinIndex = FocusedBinIndex,
+                RequiresFullRecalcOnTick = RequiresFullRecalcOnTick
             };
         }
 

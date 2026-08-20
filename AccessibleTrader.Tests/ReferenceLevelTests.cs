@@ -155,7 +155,7 @@ namespace AccessibleTrader.Tests
             var stylingService = new StylingService(roleMapper, profileProvider, paneService);
             var modelFactory = new IndicatorModelFactory(stylingService, new MockIndicatorPreferencesService());
             var libraryLogger = Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkspaceLibraryService>.Instance;
-            var library = new WorkspaceLibraryService(libraryLogger);
+            var library = new WorkspaceLibraryService(libraryLogger, new TempWorkspacePaths());
 
             var customRegistry = new CustomIndicatorRegistry();
 

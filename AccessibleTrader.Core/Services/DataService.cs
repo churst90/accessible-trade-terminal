@@ -48,7 +48,10 @@ namespace AccessibleTrader.Core.Services
                 if (Directory.Exists(installPath)) LoadPluginsFromPath(pluginLoader, installPath);
 
                 // 3. Load from Writable User Directory (User Drop-ins)
-                var userPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AccessibleTrader", "Plugins");
+                // PlatformPaths, not GetFolderPath: an empty return on Unix would make this
+                // RELATIVE and load DLLs out of the process's working directory. Machine-level by
+                // design — plugin drop-ins are executable code, never per-user state.
+                var userPath = Path.Combine(PlatformPaths.AppDataRoot(), "Plugins");
                 if (!Directory.Exists(userPath)) Directory.CreateDirectory(userPath);
                 LoadPluginsFromPath(pluginLoader, userPath);
                 
@@ -263,13 +266,115 @@ namespace AccessibleTrader.Core.Services
                 string subType = parts.Length > 1 ? parts[1] : "Spot";
                 await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
 
-                return await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
+                // ── Analytics series cache ──────────────────────────────────────────────
+                // Economic / on-chain / derivatives / sentiment series are published on a slow
+                // schedule — FRED revises daily at best, most on-chain metrics are one point per
+                // day — yet every chart load, asset switch and timeframe change re-fetched them
+                // from scratch. That is wasted latency for the user and wasted quota against
+                // providers that meter us (FRED allows 120 requests/minute; the free CoinGecko
+                // tier is far tighter).
+                //
+                // Only analytics markets are cached. Live crypto/stock bars must NOT be: the last
+                // bar changes on every tick, and serving a cached one would freeze the chart.
+                var cacheKey = AnalyticsCacheKey(providerName, request);
+                if (cacheKey != null)
+                {
+                    var hit = await _cacheService.GetAsync<CachedSeries>(cacheKey).ConfigureAwait(false);
+                    if (hit?.Bars is { Count: > 0 })
+                    {
+                        _logger.LogDebug("Analytics cache hit for {Provider} {Symbol} {Timeframe}.",
+                            providerName, request.Symbol, request.Timeframe);
+                        return (hit.Bars, hit.Volume.Select(v => (v.Timestamp, v.Volume)).ToList());
+                    }
+                }
+
+                var fetched = await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
+
+                if (cacheKey != null && fetched.Ohlcv is { Count: > 0 })
+                {
+                    var payload = new CachedSeries
+                    {
+                        Bars   = fetched.Ohlcv,
+                        Volume = fetched.Volume.Select(v => new CachedVolumePoint
+                        {
+                            Timestamp = v.Timestamp,
+                            Volume    = v.Volume
+                        }).ToList()
+                    };
+                    await _cacheService.SetAsync(cacheKey, payload, AnalyticsCacheTtl(request.Timeframe))
+                        .ConfigureAwait(false);
+                }
+
+                return fetched;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch OHLCV for {Symbol}.", request.Symbol);
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
+        }
+
+        // ── Analytics series cache ───────────────────────────────────────────────────────
+        //
+        // Cached to disk via ICacheService, whose directory is deliberately SHARED across hosted
+        // users (public market data, one copy for everyone). So the first person to chart CPI
+        // warms it for the next — which is the point of caching a research dataset rather than a
+        // per-user one.
+
+        /// <summary>Analytics markets: published on a slow schedule, safe to serve from cache.
+        /// Kept in step with MarketOrchestrator.AnalyticsCategories.</summary>
+        private static readonly string[] CacheableMarkets =
+            { "Economic", "OnChain", "Derivatives", "Sentiment" };
+
+        /// <summary>
+        /// The cache key for an analytics request, or <c>null</c> when this request must always hit
+        /// the provider (any tradeable market — its last bar moves on every tick).
+        /// </summary>
+        // Internal (not private): the cache POLICY — which markets, and for how long — is the part
+        // worth pinning in tests, and it is pure. See AnalyticsSeriesCacheTests.
+        internal static string? AnalyticsCacheKey(string providerName, MarketDataRequest request)
+        {
+            // "Economic|Standard" → "Economic".
+            string category = (request.Market ?? "").Split('|')[0];
+            if (!CacheableMarkets.Contains(category, StringComparer.OrdinalIgnoreCase)) return null;
+
+            // Every field that changes the response is in the key. Since/Until included: a
+            // historical window request must not be served the live-edge window.
+            return $"series_{providerName}_{request.Market}_{request.Symbol}_{request.Timeframe}_" +
+                   $"{request.Limit}_{request.Since?.ToString() ?? "-"}_{request.Until?.ToString() ?? "-"}";
+        }
+
+        /// <summary>
+        /// How long an analytics series stays fresh: half its bar interval, clamped to 15 minutes
+        /// … 12 hours. A daily series (FRED, most on-chain metrics) caches for 12 h — it cannot
+        /// change more often than daily anyway — while hourly derivatives data (funding, open
+        /// interest) refreshes every 30 minutes. The clamp is what keeps a bad or missing timeframe
+        /// string from producing either a useless 0-second TTL or a week-long stale chart.
+        /// </summary>
+        internal static TimeSpan AnalyticsCacheTtl(string timeframe)
+        {
+            long barMs = TimeframeUtility.ToMilliseconds(timeframe ?? "");
+            if (barMs <= 0) return TimeSpan.FromHours(1);
+            var half = TimeSpan.FromMilliseconds(barMs / 2.0);
+            if (half < TimeSpan.FromMinutes(15)) return TimeSpan.FromMinutes(15);
+            if (half > TimeSpan.FromHours(12)) return TimeSpan.FromHours(12);
+            return half;
+        }
+
+        /// <summary>Cache payload. A DTO rather than the raw
+        /// <c>(List&lt;Ohlcv&gt;, List&lt;(long, double)&gt;)</c> tuple because System.Text.Json
+        /// does not round-trip ValueTuple — its members are fields, not properties, so a tuple
+        /// serialises to <c>{}</c> and every cache read would come back empty.</summary>
+        private sealed class CachedSeries
+        {
+            public List<Ohlcv> Bars { get; set; } = new();
+            public List<CachedVolumePoint> Volume { get; set; } = new();
+        }
+
+        private sealed class CachedVolumePoint
+        {
+            public long Timestamp { get; set; }
+            public double Volume { get; set; }
         }
 
         public Task<List<MarketType>> GetSupportedMarketsForProviderAsync(string providerName)

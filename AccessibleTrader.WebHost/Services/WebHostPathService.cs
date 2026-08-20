@@ -25,8 +25,11 @@ namespace AccessibleTrader.WebHost.Services
 
         public WebHostPathService()
         {
+            // PlatformPaths, not GetFolderPath directly: on Unix the latter returns an empty
+            // string when the target does not exist yet, which silently yields a RELATIVE app-data
+            // path resolved against the process's working directory.
             AppDataDirectory = EnsureDir(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                AccessibleTrader.Core.Services.PlatformPaths.LocalAppDataRoot(),
                 AppFolderName));
 
             // SpecialFolder.InternetCache maps to ~/.cache on Linux via

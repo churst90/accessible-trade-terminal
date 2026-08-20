@@ -35,6 +35,10 @@ namespace AccessibleTrader.Core.Services
         private readonly SemaphoreSlim _calcLock = new(1, 1);
         private CancellationTokenSource? _tickCts;
         private DateTime? _lastFirstBarDate;
+        // Chart identity (provider|symbol|timeframe|market) the indicator buffers were last
+        // computed against. A change means every buffer describes the WRONG asset — see
+        // ConsumeIdentityChange.
+        private string? _lastIdentityKey;
         // Set to true when a recalculation trigger is suppressed during LoadingHistorical.
         // Cleared and a single full recalc fires when DataStatus transitions to Ready.
         private volatile bool _pendingRecalcAfterLoad;
@@ -112,9 +116,38 @@ namespace AccessibleTrader.Core.Services
             OnDataUpdated(forceFull: isPrepend);
         }
 
+        /// <summary>
+        /// True exactly once per chart-identity change (symbol / provider / timeframe / market),
+        /// and re-anchors the tracker so the next call is false again.
+        ///
+        /// WHY THIS EXISTS: a same-shape asset switch (Bitstamp BTC → ETH) deliberately keeps the
+        /// user's indicators — WorkspaceInitializer scenario (1) — so every series arrives at the
+        /// new load still holding component arrays computed from the OLD asset's bars. Nothing
+        /// else in this class notices: <c>needsFull</c> only fires for series with EMPTY buffers,
+        /// and the prepend heuristic only fires when the new symbol's history happens to start
+        /// earlier than the old one's. So the incremental path ran, refreshed the last bar alone,
+        /// and left the whole history reading the previous asset's values.
+        /// </summary>
+        private bool ConsumeIdentityChange()
+        {
+            var id = _store.State.Identity;
+            string key = $"{id.Provider}|{id.Symbol}|{id.Timeframe}|{id.Market}";
+            if (key == _lastIdentityKey) return false;
+
+            _lastIdentityKey = key;
+            // Prepend detection compares first-bar dates; across two different assets that
+            // comparison is meaningless, so drop the anchor and let the next update re-take it.
+            _lastFirstBarDate = null;
+            return true;
+        }
+
         private void OnDataUpdated(bool forceFull)
         {
             if (_store.State.InitStatus == InitializationStatus.Booting) return;
+
+            // Asset/timeframe switch → every indicator buffer belongs to the previous chart.
+            // Nothing incremental can repair that; only a full recalculation can.
+            if (ConsumeIdentityChange()) forceFull = true;
 
             // Suppress per-bar recalculations while the data pipeline is still loading or resampling.
             // This prevents dozens of racing full recalculations as bars trickle in (especially on

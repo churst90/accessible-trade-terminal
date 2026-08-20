@@ -69,6 +69,7 @@ curl -sf http://127.0.0.1:5150/terminal/_framework/blazor.web.js   # must be 200
 | `Accounts__Enabled` | hosted | `true` (equivalent to `--accounts`) |
 | `Accounts__DataRoot` | hosted | where per-user data + `auth.db` + `dp-keys` live, e.g. `/var/lib/accessible-trader-terminal` |
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
+| `FRED_APIKEY` | demo/hosted | server-side FRED key — unlocks the Economic market (CPI, NFP, GDP, unemployment, fed funds, yields). Read-only public research data. Falls back to `FRED_API_KEY`. |
 | `ACCOUNTS_SEED_EMAIL` / `ACCOUNTS_SEED_PASSWORD` | hosted (optional) | provision one owner/admin account at startup, bypassing the public password policy. Idempotent. |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` | optional | isolate a staging instance's state from a live one |
 | `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS` | desktop/local only | `1` opts into running custom scripts when the OS sandbox primitive is missing (bwrap / sandbox-exec / AppContainer). Default: script execution is **refused** without the sandbox. Every launch under the override is recorded to the security event log. Never set this on a server. |
@@ -76,30 +77,63 @@ curl -sf http://127.0.0.1:5150/terminal/_framework/blazor.web.js   # must be 200
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
 paper-only; the API-keys modal is gated off).
 
-### Market data available (hosted + demo)
+### Market data available
 
-Because no user broker keys are held server-side, the server-keyed builds (`--accounts`
-**and** `--demo`) curate the provider/market lists down to the sources that actually work
-without a user key, instead of showing dead-end "API key required" entries:
+Neither server-keyed build holds user broker keys, so both curate the provider/market lists
+down to sources that work without one — but they curate to **different widths**, and that
+distinction is the whole design.
+
+**Demo (`--demo`, anonymous)** — a guided taste. One provider per market, no choice:
 
 - **Crypto → Bitstamp** (live WebSocket, no key, hundreds of pairs)
-- **Stock / Forex → Twelve Data** (seeded key). Its free-tier symbol-*list* endpoints are
-  unusable (`/stocks` is empty, `/forex_pairs` returns 1000+ obscure pairs), so a curated
-  starter list of majors is shown; **symbol search still charts any other valid ticker.**
+- **Stock / Forex → Twelve Data** (seeded key)
 
-Demo additionally clamps symbols/timeframes/indicators to a tight whitelist; **Hosted keeps
-the full timeframe + indicator suite and free symbol search** — only the data *sources* are
-curated. To offer more (extra crypto venues, indices, commodities), seed additional
-server-side market-data keys and extend `ProviderForMarket` + the curated lists in
-`DemoPolicy` / `MarketOrchestrator`.
+Demo also clamps symbols, timeframes and indicators to a tight whitelist.
+
+**Hosted (`--accounts`, logged in)** — the full app minus the desktop-only differentiators.
+Every provider that needs no user key is offered, and the choice between them is the user's:
+
+- **Crypto** — Bitstamp, Binance, Kraken, MEXC (all live WebSocket); Gemini and
+  Kraken Futures historical-only
+- **Stock / Forex / Index** — Twelve Data (seeded key). Its free-tier symbol-*list* endpoints
+  are unusable (`/stocks` is empty, `/forex_pairs` returns 1000+ obscure pairs), so a curated
+  starter list of majors is shown; **symbol search still charts any other valid ticker.**
+- **Economic** — FRED (seeded key: CPI, NFP, GDP, unemployment, fed funds, yields), SEC EDGAR
+- **OnChain** — CoinGecko, CoinMetrics, DefiLlama, Mempool, BGeometrics
+- **Derivatives** — BinanceDerivatives, OkxDerivatives, Deribit, BinanceVision, CFTC, FINRA
+- **Sentiment** — AlternativeMe, Wikipedia
+- **MyData** — the user's own imported datasets, from their per-user directory
+
+Hosted keeps the full timeframe + indicator suite and free symbol search.
+
+The membership rule for hosted, kept in `DemoPolicy.HostedProviders`: a provider belongs there
+if its public data needs **no credential at all**, or the server **seeds** its key at startup.
+Anything else must stay out — hosted has the API-keys modal switched off, so a key-required
+provider can only ever render as a dead-end "API key required". Live streaming is a separate,
+narrower list (`HostedStreamingProviders`): only venues with a public WebSocket, because asking
+a historical-only provider to stream just loops on reconnects.
+
+To offer more, seed the key in the `seeds` table in `Program.cs` and add the provider to
+`HostedProviders` (and `HostedStreamingProviders` if it streams).
+
+### Analytics series cache
+
+Economic / on-chain / derivatives / sentiment fetches are cached to `CacheDirectory` (shared
+across hosted users — public data, one copy for everyone), keyed by
+provider+market+symbol+timeframe+window. TTL is half the bar interval, clamped to 15 min … 12 h,
+so a daily FRED series is fetched at most twice a day however many people chart it. Tradeable
+markets are never cached: their last bar moves on every tick.
 
 ## Data layout (hosted)
 
 Under `Accounts__DataRoot`:
 ```
 auth.db          Identity accounts (AspNetUsers, …)
-users/{userId}/  per-user data — settings, workspaces, sound design, paper-trading, journal
-cache/           SHARED OHLCV / HTTP cache (public market data, one for everyone)
+users/{userId}/  per-user data — settings, sound design, paper-trading, journal, and:
+                   Workspaces/       saved layouts, alerts.json, __last-session__ autosave
+                   IndicatorPrefs/   per-indicator colours, thickness, sonification
+                   SecurityEvents/   this user's audit log
+cache/           SHARED HTTP / analytics-series cache (public market data, one for everyone)
 dp-keys/         DataProtection key ring (auth cookies + antiforgery; persisted so restarts
                  don't log everyone out)
 secrets/         encrypted process-wide market-data secrets (e.g. the Twelve Data key),
@@ -107,6 +141,62 @@ secrets/         encrypted process-wide market-data secrets (e.g. the Twelve Dat
 ```
 `users/anon/` may appear empty in unauthenticated contexts — harmless (the app gates with
 `RequireAuthorization`, so anonymous requests can't persist anything).
+
+> **Anything under `users/{id}/` is per-user by virtue of going through `IPlatformPathService`.**
+> A service that builds its own path from `Environment.GetFolderPath(LocalApplicationData)`
+> silently opts out of that and gets one shared directory for the whole server — which is how
+> workspaces, indicator preferences and the security event log all came to be shared. Use
+> `IPlatformPathService` for user state and `PlatformPaths` for machine-level paths; never
+> `GetFolderPath` directly. See the warning under *Upgrading* for why the latter is unsafe on
+> Unix even in the single-user case.
+
+### Upgrading an instance that predates per-user workspaces
+
+Workspaces, indicator preferences and security events used to live in ONE shared directory.
+After upgrading they resolve under `users/{userId}/`, so existing state has to be moved or it
+simply disappears from the UI — the files are still on disk, the app just no longer looks there.
+Saved layouts, **`alerts.json`** (background alert monitoring goes quiet without it) and the
+`__last-session__` autosave are the ones that matter. Move the old directory's contents into the
+right account's folder rather than copying only the autosave:
+
+```bash
+systemctl stop accessible-trader-terminal
+OLD=/var/lib/accessible-trader-terminal/xdg-data/AccessibleTrader
+NEW=$OLD/users/<userId>
+cp -rn "$OLD/Workspaces"/.      "$NEW/Workspaces/"      2>/dev/null || true
+cp -rn "$OLD/IndicatorPrefs"/.  "$NEW/IndicatorPrefs/"  2>/dev/null || true
+systemctl start accessible-trader-terminal
+```
+
+Leave the originals in place as a backup until the account confirms its layouts and alerts are
+back. With more than one account there is no correct automatic answer — the shared directory has
+no record of who wrote what, so pick the account it belonged to deliberately.
+
+> **Check where the old state actually is before you start.** On Unix,
+> `Environment.GetFolderPath(LocalApplicationData)` returns an **empty string** when the
+> directory it resolves to does not exist — including when `XDG_DATA_HOME` names a directory
+> nobody created. The resulting path is *relative* and resolves against the process's working
+> directory, so state could be sitting in the deployment directory (which a redeploy replaces)
+> rather than the state root the unit file names. Create the XDG directories in `ExecStartPre`.
+
+### Historical OHLCV store
+
+Closed bars are written to `trader_local.db` on every successful fetch and served back on
+scrollback, so panning through history stops re-hitting the provider. Retention is the newest
+50,000 bars per (market, provider, symbol, timeframe). The live edge is always fetched fresh.
+
+Note the location: this database is **not** under `Accounts__DataRoot`. It resolves to
+`$XDG_DATA_HOME/AccessibleTrader/trader_local.db` (default `~/.local/share/AccessibleTrader/`),
+because the factory must stay a singleton and so cannot read the per-circuit path service. Its
+contents are public market data, so sharing is harmless — but two services on one box **will**
+write to the same file unless each gets its own `XDG_DATA_HOME`, which is the same isolation the
+secret store needs. Set it per service.
+
+The schema is created with EF's `EnsureCreated`, which is **create-or-nothing**: it will not
+alter a database that already has tables. There is no migration path, so if `OhlcvEntity` ever
+gains a column, delete `trader_local.db` on deploy and let it rebuild — it is a cache, and
+nothing in it is authoritative. The store logs at **Error** when its table is unusable, which is
+the signal to do that; ordinary misses log at Warning.
 
 > **Co-located demo + terminal:** when `Accounts__DataRoot` is set, the shared secret store
 > lives under it (`secrets/`). This matters if you run the `--demo` and `--accounts`

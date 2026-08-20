@@ -67,6 +67,42 @@ namespace AccessibleTrader.Core.Services
         public IReadOnlyList<string> AllowedProviders { get; } =
             new[] { "Bitstamp", "Twelve Data" };
 
+        /// <summary>
+        /// Providers the HOSTED (logged-in) build offers — everything that actually works with no
+        /// user-supplied key, which is a far wider set than the anonymous demo's two.
+        ///
+        /// Hosted used to reuse <see cref="AllowedProviders"/> because both modes share
+        /// <see cref="RestrictsData"/>, so a logged-in user saw Bitstamp and Twelve Data and nothing
+        /// else — no MEXC, no Binance, no Kraken, and no analytics at all — even though every
+        /// provider below declares <c>RequiresApiKey == false</c> and needs nothing from the user.
+        ///
+        /// Membership rule, so this list stays honest: a provider belongs here if EITHER its public
+        /// market data needs no credential at all, OR the server seeds its key at startup
+        /// (Twelve Data, FRED — see Program.cs). Anything that would send the user to the API-keys
+        /// modal must stay out: hosted has that modal switched off, so it can only ever render as a
+        /// dead end reading "API key required".
+        /// </summary>
+        public IReadOnlyList<string> HostedProviders { get; } = new[]
+        {
+            // Crypto spot — public REST + public WebSocket, no key.
+            "Binance", "Bitstamp", "Kraken", "MEXC",
+            // Crypto, historical only (no public stream implemented).
+            "Gemini", "KrakenFutures",
+            // Stocks / forex / indices — server-seeded key.
+            "Twelve Data",
+            // Economic — server-seeded FRED key.
+            "FRED", "SEC EDGAR",
+            // On-chain / derivatives / sentiment — keyless public APIs.
+            "CoinGecko", "CoinMetrics", "DefiLlama", "Mempool", "BGeometrics",
+            "BinanceDerivatives", "BinanceVision", "OkxDerivatives", "Deribit",
+            "CFTC", "FINRA", "AlternativeMe", "Wikipedia",
+            // The user's own imported datasets. Note the SPACE — MyDataProvider.ProviderName is
+            // "My Data", and this list is matched against a provider's Name. Omitting it left the
+            // MyData market in HostedMarkets with an empty provider dropdown: selectable, and
+            // then a dead end.
+            "My Data",
+        };
+
         /// <summary>Markets the demo exposes — each has a whitelisted provider with
         /// content: Crypto (Bitstamp), Stock + Forex (TwelveData). Markets without a
         /// whitelisted provider (OnChain, Economic, Derivatives, …) are hidden so the
@@ -74,6 +110,15 @@ namespace AccessibleTrader.Core.Services
         /// list. Add "Index" here (and an index symbol below) to expose indices.</summary>
         public IReadOnlyList<string> AllowedMarkets { get; } =
             new[] { "Crypto", "Stock", "Forex" };
+
+        /// <summary>
+        /// Markets the HOSTED build exposes: every category in <see cref="HostedProviders"/> has at
+        /// least one keyless provider, so none of these can land on an empty provider list.
+        /// "MyData" is included because a logged-in user's imported datasets are their own, stored
+        /// under their per-user directory — the one market that needs no provider at all.
+        /// </summary>
+        public IReadOnlyList<string> HostedMarkets { get; } =
+            new[] { "Crypto", "Stock", "Forex", "Economic", "OnChain", "Derivatives", "Sentiment", "MyData" };
 
         /// <summary>The single provider the demo uses for a given market. Crypto is
         /// Bitstamp (free, live WebSocket); Stock and Forex are Twelve Data. This keeps
@@ -93,7 +138,18 @@ namespace AccessibleTrader.Core.Services
         /// on reconnects and can wedge the session — treat stock/forex as historical-only.
         /// Always true outside demo mode.</summary>
         public bool AllowsLiveStream(string provider) =>
-            !RestrictsData || string.Equals(provider, "Bitstamp", StringComparison.OrdinalIgnoreCase);
+            !RestrictsData
+            || (IsDemo
+                ? string.Equals(provider, "Bitstamp", StringComparison.OrdinalIgnoreCase)
+                : HostedStreamingProviders.Contains(provider, StringComparer.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// The hosted providers that actually implement a public WebSocket feed. Everything else in
+        /// <see cref="HostedProviders"/> is historical-only, and asking it to stream just loops on
+        /// reconnects — the failure mode Twelve Data's free tier taught us in the demo.
+        /// </summary>
+        public IReadOnlyList<string> HostedStreamingProviders { get; } =
+            new[] { "Bitstamp", "Binance", "Kraken", "MEXC" };
 
         /// <summary>Symbol whitelist per provider. Compared normalised
         /// (letters+digits only, upper-case) so "BTC/USD" == "btcusd" == "BTC-USD".</summary>
@@ -170,8 +226,14 @@ namespace AccessibleTrader.Core.Services
         private static string Norm(string s) =>
             new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
+        /// <summary>The provider whitelist that applies to THIS mode. Full = no whitelist.</summary>
+        private IReadOnlyList<string> ProviderWhitelist => IsDemo ? AllowedProviders : HostedProviders;
+
+        /// <summary>The market whitelist that applies to THIS mode. Full = no whitelist.</summary>
+        private IReadOnlyList<string> MarketWhitelist => IsDemo ? AllowedMarkets : HostedMarkets;
+
         public bool IsProviderAllowed(string provider) =>
-            !RestrictsData || AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase);
+            !RestrictsData || ProviderWhitelist.Contains(provider, StringComparer.OrdinalIgnoreCase);
 
         public bool IsTimeframeAllowed(string timeframe) =>
             !IsDemo || AllowedTimeframes.Contains(timeframe, StringComparer.OrdinalIgnoreCase);
@@ -209,7 +271,7 @@ namespace AccessibleTrader.Core.Services
         public IReadOnlyList<string> FilterMarkets(IReadOnlyList<string> markets)
         {
             if (!RestrictsData) return markets;
-            return markets.Where(m => AllowedMarkets.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
+            return markets.Where(m => MarketWhitelist.Contains(m, StringComparer.OrdinalIgnoreCase)).ToList();
         }
     }
 }

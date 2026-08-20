@@ -178,9 +178,11 @@ namespace AccessibleTrader.Core.Services.Strategies
         public static IReadOnlyList<string> Default()
         {
             var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, UserSubdirectoryName);
+            // PlatformPaths, not GetFolderPath: an empty return on Unix yields a RELATIVE path,
+            // which would scan the process's working directory for strategy plugins. Machine-level
+            // by design — these are executable, not per-user state.
             var userDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AccessibleTrader", UserSubdirectoryName);
+                AccessibleTrader.Core.Services.PlatformPaths.AppDataRoot(), UserSubdirectoryName);
             try { Directory.CreateDirectory(baseDir); } catch { }
             try { Directory.CreateDirectory(userDir); } catch { }
             return new[] { baseDir, userDir };

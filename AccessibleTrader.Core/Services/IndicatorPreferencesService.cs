@@ -96,13 +96,28 @@ namespace AccessibleTrader.Core.Services
         private readonly string _prefsDir;
         private readonly ILogger<IndicatorPreferencesService> _logger;
 
-        public IndicatorPreferencesService(ILogger<IndicatorPreferencesService> logger)
+        /// <summary>
+        /// Preferences live under <see cref="IPlatformPathService.AppDataDirectory"/>, which is the
+        /// PER-USER directory when hosted accounts are enabled.
+        ///
+        /// <para>
+        /// This class used to build its own path from
+        /// <c>Environment.GetFolderPath(LocalApplicationData)</c> — the same two defects
+        /// <see cref="WorkspaceLibraryService"/> had. Every hosted user shared one set of indicator
+        /// preferences, so restyling an indicator changed it for everyone; and on Unix the path
+        /// could resolve RELATIVE (see <see cref="PlatformPaths"/>), landing inside the deployment
+        /// directory that a redeploy replaces.
+        /// </para>
+        ///
+        /// <para>Desktop/local is unaffected: there <c>AppDataDirectory</c> is
+        /// <c>~/.local/share/AccessibleTrader</c>, so the directory is exactly where it was.</para>
+        /// </summary>
+        public IndicatorPreferencesService(ILogger<IndicatorPreferencesService> logger,
+            IPlatformPathService paths)
         {
             _logger = logger;
-            _prefsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AccessibleTrader", "IndicatorPrefs");
-            if (!Directory.Exists(_prefsDir)) Directory.CreateDirectory(_prefsDir);
+            _prefsDir = Path.Combine(paths.AppDataDirectory, "IndicatorPrefs");
+            Directory.CreateDirectory(_prefsDir);
         }
 
         // ── Component preferences (backward-compatible with legacy list-only JSON) ──

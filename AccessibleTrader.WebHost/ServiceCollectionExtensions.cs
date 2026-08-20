@@ -87,6 +87,10 @@ namespace AccessibleTrader.WebHost
             services.AddDbContextFactory<AppDbContext>(options =>
                 options.UseSqlite($"Data Source={Path.Combine(cacheDbDir, "trader_local.db")}"));
 
+            // Historical OHLCV store — shared, like the DB it sits on: public market data, one
+            // copy for everyone. Singleton so the write lock inside it is process-wide.
+            services.AddSingleton<IOhlcvStore, OhlcvStore>();
+
             services.AddScoped<IInputService, BlazorInputService>();
 
             // Speech: BlazorSpeechManager handles journaling + the ARIA live
@@ -133,10 +137,17 @@ namespace AccessibleTrader.WebHost
                       || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
                 if (!persistEnabled) return ringBuffer;
 
+                // IPlatformPathService, not GetFolderPath. Two fixes in one: the latter returns an
+                // empty string on Unix when the target does not exist, which wrote the audit log
+                // into whatever directory the process was started from (the deployment directory
+                // a redeploy replaces); and the path service routes PER USER when hosted accounts
+                // are on, so one account's security events are no longer appended to a file every
+                // other account also writes to. An explicit *_DIR override still wins, and stays
+                // deliberately process-wide for operators who ship this to a log collector.
                 string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
                     ?? Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "AccessibleTrader", "SecurityEvents");
+                        sp.GetRequiredService<IPlatformPathService>().AppDataDirectory,
+                        "SecurityEvents");
 
                 var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);

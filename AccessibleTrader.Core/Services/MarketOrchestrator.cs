@@ -442,7 +442,7 @@ namespace AccessibleTrader.Core.Services
                     EnsureContains(_availableProviders, "Binance", "Bitstamp", "Coinbase", "FMP");
                     break;
                 case "Economic":
-                    EnsureContains(_availableProviders, "Fred", "FMP Analytics", "SEC EDGAR");
+                    EnsureContains(_availableProviders, "FRED", "FMP Analytics", "SEC EDGAR");
                     break;
                 case "OnChain":
                     EnsureContains(_availableProviders, "Glassnode", "CoinGecko", "BGeometrics", "DefiLlama", "CoinMetrics", "Mempool", "Etherscan");
@@ -465,16 +465,24 @@ namespace AccessibleTrader.Core.Services
                     break;
             }
 
-            // Curated data (demo + hosted): pin each market to its single server-keyed provider.
-            // (A flat provider whitelist isn't enough — Twelve Data also advertises Crypto, so it
-            // would otherwise be selectable for BTC/USD where its free stream fails. And in hosted
-            // there are no user keys, so the dozen key-required providers must not be offered.)
-            if (_demo.RestrictsData)
+            // DEMO: pin each market to its single server-keyed provider. (A flat whitelist isn't
+            // enough — Twelve Data also advertises Crypto, so it would otherwise be selectable for
+            // BTC/USD where its free stream fails.) The anonymous demo is a guided taste; one
+            // correct choice per market is the point.
+            if (_demo.IsDemo)
             {
                 var only = _demo.ProviderForMarket(market);
                 _availableProviders = string.IsNullOrEmpty(only)
                     ? new List<string>()
                     : new List<string> { only };
+            }
+            // HOSTED: keep every provider that works without a user key — the logged-in tier is the
+            // full app, so the choice between Bitstamp, Binance, Kraken and MEXC is the user's.
+            // Key-required providers are still dropped: the API-keys modal is off in hosted, so
+            // offering them could only ever render as "API key required".
+            else if (_demo.RestrictsData)
+            {
+                _availableProviders = _demo.FilterProviders(_availableProviders).ToList();
             }
 
             if (string.IsNullOrEmpty(_selectedProvider) || !_availableProviders.Contains(_selectedProvider))
@@ -799,10 +807,19 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Dispose();
         }
 
+        /// <summary>
+        /// Adds each well-known provider that the data service did not already return.
+        ///
+        /// Case-INSENSITIVE, because the literals below are hand-written and the provider's own
+        /// <c>Name</c> is the truth: the Economic list says "Fred" while the plugin calls itself
+        /// "FRED". Under an ordinal Contains those are different strings, so the dropdown gained a
+        /// second, dead entry that no provider lookup could ever resolve. Invisible while hosted
+        /// collapsed every market to one provider; visible the moment it stopped.
+        /// </summary>
         private static void EnsureContains(List<string> list, params string[] items)
         {
             foreach (var item in items)
-                if (!list.Contains(item))
+                if (!list.Contains(item, StringComparer.OrdinalIgnoreCase))
                     list.Add(item);
         }
 
