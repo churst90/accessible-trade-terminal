@@ -92,6 +92,98 @@ namespace AccessibleTrader.Tests
                 "Modal contract violations:\n" + string.Join("\n", failures));
         }
 
+        // ── Tablists must handle arrow keys ──────────────────────────────────
+
+        /// <summary>
+        /// The full opening tag containing each occurrence of <paramref name="needle"/> —
+        /// from its <c>&lt;</c> to the <c>&gt;</c> that closes it, with quoted attribute
+        /// values skipped so a <c>&gt;</c> inside an inline style cannot end the tag early.
+        /// </summary>
+        internal static IEnumerable<string> OpeningTagsContaining(string markup, string needle)
+        {
+            int from = 0;
+            while (true)
+            {
+                int hit = markup.IndexOf(needle, from, StringComparison.Ordinal);
+                if (hit < 0) yield break;
+                from = hit + needle.Length;
+
+                int open = markup.LastIndexOf('<', hit);
+                if (open < 0) continue;
+
+                int i = open;
+                for (; i < markup.Length; i++)
+                {
+                    char c = markup[i];
+                    if (c == '"' || c == '\'')
+                    {
+                        char quote = c;
+                        i++;
+                        while (i < markup.Length && markup[i] != quote) i++;
+                        continue;
+                    }
+                    if (c == '>') break;
+                }
+                if (i < markup.Length) yield return markup.Substring(open, i - open + 1);
+            }
+        }
+
+        [Fact]
+        public void EveryTablistHandlesArrowKeys()
+        {
+            // A role="tablist" tells assistive tech that arrow keys move between the tabs,
+            // and a roving tabindex (0 on the active tab, -1 on the rest) tells the BROWSER
+            // the same thing. Declare either and implement neither and the tabs become
+            // unreachable by keyboard — which is what happened to Settings: five of its six
+            // tabs, including the whole keyboard-rebinding UI and the paper-account reset,
+            // were mouse-only.
+            //
+            // There were eight tablists built by different hands: one used
+            // aria-activedescendant with its own handler, six left every tab a plain Tab
+            // stop, and one set the roving tabindex and stopped. This is the assertion that
+            // stops the ninth inventing a tenth convention.
+            var failures = new List<string>();
+            int tablists = 0;
+
+            string componentsDir = Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components");
+            foreach (var file in Directory.EnumerateFiles(componentsDir, "*.razor", SearchOption.AllDirectories))
+            {
+                if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
+
+                string text = File.ReadAllText(file);
+                foreach (var tag in OpeningTagsContaining(text, "role=\"tablist\""))
+                {
+                    tablists++;
+                    if (!tag.Contains("@onkeydown", StringComparison.Ordinal))
+                        failures.Add($"{Path.GetFileName(file)}: a role=\"tablist\" with no @onkeydown handler.");
+                }
+            }
+
+            Assert.True(tablists >= 8, $"Only {tablists} tablists found — the scan has lost its source root.");
+            Assert.True(failures.Count == 0,
+                "Tablists that promise arrow-key navigation and do not implement it. Wire the "
+              + "container's @onkeydown to TablistNavigator (ModalBase.NavigateTablistAsync does "
+              + "the focus move for ModalBase modals):\n  " + string.Join("\n  ", failures));
+        }
+
+        [Fact]
+        public void TheTablistScannerReadsWholeTagsNotFragments()
+        {
+            // An inline style containing '>' must not end the tag early, or a handler
+            // declared after it would be invisible and the scan would report a false
+            // failure — or worse, miss a real one on the next attribute.
+            const string markup = """
+                <div role="tablist" style="grid-template: a > b;" @onkeydown="OnKey">
+                <div role="tablist" aria-label="bare">
+                """;
+
+            var tags = OpeningTagsContaining(markup, "role=\"tablist\"").ToList();
+
+            Assert.Equal(2, tags.Count);
+            Assert.Contains("@onkeydown", tags[0]);
+            Assert.DoesNotContain("@onkeydown", tags[1]);
+        }
+
         // ── ARIA state attributes must be strings ────────────────────────────
 
         /// <summary>

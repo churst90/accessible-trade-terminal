@@ -65,6 +65,13 @@ jobs:
       - name: JS gesture tests
         run: node tools/jstests/gesture-tests.mjs
 
+      # The keydown half of the same file. Separate suite because it asserts on
+      # something the C# tests structurally cannot see: whether the trap called
+      # preventDefault. That blind spot is what let Space cancel the activation
+      # click on every button in the app without a single test noticing.
+      - name: JS keyboard tests
+        run: node tools/jstests/keyboard-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4

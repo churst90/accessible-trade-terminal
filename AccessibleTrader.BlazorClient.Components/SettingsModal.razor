@@ -1,4 +1,5 @@
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Interfaces
@@ -70,9 +71,16 @@
                 </div>
             }
 
+            @* The roving tabindex below (0 on the active tab, -1 on the rest) is a PROMISE:
+               it tells the browser that Tab reaches this group and ARROW KEYS move within
+               it. Only half of that was implemented, so five of these six tabs — including
+               the entire keyboard-rebinding UI and the paper-account reset — were reachable
+               by mouse only. The handler is the other half of the promise. *@
             <div role="tablist" aria-label="Settings categories"
-                 style="display:flex; gap:0; border-bottom:2px solid #bbb; margin-bottom:16px;">
-                @foreach (var tab in new[] { "General", "Appearance", "Keyboard", "Alerts", "License", "About" })
+                 aria-orientation="horizontal"
+                 @onkeydown="OnTabListKeyDown"
+                 style="display:flex; gap:0; border-bottom:2px solid var(--border-color); margin-bottom:16px;">
+                @foreach (var tab in SettingsTabs)
                 {
                     bool active = _activeTab == tab;
                     @* The active tab was a pale #e8f0ff panel, which stopped working the moment the
@@ -87,7 +95,7 @@
                     <button role="tab"
                             aria-selected="@active.ToString().ToLower()"
                             tabindex="@(active ? 0 : -1)"
-                            id="tab-@tab.ToLower()"
+                            id="@TabElementId(tab)"
                             aria-controls="tabpanel-@tab.ToLower()"
                             @onclick="() => _activeTab = tab"
                             style="padding:6px 16px; border:none;
@@ -1150,6 +1158,33 @@
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;
     private string _activeTab = "General";
+
+    // Single source of truth for the tab row: the markup renders from it and the arrow-key
+    // handler indexes into it. Two lists would drift, and a drifted list here means an
+    // arrow key that lands on a tab that is not there.
+    private static readonly string[] SettingsTabs =
+        { "General", "Appearance", "Keyboard", "Alerts", "License", "About" };
+
+    private static string TabElementId(string tab) => "tab-" + tab.ToLowerInvariant();
+
+    /// <summary>
+    /// Arrow / Home / End across the settings tabs, completing the roving-tabindex
+    /// contract the markup declares. Selection follows focus, per WAI-ARIA: the arrow
+    /// both switches the tab and moves focus onto it, so a screen reader announces the
+    /// tab the user has actually arrived at.
+    /// </summary>
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int current = Array.IndexOf(SettingsTabs, _activeTab);
+        int? target = TablistNavigator.Target(e.Key, current, SettingsTabs.Length);
+        if (target == null) return;   // not a tablist key — leave Tab/Escape alone
+
+        _activeTab = SettingsTabs[target.Value];
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", TabElementId(_activeTab)); }
+        catch { /* best-effort, as everywhere else — the tab is selected regardless */ }
+    }
 
     // Local copies for pending changes — General tab
     private bool _speakTimestamps;

@@ -502,7 +502,7 @@ readable — is entirely manual and has not held. The tell is
 `BlazorTestHarness.cs:164`, which stubs `accessibleTrader.focusElement` to a no-op, making it
 impossible for any test to notice a focus bug.
 
-- [ ] **Space cannot activate any button in the application.** VERIFIED. `keyboard.js:107` puts
+- [x] **FIXED 2026-08-21 — Space cannot activate any button in the application.** VERIFIED. `keyboard.js:107` puts
   `' '` in `trappedKeys`; `:137` excludes only `INPUT`/`TEXTAREA`/`SELECT` from the trap, not
   `BUTTON`; and the chart-focus escape hatch at `:150` is gated on
   `/^[a-zA-Z0-9,.]$/`, which does not match a space. So `e.preventDefault()` at `:154` runs on
@@ -513,7 +513,20 @@ impossible for any test to notice a focus bug.
   for whom Space is the habitual activation key. Also affects `<summary>` disclosures in Help and My
   Data. Fix: add `BUTTON`/`A`/`SUMMARY` and the `role=button|checkbox|switch|menuitem|tab|option|
   treeitem` set to the exclusion test, or drop `' '` and gate playback on `_chartFocused`.
-- [ ] **Five of the six Settings tabs cannot be reached by keyboard.** VERIFIED.
+  - **Fixed** by bailing out of the trap before `preventDefault()` when the target is something
+    Space actually activates — `BUTTON`, `SUMMARY`, and the `role=` widget set. Scoped to
+    *unmodified, unshifted* Space, the exact combination the browser activates on, so Ctrl+Space
+    (PlayPause) and Shift+Space (PlaySeries) still fire from anywhere.
+  - **`A` was deliberately left out**, against the suggestion above: Space does not activate a
+    link in any browser — it scrolls — so excluding links would cost the chart-play shortcut and
+    buy no activation. A disabled ARIA widget is likewise left to the shortcut, since it
+    activates nothing.
+  - **The reason nothing caught this is closed too.** No C# test can observe a JS
+    `preventDefault`, so the blind spot was structural. `tools/jstests/keyboard-tests.mjs` loads
+    `keyboard.js` into a vm sandbox, fires synthetic keydowns and asserts on both the
+    preventDefault and the .NET bridge call; 4 of its 13 tests fail if the guard is removed. It
+    runs in CI beside the gesture suite.
+- [x] **FIXED 2026-08-21 — Five of the six Settings tabs cannot be reached by keyboard.** VERIFIED.
   `SettingsModal.razor:73-101` implements the WAI-ARIA roving tabindex (`tabindex="@(active ? 0 :
   -1)"`) — correct *only* if the component also handles Left/Right/Home/End. It does not, and
   **no `role="tablist"` in the RCL has any arrow-key handler**: there are 8 tablists, and the 7
@@ -523,6 +536,16 @@ impossible for any test to notice a focus bug.
   License and About are mouse-only. The settings search box is the sole workaround and it covers
   only the 24 hardcoded registry rows. Fix: add the arrow handler, or drop the roving tabindex so
   all six are plain Tab stops (which is what StrategyModal/Properties/TradingDashboard already do).
+  - **Fixed by adding the arrow handler**, not by dropping the roving tabindex — the roving
+    tabindex is the correct WAI-ARIA pattern and the markup had already promised it.
+  - **Done for all eight tablists, not just Settings.** The audit was right that no modal tablist
+    had an arrow handler, but the severity was concentrated: only Settings set a roving tabindex,
+    so only Settings was actually unreachable; the other six left every tab a plain Tab stop, and
+    `TabBar` was already correct (container `tabindex="0"` + `aria-activedescendant` + its own
+    handler). Fixing only Settings would have left seven tablists one attribute away from the same
+    bug. The rule now lives in `Core/Services/Accessibility/TablistNavigator.cs`, with
+    `ModalBase.NavigateTablistAsync` doing the focus move, and a scan asserts every
+    `role="tablist"` in the RCL has an `@onkeydown`.
 - [x] **FIXED 2026-08-21 — Pressing Enter to save a workspace kills the session.** VERIFIED.
   `SaveWorkspaceModal.razor:98-104` — `await Task.Run(() => Save())`, and `Save()` calls `Close()`
   → `ModalBase.CloseModal()` → `StateHasChanged()`, which asserts dispatcher affinity and throws

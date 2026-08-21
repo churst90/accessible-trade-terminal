@@ -33,7 +33,8 @@
             </p>
 
             @* ── Tab navigation ────────────────────────────────────────────────── *@
-            <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
+            <div role="tablist" aria-label="Strategy sections" aria-orientation="horizontal"
+                 @onkeydown="OnTabListKeyDown" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
                 <button role="tab"
                         id="tab-library"
                         aria-selected="@(_activeTab == "library" ? "true" : "false")"
@@ -704,6 +705,30 @@ public class MyStrategy : BaseStrategy
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;
     private string _activeTab = "library";
+
+    // Tab ids in visual order, so the arrow handler and the markup cannot drift apart.
+    private static readonly string[] TabIds = { "tab-library", "tab-build", "tab-active", "tab-bt", "tab-lab", "tab-custom" };
+    private static readonly string[] TabKeys = { "library", "build", "active", "bt", "lab", "custom" };
+
+    /// <summary>
+    /// Arrow / Home / End across the tab row. Selection follows focus, per WAI-ARIA:
+    /// the key both switches the tab and moves focus onto it, so a screen reader
+    /// announces the tab the user actually arrived at. The rule itself lives in
+    /// TablistNavigator — eight tablists, one answer.
+    /// </summary>
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int current = Array.IndexOf(TabKeys, _activeTab);
+        int? target = TablistNavigator.Target(e.Key, current, TabKeys.Length);
+        if (target == null) return;
+
+        _activeTab = TabKeys[target.Value];
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", TabIds[target.Value]); }
+        catch { /* best-effort focus, as everywhere else */ }
+    }
+
 
     // Library tab status messages
     private string? _libraryMessage;

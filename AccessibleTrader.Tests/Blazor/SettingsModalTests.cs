@@ -64,6 +64,111 @@ public class SettingsModalTests
         Assert.Equal("settings-title", dialog.GetAttribute("aria-labelledby"));
     }
 
+    // ── Keyboard reachability of the tab row ─────────────────────────────
+    //
+    // The markup sets a roving tabindex (0 on the active tab, -1 on the rest), which
+    // promises the browser that arrows move within the group. Without a handler, five
+    // of these six tabs were mouse-only — including the whole keyboard-rebinding UI
+    // and the paper-account reset button.
+
+    private static void ArrowOnTabList(
+        IRenderedComponent<AccessibleTrader.BlazorClient.Components.SettingsModal> cut, string key)
+    {
+        cut.Find("[role='tablist']")
+           .KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = key });
+    }
+
+    private static void AssertSelected(
+        IRenderedComponent<AccessibleTrader.BlazorClient.Components.SettingsModal> cut, string id)
+    {
+        cut.WaitForAssertion(() =>
+            Assert.Equal("true", cut.Find($"button#{id}").GetAttribute("aria-selected")));
+    }
+
+    [Fact]
+    public void SettingsModal_RightArrow_MovesToTheNextTab()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        ArrowOnTabList(cut, "ArrowRight");
+
+        AssertSelected(cut, "tab-appearance");
+    }
+
+    [Fact]
+    public void SettingsModal_ArrowKeys_ReachEverySettingsTab()
+    {
+        // The actual user-facing claim, stated as a walk rather than as a single step:
+        // starting at General, five Right presses visit all six tabs in order.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        foreach (var id in new[] { "tab-appearance", "tab-keyboard", "tab-alerts", "tab-license", "tab-about" })
+        {
+            ArrowOnTabList(cut, "ArrowRight");
+            AssertSelected(cut, id);
+        }
+    }
+
+    [Fact]
+    public void SettingsModal_ArrowsWrapAtBothEnds()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        // Left from the first tab lands on the last.
+        ArrowOnTabList(cut, "ArrowLeft");
+        AssertSelected(cut, "tab-about");
+
+        // ...and Right from the last comes back to the first.
+        ArrowOnTabList(cut, "ArrowRight");
+        AssertSelected(cut, "tab-general");
+    }
+
+    [Fact]
+    public void SettingsModal_HomeAndEnd_JumpToTheFirstAndLastTab()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        ArrowOnTabList(cut, "End");
+        AssertSelected(cut, "tab-about");
+
+        ArrowOnTabList(cut, "Home");
+        AssertSelected(cut, "tab-general");
+    }
+
+    [Fact]
+    public void SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects()
+    {
+        // Selection follows focus in a tablist. Selecting a tab without moving focus
+        // leaves a screen reader announcing the tab the user is standing on rather than
+        // the one that just became active — the state and the announcement disagree.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        ArrowOnTabList(cut, "ArrowRight");
+
+        cut.WaitForAssertion(() => Assert.Contains(
+            h.Ctx.JSInterop.Invocations["accessibleTrader.focusElement"],
+            i => i.Arguments.Count > 0 && (i.Arguments[0] as string) == "tab-appearance"));
+    }
+
+    [Fact]
+    public void SettingsModal_UnrelatedKeys_LeaveTheActiveTabAlone()
+    {
+        // The handler must claim arrows and nothing else. Claiming Tab would trap focus
+        // inside the tab row, which is a worse bug than the one being fixed.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        foreach (var key in new[] { "Tab", "Enter", " ", "a", "Escape" })
+            ArrowOnTabList(cut, key);
+
+        AssertSelected(cut, "tab-general");
+    }
+
     [Fact]
     public void SettingsModal_DefaultActiveTab_IsGeneral()
     {

@@ -351,7 +351,8 @@
                                The order book is a tab rather than a permanent fixture — it is reference
                                data that refreshes every two seconds and it was crowding out the account.
                                The dedicated Alt+B panel and the toolbar button are unchanged. *@
-                            <div class="tabs-mini" role="tablist" aria-label="Account data">
+                            <div class="tabs-mini" role="tablist" aria-label="Account data" aria-orientation="horizontal"
+                                 @onkeydown="OnTabListKeyDown">
                                 <button role="tab" id="acct-tab-positions" aria-selected="@(_accountTab == "Positions" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Positions" ? "active" : "")" @onclick='() => SelectAccountTab("Positions")'>Positions</button>
                                 <button role="tab" id="acct-tab-balances" aria-selected="@(_accountTab == "Balances" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Balances" ? "active" : "")" @onclick='() => SelectAccountTab("Balances")'>Balances</button>
                                 <button role="tab" id="acct-tab-orders" aria-selected="@(_accountTab == "Orders" ? "true" : "false")" aria-controls="acct-panel" class="@(_accountTab == "Orders" ? "active" : "")" @onclick='() => SelectAccountTab("Orders")'>Orders</button>
@@ -752,6 +753,30 @@
     
     // Positions is what a trader opens this dashboard to see.
     private string _accountTab = "Positions";
+
+    // Tab ids in visual order, so the arrow handler and the markup cannot drift apart.
+    private static readonly string[] TabIds = { "acct-tab-positions", "acct-tab-balances", "acct-tab-orders", "acct-tab-history", "acct-tab-book" };
+    private static readonly string[] TabKeys = { "Positions", "Balances", "Orders", "History", "Book" };
+
+    /// <summary>
+    /// Arrow / Home / End across the tab row. Selection follows focus, per WAI-ARIA:
+    /// the key both switches the tab and moves focus onto it, so a screen reader
+    /// announces the tab the user actually arrived at. The rule itself lives in
+    /// TablistNavigator — eight tablists, one answer.
+    /// </summary>
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int current = Array.IndexOf(TabKeys, _accountTab);
+        int? target = TablistNavigator.Target(e.Key, current, TabKeys.Length);
+        if (target == null) return;
+
+        _accountTab = TabKeys[target.Value];
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", TabIds[target.Value]); }
+        catch { /* best-effort focus, as everywhere else */ }
+    }
+
     private bool _isLiveEnvironment;
     private bool _tradingNotSupported;
     private bool _paperMode;

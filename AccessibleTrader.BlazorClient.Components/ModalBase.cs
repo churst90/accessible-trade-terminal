@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
 
 namespace AccessibleTrader.BlazorClient.Components
 {
@@ -97,6 +99,41 @@ namespace AccessibleTrader.BlazorClient.Components
             // Tab trap arming lives in MainLayout, which subscribes to
             // ModalStateChangedEvent so direct-publish modals (not inheriting from
             // ModalBase) are covered too.
+        }
+
+        /// <summary>
+        /// Arrow / Home / End navigation for a <c>role="tablist"</c>, wired the same way in
+        /// every modal that has one.
+        ///
+        /// <para>
+        /// Call from the tablist container's <c>@onkeydown</c>. Returns the index to select,
+        /// or <c>null</c> when the key was not a tablist key — in which case the caller must
+        /// leave its state alone so Tab, Escape and everything else still work.
+        /// </para>
+        ///
+        /// <para>
+        /// Focus is moved explicitly because selection follows focus in a tablist: changing
+        /// which button is selected is not the same as putting the user on it, and a screen
+        /// reader announces the tab it is focused on, not the one the app considers active.
+        /// Focus is best-effort, exactly as in <see cref="ShowModalAsync"/> — a JS failure
+        /// must not take the keystroke with it.
+        /// </para>
+        /// </summary>
+        /// <param name="key">The pressed key, from <c>KeyboardEventArgs.Key</c>.</param>
+        /// <param name="current">Index of the currently selected tab.</param>
+        /// <param name="tabElementIds">The tab buttons' HTML ids, in visual order.</param>
+        /// <param name="vertical">True for a vertically stacked tablist (Up/Down instead of Left/Right).</param>
+        protected async Task<int?> NavigateTablistAsync(
+            string? key, int current, IReadOnlyList<string> tabElementIds, bool vertical = false)
+        {
+            int? target = TablistNavigator.Target(key, current, tabElementIds?.Count ?? 0, vertical);
+            if (target == null) return null;
+
+            StateHasChanged();
+            await Task.Yield();
+            try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", tabElementIds![target.Value]); }
+            catch { /* non-critical — the tab is still selected and reachable by Tab */ }
+            return target;
         }
 
         /// <summary>

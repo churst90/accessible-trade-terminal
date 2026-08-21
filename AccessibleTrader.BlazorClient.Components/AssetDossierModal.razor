@@ -42,7 +42,8 @@
 
             @if (_dossier != null)
             {
-                <div role="tablist" aria-label="Dossier sections" style="margin-bottom:12px;">
+                <div role="tablist" aria-label="Dossier sections" aria-orientation="horizontal"
+                     @onkeydown="OnTabListKeyDown" style="margin-bottom:12px;">
                     @foreach (var s in _dossier.Sections)
                     {
                         var isSel = s.Title == _tab;
@@ -178,6 +179,28 @@
 
     private AssetDossier? _dossier;
     private string _tab = "";
+
+    /// <summary>
+    /// The tab row in visual order. Built rather than hardcoded: the sections come from
+    /// the dossier and the Checks tab only exists when something was flagged, so a fixed
+    /// list would send an arrow key to a tab that is not on screen.
+    /// </summary>
+    private List<string> DossierTabs()
+    {
+        var tabs = _dossier == null
+            ? new List<string>()
+            : _dossier.Sections.Select(s => s.Title).ToList();
+        if (_dossier != null && _dossier.Flags.Count > 0) tabs.Add(ChecksTab);
+        return tabs;
+    }
+
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        var tabs = DossierTabs();
+        int? target = await NavigateTablistAsync(
+            e.Key, tabs.IndexOf(_tab), tabs.Select(TabId).ToList());
+        if (target != null) _tab = tabs[target.Value];
+    }
     private string _symbol = "";
     private string _headline = "";
     private string? _error;

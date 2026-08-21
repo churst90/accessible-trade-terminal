@@ -1,4 +1,34 @@
+// Widget roles the browser (or the widget's own key handler) activates with Space.
+// Native <button> and <summary> are matched by tag; everything else declares a role.
+//
+// <a href> is deliberately ABSENT: Space does not activate a link in any browser — it
+// scrolls — so excluding links would cost the chart-play shortcut and buy no activation.
+const SPACE_ACTIVATION_ROLES = [
+    'button', 'checkbox', 'switch', 'radio', 'tab', 'option', 'treeitem',
+    'menuitem', 'menuitemcheckbox', 'menuitemradio',
+];
+
+/**
+ * Whether pressing Space on this element is meant to activate it, rather than to
+ * reach the chart-playback shortcut. Exported on window for the JS test suite.
+ */
+function isSpaceActivationTarget(target) {
+    if (!target) return false;
+
+    const tag = target.tagName;
+    if (tag === 'BUTTON' || tag === 'SUMMARY') return true;
+
+    // A disabled control activates nothing, so the shortcut may still have it.
+    if (target.hasAttribute && target.hasAttribute('disabled')) return false;
+
+    const role = target.getAttribute ? target.getAttribute('role') : null;
+    return !!role && SPACE_ACTIVATION_ROLES.indexOf(role) >= 0;
+}
+
 window.accessibleTrader = {
+
+    // Exposed for tests; the keydown trap calls the module-scope function directly.
+    _isSpaceActivationTarget: isSpaceActivationTarget,
 
     // Count of currently-open modals. Set by `setModalOpen(true|false)` from ModalBase
     // on every open/close. When > 0, the Tab trap is armed; the modal element itself
@@ -137,6 +167,25 @@ window.accessibleTrader = {
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             const isEditable = e.target.isContentEditable === true;
             if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape') return;
+
+            // ── Space must still activate whatever has focus ────────────────────────
+            //
+            // Space is trapped here because it plays the chart (SPACE → PlayChart). The
+            // exclusion above covers INPUT/TEXTAREA/SELECT but NOT buttons — and Space is
+            // how a button is activated. So e.preventDefault() below was cancelling the
+            // activation click on every one of the ~200 buttons in the app, plus every
+            // <summary> disclosure in Help and My Data.
+            //
+            // Enter still worked, which is why this survived; so did NVDA and JAWS in
+            // BROWSE mode, because they synthesize a click rather than a real keypress.
+            // The people it broke are everyone in focus/forms mode, keyboard-only sighted
+            // users, switch access and voice control — for whom Space IS the activation key.
+            //
+            // Scoped to unmodified, unshifted Space, which is the exact combination the
+            // browser activates on. Ctrl+Space (PlayPause) and Shift+Space (PlaySeries)
+            // are chart commands with no activation behaviour to preserve, so they still
+            // fire from anywhere.
+            if (e.key === ' ' && !isModified && !isShifted && isSpaceActivationTarget(e.target)) return;
 
             // Gate single-letter chart commands on chart focus. Function keys and
             // modifier chords still fire everywhere for accessibility. This stops

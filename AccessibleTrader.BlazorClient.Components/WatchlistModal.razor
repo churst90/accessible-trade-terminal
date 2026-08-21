@@ -50,7 +50,8 @@
                 <div role="status" aria-live="polite" style="color:#6d6; margin:8px 0;">@_status</div>
             }
 
-            <div role="tablist" aria-label="Market watch sections" style="margin-bottom:12px;">
+            <div role="tablist" aria-label="Market watch sections" aria-orientation="horizontal"
+                 @onkeydown="OnTabListKeyDown" style="margin-bottom:12px;">
                 <button role="tab" id="watchlist-tab-lists"
                         aria-selected="@(_tab == Tab.Lists ? "true" : "false")" aria-controls="watchlist-panel"
                         @onclick="() => _tab = Tab.Lists">Watchlists</button>
@@ -430,6 +431,16 @@
     private enum Tab { Lists, Build, Screen }
 
     private Tab _tab = Tab.Lists;
+
+    // Tab ids in visual order, so the shared arrow handler and the markup cannot drift.
+    private static readonly string[] TabIds =
+        { "watchlist-tab-lists", "watchlist-tab-build", "watchlist-tab-screen" };
+
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int? target = await NavigateTablistAsync(e.Key, (int)_tab, TabIds);
+        if (target != null) _tab = (Tab)target.Value;
+    }
     private string? _error;
     private string? _status;
 

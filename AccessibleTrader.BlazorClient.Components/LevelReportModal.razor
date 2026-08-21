@@ -37,7 +37,8 @@
                 @(_busy ? "Measuring…" : _summary)
             </div>
 
-            <div role="tablist" aria-label="Respect report sections" style="margin-bottom:12px;">
+            <div role="tablist" aria-label="Respect report sections" aria-orientation="horizontal"
+                 @onkeydown="OnTabListKeyDown" style="margin-bottom:12px;">
                 <button role="tab" id="lr-tab-levels"
                         aria-selected="@(_tab == Tab.Levels ? "true" : "false")" aria-controls="lr-panel"
                         @onclick="() => _tab = Tab.Levels">Levels near price</button>
@@ -135,6 +136,15 @@
     private enum Tab { Levels, MovingAverages }
 
     private Tab _tab = Tab.Levels;
+
+    // Tab ids in visual order, so the shared arrow handler and the markup cannot drift.
+    private static readonly string[] TabIds = { "lr-tab-levels", "lr-tab-mas" };
+
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int? target = await NavigateTablistAsync(e.Key, (int)_tab, TabIds);
+        if (target != null) _tab = (Tab)target.Value;
+    }
     private bool _busy;
     private bool _reliableOnly = true;
     private string? _error;

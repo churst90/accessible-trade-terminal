@@ -27,7 +27,7 @@
 
             <h2 id="props-title" tabindex="-1">Properties — @_series.FriendlyName</h2>
 
-            <div class="tabs-header" role="tablist">
+            <div class="tabs-header" role="tablist" aria-orientation="horizontal" @onkeydown="OnTabListKeyDown">
                 <button role="tab" id="props-tab-general"
                         class="@(_activeTab == "General" ? "active" : "")"
                         aria-selected="@(_activeTab == "General" ? "true" : "false")"
@@ -681,6 +681,30 @@
 @code {
     private bool _isVisible;
     private string _activeTab = "General";
+
+    // Tab ids in visual order, so the arrow handler and the markup cannot drift apart.
+    private static readonly string[] TabIds = { "props-tab-general", "props-tab-appearance", "props-tab-sonification", "props-tab-speech" };
+    private static readonly string[] TabKeys = { "General", "Appearance", "Sonification", "Speech" };
+
+    /// <summary>
+    /// Arrow / Home / End across the tab row. Selection follows focus, per WAI-ARIA:
+    /// the key both switches the tab and moves focus onto it, so a screen reader
+    /// announces the tab the user actually arrived at. The rule itself lives in
+    /// TablistNavigator — eight tablists, one answer.
+    /// </summary>
+    private async Task OnTabListKeyDown(KeyboardEventArgs e)
+    {
+        int current = Array.IndexOf(TabKeys, _activeTab);
+        int? target = TablistNavigator.Target(e.Key, current, TabKeys.Length);
+        if (target == null) return;
+
+        _activeTab = TabKeys[target.Value];
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", TabIds[target.Value]); }
+        catch { /* best-effort focus, as everywhere else */ }
+    }
+
 
     private string ActiveTabId => _activeTab switch
     {
