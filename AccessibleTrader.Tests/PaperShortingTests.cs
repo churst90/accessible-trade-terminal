@@ -130,12 +130,15 @@ namespace AccessibleTrader.Tests
             var paper = Make(out var store);
             store.EmitState(At(99, 101, 98, 100));
 
-            // 2,000 BTC at 100 needs 200,000 of collateral against a 100,000 account.
+            // 2,000 BTC at 100 needs 200,000 of collateral against a 100,000 account,
+            // plus the 0.04% taker fee on the 200,000 notional — 80 — because the fee
+            // is settled in the same number the affordability check tests. The quoted
+            // figure is what the fill actually costs, not just its collateral leg.
             var result = await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 2000.0));
 
             Assert.StartsWith("ORDER_FAILED", result);
             Assert.Contains("collateral", result);
-            Assert.Contains("200,000.00", result);
+            Assert.Contains("200,080.00", result);
             Assert.Empty(await paper.GetPositionsAsync());
         }
 

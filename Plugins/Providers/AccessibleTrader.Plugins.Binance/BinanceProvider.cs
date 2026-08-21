@@ -745,16 +745,37 @@ namespace AccessibleTrader.Plugins.Binance
                         string id = ParseOrderId(body);
 
                         // Protective TP/SL attach (separate reduce-only orders).
+                        //
+                        // These used to be gated on futType == "MARKET" while the
+                        // take-profit above was ungated, so a LIMIT entry carrying both
+                        // legs got its target and silently lost its stop — a live
+                        // position, naked, with the loud POSITION UNPROTECTED path never
+                        // reached because the attach never ran. Binance accepts
+                        // reduce-only protective orders against a resting entry, so the
+                        // gate bought nothing and cost the stop.
+                        //
+                        // What the gate DOES have to express is which field the entry
+                        // consumed as its own trigger: `futTrig` above reads
+                        // TriggerPrice ?? StopLoss ?? TakeProfit, so on a stop/TP entry
+                        // one of those is the entry price, not a protective level, and
+                        // attaching it would place an exit exactly at the entry.
+                        bool isStopOrTpEntry = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
+                        bool slIsEntryTrigger = isStopOrTpEntry && signal.TriggerPrice == null && signal.StopLoss.HasValue;
+                        bool tpIsEntryTrigger = isStopOrTpEntry && signal.TriggerPrice == null
+                                                && !signal.StopLoss.HasValue && signal.TakeProfit.HasValue;
+
                         string exitSide = side == "BUY" ? "SELL" : "BUY";
-                        if (signal.TakeProfit.HasValue)
+                        if (signal.TakeProfit.HasValue && !tpIsEntryTrigger)
                             await AttachProtectiveOrderAsync(symbol, exitSide, "TAKE_PROFIT_MARKET",
                                 signal.Quantity, signal.TakeProfit.Value, DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit");
-                        if (signal.StopLoss.HasValue && futType == "MARKET")
+                        if (signal.StopLoss.HasValue && !slIsEntryTrigger)
                             await AttachProtectiveOrderAsync(symbol, exitSide, "STOP_MARKET",
                                 signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
-                        if (signal.TrailStopValue is > 0 && futType == "MARKET")
+                        // A trailing distance is never an entry trigger, so it has no
+                        // ambiguity to resolve — it was only ever gated by copy-paste.
+                        if (signal.TrailStopValue is > 0)
                             await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailStopValue.Value, DeriveProtectiveOid(signal.ClientOid, "ts"));
-                        if (signal.TrailTpValue is > 0 && futType == "MARKET")
+                        if (signal.TrailTpValue is > 0)
                             await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailTpValue.Value, DeriveProtectiveOid(signal.ClientOid, "ttp"), signal.TrailTpActivation);
 
                         return id;

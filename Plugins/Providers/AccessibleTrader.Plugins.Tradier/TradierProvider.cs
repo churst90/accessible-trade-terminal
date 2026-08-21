@@ -804,6 +804,20 @@ namespace AccessibleTrader.Plugins.Tradier
                         return await PlaceBracketAsync(signal);
                     }
 
+                    // The options branch has no bracket path, and PlaceBracketAsync
+                    // above builds equity legs only. SupportsStopLoss/SupportsTakeProfit
+                    // are declared true for the provider as a whole, so the dashboard
+                    // offers the fields on an options ticket too and they were being
+                    // dropped exactly the way equity legs were before 2026-07-22 —
+                    // silently, on a live position. Same defect, one branch over.
+                    if (isOption
+                        && signal.Type is OrderType.Market or OrderType.Limit
+                        && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
+                    {
+                        return "ORDER_FAILED:protective legs are not supported on options orders here yet. "
+                             + "Place the option order on its own, then set the stop or target on the position";
+                    }
+
                     var postData = new Dictionary<string, string>
                     {
                         ["class"] = isOption ? "option" : "equity",

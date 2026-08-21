@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
@@ -201,14 +202,18 @@ public abstract class BaseStrategy : ITradingStrategy
             // Stop has priority when both trigger on the same bar — the conservative
             // assumption used in StrategyBacktester. Prevents an intra-bar fast move
             // from booking a TP-win on a trade that would realistically stop out.
+            // Exit at what the bar would actually have paid, not at the level. A bar
+            // that opened past the stop gapped through it, and these numbers are shown
+            // to the user as this strategy's live win rate and P&L — the one place an
+            // optimistic fill is indistinguishable from a strategy that works.
             if (stopHit)
             {
-                CloseTheoretical(t, t.Stop, isWin: false);
+                CloseTheoretical(t, BarFill.StopExit(t.Stop, bar.Open, t.Side), isWin: false);
                 _openTheoreticals.RemoveAt(i);
             }
             else if (tpHit)
             {
-                CloseTheoretical(t, t.Target, isWin: true);
+                CloseTheoretical(t, BarFill.TargetExit(t.Target, bar.Open, t.Side), isWin: true);
                 _openTheoreticals.RemoveAt(i);
             }
         }

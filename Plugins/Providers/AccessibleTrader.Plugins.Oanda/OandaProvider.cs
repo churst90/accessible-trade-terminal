@@ -704,8 +704,19 @@ namespace AccessibleTrader.Plugins.Oanda
                             return "ORDER_FAILED:Unsupported order type";
                     }
 
-                    // Attach stop-loss on fill
-                    if (signal.StopLoss.HasValue && signal.Type == OrderType.Market)
+                    // Attach stop-loss on fill.
+                    //
+                    // Not market-only. OANDA accepts stopLossOnFill on a LIMIT order
+                    // exactly as it does on a market one, and gating this on Market
+                    // while takeProfitOnFill below is ungated produced the worst
+                    // possible split: a limit entry carrying both legs got its target
+                    // and lost its stop, silently, leaving a live position naked with
+                    // nothing said. Same shape as the paper broker's bracket bug.
+                    //
+                    // STOP entries are excluded because StopLoss is spent above as the
+                    // entry's own trigger price (see the STOP cases); re-reading it
+                    // here would attach a protective stop at the entry itself.
+                    if (signal.StopLoss.HasValue && signal.Type is OrderType.Market or OrderType.Limit)
                     {
                         orderRequest["stopLossOnFill"] = new JObject
                         {

@@ -26,11 +26,21 @@ unusually dangerous.** Several of the criticals below are invisible on review pr
 confident, well-written comment directly above the defect asserts the opposite. Those are called
 out individually.
 
-### Ship-blockers — paper trading money math
+### Ship-blockers — paper trading money math — **ALL FOUR FIXED 2026-08-21**
 
 Paper trading IS the hosted product; every logged-in web user touches this code.
 
-- [ ] **The taker fee is spent outside the affordability check, so a maximal order lands the
+**Line-level fix plan for all four: [PAPER_TRADING_FIX_BRIEF.md](PAPER_TRADING_FIX_BRIEF.md)** —
+required work order, the settlement-contract change fixes 2–4 depend on, the two twin defects the
+audit did not list, and the structural test that stops the class from recurring.
+
+All four are fixed, in the brief's order, each with its named twin sweep. Suite green at 3359.
+The two twins the audit had not listed were real and are fixed too: a buy limit above the market
+filled at the limit rather than at the market, and three backtest/research fill sites booked a
+gapped-through stop at the stop it had skipped. The fill rule now lives in ONE place —
+`Core/Services/Trading/BarFill.cs` — and every fill site calls it.
+
+- [x] **FIXED — The taker fee is spent outside the affordability check, so a maximal order lands the
   account at negative cash.** VERIFIED. `PaperTradingProvider.CanFill:673` tests
   `_cash + s.CashDelta + 1e-9 >= 0`; `RecordFill:745` then does `_cash -= fee` with no check.
   Cash 100,000, market buy 1,000 units at 100 → `CanFill` passes at exactly 0, then the 40 fee
@@ -41,7 +51,7 @@ Paper trading IS the hosted product; every logged-in web user touches this code.
   — it states "There is exactly one way to be unable to settle: free cash would go negative", and
   the fee is the second way. Fix: fold the fee into `Settlement.CashDelta` so one number is both
   checked and applied.
-- [ ] **A stop order on the wrong side of the market fills at its trigger, minting money from
+- [x] **FIXED — A stop order on the wrong side of the market fills at its trigger, minting money from
   nothing.** VERIFIED. `Crossed:521` is direction-blind — `o.Side == OrderSide.Buy ? bar.High >=
   o.Trigger : bar.Low <= o.Trigger` — and the fill price is `o.Trigger` (`:438`). Nothing on the
   resting path validates the trigger against the live price (`ProtectiveLevelValidator` is only
@@ -51,7 +61,7 @@ Paper trading IS the hosted product; every logged-in web user touches this code.
   above-market trigger. Fix: reject a buy stop at or below last price and a sell stop at or above
   it (call the validator that already encodes this rule), or fill an already-crossed stop at the
   live price.
-- [ ] **Protective legs attach only to MARKET entries; a limit or stop entry silently drops
+- [x] **FIXED — Protective legs attach only to MARKET entries; a limit or stop entry silently drops
   `StopLoss`, `TakeProfit` and both trailing configs.** VERIFIED. The whole bracket block sits
   inside `if (signal.Type == OrderType.Market)` (`:264-304`). The resting branch reads `StopLoss`
   only as a trigger fallback for a `StopMarket` type; for `OrderType.Limit` the switch is
@@ -64,7 +74,7 @@ Paper trading IS the hosted product; every logged-in web user touches this code.
   fully silent — but it arrives after the user has already heard "Limit buy sent", and in
   `RiskAtStop` sizing the unprotected position is often several times the account.
   `QuickTradeExecutor`'s own comment says "**The stop travels with the entry, always**".
-- [ ] **Bracket legs are not reduce-only, so a manual close leaves orders that open a brand-new
+- [x] **FIXED — Bracket legs are not reduce-only, so a manual close leaves orders that open a brand-new
   opposite position.** VERIFIED. The comment at `:279` says "(reduce-only by nature here)" — true
   before 2.3.0, false now that `Settle` turns a sell-with-no-position into a collateralised short.
   Close a bracketed long from the dashboard's Close button (which does not cancel the legs); the
@@ -771,11 +781,28 @@ guesses are invisible until money moves.
   while `Capabilities` declares `FuturesTrading`. **A futures order placed through this terminal
   cannot be cancelled through this terminal** (`-2011 Unknown order sent` → `return false`), the
   futures open-orders list is always empty, and the futures user-data stream is never opened.
-- [ ] **Binance and Oanda attach a stop loss only to MARKET entries** and silently drop it on limit
-  entries, while both venues accept it. Limit entry with both legs: the target attaches, the stop
-  does not, no message, position live and naked. Binance's loud "POSITION UNPROTECTED" path is never
-  reached because the attach never runs. IB and Tradier-options drop protective legs the same way.
-  (Same defect class as the paper broker's bracket bug above — four venues, one shape.)
+- [x] **PARTLY FIXED 2026-08-21 — Binance and Oanda attach a stop loss only to MARKET entries** and
+  silently drop it on limit entries, while both venues accept it. Limit entry with both legs: the
+  target attaches, the stop does not, no message, position live and naked. Binance's loud "POSITION
+  UNPROTECTED" path is never reached because the attach never runs. IB and Tradier-options drop
+  protective legs the same way. (Same defect class as the paper broker's bracket bug above — four
+  venues, one shape.)
+  - **Oanda and Binance: fixed.** `stopLossOnFill` / the reduce-only `STOP_MARKET` attach now run
+    for limit entries as well as market ones. Both also gained the entry-trigger disambiguation the
+    paper broker needed — on a stop/TP entry, `StopLoss`/`TakeProfit` is the entry's own trigger and
+    must not also become a protective leg at the same price. Binance's trailing attaches were gated
+    on `MARKET` by copy-paste and are now ungated (a trailing distance is never an entry trigger).
+  - **IB and Tradier-options: made loud, not fixed.** Both now return `ORDER_FAILED` with spoken
+    text rather than placing a naked position. Neither builds brackets yet: IBKR needs a
+    parent/child OCA structure and Tradier needs OTOCO with option legs. **Those two are still
+    open** — see the new item below. The refusal is deliberately scoped to the capabilities each
+    provider actually declares; reading a field only in order to refuse it reads to
+    `ProviderCapabilityAudit` as evidence the capability is implemented.
+- [ ] **IBKR and Tradier-options still cannot attach protective legs at all.** Both declare
+  `SupportsStopLoss`/`SupportsTakeProfit`, so the dashboard renders the fields; both now refuse the
+  order rather than dropping the legs silently. Real fix: build the IBKR parent/child OCA bracket,
+  and extend `PlaceBracketAsync` to emit OTOCO with option legs. Until then the declared capability
+  is honest only because the refusal is audible.
 - [ ] **`OandaProvider.cs:330-348` fabricates a symbol and a side on cancel** — a cancelled *sell* on
   EUR/USD is announced as a cancelled *buy* on an empty symbol — never reports rejections at all,
   and hardcodes `RemainingQuantity: 0` so partial fills announce as complete. `:590-607` also reports

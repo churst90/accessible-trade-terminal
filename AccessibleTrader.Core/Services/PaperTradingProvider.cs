@@ -265,39 +265,39 @@ namespace AccessibleTrader.Core.Services
                 {
                     double px = PriceFor(symbol, 0);
                     if (px <= 0) return Task.FromResult("ORDER_FAILED:no live price for symbol — load its chart first");
-                    if (!CanFill(symbol, signal.Side, signal.Quantity, px, out string? why))
+
+                    // Reduce-only means reduce-only whatever the order type. A "close
+                    // position" that arrives a moment after the position went away must
+                    // not become a fresh trade in the opposite direction.
+                    double mktQty = signal.Quantity;
+                    if (signal.ReduceOnly)
+                    {
+                        double held = _positions.TryGetValue(symbol, out var cur) ? cur.Qty : 0.0;
+                        int wants = signal.Side == OrderSide.Buy ? 1 : -1;
+                        if (Math.Abs(held) < 1e-12 || Math.Sign(held) == wants)
+                        {
+                            const string gone = "the position was already closed";
+                            Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Cancelled, false, false, reason: gone);
+                            return Task.FromResult("ORDER_FAILED:" + gone);
+                        }
+                        mktQty = Math.Min(signal.Quantity, Math.Abs(held));
+                    }
+
+                    if (!CanFill(symbol, signal.Side, mktQty, px, out string? why))
                     {
                         Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Rejected, false, false, reason: why);
                         return Task.FromResult("ORDER_FAILED:" + why);
                     }
 
                     string id = NewId();
-                    var pnl = ApplyFill(symbol, signal.Side, signal.Quantity, px);
-                    Emit(id, symbol, signal.Side, signal.Quantity, px, 0, OrderStatus.Filled, false, false, pnl);
-                    RecordFill(symbol, signal.Side, signal.Quantity, px, pnl, id);
+                    var pnl = ApplyFill(symbol, signal.Side, mktQty, px);
+                    Emit(id, symbol, signal.Side, mktQty, px, 0, OrderStatus.Filled, false, false, pnl);
+                    RecordFill(symbol, signal.Side, mktQty, px, pnl, id);
 
-                    // Attach protective resting orders (reduce-only by nature here).
-                    //
-                    // Both legs share one OCO group. A bracket IS a one-cancels-other
-                    // pair whether or not the caller supplied a group id, and without
-                    // it the surviving leg outlived the position it was protecting:
-                    // the stop closed the trade, the target stayed on the book, and
-                    // the next rally filled it into a short nobody opened.
-                    var exit = signal.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-                    string bracket = signal.OcoGroupId ?? "bracket-" + id;
-                    if (signal.TrailStopValue is > 0 && signal.TrailStopMode != null)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, px, true, false,
-                            signal.TrailStopMode, signal.TrailStopValue, px, ocoGroupId: bracket));    // trailing stop anchored at entry
-                    else if (signal.StopLoss is > 0)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, signal.Quantity, null, signal.StopLoss, true, false,
-                            ocoGroupId: bracket));
-                    if (signal.TakeProfit is > 0)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, signal.TakeProfit, false, true,
-                            ocoGroupId: bracket));
-                    if (signal.TrailTpValue is > 0 && signal.TrailTpMode != null)
-                        _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, signal.Quantity, null, null, false, true,
-                            signal.TrailTpMode, signal.TrailTpValue, null, signal.TrailTpActivation, armed: signal.TrailTpActivation == null,
-                            ocoGroupId: bracket));  // trailing take-profit
+                    // A market entry exists the instant it fills, so its protection can
+                    // be attached here and now. A resting entry cannot — see below.
+                    var spec = signal.ReduceOnly ? null : BracketFrom(signal, stopLossIsEntryTrigger: false);
+                    if (spec != null) AttachProtectiveLegs(symbol, signal.Side, mktQty, px, spec, id);
 
                     Persist();
                     return Task.FromResult(id);
@@ -316,13 +316,117 @@ namespace AccessibleTrader.Core.Services
                     return Task.FromResult("ORDER_FAILED:order needs a price or trigger");
 
                 bool isStop = signal.Type is OrderType.StopMarket or OrderType.StopLimit;
+
+                // A stop entry on the wrong side of the market is an order to trade
+                // at a price the market has already passed: a buy stop below spot
+                // triggers on the next bar and fills below the asking price. Nothing
+                // else on this path checks the trigger against the live price —
+                // GeneralOrderService validates Price and never TriggerPrice — so
+                // this is the only guard, and without it the simulator mints money.
+                if (isStop && trigger is double t)
+                {
+                    double spot = PriceFor(symbol, 0);
+                    var check = ProtectiveLevelValidator.ValidateStopEntry(
+                        signal.Side == OrderSide.Buy, t, spot);
+                    if (!check.Ok)
+                    {
+                        Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity,
+                            OrderStatus.Rejected, true, false, reason: check.Message);
+                        return Task.FromResult("ORDER_FAILED:" + check.Message);
+                    }
+                }
+
                 bool isTp   = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit;
                 string oid = NewId();
+
+                // The protection travels with the entry. Before this, the bracket block
+                // lived inside the market branch alone, so a limit entry carrying a stop
+                // dropped it silently — and the quick-trade flow sizes the position FROM
+                // the stop distance, meaning the flagship workflow placed a stop-derived
+                // size with no stop on it. The legs cannot be placed yet (there is no
+                // position to protect), so the spec rides along until the entry fills.
+                //
+                // StopLoss is ambiguous here: for a stop entry with no explicit
+                // TriggerPrice it was already consumed above as the entry trigger, and
+                // reusing it as a protective leg would put the stop exactly at the entry.
+                bool stopLossIsEntryTrigger =
+                    isStop && signal.TriggerPrice == null && signal.StopLoss != null;
+                var bracket = BracketFrom(signal, stopLossIsEntryTrigger);
+
                 _open.Add(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
-                    ocoGroupId: signal.OcoGroupId));
+                    ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket));
                 Persist();
                 return Task.FromResult(oid);
             }
+        }
+
+        /// <summary>
+        /// Reads the protective fields off a signal, or null when it carries none.
+        /// </summary>
+        /// <param name="stopLossIsEntryTrigger">
+        /// True when <c>StopLoss</c> was already spent as the entry's own trigger, so it
+        /// must not also become a protective leg.
+        /// </param>
+        private static BracketSpec? BracketFrom(TradeSignal signal, bool stopLossIsEntryTrigger)
+        {
+            var spec = new BracketSpec(
+                stopLossIsEntryTrigger ? null : signal.StopLoss,
+                signal.TakeProfit,
+                signal.TrailStopMode, signal.TrailStopValue,
+                signal.TrailTpMode, signal.TrailTpValue, signal.TrailTpActivation,
+                signal.OcoGroupId);
+            return spec.Any ? spec : null;
+        }
+
+        /// <summary>
+        /// Places the stop and target that protect a position that has just been opened.
+        ///
+        /// <para>
+        /// Both legs share one OCO group. A bracket IS a one-cancels-other pair whether
+        /// or not the caller supplied a group id, and without it the surviving leg
+        /// outlived the position it was protecting: the stop closed the trade, the
+        /// target stayed on the book, and the next rally filled it into a short nobody
+        /// opened.
+        /// </para>
+        ///
+        /// <para>
+        /// **Every leg is reduce-only, and that is not decoration.** The old comment
+        /// here called them "reduce-only by nature", which stopped being true the moment
+        /// <see cref="Settle"/> learned to turn a sell-with-no-position into a
+        /// collateralised short. Close a bracketed long by hand and the stop would later
+        /// fire into a brand-new short, cancel its own target, and announce "stop loss
+        /// hit" for a trade it had just opened. Reduce-only is what makes an exit an
+        /// exit; anything added here must carry it.
+        /// </para>
+        ///
+        /// <para>Caller holds the lock. The trailing anchor is the FILL price, not the
+        /// price that was requested.</para>
+        /// </summary>
+        private void AttachProtectiveLegs(string symbol, OrderSide entrySide, double qty, double entryPx,
+            BracketSpec spec, string entryOrderId)
+        {
+            if (qty <= 1e-12) return;
+
+            var exit = entrySide == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
+            string bracket = spec.OcoGroupId ?? "bracket-" + entryOrderId;
+
+            if (spec.TrailStopValue is > 0 && spec.TrailStopMode != null)
+                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, entryPx, true, false,
+                    spec.TrailStopMode, spec.TrailStopValue, entryPx, ocoGroupId: bracket,
+                    reduceOnly: true));    // trailing stop anchored at the fill
+            else if (spec.StopLoss is > 0)
+                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, spec.StopLoss, true, false,
+                    ocoGroupId: bracket, reduceOnly: true));
+
+            if (spec.TakeProfit is > 0)
+                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, spec.TakeProfit, false, true,
+                    ocoGroupId: bracket, reduceOnly: true));
+
+            if (spec.TrailTpValue is > 0 && spec.TrailTpMode != null)
+                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, null, false, true,
+                    spec.TrailTpMode, spec.TrailTpValue, null, spec.TrailTpActivation,
+                    armed: spec.TrailTpActivation == null, ocoGroupId: bracket,
+                    reduceOnly: true));  // trailing take-profit
         }
 
         /// <summary>One-cancels-other: after <paramref name="filled"/> executes (or is
@@ -435,22 +539,64 @@ namespace AccessibleTrader.Core.Services
                     // otherwise the sibling would ALSO fill (double position + fee) and then
                     // get a spurious Cancelled. _open.Remove returns false when already gone.
                     if (!_open.Remove(o)) continue;
-                    double px = o.Trigger ?? o.Price ?? bar.Close;
+                    double px = FillPrice(o, bar);
+                    double qty = o.Quantity;
+
+                    // A reduce-only order may shrink a position and nothing else.
+                    //
+                    // Protective legs used to be called "reduce-only by nature", which
+                    // stopped being true once a sell with no position became a short.
+                    // Close a bracketed long from the dashboard — which does not cancel
+                    // the legs — and the stop would fire into a NEW short, cancel its own
+                    // target, and announce "stop loss hit" for a trade it had just opened.
+                    // Partial closes were worse: the legs still carried the original size,
+                    // so the remainder flipped straight through flat into a reversal.
+                    if (o.ReduceOnly)
+                    {
+                        double held = _positions.TryGetValue(o.Symbol, out var cur) ? cur.Qty : 0.0;
+                        int wants = o.Side == OrderSide.Buy ? 1 : -1;
+
+                        // Flat, or pointing the same way as the position: this can only open.
+                        if (Math.Abs(held) < 1e-12 || Math.Sign(held) == wants)
+                        {
+                            Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Cancelled, o.IsStop, o.IsTp,
+                                reason: "the position was already closed");
+                            // Its sibling protects nothing either; leaving it resting is
+                            // exactly how the surviving leg opens a position of its own.
+                            CancelOcoSiblings(o);
+                            continue;
+                        }
+
+                        qty = Math.Min(o.Quantity, Math.Abs(held));
+                    }
 
                     // Affording an order when it was placed does not mean affording it
                     // when it triggers — the cash can be spent, or the position sold,
                     // while the order rests. Filling regardless drove the account cash
                     // negative and sold assets it no longer held.
-                    if (!CanFill(o.Symbol, o.Side, o.Quantity, px, out string? why))
+                    //
+                    // Every one of the four calls below takes `qty`, not o.Quantity. A
+                    // clamp applied to only some of them is how this class of bug breeds.
+                    if (!CanFill(o.Symbol, o.Side, qty, px, out string? why))
                     {
                         Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Rejected, o.IsStop, o.IsTp, reason: why);
                         continue;
                     }
 
-                    var pnl = ApplyFill(o.Symbol, o.Side, o.Quantity, px);
-                    Emit(o.Id, o.Symbol, o.Side, o.Quantity, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
-                    RecordFill(o.Symbol, o.Side, o.Quantity, px, pnl, o.Id);
+                    var pnl = ApplyFill(o.Symbol, o.Side, qty, px);
+                    Emit(o.Id, o.Symbol, o.Side, qty, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
+                    RecordFill(o.Symbol, o.Side, qty, px, pnl, o.Id);
                     CancelOcoSiblings(o);
+
+                    // The entry has become a position, so now its protection can exist.
+                    // Anchored at the FILL price, which is what a market entry already
+                    // did — a trailing stop measured from the requested price would
+                    // trail from a number the trade never touched.
+                    if (o.Bracket != null && !o.ReduceOnly)
+                    {
+                        double held = _positions.TryGetValue(o.Symbol, out var np) ? np.Qty : 0.0;
+                        AttachProtectiveLegs(o.Symbol, o.Side, Math.Min(qty, Math.Abs(held)), px, o.Bracket, o.Id);
+                    }
                 }
                 Persist();
             }
@@ -472,6 +618,16 @@ namespace AccessibleTrader.Core.Services
         /// Uses the bar's HIGH, not its close: the collateral is gone at the moment
         /// price touches the level, and a bar that spiked through and recovered still
         /// liquidated you on a real venue. Caller holds the lock.
+        /// </para>
+        ///
+        /// <para>
+        /// **This is the one path that may leave cash negative, and that is
+        /// deliberate.** It does not consult <see cref="CanFill"/> — a liquidation
+        /// is not an order the account gets to decline — so the buy-back's fee can
+        /// take free cash below zero, and <see cref="CanFill"/> will then refuse
+        /// every subsequent order. Being wiped out is the lesson; a ruined account
+        /// that still accepts trades would teach the opposite. Recovery is
+        /// <see cref="ResetAccount"/>, exposed in Settings.
         /// </para>
         /// </summary>
         private void LiquidateIfCollateralExhausted(string symbol, Ohlcv bar)
@@ -504,6 +660,20 @@ namespace AccessibleTrader.Core.Services
             }
 
             _logger.LogWarning("Paper short on {Symbol} liquidated at {Price}", symbol, liqPrice);
+        }
+
+        /// <summary>
+        /// What a crossed resting order actually fills at. The rule — and why it is
+        /// not written out here — is in <see cref="BarFill"/>; this only decides
+        /// which level and which flavour of order to hand it.
+        /// </summary>
+        private static double FillPrice(PaperOrder o, Ohlcv bar)
+        {
+            double level = o.Trigger ?? o.Price ?? bar.Close;
+
+            // Trailing exits trigger stop-wise (on a reversal to the trigger)
+            // whether they are labelled stop or take-profit — matching Crossed.
+            return BarFill.Price(level, bar.Open, o.Side, stopLike: o.IsStop || o.Trail != null);
         }
 
         private static bool Crossed(PaperOrder o, Ohlcv bar)
@@ -651,11 +821,19 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            return new Settlement(closingQty, openingQty, cash, collateral, pos.Qty < 0);
+            // The taker fee is part of what a fill costs, so it belongs in the same
+            // number the affordability check tests. Charged unconditionally, both
+            // directions: closing costs the fee too. Anything that spends cash
+            // outside this method can overdraw an account that CanFill just cleared.
+            double fee = qty * price * FeeRate;
+            cash -= fee;
+
+            return new Settlement(closingQty, openingQty, cash, collateral, pos.Qty < 0, fee);
         }
 
         private readonly record struct Settlement(
-            double ClosingQty, double OpeningQty, double CashDelta, double CollateralDelta, bool WasShort);
+            double ClosingQty, double OpeningQty, double CashDelta, double CollateralDelta, bool WasShort,
+            double Fee);
 
         /// <summary>
         /// Whether the account can settle this fill, with the reason in spoken words
@@ -663,10 +841,12 @@ namespace AccessibleTrader.Core.Services
         ///
         /// <para>
         /// There is exactly one way to be unable to settle: free cash would go
-        /// negative. Buying spends it, opening a short posts margin from it, and
-        /// closing either returns it. Everything else — including selling an asset
-        /// you do not hold, which is now a short rather than an impossibility —
-        /// falls out of that single test.
+        /// negative. Buying spends it, opening a short posts margin from it,
+        /// closing either returns it, and the taker fee comes off every one of
+        /// them. Everything else — including selling an asset you do not hold,
+        /// which is now a short rather than an impossibility — falls out of that
+        /// single test, but only because <see cref="Settle"/> is the sole place
+        /// cash moves. Keep it that way.
         /// </para>
         /// </summary>
         private bool CanFill(string symbol, OrderSide side, double qty, double price, out string? reason)
@@ -740,11 +920,12 @@ namespace AccessibleTrader.Core.Services
             return realized;
         }
 
-        // Apply a simulated taker fee to a fill and log it to the (capped) history.
+        // Log a fill to the (capped) history. The fee is recomputed here for the
+        // history line only — it was already charged inside Settle, which is what
+        // lets CanFill see it. Do not subtract it again.
         private void RecordFill(string symbol, OrderSide side, double qty, double price, double? realized, string orderId)
         {
             double fee = qty * price * FeeRate;
-            _cash -= fee;
             _history.Insert(0, new TradeFill(NewId(), symbol, side, qty, price, DateTime.UtcNow, fee, orderId, realized ?? 0));
             if (_history.Count > 200) _history.RemoveRange(200, _history.Count - 200);
         }
@@ -813,7 +994,15 @@ namespace AccessibleTrader.Core.Services
                         Id = o.Id, Symbol = o.Symbol, Side = o.Side.ToString(), Type = o.Type.ToString(),
                         Quantity = o.Quantity, Price = o.Price, Trigger = o.Trigger, Stop = o.IsStop, Tp = o.IsTp,
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
-                        Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId
+                        Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId,
+                        ReduceOnly = o.ReduceOnly,
+                        Bracket = o.Bracket == null ? null : new BracketDto
+                        {
+                            StopLoss = o.Bracket.StopLoss, TakeProfit = o.Bracket.TakeProfit,
+                            TrailStopMode = o.Bracket.TrailStopMode?.ToString(), TrailStopValue = o.Bracket.TrailStopValue,
+                            TrailTpMode = o.Bracket.TrailTpMode?.ToString(), TrailTpValue = o.Bracket.TrailTpValue,
+                            TrailTpActivation = o.Bracket.TrailTpActivation, Oco = o.Bracket.OcoGroupId
+                        }
                     }).ToList(),
                     History = _history.ToList(),
                     Collateral = _collateral.Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
@@ -845,7 +1034,13 @@ namespace AccessibleTrader.Core.Services
                         Enum.TryParse<OrderType>(o.Type, out var t) ? t : OrderType.Market,
                         o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
                         Enum.TryParse<TrailMode>(o.Trail, out var tm) ? tm : (TrailMode?)null, o.TrailValue, o.TrailAnchor,
-                        o.Activation, o.Armed, o.Oco));
+                        o.Activation, o.Armed, o.Oco, o.ReduceOnly,
+                        o.Bracket == null ? null : new BracketSpec(
+                            o.Bracket.StopLoss, o.Bracket.TakeProfit,
+                            Enum.TryParse<TrailMode>(o.Bracket.TrailStopMode, out var bsm) ? bsm : (TrailMode?)null,
+                            o.Bracket.TrailStopValue,
+                            Enum.TryParse<TrailMode>(o.Bracket.TrailTpMode, out var btm) ? btm : (TrailMode?)null,
+                            o.Bracket.TrailTpValue, o.Bracket.TrailTpActivation, o.Bracket.Oco)));
                 if (dto.History != null) _history.AddRange(dto.History);
                 foreach (var c in dto.Collateral ?? new List<LevDto>()) _collateral[c.Symbol] = c.Value;
                 foreach (var c in dto.Charts ?? new List<IdentDto>())
@@ -887,16 +1082,49 @@ namespace AccessibleTrader.Core.Services
             public bool Armed { get; set; }              // mutable: whether trailing is active yet
             public string? OcoGroupId { get; }           // one-cancels-other pair membership
 
+            /// <summary>
+            /// May only shrink an existing position, never open one. Every protective
+            /// leg carries this; see <see cref="AttachProtectiveLegs"/>.
+            /// </summary>
+            public bool ReduceOnly { get; }
+
+            /// <summary>
+            /// Protective legs to attach when this order fills, for an entry that is
+            /// still resting. Null for market entries (which attach immediately) and
+            /// for orders carrying no protection.
+            /// </summary>
+            public BracketSpec? Bracket { get; }
+
             public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
                 double? price, double? trigger, bool isStop, bool isTp,
                 TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null,
-                double? activation = null, bool armed = true, string? ocoGroupId = null)
+                double? activation = null, bool armed = true, string? ocoGroupId = null,
+                bool reduceOnly = false, BracketSpec? bracket = null)
             {
                 Id = id; Symbol = symbol; Side = side; Type = type; Quantity = quantity;
                 Price = price; Trigger = trigger; IsStop = isStop; IsTp = isTp;
                 Trail = trail; TrailValue = trailValue; TrailAnchor = trailAnchor;
                 Activation = activation; Armed = armed; OcoGroupId = ocoGroupId;
+                ReduceOnly = reduceOnly; Bracket = bracket;
             }
+        }
+
+        /// <summary>
+        /// The protective legs an entry is supposed to acquire — carried on a resting
+        /// entry until it fills, because a bracket cannot be placed against a position
+        /// that does not exist yet.
+        /// </summary>
+        private sealed record BracketSpec(
+            double? StopLoss, double? TakeProfit,
+            TrailMode? TrailStopMode, double? TrailStopValue,
+            TrailMode? TrailTpMode, double? TrailTpValue, double? TrailTpActivation,
+            string? OcoGroupId)
+        {
+            /// <summary>Whether there is any protection here worth carrying.</summary>
+            public bool Any =>
+                StopLoss is > 0 || TakeProfit is > 0
+                || (TrailStopValue is > 0 && TrailStopMode != null)
+                || (TrailTpValue is > 0 && TrailTpMode != null);
         }
 
         private sealed class PaperDto
@@ -936,6 +1164,24 @@ namespace AccessibleTrader.Core.Services
             public double? TrailAnchor { get; set; }
             public double? Activation { get; set; }
             public bool Armed { get; set; } = true;
+            public string? Oco { get; set; }
+
+            // A leg that comes back from disk without ReduceOnly would be free to
+            // open a position, and a pending bracket that does not survive a restart
+            // is a silently unprotected entry — the same bug in different clothes.
+            public bool ReduceOnly { get; set; }
+            public BracketDto? Bracket { get; set; }
+        }
+
+        private sealed class BracketDto
+        {
+            public double? StopLoss { get; set; }
+            public double? TakeProfit { get; set; }
+            public string? TrailStopMode { get; set; }
+            public double? TrailStopValue { get; set; }
+            public string? TrailTpMode { get; set; }
+            public double? TrailTpValue { get; set; }
+            public double? TrailTpActivation { get; set; }
             public string? Oco { get; set; }
         }
     }

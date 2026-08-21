@@ -627,6 +627,39 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                             orderBody["price"] = signal.Price ?? t;
                     }
 
+                    // Protective legs are NOT attached by this provider.
+                    //
+                    // An IBKR bracket is a parent/child OCA structure, which this
+                    // builder does not construct — but SupportsStopLoss and
+                    // SupportsTakeProfit above are both true, so the dashboard renders
+                    // the fields and the user fills them in. Everything above reads
+                    // StopLoss/TakeProfit only as an ENTRY trigger, so on a market or
+                    // limit entry they were being dropped on the floor: the user typed
+                    // a stop, heard the order confirmed, and held a naked position —
+                    // and with stop-distance sizing that position is sized for a stop
+                    // that does not exist.
+                    //
+                    // Refusing is the honest failure. Saying nothing is not.
+                    //
+                    // Scoped to stop loss and take profit because those are the two this
+                    // provider advertises. Trailing is deliberately not named here: the
+                    // TrailingStop capability is NOT declared, so those controls never
+                    // render for IBKR — and reading the trailing fields purely in order
+                    // to refuse them would read to ProviderCapabilityAudit as evidence
+                    // that trailing is implemented, which is how a capability claim the
+                    // code cannot back gets created rather than caught.
+                    bool slIsEntryTrigger = signal.Type is OrderType.StopMarket or OrderType.StopLimit
+                                            && signal.StopLoss.HasValue;
+                    bool tpIsEntryTrigger = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
+                                            && signal.TriggerPrice == null && signal.TakeProfit.HasValue;
+                    if ((signal.StopLoss is > 0 && !slIsEntryTrigger)
+                        || (signal.TakeProfit is > 0 && !tpIsEntryTrigger))
+                    {
+                        return "ORDER_FAILED:this provider cannot attach a stop loss or take profit to an "
+                             + "entry order yet. Place the entry on its own, then set the protective levels "
+                             + "on the position once it fills";
+                    }
+
                     if (!string.IsNullOrEmpty(signal.ClientOid))
                         orderBody["cOID"] = signal.ClientOid;
 

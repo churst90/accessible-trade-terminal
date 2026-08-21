@@ -1,5 +1,7 @@
 using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.StrategyLab;
 
@@ -263,7 +265,13 @@ public static class PyramidCommand
             // a bar that trades through the stop and then rallies is a loss, not an opportunity.
             if (bars[i].Low <= stop)
             {
-                double rOut = size * (stop - avg) - cost;
+                // Filled at the stop only if the bar did not open beneath it. This
+                // command's whole thesis is that tightening the stop as you pyramid
+                // pays, so an exit that ignores gaps biases exactly the number under
+                // test — and the ratcheted stop sits closer to price on every add,
+                // which is where gaps do their damage.
+                double fill = BarFill.StopExit(stop, bars[i].Open, OrderSide.Buy);
+                double rOut = size * (fill - avg) - cost;
                 return new TradeOutcome(rOut / RiskUnit, i - entry,
                     sizeBarSum / Math.Max(1, i - entry) / size0, adds, peak / size0);
             }

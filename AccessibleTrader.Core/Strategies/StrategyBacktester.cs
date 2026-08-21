@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
@@ -218,7 +219,11 @@ public class StrategyBacktester : IStrategyBacktester
                     : bar.High >= openStop.Value;
                 if (stopHit)
                 {
-                    double exitPrice = openStop.Value;
+                    // Not openStop.Value. When the bar OPENS past the stop the market
+                    // gapped through it and was never at that price — booking the loss
+                    // at the stop invents a fill nobody could have got, and does it in
+                    // the direction that flatters every strategy this engine scores.
+                    double exitPrice = BarFill.StopExit(openStop.Value, bar.Open, openSide.Value);
                     double commission = exitPrice * openRemainingQty * config.CommissionRate;
                     double pnl = openSide.Value == OrderSide.Buy
                         ? (exitPrice - openEntryPrice) * openRemainingQty - commission
@@ -265,10 +270,16 @@ public class StrategyBacktester : IStrategyBacktester
                 double closeQty = Math.Min(openRemainingQty, openInitialQty * portion);
                 if (closeQty <= 0) break;
 
-                double commission = tpPrice * closeQty * config.CommissionRate;
+                // Same correction as the stop above, opposite sign: a bar that opened
+                // beyond the rung filled there, which is better than the rung, not at
+                // it. Leaving this uncorrected while correcting the stop would make
+                // the two exit paths disagree about what a gap means.
+                double fillPx = BarFill.TargetExit(tpPrice, bar.Open, openSide.Value);
+
+                double commission = fillPx * closeQty * config.CommissionRate;
                 double pnl = openSide.Value == OrderSide.Buy
-                    ? (tpPrice - openEntryPrice) * closeQty - commission
-                    : (openEntryPrice - tpPrice) * closeQty - commission;
+                    ? (fillPx - openEntryPrice) * closeQty - commission
+                    : (openEntryPrice - fillPx) * closeQty - commission;
 
                 equity += pnl;
                 if (equity > peakEquity) peakEquity = equity;
@@ -278,7 +289,7 @@ public class StrategyBacktester : IStrategyBacktester
 
                 trades.Add(new BacktestTrade(
                     openTime, openEntryPrice, openSide.Value, closeQty,
-                    bar.Date, tpPrice, pnl,
+                    bar.Date, fillPx, pnl,
                     $"TP rung hit at {tpPrice:F4}",
                     StopPrice:   openStop,
                     BarsInTrade: i - openBarIndex,
