@@ -48,7 +48,7 @@
                         var isSel = s.Title == _tab;
                         <button role="tab"
                                 id="@TabId(s.Title)"
-                                aria-selected="@isSel"
+                                aria-selected="@(isSel ? "true" : "false")"
                                 aria-controls="dossier-panel"
                                 @onclick="() => _tab = s.Title">
                             @s.Title@(s.Status == DossierStatus.Ok ? "" : " (empty)")
@@ -57,7 +57,7 @@
                     @if (_dossier.Flags.Count > 0)
                     {
                         <button role="tab" id="@TabId(ChecksTab)"
-                                aria-selected="@(_tab == ChecksTab)" aria-controls="dossier-panel"
+                                aria-selected="@(_tab == ChecksTab ? "true" : "false")" aria-controls="dossier-panel"
                                 @onclick="() => _tab = ChecksTab">
                             Checks (@_dossier.RaisedFlags.Count of @_dossier.Flags.Count flagged)
                         </button>

@@ -39,10 +39,10 @@
 
             <div role="tablist" aria-label="Respect report sections" style="margin-bottom:12px;">
                 <button role="tab" id="lr-tab-levels"
-                        aria-selected="@(_tab == Tab.Levels)" aria-controls="lr-panel"
+                        aria-selected="@(_tab == Tab.Levels ? "true" : "false")" aria-controls="lr-panel"
                         @onclick="() => _tab = Tab.Levels">Levels near price</button>
                 <button role="tab" id="lr-tab-mas"
-                        aria-selected="@(_tab == Tab.MovingAverages)" aria-controls="lr-panel"
+                        aria-selected="@(_tab == Tab.MovingAverages ? "true" : "false")" aria-controls="lr-panel"
                         @onclick="() => _tab = Tab.MovingAverages">Moving-average ranking</button>
                 <button type="button" @onclick="RefreshAsync" disabled="@_busy">Re-measure</button>
                 <label>

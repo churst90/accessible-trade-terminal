@@ -72,7 +72,7 @@
                         @(_importing ? "Importing…" : "Import")
                     </button>
                     <button type="button" @onclick="ToggleTemplates"
-                            aria-expanded="@_showTemplates">
+                            aria-expanded="@(_showTemplates ? "true" : "false")">
                         @(_showTemplates ? "Hide templates" : "Show templates")
                     </button>
                 </fieldset>

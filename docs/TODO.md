@@ -523,14 +523,14 @@ impossible for any test to notice a focus bug.
   License and About are mouse-only. The settings search box is the sole workaround and it covers
   only the 24 hardcoded registry rows. Fix: add the arrow handler, or drop the roving tabindex so
   all six are plain Tab stops (which is what StrategyModal/Properties/TradingDashboard already do).
-- [ ] **Pressing Enter to save a workspace kills the session.** VERIFIED.
+- [x] **FIXED 2026-08-21 — Pressing Enter to save a workspace kills the session.** VERIFIED.
   `SaveWorkspaceModal.razor:98-104` — `await Task.Run(() => Save())`, and `Save()` calls `Close()`
   → `ModalBase.CloseModal()` → `StateHasChanged()`, which asserts dispatcher affinity and throws
   `InvalidOperationException` off the thread pool. On the WebHost an unhandled exception from an
   `async Task` handler is fatal to the circuit: chart, tabs and unsaved layout all gone, with no
   spoken explanation. The `@onclick` path is fine — **only the Enter key is broken**, i.e. exactly
   the path a keyboard-only user takes. `Save()` is millisecond-scale file I/O; delete the `Task.Run`.
-- [ ] **Five components bind `aria-selected` to a bare C# `bool`**, so no tab in them ever reports
+- [x] **FIXED 2026-08-21 — Five components bind `aria-selected` to a bare C# `bool`**, so no tab in them ever reports
   as selected. `StrategyModal` (6 tabs), `WatchlistModal` (3), `LevelReportModal` (2),
   `AssetDossierModal`, `MyDataModal`. `RenderTreeBuilder.AddAttribute(int, string, bool)` on an
   element omits the attribute when false and emits it *valueless* when true; an empty string is not
@@ -540,7 +540,7 @@ impossible for any test to notice a focus bug.
   Strategy Manager hears no "selected" on any tab and has no other cue, because the visual cue is a
   background colour. Add a `ModalContractScanTests` assertion that no `aria-` attribute is bound to
   a bare boolean.
-- [ ] **Every dialog heading and form label is black ink on a dark panel.** `app.css:425,430,515,534`
+- [x] **FIXED 2026-08-21 — Every dialog heading and form label is black ink on a dark panel.** `app.css:425,430,515,534`
   pin `color: #111` on `.modal-content h2`, `.modal-content label`, `.object-tree-item` and
   `.shortcuts-table` against `--bg-surface: #2b2f36` — roughly 1.2:1. The comment 23 lines above at
   `:402` says the fix already happened: *"Dialogs take the theme like everything else. They **were**
@@ -551,6 +551,17 @@ impossible for any test to notice a focus bug.
   readable and unreadable. Screen-reader users are unaffected, which is precisely why it survived.
   This is the low-vision half of the audience. Fix: `var(--text-on-surface)`, and add a CSS scan
   test for literal hex colours inside `.modal-content`.
+  - **Fixed in both stylesheets** — there are two copies of `app.css` (MAUI client and WebHost) and
+    they have already drifted, so the scan checks both. The ink, the rules and BOTH highlight fills
+    moved together: recolouring only the text would have swapped one unreadable pairing for another
+    (light ink on the pale-blue `#e0eeff` focus fill), which is how a half-done contrast fix passes
+    a spot check and fails on the row the user is standing on.
+  - **The scan found a fifth site the audit missed:** `.modal-content button.primary` pinned
+    `color: #0c0f14` — near-black ink on `var(--accent-color)`. Correct only while the accent stays
+    light, and the accent is a theme value, so a dark accent made the label of the most consequential
+    button in every dialog unreadable. Fixed properly rather than exempted: `ThemeCssBridge` now
+    emits `--text-on-accent`, chosen by luminance exactly as `FocusRingFor` already does, with a
+    per-theme test asserting the separation. The default theme renders identically.
 - [ ] **The Object Tree labels its buttons with the state they are leaving.**
   `ObjectTreeModal.razor:76,109` render `@(series.IsVisible ? "Show" : "Hide")` — so a *visible*
   series shows a button reading "Show" — and `:83,115` render `@(series.IsMuted ? "Mute" : "Sound")`.

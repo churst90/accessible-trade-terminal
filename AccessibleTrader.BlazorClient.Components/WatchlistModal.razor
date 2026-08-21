@@ -52,13 +52,13 @@
 
             <div role="tablist" aria-label="Market watch sections" style="margin-bottom:12px;">
                 <button role="tab" id="watchlist-tab-lists"
-                        aria-selected="@(_tab == Tab.Lists)" aria-controls="watchlist-panel"
+                        aria-selected="@(_tab == Tab.Lists ? "true" : "false")" aria-controls="watchlist-panel"
                         @onclick="() => _tab = Tab.Lists">Watchlists</button>
                 <button role="tab" id="watchlist-tab-build"
-                        aria-selected="@(_tab == Tab.Build)" aria-controls="watchlist-panel"
+                        aria-selected="@(_tab == Tab.Build ? "true" : "false")" aria-controls="watchlist-panel"
                         @onclick="() => _tab = Tab.Build">Build a screen</button>
                 <button role="tab" id="watchlist-tab-screen"
-                        aria-selected="@(_tab == Tab.Screen)" aria-controls="watchlist-panel"
+                        aria-selected="@(_tab == Tab.Screen ? "true" : "false")" aria-controls="watchlist-panel"
                         @onclick="() => _tab = Tab.Screen">Run screener</button>
             </div>
 

@@ -85,6 +85,25 @@ namespace AccessibleTrader.Tests
                 $"{type}: focus ring luminance {ring:0.00} against a {surface:0.00} toolbar.");
         }
 
+        [Theory]
+        [MemberData(nameof(AllThemes))]
+        public void EveryTheme_getsReadableInkOnItsAccent(ThemeType type)
+        {
+            var theme = Build(type);
+
+            // Primary buttons — Save, Place order, Confirm — are the accent colour with text on
+            // top, and that text was a hardcoded near-black. Correct for the default accent and
+            // wrong for any dark one, which is the label of the most consequential button in
+            // every dialog. Measured per theme for the same reason as the focus ring: picking
+            // it by hand is a thing to forget the next time a theme is added.
+            double accent = ThemeCssBridge.Luminance(theme.Accent);
+            double ink    = ThemeCssBridge.Luminance(ThemeCssBridge.InkOn(theme.Accent));
+
+            Assert.True(Math.Abs(accent - ink) > 0.35,
+                $"{type}: accent luminance {accent:0.00} vs its ink {ink:0.00} — the primary " +
+                "button's label is too close in brightness to the button.");
+        }
+
         // ── The bridge ───────────────────────────────────────────────────
 
         [Fact]

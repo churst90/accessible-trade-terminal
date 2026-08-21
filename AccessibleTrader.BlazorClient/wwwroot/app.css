@@ -37,6 +37,9 @@ html, body {
     --text-muted:    #d4dae3;
     --border-color:  #868e9a;
     --accent-color:  #8fc2ff;
+    /* Ink for text ON the accent. Set per theme by ThemeCssBridge, which picks it by
+       luminance; this fallback matches the default (light) accent above. */
+    --text-on-accent: #0c0f14;
     --btn-neutral:   #eef2f7;
     --chart-fade-top: #4e545e;
     --focus-outline-color: #ffff00;
@@ -218,7 +221,10 @@ button[aria-checked="true"] {
 button.primary {
     background-color: var(--accent-color);
     border-color: var(--accent-color);
-    color: #0c0f14;
+    /* Was a literal #0c0f14 — right only while the accent stays light, and the accent
+       is a theme value. A dark accent made the most important button in the dialog
+       unreadable. ThemeCssBridge.InkOn picks this end by luminance. */
+    color: var(--text-on-accent);
     font-weight: 600;
 }
 
@@ -422,12 +428,15 @@ label {
     border-bottom: 2px solid var(--border-color);
     padding-bottom: 10px;
     font-size: 1.1rem;
-    color: #111;
+    /* Was #111 — black ink left behind when the surface moved to var(--bg-surface).
+       Roughly 1.2:1 on the dark panel. See the note on .modal-content above: the fix
+       landed for the panel and these more-specific rules were not carried with it. */
+    color: var(--text-on-surface);
 }
 
 /* Form controls inside modals */
 .modal-content label {
-    color: #111;
+    color: var(--text-on-surface);   /* was #111 — see .modal-content h2 */
     font-weight: 600;
 }
 
@@ -461,7 +470,7 @@ label {
 
 .modal-content button.primary {
     background: var(--accent-color);
-    color: #0c0f14;
+    color: var(--text-on-accent);   /* see button.primary above */
     border-color: var(--accent-color);
     font-weight: 600;
 }
@@ -506,48 +515,56 @@ label {
 }
 
 /* Object tree list items */
+/* The ink, the rule and BOTH highlight fills move together. Recolouring only the
+   text would have swapped one unreadable pairing for another — light ink on the
+   pale blue #e0eeff focus fill — which is how a half-done contrast fix passes a
+   spot check and fails the user on the row they are actually standing on. */
 .object-tree-item {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 6px 8px;
-    border-bottom: 1px solid #ddd;
-    color: #111;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-on-surface);
 }
 
 .object-tree-item:focus {
     outline: 2px solid var(--accent-color);
     outline-offset: -2px;
-    background: #e0eeff;
+    background: color-mix(in srgb, var(--accent-color) 22%, transparent);
 }
 
 .object-tree-item.focused-row {
-    background: #d0e8ff;
+    background: color-mix(in srgb, var(--accent-color) 32%, transparent);
     font-weight: 600;
 }
 
 /* Shortcut help table */
+/* Same treatment as .object-tree-item, and for the same reason: the header and the
+   zebra stripe were hardcoded light, so with dark ink every OTHER row was readable
+   and the rest were not. The seven Help tables and the whole keyboard-rebinding
+   table render through this. */
 .shortcuts-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.88rem;
-    color: #111;
+    color: var(--text-on-surface);
 }
 
 .shortcuts-table th {
-    background: #ddd;
+    background: color-mix(in srgb, var(--text-on-surface) 14%, transparent);
     text-align: left;
     padding: 5px 8px;
-    border-bottom: 2px solid #aaa;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .shortcuts-table td {
     padding: 4px 8px;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
 .shortcuts-table tr:nth-child(even) {
-    background: #e8e8e8;
+    background: color-mix(in srgb, var(--text-on-surface) 7%, transparent);
 }
 
 /* ── Blazor Error UI ───────────────────────────────────────────────────────── */

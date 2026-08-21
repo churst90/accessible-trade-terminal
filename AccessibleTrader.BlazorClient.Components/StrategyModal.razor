@@ -36,7 +36,7 @@
             <div role="tablist" aria-label="Strategy sections" style="display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
                 <button role="tab"
                         id="tab-library"
-                        aria-selected="@(_activeTab == "library")"
+                        aria-selected="@(_activeTab == "library" ? "true" : "false")"
                         aria-controls="panel-library"
                         @onclick='() => _activeTab = "library"'
                         style="padding: 6px 14px; background: @(_activeTab == "library" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
@@ -44,7 +44,7 @@
                 </button>
                 <button role="tab"
                         id="tab-build"
-                        aria-selected="@(_activeTab == "build")"
+                        aria-selected="@(_activeTab == "build" ? "true" : "false")"
                         aria-controls="panel-build"
                         @onclick='() => _activeTab = "build"'
                         style="padding: 6px 14px; background: @(_activeTab == "build" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
@@ -52,7 +52,7 @@
                 </button>
                 <button role="tab"
                         id="tab-active"
-                        aria-selected="@(_activeTab == "active")"
+                        aria-selected="@(_activeTab == "active" ? "true" : "false")"
                         aria-controls="panel-active"
                         @onclick='() => _activeTab = "active"'
                         style="padding: 6px 14px; background: @(_activeTab == "active" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
@@ -60,7 +60,7 @@
                 </button>
                 <button role="tab"
                         id="tab-bt"
-                        aria-selected="@(_activeTab == "bt")"
+                        aria-selected="@(_activeTab == "bt" ? "true" : "false")"
                         aria-controls="panel-bt"
                         @onclick='() => _activeTab = "bt"'
                         style="padding: 6px 14px; background: @(_activeTab == "bt" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
@@ -68,7 +68,7 @@
                 </button>
                 <button role="tab"
                         id="tab-lab"
-                        aria-selected="@(_activeTab == "lab")"
+                        aria-selected="@(_activeTab == "lab" ? "true" : "false")"
                         aria-controls="panel-lab"
                         @onclick='() => _activeTab = "lab"'
                         style="padding: 6px 14px; background: @(_activeTab == "lab" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">
@@ -76,7 +76,7 @@
                 </button>
                 <button role="tab"
                         id="tab-custom"
-                        aria-selected="@(_activeTab == "custom")"
+                        aria-selected="@(_activeTab == "custom" ? "true" : "false")"
                         aria-controls="panel-custom"
                         @onclick='() => _activeTab = "custom"'
                         style="padding: 6px 14px; background: @(_activeTab == "custom" ? "#2a4a7f" : "transparent"); border: none; color: #ccc; cursor: pointer; border-radius: 4px 4px 0 0;">

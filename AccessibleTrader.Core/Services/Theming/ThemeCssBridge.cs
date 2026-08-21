@@ -46,6 +46,7 @@ namespace AccessibleTrader.Core.Services.Theming
             "--text-muted",
             "--border-color",
             "--accent-color",
+            "--text-on-accent",
             "--btn-neutral",
             "--chart-fade-top",
             "--focus-outline-color",
@@ -84,6 +85,13 @@ namespace AccessibleTrader.Core.Services.Theming
                 ["--text-muted"]   = Css(theme.TextMuted),
                 ["--border-color"] = Css(theme.ChromeBorder),
                 ["--accent-color"] = Css(theme.Accent),
+
+                // Ink for text sitting ON the accent — primary buttons, chiefly. This was a
+                // literal #0c0f14 in app.css, which is correct only while the accent stays
+                // light; the accent is a theme value, so a dark accent made the label of the
+                // most important button in every dialog unreadable. Same reasoning as the
+                // focus ring below: measure, do not hand-pick per theme.
+                ["--text-on-accent"] = Css(InkOn(theme.Accent)),
                 ["--btn-neutral"]  = Css(theme.ButtonNeutral),
 
                 // The chart's TOP colour, exposed so the toolbar directly above the canvas can
@@ -122,6 +130,19 @@ namespace AccessibleTrader.Core.Services.Theming
         /// </summary>
         public static SKColor FocusRingFor(ChartTheme theme) =>
             Luminance(theme.SurfaceRaised) > 0.5 ? new SKColor(0, 32, 176) : new SKColor(255, 255, 0);
+
+        /// <summary>
+        /// Readable ink for text drawn on top of <paramref name="surface"/> — near-black on a
+        /// light one, white on a dark one.
+        ///
+        /// <para>
+        /// The near-black end is <c>#0c0f14</c> rather than pure black because that is the value
+        /// primary buttons already used, so the default (light) accent renders exactly as it
+        /// did. What changes is the dark-accent case, which used to be near-black on near-black.
+        /// </para>
+        /// </summary>
+        public static SKColor InkOn(SKColor surface) =>
+            Luminance(surface) > 0.5 ? new SKColor(12, 15, 20) : new SKColor(255, 255, 255);
 
         /// <summary>Relative luminance, 0 (black) to 1 (white). sRGB coefficients, no gamma —
         /// enough to answer "is this surface light or dark", which is all it is used for.</summary>

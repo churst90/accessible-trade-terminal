@@ -95,11 +95,22 @@
         }
     }
 
-    private async Task OnKeyDown(KeyboardEventArgs e)
+    // Save() runs INLINE, on the dispatcher. It used to be `await Task.Run(() => Save())`,
+    // which pushed it to the thread pool — where Save() → Close() → CloseModal() →
+    // StateHasChanged() asserts dispatcher affinity and throws. On the WebHost an
+    // unhandled exception out of an `async Task` event handler is fatal to the CIRCUIT:
+    // chart, tabs and unsaved layout all gone, and nothing spoken to explain it. The
+    // @onclick path never had the wrapper, so only the Enter key was broken — which is
+    // precisely the path a keyboard-only user takes.
+    //
+    // There is nothing here to offload: Save() is millisecond-scale file I/O. If it ever
+    // becomes slow, make it genuinely async (await the write) rather than moving the
+    // whole method — including its UI calls — off the dispatcher.
+    private void OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_workspaceName))
         {
-            await Task.Run(() => Save());
+            Save();
         }
         else if (e.Key == "Escape")
         {
