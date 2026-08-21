@@ -6,6 +6,1433 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Production-readiness audit (2026-08-21) — findings, unfixed
+
+A full read-through of the codebase for production readiness: every area reviewed against the
+code rather than against its own comments. Nothing below has been fixed. Everything marked
+**VERIFIED** was confirmed by reading the cited lines during the audit; items without that marker
+are reported from the review pass and still want a second look before anyone acts on them.
+
+The single most useful thing this audit found is not any individual bug. It is a **pattern**: a
+defect gets fixed at the site where it was reported and not at the two or three structurally
+identical sites elsewhere. Nearly every critical below is the second or third instance of
+something this project has already found, understood, written a good comment about, and fixed
+once. The remedy is the one `0320d8a3` already articulated — *the fix for that is not more care,
+it is assertions* — but the assertions have to be **structural** (enumerate every `FeedbackType`,
+count `Speak` calls, sweep every price-formatting call site) rather than instance-specific.
+
+The second theme: **comments in this codebase are unusually good, which makes the drifted ones
+unusually dangerous.** Several of the criticals below are invisible on review precisely because a
+confident, well-written comment directly above the defect asserts the opposite. Those are called
+out individually.
+
+### Ship-blockers — paper trading money math
+
+Paper trading IS the hosted product; every logged-in web user touches this code.
+
+- [ ] **The taker fee is spent outside the affordability check, so a maximal order lands the
+  account at negative cash.** VERIFIED. `PaperTradingProvider.CanFill:673` tests
+  `_cash + s.CashDelta + 1e-9 >= 0`; `RecordFill:745` then does `_cash -= fee` with no check.
+  Cash 100,000, market buy 1,000 units at 100 → `CanFill` passes at exactly 0, then the 40 fee
+  drives `_cash` to **−40**. `GetBalancesAsync` reports a negative balance and every later buy or
+  short fails `CanFill` forever — the account is bricked. `LiquidateIfCollateralExhausted` is
+  worse: it calls `ApplyFill`/`RecordFill` with no `CanFill` at all, charging a fee out of free
+  cash at the moment collateral is exhausted. **The comment at `:660-671` is why nobody saw this**
+  — it states "There is exactly one way to be unable to settle: free cash would go negative", and
+  the fee is the second way. Fix: fold the fee into `Settlement.CashDelta` so one number is both
+  checked and applied.
+- [ ] **A stop order on the wrong side of the market fills at its trigger, minting money from
+  nothing.** VERIFIED. `Crossed:521` is direction-blind — `o.Side == OrderSide.Buy ? bar.High >=
+  o.Trigger : bar.Low <= o.Trigger` — and the fill price is `o.Trigger` (`:438`). Nothing on the
+  resting path validates the trigger against the live price (`ProtectiveLevelValidator` is only
+  called when *editing* a protective level on an existing position; `GeneralOrderService`
+  validates `Price` but never `TriggerPrice`). Place a buy stop at 50 with the market at 100 and
+  it fills at 50 next bar for an instant risk-free 50%. The sell mirror shorts at an
+  above-market trigger. Fix: reject a buy stop at or below last price and a sell stop at or above
+  it (call the validator that already encodes this rule), or fill an already-crossed stop at the
+  live price.
+- [ ] **Protective legs attach only to MARKET entries; a limit or stop entry silently drops
+  `StopLoss`, `TakeProfit` and both trailing configs.** VERIFIED. The whole bracket block sits
+  inside `if (signal.Type == OrderType.Market)` (`:264-304`). The resting branch reads `StopLoss`
+  only as a trigger fallback for a `StopMarket` type; for `OrderType.Limit` the switch is
+  `=> signal.Price`, so the stop is discarded. **This is the documented primary quick-trade
+  workflow**: `QuickTradeExecutor:64-66` builds exactly `Type: Limit, Price: entry, StopLoss:
+  stop` when the user presses `Shift+Enter`, and the position size was computed *from the stop
+  distance*. So the flagship "stop first, then entry" flow places a stop-derived size with no
+  stop. Mitigating: `VerifyProtectiveOrdersAsync` does speak a High-severity "no stop loss or take
+  profit found — the position may be unprotected" after `ProtectionVerifyDelay`, so it is not
+  fully silent — but it arrives after the user has already heard "Limit buy sent", and in
+  `RiskAtStop` sizing the unprotected position is often several times the account.
+  `QuickTradeExecutor`'s own comment says "**The stop travels with the entry, always**".
+- [ ] **Bracket legs are not reduce-only, so a manual close leaves orders that open a brand-new
+  opposite position.** VERIFIED. The comment at `:279` says "(reduce-only by nature here)" — true
+  before 2.3.0, false now that `Settle` turns a sell-with-no-position into a collateralised short.
+  Close a bracketed long from the dashboard's Close button (which does not cancel the legs); the
+  stop later fires a sell with no position and **opens a short**, cancels the target, and
+  announces "Stop loss hit" for a stop that opened a trade. This is the exact defect the OCO
+  comment at `:282-285` claims to have fixed, arriving through a different door. Partial closes
+  are worse — the legs still carry the original quantity. `TradeSignal.ReduceOnly` exists in the
+  SDK and `PaperTradingProvider` never reads it.
+
+### Ship-blockers — data pipeline
+
+- [ ] **A tab switch merges the OLD symbol's live ticks into the NEW tab's buffer, and that path
+  can auto-execute a strategy.** VERIFIED. `MarketOrchestrator:251` sets `_dataManager.Identity`,
+  a synchronous property whose setter is `_hub.SetFocus(value)` — `_focused` swaps immediately.
+  But the orchestrator's subscription is only retargeted at **Step 4** of
+  `DataManager.CatchUpFromSnapshotAsync`, *after* an awaited `GapFillAsync` network round-trip.
+  For that whole window the still-running pump does `_focused?.ApplyLiveTick(tick)` with the
+  outgoing symbol's ticks. `ReplaceLast` corrupts the incoming tab's last bar; `Append` fabricates
+  a bar at the wrong symbol's price and raises `LiveAppend` — which is the trigger
+  `StrategyEngine.OnFocusedFeedUpdated` uses to evaluate a closed bar and can place a real order.
+  **The comment at `MarketFeedHub:465-467` asserts the opposite of what the code does** ("a tab
+  switch mid-pump must not deliver the outgoing symbol's ticks… the subscription is retargeted by
+  the caller"). Fix is two lines: carry the subscribed identity on the tick and drop it when it
+  does not match `_focused.Identity`.
+- [ ] **Every Polly retry and circuit breaker in the pipeline is unreachable.** VERIFIED.
+  `DataService.FetchOhlcvAsync:320-324` catches `Exception` and returns an empty tuple. That call
+  is the body of `HistoricalDataFetcher`'s policy, which is the body of `DataOrchestrator`'s
+  policy. No transport exception can reach either, so the retries never retry, the breakers never
+  trip, `onBreak`/`onReset` never fire, and `ConnectionStatusEvent(Error)` /
+  `DataTrigger.ErrorOccurred` are unreachable from network failure. The only visible failure mode
+  is an empty chart. Two carefully-configured, well-commented, entirely decorative Polly stacks.
+- [ ] **`OhlcvStore` can write bars that were never real, and being insert-only can never repair
+  them.** VERIFIED on both halves. (a) The forming-bar filter is `ToMs(b.Date) + barMs <= nowMs`
+  with `"M" => value * 2592000000L, // Approx 30 days` (`TimeframeUtility:46`), so on the 31st of a
+  31-day month the *current* month's bar passes as closed and is frozen into history. (b)
+  `SaveAsync:150` dedups with `known.Add(ToMs(b.Date))` — existing timestamps are skipped, never
+  updated — so a wrong bar written once is served from disk forever. Partial resampled buckets
+  reach the same path (`HistoricalDataFetcher:149-159` persists resampled output, and
+  `ResamplerService` does not trim incomplete edge buckets), so a scrollback on a resampled
+  timeframe writes bars built from a fraction of their period. Fix: use `GetPeriodStart` for the
+  closed test, make `SaveAsync` an upsert, and either trim partial buckets or persist native bars
+  and resample on read.
+- [ ] **`EventBus` has no exception isolation between subscribers.** `Publish` is
+  `GetSubject<T>().OnNext(eventData)` — synchronous, on the caller's thread. One throwing handler
+  aborts delivery for every subscriber after it and propagates back into the publisher (a live-tick
+  thread, a reducer, a Polly callback). The throwing observer is not removed, so it throws again on
+  every subsequent publish: one buggy subscriber permanently disables an event type app-wide.
+- [ ] **`DataState.LiveStreaming` is unreachable; the pipeline reports `Initializing` while
+  streaming.** `StartFocusedLiveCoreAsync` begins with `StopFocusedLiveCoreAsync`, which fires
+  `DataTrigger.Reset` → `Initializing`; the table then has no `(Initializing, LiveStreamStarted)`
+  or `(Initializing, TickReceived)` case, so it stays there. `Stalled` and `NetworkLagged` are dead
+  too, and `Faulted` is unreachable from the common failure path because of the swallow above.
+  Blast radius is limited only because `CurrentState`/`StateChanged` have no consumers outside the
+  class — which is itself worth knowing.
+- [ ] **A mid-bar reconnect overwrites the in-progress bar with a partial one.**
+  `LiveStreamManager:151` builds a fresh `BarBucketConsolidator` on every subscribe including every
+  watchdog reconnect. For a `TradeDeltas` provider the new bucket starts empty, so the bar's Open
+  becomes the reconnect price, High/Low collapse to the post-reconnect range, and Volume counts
+  only trades since reconnect — then `ApplyLiveTick` `ReplaceLast`s the correct partial bar away.
+- [ ] **`AnalyticsDataResolver` ignores its `asset` parameter**, so requesting ETH returns BTC
+  data. `Resolve(string metric, string? asset = null)` never reads `asset`, while the registry
+  advertises `{ "BTC", "ETH" }` for `ACTIVE_ADDRESSES`, `TX_COUNT`, `FEES_TOTAL`, `FUNDING_RATE`
+  and `OPEN_INTEREST` with BTC-only sources. A cross-series strategy conditioned on ETH is
+  silently tested and traded on Bitcoin, and `GetAvailableMetrics` reports ETH as supported.
+- [ ] **Live ticks never recalculate indicators.** `DataManager.OnFocusedFeedUpdated` deliberately
+  does not raise `DataUpdated` for `LiveAppend`/`LiveReplace`, and `DataOrchestrationService`
+  recalculates only on `DataUpdated`, viewport/series changes, `IndicatorUpdatedEvent`, or
+  `DataStatus → Ready`. So price moves and every indicator's newest value is stale until something
+  else triggers a pass. Documented as known in `KEYED_FEEDS_DESIGN.md`; for a terminal whose whole
+  premise is hearing the chart, this is a product-level gap rather than a nitpick.
+- [ ] **Zero-price bars are silently deleted from every fetch.**
+  `HistoricalDataFetcher.ApplyFinalFilters:199-203` drops any bar with a zero O/H/L/C. Analytics
+  and My Data single-value series are carried as `Ohlcv(date, v, v, v, v, 0)`, so any data point
+  whose value is exactly 0 vanishes — a zero net flow, a zero-balance day, a rate at 0. Negative
+  values survive; zero does not, and the result is an invisible hole rather than a visible break.
+- [ ] **`"1y"` datasets are unchartable with a misleading error.** `MyDataProvider` advertises
+  `"1y"` and `CsvDataParser.InferTimeframe` assigns it to anything with median spacing ≥ 45 days,
+  but the timeframe grammar is `^(\d+)([mhdMw])$`, so `IsValid("1y")` is false and
+  `DataOrchestrator` rejects it with *"Invalid timeframe '1y' for My Data"* — which reads as a bug
+  in the user's file. Import annual GDP and it appears in every dropdown and never loads.
+- [ ] **Two `MyDataStore` instances over one user directory destroy each other's imports.**
+  Registered `AddScoped` on the WebHost, so one per *circuit*, not per user. `_datasets` is loaded
+  once in the constructor and written back wholesale with `File.WriteAllText`; two tabs means the
+  stale list overwrites the fresh one and orphans the CSV. `AtomicFile` exists in the same
+  namespace and is not used for either file.
+
+### Ship-blockers — indicator lookahead (the backtest-validity cluster)
+
+**The load-bearing fact for this whole section:** `SignalCatalog.Refresh`
+(`Services/Strategies/SignalCatalog.cs:44-61`) does `foreach (var ind in indicators) foreach (var
+comp in ind.Components)` and publishes **every component of every provider** as a strategy leaf
+`{CODE}.{ComponentName}`. VERIFIED — there is no allowlist and no causality gate. So "is this
+component lookahead-safe" is not a chart-cosmetics question for any component in the codebase; it
+is a backtest-validity question for all of them.
+
+This project's research discipline has correctly returned *null* on essentially every price-derived
+claim it has tested. These are the components that would corrupt exactly that process.
+
+- [ ] **`IchimokuProvider.cs:264-266` — the Chikou Span array is a raw 26-bar future price, exposed
+  as a strategy leaf.** VERIFIED: `int bwd = i - displacement; if (bwd >= 0) chikou[bwd] =
+  data[i].Close;` — so `chikou[j]` literally holds `close[j+26]`. Correct as a *plotting*
+  convention, catastrophic as a *data* convention. `ICHIMOKU.Chikou Span` is a `Line` leaf, so a
+  backtest condition `Chikou Span > Close` at bar j evaluates `close[j+26] > close[j]` and returns a
+  spectacular, entirely fake edge. It is also spoken during navigation (`:336-337` says
+  `$"Chikou span at {price}"`), quoting a price 26 bars ahead of the bar the cursor is on. Fix: keep
+  the displaced array for rendering under a `__`-prefixed internal key and either drop the leaf or
+  publish the causal form.
+- [ ] **`CipherAProvider.cs:400-427` — Cipher A's divergences are still stamped at the pivot bar;
+  the divergence-lookahead fix was applied to Cipher B and never back-ported.** The pivot loop reads
+  `pivotBars` bars into the future and then writes `bullDiv[curr] = low[curr] - offset`. There is no
+  `DivergenceConfirmLag` here — `grep ShiftMarkers|ConfirmLag CipherAProvider.cs` returns nothing —
+  unlike `CipherBProvider.cs:1037-1052`. `Bullish Divergence` / `Bearish Divergence` / `Blood
+  Diamond` are `MarkerFire` leaves, so a backtest enters at the exact pivot low with 3 bars of
+  hindsight. Cipher B's own comment at `:1017-1023` calls this out as inflating "every
+  divergence-based backtest". Fix: make `ShiftMarkersForward` shared and give Cipher A the same
+  default-ON lag.
+- [ ] **`CipherSRProvider.cs:245,299,321` — the historic "Cipher SR backtest lookahead" is still
+  live.** `if (isPivotHigh) resistance[i] = data[i].High;` writes at bar `i`, which the class doc at
+  `:27-29` admits requires `[i-PivotBars .. i+PivotBars]`; pass 2 then carries the level forward from
+  `i+1`. With `AutoScale=1` and 500 bars loaded, `pivotBars = 15`, so the zone line is visible **14
+  bars before it exists**. `SwingStructureAnalyzer.cs:179` does this correctly via
+  `ConfirmedAtIndex = BarIndex + Span` — copy that.
+- [ ] **`SwingStructureProvider.cs:196-201` contradicts its own class doc.** The doc at `:37-40`
+  says *"NO LOOKAHEAD: pivots are published at barIndex + Span, never at the pivot bar, so every
+  component is safe as a strategy leaf."* The code writes `high[s.BarIndex]` / `low[s.BarIndex]`.
+  The inline comment quietly narrows the claim to the state and carry-forward arrays — but
+  `SignalCatalog` publishes `SWING_STRUCTURE.SwingHigh`/`.SwingLow` as leaves regardless, so a
+  strategy gated on them fires `Span` bars early.
+- [ ] **`SwingStructureAnalyzer.cs:141-159` — pass 2 retroactively deletes swings, so the same bar
+  gives different answers depending on how much data was loaded after it.** `if (last.IsHigh ==
+  p.IsHigh) { … kept[^1] = p; continue; }` — a later same-kind pivot removes the earlier one from
+  history. `Analyze(bars[0..35])` can report a structure break at bar 28 that
+  `Analyze(bars[0..100])` does not. Information-losing rather than future-peeking, but it means
+  panning back reproduces a structure that was never knowable, and it destabilises every
+  `ChartPatternDetector` result under a change in loaded bar count. The class doc at `:90-93` claims
+  "NO LOOKAHEAD ANYWHERE".
+- [ ] **The only causality test in the codebase is vacuous.** VERIFIED —
+  `CandlePatternAnalyzerTests.cs:278` reads `bars.Take(i + 6).Take(i + 1).ToList()`. Chained LINQ
+  `Take` takes the minimum, so that is exactly `.Take(i + 1)` — the "with hindsight" list **is** the
+  "at the time" list, and the test compares a value to itself. `ClassificationOfABarNeverChanges
+  WhenLaterBarsArrive` has never been able to fail. The class comment at `:258-260` states precisely
+  the invariant the test does not check.
+
+**The single highest-value fix in this audit:** add a causality declaration to
+`IndicatorComponentMetadata`, have `SignalCatalog` refuse to publish any component that does not
+declare it, and add one parameterised test that runs every provider over `bars.Take(k)` vs `bars`
+and asserts equality on the shared prefix. That one test catches Cipher A, Cipher SR, Swing
+Structure's markers, Ichimoku's Chikou and the pass-2 revision — five of the six items above — and
+prevents the next one.
+
+### Ship-blockers — indicator computation
+
+- [ ] **`IndicatorEngine.cs:127-133` — on a same-bar tick the buffer is handed to the provider
+  ZEROED, and every component the provider does not rewrite is pushed to the live chart as 0.0.**
+  The carry-forward copy is guarded by `if (kvp.Value.Length < span.Length)`, which is true when a
+  new bar appends and **false when the last bar updates in place** — i.e. on every tick inside a
+  forming candle. `GetComponentSpan` has already minted a fresh zero-filled array, and `:137-142`
+  then harvests `[^1]` from every key including ones the provider never touched. Two confirmed live
+  consequences: the non-ratio COMPARE overlay drops to the pane floor on every tick
+  (`SymbolCompareProvider.cs:140` writes nothing on that branch), and Cipher S reads
+  `pctSpan[i-1]` as 0.0 instead of NaN so an 80th-percentile bar narrates as "Neutral" for the whole
+  life of the bar then snaps correct on close. The maintainers already special-cased exactly this
+  for core series at `IndicatorOrchestrator.cs:261-266` ("would overwrite the last bar's value with
+  0.0, making the Price line invisible") — the general fix was never made. One-line fix:
+  `Array.Copy(..., Math.Min(kvp.Value.Length, span.Length))` unconditionally, then NaN-fill the rest.
+- [ ] **`IndicatorResultBuffer.cs:65,75` zero-fills where the codebase's own stated convention is
+  NaN.** `IndicatorOrchestrator.cs:300` says it explicitly: `Array.Fill(newArr, double.NaN); // NaN
+  = no data; prevents zero-valued slots from firing signals`. Any provider that fills part of a
+  range leaves genuine-looking 0.0 that renders as a line pinned to zero and sonifies as real data.
+  The class doc at `:15-17` claims it turns "silent NaN arrays into loud, immediate errors".
+- [ ] **`SkenderCalculationCore.cs:193-201` — ten registered Skender indicators resolve to no method
+  and render as silent empty lines, including Bollinger Bands, which ships in the default demo set.**
+  The lookup is `m.Name.Equals("Get" + code)`; against Skender.Stock.Indicators 2.5.0 there is no
+  `GetBb`, `GetKc`, `GetChandelierExit`, `GetUltOsc`, `GetPpo`, `GetZlema`, `GetTma`, `GetHv`,
+  `GetEom` or `GetMom`. `Bb` is shipped by `DemoPolicy.cs:193`. Add a startup assertion that every
+  registered `Code` resolves.
+- [ ] **`SkenderCalculationCore.cs:172-178` — every Skender indicator's live bar is recomputed from
+  a 35–200 bar stump.** No Skender provider declares `RequiresFullRecalcOnTick`, so cumulative and
+  long-memory indicators show values a full recalc would never produce: **VWAP** becomes a 35-bar
+  VWAP rather than cumulative; **OBV/ADL** restart from zero 35 bars back and collapse by orders of
+  magnitude, snapping back on the next full recalc; **EMA(200)** gets exactly 200 bars and Skender
+  seeds EMA from the SMA of the first `lookbackPeriods` quotes, so the live EMA200 prints SMA200.
+- [ ] **`SkenderCalculationCore.cs:173-178` reads uninitialised `ArrayPool` memory.** The temp buffer
+  is sized to `windowSize` but only `slicedData.Length` cells are written, and `[^1]` is index
+  `windowSize-1`; the pool is rented without `clearArray`. On a freshly-listed symbol with 60 bars
+  and EMA(50), the live value is a recycled double from a previous tenant.
+- [ ] **`SkenderCalculationCore.cs:139-157` — the synthetic `__CROSSOVER`/`__SQUEEZE` flags are
+  sticky-true on the incremental path** (written on a cross, never cleared, over a dirty pooled
+  array). `SkenderDetailFactProvider.cs:112-117` reads them verbatim, so the user hears "Bullish
+  crossover!" on every arrow-key press for the rest of the session.
+- [ ] **`CoinMetricsProvider.cs:204` — daily metrics are stamped at the START of the day they
+  summarise, so bar D receives a value derived from bar D's own close.** Empirically end-of-day:
+  the point stamped day D matches day D's close within 0.5% on 3688/4116 days in the shipped
+  snapshot. MVRV uses that same close, so `COINMETRICS.MVRV LessThan 1` on bar D reads bar D's
+  close. Shift by one period at ingest and pin it.
+- [ ] **`Plugins/Analytics/…Cftc/CftcProvider.cs:197` — COT "release date" is a synthesised
+  report+3 days.** The shipped gold snapshot carries an unbroken weekly series straight through the
+  2018-12-22 → 2019-02-05 CFTC shutdown, none of which was published until the catch-up releases in
+  late March — up to ~10 weeks of usable lookahead. Source the real `report_publication_date`.
+- [ ] **`OpenInterestProvider.cs:203` and `CrowdingIndexProvider.cs:258` — zero-valued OI rows are
+  not filtered.** The guard is `IsNaN` only, and every shipped OI snapshot contains literal zeros
+  (2022-03-07 is 0.0 in all eight files). The trader hears "Open interest 0.00 billion dollars",
+  then a −4.5e9 and a +4.5e9 delta, both clearing the 2σ spike test — two false spike earcons —
+  and the blown-up variance then suppresses every genuine spike for the next 30 bars.
+
+### Indicator correctness — HIGH
+
+- [ ] **`BarDetailService.cs:227-282` — both indicator narrative facts are dead code.**
+  `BollingerSqueezeExpansionFact` looks up `"Upper"`/`"Lower"`; the provider declares
+  `"UpperBand"`/`"LowerBand"`. `MacdCrossoverFact` looks up `"MACD"`; the provider declares
+  `"Macd"`. `ComponentData` is an ordinal `Dictionary`. Both branches are entered and both return
+  `""` — ~55 lines with detailed doc comments describing behaviour that cannot occur. Add them to
+  `ComponentSpeechKeyTests`, which exists for exactly this failure mode.
+- [ ] **`IndicatorContextAnalyzer.cs:85-91` — the Money Flow Wave thresholds are calibrated to a
+  scale the provider does not emit**, so it narrates "approaching overbought" on ~85% of bars.
+  Registered `-70/-90` with a comment claiming a −100..−60 range; `CipherBProvider.cs:624,1011`
+  emits **0-centred ±100**.
+- [ ] **`IndicatorContextAnalyzer.cs:197-213` — `DetermineZone` never compares price to a band.**
+  For a component named "Upper" it unconditionally returns `AtUpperBand`; `prevValue`, `series`,
+  `state` and `dataIndex` are all accepted and never read. Currently masked by the naming bug above,
+  so fixing that activates this one.
+- [ ] **`CipherSProvider.cs:96-109` speaks unhedged trading instructions** — *"strong DCA
+  opportunity"*, *"Trim positions"*, *"Tighten stops"* — spoken on every navigation to a candle,
+  backed by nothing but a percentile rank of close in a rolling window.
+  `ChartPatternNarrator.cs:34-39` states the house rule: *"No pattern is ever called bullish or
+  bearish. The conventional readings … are exactly the claims this project has tested and failed to
+  confirm."* The chart-pattern feature refuses the word "bullish"; Cipher S issues imperatives.
+  `TopBottomDetectorProvider.cs:485-496` has a milder version. `ValueDeviationProvider.cs:301-304`
+  shows the correct form. This is a policy decision that should be made deliberately rather than by
+  whichever file was written first.
+- [ ] **`CipherSRProvider.cs:448-455` — pivot speech scans FORWARD to report a touch count from the
+  future**, so a historical resistance pivot announces "tested 3 times" using bars after the cursor.
+  And `:306-317` increments the counter once per **bar** rather than once per approach, so a level
+  sitting above price for twenty bars is "tested 20 times" —
+  `LevelRespectAnalyzer.cs:68` exists in this same codebase specifically to prevent that
+  (*"Counting each bar of a multi-bar consolidation against the line is how naive touch counters
+  manufacture significance out of chop"*).
+- [ ] **`AnchoredVwapProvider.cs:142-163` anchors to the confirmation bar, not the pivot**, silently
+  omitting the first `PivotLookback` bars of volume — a quarter of a 20-bar swing leg at the default
+  5. The class doc at `:24` says "since last swing high". It is not.
+- [ ] **Skender component names that resolve to nothing or to duplicates.** `Vip`/`Vim` on Vortex
+  (result exposes `Pvi`/`Nvi`), `Adl`/`Adh` on ADX, `UlcerIndex` (property is `UI`) — all
+  permanently NaN, drawn as labelled, sonified, navigable empty lines. And the mapper's substring
+  tiers accidentally duplicate: Stochastic's `PercentK`/`PercentD` draw exactly on top of
+  `Oscillator`/`Signal`, doubling the sonification voices for no information; same for
+  `RocP`→`Roc` and `Adl3`→`Adl`. `SkenderTrendProvider.cs:152`'s KAMA "Lookback Periods" control is
+  inert (the real parameter is `erPeriods`), so dragging it 10→50 redraws an identical line.
+- [ ] **`SkenderDetailFactProvider.cs:174` announces the literal string "F3".**
+  `$" Slope {slopePct:+F3;-F3}% per bar."` — `"+F3;-F3"` parses as a custom format with
+  positive/negative sections where only `0` and `#` are digit placeholders, so it is spoken as
+  "Slope plus F three percent per bar" on every MA.
+- [ ] **`IndicatorMath.cs:141-151` — `ComputeStochRsi` fabricates 50.0 across the entire RSI
+  warmup** (an all-NaN window leaves `range` negative, taking the "flat series" branch), so the
+  chart draws a hard flat line and a screen-reader user hears a steady tone and a real number where
+  there is no data.
+- [ ] **`FundingRateProvider.cs:60` (+ OpenInterest, Crowding — verbatim triplicate) mangles
+  USD-quoted symbols.** `if (!clean.Contains("USDT")) clean += "USDT";` turns `BTC/USD` →
+  `BTCUSDUSDT`. `DemoPolicy.cs:198` sets `DefaultSymbol => "BTC/USD"`, so on the app's own default
+  chart Funding, OI and Crowding are permanently blank. The existing test only covers USDT-quoted
+  and bare-base inputs.
+- [ ] **`CrossSeriesCache.cs:97,153` — no TTL on success, no negative caching on failure.** A
+  session left open overnight freezes funding/OI/FNG/COT at their first fetch while price keeps
+  ticking, with no staleness indication in speech; conversely an unresolvable symbol re-attempts a
+  blocking `task.Wait(5s)` on every pan, tick and parameter change. The class doc promises "~1-2s
+  only the first time".
+- [ ] **`CoinMetricsProvider.cs:279` attributes ETH's on-chain metrics to a BTC chart** whenever the
+  loaded range predates 2017 — median-close detection maps `> 200 and <= 5000` to "eth", and a
+  2013–2017 BTC chart has a median close ≈ $600. No warning fires.
+- [ ] **`CotPositioningProvider.cs:281` starts emitting Crowded markers off a 5-sample population**
+  (`window.Count >= 5` with a population divisor, where max attainable |z| is 1.789 against a ±1.5
+  threshold) while `:309` tells the user *"The series needs about six months of weekly reports
+  before the z-score is defined."*
+- [ ] **`VolRegimeProvider.cs:121` throws `IndexOutOfRangeException` on an empty bar series** —
+  `r[0] = double.NaN` with no `n == 0` guard, where every peer provider has one.
+- [ ] **Chart-pattern geometry defects.** `ChartPatternDetector.cs:388-391` — the H&S neckline
+  comment says "conservative" and `Math.Max` picks the *least* conservative trough, disagreeing with
+  the DoubleTop convention 80 lines above. `:432-436` — the triangle detector pairs highs with lows
+  up to 160 bars *before* the high pair, so a January high pair can form a "triangle" with the
+  previous November's lows. `:501-503` — the symmetrical triangle silently assumes an upside break,
+  contradicting the Rectangle branch's own argument that a two-way shape must not be given a
+  direction; one that breaks down is narrated as "ends here without confirming". `:635` — the
+  Forming/Expired boundary is off by one.
+- [ ] **`ChartPatternNarrator.cs:189-190` — the exact wording defect the class doc at `:199-207`
+  claims was fixed is still reachable.** `EdgeWord` tests `barIndex <= p.KnownAtIndex` before
+  `>= p.ResolvesAt`, and `CompletedAtIndex == KnownAtIndex` is ordinary, so the terminal still says
+  *"Start of double top: price closed below the neckline at 42,100."*
+
+### Ship-blockers — audio and speech
+
+Each of these is a wrong or absent utterance, which for this product is the failure mode that
+matters most.
+
+- [ ] **`FeedbackType.Alert` is dropped entirely — neither spoken nor earconed.** VERIFIED. The
+  enum has eleven members; `AccessibilityFeedbackCoordinator.OnFeedbackRequest` handles six
+  (`StateChange`, `Navigation`, `VolumeChange`, `Error`, `Boundary`, `Info`) with **no `default`**.
+  `GlobalErrorCoordinator:84` publishes every network-retry notification as `Alert` — *"Connection
+  lost to {provider}. Retry {n}. Next attempt in {s} seconds."* — and it is constructed, published
+  and discarded. `ConfigurableStrategy:466` publishes `Alert` too. The websocket can drop
+  mid-session and the trader is told nothing. This is the third instance of the missing-switch-arm
+  class: `FeedbackRouters:167-170` already carries the annotation *"FOUND 2026-07-21: Alert had no
+  case — every PlayEarcon(Alert) call was SILENT"*, the earcon router was fixed, the speech switch
+  was not. `SeriesSelection`, `ComponentSelection`, `PointFocus` and `ViewportChange` are also
+  unhandled. Fix: add the arms, add a `default` that logs the unhandled member, and add a test that
+  enumerates `Enum.GetValues<FeedbackType>()`.
+- [ ] **Any voice command resets master gain to full, so F7-to-zero does not mute.** VERIFIED.
+  `AudioEngine:400` — `if (cmd.IsActive && _targetMasterGain == 0.0f) _targetMasterGain = 1.0f;`.
+  The line exists to re-arm gain after `StopAll` faded it out, but it cannot tell that condition
+  apart from a user-set gain of zero. Take chart volume to 0% with `Shift+F7` (speech confirms
+  "0%"), and the next arrow key snaps master gain to 1.0. Navigation notes stay quiet because
+  `ChartVolume` also multiplies into `baseVolume`, but **earcons do not** — `EarconService` passes
+  fixed literal volumes — so an order fill, a stop hit or a boundary earcon then fires at full
+  volume on a master the user set to silent. Fix: keep `_userMasterGain` separate from the
+  stop-all fade flag and restore to the user's value, never to a hardcoded 1.0f.
+- [ ] **Zone-proximity speech overwrites the bar reading on the web head.** VERIFIED as a second
+  `Speak` in the same synchronous call stack: `NavigationFeedbackManager:306` speaks the composed
+  utterance, then `CheckAndPlayZoneProximity` (called at `:313`) speaks again at `:530-533`. The
+  28-line comment at `:248-263` states exactly why this is wrong — on the Blazor head speech is an
+  ARIA live-region write, Blazor batches an event handler into one render, so only the final write
+  reaches the DOM. On a bar that straddles a zone the user hears **only** "Near support at 0.0831"
+  and loses the price, OHLC, volume, pattern and formation clause. Different content per head from
+  the same keypress. Fix: return the clauses and append them to `utterance` before the single
+  `Speak`. Test: assert exactly one `Speak` per `HandleNavigationFeedback`.
+- [ ] **Two surviving `:F0` price formats collapse every sub-dollar value to "0".**
+  `NavigationFeedbackManager:112` (coordinate-entry delta — *"Change from anchor: +0"* for every
+  KAS/SHIB/PEPE move) and `AutoNarrationService:403-404` (support/resistance **break** — *"Support
+  at 0 broken"*, on arguably the most consequential message the narrator produces; the touch,
+  approach and cross messages 20-60 lines below all correctly use `SpeechPriceFormatter`). The file
+  itself documents this exact bug class at `:526-529`. Fix both, then add a sweep test that fails
+  on `:F0`/`:F1`/`:F2` in any string containing a price-ish token — three separate commits have now
+  each fixed some but not all of these.
+- [ ] **Component-context speech reads RAW OHLC under Heikin-Ashi.** `NavigationFeedbackManager`
+  carefully HA-transforms the bar and passes it as `pt`, but `SpeechFormatter.GetPointValue:369-389`
+  ignores `pt` and returns `series.GetComponentData(name)[i]`, which `ViewportReducer` fills from
+  **raw** bars. So with HA on, `upper_wick`/`lower_wick`/`line` all speak raw values while the
+  chart, the tone and the detail key show HA. `body` escapes only because `CandleBodyStrategy`
+  reads `ctx.Pt`. This is the same defect `35928149` fixed in `BarDetailService` ("the detail key
+  described a candle that was not on screen"), still live one layer over. HA candles routinely have
+  no shadow where the raw bar has one.
+- [ ] **Muting is not absolute for Cloud components.** `NavigationSonifier:352` and
+  `AudioSequencer:458` clamp to `Math.Clamp(... , 0.05f, 1f)` — a floor applied *after* every gain
+  factor, so component volume 0, series volume 0, chart volume 0 and mute all still leave 5%. Every
+  other volume path clamps the normalisation factor and multiplies by `baseVolume`, which correctly
+  collapses to zero. `SonifyCloudNavigation` also never checks `comp.IsMuted` at all. Press `M` on
+  an Ichimoku Kumo, hear speech confirm "muted", and it keeps sounding.
+  `SonificationTimbreTests.AMutedOrHiddenComponentIsSilent` only covers `Candle` — make it a
+  `[Theory]` over every display type with a dedicated render path.
+- [ ] **`LevelCrossingMonitor` ignores series mute and every volume tier.** `:113` filters on
+  `!series.IsVisible` with no `IsMuted` check, unlike every other per-series scan in the layer. The
+  tones also bypass `ChartVolume`, series and component volume entirely. Mute a noisy RSI and its
+  approach chimes and sustained-zone tones continue at fixed volume.
+- [ ] **`PlayNote`'s `delay` parameter is accepted and silently discarded**, so every multi-note
+  earcon is a simultaneous chord rather than the sequence its comment describes.
+  `NavigationSonifier:419-423` never reads `delay`. `PlayStopHit`'s "low minor-third descent" is a
+  simultaneous cluster; `PlayTakeProfitHit`'s "bright major arpeggio up" is a chord;
+  `PlayOrderFill`'s "two quick staccato notes then a sustained tone" is two byte-identical D5 calls
+  summing into one note. Fill and stop are documented as distinguishable *by shape*; as clusters
+  they differ only in pitch content, which is far weaker discrimination mid-session.
+  `CrossEarcon.Fire` already has the working shape to copy.
+- [ ] **The earcon round-robin overwrites the "dedicated" cross-chirp and level-cue slots.**
+  `PlayNote` cycles the full 16-31 range (`& 15`), but `CrossEarcon` reserves 30/31 and
+  `EarconPatchPlayer` reserves 26-29. Four consecutive `PlayNote` calls starting at 28 wipe both.
+  `CrossEarcon.Fire` staggers its second note by 70 ms, so the window where the direction-carrying
+  note can be stolen is 70 ms wide — an up-cross can be heard as a down-cross. Fix: restrict the
+  round-robin to 16-25 and document the reservation.
+- [ ] **No output limiting anywhere.** `AudioEngine:621-624` writes `leftSum * _masterGain`
+  unbounded over up to 128 voices; a noise-textured voice alone peaks at ±2 before `renderVolume`.
+  Neither driver clips — `WebHostAudioDriver` pipes float32 straight to `pw-cat`/`pacat`/`aplay`.
+  Chart-scope playback with candles, volume bed, price line and three indicators routinely exceeds
+  4.0 and hard-clips at the device, producing broadband distortion exactly where the design relies
+  on subtle timbral distinctions being legible. Every timbre test asserts on the `AudioPoint`
+  struct, not on rendered audio, so none of them notices.
+- [ ] **The volume bed and the candle body play the same two pitches.**
+  `SonificationProfileProvider:47` declares `BaseFrequency: 330` for Volume with
+  `PitchMapping.PriceDirection` — but `CreateAudioPoint` never reads `BaseFrequency` for
+  Direction/PriceDirection mappings, it uses `comp.BullishFrequency`/`BearishFrequency`, which
+  default to 440/220 for both Volume and Candle. The comment claims 330 "seats it under the candle
+  body as its own distinct instrument". Same for Histogram. Worse,
+  `SonificationTimbreTests.TheHistogramAndTheVolumeBedAreDistinctInstruments` hardcodes 440/220 for
+  both in its helper and never compares `Frequency`, so it passes with the pitches literally
+  identical.
+- [ ] **`AutoNarrationService:179` re-introduces the F2 bypass the router redesign removed.** A
+  call-site `if (!state.IsSpeechEnabled) return;` sits above narration that already passes
+  `channel: SpeechChannel.Event`. `FeedbackRouters:16-19` says explicitly: *"the gate lives HERE,
+  at the router, not at call sites — per-call-site `IsSpeechEnabled` checks are exactly how the F2
+  bypasses crept in."* So F2 (manual-speech mute) also silences event-channel narration — the one
+  channel the user deliberately left on.
+- [ ] **`PlayEarcon(StateChange)` and `PlayEarcon(Navigation)` are silent no-ops.**
+  `FeedbackRouters:163-173` has arms for `Error`, `Info`, `Alert`, `Boundary` and no `default`.
+  `AccessibilityFeedbackCoordinator:144` requests `StateChange` for `OrderCancelledEvent` — with a
+  comment two lines above saying *"Cancels were the one order state change that vanished silently
+  (2026-07-22 audit)"*. The fix added a call that does nothing. Five of sixteen `EarconType` values
+  are dead through the same route.
+- [ ] **Hitting the first or last series is a silent no-op.** `NavigationEngine:178-190` clamps and
+  returns with no `else`, unlike `NavigateX` which publishes `FeedbackType.Boundary`. Silence is
+  indistinguishable from a broken binding — the exact failure the feedback contract forbids, and
+  `AccessibilityFeedbackCoordinator:536-552` says so in as many words.
+- [ ] **`SoundPatchLibrary` mutates a plain `List<SoundPatch>` that the navigation path enumerates.**
+  `GetPatch` runs `FirstOrDefault` on every keypress and every playback bar while the Sound Designer
+  calls `AddPatch`/`RemovePatch`/`UpdatePatch`. Save a patch during playback and
+  `InvalidOperationException: Collection was modified` throws inside `CreateAudioPoint`, inside
+  `SyncNavigationSlots`, inside the `StateStream.Subscribe` handler — and an unhandled exception in
+  an Rx `Subscribe` **terminates the subscription**. All navigation sonification stops permanently
+  for the session with nothing surfaced. Worst possible failure mode for this product and the
+  hardest to diagnose by ear. Fix: `ConcurrentDictionary` (as `SoundPatchRegistry` already uses),
+  plus a try/catch around the `SyncNavigationSlots` call that reports through
+  `IGlobalErrorCoordinator`.
+- [ ] **`AudioEngine.Reset` snaps `_masterGain` to 0, producing a click**, discarding the 20 ms fade
+  `StopAll` exists to provide. The comment above it — *"Master gain is written only from the main
+  thread and read only in `Read()`"* — is false on both counts (`Read()` writes it at four sites)
+  and answers a different question than the one that matters.
+- [ ] **Systemic: no invariant-culture pinning for spoken numbers.** No
+  `InvariantGlobalization`, no `CultureInfo.DefaultThreadCurrentCulture` anywhere.
+  `SpeechPriceFormatter` and `QuantityFormatter` pass `InvariantCulture` correctly; nothing else
+  does — including **order fill/stop/TP quantities** (`AccessibilityFeedbackCoordinator:182`),
+  every non-price component value (`SpeechFormatter:728`), exact volume (`:703`), percentages, and
+  every date/month format. On a de-DE machine the app says "50.25" for the price and "50,25" for
+  the RSI in one sentence. Zero tests run under a non-invariant culture.
+
+### Ship-blockers — UI and accessibility
+
+The pattern here is different from the rest of the audit and worth naming separately. The *contract*
+enforcement — does the modal publish the right event? — is automated by `ModalContractScanTests` and
+holds. The *experience* enforcement — does focus move, is it trapped, is the state announced, is it
+readable — is entirely manual and has not held. The tell is
+`BlazorTestHarness.cs:164`, which stubs `accessibleTrader.focusElement` to a no-op, making it
+impossible for any test to notice a focus bug.
+
+- [ ] **Space cannot activate any button in the application.** VERIFIED. `keyboard.js:107` puts
+  `' '` in `trappedKeys`; `:137` excludes only `INPUT`/`TEXTAREA`/`SELECT` from the trap, not
+  `BUTTON`; and the chart-focus escape hatch at `:150` is gated on
+  `/^[a-zA-Z0-9,.]$/`, which does not match a space. So `e.preventDefault()` at `:154` runs on
+  Space keydown for every one of the ~200 buttons in the RCL, cancelling the activation click.
+  Enter still works (`Enter` is not trapped), which is why this survived — and NVDA/JAWS in *browse*
+  mode synthesize a click rather than a real keypress, so they are unaffected. The people who hit it
+  are anyone in focus/forms mode, keyboard-only sighted users, switch access, and voice control,
+  for whom Space is the habitual activation key. Also affects `<summary>` disclosures in Help and My
+  Data. Fix: add `BUTTON`/`A`/`SUMMARY` and the `role=button|checkbox|switch|menuitem|tab|option|
+  treeitem` set to the exclusion test, or drop `' '` and gate playback on `_chartFocused`.
+- [ ] **Five of the six Settings tabs cannot be reached by keyboard.** VERIFIED.
+  `SettingsModal.razor:73-101` implements the WAI-ARIA roving tabindex (`tabindex="@(active ? 0 :
+  -1)"`) — correct *only* if the component also handles Left/Right/Home/End. It does not, and
+  **no `role="tablist"` in the RCL has any arrow-key handler**: there are 8 tablists, and the 7
+  files containing `@onkeydown` are LabelText, SaveWorkspace, CustomScripts, LoadWorkspace,
+  SoundDesigner, ChartArea and TabBar — none of them. So Appearance (theme, text size, colour-vision
+  palette, hollow candles), Keyboard (the entire rebinding UI), Alerts (SMTP/Telegram/webhook),
+  License and About are mouse-only. The settings search box is the sole workaround and it covers
+  only the 24 hardcoded registry rows. Fix: add the arrow handler, or drop the roving tabindex so
+  all six are plain Tab stops (which is what StrategyModal/Properties/TradingDashboard already do).
+- [ ] **Pressing Enter to save a workspace kills the session.** VERIFIED.
+  `SaveWorkspaceModal.razor:98-104` — `await Task.Run(() => Save())`, and `Save()` calls `Close()`
+  → `ModalBase.CloseModal()` → `StateHasChanged()`, which asserts dispatcher affinity and throws
+  `InvalidOperationException` off the thread pool. On the WebHost an unhandled exception from an
+  `async Task` handler is fatal to the circuit: chart, tabs and unsaved layout all gone, with no
+  spoken explanation. The `@onclick` path is fine — **only the Enter key is broken**, i.e. exactly
+  the path a keyboard-only user takes. `Save()` is millisecond-scale file I/O; delete the `Task.Run`.
+- [ ] **Five components bind `aria-selected` to a bare C# `bool`**, so no tab in them ever reports
+  as selected. `StrategyModal` (6 tabs), `WatchlistModal` (3), `LevelReportModal` (2),
+  `AssetDossierModal`, `MyDataModal`. `RenderTreeBuilder.AddAttribute(int, string, bool)` on an
+  element omits the attribute when false and emits it *valueless* when true; an empty string is not
+  a valid `true|false` token, so AT falls back to the role default of `false`. TabBar,
+  SettingsModal, PropertiesModal and TradingDashboardModal all use the correct
+  `? "true" : "false"` ternary — so this is drift, not ignorance. A screen-reader user in the
+  Strategy Manager hears no "selected" on any tab and has no other cue, because the visual cue is a
+  background colour. Add a `ModalContractScanTests` assertion that no `aria-` attribute is bound to
+  a bare boolean.
+- [ ] **Every dialog heading and form label is black ink on a dark panel.** `app.css:425,430,515,534`
+  pin `color: #111` on `.modal-content h2`, `.modal-content label`, `.object-tree-item` and
+  `.shortcuts-table` against `--bg-surface: #2b2f36` — roughly 1.2:1. The comment 23 lines above at
+  `:402` says the fix already happened: *"Dialogs take the theme like everything else. They **were**
+  a fixed #f2f2f2 with #111 ink."* The surface moved to `var(--bg-surface)`; these four
+  more-specific rules were left behind. Live instances include the API-key profile nickname, the
+  drawing-tools list, seven Help tables and the whole Keyboard-rebinding table — and
+  `.shortcuts-table` also hardcodes light `th`/`nth-child(even)` backgrounds, so rows alternate
+  readable and unreadable. Screen-reader users are unaffected, which is precisely why it survived.
+  This is the low-vision half of the audience. Fix: `var(--text-on-surface)`, and add a CSS scan
+  test for literal hex colours inside `.modal-content`.
+- [ ] **The Object Tree labels its buttons with the state they are leaving.**
+  `ObjectTreeModal.razor:76,109` render `@(series.IsVisible ? "Show" : "Hide")` — so a *visible*
+  series shows a button reading "Show" — and `:83,115` render `@(series.IsMuted ? "Mute" : "Sound")`.
+  `aria-pressed` is separately inverted, so a user cross-checking gets a contradictory second signal.
+  The buttons have no `aria-label`, so the visible text *is* the accessible name. `IndicatorBar.razor:28`
+  gets it right. Also strip the orphan `U+FE0F` variation selectors left inside `"Show️"` and
+  `"Delete️"`.
+- [ ] **Escape leaves the Sound Designer on screen.** `SoundDesignerModal.razor:554-558` — `Close()`
+  sets `_isVisible = false` and publishes, but omits `StateHasChanged()`, and it is reached via
+  `InvokeAsync(Close)` which marshals but does not schedule a render. It is the only
+  self-implementing modal missing the call. The user hears "Sound designer dialog closed" and the
+  boundary earcon, the dialog stays in the DOM and the Tab order, the keyboard-scope gate now
+  believes no modal is open so single-letter chart commands fire while focus sits in the patch
+  editor, and a second Escape does nothing. Convert it to `@inherits ModalBase` like the other
+  twelve.
+- [ ] **Every feedback message is spoken twice, and F2 silences only one of the speakers.**
+  `StatusBar.razor:72-78` subscribes to `FeedbackRequestEvent` and mirrors every `Message` into a
+  second `role="status" aria-live="polite"` region, while `AccessibilityFeedbackCoordinator` already
+  routes the same event through the assertive buffer in `MainLayout`. The status bar gates on
+  nothing, so after F2 it keeps narrating with no way to stop it. It is a *visual* persistent
+  indicator; drop the live-region roles.
+- [ ] **The assertive double buffer fails on even-numbered batches.** `MainLayout.razor:186-194`
+  flips `_activeBuffer` per `Speak`, so two calls in one dispatcher turn flip 1→2→1 and set the same
+  text; Blazor coalesces the renders and the emitted DOM is byte-identical, so nothing announces.
+  The comment at `:148-152` claims *"alternating between the two guarantees every message triggers
+  an announcement."* It presents as "the app skipped a bar" — the exact failure this design was
+  added to eliminate. Fix: append a monotonic invisible token so the text always differs. Also drop
+  the redundant `role="status"` paired with `aria-live="assertive"` on both regions.
+- [ ] **`role="menu"` popups are counted as open modals but are not covered by the Tab trap.**
+  `keyboard.js:65` selects `[role="dialog"]` only, while `ChartContextMenu` and `DrawingContextMenu`
+  publish `ModalStateChangedEvent(true, …)`. So chart commands are suppressed but Tab walks straight
+  out of the menu into the toolbar *behind* a full-screen transparent overlay that intercepts every
+  click. Neither menu implements the arrow-key navigation `role="menu"` requires. Extend the
+  selector and add Up/Down/Home/End/Escape.
+- [ ] **Keyboard rebinding cannot capture any modifier chord.** `captureNextKey` registers on
+  `document` in the capture phase; `keyboard.js` registers on `window`, runs first, and calls
+  `stopImmediatePropagation()` for any Ctrl/Alt chord — so the capture listener never fires, *and*
+  the chord dispatches as a live command. The user sits in "press a key…" forever while bar replay
+  toggles underneath them. Fix: have `captureNextKey` set a flag the main trap checks and returns
+  early on, instead of racing two listeners.
+- [ ] **The inline stop-loss / take-profit editor opens with `autofocus`, which browsers ignore for
+  dynamically inserted elements.** `TradingDashboardModal.razor:864-874` swaps a button for an
+  `<input autofocus>` in the same render; nothing calls `FocusAsync()`. The trader presses Enter to
+  edit a live stop and their screen reader goes silent — focus is on `<body>`, the `aria-label`
+  explaining the flow is never read, and the keydown handler is on an element that never got focus.
+  Focus is lost a second time on commit or Escape. This is the moving-a-live-stop flow.
+- [ ] **`LoadWorkspaceModal` arrow keys change the highlight silently.** `:96-120` implements a
+  roving tabindex and Arrow handling but never moves DOM focus and has no `aria-activedescendant`,
+  so the user hears nothing for each press, then Enter loads whichever workspace the invisible
+  highlight reached. Same shape in `SaveWorkspaceModal` and `CustomScriptsModal` (where every
+  `role="option"` carries `tabindex="0"` with no arrow handling at all).
+- [ ] **`OrderBookModal` rows are `@key`ed on price**, so a live depth update destroys and recreates
+  the row being read and focus falls to `<body>`. On a liquid pair that is several times a second —
+  reading the depth ladder, the modal's entire purpose for a blind trader, is impossible on any
+  active market. Key on index and move to a `role="grid"` with arrow-key cell navigation.
+- [ ] **`TabBar` nests a `<button class="tab-close">` inside a `<button role="tab">`.** Invalid HTML;
+  the parser hoists the inner button out, so the tablist's owned elements become
+  `tab, close-button, tab, close-button…` and the close buttons are neither `tab` nor
+  `presentation`. Every close button is `tabindex="-1"` with no `aria-activedescendant`, so **there
+  is no keyboard route to them at all** — Delete closes only the active tab.
+- [ ] **The chart's failure state is visual-only.** `ChartArea.razor:128-149` puts "Connection
+  Failed" / "Connection Stalled" and "Please check your network connection and API keys" inside an
+  `aria-hidden="true"` overlay. The blind user hears "Data link: Faulted" once, if at all, then the
+  chart simply stops changing, while `role="application"` keeps announcing "Press arrow keys to
+  navigate bars" over a dead feed.
+- [ ] **~15 modals render status text into a `role="status"` region created in the same render as
+  its content** — a pattern NVDA and JAWS reliably do not announce. Backtest results, OCO placement,
+  import outcomes and the order-book load failure are all affected. The codebase uses the correct
+  `role="alert"` form in four places and `AddIndicatorModal:59-62` demonstrates the
+  always-present pattern with a comment, so this is inconsistency rather than ignorance.
+- [ ] **`TradingDashboardModal.razor:828` is an `async void` timer callback** whose
+  `await RefreshBookAsync()` is outside the try/catch. A transient 429 or an unsupported-symbol
+  throw faults a task on the thread pool: on MAUI that reaches the unhandled handler and the process
+  dies, on the WebHost it kills the circuit — while a blind trader is watching an open position.
+- [ ] **`Toolbar.razor:405-431`'s shape-change confirmation is a `role="alertdialog"` that publishes
+  no `ModalStateChangedEvent`, moves no focus and is not Escape-closable** — and
+  `ModalContractScanTests` scans for `role="dialog"` only, so it is invisible to the scanner. A live
+  example of the creative evasion the scanner exists to catch. On MAUI the SkiaSharp canvas is never
+  hidden, so it draws *underneath* the chart.
+- [ ] **Silent early returns.** `TradingDashboardModal:788` returns before `_isVisible = true` when
+  no chart is loaded, so Alt+T produces no dialog, no earcon and no speech; same in
+  `PropertiesModal:713` (P with no series selected) and `DrawingContextMenu:88`. There is a house
+  rule about exactly this, cited at `DrawingContextMenu:151`, that these three paths miss.
+- [ ] **Adding or deleting an alert produces no feedback and destroys focus.**
+  `AlertsModal:205-252` mutates and re-renders with no announcement; deleting the focused `<li>`
+  drops focus to `<body>`. `ApiKeysModal:409-429` has the same shape and **no confirmation prompt
+  before deleting a credential profile**.
+- [ ] **Label-in-name violations throughout.** `Toolbar.razor:181-190` pairs
+  `<label for="market-select">Market:</label>` with `aria-label="Select market"`; the `aria-label`
+  wins, so the accessible name does not contain the visible label. WCAG 2.5.3, and it breaks
+  Dragon/Voice Control ("click Market"). Same at three more toolbar sites, throughout
+  `TradingDashboardModal`, and in `IndicatorBar`.
+- [ ] **MAUI: `MainPage.xaml.cs:61-129` subscribes on every `OnHandlerChanged` and unsubscribes only
+  in `OnDisappearing`.** `OnHandlerChanged` also fires on handler *disconnect*, and nothing
+  re-subscribes on `OnAppearing` — so a background/foreground cycle on Android or iOS leaves the
+  Skia canvas permanently frozen at the last painted frame while the store keeps ticking. Repeated
+  handler changes leak subscriptions onto the singleton bus, invalidating the canvas N times per
+  state change.
+- [ ] **MAUI: the Android hardware-keyboard bridge is dead for navigation keys and double-dispatches
+  everything else.** `MainActivity.cs:20` does `e.KeyCode.ToString().Replace("Keycode", "")` — but
+  `Android.Views.Keycode` members render as `DpadLeft`, `MoveHome`, `PageUp`, never prefixed, so the
+  `Replace` is a no-op and `"DPADLEFT"` matches no shortcut. It also calls `IInputService.ProcessKey`
+  **directly**, bypassing `GlobalInputService`'s 50 ms dedupe, while keyboard.js forwards the same
+  physical press through the deduped path — so letter keys can fire twice (hide then show = silent
+  no-op). `GlobalInputService.NormalizeKey` already has the right mapping table. The iOS/MacCatalyst
+  `KeyboardPageHandler.cs:79` has the same un-deduped direct dispatch.
+- [ ] **MAUI: `Platforms/Windows/App.xaml.cs:12` marks every WinUI unhandled exception
+  `Handled = true`** and continues in an undefined state.
+- [ ] **MAUI: `TrayIconService.cs` is the highest compile risk in the tree.** Behind `#if TRAY_ICON`,
+  which the csproj turns **on by default** for the Windows TFM, and the only file depending on
+  `H.NotifyIcon.Maui` 2.3.0 API shapes that changed between 2.0 and 2.1. Its own header calls it
+  EXPERIMENTAL and unverified. Treat a clean Windows build as unproven until CI runs it.
+- [ ] **MAUI: `BlazorAudioDriver.cs:205-213` (Android) exits its PCM push loop on
+  `PlayState != Playing` with no restart path** — a transient underrun silences all sonification for
+  the rest of the session.
+- [ ] **Two copies of `app.css`** (763 and 782 lines) differing by exactly two hunks — and the
+  divergence proves a fix has already been applied to only one. Every fix, including the `#111`
+  contrast bug, must be made twice. Move the shared body into the RCL's `wwwroot`.
+- [ ] **`.sr-only` is defined only inside `TradingDashboardModal`'s `<style>` block** but used by
+  `StrategyModal` and `Toolbar`. On the WebHost with `AllowTrading == false` that modal is not in
+  the render tree, so the class is undefined and three visually-hidden captions render **visibly**.
+- [ ] **Three independent modal-open counters** (`keyboard.js`, `CommandDispatcher`,
+  `MainPage.xaml.cs`) all driven from the same event, all drifting independently if any modal
+  double-publishes — and nothing guards against a second open event while already visible.
+- [ ] **`app.css:760`'s touch-target bump targets `.tab-btn`; `TabBar` emits `tab-button`.** The
+  44 px minimum for workspace tabs has never applied.
+- [ ] **`role="dialog"` markup is copy-pasted 25 times.** `ModalBase` captures the *event* contract
+  but not the *markup* contract, which is why the markup drifted into five different `aria-selected`
+  encodings, one missing render, and one dialog that escapes the scanner. A `<ModalShell>` render
+  fragment plus a shared `<TabStrip>` would make the focus/trap/announce behaviour uniform by
+  construction. God-modal status: logic extraction is real and working (`AlertTestSender`,
+  `WebhookAlertConfigLoader`, `QuickScreenBuilder`), but markup decomposition has been done exactly
+  once — `BuildSetupTab` — and stopped. SettingsModal is 2137 lines, TradingDashboard 1403,
+  Properties 1182, Strategy 1127, Watchlist 1056.
+
+### Ship-blockers — trading providers and the SDK order contract
+
+These are the real-money paths on the desktop build. The root cause is one thing, stated at the end
+of this block: **the order contract was never documented where a provider author would read it,
+never enforced by a type, and never checked by a test** — so sixteen providers each guessed, and the
+guesses are invisible until money moves.
+
+- [ ] **`OrderStatus.Triggered` is produced by four providers and consumed by nobody.** VERIFIED —
+  the enum is `{ PartialFill, Filled, Cancelled, Rejected, Triggered }` and
+  `GeneralOrderService.PublishOrderEvent` has cases for Filled / PartialFill / Rejected / Cancelled
+  and **no `Triggered` case and no `default`**. Kraken, Coinbase, Alpaca and InteractiveBrokers all
+  use `_ => OrderStatus.Triggered` as their fallback arm, so every venue status those four do not
+  recognise — Coinbase `FAILED`, Alpaca `expired`/`replaced`/`stopped`, Kraken `new`/`pending_new` —
+  is routed into a value that is silently discarded: no event, no log, no announcement. The trader
+  cannot distinguish "still working" from "refused". Fix: delete `Triggered` (the trigger fact
+  already lives in `StopTriggered`/`TakeProfitTriggered`), add `New`/`Expired`/`Replaced`/`Unknown`,
+  and make the switch exhaustive with a logged default.
+- [ ] **Neither order enum has `Expired` or `Replaced`, and the squashes are dangerous.** Schwab maps
+  `"REPLACED"` to `Cancelled` — but replaced means the order is **still live under a new id**, so the
+  trader hears "cancelled", believes they are flat, re-enters, and is now double-sized with the
+  original still resting. MEXC maps protobuf status 5 (`PARTIALLY_FILLED_CANCELED`) to `Cancelled`,
+  hiding a live position that was opened before the cancel. Binance maps `EXPIRED` to `Rejected`.
+- [ ] **Coinbase announces a freshly-accepted resting limit order as a partial fill of zero.**
+  VERIFIED — `CoinbaseProvider.cs:293` is `"OPEN" => OrderStatus.PartialFill`, and Coinbase's `user`
+  channel sends `status: "OPEN"` with `filled_size: "0"` the instant an order rests.
+  `GeneralOrderService:143` then publishes `OrderPartialFillEvent`. Place a limit order, immediately
+  hear "partially filled".
+- [ ] **Coinbase parses every number with the ambient culture — 22 sites including fill quantity and
+  fill price.** VERIFIED at `:269-271`: `double.TryParse(o["filled_size"]?.ToString(), out …)` with
+  no `IFormatProvider`. On de-DE/fr-FR/pt-BR/ru-RU/tr-TR, `TryParse("0.5")` reads `.` as a group
+  separator and returns **5.0**. A blind trader fills 0.5 BTC and hears "filled 5 BTC"; every
+  Coinbase candle and balance is 10× or 100× wrong on roughly half the world's locales, silently.
+  Kraken already does this correctly — copy it. (`f["size"]?.Value<double>()` is safe; it is
+  specifically the `JToken → ToString() → double.Parse` pattern that breaks.)
+- [ ] **Three providers serialize order quantity and price with the machine's decimal separator.**
+  `BitstampProvider.cs:632-638`, `CoinbaseProvider.cs:565-589`, `AlpacaProvider.cs:716`. On any
+  comma-decimal locale the terminal cannot place a single order on those venues; a lenient parser
+  reads `0,50000000` as `50000000`. Kraken, Tradier, Oanda, KrakenFutures, Gemini and MEXC all pass
+  `InvariantCulture` at the equivalent sites — inconsistency, not ignorance, and no test pins it.
+  Add a `Wire.Num(double, int)` SDK helper plus a CI grep guard over `Plugins/Providers`.
+- [ ] **`BitstampProvider.cs:634,638` rounds every limit price to two decimals** regardless of
+  instrument. A limit on XRP/USD at 0.4567 goes out at `0.46`; on a sub-cent pair it becomes `0.00`.
+  A wrong order placed, silently, with a real order id returned.
+- [ ] **`InteractiveBrokersProvider.cs:589` can place an order against the wrong instrument.**
+  `_currentConId ?? await ResolveConIdAsync(signal.Symbol, …)` — `_currentConId` is the *currently
+  charted* symbol and is never compared against `signal.Symbol`. Chart AAPL, order MSFT from the
+  panel, buy AAPL. No error; a real order id comes back.
+- [ ] **`MexcProvider.cs:657` turns a protective stop into an immediate market order.** The futures
+  branch is `type = isLimitFamily ? 1 : 5`, and `grep TriggerPrice` across the MEXC plugin returns
+  nothing. The spot path guards and refuses; the futures path does not. A stop placed at 90,000 with
+  spot at 100,000 sells **now at 100,000** — the trader is flattened instead of protected and the
+  terminal reports success. And `:656` maps side as `Buy ? 1 : 3` (open long / **open short**)
+  without reading `ReduceOnly`, so a sell-to-close opens an opposing short in hedge mode.
+- [ ] **`TradierProvider.cs:815,880` truncates quantity to an int.** `((int)signal.Quantity)` — a
+  risk sizer emitting 9.7 shares places 9; a fractional 0.6 becomes **0**, which
+  `GeneralOrderService`'s `IsFinitePositive` validation passes. Tradier equities are whole-share
+  only, so silent truncation is never the right answer — refuse instead.
+- [ ] **Every Schwab order is announced as placed and its fill is never announced.** VERIFIED —
+  `SchwabProvider.cs:687` returns the literal `"ORDER_SUBMITTED"` (the real id is in the `Location`
+  header, which `SendWithAuthAsync` discards), and `IsErrorSentinel` is a **prefix** test on
+  `"ORDER_"`. Schwab declares `SupportsOrderEventStreaming => false` and
+  `SupportsOrderStatusQuery => true` precisely so the poller resolves fills — and the poller is
+  gated on `!IsErrorSentinel(result)`, so it never starts. The protective-order verification net is
+  skipped for the same reason. Nine other providers use the same `?? "ORDER_SUBMITTED"` fallback.
+- [ ] **`GeminiProvider.cs:410-415` announces a partially-filled-then-cancelled order as
+  "cancelled".** The ternary ladder tests `cancelled` **before** `executed > 0`. Gemini has no native
+  market order, so `OrderType.Market` is emulated as an IOC limit — the default order type on this
+  venue is the one most likely to partially fill and cancel. The trader owns coins and hears
+  "cancelled". This is the exact bug class that shipped once already on Tradier/Schwab.
+- [ ] **`catch { return new(); }` on trading reads re-arms the reconciliation incident
+  `ProviderResult.cs:8-16` documents as fixed.** `GeneralOrderService:720` classifies failure purely
+  by whether the provider *threw*, and `TradingReconciliationCoordinator:155` guards on
+  `!positions.IsOk`. Swallowers found in Kraken (4), Coinbase (4), Oanda (5), Binance (4), Bitstamp
+  (2), IB (2), TwelveData (2), FMP (3), MEXC (1). A 3-second 502 on a positions fetch reproduces the
+  recorded incident verbatim — "announced every position as 'closed while you were away', and then
+  overwrote the snapshot with the empty result" — and the guard never fires because nothing threw.
+  Gemini and KrakenFutures let exceptions propagate and are the model.
+- [ ] **`BinanceProvider.cs:1023` writes the user-data listenKey into the spoken error stream.**
+  `$"Binance socket {uri.AbsolutePath} error…"` where `AbsolutePath` is `/ws/<listenKey>`. Any socket
+  hiccup publishes a credential granting 60 minutes of read access to order and balance events, and
+  `LiveStreamManager` routes it to the error coordinator, which speaks and logs it.
+- [ ] **`BinanceProvider.cs:127` — `_isTestnet = tn == "true"` is a case-sensitive compare.** A config
+  emitting `"True"` (the .NET `bool.ToString()` default) leaves testnet off, so orders the user
+  believes are paper go to the real book. Oanda has the mirror-image defect: `:127-132` has no
+  `else`, so once switched to live, a later practice config leaves the live URLs in place.
+- [ ] **`BinanceProvider.cs:190-202` never recreates an expired listenKey**, and `:104` keeps
+  reporting `SupportsOrderEventStreaming => true` because `_listenKey` is non-empty — so fills stop
+  announcing permanently, polling never starts, and nothing says so. Binance is also the only one of
+  16 not using `ReconnectingWebSocket`: its hand-rolled 37-line replacement (`:994-1030`) has no
+  staleness watchdog, no frame cap, and a bare `catch` that swallows a `KeyNotFoundException` from
+  an unexpected `executionReport` variant — dropping a fill with zero trace.
+- [ ] **`BinanceProvider` hardcodes the SPOT base URL for cancel, open-orders, fills and depth**
+  while `Capabilities` declares `FuturesTrading`. **A futures order placed through this terminal
+  cannot be cancelled through this terminal** (`-2011 Unknown order sent` → `return false`), the
+  futures open-orders list is always empty, and the futures user-data stream is never opened.
+- [ ] **Binance and Oanda attach a stop loss only to MARKET entries** and silently drop it on limit
+  entries, while both venues accept it. Limit entry with both legs: the target attaches, the stop
+  does not, no message, position live and naked. Binance's loud "POSITION UNPROTECTED" path is never
+  reached because the attach never runs. IB and Tradier-options drop protective legs the same way.
+  (Same defect class as the paper broker's bracket bug above — four venues, one shape.)
+- [ ] **`OandaProvider.cs:330-348` fabricates a symbol and a side on cancel** — a cancelled *sell* on
+  EUR/USD is announced as a cancelled *buy* on an empty symbol — never reports rejections at all,
+  and hardcodes `RemainingQuantity: 0` so partial fills announce as complete. `:590-607` also reports
+  short positions with a **positive** quantity, so a 10,000-unit short reads identically to a
+  10,000-unit long in every risk calculation and every spoken summary.
+- [ ] **`KrakenProvider.cs:1170 vs :1190` — the signed string is not the string sent.** The signature
+  is built with `Uri.EscapeDataString` on values only; the body is `FormUrlEncodedContent`, which
+  escapes keys too and renders space as `+`. So every bracketed market order (`close[ordertype]`) and
+  every multi-word-network deposit lookup (`"Tether USD (TRC20)"`) fails with `EAPI:Invalid
+  signature`. `KrakenFuturesAuth` gets this right and says why: *"The SAME encoded string must be
+  signed and sent."* **And the test that should catch it normalizes it away** —
+  `BrokerParityTests:246` calls `Uri.UnescapeDataString` on the captured body before asserting.
+- [ ] **`KrakenProvider.cs:1201-1212` hardcodes a 3-character quote**, so `"BTCUSDT"` becomes
+  `"BTCU/SDT"`. The WS accepts the subscribe and never sends data — no error, chart just empty.
+  `SymbolFormat.Slashed` exists and is not used. Related: `SymbolFormat.KnownQuotes` is only 8
+  entries and returns the whole symbol on a miss, which is why MEXC produces `BTCTUSD` and why Oanda
+  cannot use the helper at all (no JPY/AUD/CAD/CHF).
+- [ ] **`CryptoAddressValidator.cs:71-84` refuses valid Tron and Lightning deposit addresses.**
+  Network matching is `net.Contains(name)`, and **`"TETHER USD (TRC20)"` contains `"ETH"`** — so a
+  TRC20 address is sent to the EVM hex validator, fails, and the wallet refuses to display a
+  correct address. `"BTC Lightning"` contains `"BTC"`, so `lnbc1…` invoices fail the `1`/`3`/`bc1`
+  check. Kraken explicitly issues both.
+- [ ] **`CoinbaseProvider.cs:145,685-694` builds the WebSocket JWT from a host string**, producing
+  `uri = "GET api.coinbase.com/advanced-trade-ws.coinbase.com"` and no `nonce` claim. The `user`
+  channel subscription is rejected server-side — and Coinbase does not override
+  `SupportsOrderEventStreaming`, so it defaults `true` and the poller never runs. **Coinbase fills
+  are announced by no path at all.**
+- [ ] **Six providers leave `SupportsOrderEventStreaming` at its `true` default while their push
+  channel can be dead** — Coinbase, Kraken, IB, Bitstamp, Oanda, Alpaca. Kraken's auth socket is
+  best-effort and its own catch block reports *"order execution updates won't be delivered"* — while
+  the flag still says `true`, so the order service does not poll. The provider knows the stream is
+  dead and the contract cannot express it. The flag appears in **none** of the three authoring docs.
+- [ ] **20 sites across 5 providers format dates into request URLs with the ambient culture** —
+  including the **calendar**. Under th-TH, 2026 renders as 2569; every range request is nonsense,
+  the venue returns nothing, and the chart is blank with no error. Tradier ×4, FMP ×12, Schwab ×2,
+  Alpaca ×2, Oanda ×2, TwelveData ×2. Same root cause in `TimestampParser.cs:21`, the SDK's *shared*
+  parser, which passes `null` (= `CurrentCulture`) and returns `DateTime.MinValue` on failure with
+  no failure channel.
+- [ ] **`TwelveDataProvider.cs:231` — the Tradier/FMP intraday timezone bug, unfixed.** No
+  `&timezone=UTC`, so the venue returns exchange-local wall clock which `AssumeUniversal` then
+  declares to be UTC. Every AAPL 5-minute bar sits 4–5 hours out of session, and the candles look
+  plausible so nothing signals it. Conversely `FmpProvider.cs:341-346` applies the Eastern-time fix
+  to **crypto and forex**, which FMP returns in UTC — the fix created a symmetrical instance of the
+  bug it fixed, in the opposite direction, on four of five market types.
+- [ ] **`ReconnectingWebSocket` — three defects in the SDK's shared socket.** `SendAsync` is
+  documented "safe to call from any thread" and is not (`ClientWebSocket` forbids concurrent sends;
+  the heartbeat timer races provider subscribes), and it silently `return`s on a non-open socket so a
+  subscribe issued during a reconnect window **vanishes** and the socket ends up healthy and
+  subscribed to nothing. `:162-166` gives up permanently after `_maxReconnectAttempts` **without
+  invoking `_onDisconnected`**, so after a 15-minute outage the chart looks live and never ticks.
+- [ ] **`KrakenFuturesProvider.cs:367` silently turns an IOC request into a GTC order** — it sets
+  `triggerSignal` (which selects *which price* triggers a stop) instead of `orderType: "ioc"`, while
+  declaring the `TimeInForce` capability so the dashboard renders the control. More broadly,
+  `TimeInForce` is a free-form `string?` and seven of ten providers substitute their own hardcoded
+  value: a Day order that survives overnight through a gap, or a GTC protective order Schwab kills at
+  16:00 leaving the position unhedged.
+- [ ] **`InteractiveBrokersProvider.cs:649-668` auto-confirms every IBKR risk warning** — up to 8 in
+  a chain, including "price is more than X% away from the market" and "size exceeds…". Announcing
+  after the fact is not consent, and for a blind trader that announcement was the only channel.
+- [ ] **`PolygonProvider.cs:126-131` hardcodes the 15-minute-delayed WebSocket** while
+  `Environment => Live`. A paying subscriber acts on quarter-hour-old prices believing they are live;
+  crypto and forex live data never arrive at all (the REST ticker shape is pushed into WS channels
+  that use a different shape, and there is no status-frame handler to notice the rejection).
+- [ ] **`FinnhubProvider.cs:155` processes only the last trade in each batched frame**
+  (`var trade = data.Last!;`) with `LiveTickStyle.CumulativeBars`, so live volume on a busy symbol is
+  off by an order of magnitude — and volume is sonified.
+- [ ] **Capability flags declared with nothing behind them.** IB declares `L2` and does not implement
+  `IOrderBookProvider` at all. Polygon and Alpaca return a subject that is never `OnNext`-ed (worse
+  than empty — it never completes). IB and Oanda declare `Leverage` with a `SetLeverageAsync` that
+  echoes the requested value without calling anything: the trader sets 4×, reads back "4", and the
+  venue was never told. Binance declares `MarginTrading` with zero `/sapi/v1/margin` references.
+  `KrakenFuturesProvider.cs:410-411` names this exact anti-pattern — *"the no-op that the capability
+  audit exists to catch"* — and `ProviderCapabilities.cs:9-12` states the contract: *"A flag is
+  therefore a promise to a user."*
+- [ ] **`BaseMarketDataProvider.GetCapability<T>` returns null for everything except market data**,
+  and `PROVIDER_AUTHORING.md:114` says it returns `this`. An author implements `ITradingProvider`
+  exactly as `SDK_GUIDE.md` §5.2 instructs, forgets the override, and trading is silently invisible
+  to the host. Fix is one line: `if (this is T t) return t;`.
+- [ ] **`PlaceOrderAsync` returns a bare `string` and the `ORDER_FAILED:` protocol is documented
+  nowhere on it** — `grep ORDER_FAILED AccessibleTrader.Sdk` returns one line, on a *different*
+  interface. Two disagreeing recognisers exist in Core: `IsErrorSentinel` (prefix) and
+  `OrderResult.DescribeFailure` (exact-match list). `DescribeFailure("PROVIDER_NOT_CONFIGURED")`
+  returns null — "it went" — so `QuickTradeExecutor` and the dashboard announce success for an order
+  that was never sent, on nine providers that return that sentinel. Fix: return a typed
+  `OrderPlacement` record.
+- [ ] **No `CancellationToken` on `IMarketDataProvider` or `ITradingProvider`**, while
+  `IWalletProvider` and `IWithdrawalProvider` take one on every method. A 5000-bar backfill cannot be
+  cancelled on symbol switch and its bars race the new symbol's into the same buffer. Adding
+  `CancellationToken ct = default` keeps every implementation source-compatible.
+- [ ] **`BarBucketConsolidator.cs:52` drops every negative-valued tick** (`tick.Open > 0 && …`), so
+  negative funding-rate series freeze at the last positive print with no error — while
+  `MarketType.Derivatives` is documented as "funding rates, open interest, basis" and
+  `SymbolRenderHints.cs:65` says "funding can be negative".
+- [ ] **`docs/PLUGIN_AUTHORING.md` documents `GetDefaultLevels` with the wrong return type in six
+  places, and the mismatch compiles.** The doc shows a tuple list; the SDK returns
+  `List<LevelDescriptor>`. Because it is a *default interface method*, the tuple version adds an
+  unrelated method and the DIM silently wins — so the quick-start ships an indicator whose
+  Overbought/Zero/Oversold lines **never appear and never sound**, then falls through to the Skender
+  lookup so a custom indicator inherits *RSI's* levels. For a blind user those levels are the
+  earcons that convey position in range. The doc's own line 5 claims "All APIs described here are
+  taken directly from the current source code."
+- [ ] **Four documented provider samples do not compile** (CS8139 — overriding a named tuple with an
+  unnamed one), `SDK_GUIDE.md` §5.2 teaches the member-hiding anti-pattern the SDK deliberately
+  removed (`SupportsMarginTrading` and friends are non-virtual and flag-derived by design), and the
+  sample epoch conversion `new DateTimeOffset(b.Date).ToUnixTimeMilliseconds()` is timezone-dependent
+  — it passes on a UTC dev box and shifts the volume pane against the candles for everyone else.
+- [ ] **The three authoring docs cover indicators and data providers only.** Verified absent from
+  `PROVIDER_AUTHORING.md`: `ITradingProvider`, `PlaceOrderAsync`, `ORDER_FAILED`, `OrderStatus`,
+  `ProviderCapabilities`, `IWalletProvider`, `IWithdrawalProvider`, `RestSigning`, `SymbolFormat`,
+  `ReconnectingWebSocket`, `SurfaceError`, `SupportsOrderEventStreaming`, `InvariantCulture`.
+  **This is the root cause of the provider defects above, not a separate finding.** `SDK_GUIDE.md`
+  tells authors to "push every order event onto `OrderUpdateStream`" and never mentions the flag
+  that decides whether the app polls — which is exactly why six providers left it defaulted with a
+  broken push channel. `LiveTickStyle` appears in no authoring doc despite the SDK saying providers
+  "MUST override" it.
+- [ ] **SDK helper adoption is near zero where it matters.** `RestSigning`: 1 of 16 (MEXC).
+  `SymbolFormat`: 1. `TimestampParser`: 1 (Tradier). `ExchangeTime`: 1 (FMP).
+  `ReconnectingWebSocket`: 9 (Binance hand-rolls). `RateLimiter`: 14 (Gemini and KrakenFutures have
+  none — Gemini's second-resolution nonce can also outrun the venue's 30-second acceptance window
+  under a burst, and the failure is reported to the user as a *credential* problem). The TODO entry
+  naming Kraken/Bitstamp/Binance/Coinbase is **confirmed for all four and incomplete** — it omits
+  Binance's hand-rolled WebSocket, which is the highest-risk duplication of the set.
+- [ ] **`ProviderResult<T>` has zero callers repo-wide**, and `ProviderErrors`/`SurfaceError` has
+  zero subscribers — 3 of 16 providers emit through it, the other 13 use 164 raw
+  `_errorStream.OnNext` calls, so severity and category never reach the feedback layer.
+- [ ] **Provider test coverage is thin exactly where money moves.** `ProviderConformanceTests` is a
+  smoke test (name non-empty, `MaxBarsPerRequest > 0`, timeframes parse) over a hardcoded 14 of 16.
+  `BrokerParityTests` is 13 tests: Tradier 5, Schwab 4, Kraken 2, Alpaca 1, Coinbase 1, and **zero**
+  for IB, Bitstamp, Binance, MEXC, Oanda, Gemini, KrakenFutures, Polygon. Only 5 of 16 providers
+  have a dedicated test file. There are **no known-answer HMAC vectors anywhere in the suite**, no
+  culture tests, no symbol round-trip tests, no signed-string-equals-sent-string assertion, and no
+  test that `PlaceOrderAsync`'s return value reaches the poller. Every critical in this section is
+  unguarded.
+
+### Hosted / WebHost — production risks on the live site
+
+- [ ] **The chart freezes exactly when the market is busy.** VERIFIED. `ChartArea.razor:329`
+  rate-limits rendering with `.Throttle(TimeSpan.FromMilliseconds(100))`. In Rx.NET `Throttle` is
+  *debounce* — it emits only after a 100 ms quiet gap. The trigger fires on every
+  `Store.StateStream` emission, and live ticks on Bitstamp/Binance/Kraken/MEXC (all hosted-enabled)
+  arrive faster than that during volatility, so the timer keeps resetting and the PNG stops
+  updating until the feed goes quiet. The intended operator is `Sample`. The codebase already
+  knows the difference: `EventBus.SubscribeCoalesced` uses `Throttle` and documents it as
+  "debouncing", `SubscribeSampled` uses `Sample`, and `TactileCanvasCoordinator:171` uses
+  `Throttle` correctly and deliberately. README:39 claims "~10 fps". One-word fix.
+- [ ] **Hosted background alerts silently do not fire for most alert types.** VERIFIED.
+  `LocalBackgroundMonitor.DeriveWatches` filters to `a.ConditionTree == null`, so every Advanced-
+  condition alert is excluded from server-side evaluation. Both monitors then evaluate with
+  `WorkspaceState.Initial` and an empty indicator dictionary, so in `AlertEvaluator.TryEvaluate`
+  the `Indicator` target hits `series == null → return null` and `Poc` hits `NaN → return null`.
+  Only Price and Candle targets work. Nothing warns the user, and `USER_MANUAL.md:2023` says
+  advanced alerts have "everything else about alerts unchanged — delivery channels, symbol scoping,
+  and background tabs". A blind trader believes an alert is watching the market when it is not.
+  Either evaluate them properly or refuse to save a server-side alert the server cannot evaluate,
+  and say which.
+- [ ] **Both background monitors hardcode `"Spot"` as the market sub-type.** VERIFIED —
+  `HostedAlertMonitor:182` and `LocalBackgroundMonitor:149`, and the `Watch` record carries no
+  market type at all. Alerts on Derivatives, Economic, OnChain or Sentiment — all in
+  `HostedMarkets` — request the wrong sub-type; the failure is logged at Debug and swallowed. Same
+  bug copy-pasted in two places.
+- [ ] **SSRF from the hosted server through both alert channels.** VERIFIED.
+  `WebhookAlertChannel.IsValid` accepts any absolute HTTPS URL — no host allow-list, no
+  private-IP/loopback block, default redirect-following. `EmailAlertChannel` does
+  `new SmtpClient(cfg.Host!, cfg.Port)` with user-supplied host and port, i.e. an arbitrary
+  outbound TCP connect usable as a port scanner. Both are reachable by any registered user
+  (registration is open, no email confirmation), and delivery success/failure is spoken back,
+  giving a boolean oracle. `BuildAlertChannelHttpClient()` deliberately bypasses
+  `PluginHostServices.CreateHttpClient` — the allow-listed factory every *provider* is required to
+  use. README boasts that all providers route through it; the channels that take a user-supplied
+  URL are the exception.
+- [ ] **`QuickTradeEquity` is a process-wide static on a multi-user host.** `private static double
+  _latest`, written by `GeneralOrderService.GetBalancesAsync` from every circuit. User A's balance
+  becomes user B's sizing input, and B can infer A's account size. The doc comment's reasoning
+  ("avoids a stale copy per browser tab") was written for the single-user desktop.
+- [ ] **`PaperTradingProvider` is `AddScoped` on the WebHost**, so two tabs for one user get two
+  independent accounts over one `paper_account.json` with no re-read and no file watch. Whichever
+  instance persists last wins, and a trade made in tab A can be overwritten out of existence by a
+  trailing-stop update in tab B. The desktop head is `AddSingleton` and unaffected. Fix: a
+  process-wide dictionary of accounts keyed by `ICurrentUser.DataKey`.
+- [ ] **`PaperTradingProvider` reads `AppDataDirectory` in its constructor**, defeating
+  `UserScopedPathService`'s explicit "computed on access, after the circuit handler has set
+  `ICurrentUser`" contract. Safe today only because `App.razor` sets `prerender: false`. Re-enable
+  prerendering, or resolve the broker from any pre-circuit scope, and every user's paper account
+  silently becomes `users/anon/paper_account.json` — one shared account for the whole site.
+- [ ] **`AllowCustomScripts` and `AllowApiKeysModal` are enforced only in Razor `@if` markup.**
+  `AllowLiveTrading` is properly enforced in `GeneralOrderService`; these two have no service-layer
+  check. Not currently exploitable — Blazor Server will not dispatch events to a component that was
+  never rendered — but server-side Roslyn is described in `DemoPolicy:203` as "RCE", and one
+  refactor is all that stands between a hosted user and it.
+- [ ] **A WebHost started with neither `--accounts` nor `--demo` serves `HostMode.Full` to every
+  anonymous visitor** — live trading, API-keys modal and custom scripts all on. The difference
+  between the hosted product and a fully-trusted local terminal is one absent command-line flag.
+  Refuse to start in `Full` when the bound URL is not loopback.
+- [ ] **`/diag/journal` is unauthenticated.** Mapped outside the `accountsEnabled` block with no
+  `.RequireAuthorization()`, gated only on `--enable-diag` or `IsDevelopment()`. On a hosted
+  instance run with that flag it is an anonymous dump of spoken-text history.
+- [ ] **`ForgotPassword`'s comment claims rate-limit coverage it does not have.**
+  `AuthRateLimitPolicy.IsAuthMutation` matches only `/account/login` and `/account/register` POSTs,
+  so `/account/forgotpassword` falls into the general 200-per-10s tier while writing an audit record
+  with an attacker-supplied email to `SecurityEventFileSink` — which opens, writes and closes a file
+  under a global lock per event, and whose own comment assumes "a couple per minute at most under
+  heavy load". Unauthenticated disk-fill and lock contention. `/account/loginwith2fa` and
+  `/account/loginwithrecovery` are also outside the auth tier (per-account lockout does cover them).
+- [ ] **The owner-seed ignores its `IdentityResult`.** `Program.cs:188` — `await
+  users.CreateAsync(seedUser)` with no check, so a failed seed is silent.
+
+### Correctness / duplication debt found by this audit
+
+- [ ] **`VolumeProfileLevelProvider:61` silently falls back to a known future-leaking profile.**
+  `bins ??= series.ProfileBins` — whenever `_backtestCache` is null or inactive (the ctor parameter
+  is optional and defaults to null; `ReplayProfiles` can be false), the backtest reads the
+  workspace's *current-viewport* profile at every historical bar. There is no refusal and no
+  warning. Its own XML doc still calls the leak unconditional and "the most important pending S/R
+  correctness item", which is now stale since the replay path exists and is default-on — so a
+  reader cannot tell which statement is true. Fix the fallback to return no profile levels during a
+  backtest without replay, and rewrite the comment.
+- [ ] **Three candle classifiers — and the 2026-08-20 entry understates it on two counts.** That
+  entry says "Not user-visible yet"; in fact `BarDetailService.ClassifyBar` (Ctrl+Shift+D) and
+  `SpeechFormatter.ClassifyCandleType` (arrow-key navigation) are two live speech paths reachable on
+  the same bar, and `SdkCandlePatternAnalyzer` drives `AlertEvaluator` and `CoreIndicatorProvider`.
+  A user can set a "Hammer" alert on SDK rules, hear the terminal say "Hammer" on SpeechFormatter
+  rules, and have the alert never fire. It is also not two labels but **eight behavioural
+  differences including two different threshold values and one whole missing concept**:
+
+  | Rule | `ClassifyBar` | `ClassifyCandleType` | `SdkCandlePatternAnalyzer` |
+  |---|---|---|---|
+  | `High == Low` | `"Flat"` | `""` | `Doji` |
+  | Nothing matched | `"Standard Candle"` | `""` | `Normal` |
+  | Marubozu threshold | `> 0.90` | `> 0.90` | **`>= 95.0`** |
+  | Marubozu label | `"Marubozu"` | `"Marubozu"` / `"Bearish Marubozu"` (asymmetric) | Bullish/Bearish |
+  | Dragonfly wick gate | `lower > 0.6, upper < 0.1` | same | **`> 40`, `< 8`** |
+  | Long-legged doji | absent | absent | present |
+  | Hammer rule | `body < .30, lower > .60, upper < .10` | same | **wick-vs-body ratios** |
+  | Spinning-top wicks | `> 0.25` | same | **`> 15`** |
+  | Hanging Man / Inverted Hammer | absent | absent | trend-aware |
+  | Multi-bar patterns | none | none | 11, evaluated first |
+
+  The consequential one: **any hammer-shaped bar at the top of an advance is announced as "Hammer"
+  (bullish implication) by both speech paths**, while the SDK correctly returns `HangingMan` with
+  `Direction = Bearish`. The SDK's own doc at `:186-189` says why that matters — *"Getting it wrong
+  does not merely mislabel — it announces the opposite direction to the one the shape implies."*
+  Two of the three classifiers still get it wrong. Fix: delete both private methods and route
+  `BarDetailService` and `SpeechFormatter` through `ISdkCandlePatternAnalyzer` (both are already
+  DI-constructed and the analyzer is already registered). Also route the SDK's hardcoded 50/30/40/
+  8/25/15/0.10 constants through `CandlePatternThresholds`, which exists to hold them.
+- [ ] **ATR is hand-rolled five times with different warmups.** `ChartPatternDetector.cs:675-699`
+  uses a growing `sum/i` average (non-NaN from bar 1); `TopBottomDetectorProvider` and
+  `PivotLevelsProvider` emit NaN until bar `period`; plus `IndicatorMath.Atr` and an inlined copy
+  inside `IndicatorMath.Adx`. A tolerance expressed in ATR units means different things in different
+  files. Related: WaveTrend exists in three copies (Cipher B, Cipher A, and `ValueDeviationProvider`
+  with an explicit "no dependency on Cipher B" comment — which then needed its own NaN-tolerant EMA
+  to fix a bug the other two still have); EMA/SMA are byte-identical across `MovingAverageHelper`
+  and `IndicatorMath` **with contradictory doc comments about the same code**; rolling z-score has
+  three implementations with three different warmups; forward-fill has three; MVRV band tables have
+  three with three different boundary sets; and `GetInt`/`GetDbl`/`GetBool` are re-declared in ~20
+  provider files with genuinely different behaviour (some `Convert.ToDouble`, which throws on a
+  non-numeric string; some `TryParse`; only one null-safe).
+- [ ] **`SpeechFormatter.GetPointValue`'s fallback still uses pre-rename, case-sensitive names.**
+  `c.Contains("Body")`, `"Upper"`, `"Lower"`, `"Open"` — against the current machine ids
+  (`upper_wick`, `lower_wick`, `body`, `line`) every one of those is false, so it returns
+  `double.NaN`. This is exactly the test commit `35928149` removed from the sonifier, left in place
+  here. Currently masked because `ViewportReducer` populates the arrays by `DataMapping` and the
+  primary lookup succeeds — but a dropped mapping or a series built outside the reducer path and
+  the wick reads "no data" with nothing failing. `ChartMath.GetComponentValue` is the corrected
+  version of the same block; call it.
+- [ ] **Signal polarity is classified twice and they disagree.** `NavigationSonifier.IsPositiveSignal`
+  has a `PitchMapping.Direction` branch that `NavigationFeedbackManager` lacks, so for such a
+  component the audio cluster order and the spoken signal order can flip relative to each other —
+  while both comments claim they match. Separately, both use
+  `Contains("Up", OrdinalIgnoreCase)`, which matches **"Support"**.
+- [ ] **Two pan formulas.** `AudioConstants.CalculatePan` computes `k/(N-1)`;
+  `LevelCrossingMonitor.ComputePan` computes `(k+0.5)/N`. The `AudioConstants` doc comment
+  describes the *second* one while implementing the first, and it is load-bearing documentation for
+  the audio/visual lockstep claim.
+- [ ] **Order-failure classification exists three times in three non-equivalent forms.**
+  `GeneralOrderService.IsErrorSentinel` (prefix match), `OrderResult.DescribeFailure` (explicit
+  switch), and `TradingDashboardModal:1195`/`:1299`
+  (`StartsWith("ORDER_FAILED") || StartsWith("PROVIDER_NOT")`). The third misses
+  `ORDER_REJECTED_QUANTITY`, `ORDER_REJECTED_PRICE`, `ORDER_DUPLICATE_SUPPRESSED` and
+  `ORDER_UNCERTAIN`, so a suppressed duplicate announces as "Order placed" — the routine
+  screen-reader double-Enter case the dedup gate exists to catch. `OrderResult`'s own doc says
+  "One translator, used by every path that places an order, is how that stays fixed"; two of four
+  call sites do not use it.
+- [ ] **"Order placed" is spoken unconditionally**, including for orders the broker refused.
+  `GeneralOrderService:285-286` calls `ReportSuccess` before any sentinel check; every guard after
+  it is correctly gated. A paper resting order with no price and no trigger returns a sentinel and
+  emits no `OrderUpdate` at all, so the user hears "Order placed" and nothing else, ever.
+- [ ] **A forced liquidation is announced as an ordinary fill.** `PaperTradingProvider` builds
+  `reason: "LIQUIDATED — the short's collateral was exhausted at 200"` and
+  `AccessibilityFeedbackCoordinator.FormatFill` never reads `o.Reason` (it is read only on
+  rejections). The user hears "Order filled. Bought 1 BTC/USDT at 200. Loss 100." followed by two
+  unexplained "Order cancelled" lines. The entire point of the 2.3.0 short model is inaudible.
+- [ ] **Paper order updates are published synchronously while the account lock is held.** `Emit` →
+  `_orderUpdates.OnNext` → `EventBus.Publish` runs inline inside `ProcessBar`'s `lock (_lock)`. One
+  throwing subscriber aborts the fill loop mid-way — after `_open.Remove` and `ApplyFill` have
+  already mutated cash and positions, before `Persist()` — leaving disk disagreeing with memory,
+  and takes the paper broker's price feed down for the session.
+- [ ] **`_positions`, `_collateral` and `_leverage` use the default case-sensitive comparer** while
+  `_lastPrice` and `_exposureIdentity` use `OrdinalIgnoreCase`. Latent today because writers
+  uppercase first, but `Load()` restores whatever keys are in the JSON, and a split position would
+  give a short whose collateral and quantity live under different keys — one that can never
+  liquidate.
+- [ ] **Stops and take-profits fill at the trigger even when the bar gapped through it.**
+  Deliberately pinned by a test with the comment "v1 simplification", but it is a systematic
+  optimistic bias in the one direction that matters, on the 4h and 1d timeframes the demo exposes.
+  `StopLimit` and `TakeProfitLimit` also ignore `o.Price` entirely, so a stop-limit silently
+  behaves as a stop-market.
+- [ ] **Realized P&L excludes fees**, so the spoken result of a trade is wrong by the round-trip
+  cost — frequently a large fraction of a scalp's P&L, and wrong in sign near break-even.
+- [ ] **`GetBalancesAsync` nets a short against a long in the same base asset**, so a BTC/USDT long
+  of 1 and a BTC/USD short of 1 collapse to a single 0 BTC row, which `PortfolioValuationService`
+  then filters out — both positions vanish from the portfolio total while `GetPositionsAsync` still
+  lists them. Two account views that disagree.
+- [ ] **`ChartIdentity` equality is case-sensitive** while provider resolution everywhere else is
+  `OrdinalIgnoreCase` (`MarketOrchestrator.EnsureContains` was explicitly made insensitive because
+  "the Economic list says 'Fred' while the plugin calls itself 'FRED'"). One casing mismatch gives
+  two `ChartFeed`s for one chart, makes `MarketFeeds.IsLive` lie, and defeats the focused-tab guard
+  in `BackgroundTabFeedService.Reconcile` — producing exactly the double-feed its comment exists to
+  prevent.
+- [ ] **`DataCacheService.Add` corrupts its own lookup index on eviction** (every surviving item's
+  index shifts, only the new entry is rewritten; `AddRange` calls `RebuildLookup`, `Add` does not).
+  Registered as a Singleton in both hosts with **no consumers at all** — latent corruption in dead
+  code. Delete it with `BackfillManager`.
+- [ ] **Dead second navigation path still exported.** `IAudioFeedbackRouter.SonifySeries` /
+  `SonifyComponent` / `SonifyProfile` / `SonifyHeatmap` and `ISonificationManager.SonifySeries` /
+  `SonifyComponent` have zero production call sites and all write voice slot 0 — the invariant the
+  single-path redesign exists to protect. Delete them, and add a test asserting only
+  `SyncNavigationSlots` emits `SetVoice(0, …)`.
+- [ ] **`EnvelopeType` and `NoiseType` are free-text strings compared inconsistently.**
+  `"Ping"` is matched case-sensitively at `AudioSequencer:90`, `:256` and `AudioEngine:500` and
+  case-insensitively at `AudioSequencer:246`. An imported patch with `"ping"` is treated as a marker
+  for the NaN guard, as continuous for the voice, and gets duration 0 — a permanent drone on a
+  playback slot that never decays. `ImportPatchJson` validates nothing.
+- [ ] **`AudioEngine` divides by zero for a Ping voice with `TotalDurationSamples == 0`**, putting
+  NaN into the PCM buffer. Reachable through `DecayMs = 0`, a registry patch with 0, or an imported
+  patch's `DurationSeconds`. `SetVoice` should reject non-finite `freq`/`vol`/`pan` and clamp
+  duration — "NaN must be silent" is currently enforced only upstream in `CreateAudioPoint`, not at
+  the engine boundary.
+
+### Documentation drift
+
+- [ ] **The doc-drift guard is RED on main right now.** `python3 scripts/check_doc_drift.py` fails:
+  README claims 3227 tests, `--list-tests` reports 3314 (the suite runs 3327). The 2.3.0
+  verification doc celebrated this guard going green; it has since gone red again.
+- [ ] **The guard checks only the first provider-count claim.** `README_PROVIDER_RE.search(md)`
+  matches line 367's "33 … (16 trading + 17 analytics)", which is correct, and never sees line 45's
+  "**29 data providers** — 14 in `Plugins/Providers/` … 15 in `Plugins/Analytics/`", which is
+  wrong and whose prose list omits Gemini, Kraken Futures, SEC EDGAR and Wikipedia. Widen the regex
+  to `findall` and validate every occurrence.
+- [ ] **README is two to three releases stale in its most prominent sections.** Line 14 still says
+  "latest release: **v2.0.1**"; line 104 heads "Current Status (2026-08-01)" with 2.1.0; line 142
+  says "Suite 2109 → 2836" while lines 208/370 say 3227; line 142 says 15 JS gesture tests while
+  line 370 says 12; line 208 says "Two GitHub Actions workflows" when there are four (`doc-drift`,
+  `plugin-manifest`, `release`, `tests`); line 208 claims "Build across all 4 TFMs: 0 errors, 0
+  warnings", which `RELEASE_2.3.0_VERIFICATION.md` item 7 honestly records as false.
+- [ ] **README's sandbox platform list omits Linux/bwrap** — the WebHost's own platform. It names
+  Windows AppContainer, macOS `sandbox-exec` and Android `isolatedProcess` only, which reads as
+  though the hosted Linux deployment has no OS sandbox. It does (`LinuxBwrapLauncher`), and it
+  refuses rather than falling back.
+- [ ] **`ServiceCollectionExtensions.cs:487-490` (WebHost) describes a silent unsandboxed
+  fallback that no longer exists.** The comment says the Linux launcher "falls back to an
+  unsandboxed `DefaultProcessLauncher` only if it isn't [installed]". `SandboxPolicy.EnforceOrThrow`
+  genuinely refuses, and `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1` is the logged opt-out. A
+  wrong security comment is worse than none — someone could "restore" the fallback.
+  `FINALIZATION_PLAN.md` §5 item 1 still lists the old behaviour as a to-fix item too.
+- [ ] **`USER_MANUAL.md:2023` overpromises hosted alerts** — see the background-alert item above.
+- [ ] **No `[2.3.0]` section in CHANGES.md.** Carried from the 2026-08-20 list; still open.
+- [ ] **Stale slot-layout comments across the audio layer.** `NavigationSonifier:50-55` says
+  "64-voice polyphonic engine", "Slots 8-15: Reserved for future" (they hold patch layers) and
+  "Slots 16-31: round-robin" (26-31 are reserved); `AudioSequencer:362` and `:565` say 32-63 and
+  64-79 (actual 32-95 and 96-127, and the inline comment three lines below `:565` has the right
+  numbers); `AudioEngine:231` says "permanent 64-element array" (it is 128);
+  `EarconPatchPlayer:22-24` says "playback (32-63)".
+- [ ] **A fourth drifted comment in `SonificationProfileProvider`** (`:69-71`), missed by
+  `0320d8a3`'s sweep of three: it says body amplitude scales so "a doji is quiet and a marubozu is
+  loud", which is the pre-change behaviour and the direct opposite of both the code and the comment
+  three lines below it. Also `:43-45` claims the volume bed's 330 Hz "seats it under the candle
+  body" — never used; and the section numbering uses 4, 5 and 7 twice each.
+- [ ] **`NavigationFeedbackManager:465-471`** documents an audio proximity tone on slot 2 that the
+  method does not produce and that line 524 explicitly disclaims; `:54-61` describes a "3 paths"
+  design that `:92-96` and `:231-234` both say was superseded; `:342-348` is an orphaned `///`
+  block for a method that moved.
+- [ ] **`SoundPatchRegistry`'s `HarmonicAmount`, `HarmonicFreqMultiplier`, `GradientWaveformA/B`
+  are documented in synthesis detail and never read by anything.** Both renderers hardcode
+  `"triangle"`/`"sawtooth"` instead of consulting the patch.
+- [ ] **`PaperTradingProvider:568-584`** carries a stacked second `<summary>` that is a stale copy
+  of `CanFill`'s doc, still describing the pre-2.3.0 "cannot sell what you do not hold" rule (also
+  a `CS1571` under `/doc`). `DemoPolicy:7-30` has the same double-summary shape.
+
+### Guard tests that do not guard
+
+The suite is genuinely strong — 3,327 cases, 2,383 `Assert.Equal` against only 205
+`Assert.NotNull`, and the money paths (order validation, bracket wire payloads, paper fill
+semantics, OCO cancellation) are covered better than most production codebases manage. This
+section is not about that. It is about a specific, locatable set of tests that **advertise drift
+protection in their docstrings and cannot provide it**, because when testing the real thing was
+inconvenient — a private method, a plugin DLL, a mock farm — the logic was reimplemented in the
+test and the reimplementation was asserted.
+
+Worth saying plainly: in every case the comment is *candid* about what was done ("mirror the same
+CAS loop here", "Mirrors the private `DataStateMachine.Transition` switch", "This test mirrors the
+exact transform"). Nobody hid anything. But the docstrings then overclaim — *"Any drift in either
+direction breaks the test — which is the point"*, *"which is exactly the safety net we want"* — and
+those sentences are what a reader trusts. The tests are honest; the prose around them is not.
+
+- [ ] **`ProviderTimeframeContractTests` asserts a hardcoded copy of the timeframe lists and never
+  constructs a provider.** VERIFIED — `providerName` is a bare `string` label; the body only calls
+  `TimeframeUtility.ToSeconds(tf)` on the strings declared in the test file. If a provider changed
+  `"1h"` to `"1H"` — the exact typo the docstring names as the motivating bug — the test's own
+  `"1h"` still parses and it passes. "Any drift in either direction breaks the test" is false in
+  both directions. 30 rows of green guarding nothing.
+  `EveryDeclaredTimeframe_HasNoDuplicates` asserts the test author did not type the same string
+  twice. Fix: drive the theory from real `p.NativelySupportedTimeframes`.
+- [ ] **`ProviderConformanceTests` calls itself the "universal contract every trading provider must
+  satisfy" and enumerates 14 of 16.** VERIFIED — **Gemini and KrakenFutures are absent** from a
+  hand-maintained roster with no drift guard, so neither gets the Name/Description/
+  MaxBarsPerRequest/timeframe-parse/capability gate. Combined with the item above, **nothing
+  anywhere validates Gemini's or KrakenFutures' declared timeframes.** This is the same failure
+  `ProviderCapabilityHonestyTests:24-31` already documents being burned by — *"a sweep that does
+  not enumerate everything is a spot check wearing a sweep's name"* — and that file fixed itself
+  with `AllTradingProvidersAreEnumeratedHere`. Copy that assertion here, or share one roster.
+- [ ] **`DataOrchestratorResilienceTests` redeclares the state machine and the Polly config inside
+  the test file.** A private `Transition` switch copy backs five tests; a local
+  `ConcurrentDictionary` of breakers backs three more. `DataOrchestrator` is never constructed. So
+  the breaker test proves Polly keys a dictionary, not that the orchestrator keys breakers per
+  provider — and **the named regression the file exists for ("one bad provider blocks all 25 for
+  5 s") would not be caught** if someone refactored to a single shared breaker. The comment says
+  "If the production switch changes, these tests must change with it" — if the production switch
+  changes, nothing happens. Partly rescued by `StateMachineTests`, which drives the real
+  orchestrator, but only on the happy path.
+- [ ] **`PostAuditRegressionTests.ZeroValueFilter_MirrorsLiveStreamManagerRule`** defines the
+  predicate inside the test body. Seven green cases; `LiveStreamManager` never constructed. If the
+  real filter started admitting zero-close bars — corrupt ticks poisoning the chart and every
+  indicator downstream — they stay green.
+- [ ] **`PostAuditRegressionTests.NonceCasLoop_...`** reimplements Kraken's nonce CAS loop in the
+  test and asserts the reimplementation. A duplicate nonce means rejected authenticated requests —
+  order placement, cancellation and balance reads all fail under concurrency. The stated reason
+  ("the real provider lives in a plugin DLL and depends on HttpClient and credentials") is
+  contradicted by `BrokerParityTests:227-233`, which constructs a real `KrakenProvider` and swaps
+  its `HttpClient` by reflection. The machinery is already in the suite.
+- [ ] **`ProviderSymbolNormalisationTests.Coinbase_ProductId_...` asserts `string.Replace`.**
+  `input.Replace("/", "-").ToUpperInvariant()` — `CoinbaseProvider` never constructed, four green
+  cases asserting the BCL, on a symbol-routing money path. The comment names three real call sites
+  (`GetOrderBook`, `SubscribeOrderBook`, `GetOpenOrders`) and exercises none. The Bitstamp test two
+  cases below calls the real `BitstampProvider.ToBitstampPair` — that is the right shape.
+- [ ] **`StrategyLibraryPolicyTests` scans two of four shipping projects.** `AppSources()` lists
+  `AccessibleTrader.Core`, `AccessibleTrader.BlazorClient.Components` and a **nonexistent
+  `AccessibleTrader.Maui`** — silently dropped by `.Where(Directory.Exists)`. Missing:
+  `AccessibleTrader.BlazorClient/` and `AccessibleTrader.WebHost/`. So all four "no catalogue in
+  shipping code" guards are blind to a reintroduction in the WebHost, whose `Program.cs` is the
+  composition root and the natural home for exactly the first-launch seeder the guard prevents.
+  Enumerate from `AccessibleTrader.slnx` and assert `Directory.Exists` rather than filtering.
+- [ ] **`ImportedStrategiesCannotStartThemselves` is a substring match over a whole file, comments
+  included** — and the file has a `CodeOnly()` comment-stripper built for exactly this reason that
+  this test does not use. Passes with an `IsAutoActivate = true` on the live path as long as the
+  false string exists anywhere. Make it behavioural: import a bundle whose spec is
+  `IsAutoActivate = true` and assert the library entry comes back false.
+- [ ] **The markup half of `WithdrawalReleaseGateTests` passes with the guard inverted.**
+  `Assert.Contains("WithdrawalService.Released", keys)` is satisfied by
+  `@if (WithdrawalService.Released || _debug)`, and `box > guard` compares *first* occurrence
+  indices — textual order, not lexical nesting. The **service** half is genuinely strong
+  (`A_closed_gate_refuses_before_the_venue_is_ever_called` proves
+  `DidNotReceiveWithAnyArgs().WithdrawAsync`), and that is the assertion that matters. But this is
+  the only path that moves money off an exchange; render both components under bUnit with
+  `Released` forced each way and assert presence/absence.
+- [ ] **`HostileScriptTests` asserts only `Success == false`, never the failure origin, and has no
+  positive control in the file.** Six sandbox-escape tests that all stay green under *any* universal
+  compile failure — a broken implicit-usings injection (none of the test sources declare their
+  `using`s), a Roslyn reference failure, a renamed SDK interface. The docstring claims "rejected
+  with a sandbox-origin error". `OutOfProcessScriptingTests:94` has the positive control but runs a
+  different path with a real worker binary, while `HostileScriptTests` deliberately uses a bogus
+  worker path. Add a benign-script control through the same factory and assert the diagnostic
+  prefix.
+- [ ] **`HostedAccountsTwoFactorTests.Disable_flow_...` performs the two Identity calls itself**,
+  then asserts Identity did what Identity does. If `SecurityModel.OnPostDisableAsync` dropped its
+  `ResetAuthenticatorKeyAsync` call — the exact named regression, which revives a leaked TOTP
+  secret on re-enrollment — this stays green. `SecurityModel` is the one PageModel with a test
+  reference; call the handler.
+- [ ] **`ChartFormationLayerTests.PlaceLabel` reimplements the layer's label-placement rule** and
+  two tests assert the copy. The stated reason for not exposing the rule is sound; assert on the
+  rendered output instead.
+- [ ] **`HostedPaperModeTests` never tests the case it exists for** — `HostMode.Hosted` with
+  `trading.paperTradingMode` explicitly `false`. Every test leaves the setting at the substitute
+  default (null), so "hosted forces paper *regardless of the setting*" is never exercised. All four
+  also assert only `SupportsTradingAsync`; nothing asserts an order actually routes to
+  `IPaperTradingProvider` and never to the live provider.
+- [ ] **`ModalContractScanTests`' `ModalBase` branch `continue`s past the open/close/Escape
+  name-agreement check**, so a `ModalBase` inheritor publishing `ModalStateChangedEvent(true,
+  "Foo")` / `(false, "Bar")` is never checked. Also `base.OnInitialized()` is a substring test — a
+  commented-out call passes. (The `scanned >= 15` anti-vacuity guard is good and correct.)
+
+### Untested code that decides money, security, or research truth
+
+- [ ] **`AccessibleTrader.ScriptSandbox/FrameCodec.cs` and `WorkerDispatcher.cs` have ZERO tests.**
+  VERIFIED — zero references anywhere in the suite, though the `.csproj` already has the
+  ProjectReference. This is the boundary that parses bytes coming back **from a process running
+  untrusted user-compiled code**, and it is the least-tested file in the repo while
+  `HostileScriptTests` sits one layer above it asserting those scripts are adversarial. Specifically
+  untested: the `while (read < count)` partial-read reassembly loop; big-endian length framing
+  round-trip; the `length == 0` and `length > MaxFrameBytes` DoS guards; and
+  `var opcode = (Opcode)header[4];` — **any byte casts to the enum with no validation** and falls
+  into the dispatcher's switch. `MaxFrameBytes` is 64 MB, so a hostile worker can force a 64 MB
+  host allocation per frame, repeatedly. Highest-leverage single test-writing task in the repo.
+- [ ] **`AccessibleTrader.StrategyLab/SurrogateTest.cs` has ZERO tests.** VERIFIED — neither
+  `SurrogateTest` nor `BlockBootstrap` is referenced anywhere in the suite. Every research verdict
+  in this repo rests on `BlockBootstrap`, `PValue`, `ZScore` and `EdgePp`. Meanwhile
+  `CatalogueProvenanceTests` rigorously verifies that a control was *claimed* — it asserts
+  `Provenance.Controls` contains "random" — and nothing verifies the control *computes correctly*.
+  A bug in the block bootstrap (wrong wrap, block length on the wrong axis, correlated resampling)
+  systematically biases every "beat random" verdict, including the six specs retired as falsified
+  and the one kept as `ControlTested`. Write known-input/known-output tests, plus the p-value
+  boundary and the zero-stddev NaN path.
+- [ ] **WebHost has no integration test of any kind.** No `WebApplicationFactory`, no `TestServer`,
+  no PageModel handler ever invoked. `Login`, `Register`, `ForgotPassword`, `ResetPassword`,
+  `LoginWith2fa`, `LoginWithRecovery`, `Logout` and `EnableAuthenticator` are all zero-referenced,
+  so the code that calls `SignInManager` and decides lockout/2FA routing never runs in a test.
+  Every minimal-API endpoint (`/push/subscribe`, `/diag/journal`, `/alerts/recent/*`) is
+  unreachable. `HostedAccountsAuthPolicyTests` asserts the *options objects* — correct and worth
+  having, but it proves configuration, not that any request is ever authorized. Nothing proves
+  `/alerts/recent` requires a login or that user A cannot dismiss user B's alert.
+- [ ] **The `Environment.GetFolderPath` per-user path bug has shipped twice and there is no guard.**
+  `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` are both excellent and
+  both docstrings describe the *same* defect — a service building its own path from
+  `Environment.GetFolderPath(LocalApplicationData)` instead of taking `IPlatformPathService`. The
+  tree is currently clean, so a source-scan guard would pass today and cost nothing. The scan
+  pattern already exists in `StrategyLibraryPolicyTests`.
+- [ ] **Zero tests for:** `Services/AI/` (all four files — network calls carrying user API keys),
+  `EmailAlertChannel` and `TelegramAlertChannel` (the two delivery channels without tests;
+  `WebhookAlertChannel` has 264 lines), all five level providers plus `LevelService` (they feed
+  `ProtectiveLevelValidator` and stop placement), `InputRouter` and `KeyNormalizationService` (the
+  keyboard entry point of an audio-first app, with `ShortcutConflictTests` sitting above them),
+  `RiskRewardCalculator` and `MeasureToolCalculator` (geometry a user reads a position size off),
+  `SkenderCalculationCore` (backs many shipped indicators), and the rendering layer classes.
+- [ ] **Every money modal is string-scanned, none is rendered.** `ApiKeysModal`, `WalletModal`,
+  `WithdrawModal`, `TradingDashboardModal`, `Toolbar` are source-text-scanned only; 18 further
+  components are zero-referenced entirely (`JournalModal`, `MyDataModal`, `CustomScriptsModal`,
+  `ThemeEditorModal`, `WatchlistModal`, `ObjectTreeModal`, `LevelReportModal`, `StatusBar`,
+  `IndicatorBar` among them).
+- [ ] **The bUnit harness makes focus bugs untestable by construction.**
+  `BlazorTestHarness.cs:164` stubs `accessibleTrader.focusElement` with `SetupVoid(…, _ => true)`,
+  so every test passes regardless of what a modal asks it to focus. **No test anywhere asserts that
+  focus lands in a modal on open, that it is trapped, or that it is restored on close** — and the
+  Tab trap itself lives in JS with no test at all. Nothing asserts `aria-live` behaviour, nothing
+  asserts `aria-selected`/`aria-expanded` *values* (which is why five broken tablists shipped), and
+  no test presses Space on a button or drives a tablist, listbox or tree with arrow keys. 31 of 46
+  RCL components have no bUnit test, including `MainLayout`, `Toolbar`, `ChartArea`,
+  `TradingDashboardModal`, `ObjectTreeModal` and `ConditionTreeEditor` — the last two being the
+  product's primary non-visual navigation surfaces. Highest-value additions: a shared assertion that
+  every dialog moves focus to its `h2[tabindex="-1"]` on open; an `aria-*` value scan over each
+  component's compiled render tree; and a dispose-leak test that renders a component, disposes it,
+  publishes every event it subscribes to, and asserts no handler ran.
+- [ ] **No culture coverage anywhere.** One `CultureInfo` reference in 57,500 test lines, no test
+  sets `DefaultThreadCurrentCulture`, and no `InvariantGlobalization` property in any csproj — so
+  the shipped app picks up the OS locale. Under `de-DE`, `double.Parse("50000.5")` yields 500005.
+  This is simultaneously a money path (provider JSON parsing, order input) and an accessibility path
+  (spoken prices, which several tests pin as exact strings). See the systemic culture item in the
+  audio section.
+- [ ] **`PluginHostServices.ApiKeys` is process-global mutable state with manual, unenforced
+  serialization.** `FakeApiKeyCheckout.Install()` swaps a static; nine classes carry
+  `[Collection("ProviderCredentialBridge")]`; enrollment is invisible and only discovered by
+  flaking — which the collection file's own comment records happening once and
+  `BrokerParityTests:20-25` records happening a second time. Classes that construct real providers
+  and are *not* enrolled include `ProviderLiveStreamTests`, `AlpacaBracketTests`,
+  `ProviderCapabilityAuditTests`, `MexcProtobufDecodeTests`, `DeribitProviderTests`. Add a
+  reflection guard in the shape of `AllTradingProvidersAreEnumeratedHere`.
+
+### Flake risk
+
+None of this makes 12 seconds untrustworthy today; all of it will bite on a loaded CI runner.
+
+- [ ] **Four negative assertions gated on a fixed delay** — inherently racy in the false-green
+  direction: `PreferencePersistenceTests:105` (1400 ms then "no write happened"),
+  `GeneralOrderServiceTests:513-516` and `:535-540`. Note the asymmetry: the suite's own `WaitFor`
+  helper is used for *positive* assertions and fixed delays for negative ones, which is backwards.
+- [ ] **`StateMachineTests:60-80` asserts before the thing it tests can have happened.**
+  `EmitTick` writes to an unbounded channel drained by a background reader; the assertion runs with
+  no synchronization, so it passes because the reader has not been scheduled — it would pass
+  identically if the illegal trigger *were* honoured. False green on the only production-code test
+  of illegal-transition rejection.
+- [ ] **`PreferencePersistenceTests` burns 2.9 s of wall clock**, with 500 ms of margin between a
+  1000 ms throttle and a 1500 ms assertion. Use a `TestScheduler`.
+- [ ] **`DateTime.Now` in five files** — `UIDiagnosticTests`, `RobustnessTestSuite`,
+  `IntegrationDiagnosticTests`, `AudioDiagnosticTests`, `DataCacheTests` (where it is a dictionary
+  key). The rest of the suite is disciplined about UTC.
+- [ ] **No time abstraction anywhere.** Every timeout, throttle, debounce, poll interval and
+  watchdog sweep is tested against the real system clock. `MarketFeedWatchdogTests` and the
+  injectable `OrderPollFastInterval` are the right mitigation applied per-service rather than
+  systemically. Also `SpyEventBus.SubscribeCoalesced`/`SubscribeSampled` use the default Rx
+  scheduler, so any test touching them acquires real wall-clock timing.
+- [ ] **`BrokerParityTests.Swap` picks the first `HttpClient` field by reflection.** Field order is
+  not guaranteed by the CLR; a provider that gains a second `HttpClient` may get the wrong one
+  swapped, and the un-swapped one would attempt a **real network call from a test**
+  (`FakeHttpMessageHandler.StrictMode` cannot catch it — that client is not wired to the fake).
+  Match by name and assert exactly one candidate.
+- [ ] **`GeneralOrderServiceTests.DataOnly_provider_is_skipped_without_error` has no assertion at
+  all**, and does not assert the provider was skipped — only that nothing threw.
+
+### Tests that should exist and do not
+
+Ordered by value. Every one of these would have caught something above.
+
+- [ ] **Exactly one `Speak` per keypress** on a bar carrying a formation *and* a cross-series signal
+  *and* a zone in range. Catches the zone-proximity overwrite directly; no current test constructs
+  that bar or counts calls.
+- [ ] **Enumerate `FeedbackType` and `EarconType`** and assert every member either speaks, earcons,
+  or is on an explicit documented no-op allow-list. Three separate silent-arm bugs have now shipped.
+- [ ] **Buy the whole account** (`Quantity = balance / price`) and assert `Free >= 0` after the fee.
+  The only negative-cash test uses a 90% buy.
+- [ ] **Wrong-side stops**: a buy stop below the market and a sell stop above it must be refused.
+- [ ] **Brackets on a non-market entry**: `TradeSignal(..., OrderType.Limit, Price: 95, StopLoss:
+  90)` must produce a resting stop. Every current bracket test uses `OrderType.Market`.
+- [ ] **Orphaned legs after a manual close**: close the position, drive price to the stop, assert no
+  new position is opened.
+- [ ] **The focused pump must not deliver a tick for a different identity.** Set focus to B, push an
+  A-priced tick into the orchestrator channel, assert B's buffer is untouched. Fails today.
+- [ ] **`ResamplerService` has no test file at all** — bucket alignment, the timestamp convention,
+  partial edge buckets, descending input, month/week boundaries, DST. Highest-value missing file in
+  the data area now that resampled bars are persisted.
+- [ ] **`OhlcvStore` monthly timeframes** (where the forming filter is wrong) and the insert-only
+  dedup (a re-fetch with *different* values for an existing timestamp — no test asserts either
+  behaviour).
+- [ ] **`LiveStreamManager`'s watchdog has no tests at all** — not the connected-but-quiet branch,
+  not `MaxReconnectAttempts`, not `AttemptReconnectAsync`, and not the consolidator reset that
+  corrupts the in-progress bar.
+- [ ] **Replace `DataOrchestratorResilienceTests`' hand-copied `Transition` switch** with a test
+  that drives a real `DataOrchestrator`. It currently pins a transcript of the production code and
+  passes while `LiveStreaming` is unreachable and the breakers never fire.
+  `KeyedFeedsTests.FakeOrchestrator` shows the mock farm is affordable.
+- [ ] **Run the speech-formatting suite under `de-DE`.** Zero tests use a non-invariant culture.
+- [ ] **Sweep every price-formatting call site** for `:F0`/`:F1`/`:F2` on price-space values. Three
+  commits have each fixed some and missed others.
+- [ ] **Mute as a `[Theory]` over every `ComponentDisplayType`** with a dedicated render path —
+  Candle, Wick, Cloud, Oscillator, Histogram, Bar, Line, Profile, Heatmap. Currently only Candle.
+- [ ] **Heikin-Ashi component-context speech** — HA on, a bar whose raw lower shadow is 19% and
+  whose HA lower shadow is 0%, assert the wick speech says zero. `BarDetailContextTests` covers the
+  detail key only.
+- [ ] **Only `SyncNavigationSlots` writes voice slot 0** (reflection or architecture test).
+- [ ] **`PlayNote` never emits `SetVoice` for slots 26-31**; and a rendered-audio assertion that a
+  staggered earcon has N distinct onsets.
+- [ ] **Render a full Chart-scope bar and assert peak ≤ 1.0** (output headroom).
+- [ ] **`SetVoice(durationSec: 0, envelope: "Ping")` produces no NaN** in the buffer.
+- [ ] **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
+  directory. `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` exist; the
+  paper account has no equivalent.
+- [ ] **`ReportSuccess` is not called for a sentinel result**, and the dashboard renders
+  `ORDER_DUPLICATE_SUPPRESSED` as an error.
+- [ ] **The word "liquidated" reaches speech** on a forced close.
+- [ ] **A throwing `OrderUpdate` subscriber does not take down the fill engine**; and a throwing
+  `EventBus` subscriber does not stop delivery to the others.
+- [ ] **Concurrency on the paper broker** — fill evaluation racing a user cancel; reentrancy from an
+  `OrderUpdateStream` subscriber back into `PlaceOrderAsync`. No test in the trading area uses
+  `Task.WhenAll` or `Parallel.For`.
+- [ ] **Gap-fill overlapping a live tick.** The two operations are covered separately; the in-lock
+  re-check at `ChartFeed:140` that makes overlap safe has no test that would fail if deleted.
+
+---
+
 ## Open after the 2026-08-20 hosted-tier and audio batch
 
 Everything else in that batch is closed (see [CHANGES.md](CHANGES.md)). These are what was found
