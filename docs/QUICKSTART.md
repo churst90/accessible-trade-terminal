@@ -145,8 +145,8 @@ worth adding in roughly this order — each step unlocks more than the one after
 first four are free.
 
 **Start here — no key needed at all.**
-Crypto price data works out of the box: **Bitstamp**, **Kraken**, **MEXC** and **Binance**
-all serve market data without credentials. So do a surprising number of the analytics
+Crypto price data works out of the box: **Bitstamp**, **Kraken**, **Kraken Futures**,
+**Gemini**, **MEXC** and **Binance** all serve market data without credentials. So do a surprising number of the analytics
 feeds: **CoinGecko** (coin profiles, the crypto half of the `Alt+I` dossier), **SEC EDGAR**
 (US company filings, the equity half of the dossier), **Alternative.me** (Fear & Greed),
 **CoinMetrics** (on-chain), **FINRA** (daily short volume for any US stock), **CFTC**

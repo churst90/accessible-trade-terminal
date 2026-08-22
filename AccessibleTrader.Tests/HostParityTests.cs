@@ -68,6 +68,15 @@ public class HostParityTests
         ["WebHostBrowserAudioSink"]    = "The web head routes audio through WebAudio; MAUI uses a native driver.",
         ["WebHostSecureStorageService"] = "Secure storage backend is genuinely per-platform.",
         ["MauiSecureStorageService"]   = "Secure storage backend is genuinely per-platform.",
+        ["PaperAccountHub"] =
+            "Hosted-only. A Blazor scope is a browser TAB, so the WebHost needs a per-user account "
+          + "registry to stop two tabs keeping two account objects over one file. The desktop head "
+          + "is single-user and registers PaperTradingProvider as a Singleton, which already gives "
+          + "exactly one account.",
+        ["PaperAccountAttachment"] =
+            "Hosted-only, and paired with PaperAccountHub: it binds one circuit's chart to the "
+          + "shared account and unbinds when the tab closes. A desktop head has one chart set and "
+          + "no circuits to bind.",
     };
 
     private const string WebHostFile = "AccessibleTrader.WebHost/ServiceCollectionExtensions.cs";

@@ -59,11 +59,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code = "Adl", Name = "ADL", Category = "Volume", DefaultPane = "Oscillator",
                 Causality = ComponentCausality.Causal,
-                Parameters = new List<IndicatorParameterMetadata>(),
+                Parameters = new List<IndicatorParameterMetadata>
+                {
+                    // Skender leaves AdlSma null unless this is supplied, so without the parameter
+                    // the smoothed line is declared and permanently empty.
+                    new() { Name = "smaPeriods", DisplayName = "SMA Periods", DataType = typeof(int), DefaultValue = 14 },
+                },
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Adl",  DefaultColorHex = "#26A69A" },
-                    new() { Name = "Adl3", DefaultColorHex = "#FF9800" },
+                    // Was "Adl3", which AdlResult does not expose. AdlSma is the smoothed line.
+                    new() { Name = "AdlSma", DisplayName = "ADL SMA", DefaultColorHex = "#FF9800" },
                 },
             },
             new IndicatorMetadata

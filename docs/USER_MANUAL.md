@@ -187,7 +187,10 @@ followed by a form for adding a new one.
 
 A profile is one set of credentials for one provider in one environment. The
 "Add New Profile" form walks top to bottom: choose the **Provider** (Alpaca,
-Binance, Coinbase, Kraken, Oanda, Polygon, Schwab and the rest, or "Custom"), give
+Binance, Coinbase, Gemini, Kraken, Kraken Futures, Oanda, Polygon, Schwab and the
+rest, or "Custom" — note that **Kraken Futures is its own venue, not a setting on
+Kraken**: it has a different host, different request signing, and API keys you mint
+separately, so it needs its own profile), give
 the profile a **Profile Name** you will recognise later — the placeholder suggests
 something like "Alpaca Paper" — and set the **Environment** to either Paper or
 Live. Paper points the provider at its simulated/sandbox endpoints; Live uses your
@@ -550,6 +553,15 @@ three-level shape in mind — panes, series, components — is the key to moving
 with confidence: you change panes one way, and components another, and the terminal
 always tells you where you have landed.
 
+**A note on the picture during fast markets.** The chart image repaints about ten times a
+second. Until August 2026 the rate limit was the wrong kind: it waited for a *pause* in the
+data rather than repainting on a timer, so while ticks kept arriving faster than that pause
+— which is exactly what a busy market is — the image stopped updating altogether and only
+caught up once things went quiet. Sighted collaborators looking over your shoulder would
+have seen a frozen chart at the one moment it mattered. Everything you hear and everything
+you navigate came from the live data all along and was never affected; only the drawn PNG
+was stale.
+
 ### Moving through time
 
 Left and Right arrow move the cursor one bar at a time — Left into the past, Right
@@ -882,6 +894,38 @@ Volume, and Profiles — and you move
 through the category and indicator lists with the arrow keys and add one with Enter.
 A new indicator arrives with audio properties already chosen for its type, so it is
 immediately playable; you can refine them later.
+
+**Some indicator lines have new names, and five indicators have gone.** Until August 2026
+a number of indicators drew nothing at all: they were listed, they could be added, and
+they produced an empty line with no error — indistinguishable, by ear, from a market with
+nothing to say. Two separate causes, both now fixed and both now guarded by tests.
+
+Working again, unchanged in how you use them: **Bollinger Bands**, **Keltner Channel**,
+**Chandelier Exit**, **Ultimate Oscillator** and **Momentum**. If you added any of these
+before and assumed you had mis-set something, you had not.
+
+Renamed lines, because the old names were the reason those lines were blank. The
+indicator behaves the same; only what speech calls the component has changed:
+
+| Indicator | Was | Now |
+|---|---|---|
+| Stochastic | PercentK / PercentD | **%K** / **%D** |
+| Vortex | Vip / Vim | **VI+** / **VI−** |
+| Choppiness | ChopIndex | **Choppiness** |
+| Ulcer Index | UlcerIndex | **Ulcer Index** |
+| ADX | Adl / Adh | **Adxr** (the smoothed ADX rating) |
+| ADL | Adl3 | **ADL SMA** |
+| ROC | RocP | **ROC SMA** |
+
+**TRIX**, **ROC** and **ADL** also gained a smoothing period in their settings. Their
+signal and average lines were declared but could never be filled in, because the setting
+that controls them was not offered; the lines work now and default to sensible periods.
+
+**No longer listed: PPO, ZLEMA, TMA, Historical Volatility and Ease of Movement.** The
+maths library the terminal uses does not implement these, so they could never have drawn
+anything. They have been withdrawn rather than left in the list — an indicator you can add
+and wait for is worse than one that is honestly absent. They return if the library gains
+them.
 
 Once it is on the chart you reach it the same way you reach any pane — Page Down from
 the price pane until speech announces it — and explore its components with Up and
@@ -1697,13 +1741,27 @@ remembers which chart each position was opened on. You do **not** need to switch
 background monitoring on for this; that setting governs watching charts you merely
 have open, while a chart with money on it is watched either way.
 
-**What the paper account deliberately cannot do.** It settles like a spot exchange
-out of a single cash balance, so it will refuse to sell an asset you do not hold and
-refuse a buy you cannot afford — telling you by how much in both cases. There is no
-borrowing, so **short selling and leverage are not available in paper trading**;
-they were previously offered and did nothing, and they return when margin is properly
-modelled. Brackets, one-cancels-other pairs, trailing stops and trailing take-profits
-are all fully simulated.
+**What the paper account will and will not do.** It settles like a spot exchange out
+of a single cash balance, so it will refuse to sell an asset you do not hold and
+refuse a buy you cannot afford — telling you by how much in both cases. Brackets,
+one-cancels-other pairs, trailing stops and trailing take-profits are all fully
+simulated.
+
+**Short selling is available again, at 1x, with collateral.** It was withdrawn in
+2.2.0 because it was offered and did nothing; it returned in 2.3.0 modelled properly.
+Selling something you do not own means somebody lent it to you and you owe it back at
+whatever it ends up costing, so the account locks the sale proceeds *and* an equal
+amount of margin beside them — both appear under Locked on the Balances tab, and
+neither is spendable while the short is open. You are told what the short cost to
+open, what it is worth now, and the **liquidation price**: the level at which the
+collateral no longer covers the position and the simulator closes it for you. If you
+try to open a short the collateral will not cover, it is refused with the shortfall
+named rather than accepted and quietly unwound later.
+
+**Leverage is still withheld.** The margin requirement is 1x — a dollar of collateral
+per dollar of exposure — so there is no borrowing beyond your own balance, and the
+leverage selector does not appear on the paper ticket at all. It returns when
+multi-x margin is properly modelled, and not before.
 
 On the **hosted web terminal** (the logged-in, multi-user build) this choice is made
 for you: paper trading is **always on and cannot be switched off**, so pressing Alt+T
@@ -1712,6 +1770,17 @@ browser. Real trading with your own broker keys is a desktop-app feature. (If yo
 this on an earlier build and got "provider does not support trading," that was the bug
 this behaviour fixes — the web providers are data-only, and orders now correctly route
 to the paper simulator.)
+
+**Your paper account is one account, however many tabs you have open.** Open the terminal
+in three browser tabs and all three are looking at the same balance, the same positions and
+the same resting orders; a trade placed in one appears in the others. This is worth stating
+because it was not always true: until August 2026 each tab kept its own copy of the account
+and wrote the whole thing back to disk on every change, so the last tab to save silently
+erased whatever the others had done. If you ever found a position you were sure you had
+opened simply missing, that is very likely what happened, and it can no longer happen.
+
+Resting orders are watched from **every** chart you have open, not only the tab that placed
+them. A stop you set in one tab still fills while you are working in another.
 
 ### Paper or live — check this first
 
@@ -1849,7 +1918,14 @@ on a closing fill they add the realized result:
   {amount}." / "Take profit hit. … Profit {amount}."
 - A trailing exit: "Trailing stop hit. …" / "Trailing take profit hit. …", with the
   same price and profit/loss.
-- A cancel: "Order canceled. {symbol}."  A refusal: "Order rejected for {symbol}."
+- A cancel: "Order canceled. {symbol}."
+- A refusal: "Order rejected for {symbol}," **followed by the reason** — "Insufficient
+  paper balance: that position needs 51,970.00 USDT and the account holds 174.91.", "No
+  price available for BTC/USD: open its chart, or check the venue is reachable.", "The
+  position was already closed." Closing a position from the Positions tab announces the
+  same way. Before August 2026 the reason was computed and then discarded, so a refusal
+  arrived as three words with nothing to act on; the half that told you what to do was the
+  half being dropped.
 
 Order IDs are never spoken — they are meaningless to the ear. Every one of these
 events is also written to the Journal (Ctrl+Alt+Shift+J), so a fill that goes by
@@ -1880,7 +1956,47 @@ History — and switching to one speaks its name and count, like "Positions, 2".
   status — each with a Cancel button to pull a resting limit or protective stop.
 - **History** is your fill log, newest first: time, symbol, side, quantity, price,
   realized profit or loss, and fee — the place to review how a session actually went.
-- **Balances** shows your free and locked funds per asset.
+- **Balances** shows, for every asset you hold: the **free** and **locked**
+  quantities, what the holding is **worth** in the account's quote currency, its
+  **share** of the account as a percentage, and the **day's change**. Above the table
+  a summary line gives the portfolio total. Before 2.3.0 this tab showed quantities
+  only, which told you what you held but never what it was worth. An asset whose price
+  cannot be fetched is shown as **unpriced** and the total says explicitly that it is
+  partial — a price that could not be read is never silently counted as zero. Money
+  locked as short collateral appears here under Locked (see paper trading, above).
+
+### Getting funds onto a venue: deposit addresses
+
+Some venues can hand you a deposit address for an asset, and when the terminal can do
+that for the provider you are on, a **Deposit** button appears in the toolbar. Choose
+the asset and the network and the address comes back in a **read-only text field with
+a Copy button** beside it. That is deliberate, and it is the whole point of the
+dialog: a read-only field is walkable by your screen reader's review cursor and by a
+braille display character by character, so you can verify an address the same way a
+sighted user reads one off the screen — no special handling, no image of a QR code you
+cannot use.
+
+Two things happen before you ever see the address. It is **checked against the
+network's own checksum**, and if it fails that check it is refused outright rather
+than shown with a warning — an address that is wrong by one character sends your funds
+nowhere recoverable, and that is not a risk to leave to the reader. And its
+**capitalisation is preserved exactly**, because on several networks the pattern of
+capitals *is* the checksum, so an address helpfully lower-cased in transit is a broken
+address.
+
+**Kraken** is the first venue behind this. Note that the terminal **reads** deposit
+addresses; it does not create them. If you have never deposited that asset on Kraken
+before, no address exists yet and you will be told so — generate the first one once on
+kraken.com under Funding → Deposit, and the dialog will find it from then on.
+
+Deposits need your own API key, so this is a desktop-app feature; the hosted browser
+terminal has no wallet.
+
+**Moving funds off a venue is not available.** A withdrawal path exists in the code
+and is switched off. It is the one operation in this terminal where a mistake loses
+money directly rather than through a trade, and it will not ship until it has been run
+end to end against a live venue by a person. Until then no button renders, and the
+code refuses before any request could leave your machine.
 
 ### Monitoring with the browser closed
 

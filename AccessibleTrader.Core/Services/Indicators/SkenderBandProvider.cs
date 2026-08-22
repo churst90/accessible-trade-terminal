@@ -57,9 +57,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // sub-dollar asset to "0.00" — three lines that all read the same.
                     new() { Name = "Sma",        DefaultColorHex = "#42A5F5", DefaultThickness = 1.5f,
                             SpeechTemplate = "{name}. {type}. {value:price}." },
-                    new() { Name = "Centerline", DefaultColorHex = "#42A5F5", DefaultThickness = 1.5f,
+                    new() { Name = "Sma", DefaultColorHex = "#42A5F5", DefaultThickness = 1.5f,
                             SpeechTemplate = "{name}. {type}. {value:price}." },
-                    new() { Name = "Percent_B",  DefaultColorHex = "#42A5F5", DefaultThickness = 1f },
+                    new() { Name = "PercentB",  DefaultColorHex = "#42A5F5", DefaultThickness = 1f },
                     new() { Name = "ZScore",     DefaultColorHex = "#42A5F5", DefaultThickness = 1f },
                     new() { Name = "Width",      DefaultColorHex = "#90CAF9", DefaultThickness = 1f },
                 },

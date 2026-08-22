@@ -104,11 +104,49 @@ namespace AccessibleTrader.Core.Services
             var all = new List<IndicatorMetadata>();
             foreach (var p in _providers)
             {
-                all.AddRange(p.GetIndicators());
+                all.AddRange(p.GetIndicators().Where(m => IsComputable(m, p)));
             }
 
             return all.OrderBy(x => x.Category).ThenBy(x => x.Name).ToList();
         }
+
+        /// <summary>
+        /// Whether an indicator can actually produce a value, so one that cannot is never offered.
+        ///
+        /// <para>
+        /// Skender-backed indicators resolve by reflection on <c>"Get" + Code</c>. When the name is
+        /// wrong — or the indicator simply is not in the version of Skender we ship — the lookup
+        /// returns null, the delegate is never built, and the indicator draws an empty line with no
+        /// exception and no log. Ten codes were in that state: Bollinger Bands and Keltner and
+        /// Chandelier and Ultimate were misnamed (now aliased in
+        /// <see cref="Indicators.SkenderCalculationCore.SkenderMethodName"/>), and PPO, ZLEMA, TMA,
+        /// Historical Volatility and Ease of Movement are not implemented by Skender 2.5.0 at all.
+        /// </para>
+        ///
+        /// <para>
+        /// Filtering here rather than deleting five metadata blocks keeps the answer tied to what
+        /// the library actually exposes: upgrade Skender and anything it gained appears by itself,
+        /// and nothing can quietly return to the menu without being able to compute. A menu entry
+        /// that can never produce a value is worse than an absent one — the user spends their time
+        /// on it and has nothing to report but "it does not work".
+        /// </para>
+        /// </summary>
+        private bool IsComputable(IndicatorMetadata meta, IIndicatorProvider provider)
+        {
+            if (!provider.GetType().Name.StartsWith("Skender", StringComparison.Ordinal)) return true;
+            if (string.IsNullOrEmpty(meta.Code)) return true;
+
+            bool ok = Indicators.SkenderCalculationCore.CanResolve(meta.Code);
+            if (!ok && _unresolvable.Add(meta.Code))
+                _logger?.LogWarning(
+                    "Indicator '{Code}' ({Name}) is not offered: Skender exposes no Get{Method}, so it " +
+                    "could only ever render an empty line.",
+                    meta.Code, meta.Name, Indicators.SkenderCalculationCore.SkenderMethodName(meta.Code));
+            return ok;
+        }
+
+        // Warn once per code, not once per menu build.
+        private readonly HashSet<string> _unresolvable = new(StringComparer.OrdinalIgnoreCase);
 
         public void CalculateIndicator(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {

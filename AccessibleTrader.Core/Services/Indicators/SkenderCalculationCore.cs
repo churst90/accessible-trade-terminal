@@ -66,14 +66,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                     parameters.TryGetValue(p.Name ?? "", out var val);
                     if (val != null)
                     {
+                        // Skender's OPTIONAL parameters are Nullable<T> — smaPeriods, signalPeriods
+                        // and friends. Convert.ChangeType THROWS on a Nullable target, so every one
+                        // of them landed in the catch below and fell back to its null default: the
+                        // series it controls was computed as all-null and the line the user had
+                        // added rendered empty, with the parameter sitting in the UI doing nothing.
+                        // Unwrap to the underlying type before converting.
+                        var targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
                         try
                         {
-                            if (p.ParameterType.IsEnum && val is string sv)
-                                args[i] = Enum.Parse(p.ParameterType, sv, true);
-                            else if (p.ParameterType.IsEnum)
-                                args[i] = Enum.ToObject(p.ParameterType, val);
+                            if (targetType.IsEnum && val is string sv)
+                                args[i] = Enum.Parse(targetType, sv, true);
+                            else if (targetType.IsEnum)
+                                args[i] = Enum.ToObject(targetType, val);
                             else
-                                args[i] = Convert.ChangeType(val, p.ParameterType);
+                                args[i] = Convert.ChangeType(val, targetType);
                         }
                         catch
                         {
@@ -188,9 +195,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!_methodCache.TryGetValue(code, out methodInfo) || methodInfo.ContainsGenericParameters)
             {
                 var assembly = typeof(Quote).Assembly;
+                string methodName = "Get" + SkenderMethodName(code);
                 var potentialMethods = assembly.GetExportedTypes()
                     .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static))
-                    .Where(m => m.Name.Equals("Get" + code, StringComparison.OrdinalIgnoreCase))
+                    .Where(m => m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
                 var genericMethod = potentialMethods.FirstOrDefault(m => m.IsGenericMethodDefinition);
@@ -205,6 +213,47 @@ namespace AccessibleTrader.Core.Services.Indicators
             compiledDelegate = CreateDelegate(methodInfo);
             _delegateCache[code] = compiledDelegate;
         }
+
+        /// <summary>
+        /// Whether Skender exposes a calculation for this code at all. Used by
+        /// <c>IndicatorService.GetAvailableIndicators</c> so an indicator that could only ever draw
+        /// an empty line is never offered in the first place.
+        /// </summary>
+        internal static bool CanResolve(string code)
+        {
+            if (string.IsNullOrEmpty(code)) return false;
+            string methodName = "Get" + SkenderMethodName(code);
+            return typeof(Quote).Assembly.GetExportedTypes()
+                .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                .Any(m => m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Our indicator <c>Code</c> to the name Skender actually publishes.
+        ///
+        /// <para>
+        /// The lookup is <c>"Get" + code</c>, and where the two disagree the reflection finds
+        /// nothing, the delegate is null, and the indicator draws an empty line — no exception, no
+        /// log, nothing for the user to report beyond "it does not work". Bollinger Bands was one
+        /// of these, and it is one of the seven indicators the public demo offers by name.
+        /// </para>
+        ///
+        /// <para>
+        /// Only aliases that are the SAME indicator under another name belong here. An indicator
+        /// Skender does not implement must not be registered at all — a menu entry that can never
+        /// produce a value is worse than an absent one, because the user spends their time on it.
+        /// </para>
+        /// </summary>
+        internal static string SkenderMethodName(string code) => (code ?? "").ToUpperInvariant() switch
+        {
+            "BB"             => "BollingerBands",
+            "KC"             => "Keltner",
+            "CHANDELIEREXIT" => "Chandelier",
+            "ULTOSC"         => "Ultimate",
+            // Momentum is the first column of Skender's Rate-of-Change result.
+            "MOM"            => "Roc",
+            _                => code ?? "",
+        };
 
         internal static Func<object[], object> CreateDelegate(MethodInfo method)
         {

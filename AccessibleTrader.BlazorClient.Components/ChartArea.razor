@@ -321,12 +321,23 @@
 
         // 2b. Browser-only chart re-render. Under MAUI the native canvas is
         // repainted by MainPage subscribing to the same streams; here we
-        // funnel state/redraw/theme triggers through a 100 ms throttle and
-        // re-encode the chart to PNG. Skipped entirely under MAUI.
+        // rate-limit state/redraw/theme triggers to ~10 fps and re-encode the
+        // chart to PNG. Skipped entirely under MAUI.
+        //
+        // SAMPLE, NOT THROTTLE. In Rx.NET `Throttle` is debounce: it emits only after a 100 ms
+        // QUIET GAP, so the timer resets on every tick and nothing is emitted at all while ticks
+        // keep arriving. Live feeds on Bitstamp, Binance, Kraken and MEXC all beat 100 ms during
+        // volatility, so the chart image stopped updating exactly when the market was moving and
+        // resumed when it went quiet — the one moment the picture matters, and the one moment it
+        // was frozen. `Sample` emits the latest value every interval, which is the ~10 fps the
+        // README has always claimed. (EventBus makes the same distinction deliberately:
+        // SubscribeCoalesced uses Throttle and documents it as debouncing; SubscribeSampled uses
+        // Sample. TactileCanvasCoordinator uses Throttle correctly — a braille cell should settle
+        // before it reprints.)
         if (RuntimePlatform.IsBrowserHost)
         {
             var renderSub = _renderTrigger
-                .Throttle(TimeSpan.FromMilliseconds(100))
+                .Sample(TimeSpan.FromMilliseconds(100))
                 .Subscribe(_ => InvokeAsync(RenderChartImageAsync));
             _subs.Add(renderSub);
 

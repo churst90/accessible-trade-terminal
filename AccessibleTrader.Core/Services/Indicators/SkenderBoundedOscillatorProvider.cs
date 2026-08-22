@@ -114,10 +114,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "Signal",     DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
                             DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
-                    new() { Name = "PercentK",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
+                    // StochResult calls %K "Oscillator" and %D "Signal"; "PercentK"/"PercentD" matched
+                    // nothing, so the whole of Stochastic rendered blank.
+                    new() { Name = "Oscillator", DisplayName = "%K", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
                             DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
-                    new() { Name = "PercentD",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
+                    new() { Name = "Signal", DisplayName = "%D", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
                             DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
@@ -153,7 +155,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "UltOsc", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
+                    new() { Name = "Ultimate", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
                             DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },

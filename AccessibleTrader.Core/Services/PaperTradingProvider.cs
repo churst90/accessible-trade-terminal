@@ -62,11 +62,15 @@ namespace AccessibleTrader.Core.Services
         private const string Quote = "USDT";
         public double StartingBalance => 100_000.0;
 
-        private readonly IWorkspaceStore _store;
+        // The charts this account is watching. ONE account can be looked at from several browser
+        // tabs at once, each with its own IWorkspaceStore, so this is a set rather than the single
+        // store it used to be — see PaperAccountHub for why the account itself is now shared.
+        private readonly List<(IWorkspaceStore Store, IDisposable Sub)> _stores = new();
+        private readonly object _storeLock = new();
+        private IWorkspaceStore _store;   // the most recently active attached store
         private readonly ILogger<PaperTradingProvider> _logger;
         private readonly string _statePath;
         private readonly object _lock = new();
-        private readonly IDisposable _priceSub;
         private readonly IDisposable? _monitorSub;
 
         private readonly Subject<OrderUpdate> _orderUpdates = new();
@@ -118,14 +122,13 @@ namespace AccessibleTrader.Core.Services
             IDataService? dataService = null)
         {
             _store = store;
+            PrimaryStore = store;
+            Attach(store);
             _logger = logger;
             _data = dataService;
             _statePath = Path.Combine(paths.AppDataDirectory, "paper_account.json");
             Load();
 
-            // Drive resting-order fills off the live chart state. StateStream emits
-            // on every data change, including each live tick into the forming bar.
-            _priceSub = _store.StateStream.Subscribe(OnState);
 
             // …and off background monitors, which are the only price source for a
             // symbol whose tab is not the focused one. Without this the engine was
@@ -915,6 +918,63 @@ namespace AccessibleTrader.Core.Services
             return false;
         }
 
+        /// <summary>
+        /// Watch another chart. Each browser tab has its own <see cref="IWorkspaceStore"/>, and an
+        /// account shared between tabs has to see all of them or a resting order would fill only
+        /// while the tab that placed it happened to be in front. Dispose the token to stop watching
+        /// — the circuit scope does that when the tab goes away.
+        /// </summary>
+        public IDisposable Attach(IWorkspaceStore store)
+        {
+            if (store == null) return new NoOpDisposable();
+
+            var sub = store.StateStream.Subscribe(st => { _store = store; OnState(st); });
+            lock (_storeLock) _stores.Add((store, sub));
+
+            return new DetachToken(this, store, sub);
+        }
+
+        private void Detach(IWorkspaceStore store, IDisposable sub)
+        {
+            lock (_storeLock)
+            {
+                _stores.RemoveAll(e => ReferenceEquals(e.Store, store) && ReferenceEquals(e.Sub, sub));
+                // Fall back to any surviving store so identity reads keep working.
+                if (ReferenceEquals(_store, store) && _stores.Count > 0) _store = _stores[^1].Store;
+            }
+            sub.Dispose();
+        }
+
+        private sealed class DetachToken : IDisposable
+        {
+            private readonly PaperTradingProvider _owner;
+            private readonly IWorkspaceStore _store;
+            private readonly IDisposable _sub;
+            private bool _done;
+            public DetachToken(PaperTradingProvider o, IWorkspaceStore s, IDisposable sub)
+                { _owner = o; _store = s; _sub = sub; }
+            public void Dispose()
+            {
+                if (_done) return;
+                _done = true;
+                _owner.Detach(_store, _sub);
+            }
+        }
+
+        private sealed class NoOpDisposable : IDisposable { public void Dispose() { } }
+
+        /// <summary>
+        /// True when this account is owned by <c>PaperAccountHub</c> and shared between a user's
+        /// browser tabs. The DI container disposes whatever a scoped factory hands it, so without
+        /// this the first tab to close would tear down an account the other tabs are still trading
+        /// on — a worse bug than the one sharing exists to fix.
+        /// </summary>
+        public bool SharedOwnership { get; set; }
+
+        /// <summary>The store this account was constructed with — already attached by the
+        /// constructor, so the tab that created the account must not attach it a second time.</summary>
+        public IWorkspaceStore PrimaryStore { get; private set; }
+
         // ── Symbol identity and price resolution ─────────────────────────────
         //
         // Both exist because the ledger is one account spanning many venues, and a symbol string
@@ -1265,8 +1325,19 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
+            // A shared account outlives the scope that handed it out. The container disposes
+            // whatever a scoped factory returns, so obeying that here would close one user's
+            // account the moment any ONE of their tabs went away, while the others kept trading
+            // against a dead object. The hub owns the lifetime; see DisposeAccount.
+            if (SharedOwnership) return;
+            DisposeAccount();
+        }
+
+        /// <summary>Really tear down. Called by the owner, not by scope disposal.</summary>
+        internal void DisposeAccount()
+        {
             _monitorSub?.Dispose();
-            _priceSub.Dispose();
+            lock (_storeLock) { foreach (var e in _stores) e.Sub.Dispose(); _stores.Clear(); }
             _orderUpdates.OnCompleted();
             _orderUpdates.Dispose();
         }

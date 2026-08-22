@@ -113,6 +113,13 @@ namespace AccessibleTrader.WebHost.Services
             // holds it, so its subscription lives until the circuit closes.
             try { _scope.GetService<InSessionAlertRecorder>(); }
             catch (Exception ex) { _logger.LogDebug(ex, "In-session alert recorder init skipped."); }
+
+            // Bind this tab to the user's shared paper account. Force-created for the same reason
+            // as the recorder above: the account has to be watching THIS chart from the moment the
+            // circuit opens, not from whenever something first asks for the broker — otherwise a
+            // resting order stops being evaluated as soon as another tab takes focus.
+            try { _scope.GetService<PaperAccountAttachment>(); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Paper account attach skipped."); }
         }
         public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
         {

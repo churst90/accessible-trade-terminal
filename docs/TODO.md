@@ -6,6 +6,54 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Three audit fixes (patch applied 2026-08-22)
+
+`patches/accessible-trader-2026-08-22.patch` + `accessible-trader-docs-2026-08-22.patch`, written
+against `25197c4b` and applied here on top of the four commits since. The patch's own README in
+`patches/` has the full narrative; what is recorded here is what changed on the way in.
+
+**Applied three-way.** The code patch re-carried the 2026-08-21 unclosable-position work, which
+had already landed as `060ba4d0`, so those hunks either no-oped or conflicted. Three conflicts,
+all resolved in favour of what was already here, because in every case this tree had the later
+version of the same idea:
+
+- `TradingDashboardModal.DescribeOrderFailure` — the patch reintroduced the private copy that
+  `060ba4d0` had folded into `OrderResult.DescribeFailureOrDefault`. Kept the forward. This is
+  the drift `OrderResult`'s own summary exists to prevent, and it tried to come back within a day.
+- `UnclosablePositionTests` — the patch reasserted the private copy's thinner phrasing for the
+  `insufficient` case, and dropped both the `PROVIDER_NOT_SUPPORTED` row and
+  `TheDashboardSpeaksThroughTheSharedTranslator`. Kept ours on all three.
+- `PaperTradingProvider`'s market-branch comment. Kept ours (it names the symbol-resolution order);
+  took the patch's new `Attach`/`Detach`/`SharedOwnership`/`PrimaryStore` block wholesale, which is
+  the actual substance of fix 1.
+
+**Verified rather than taken on trust.** Suite 3660 green, both JS suites green (13 + 15), doc-guard
+green, 0 warnings on every project that builds on Linux. Two of the patch's headline guards were
+checked the way this repo checks guards — by reintroducing the defect:
+
+- Removing the `"BB" => "BollingerBands"` alias turns `AMisnamedCode_IsAliasedToTheRealMethod` red.
+- Putting `.Throttle(` back in `ChartArea.razor` turns `TheChartComponent_UsesSampleForItsRenderTrigger` red.
+
+**One thing worth knowing about the shape of fix 2.** Now that `GetAvailableIndicators` filters on
+`SkenderCalculationCore.CanResolve`, a misnamed method no longer draws a blank line — it removes
+the indicator from the menu entirely and says nothing. Better than a blank chart, but it means the
+"every offered indicator resolves" sweep CANNOT catch a broken alias: the broken one stops being
+offered. `AMisnamedCode_IsAliasedToTheRealMethod` is the only thing standing between Bollinger
+Bands and quietly disappearing from the product, and it is a hardcoded list. Keep it in mind if a
+name ever changes upstream.
+
+### Still open from this patch's own list
+
+- [ ] **Background alerts silently do not fire** for Indicator and POC targets — only Price and
+  Candle work, and the manual claims otherwise. A blind trader believing an alert is watching the
+  market when it is not is the worst failure this app has.
+- [ ] **SSRF through both alert channels** — any registered user, open registration, no allow-list,
+  and an arbitrary outbound TCP connect via the SMTP host/port.
+- [ ] **`QuickTradeEquity` is a process-wide static** — one user's balance becomes another's
+  sizing input.
+
+---
+
 ## The unclosable position (patch applied 2026-08-22)
 
 `patches/accessible-trader-unclosable-position-2026-08-21.patch` — written against `0320d8a3`,

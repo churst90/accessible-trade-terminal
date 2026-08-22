@@ -337,7 +337,15 @@ namespace AccessibleTrader.WebHost
         {
             services.AddScoped<IDataExportService, DataExportService>();
 
-            services.AddScoped<IPaperTradingProvider, PaperTradingProvider>();
+            // ONE paper account per user, not per browser tab. Registered scoped so each circuit
+            // still resolves normally, but the instance comes from the process-wide hub and the
+            // per-circuit PaperAccountAttachment owns the chart binding. AddScoped<..., Paper-
+            // TradingProvider> gave every tab its own account object over one file, and the last
+            // tab to persist silently erased the others' trades — see PaperAccountHub.
+            services.AddSingleton<PaperAccountHub>();
+            services.AddScoped<Services.PaperAccountAttachment>();
+            services.AddScoped<IPaperTradingProvider>(sp =>
+                sp.GetRequiredService<Services.PaperAccountAttachment>().Account);
             // Portfolio valuation: the Balances tab showed quantities with no value,
             // total, allocation or day change. The price source is separate so the
             // arithmetic that decides the number a user reads is testable offline.

@@ -102,7 +102,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "UlcerIndex", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#EF5350",
+                    // UlcerIndexResult exposes "UI"; the declared "UlcerIndex" was its only component.
+                    new() { Name = "UI", DisplayName = "Ulcer Index", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#EF5350",
                             SpeechTemplate = "{name}. {value:F2}." },
                 },
             },

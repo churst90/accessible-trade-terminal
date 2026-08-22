@@ -339,11 +339,13 @@ namespace AccessibleTrader.Tests
         /// deleted and this test will say so.</item>
         /// </list>
         /// </summary>
+        // Shrunk 2026-08-22: twenty-three of these were blind not because the synthetic series
+        // avoided them but because the components produced NOTHING AT ALL — a misnamed Skender
+        // method, a component name the result type does not expose, or an optional Nullable
+        // parameter the binder could never pass. A component with no values cannot have its
+        // causality checked either, so fixing the blanks is what made them testable.
         private static readonly string[] NotExercisedByTheseSeries =
         {
-            "Adl.Adl3",
-            "Adx.Adh",
-            "Adx.Adl",
             "BNVISION_FUNDING.Funding",
             "BNVISION_FUNDING.FundingExtreme",
             "BNVISION_FUNDING.FundingZScore",
@@ -353,13 +355,6 @@ namespace AccessibleTrader.Tests
             "BNVISION_OI.PriceOiAlign",
             "BTC_STRENGTH.BtcRatio",
             "BTC_STRENGTH.BtcRatioMomentum",
-            "Bb.Centerline",
-            "Bb.LowerBand",
-            "Bb.Percent_B",
-            "Bb.Sma",
-            "Bb.UpperBand",
-            "Bb.Width",
-            "Bb.ZScore",
             "CANDLES.body",
             "CANDLES.lower_wick",
             "CANDLES.upper_wick",
@@ -386,8 +381,6 @@ namespace AccessibleTrader.Tests
             "CROWDING_INDEX.Crowding Score",
             "CROWDING_INDEX.Long Crowded",
             "CROWDING_INDEX.Short Crowded",
-            "ChandelierExit.ChandelierExit",
-            "Chop.ChopIndex",
             "Eom.Eom",
             "FEAR_GREED.Extreme Fear",
             "FEAR_GREED.Extreme Greed",
@@ -399,12 +392,8 @@ namespace AccessibleTrader.Tests
             "FUNDING_RATE.Sign Flip",
             "HEATMAP.Liquidity",
             "Hv.Hv",
-            "Kc.Centerline",
-            "Kc.LowerBand",
-            "Kc.UpperBand",
             "LOUKAS_CYCLES.FY Day Count",
             "LOUKAS_CYCLES.FY Phase",
-            "Mom.Momentum",
             "OPEN_INTEREST.OI Delta",
             "OPEN_INTEREST.OI Divergence",
             "OPEN_INTEREST.OI Spike",
@@ -415,20 +404,12 @@ namespace AccessibleTrader.Tests
             "Ppo.Histogram",
             "Ppo.Ppo",
             "Ppo.Signal",
-            "Roc.RocP",
-            "Stoch.PercentD",
-            "Stoch.PercentK",
             "TOP_BOTTOM_DETECTOR.Bottom Confirmed",
             "TPO.Profile",
             "Tma.Tma",
-            "Trix.Signal",
-            "UlcerIndex.UlcerIndex",
-            "UltOsc.UltOsc",
             "VOLUME.Volume",
             "VPFR.Profile",
             "VPVR.Profile",
-            "Vortex.Vim",
-            "Vortex.Vip",
             "Zlema.Zlema",
         };
 

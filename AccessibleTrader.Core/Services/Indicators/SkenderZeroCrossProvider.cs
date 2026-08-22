@@ -102,12 +102,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
+                    // Without smaPeriods, Skender leaves RocSma null and the declared line is blank.
+                    new() { Name = "smaPeriods", DisplayName = "SMA Periods", DataType = typeof(int), DefaultValue = 14 },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Momentum", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
                     new() { Name = "Roc",      DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
-                    new() { Name = "RocP",     DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
+                    // Was "RocP", which RocResult does not expose; RocSma is its smoothed line.
+                    new() { Name = "RocSma",   DisplayName = "ROC SMA", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
                 },
             },
             new IndicatorMetadata
@@ -168,6 +171,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
+                    // Without signalPeriods, Skender leaves Signal null — the declared signal line
+                    // has been empty since it was added.
+                    new() { Name = "signalPeriods", DisplayName = "Signal Periods", DataType = typeof(int), DefaultValue = 9 },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {

@@ -204,8 +204,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "Adx", DefaultColorHex = "#9E9E9E", SpeechTemplate = "ADX {value:F1}. {zone}." },
                     new() { Name = "Pdi", DefaultColorHex = "#26A69A" },
                     new() { Name = "Mdi", DefaultColorHex = "#EF5350" },
-                    new() { Name = "Adl", DefaultColorHex = "#26A69A" },
-                    new() { Name = "Adh", DefaultColorHex = "#EF5350" },
+                    // Was "Adl"/"Adh" — names AdxResult has never exposed, so both rendered blank.
+                    // ("Adl" also collides conceptually with the Accumulation/Distribution Line,
+                    // which is a different indicator entirely.) Adxr is the smoothed ADX rating
+                    // the result actually carries.
+                    new() { Name = "Adxr", DefaultColorHex = "#78909C" },
                 },
             },
             new IndicatorMetadata
@@ -218,8 +221,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "Vip", DefaultColorHex = "#26A69A", SpeechTemplate = "{name}. {value:F2}." },
-                    new() { Name = "Vim", DefaultColorHex = "#EF5350", SpeechTemplate = "{name}. {value:F2}." },
+                    // VortexResult exposes Pvi/Nvi; "Vip"/"Vim" matched nothing and both lines
+                    // rendered empty.
+                    new() { Name = "Pvi", DisplayName = "VI+", DefaultColorHex = "#26A69A", SpeechTemplate = "{name}. {value:F2}." },
+                    new() { Name = "Nvi", DisplayName = "VI-", DefaultColorHex = "#EF5350", SpeechTemplate = "{name}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -232,7 +237,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "ChopIndex", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9E9E9E",
+                    // ChopResult exposes "Chop"; the declared "ChopIndex" was its only component.
+                    new() { Name = "Chop", DisplayName = "Choppiness", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9E9E9E",
                             SpeechTemplate = "{name}. {value:F2}. {zone}." },
                 },
             },
