@@ -79,6 +79,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
+                Causality = ComponentCausality.Causal,
                 Name = "Value Deviation (support / resistance zones)",
                 Category = "Overlays",
                 DefaultPane = "Main",
@@ -191,18 +192,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             double maxTier = GetParam(parameters, ParamMaxTier, 2.0);
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
             int minTier = Math.Clamp((int)GetParam(parameters, ParamMinTier, 2), 1, 5);
-            // ADAPT THE WINDOW TO WHAT IS ACTUALLY LOADED. The default was picked from the
-            // research dataset, but a fresh chart fetches about 200 bars — so a 480-bar profile
-            // left every component NaN and the whole indicator read "no data".
-            //
-            // The cap is a THIRD of the series, not a half. At a half, a 200-bar chart got a
-            // reference line over only its most recent 100 bars and the left side of the chart
-            // sat empty — which reads as broken rather than as warmup. A third covers roughly
-            // two thirds of the view while still leaving a window long enough to mean something.
-            // More loaded history is strictly better here: the research found the SLOWER anchor
-            // measured best, so this cap is a concession to what a chart holds, not an ideal.
-            int maxUsable = Math.Max(40, n / 3);
-            window = Math.Clamp(Math.Min(window, maxUsable), 40, Math.Max(40, n - 10));
+            // The window is a MAXIMUM, not a fixed length: ValueDeviationAnalyzer.WindowAt grows it
+            // with each bar's own history, up to this value. That keeps the reason the cap existed
+            // — a fresh ~200-bar chart has to show something rather than a blank left half — while
+            // removing the part that made it wrong: the cap used to be a third of the TOTAL loaded
+            // bar count, so the same bar answered differently depending on how much history was
+            // fetched after it. The research found the slower anchor measured best, so a larger
+            // maximum is still strictly better where the history exists to fill it.
+            window = Math.Max(ValueDeviationAnalyzer.MinWindow, window);
 
             var bars = new Ohlcv[n];
             for (int i = 0; i < n; i++) bars[i] = data[i];

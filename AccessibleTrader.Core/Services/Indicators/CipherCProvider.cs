@@ -93,6 +93,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_C",
+                Causality = ComponentCausality.Causal,
                 Name        = "Cipher C",
                 Category    = "Cycles",
                 DefaultPane = "Pane_CIPHER_C",

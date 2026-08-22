@@ -19,6 +19,15 @@ namespace AccessibleTrader.Sdk.Models
         public ComponentRole Role { get; set; } = ComponentRole.None;
         public ComponentDisplayType DisplayType { get; set; } = ComponentDisplayType.Line;
         public string? DataMapping { get; set; }
+
+        /// <summary>
+        /// Whether this component's value at a bar uses any later bar. Null = inherit the
+        /// indicator's <see cref="IndicatorMetadata.Causality"/>, which is the normal case;
+        /// set it only on the components that differ from their indicator.
+        /// <see cref="ComponentCausality.Causal"/> is what makes a component available as a
+        /// strategy leaf — see <see cref="CausalityContract"/>.
+        /// </summary>
+        public ComponentCausality? Causality { get; set; }
         /// <summary>For Cloud display type: name of the upper boundary component within the same series.</summary>
         public string? UpperComponentName { get; set; }
         /// <summary>For Cloud display type: name of the lower boundary component within the same series.</summary>
@@ -233,6 +242,15 @@ namespace AccessibleTrader.Sdk.Models
         /// code keep working. Set with a Description note explaining the retirement.
         /// </summary>
         public bool IsDeprecated { get; set; } = false;
+
+        /// <summary>
+        /// The causality every component of this indicator inherits unless it declares its own.
+        /// Defaults to <see cref="ComponentCausality.Undeclared"/>, which publishes nothing —
+        /// an indicator has to say. See <see cref="ComponentCausality"/> for why the default is
+        /// refusal rather than optimism.
+        /// </summary>
+        public ComponentCausality Causality { get; set; } = ComponentCausality.Undeclared;
+
         public string Description { get; set; } = string.Empty;
         public List<IndicatorParameterMetadata> Parameters { get; set; } = new();
         public List<IndicatorComponentMetadata> Components { get; set; } = new();

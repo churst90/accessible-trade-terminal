@@ -113,7 +113,7 @@ namespace AccessibleTrader.Tests
         // ── Behavioural coverage: HTF routing + warning dedup ─────────────────
 
         [Fact]
-        public void Evaluate_HtfLeafWithNoCachedData_ReturnsFalseAndSetsLastHtfDegradation()
+        public void Evaluate_HtfLeafWithNoCachedData_ReturnsFalseAndSetsLastDegradation()
         {
             var catalog = new StubCatalog();
             var mtf = new StubMtf();  // no cached bars, no cached indicator
@@ -128,9 +128,9 @@ namespace AccessibleTrader.Tests
             var result = eval.Evaluate(leaf, NewHistory(new[] { 1.0, 2.0, 3.0 }), StubState());
 
             Assert.False(result.OverallTrue);
-            Assert.NotNull(eval.LastHtfDegradation);
-            Assert.Contains("leafA", eval.LastHtfDegradation!);
-            Assert.Contains("1h", eval.LastHtfDegradation!);
+            Assert.NotNull(eval.LastDegradation);
+            Assert.Contains("leafA", eval.LastDegradation!);
+            Assert.Contains("1h", eval.LastDegradation!);
         }
 
         [Fact]
@@ -172,9 +172,9 @@ namespace AccessibleTrader.Tests
             Assert.Equal(0, linesForB);
 #endif
 
-            // LastHtfDegradation is overwritten each Evaluate — the most recent call wins.
-            Assert.NotNull(eval.LastHtfDegradation);
-            Assert.Contains("leafB", eval.LastHtfDegradation!);
+            // LastDegradation is overwritten each Evaluate — the most recent call wins.
+            Assert.NotNull(eval.LastDegradation);
+            Assert.Contains("leafB", eval.LastDegradation!);
         }
 
         [Fact]
@@ -203,7 +203,7 @@ namespace AccessibleTrader.Tests
             var result = eval.Evaluate(leaf, history, StubState());
 
             Assert.True(result.OverallTrue);
-            Assert.Null(eval.LastHtfDegradation);
+            Assert.Null(eval.LastDegradation);
         }
 
         [Fact]

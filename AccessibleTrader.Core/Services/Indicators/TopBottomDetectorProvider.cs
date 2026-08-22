@@ -43,6 +43,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "Top/Bottom Detector",
                 Category    = "Reversal",
                 DefaultPane = "Pane_TBD",

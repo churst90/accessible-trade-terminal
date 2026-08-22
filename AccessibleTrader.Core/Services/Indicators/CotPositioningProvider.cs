@@ -106,6 +106,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "COT Positioning",
                 Category    = "Positioning",
                 DefaultPane = "Pane_COT",

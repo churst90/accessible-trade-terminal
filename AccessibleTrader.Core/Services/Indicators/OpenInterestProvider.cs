@@ -78,6 +78,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "OPEN_INTEREST",
+                Causality = ComponentCausality.Causal,
                 Name        = "Open Interest",
                 Category    = "Derivatives",
                 DefaultPane = "Pane_OPEN_INTEREST",

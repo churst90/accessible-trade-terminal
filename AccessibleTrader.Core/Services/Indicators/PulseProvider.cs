@@ -218,6 +218,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
+                Causality = ComponentCausality.Causal,
                 Name = "Pulse",
                 Category = "Oscillators",
                 DefaultPane = "Pane_PULSE",
@@ -1268,7 +1269,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             int n = closes.Length;
             for (int i = 0; i < n; i++) dst[i] = double.NaN;
-            if (n < barsPerWeek * (rsiPeriod + 2) || barsPerWeek <= 0 || rsiPeriod <= 0) return;
+            // Only the parameters are checked here, not the length of the series. This used to bail
+            // when n < barsPerWeek * (rsiPeriod + 2), which blanked the WHOLE component on a short
+            // chart — including bars that have all the weekly history they need. The same bar then
+            // read NaN live on a freshly loaded chart and a number in a backtest over the full
+            // series, which is a disagreement about the past decided by how much data was fetched.
+            // Insufficient history is already handled per bar: weeklyRsi stays NaN until enough
+            // weeks have closed, and the forward-fill below only writes non-NaN weeks.
+            if (barsPerWeek <= 0 || rsiPeriod <= 0) return;
 
             // Build weekly close series: bar (k+1)*bpw - 1 is the last bar of week k.
             int weekCount = (n + barsPerWeek - 1) / barsPerWeek;
@@ -1324,7 +1332,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             int n = closes.Length;
             for (int i = 0; i < n; i++) dst[i] = double.NaN;
-            if (n < barsPerWeek * (maPeriod + slopeBars + 2)) return;
+            // Length-independent for the same reason as ComputeMtfRsi: the per-week arrays stay NaN
+            // until enough weeks exist, so a whole-series bail only removes bars that were entitled
+            // to a value.
+            if (barsPerWeek <= 0 || maPeriod <= 0) return;
 
             int weekCount = (n + barsPerWeek - 1) / barsPerWeek;
             var weeklyCloses = new double[weekCount];

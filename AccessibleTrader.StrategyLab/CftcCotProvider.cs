@@ -47,6 +47,7 @@ public sealed class CftcCotProvider : IIndicatorProvider
         new IndicatorMetadata
         {
             Code = Code,
+            Causality = ComponentCausality.Causal,
             Name = "CFTC Commitments of Traders",
             Category = "Positioning",
             DefaultPane = "Pane_CFTC_COT",

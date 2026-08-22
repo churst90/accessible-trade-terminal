@@ -113,6 +113,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_S",
+                Causality = ComponentCausality.Causal,
                 Name        = "Cipher S",
                 Category    = "Overlays",
                 DefaultPane = "Main",

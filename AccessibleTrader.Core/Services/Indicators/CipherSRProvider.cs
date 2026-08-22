@@ -28,12 +28,17 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   [i-PivotBars .. i+PivotBars]. The last PivotBars bars never emit dots (expected).
     ///   Optional volume confluence: pivot volume must be >= VolumeMultiplier × rolling average.
     ///   Set VolumeMultiplier=0 to disable volume filtering entirely.
+    ///   The DOT is drawn on the pivot bar, where the level is; the ZONE line only steps to that
+    ///   level at bar i+PivotBars, the first bar the pivot could be recognised. That split is why
+    ///   the dots are declared Lookahead and the zone lines Causal.
     ///
     /// Auto-Scale (works at any timeframe / zoom level):
-    ///   When AutoScale=1, PivotBars is derived from the number of loaded bars rather than
-    ///   the timeframe: PivotBars = Clamp(barCount / 25, 2, 15). This targets roughly one
-    ///   pivot per 25 bars and produces consistent SR density whether viewing 20 bars on a
-    ///   5-minute chart or 200 bars on a daily chart.
+    ///   When AutoScale=1, the pivot window for a bar is derived from that BAR'S OWN position:
+    ///   PivotBars(i) = Clamp((i + 1) / 25, 2, 15). This targets roughly one pivot per 25 bars and
+    ///   produces consistent SR density whether viewing 20 bars on a 5-minute chart or 200 bars on
+    ///   a daily chart. It used to be Clamp(totalBarCount / 25, 2, 15), which made every bar's
+    ///   answer depend on how much history was loaded after it — the same bar showed a window of 2
+    ///   on a fresh 60-bar chart and 15 in a 500-bar backtest.
     ///
     /// NaN-Break Pattern:
     ///   At the bar where a new pivot forms, the zone line is NaN rather than the new value.
@@ -77,6 +82,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_SR",
+                Causality = ComponentCausality.Causal,
                 Name        = "Cipher SR",
                 Category    = "Overlays",
                 DefaultPane = "Main",
@@ -89,9 +95,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // ── Resistance dot ─────────────────────────────────────────────────
-                    // Sparse: non-NaN only at confirmed pivot high bars.
+                    // Sparse: non-NaN only at pivot high bars, drawn ON the pivot bar because that
+                    // is where the level is. A pivot is not knowable until PivotBars later, so the
+                    // dot is a chart and navigation convention, not a signal — the Zone line below
+                    // is the causal form and the one a strategy can be built on.
                     // crystal_bell Ping at 700 Hz = clear high-pitched ceiling earcon.
-                    new() { Name = CompResistance,
+                    new() { Causality = ComponentCausality.Lookahead,
+                            Name = CompResistance,
                             DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Level,
                             DefaultColorHex = "#AB47BC", DefaultThickness = 7.0f,
                             DefaultSoundPatchId = "crystal_bell",
@@ -122,7 +132,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                     // ── Support dot ────────────────────────────────────────────────────
                     // crystal_bell Ping at 330 Hz = low-pitched floor earcon.
-                    new() { Name = CompSupport,
+                    // Lookahead for the same reason as the resistance dot.
+                    new() { Causality = ComponentCausality.Lookahead,
+                            Name = CompSupport,
                             DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Level,
                             DefaultColorHex = "#FFB300", DefaultThickness = 7.0f,
                             DefaultSoundPatchId = "crystal_bell",
@@ -210,12 +222,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (adaptiveBreak)
                 atrSeries = AccessibleTrader.Sdk.Indicators.IndicatorMath.Atr(data, atrPeriod);
 
-            // ── Auto-scale: target ~1 pivot per 25 bars regardless of timeframe ───────────
-            // Using bar count (not minutes-per-bar) means the same pivot density whether
-            // viewing 20 bars on a 5m chart or 500 bars on a daily chart.
-            if (autoScale)
-                pivotBars = Math.Clamp(n / 25, 2, 15);
-
             // ── Output arrays ─────────────────────────────────────────────────────────────
             var resistance        = NanArray(n);
             var resistanceLine    = NanArray(n);
@@ -224,9 +230,26 @@ namespace AccessibleTrader.Core.Services.Indicators
             var resistanceTouches = NanArray(n);
             var supportTouches    = NanArray(n);
 
+            // Levels indexed by the bar they become CONFIRMABLE (pivot bar + its own window),
+            // which is the bar the carry-forward line is allowed to step to them. Separate from
+            // the dot arrays above, which stay on the pivot bar because that is where the level
+            // visually is — see the Causality declarations on the two dot components.
+            var resConfirmed = NanArray(n);
+            var supConfirmed = NanArray(n);
+
             // ── Pass 1: Pivot detection with optional volume confluence ────────────────────
-            for (int i = pivotBars; i < n - pivotBars; i++)
+            for (int i = 1; i < n - 1; i++)
             {
+                // Auto-scale targets ~1 pivot per 25 bars. It used to derive the window from the
+                // TOTAL loaded bar count — Clamp(n / 25, 2, 15) — which made bar 40's answer depend
+                // on how much history happened to be loaded after it: window 2 on a 60-bar chart,
+                // window 15 on a 500-bar one, so a backtest over a long series and a live chart
+                // disagreed about the same bar by construction. Deriving it from the bar's own
+                // position keeps the intent (density grows as history accumulates) and makes the
+                // window a property of the bar rather than of the fetch.
+                int pb = autoScale ? Math.Clamp((i + 1) / 25, 2, 15) : pivotBars;
+                if (i - pb < 0 || i + pb >= n) continue;
+
                 if (data[i].Close <= 0 || data[i].High <= 0 || data[i].Low <= 0) continue;
                 // Volume confluence: skip if volume doesn't clear the threshold.
                 // volMult <= 0 disables the filter entirely.
@@ -239,23 +262,30 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 // Pivot high: high[i] strictly greatest in the symmetric window.
                 bool isPivotHigh = volOk;
-                for (int k = 1; k <= pivotBars && isPivotHigh; k++)
+                for (int k = 1; k <= pb && isPivotHigh; k++)
                     if (data[i].High <= data[i - k].High || data[i].High <= data[i + k].High)
                         isPivotHigh = false;
-                if (isPivotHigh) resistance[i] = data[i].High;
+                if (isPivotHigh) { resistance[i] = data[i].High; resConfirmed[i + pb] = data[i].High; }
 
                 // Pivot low: low[i] strictly smallest in the symmetric window.
                 bool isPivotLow = volOk;
-                for (int k = 1; k <= pivotBars && isPivotLow; k++)
+                for (int k = 1; k <= pb && isPivotLow; k++)
                     if (data[i].Low >= data[i - k].Low || data[i].Low >= data[i + k].Low)
                         isPivotLow = false;
-                if (isPivotLow) support[i] = data[i].Low;
+                if (isPivotLow) { support[i] = data[i].Low; supConfirmed[i + pb] = data[i].Low; }
             }
 
             // ── Pass 2: Carry-forward zone lines with NaN-break and break detection ────────
             //
-            // NaN-break: at the bar where a new pivot fires, the zone line emits NaN.
-            //   The dot component already marks that bar visually. The zone line restarts
+            // The line steps to a level at the bar the pivot became CONFIRMABLE, not at the pivot
+            // bar. A pivot at bar i needs bars i+1..i+pb to be a pivot at all, so carrying the
+            // level forward from i+1 — what this did until 2026-08-21 — drew the zone up to 14 bars
+            // before it existed, and a strategy comparing price to the zone read a level derived
+            // from bars it had not seen. This is the same rule SwingStructureAnalyzer already used
+            // (ConfirmedAtIndex = BarIndex + Span).
+            //
+            // NaN-break: at the bar where a new level is accepted, the zone line emits NaN.
+            //   The dot component already marks the pivot bar visually. The zone line restarts
             //   at the next bar. This eliminates vertical connector strokes in the renderer
             //   (the "box artifact" from the original implementation).
             //
@@ -272,8 +302,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 0; i < n; i++)
             {
                 if (data[i].Close <= 0) continue;
-                bool newRes = !double.IsNaN(resistance[i]);
-                bool newSup = !double.IsNaN(support[i]);
+                bool newRes = !double.IsNaN(resConfirmed[i]);
+                bool newSup = !double.IsNaN(supConfirmed[i]);
 
                 // Compute the effective break threshold for this bar.
                 double breakPct = breakPctFixed;
@@ -296,8 +326,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
 
                 // Accept new pivot level and reset touch counter.
-                if (newRes) { lastRes = resistance[i]; resTouchCount = 0; }
-                if (newSup) { lastSup = support[i];    supTouchCount = 0; }
+                if (newRes) { lastRes = resConfirmed[i]; resTouchCount = 0; }
+                if (newSup) { lastSup = supConfirmed[i]; supTouchCount = 0; }
 
                 // Count wick touches: wick reached the level but close did not close through it.
                 // Skip the pivot bar itself — the pivot high/low IS the level, so High==lastRes

@@ -12,8 +12,28 @@ namespace AccessibleTrader.Core.Services.Strategies
     /// </summary>
     public interface ISignalCatalog
     {
-        /// <summary>All known signal descriptors. Order is provider-then-indicator-then-component.</summary>
+        /// <summary>
+        /// Every signal descriptor a strategy may be built on — those whose component declared
+        /// <see cref="AccessibleTrader.Sdk.Models.ComponentCausality.Causal"/>. Order is
+        /// provider-then-indicator-then-component.
+        /// </summary>
         IReadOnlyList<SignalDescriptor> All { get; }
+
+        /// <summary>
+        /// The components that exist but are withheld from <see cref="All"/> — undeclared, or
+        /// declared look-ahead. Present so the refusal is inspectable rather than a silent absence;
+        /// <see cref="RefusalReason"/> gives the sentence for a given ID.
+        /// </summary>
+        /// <remarks>
+        /// Defaulted to empty so a hand-written stub that hands out a fixed list of descriptors
+        /// does not have to model a gate it never applies. <see cref="SignalCatalog"/> overrides it.
+        /// </remarks>
+        IReadOnlyList<SignalDescriptor> Excluded => System.Array.Empty<SignalDescriptor>();
+
+        /// <summary>
+        /// Why the given signal ID is unavailable, or null when it is available (or unknown).
+        /// </summary>
+        string? RefusalReason(string id) => null;
 
         /// <summary>Look up a descriptor by its stable ID. Returns null if no match.</summary>
         SignalDescriptor? GetById(string id);

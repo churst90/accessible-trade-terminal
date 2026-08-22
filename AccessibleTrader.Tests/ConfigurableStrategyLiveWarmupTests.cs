@@ -134,7 +134,7 @@ public sealed class ConfigurableStrategyLiveWarmupTests
     private sealed class CountingEvaluator : IConditionEvaluator
     {
         public int EvaluateCalls;
-        public string? LastHtfDegradation => null;
+        public string? LastDegradation => null;
         public ConditionEvaluation Evaluate(ConditionNode root, IReadOnlyList<Ohlcv> history, WorkspaceState state)
         {
             EvaluateCalls++;

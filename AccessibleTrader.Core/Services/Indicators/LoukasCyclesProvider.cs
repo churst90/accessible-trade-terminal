@@ -105,6 +105,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "LOUKAS_CYCLES",
+                Causality = ComponentCausality.Causal,
                 Name        = "Loukas Cycle Detection",
                 Category    = "Cycles",
                 DefaultPane = "Pane_LOUKAS",

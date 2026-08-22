@@ -13,6 +13,64 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The chart may look back; a strategy may not (2026-08-21)
+
+Every indicator component was published to the strategy builder as something a condition could be
+built on. Every one, from every provider, with no allowlist. So "is this component look-ahead-safe"
+was never a chart question — it was a backtest-validity question for all 233 of them, and five had
+been failing it in the open.
+
+Ichimoku's Chikou Span is the clearest. `chikou[j]` holds `close[j + 26]`: drawing today's close
+back where it can be compared with old price is the entire point of a lagging span, and it is the
+correct plotting convention. As a *data* convention it is catastrophic. The leaf condition
+"Chikou Span greater than Close" at bar j evaluated `close[j+26] > close[j]` — a bar against its own
+future — and returned a spectacular, entirely fake edge. This project's research discipline has
+correctly returned null on essentially every price-derived claim it has tested. These are the
+components that would have corrupted exactly that process.
+
+The fix is a contract rather than five patches:
+
+- **Every component now declares whether its value at a bar uses later bars.** An indicator declares
+  once and a component overrides only where it differs. The default is "undeclared", and undeclared
+  publishes nothing — a new component is invisible to the strategy builder until somebody decides,
+  because silence is the one answer that cannot be wrong by accident.
+- **A displaced plot stays on the chart and leaves the strategy builder.** Cipher SR's pivot dots,
+  Market Structure's swing markers and the Chikou Span are all still drawn exactly where they were,
+  still navigable, still spoken — navigating to a marker is a look at history, which is what a chart
+  is for. They are simply no longer offered as signals.
+- **A strategy pointing at a withdrawn leaf now says so.** It used to return false, which from the
+  outside is indistinguishable from a market that never met the condition: the strategy still ran,
+  never fired, and gave no reason. Withdrawn leaves stay resolvable by name so the reason can be
+  reported.
+- **Chikou's navigation speech says what the number is.** It read "Chikou span at 203.98" while the
+  cursor sat on a bar that closed at 180, which reads as a second price for that bar. It now says
+  "Chikou span, close from a later bar, at 203.98". It does not name the bar count, because the
+  displacement is a per-series setting the speech path is not given — a hard-coded "26" would be a
+  confident lie on a reconfigured chart.
+- **Cipher A's divergences move to the bar they could first be seen.** A divergence pivot at bar p
+  needs the three bars after it before it is a pivot at all, but the marker was stamped at p — so a
+  backtest entered at the exact pivot low with three bars of hindsight while live never saw the
+  marker on the current bar at all. Cipher B was fixed for this in June and Cipher A, which has the
+  identical loop, was never touched. Both now share one implementation.
+- **Cipher SR's zone lines start where the level was knowable.** The carry-forward line was drawn
+  from the bar after the pivot, up to fourteen bars before that pivot could be recognised. It now
+  steps to the level at the confirmation bar. The dot stays on the pivot, where the level is.
+- **Market Structure stopped rewriting its own past.** A later, higher pivot deleted the earlier one
+  from history, so a stretch of chart described a structure that a longer load denied — pan back far
+  enough and the market had reorganised itself. A more extreme pivot now supersedes the earlier one
+  from its own confirmation bar instead of erasing it.
+- **Value Deviation shows more of the chart, and the same thing every time.** Its volume profile was
+  capped at a third of however many bars happened to be loaded, so the same bar had a profile on a
+  short chart and none on a long one. The window now grows with each bar's own history, which also
+  means the reference lines start around bar 40 instead of a third of the way in.
+
+Three defects were found by the test rather than by the audit that prompted the work: Pulse blanked
+two components entirely on a short series, Market Structure sorted its pivots with an unstable sort
+(a bar that is both a pivot high and a pivot low produced two entries at one index, and the order
+they came back in depended on how many bars were loaded), and the candle analyzer measured the trend
+that separates a hammer from a hanging man from the end of whatever list the caller passed — which
+would announce the opposite direction, confidently, to someone who has no other channel.
+
 ### Both wicks were the same wick (2026-08-20)
 
 Four reports from live use of the audio and formation surfaces, three of them real defects. Each

@@ -56,6 +56,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "FEAR_GREED",
+                Causality = ComponentCausality.Causal,
                 Name        = "Fear and Greed Index",
                 Category    = "Sentiment",
                 DefaultPane = "Pane_FEAR_GREED",

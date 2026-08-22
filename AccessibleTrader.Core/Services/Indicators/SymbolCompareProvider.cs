@@ -51,6 +51,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         private static IndicatorMetadata Meta(string code, string name, string pane, string description) => new()
         {
             Code = code,
+            Causality = ComponentCausality.Causal,
             Name = name,
             Category = "Overlays",
             DefaultPane = pane,

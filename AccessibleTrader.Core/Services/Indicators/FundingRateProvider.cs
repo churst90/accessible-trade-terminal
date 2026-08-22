@@ -80,6 +80,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "FUNDING_RATE",
+                Causality = ComponentCausality.Causal,
                 Name        = "Funding Rate",
                 Category    = "Derivatives",
                 DefaultPane = "Pane_FUNDING",

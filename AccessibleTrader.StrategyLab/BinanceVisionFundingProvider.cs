@@ -43,6 +43,7 @@ public sealed class BinanceVisionFundingProvider : IIndicatorProvider
         new IndicatorMetadata
         {
             Code = Code,
+            Causality = ComponentCausality.Causal,
             Name = "Binance Vision Funding",
             Category = "Derivatives",
             DefaultPane = "Pane_BNVISION_FUNDING",

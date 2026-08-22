@@ -44,6 +44,7 @@ public sealed class BinanceVisionOiProvider : IIndicatorProvider
         new IndicatorMetadata
         {
             Code = Code,
+            Causality = ComponentCausality.Causal,
             Name = "Binance Vision OI",
             Category = "Derivatives",
             DefaultPane = "Pane_BNVISION_OI",

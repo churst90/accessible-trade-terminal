@@ -114,6 +114,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_B",
+                Causality = ComponentCausality.Causal,
                 Name        = "Cipher B",
                 Category    = "Multi-Signal",
                 DefaultPane = "Pane_CIPHER_B",
@@ -1266,23 +1267,11 @@ namespace AccessibleTrader.Core.Services.Indicators
         private static bool   GetBool(Dictionary<string, object> p, string k, bool   def) => p.TryGetValue(k, out var v) ? Convert.ToBoolean(v) : def;
 
         /// <summary>
-        /// Returns a copy of a sparse marker array with every non-NaN value moved
-        /// forward by <paramref name="lag"/> bars (pivot bar → confirmation bar).
-        /// Markers whose confirmation bar falls past the end of the data are dropped
-        /// (they could not have been acted on in-sample). Used by the
-        /// DivergenceConfirmLag look-ahead-honesty option.
+        /// Moves sparse markers from the pivot bar to the bar the pivot could first be confirmed.
+        /// The implementation moved to <see cref="IndicatorMath.ShiftMarkersForward"/> when Cipher A
+        /// needed the same fix; this stays as the name Cipher B's own code and tests already use.
         /// </summary>
-        internal static double[] ShiftMarkersForward(double[] src, int lag, int n)
-        {
-            var dst = new double[n];
-            Array.Fill(dst, double.NaN);
-            for (int i = 0; i < n; i++)
-            {
-                if (double.IsNaN(src[i])) continue;
-                int j = i + lag;
-                if (j < n) dst[j] = src[i];
-            }
-            return dst;
-        }
+        internal static double[] ShiftMarkersForward(double[] src, int lag, int n) =>
+            IndicatorMath.ShiftMarkersForward(src, lag, n);
     }
 }

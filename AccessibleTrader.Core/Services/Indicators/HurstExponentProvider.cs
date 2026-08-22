@@ -41,6 +41,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "Hurst Exponent",
                 Category    = "Regime",
                 DefaultPane = "Pane_HURST",

@@ -45,6 +45,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
+                Causality = ComponentCausality.Causal,
                 Name = "Volatility Regime (fast/slow ratio)",
                 Category = "Volatility",
                 DefaultPane = "Pane_VOL_REGIME",

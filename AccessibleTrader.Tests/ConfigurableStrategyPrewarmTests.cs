@@ -215,7 +215,7 @@ public sealed class ConfigurableStrategyPrewarmTests
 
     private sealed class StubEvaluator : IConditionEvaluator
     {
-        public string? LastHtfDegradation => null;
+        public string? LastDegradation => null;
         public ConditionEvaluation Evaluate(ConditionNode root, IReadOnlyList<Ohlcv> history, WorkspaceState state)
             => new(false, new Dictionary<string, bool>(), 0, 0);
     }

@@ -59,6 +59,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Macd", Name = "MACD", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "fastPeriods",   DisplayName = "Fast Periods",   DataType = typeof(int), DefaultValue = 12 },
@@ -78,6 +79,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Mom", Name = "Momentum", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -91,6 +93,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Roc", Name = "ROC", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -105,6 +108,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Dpo", Name = "DPO", Category = "Oscillators", DefaultPane = "Oscillator",
+                // The detrended price oscillator is centred by definition: bar j is compared with an
+                // SMA shifted back lookback/2 + 1 bars, which is an average of bars that include
+                // ones after j. Its final lookback/2 + 1 bars are therefore blank and a bar's value
+                // only settles once that many more bars exist. Real indicator, honest chart, not a
+                // strategy leaf — the prefix test flags both its components without this.
+                Causality = ComponentCausality.Lookahead,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -118,6 +127,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Cmo", Name = "CMO", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -131,6 +141,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Ppo", Name = "PPO", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "fastPeriods",   DisplayName = "Fast Periods",   DataType = typeof(int), DefaultValue = 12 },
@@ -148,6 +159,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Trix", Name = "TRIX", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -161,6 +173,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "ChaikinOsc", Name = "Chaikin Oscillator", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "fastPeriods", DisplayName = "Fast Periods", DataType = typeof(int), DefaultValue = 3  },
@@ -176,6 +189,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Cmf", Name = "CMF", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 20 },
@@ -190,6 +204,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "ConnorsRsi", Name = "Connors RSI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "rsiPeriods",    DisplayName = "RSI Periods",    DataType = typeof(int), DefaultValue = 3  },
@@ -205,6 +220,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Aroon", Name = "Aroon", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 25 },

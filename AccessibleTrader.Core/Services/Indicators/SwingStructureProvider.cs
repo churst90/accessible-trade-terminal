@@ -34,9 +34,22 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
-    /// NO LOOKAHEAD: pivots are published at <c>barIndex + Span</c>, never at the pivot bar, so
-    /// every component is safe as a strategy leaf and the narration reports only what was
-    /// knowable at the time.
+    /// The state and carry-forward arrays — <c>StructureState</c>, <c>LastSwingHigh</c>,
+    /// <c>LastSwingLow</c>, and the two break events — change only from <c>barIndex + Span</c>, the
+    /// bar a pivot becomes confirmable, so they report what was knowable at the time and are safe
+    /// as strategy leaves.
+    /// </para>
+    ///
+    /// <para>
+    /// The two MARKERS are not, and say so: <c>SwingHigh</c> / <c>SwingLow</c> sit on the pivot bar
+    /// so the glyph lands where the swing visually is, which means the value at that bar could not
+    /// have been known for another <c>Span</c> bars. This paragraph used to claim "NO LOOKAHEAD …
+    /// every component is safe as a strategy leaf" while the code wrote <c>high[s.BarIndex]</c>
+    /// directly underneath, and an inline comment quietly narrowed the claim to the state arrays —
+    /// but <c>SignalCatalog</c> published every component regardless, so a strategy gated on
+    /// <c>SWING_STRUCTURE.SwingHigh</c> fired <c>Span</c> bars early. The markers are now declared
+    /// <see cref="ComponentCausality.Lookahead"/>, which keeps them on the chart and out of the
+    /// strategy builder.
     /// </para>
     /// </summary>
     public sealed class SwingStructureProvider : IIndicatorProvider
@@ -60,6 +73,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
+                Causality = ComponentCausality.Causal,
                 Name = "Market Structure (HH/HL/LH/LL)",
                 Category = "Overlays",
                 DefaultPane = "Main",
@@ -80,6 +94,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new()
                     {
+                        // Stamped at the pivot bar, knowable Span bars later — see the class remarks.
+                        Causality = ComponentCausality.Lookahead,
                         Name = CompSwingHigh, DisplayName = "Swing High",
                         // SQUARE, not a triangle. Value Deviation's shallow resistance tier is a
                         // red down-triangle at the same 7px, so on a chart carrying both there was
@@ -99,6 +115,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     },
                     new()
                     {
+                        Causality = ComponentCausality.Lookahead,
                         Name = CompSwingLow, DisplayName = "Swing Low",
                         DisplayType = ComponentDisplayType.Square, Role = ComponentRole.Signal,
                         DefaultMarkerAnchor = MarkerAnchor.BelowBar,
@@ -191,8 +208,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             var result = _analyzer.Analyze(bars, ReadOptions(parameters));
 
             // Markers sit on the pivot BAR so the dot lands where the swing visually is; the
-            // state and carry-forward arrays remain confirmation-gated, which is what strategy
-            // leaves read. Navigation to a marker is a look at history, never a live signal.
+            // state and carry-forward arrays remain confirmation-gated. Navigation to a marker is a
+            // look at history, never a live signal — and the markers are declared Lookahead, so
+            // "which arrays strategy leaves read" is now enforced by the catalog rather than
+            // asserted by this comment.
             foreach (var s in result.Swings)
             {
                 if (s.BarIndex < 0 || s.BarIndex >= n) continue;

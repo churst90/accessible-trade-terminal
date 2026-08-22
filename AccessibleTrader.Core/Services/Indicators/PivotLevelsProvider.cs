@@ -48,6 +48,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "Pivot Levels",
                 Category    = "Reference Level",
                 DefaultPane = "Main",

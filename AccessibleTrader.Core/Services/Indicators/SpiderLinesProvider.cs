@@ -64,6 +64,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "SPIDER_LINES",
+                Causality = ComponentCausality.Causal,
                 Name        = "Spider Lines",
                 Category    = "Overlays",
                 DefaultPane = "Main",

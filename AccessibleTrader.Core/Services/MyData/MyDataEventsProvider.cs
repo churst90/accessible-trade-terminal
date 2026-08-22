@@ -34,6 +34,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 .Select(d => new IndicatorMetadata
                 {
                     Code = CodePrefix + d.Id,
+                    Causality = ComponentCausality.Causal,
                     Name = $"My Events: {d.Name}",
                     Category = "My Data",
                     DefaultPane = "Main", // markers belong on the price action

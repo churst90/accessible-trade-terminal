@@ -63,6 +63,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
+                Causality = ComponentCausality.Causal,
                 Name = "CoinMetrics On-Chain",
                 Category = "On-Chain",
                 DefaultPane = "Pane_COINMETRICS",

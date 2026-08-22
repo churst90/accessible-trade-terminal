@@ -47,6 +47,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Obv", Name = "OBV", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>(),
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -57,6 +58,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Adl", Name = "ADL", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>(),
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -67,6 +69,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Eom", Name = "EOM", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -81,6 +84,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "ForceIndex", Name = "Force Index", Category = "Volume", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 13 },
@@ -95,6 +99,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Vwma", Name = "VWMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },

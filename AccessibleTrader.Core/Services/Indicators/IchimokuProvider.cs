@@ -58,6 +58,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "ICHIMOKU",
+                Causality = ComponentCausality.Causal,
                 Name        = "Ichimoku Kinko Hyo",
                 Category    = "Overlays",
                 DefaultPane = "Main",
@@ -138,7 +139,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // ── Chikou Span (Lagging Span) ───────────────────────────────────────────
                     // Close plotted Displacement bars in the past — confirms trend direction.
                     // Background layer — historic confirmation context; purple.
-                    new() { Name = CompChikou,
+                    //
+                    // LOOKAHEAD BY CONSTRUCTION. chikou[j] holds close[j + Displacement]: the whole
+                    // point of the lagging span is to draw today's close back where it can be
+                    // compared with old price. Correct as a plotting convention, catastrophic as a
+                    // data convention — before the causality contract this was a published strategy
+                    // leaf, so "Chikou Span > Close" at bar j evaluated close[j+26] > close[j] and
+                    // returned a spectacular, entirely fake edge. The array stays exactly as it is
+                    // for the chart and for navigation; the declaration is what keeps it out of the
+                    // strategy builder.
+                    new() { Causality = ComponentCausality.Lookahead,
+                            Name = CompChikou,
                             DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
                             DefaultColorHex = "#9C27B0", DefaultThickness = 1.5f,
                             DefaultWaveform = "sine",
@@ -333,8 +344,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                     $"Senkou A at {SpeechPriceFormatter.FormatPrice(value)}",
                 var n when n.Contains("Senkou B") || n.Contains("Span B") =>
                     $"Senkou B at {SpeechPriceFormatter.FormatPrice(value)}",
+                // The number here is the close from Displacement bars AFTER the bar the cursor is
+                // on — that is what the lagging span is. Saying only "Chikou span at 203.98" while
+                // the cursor sits on a bar that closed at 180 reads as a second price for THIS bar.
+                // A sighted user sees the line drawn back into old price and knows what it means;
+                // the sentence has to carry that same fact. It does not name the bar count:
+                // Displacement is a per-series parameter and GetComponentSpeech is not given the
+                // parameters, so a hard-coded "26" would be a confident lie on a reconfigured chart.
                 var n when n.Contains("Chikou") =>
-                    $"Chikou span at {SpeechPriceFormatter.FormatPrice(value)}",
+                    $"Chikou span, close from a later bar, at {SpeechPriceFormatter.FormatPrice(value)}",
                 _ => null
             };
         }

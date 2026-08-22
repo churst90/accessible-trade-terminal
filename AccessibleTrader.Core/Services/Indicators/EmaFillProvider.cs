@@ -37,6 +37,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "MA_CLOUD",
+                Causality = ComponentCausality.Causal,
                 Name        = "MA Cloud",
                 Category    = "Overlays",
                 DefaultPane = "Main",

@@ -288,9 +288,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (recent != null && recent.Count >= look + 2)
             {
-                // recent ends at the current bar, so the bar before it is at ^2.
-                var end = recent[^2];
-                var start = recent[recent.Count - 2 - look];
+                // Where the classified bar sits in the list, rather than assuming it is last.
+                // Callers pass their whole loaded series today and it happens to end at the bar
+                // being classified — but if one ever classifies a HISTORICAL bar with the full
+                // series in hand, measuring the trend from the end of the list would measure it
+                // from bars that had not happened yet. A hammer and a hanging man are the same
+                // candle distinguished only by the trend before it, so that does not mislabel by a
+                // shade: it announces the opposite direction to someone who cannot see the chart.
+                int endIdx = recent.Count - 2;
+                if (previous.HasValue)
+                {
+                    for (int i = recent.Count - 1; i >= 0; i--)
+                        if (recent[i].Date == previous.Value.Date) { endIdx = i; break; }
+                }
+                if (endIdx - look < 0) return null;
+
+                var end = recent[endIdx];
+                var start = recent[endIdx - look];
                 if (end.Close < start.Close) return true;
                 if (end.Close > start.Close) return false;
                 return null;                                  // dead flat: no trend to interrupt
@@ -298,9 +312,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // No usable context. Do NOT fall back to the previous candle's colour — that is the bug
             // this method exists to remove. Say "unknown" and let the caller decline to claim a
-            // reversal. `previous` is accepted so callers reading the signature see that one bar is
-            // deliberately not enough.
-            _ = previous;
+            // reversal. One bar is deliberately not enough; `previous` is used above only to locate
+            // the classified bar within the list, never as a trend on its own.
             return null;
         }
 

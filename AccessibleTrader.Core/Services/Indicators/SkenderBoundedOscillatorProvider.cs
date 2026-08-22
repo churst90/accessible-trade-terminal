@@ -84,6 +84,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Rsi", Name = "RSI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -99,6 +100,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Stoch", Name = "Stochastic", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -122,6 +124,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "StochRsi", Name = "Stoch RSI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "rsiPeriods",   DisplayName = "RSI Periods",    DataType = typeof(int), DefaultValue = 14 },
@@ -141,6 +144,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "UltOsc", Name = "Ultimate Oscillator", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "shortPeriods",  DisplayName = "Short Periods",  DataType = typeof(int), DefaultValue = 7  },
@@ -157,6 +161,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "WilliamsR", Name = "Williams %R", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -171,6 +176,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Mfi", Name = "MFI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -186,6 +192,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Cci", Name = "CCI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 20 },

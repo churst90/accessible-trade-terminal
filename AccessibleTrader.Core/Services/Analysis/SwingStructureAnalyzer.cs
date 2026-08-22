@@ -35,6 +35,9 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// Bar at which the pivot could first be KNOWN — <c>BarIndex + Span</c>. Everything downstream
     /// keys off this, never off <see cref="BarIndex"/>, because a pivot is only visible in
     /// hindsight and using its own bar would leak the future into every signal built on it.
+    /// It may point PAST the end of the series, and callers must handle that rather than clamp it:
+    /// clamping to the last bar is what makes a swing that is not yet confirmable look confirmed on
+    /// whatever bar the data happens to end at, which moves as more data loads.
     /// </param>
     /// <param name="IsHigh">True for a swing high, false for a swing low.</param>
     /// <param name="Price">The extreme price of the pivot bar.</param>
@@ -87,10 +90,13 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// </para>
     ///
     /// <para>
-    /// NO LOOKAHEAD ANYWHERE. A pivot at bar i is only known at bar i+Span, so
-    /// <see cref="SwingStructure.StatePerBar"/> and the carry-forward level arrays only change
-    /// from the confirmation bar onward. That makes the output safe to feed to a strategy, and it
-    /// also makes the narration honest: it says what was knowable at the time.
+    /// NO LOOKAHEAD, AND NO RETROACTIVE EDITS. A pivot at bar i is only known at bar i+Span, so
+    /// <see cref="SwingStructure.StatePerBar"/> and the carry-forward level arrays only change from
+    /// the confirmation bar onward. Equally necessary, and the half that was wrong until 2026-08-21:
+    /// nothing already emitted is withdrawn when more bars arrive — see pass 2. Both have to hold
+    /// for the same bar to give the same answer whether 40 or 4,000 bars are loaded, which is what
+    /// makes the output safe to feed to a strategy and what makes the narration honest when the
+    /// user pans back over old price.
     /// </para>
     /// </summary>
     public interface ISwingStructureAnalyzer
@@ -132,51 +138,82 @@ namespace AccessibleTrader.Core.Services.Analysis
                 if (isHigh) raw.Add((i, true, bars[i].High));
                 if (isLow) raw.Add((i, false, bars[i].Low));
             }
-            raw.Sort((a, b) => a.Index.CompareTo(b.Index));
+            // NOT sorted. The loop above already appends in ascending index order, so a sort can
+            // only reorder TIES — and a bar can legitimately be both a pivot high and a pivot low
+            // (one outside bar that engulfs its whole window), which puts two entries at the same
+            // index. List.Sort is introsort: unstable, and its pivot choices depend on the length
+            // of the list. So the same bar's high/low pair came back in one order with 240 bars
+            // loaded and the other order with 400, pass 2 alternated differently from there, and
+            // LastSwingHigh at bar 213 reported two different prices for the same bar depending on
+            // how much history had been fetched. Nothing here reads ahead; the ordering was simply
+            // not a function of the data.
+
 
             // ── Pass 2: alternate high/low and apply the ATR significance filter ──
-            // Two highs in a row means the market never made a meaningful low between them, so
-            // the higher one replaces the lower. This is what stops a choppy stretch from
-            // emitting a dozen "structure" points that all describe the same move.
-            var kept = new List<(int Index, bool IsHigh, double Price)>();
+            // Two highs in a row means the market never made a meaningful low between them, so the
+            // higher one SUPERSEDES the lower from its own confirmation bar onward. It does not
+            // erase it. That distinction is the whole of this pass's honesty:
+            //
+            // This used to do kept[^1] = p — a later, higher pivot deleted the earlier one from
+            // history entirely. So a pivot high at bar 30, confirmed and carried from bar 35, would
+            // vanish the moment a higher pivot appeared at bar 50, and Analyze(bars[0..35]) reported
+            // a structure that Analyze(bars[0..100]) said had never existed. Nothing peeked at the
+            // future; information was destroyed retroactively, which has the same effect on a
+            // backtest and a worse one on narration — panning back reproduced a structure that was
+            // never knowable, and every ChartPatternDetector result moved when the loaded bar count
+            // changed. The class doc claimed "NO LOOKAHEAD ANYWHERE" throughout.
+            //
+            // Appending instead means a run of progressively more extreme same-kind pivots each get
+            // their moment: 100 is the swing high from bar 35, 110 from bar 55. The denoising the
+            // replacement was there for is preserved — a same-kind pivot that is NOT more extreme is
+            // still dropped, and pass 3 labels every member of a run against the same baseline, so a
+            // run cannot manufacture a higher-high sequence out of one move.
+            var kept = new List<(int Index, bool IsHigh, double Price, bool Supersedes)>();
             foreach (var p in raw)
             {
-                if (kept.Count == 0) { kept.Add(p); continue; }
+                if (kept.Count == 0) { kept.Add((p.Index, p.IsHigh, p.Price, false)); continue; }
                 var last = kept[^1];
 
                 if (last.IsHigh == p.IsHigh)
                 {
-                    bool replace = p.IsHigh ? p.Price > last.Price : p.Price < last.Price;
-                    if (replace) kept[^1] = p;
+                    bool supersedes = p.IsHigh ? p.Price > last.Price : p.Price < last.Price;
+                    if (supersedes) kept.Add((p.Index, p.IsHigh, p.Price, true));
                     continue;
                 }
 
                 double a = atr[Math.Min(p.Index, atr.Length - 1)];
-                if (double.IsNaN(a) || a <= 0) { kept.Add(p); continue; }
+                if (double.IsNaN(a) || a <= 0) { kept.Add((p.Index, p.IsHigh, p.Price, false)); continue; }
                 if (Math.Abs(p.Price - last.Price) < a * opts.MinSwingAtr) continue;
 
-                kept.Add(p);
+                kept.Add((p.Index, p.IsHigh, p.Price, false));
             }
 
             // ── Pass 3: label each swing against the previous one of its kind ──
+            // "Of its kind" means the previous RUN, not the previous entry. Every member of a run
+            // is compared with the last swing of the run before it — the baseline the replacement
+            // version compared against — so a run of rising highs inside one move reads as one
+            // higher high, not three.
             double? prevHigh = null, prevLow = null;
+            double? runHigh = null, runLow = null;
             foreach (var p in kept)
             {
                 SwingLabel label;
                 if (p.IsHigh)
                 {
+                    if (!p.Supersedes) { prevHigh = runHigh ?? prevHigh; runHigh = null; }
                     label = prevHigh == null ? SwingLabel.Initial
                         : p.Price > prevHigh ? SwingLabel.HigherHigh : SwingLabel.LowerHigh;
-                    prevHigh = p.Price;
+                    runHigh = p.Price;
                 }
                 else
                 {
+                    if (!p.Supersedes) { prevLow = runLow ?? prevLow; runLow = null; }
                     label = prevLow == null ? SwingLabel.Initial
                         : p.Price > prevLow ? SwingLabel.HigherLow : SwingLabel.LowerLow;
-                    prevLow = p.Price;
+                    runLow = p.Price;
                 }
 
-                int confirmed = Math.Min(p.Index + opts.Span, n - 1);
+                int confirmed = p.Index + opts.Span;
                 swings.Add(new SwingPoint(p.Index, confirmed, p.IsHigh, p.Price, label, bars[p.Index].Date));
             }
 

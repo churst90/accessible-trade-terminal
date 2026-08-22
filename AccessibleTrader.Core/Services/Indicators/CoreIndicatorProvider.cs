@@ -27,6 +27,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // Role=Body and selects it instead of index 0.
                 new IndicatorMetadata {
                     Code = "CANDLES", Name = "Candles", Category = "Core", DefaultPane = "Main",
+                    Causality = ComponentCausality.Causal,
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata {
                             Name = "upper_wick", DisplayName = "Upper Wick",
@@ -54,6 +55,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // DataMapping dynamically to let users switch the source column.
                 new IndicatorMetadata {
                     Code = "PRICE", Name = "Price", Category = "Core", DefaultPane = "Main",
+                    Causality = ComponentCausality.Causal,
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata {
                             Name = "line", DisplayName = "Price",
@@ -68,6 +70,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 new IndicatorMetadata {
                     Code = "VOLUME", Name = "Volume", Category = "Core", DefaultPane = "Volume",
+                    Causality = ComponentCausality.Causal,
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata {
                             Name = "Volume", Role = ComponentRole.Volume, DisplayType = ComponentDisplayType.Bar, DataMapping = "volume",
@@ -79,6 +82,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 new IndicatorMetadata { 
                     Code = "HEATMAP", Name = "Liquidity Heatmap", Category = "Order Flow",
+                    Causality = ComponentCausality.Causal,
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata { Name = "Liquidity", Role = ComponentRole.Level, DisplayType = ComponentDisplayType.Heatmap }
                     },

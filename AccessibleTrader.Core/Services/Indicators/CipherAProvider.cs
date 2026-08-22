@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -70,6 +71,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CIPHER_A",
+                Causality = ComponentCausality.Causal,
                 Name        = "Cipher A (retired)",
                 Category    = "Multi-Signal",
                 DefaultPane = "Main",
@@ -232,6 +234,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "SMA period for the Money Flow calculation used in Manipulation and Exhaustion signals." },
                     new() { Name = "PivotBars",  DisplayName = "Divergence Pivot Bars", DataType = typeof(int),    DefaultValue = 3.0,
                             Description = "Bars each side required for divergence pivot confirmation." },
+                    new() { Name = "DivergenceConfirmLag", DisplayName = "Shift divergences to their confirmation bar",
+                            DataType = typeof(bool), DefaultValue = true,
+                            Description = "Default ON. A divergence pivot at bar p is only confirmable at p+PivotBars, so the marker is drawn there rather than at the pivot. Turning it off restores the pivot-stamped Market Cipher dot for chart review, and makes the markers look-ahead-biased for any strategy that reads them." },
                 }
             }
         };
@@ -424,6 +429,24 @@ namespace AccessibleTrader.Core.Services.Indicators
                     else
                         bearDiv[curr]      = high[curr] + offset;
                 }
+            }
+
+            // ── Look-ahead honesty: divergence confirmation lag ───────────────────────────
+            // The pivot loop above reads wt1[i-pivotBars .. i+pivotBars], so a divergence at bar
+            // `curr` is not confirmable until curr+pivotBars — yet it is written at `curr`, on the
+            // pivot low itself. A backtest reading Bullish Divergence therefore enters at the exact
+            // low with three bars of hindsight, and live never sees the marker on the current bar at
+            // all. Cipher B fixed this on 2026-06-12 and the comment there
+            // (CipherBProvider.Calculate) spells out that it "inflates every divergence-based
+            // backtest" — Cipher A has the identical loop and was never back-ported, which is the
+            // recurrence pattern this codebase keeps producing: fixed where reported, untouched at
+            // the structurally identical site next door. Same default (ON) and same shared shift.
+            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", true);
+            if (confirmLag && pivotBars > 0)
+            {
+                bullDiv      = IndicatorMath.ShiftMarkersForward(bullDiv,      pivotBars, n);
+                bearDiv      = IndicatorMath.ShiftMarkersForward(bearDiv,      pivotBars, n);
+                bloodDiamond = IndicatorMath.ShiftMarkersForward(bloodDiamond, pivotBars, n);
             }
 
             // ── Write to buffer ────────────────────────────────────────────────────────────
@@ -621,5 +644,6 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
+        private static bool   GetBool(Dictionary<string, object> p, string k, bool   def) => p.TryGetValue(k, out var v) ? Convert.ToBoolean(v) : def;
     }
 }

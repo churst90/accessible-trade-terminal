@@ -36,6 +36,12 @@ public enum SignalKind
 /// <param name="MinValue">Lower bound of typical range — UI sliders, defaults for thresholds.</param>
 /// <param name="MaxValue">Upper bound of typical range. NaN if unbounded (price-space lines).</param>
 /// <param name="Unit">Optional unit hint ("%", "USD", "ratio") for speech.</param>
+/// <param name="Causality">
+/// What the component declared about reading later bars. Only
+/// <see cref="AccessibleTrader.Sdk.Models.ComponentCausality.Causal"/> descriptors reach
+/// <c>ISignalCatalog.All</c>; the rest are kept resolvable by ID so a strategy saved before the
+/// contract existed reports "this leaf reads the future" instead of quietly evaluating false.
+/// </param>
 public record SignalDescriptor(
     string Id,
     string IndicatorCode,
@@ -44,5 +50,6 @@ public record SignalDescriptor(
     string DisplayLabel,
     double MinValue = double.NaN,
     double MaxValue = double.NaN,
-    string? Unit = null
+    string? Unit = null,
+    AccessibleTrader.Sdk.Models.ComponentCausality Causality = AccessibleTrader.Sdk.Models.ComponentCausality.Causal
 );

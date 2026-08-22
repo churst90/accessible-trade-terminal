@@ -40,6 +40,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Bb", Name = "Bollinger Bands", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods",    DisplayName = "Lookback Periods",    DataType = typeof(int),    DefaultValue = 20  },
@@ -63,6 +64,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Kc", Name = "Keltner Channel", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int),    DefaultValue = 20  },
@@ -78,6 +80,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Donchian", Name = "Donchian Channel", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 20 },

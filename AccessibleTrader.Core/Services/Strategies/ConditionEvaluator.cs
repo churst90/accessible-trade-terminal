@@ -31,13 +31,14 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _htfWarningsEmitted = new();
 
         /// <summary>
-        /// Records the most recent HTF-data gap encountered during evaluation, for UI surfacing.
-        /// Cleared at the start of each Evaluate call. When non-empty, at least one HTF leaf
-        /// could not resolve its data and returned false — meaning the strategy's signal is
-        /// safer than the old "fall through to active-TF" behaviour but incomplete. UI layers
-        /// read this to warn users their strategy is not operating at full fidelity.
+        /// Records the most recent reason a leaf returned false without being evaluated, for UI
+        /// surfacing. Cleared at the start of each Evaluate call. Two causes: an HTF leaf whose
+        /// data has not been pre-warmed, and a leaf pointing at a component the causality contract
+        /// refuses to publish. Both leave the strategy running but incomplete, and both are
+        /// invisible from the outside — a leaf that never fires looks identical to a market that
+        /// never met the condition. UI layers read this to say which it was.
         /// </summary>
-        public string? LastHtfDegradation { get; private set; }
+        public string? LastDegradation { get; private set; }
 
         public ConditionEvaluator(
             ISignalCatalog catalog,
@@ -57,7 +58,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             var leafResults = new Dictionary<string, bool>();
             double score = 0.0;
             double maxScore = 0.0;
-            LastHtfDegradation = null;
+            LastDegradation = null;
 
             bool overall = EvaluateNode(root, history, state, leafResults, ref score, ref maxScore);
 
@@ -150,10 +151,42 @@ namespace AccessibleTrader.Core.Services.Strategies
             }
         }
 
+        /// <summary>
+        /// True when this descriptor may not be evaluated because its component reads later bars.
+        ///
+        /// <para>
+        /// Every path that resolves a descriptor and then reads its data goes through here — the
+        /// plain leaf, the per-bar read the Sequence operator uses, and the second descriptor of a
+        /// crosses-line comparison. Checking only the first would leave the other two able to reach
+        /// a look-ahead component by a slightly different route, which is the shape most of this
+        /// codebase's repeat defects have taken.
+        /// </para>
+        ///
+        /// <para>
+        /// A refused leaf returns false, as it must — but silently returning false is what a
+        /// strategy saved before the causality contract existed would look like from the outside:
+        /// still running, never firing, no reason given. So it is recorded on
+        /// <see cref="LastDegradation"/> and logged once per ID.
+        /// </para>
+        /// </summary>
+        private bool RefusedForCausality(SignalDescriptor desc)
+        {
+            if (desc.Causality == ComponentCausality.Causal) return false;
+
+            string refusal = _catalog.RefusalReason(desc.Id)
+                ?? $"{desc.Id} is not available as a strategy signal: it is declared {desc.Causality}.";
+            LastDegradation = refusal;
+            if (_htfWarningsEmitted.TryAdd($"causality|{desc.Id}", 0))
+                System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {refusal} The leaf evaluates false at every bar.");
+            return true;
+        }
+
         private bool EvaluateLeaf(ConditionLeaf leaf, IReadOnlyList<Ohlcv> history, WorkspaceState state)
         {
             var desc = _catalog.GetById(leaf.SignalDescriptorId);
             if (desc == null) return false;
+
+            if (RefusedForCausality(desc)) return false;
 
             // Multi-timeframe routing (Session B foundation):
             // If the leaf has a Timeframe set and the MTF service is available, use HTF cached
@@ -208,7 +241,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // evaluate true until HTF data arrives. Strategies will simply not fire until
                 // pre-warm completes, which is conservative and correct.
                 string msg = $"HTF leaf '{leaf.Id}' on timeframe '{leaf.Timeframe}' has no cached data — leaf returning false until pre-warm completes.";
-                LastHtfDegradation = msg;
+                LastDegradation = msg;
                 string warningKey = $"{leaf.Id}|{leaf.Timeframe}";
                 if (_htfWarningsEmitted.TryAdd(warningKey, 0))
                 {
@@ -359,6 +392,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (barIndex < 0) return false;
             var desc = _catalog.GetById(leaf.SignalDescriptorId);
             if (desc == null) return false;
+            if (RefusedForCausality(desc)) return false;
 
             var series = state.ActiveSeries.FirstOrDefault(s =>
                 string.Equals(s.IndicatorCode, desc.IndicatorCode, StringComparison.OrdinalIgnoreCase));
@@ -720,6 +754,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (string.IsNullOrEmpty(leaf.SecondSignalDescriptorId)) return false;
             var secondDesc = _catalog.GetById(leaf.SecondSignalDescriptorId);
             if (secondDesc == null) return false;
+            if (RefusedForCausality(secondDesc)) return false;
 
             var series = state.ActiveSeries.FirstOrDefault(s =>
                 string.Equals(s.IndicatorCode, secondDesc.IndicatorCode, StringComparison.OrdinalIgnoreCase));

@@ -161,7 +161,93 @@ gapped-through stop at the stop it had skipped. The fill rule now lives in ONE p
   stale list overwrites the fresh one and orphans the CSV. `AtomicFile` exists in the same
   namespace and is not used for either file.
 
-### Ship-blockers — indicator lookahead (the backtest-validity cluster)
+### Ship-blockers — indicator lookahead (the backtest-validity cluster) — **ALL SIX FIXED 2026-08-21**
+
+**Fixed by a contract rather than six patches.** Every component now declares whether its value at a
+bar uses later bars (`ComponentCausality` on `IndicatorComponentMetadata`, inheriting from
+`IndicatorMetadata` so an indicator usually declares once), `SignalCatalog` publishes only what was
+declared `Causal`, and `IndicatorCausalityTests` proves the declaration by running every provider
+over `bars.Take(k)` and over the full series and requiring agreement on the shared prefix, sweeping
+k over eleven lengths and three synthetic series.
+
+What that turned up beyond the six items below:
+
+- **`PulseProvider.ComputeMtfRsi` / `ComputeMtfRegime` bailed on total series length** — `if (n <
+  barsPerWeek * (rsiPeriod + 2)) return;` blanked the whole component on a short chart, including
+  bars that had all the weekly history they needed. Now guards parameters only; insufficient history
+  was already handled per bar.
+- **`SwingStructureAnalyzer` sorted its pivots with an unstable sort.** `raw.Sort(by index)` on a
+  list that was already in index order could only reorder TIES — and a bar that is both a pivot high
+  and a pivot low (one outside bar engulfing its window) produces two entries at the same index.
+  Introsort's pivot choices depend on list length, so the same bar's pair came back in one order at
+  240 bars and the other at 400, and `LastSwingHigh` reported two different prices for bar 213
+  depending on how much history had been fetched. The sort is gone.
+- **`SignalCatalog.Refresh` would throw on a duplicate descriptor ID.** `EmaFillProvider` is an
+  empty subclass of `MACloudProvider` kept as a name alias; registering both would have taken the
+  app down during DI construction. First registration now wins.
+- **A leaf pointing at a refused component now says so.** `ConditionEvaluator` used to return false
+  for any descriptor it could not resolve, which is indistinguishable from a market that never met
+  the condition. Refused leaves resolve by ID, return false, and record the reason on
+  `LastDegradation` (renamed from `LastHtfDegradation`, which now has two callers).
+- **The guard's blind spots are pinned, not hidden.** 89 components declared `Causal` produce no
+  value on the synthetic series, so nothing verifies their declaration; they are listed by name in
+  `IndicatorCausalityTests.NotExercisedByTheseSeries` and the test fails if that list grows OR if an
+  entry becomes reachable. Most of the list is the "Ship-blockers — indicator computation" findings
+  below (ten Skender indicators resolve to no method at all) and the external-data providers, whose
+  cross-series cache is a substitute in tests.
+
+Two things this does NOT cover, both deliberate, both still open:
+
+- [ ] **`ScreenerService.ReadColumns` still reads a component value by descriptor without consulting
+  causality.** Screener columns are displayed rather than traded and the condition path is gated, so
+  this is not a fake-edge bug — but a column quoting `ICHIMOKU.Chikou Span` to a user deciding what
+  to trade is quoting a price from 26 bars after the row's own bar, with nothing saying so. Either
+  filter the column list to `catalog.All` (which would silently drop existing saved screeners) or
+  keep the column and label it. The same question applies to any future surface that resolves a
+  descriptor and reads its data — `ConditionEvaluator.RefusedForCausality` is the pattern to copy.
+- [ ] **The next release's `WHATSNEW.md` needs a line about withdrawn leaves.** Some strategies
+  built before this change will stop firing, deliberately, and the reason is now reported through
+  `ConditionEvaluator.LastDegradation` — but no UI surface reads that property yet, so today the
+  user's only clue is the leaf's absence from the builder. Either surface `LastDegradation` or say
+  it plainly in the release notes; ideally both.
+- **The external-data indicators are declared `Causal` on the strength of reading the code, and two
+  findings further down this file say otherwise.** `COINMETRICS` stamps a daily metric at the START
+  of the day it summarises (bar D's value derives from bar D's own close — verified empirically at
+  3688/4116 days), and `COT_POSITIONING` / `CFTC_COT` ride on a synthesised report+3 release date
+  worth up to ~10 weeks. Flipping those declarations to `Lookahead` would remove them from the
+  strategy builder and from any StrategyLab command that reads them — a research-workflow decision,
+  not a code decision, so it is left as a decision rather than made quietly here. **When the ingest
+  fixes land (shift CoinMetrics by one period; source the real `report_publication_date`), the
+  declarations become true and nothing needs to change.** Until then they are the one place in the
+  contract where a declaration is a claim rather than a proof, and they are named in
+  `IndicatorCausalityTests.NotExercisedByTheseSeries` because the test cannot reach them either.
+
+- [x] **`IchimokuProvider` Chikou Span** — declared `Lookahead`; the displaced array is untouched for
+  the chart. Its navigation speech now says "Chikou span, close from a later bar, at X" rather than
+  quoting a future price as if it belonged to the cursor's bar. It does not name the bar count:
+  `Displacement` is a per-series parameter and `GetComponentSpeech` is not given the parameters.
+- [x] **`CipherAProvider` divergences** — `DivergenceConfirmLag` added, default ON, matching Cipher B.
+  `ShiftMarkersForward` moved to `IndicatorMath` and both providers call it. All three markers
+  (Bullish, Bearish, Blood Diamond) are shifted, pinned per-component in `DivergenceConfirmLagTests`.
+- [x] **`CipherSRProvider`** — pivot dots stay on the pivot bar and are declared `Lookahead`; the
+  carry-forward zone lines step to a level at `pivotBar + PivotBars`, the bar it becomes confirmable,
+  and are `Causal`. AutoScale now derives the pivot window from the bar's own position,
+  `Clamp((i + 1) / 25, 2, 15)`, instead of from the total loaded bar count.
+- [x] **`SwingStructureProvider`** — the class doc's "every component is safe as a strategy leaf" is
+  replaced by the true statement; the two markers are declared `Lookahead` and the state and
+  carry-forward arrays stay published. Which arrays a strategy may read is now enforced by the
+  catalog rather than asserted by a comment.
+- [x] **`SwingStructureAnalyzer` pass 2** — a more extreme same-kind pivot now SUPERSEDES the earlier
+  one from its own confirmation bar instead of deleting it from history. Pass 3 labels every member
+  of a run against the same baseline, so the denoising survives and a run cannot manufacture a
+  higher-high sequence out of one move.
+- [x] **The vacuous causality test** — `CandlePatternAnalyzerTests.cs:278`'s chained `Take` is
+  superseded by `IndicatorCausalityTests`, which does the comparison it was trying to do, for every
+  provider rather than one. *(The vacuous test itself is still there — see "Guard tests that do not
+  guard".)*
+
+<details>
+<summary>Original findings, kept for the reasoning</summary>
 
 **The load-bearing fact for this whole section:** `SignalCatalog.Refresh`
 (`Services/Strategies/SignalCatalog.cs:44-61`) does `foreach (var ind in indicators) foreach (var
@@ -225,6 +311,10 @@ and asserts equality on the shared prefix. That one test catches Cipher A, Ciphe
 Structure's markers, Ichimoku's Chikou and the pass-2 revision — five of the six items above — and
 prevents the next one.
 
+*(Done, 2026-08-21. It also caught three things this audit did not list — see the summary above.)*
+
+</details>
+
 ### Ship-blockers — indicator computation
 
 - [ ] **`IndicatorEngine.cs:127-133` — on a same-bar tick the buffer is handed to the provider
@@ -250,7 +340,34 @@ prevents the next one.
   The lookup is `m.Name.Equals("Get" + code)`; against Skender.Stock.Indicators 2.5.0 there is no
   `GetBb`, `GetKc`, `GetChandelierExit`, `GetUltOsc`, `GetPpo`, `GetZlema`, `GetTma`, `GetHv`,
   `GetEom` or `GetMom`. `Bb` is shipped by `DemoPolicy.cs:193`. Add a startup assertion that every
-  registered `Code` resolves.
+  registered `Code` resolves. **CONFIRMED 2026-08-21** by reflecting over Skender 2.5.0 — the ten
+  are exactly the ones listed.
+- [ ] **NOT IN THE AUDIT — seven more Skender indicators resolve fine and then write to component
+  names nobody declared, so they render as silent empty lines too.** VERIFIED 2026-08-21 by
+  reflecting over the result types. `SkenderCalculationCore.cs:101-113` writes one span per public
+  property of the result object, keyed on the **property name**, so a component whose declared
+  `Name` is not a property of that result is never written and a property nobody declared is never
+  read. Five of the seven render **nothing at all**, including Stochastic:
+  - `Stoch` declares `PercentK` / `PercentD`; `StochResult` exposes `Oscillator`, `Signal`,
+    `PercentJ`, `K`, `D`, `J`. Both components blank.
+  - `Vortex` declares `Vip` / `Vim`; `VortexResult` exposes `Pvi` / `Nvi`. Both blank.
+  - `Chop` declares `ChopIndex`; `ChopResult` exposes `Chop`. Its only component, blank.
+  - `UlcerIndex` declares `UlcerIndex`; `UlcerIndexResult` exposes `UI`. Its only component, blank.
+  - `Adx` declares `Adl` / `Adh` alongside its working ones; `AdxResult` exposes `Pdi`, `Mdi`,
+    `Adx`, `Adxr`. Two components blank. (Note `Adl` here is a *typo-shaped* name — it collides
+    conceptually with the Accumulation/Distribution Line, which is a different indicator.)
+  - `Adl` declares `Adl3`; `AdlResult` exposes `MoneyFlowMultiplier`, `MoneyFlowVolume`, `Adl`,
+    `AdlSma`. One component blank.
+  - `Roc` declares `RocP`; `RocResult` exposes `Momentum`, `Roc`, `RocSma`. One component blank.
+
+  This is the same class as the `BarDetailService` dead-code finding below (`"Upper"` vs
+  `"UpperBand"`) and wants the same remedy: **one startup assertion that every declared component
+  name is a name the calculation actually writes.** That single check would cover both this and the
+  ten-missing-methods item above, and it is the only way this class stops recurring — an ordinal
+  dictionary lookup that misses is silent by construction. Found by
+  `IndicatorCausalityTests.TheBlindSpotsOfThisGuardAreTheOnesWeKnowAbout`, where all seventeen sit
+  in the pinned blind-spot list because a component that never produces a value cannot have its
+  causality verified either.
 - [ ] **`SkenderCalculationCore.cs:172-178` — every Skender indicator's live bar is recomputed from
   a 35–200 bar stump.** No Skender provider declares `RequiresFullRecalcOnTick`, so cumulative and
   long-memory indicators show values a full recalc would never produce: **VWAP** becomes a 35-bar
@@ -1045,6 +1162,14 @@ guesses are invisible until money moves.
 
 ### Correctness / duplication debt found by this audit
 
+- [ ] **NOT IN THE AUDIT — `EmaFillProvider` is an empty subclass of `MACloudProvider` kept as a name
+  alias, and registering both would have crashed the app at startup.** Found 2026-08-21:
+  `SignalCatalog.Refresh` built its ID index with `ToDictionary`, which throws on a duplicate key,
+  and both classes answer to `MA_CLOUD.MA Cloud`. Only `MACloudProvider` is registered today, so
+  this was latent rather than live. The catalog now takes the first registration instead of
+  throwing — a shadowed leaf is a better failure than a dead app — but the alias itself is the real
+  debt: delete it and fix the three test references, or keep it and document why. Anything that
+  enumerates providers reflectively (`IndicatorCausalityTests` does) has to know to skip it.
 - [ ] **`VolumeProfileLevelProvider:61` silently falls back to a known future-leaking profile.**
   `bins ??= series.ProfileBins` — whenever `_backtestCache` is null or inactive (the ctor parameter
   is optional and defaults to null; `ReplayProfiles` can be false), the backtest reads the
@@ -1241,6 +1366,21 @@ CAS loop here", "Mirrors the private `DataStateMachine.Transition` switch", "Thi
 exact transform"). Nobody hid anything. But the docstrings then overclaim — *"Any drift in either
 direction breaks the test — which is the point"*, *"which is exactly the safety net we want"* — and
 those sentences are what a reader trusts. The tests are honest; the prose around them is not.
+
+**Two of this class were closed 2026-08-21** by the causality work, and are recorded here because
+they belong to this section even though the audit filed them elsewhere:
+
+- [x] **`CandlePatternAnalyzerTests.ClassificationOfABarNeverChangesWhenLaterBarsArrive`** built its
+  "with hindsight" list as `bars.Take(i + 6).Take(i + 1)`. Chained LINQ `Take` takes the minimum, so
+  that was exactly `Take(i + 1)` — the same list — and the test compared a value to itself. Fixed,
+  and it now catches something real: the analyzer measured the trend that separates a hammer from a
+  hanging man from the END of the caller's list, so classifying a historical bar with full history
+  loaded announced the opposite direction. Proven by reintroducing it (`Expected: Hammer, Actual:
+  HangingMan`).
+- [x] **`DivergenceConfirmLagTests`** said outright that the provider-level property was untested
+  because a series that trips Cipher B's gates was "too brittle to construct deterministically".
+  `IndicatorCausalityTests` now does that comparison empirically for every provider, and Cipher A
+  has per-component pins. The stale NOTE is gone.
 
 - [ ] **`ProviderTimeframeContractTests` asserts a hardcoded copy of the timeframe lists and never
   constructs a provider.** VERIFIED — `providerName` is a bare `string` label; the body only calls

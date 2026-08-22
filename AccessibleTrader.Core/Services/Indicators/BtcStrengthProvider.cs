@@ -32,6 +32,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "BTC Strength",
                 Category    = "Cross-Asset",
                 DefaultPane = "Pane_BTC_STRENGTH",

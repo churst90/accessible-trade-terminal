@@ -59,6 +59,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Ema", Name = "EMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 9 },
@@ -72,6 +73,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Sma", Name = "SMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 20 },
@@ -85,6 +87,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Wma", Name = "WMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -97,6 +100,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Hma", Name = "HMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -109,6 +113,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Alma", Name = "ALMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int),    DefaultValue = 9    },
@@ -123,6 +128,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Dema", Name = "DEMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -135,6 +141,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Tema", Name = "TEMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -147,6 +154,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Kama", Name = "KAMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 10 },
@@ -161,6 +169,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Vwap", Name = "VWAP", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>(),
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -171,6 +180,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "ParabolicSar", Name = "Parabolic SAR", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "accelerationStep",      DisplayName = "Acceleration Step",      DataType = typeof(double), DefaultValue = 0.02 },
@@ -184,6 +194,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Adx", Name = "ADX", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -200,6 +211,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Vortex", Name = "Vortex", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -213,6 +225,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Chop", Name = "Choppiness Index", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -226,6 +239,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Stc", Name = "STC", Category = "Trend", DefaultPane = "Oscillator",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "cyclePeriods", DisplayName = "Cycle Periods", DataType = typeof(int), DefaultValue = 10 },
@@ -241,6 +255,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Zlema", Name = "ZLEMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -253,6 +268,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Smma", Name = "SMMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },
@@ -265,6 +281,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Tma", Name = "TMA", Category = "Overlays", DefaultPane = "Main",
+                Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "lookbackPeriods", DisplayName = "Lookback Periods", DataType = typeof(int), DefaultValue = 14 },

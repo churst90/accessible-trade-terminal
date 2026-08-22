@@ -35,7 +35,8 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// <para>
     /// CAUSAL BY CONSTRUCTION. The profile at bar i is built from bars i-Window..i-1 only. A
     /// profile spanning the whole series would compute the POC partly from the bars whose
-    /// behaviour it is supposed to anticipate.
+    /// behaviour it is supposed to anticipate. The window itself has to be causal too — see
+    /// <see cref="ValueDeviationAnalyzer.WindowAt"/> for the one that was not.
     /// </para>
     /// </summary>
     public interface IValueDeviationAnalyzer
@@ -65,6 +66,30 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// visible benefit.
         /// </summary>
         private const int RebuildEvery = 5;
+
+        /// <summary>
+        /// Shortest profile that means anything. Below this the value area is a handful of bins and
+        /// the deviation tiers are noise.
+        /// </summary>
+        public const int MinWindow = 40;
+
+        /// <summary>
+        /// The profile window in force at a bar: as much history as the bar has behind it, up to
+        /// the configured maximum, never below <see cref="MinWindow"/>.
+        ///
+        /// <para>
+        /// It grows with the BAR'S OWN position, not with the length of the loaded series. The
+        /// provider used to cap the window at a third of the total bar count, so bar 40 had a
+        /// 40-bar profile on a 130-bar chart and no profile at all on a 400-bar one — the same bar,
+        /// two answers, decided by how much data happened to be fetched after it. That is invisible
+        /// on a chart and fatal in a backtest, where the whole series is loaded and every early bar
+        /// silently uses a window a live trader would never have had. The intent behind the cap —
+        /// a fresh 200-bar chart should show something rather than a blank left half — is kept, and
+        /// is better served this way: the profile starts at bar <see cref="MinWindow"/> either way.
+        /// </para>
+        /// </summary>
+        public static int WindowAt(int barIndex, int maxWindow) =>
+            Math.Min(maxWindow, Math.Max(MinWindow, (barIndex + 1) / 3));
 
         public ValueDeviation[] Analyze(IReadOnlyList<Ohlcv> bars, int window, int tiers, double maxTierVa)
         {
@@ -112,10 +137,15 @@ namespace AccessibleTrader.Core.Services.Analysis
 
             double curPoc = double.NaN, curHi = double.NaN, curLo = double.NaN;
 
-            for (int i = window; i < n; i++)
+            // The rebuild cadence keys off the bar index alone. It used to be (i - window) %
+            // RebuildEvery, which was fine while the window was a constant but would have made the
+            // phase — and so every cached value — shift with the window as it grows.
+            for (int i = MinWindow; i < n; i++)
             {
-                if ((i - window) % RebuildEvery == 0)
-                    (curPoc, curHi, curLo) = BuildProfile(bars, i - window, i);
+                int w = WindowAt(i, window);
+                if (i - w < 0) continue;
+                if (i % RebuildEvery == 0 || double.IsNaN(curPoc))
+                    (curPoc, curHi, curLo) = BuildProfile(bars, i - w, i);
 
                 poc[i] = curPoc; hi[i] = curHi; lo[i] = curLo;
             }

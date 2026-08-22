@@ -272,9 +272,10 @@ A user-buildable signal composer that combines indicator components from any reg
    IIndicatorProvider.GetIndicators()
               │
               ▼
-        ISignalCatalog                      ─── Walks every provider at startup,
-              │                                  emits one SignalDescriptor per
-              │                                  IndicatorComponentMetadata.
+        ISignalCatalog                      ─── Walks every provider at startup and emits one
+              │                                  SignalDescriptor per IndicatorComponentMetadata —
+              │                                  but publishes only those declared Causal. See
+              │                                  "The causality gate" below.
               │
               ▼
    StrategySpec (persisted to strategies.json)
@@ -329,6 +330,52 @@ A user-buildable signal composer that combines indicator components from any reg
 
 - `JournalService` (Ctrl+Alt+Shift+J) is the persistent ring-buffer review surface. Subscribes to `StrategySignalEvent`, `AlertFiredEvent`, `AppErrorEvent`. `BlazorSpeechManager.Speak()` mirrors every TTS phrase via lazy `IServiceProvider` resolution. JournalModal renders the buffer in a screen-reader-friendly monospace `<textarea readonly>` with category filter buttons and copy-visible.
 - A confirmed setup speaks like: *"Long setup, score 0.82. Stop 1.0795, first target 1.0930 (R:R 2.00). Stop below 20-bar swing extreme at 1.0795."* — every piece of information the trader needs to act and to review.
+
+### The causality gate (2026-08-21)
+
+This pipeline turns a chart component into something a strategy can be built on. Until 2026-08-21 it
+did that for **every** component of **every** provider, with no allowlist — so "is this component
+look-ahead-safe" was never a chart-cosmetics question, it was a backtest-validity question for all
+of them, and five components failed it. `ICHIMOKU.Chikou Span` is the clearest: `chikou[j]` holds
+`close[j + 26]`, which is the correct way to draw a lagging span, so the leaf condition
+"Chikou Span > Close" evaluated `close[j+26] > close[j]` and returned a spectacular, entirely fake
+edge.
+
+- **The declaration.** `ComponentCausality { Undeclared, Causal, Lookahead }` in
+  `AccessibleTrader.Sdk/Models/ComponentCausality.cs`. An indicator declares once via
+  `IndicatorMetadata.Causality`; a component overrides via the nullable
+  `IndicatorComponentMetadata.Causality`. `CausalityContract.Effective / IsPublishable /
+  RefusalReason` resolves the pair. `Undeclared` is the default **and publishes nothing** — a new
+  component is invisible to the strategy builder until someone decides, because silence is the one
+  answer that cannot be wrong by accident.
+- **The gate.** `SignalCatalog.All` carries only `Causal` descriptors. The rest go to `Excluded`,
+  keep a sentence in `RefusalReason(id)`, and — deliberately — remain resolvable through
+  `GetById`, so a strategy saved before the gate existed can be told why its leaf stopped firing
+  instead of resolving to null and reading as a typo.
+- **The refusal.** `ConditionEvaluator.RefusedForCausality` covers all three paths that resolve a
+  descriptor and then read its data: the plain leaf, the per-bar read behind the `Sequence`
+  operator, and the second descriptor of a crosses-line comparison. A refused leaf returns false and
+  records why on `LastDegradation` (renamed from `LastHtfDegradation`, which now has two callers).
+- **The proof.** `IndicatorCausalityTests` runs every provider over `bars.Take(k)` and over the full
+  series and requires every `Causal` component to agree on the shared prefix, sweeping k over
+  eleven lengths and three synthetic series. Sweeping matters more than the value of k: a marker
+  only disagrees within the last few bars of a prefix.
+- **What it actually catches.** Look-ahead proper is only half of it. Any parameter derived from
+  `data.Length` fails the same test — Cipher SR scaled its pivot window by the total loaded bar
+  count, Value Deviation capped its profile at a third of the series, Pulse blanked a whole
+  component on a short series. The bar answers differently in a backtest and on a live chart,
+  decided by how much history was fetched. **When reviewing an indicator here, grep its `Calculate`
+  for `n /`, `data.Length /` and `if (n < …) return`.** A third variant is information destroyed
+  retroactively: `SwingStructureAnalyzer` used to delete an earlier pivot when a more extreme one
+  appeared, so the same bar described a structure that a longer load denied.
+- **The chart/strategy split that makes this liveable.** A marker belongs on the bar it describes
+  even though that bar was not knowable until later, so Cipher SR's dots, Swing Structure's
+  `SwingHigh`/`SwingLow` and Ichimoku's Chikou stay exactly where they are on the chart and in
+  navigation speech, declared `Lookahead`, while the causal form of the same information — the
+  confirmation-gated zone lines, `LastSwingHigh`, `StructureState` — is what strategies get. When
+  the marker itself should move to its confirmation bar instead,
+  `IndicatorMath.ShiftMarkersForward` is the shared implementation (Cipher A and Cipher B both call
+  it).
 
 ### Why ConditionEvaluator doesn't AND short-circuit
 

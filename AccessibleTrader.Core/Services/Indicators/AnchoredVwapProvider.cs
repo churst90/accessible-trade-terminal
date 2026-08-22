@@ -42,6 +42,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = Code,
+                Causality = ComponentCausality.Causal,
                 Name        = "Anchored VWAP",
                 Category    = "Reference Level",
                 DefaultPane = "Main",

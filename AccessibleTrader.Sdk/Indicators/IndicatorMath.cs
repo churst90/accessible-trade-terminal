@@ -167,6 +167,35 @@ namespace AccessibleTrader.Sdk.Indicators
         /// Creates an array of length <paramref name="n"/> filled entirely with <see cref="double.NaN"/>.
         /// Convenience method used when initialising output arrays before a warmup period completes.
         /// </summary>
+        /// <summary>
+        /// Returns a copy of a sparse marker array with every non-NaN value moved forward by
+        /// <paramref name="lag"/> bars — from the bar a pivot sits on to the bar it could first be
+        /// confirmed. Markers whose confirmation bar falls past the end of the data are dropped:
+        /// they could not have been acted on in-sample.
+        ///
+        /// <para>
+        /// This is the shared form of the divergence look-ahead fix. A pivot at bar p is only known
+        /// after seeing p+1..p+pivotBars, but the marker is drawn at p, so a backtest reading it
+        /// enters at the exact pivot extreme with hindsight while live never sees the marker at the
+        /// current bar at all — backtest and live disagree by construction. It lived as a private
+        /// method on Cipher B for two months while Cipher A, which has the identical pivot loop,
+        /// went on stamping divergences at the pivot bar. Anything with a symmetric pivot window
+        /// should call this.
+        /// </para>
+        /// </summary>
+        public static double[] ShiftMarkersForward(double[] src, int lag, int n)
+        {
+            var dst = new double[n];
+            Array.Fill(dst, double.NaN);
+            for (int i = 0; i < n && i < src.Length; i++)
+            {
+                if (double.IsNaN(src[i])) continue;
+                int j = i + lag;
+                if (j < n) dst[j] = src[i];
+            }
+            return dst;
+        }
+
         public static double[] NanArray(int n)
         {
             var arr = new double[n];

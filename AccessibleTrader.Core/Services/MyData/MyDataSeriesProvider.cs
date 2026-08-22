@@ -49,6 +49,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 list.Add(new IndicatorMetadata
                 {
                     Code = SeriesPrefix + ds.Id,
+                    Causality = ComponentCausality.Causal,
                     Name = $"My Data: {ds.Name}",
                     Category = "My Data",
                     DefaultPane = ds.Name,
@@ -67,6 +68,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 list.Add(new IndicatorMetadata
                 {
                     Code = OverlayPrefix + ds.Id,
+                    Causality = ComponentCausality.Causal,
                     Name = $"My Data overlay: {ds.Name}",
                     Category = "My Data",
                     DefaultPane = "Main",
@@ -78,6 +80,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     list.Add(new IndicatorMetadata
                     {
                         Code = RatioPrefix + ds.Id,
+                        Causality = ComponentCausality.Causal,
                         Name = $"My Data ratio: {ds.Name}",
                         Category = "My Data",
                         DefaultPane = ds.Name + " ratio",

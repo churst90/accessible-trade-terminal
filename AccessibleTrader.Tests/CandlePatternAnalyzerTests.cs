@@ -255,9 +255,49 @@ public class CandlePatternAnalyzerTests
     // ── Structural properties ──────────────────────────────────────────────────
 
     /// <summary>
+    /// The same bar, classified twice: once with history ending on it, once with the whole loaded
+    /// series in hand. It must be the same candle both times.
+    ///
+    /// <para>
+    /// The trend that separates a hammer from a hanging man was measured from the END of the
+    /// <c>recent</c> list on the assumption that callers always pass a list ending at the bar being
+    /// classified. Every caller does today. But the assumption is invisible at the call site, and
+    /// when it breaks the analyzer does not fail — it measures the trend from bars after the one it
+    /// is describing and announces the opposite direction, confidently, to someone who has no other
+    /// channel. The bar's position is now found from <c>previous</c> instead of assumed.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AHistoricalBarIsClassifiedTheSameWayWhateverElseTheCallerHandsOver()
+    {
+        var history = Downtrend(8);
+        var hammer = Bar(100, 100.6, 94, 100.4, 8);          // hammer ending a decline
+        history.Add(hammer);
+
+        // What happened next: a rally. Enough of one to reverse the trend measurement.
+        var later = new List<Ohlcv>(history);
+        for (int i = 1; i <= 6; i++) later.Add(Bar(100 + i * 3, 103 + i * 3, 99 + i * 3, 102 + i * 3, 8 + i));
+
+        var atTheTime = A.Analyze(hammer, history[^2], history[^3], history);
+        var inHindsight = A.Analyze(hammer, history[^2], history[^3], later);
+
+        Assert.Equal(CandleType.Hammer, atTheTime.Type);
+        Assert.Equal(atTheTime.Type, inHindsight.Type);
+        Assert.Equal(atTheTime.Direction, inHindsight.Direction);
+        Assert.Equal(atTheTime.IsReversal, inHindsight.IsReversal);
+    }
+
+    /// <summary>
     /// The analyzer must only ever read bars at or before the one it is classifying. A candlestick
     /// pattern that needed a later bar to confirm would be undetectable live, which is the whole
     /// point of announcing it.
+    ///
+    /// <para>
+    /// This could not fail until 2026-08-21. The hindsight list was built as
+    /// <c>bars.Take(i + 6).Take(i + 1)</c>, and chained LINQ <c>Take</c> takes the MINIMUM — so it
+    /// was exactly <c>Take(i + 1)</c>, the same list as "at the time", and the test compared a value
+    /// to itself. The comment above stated the invariant correctly the whole time.
+    /// </para>
     /// </summary>
     [Fact]
     public void ClassificationOfABarNeverChangesWhenLaterBarsArrive()
@@ -275,7 +315,7 @@ public class CandlePatternAnalyzerTests
         for (int i = 3; i < bars.Count - 5; i++)
         {
             var atTheTime = A.Analyze(bars[i], bars[i - 1], bars[i - 2], bars.Take(i + 1).ToList());
-            var withHindsight = A.Analyze(bars[i], bars[i - 1], bars[i - 2], bars.Take(i + 6).Take(i + 1).ToList());
+            var withHindsight = A.Analyze(bars[i], bars[i - 1], bars[i - 2], bars.Take(i + 6).ToList());
             Assert.Equal(atTheTime.Pattern, withHindsight.Pattern);
             Assert.Equal(atTheTime.Type, withHindsight.Type);
         }

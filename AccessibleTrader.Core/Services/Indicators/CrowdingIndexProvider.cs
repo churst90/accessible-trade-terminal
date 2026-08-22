@@ -106,6 +106,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "CROWDING_INDEX",
+                Causality = ComponentCausality.Causal,
                 Name        = "Crowding Index",
                 Category    = "Derivatives",
                 DefaultPane = "Pane_CROWDING",

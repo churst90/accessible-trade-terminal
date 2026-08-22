@@ -25,6 +25,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "VPVR",
+                Causality = ComponentCausality.Causal,
                 Name        = "Volume Profile (Visible Range)",
                 Category    = "Profile",
                 Description = "Volume distribution across price levels for the visible viewport. " +
@@ -43,6 +44,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "VPFR",
+                Causality = ComponentCausality.Causal,
                 Name        = "Volume Profile (Fixed Range)",
                 Category    = "Profile",
                 Description = "Volume profile anchored to the range you were viewing when you added it. " +
@@ -62,6 +64,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code        = "TPO",
+                Causality = ComponentCausality.Causal,
                 Name        = "Market Profile (TPO)",
                 Category    = "Profile",
                 Description = "Time-Price Opportunity: counts how many time PERIODS price visited each " +
