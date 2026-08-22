@@ -1579,9 +1579,14 @@ guesses are invisible until money moves.
 
 ### Documentation drift
 
-- [ ] **The doc-drift guard is RED on main right now.** `python3 scripts/check_doc_drift.py` fails:
-  README claims 3227 tests, `--list-tests` reports 3314 (the suite runs 3327). The 2.3.0
-  verification doc celebrated this guard going green; it has since gone red again.
+- [x] **FIXED 2026-08-21 — The doc-drift guard is RED on main right now.** `python3
+  scripts/check_doc_drift.py` fails: README claims 3227 tests, `--list-tests` reports 3314 (the
+  suite runs 3327). The 2.3.0 verification doc celebrated this guard going green; it has since
+  gone red again. **Green since, and kept green deliberately** — the count is now updated in the
+  same commit as any test-adding work (3720 as of 2026-08-22). Note the asymmetry that keeps
+  biting: `--list-tests` counts test *methods*, the runner counts *cases*, so a `[Theory]` makes
+  the two figures differ. The README carries the `--list-tests` figure, because that is what the
+  guard compares against.
 - [ ] **The guard checks only the first provider-count claim.** `README_PROVIDER_RE.search(md)`
   matches line 367's "33 … (16 trading + 17 analytics)", which is correct, and never sees line 45's
   "**29 data providers** — 14 in `Plugins/Providers/` … 15 in `Plugins/Analytics/`", which is
@@ -1593,10 +1598,24 @@ guesses are invisible until money moves.
   line 370 says 12; line 208 says "Two GitHub Actions workflows" when there are four (`doc-drift`,
   `plugin-manifest`, `release`, `tests`); line 208 claims "Build across all 4 TFMs: 0 errors, 0
   warnings", which `RELEASE_2.3.0_VERIFICATION.md` item 7 honestly records as false.
-- [ ] **README's sandbox platform list omits Linux/bwrap** — the WebHost's own platform. It names
-  Windows AppContainer, macOS `sandbox-exec` and Android `isolatedProcess` only, which reads as
-  though the hosted Linux deployment has no OS sandbox. It does (`LinuxBwrapLauncher`), and it
-  refuses rather than falling back.
+
+  **Partly done 2026-08-22 — the objective facts only.** The release pointer now reads v2.3.0 with
+  that release's actual headline, the suite/JS-suite figures agree with each other and with the
+  guard, the workflow count is four and they are named, and the sandbox platform list no longer
+  omits Linux/`bwrap` — which had it reading as though the hosted platform, the one the WebHost
+  actually runs on, had no OS sandbox at all.
+
+  **Still open, and deliberately left:** the "Current Status (2026-08-01)" narrative section, and
+  the "0 warnings across all 4 TFMs" claim. The first needs a judgement call about what 2.1–2.3
+  should be *presented* as, not a find-and-replace, and it is the README's most-read block. The
+  second needs the four-TFM build actually re-run before either the claim or its retraction can be
+  written honestly — `RELEASE_2.3.0_VERIFICATION.md` item 7 records it as false, and only the
+  Linux-buildable projects are verifiable from here.
+- [x] **FIXED 2026-08-22 — README's sandbox platform list omits Linux/bwrap** — the WebHost's own
+  platform. It names Windows AppContainer, macOS `sandbox-exec` and Android `isolatedProcess`
+  only, which reads as though the hosted Linux deployment has no OS sandbox. It does
+  (`LinuxBwrapLauncher`), and it refuses rather than falling back. Now listed, with the refusal
+  behaviour named — the omission was the kind that reads as a security gap that does not exist.
 - [ ] **`ServiceCollectionExtensions.cs:487-490` (WebHost) describes a silent unsandboxed
   fallback that no longer exists.** The comment says the Linux launcher "falls back to an
   unsandboxed `DefaultProcessLauncher` only if it isn't [installed]". `SandboxPolicy.EnforceOrThrow`
