@@ -737,25 +737,6 @@ namespace AccessibleTrader.Core.Services.Rendering
         }
 
         /// <summary>
-        /// Renders a fixed upward-pointing triangle at each bar's value Y. Direction is always up,
-        /// regardless of value sign — use when the indicator pre-determines bullish direction.
-        /// Size = comp.Thickness * 3 (same as Arrow).
-        /// </summary>
-
-        /// <summary>
-        /// Y position for a marker at visible index <paramref name="i"/>.
-        ///
-        /// <para>
-        /// With <see cref="MarkerAnchor.Value"/> the component's own value is mapped through the
-        /// price axis, which is right for anything whose value IS a price. With BelowBar/AboveBar
-        /// the marker is pinned to the DISPLAYED bar instead. That distinction matters because
-        /// indicators compute on raw OHLCV while the main pane may be drawing Heikin-Ashi candles
-        /// with different highs and lows — a price-anchored marker then floats away from the very
-        /// candle it describes, and disagrees with the speech and audio layers, which already
-        /// follow the transform.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// Caps a marker's drawn size against the width of a bar, in FULL extent — the total
         /// width the glyph occupies, corner to corner.
         ///
@@ -796,6 +777,19 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static float ClampMarkerHalfExtent(float requestedHalfExtent, RenderContext ctx) =>
             ClampMarkerExtent(requestedHalfExtent * 2f, ctx) / 2f;
 
+        /// <summary>
+        /// Y position for a marker at visible index <paramref name="i"/>.
+        ///
+        /// <para>
+        /// With <see cref="MarkerAnchor.Value"/> the component's own value is mapped through the
+        /// price axis, which is right for anything whose value IS a price. With BelowBar/AboveBar
+        /// the marker is pinned to the DISPLAYED bar instead. That distinction matters because
+        /// indicators compute on raw OHLCV while the main pane may be drawing Heikin-Ashi candles
+        /// with different highs and lows — a price-anchored marker then floats away from the very
+        /// candle it describes, and disagrees with the speech and audio layers, which already
+        /// follow the transform.
+        /// </para>
+        /// </summary>
         private static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
         {
             if (comp.MarkerAnchor == MarkerAnchor.Value || i < 0 || i >= ctx.Data.Count)
@@ -811,6 +805,11 @@ namespace AccessibleTrader.Core.Services.Rendering
             return ChartMath.MapY(anchor, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
         }
 
+        /// <summary>
+        /// Renders a fixed upward-pointing triangle at each bar's value Y. Direction is always up,
+        /// regardless of value sign — use when the indicator pre-determines bullish direction.
+        /// Size = comp.Thickness * 3 (same as Arrow).
+        /// </summary>
         public static void RenderTriangleUp(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
             var data = series.GetComponentData(comp.Name);

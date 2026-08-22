@@ -380,18 +380,62 @@ namespace AccessibleTrader.Tests
             Assert.Equal(2, fills.Count); // live + paper, each exactly once
         }
 
+        /// <summary>
+        /// A data-only provider — FRED, CFTC, Wikipedia — has no order stream, and a
+        /// <c>ConnectionStatusEvent(Connected)</c> from one must be a SILENT no-op. Silent is the
+        /// operative word: reporting "could not subscribe to order updates" every time a
+        /// macroeconomic feed connects would train the user to ignore the error channel that
+        /// announces refused orders.
+        ///
+        /// <para>
+        /// This test used to consist of one <c>await</c> and a <c>// must not throw</c> comment,
+        /// with no assertion at all. It would have stayed green if the skip had been removed and
+        /// replaced with an error report, a thrown-and-swallowed exception, or nothing whatsoever —
+        /// and equally green if <c>SubscribeOrderUpdatesAsync</c> had been gutted to
+        /// <c>return Task.CompletedTask</c> for every provider on earth. The positive control in
+        /// the second half is what closes that second hole: the same service, one call later,
+        /// still wires up a real trading provider and still publishes its fills.
+        /// </para>
+        /// </summary>
         [Fact]
-        public async Task DataOnly_provider_is_skipped_without_error()
+        public async Task DataOnly_provider_is_skipped_silently_while_a_trading_provider_still_wires_up()
         {
             var h = Build();
+
             var dataOnly = Substitute.For<IMarketDataProvider>();
+            var tradingSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            var trading = (ITradingProvider)tradingSub;
+            var liveStream = new Subject<OrderUpdate>();
+            trading.IsConnected.Returns(true);
+            trading.SupportsOrderEventStreaming.Returns(true);
+            trading.OrderUpdateStream.Returns(liveStream);
+
             var data = Substitute.For<IDataService>();
-            data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(dataOnly));
+            data.GetProviderAsync(Arg.Any<string>()).Returns(ci =>
+                Task.FromResult<IMarketDataProvider?>(
+                    ci.Arg<string>() == "FRED" ? dataOnly : tradingSub));
+
             var svc = new GeneralOrderService(
                 data, h.Err, NullLogger<GeneralOrderService>.Instance, h.Bus, h.Paper, h.Settings,
                 new DemoPolicy(isDemo: false));
 
-            await svc.SubscribeOrderUpdatesAsync("FRED"); // must not throw
+            var fills = new List<OrderFilledEvent>();
+            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
+
+            // ── The skip: nothing announced, nothing reported, nothing subscribed.
+            await svc.SubscribeOrderUpdatesAsync("FRED");
+
+            h.Err.DidNotReceiveWithAnyArgs().ReportError(default!);
+            h.Err.DidNotReceiveWithAnyArgs().PlayEarcon(default);
+            Assert.Empty(fills);
+
+            // ── The positive control: the same service still wires a real trading provider.
+            await svc.SubscribeOrderUpdatesAsync("Binance");
+            liveStream.OnNext(LiveFill("live-after-skip"));
+
+            var fill = Assert.Single(fills);
+            Assert.Equal("live-after-skip", fill.Order.OrderId);
+            h.Err.DidNotReceiveWithAnyArgs().ReportError(default!);
         }
 
         [Fact]

@@ -164,10 +164,6 @@ namespace AccessibleTrader.Sdk.Indicators
         }
 
         /// <summary>
-        /// Creates an array of length <paramref name="n"/> filled entirely with <see cref="double.NaN"/>.
-        /// Convenience method used when initialising output arrays before a warmup period completes.
-        /// </summary>
-        /// <summary>
         /// Returns a copy of a sparse marker array with every non-NaN value moved forward by
         /// <paramref name="lag"/> bars — from the bar a pivot sits on to the bar it could first be
         /// confirmed. Markers whose confirmation bar falls past the end of the data are dropped:
@@ -196,6 +192,10 @@ namespace AccessibleTrader.Sdk.Indicators
             return dst;
         }
 
+        /// <summary>
+        /// Creates an array of length <paramref name="n"/> filled entirely with <see cref="double.NaN"/>.
+        /// Convenience method used when initialising output arrays before a warmup period completes.
+        /// </summary>
         public static double[] NanArray(int n)
         {
             var arr = new double[n];

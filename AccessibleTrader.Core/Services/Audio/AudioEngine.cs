@@ -248,7 +248,7 @@ namespace AccessibleTrader.Core.Services.Audio
             if (slot < 0 || slot >= _voices.Length) return;
 
             // Voice-slot pooling: OscillatorVoice instances are allocated once in the ctor
-            // (permanent 64-element array); VoiceCommand is a struct value type so no heap
+            // (permanent MaxVoices-element array); VoiceCommand is a struct value type so no heap
             // allocation per command. The only remaining per-call allocation in the old
             // implementation was `wave.ToLower()` — cut by using OrdinalIgnoreCase compares
             // so the hot path through SetVoice now allocates zero bytes.

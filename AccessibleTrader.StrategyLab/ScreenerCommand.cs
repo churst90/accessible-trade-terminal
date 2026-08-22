@@ -162,6 +162,12 @@ public static class ScreenerCommand
     // ── The checks ──────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Beyond this an FDV-to-market-cap ratio is a broken field rather than extreme dilution.
+    /// Even the most aggressively vesting real token is a two-digit multiple.
+    /// </summary>
+    private const double AbsurdRatio = 1000.0;
+
+    /// <summary>
     /// Every machine-checkable disqualifier from the vetting guide that the daily snapshot supports.
     ///
     /// <para>
@@ -172,12 +178,6 @@ public static class ScreenerCommand
     /// thing from failing to compute.
     /// </para>
     /// </summary>
-    /// <summary>
-    /// Beyond this an FDV-to-market-cap ratio is a broken field rather than extreme dilution.
-    /// Even the most aggressively vesting real token is a two-digit multiple.
-    /// </summary>
-    private const double AbsurdRatio = 1000.0;
-
     internal static List<Check> Screen(UniverseRecorderCommand.Row r)
     {
         var checks = new List<Check>();

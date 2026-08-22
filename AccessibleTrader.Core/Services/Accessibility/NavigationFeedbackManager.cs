@@ -52,12 +52,24 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Speech system — 3 paths evaluated in order for each component:
-        ///   Path 1: Provider GetComponentSpeech() — imperative, full context access. Return non-null to consume.
-        ///   Path 2: Metadata SpeechTemplate / SignalSpeechTemplate — declarative token expansion.
-        ///           SpeechTemplate: continuous oscillator/line components. Tokens: {name} {type} {value} {value:F1} {value:F2} {zone} {gradient_speech}.
-        ///           SignalSpeechTemplate: marker signals present on a bar. Tokens: {price} {name}.
-        ///   Path 3: SpeechFormatter generic fallback — display type + raw value.
+        /// SPEECH ONLY. Sonification is <see cref="SonificationManager"/>'s job, off its own
+        /// StateStream subscription — see the note at the top of the method body for the race
+        /// that removing the duplicate call here fixed.
+        ///
+        /// <para>
+        /// This used to document the utterance precedence as "3 paths evaluated in order" and
+        /// listed them here. That chain no longer lives in this class: it is the strategy list in
+        /// <c>SpeechFormatter</c>'s constructor, and the old "path 1" provider block that sat here
+        /// is strategy #1 there. Read it there, not here — this note exists only so the next
+        /// person to go looking does not conclude the precedence was deleted.
+        /// </para>
+        ///
+        /// <para>
+        /// The declarative templates are still real and still take the same tokens.
+        /// <c>SpeechTemplate</c> (continuous oscillator/line components):
+        /// <c>{name} {type} {value} {value:F1} {value:F2} {zone} {gradient_speech}</c>.
+        /// <c>SignalSpeechTemplate</c> (marker signals present on a bar): <c>{price} {name}</c>.
+        /// </para>
         /// </summary>
         public void HandleNavigationFeedback(WorkspaceState state, bool isXMove, bool isYMove, string prefixMessage, bool isUserInitiated = true, bool isJump = false, string? extraContext = null)
         {
@@ -342,13 +354,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return subPaneName + " pane";
         }
 
-        /// <summary>
-        /// Returns a spoken type qualifier for the component (e.g., "Oscillator", "Signal", "Level").
-        /// Empty string when the type is already implied by the component name, avoiding redundancy.
-        /// Used by the UP/DOWN navigation prefix so the user hears "[Name]. [Type]. [Value]."
-        /// </summary>
-        // GetComponentTypeLabel moved to SpeechFormatter.ProviderSpeechStrategy
-        // (debt item 4) — the label is part of the utterance, so it lives with it.
+        // GetComponentTypeLabel moved to SpeechFormatter.ProviderSpeechStrategy (debt item 4) —
+        // the label is part of the utterance, so it lives with it. Its /// summary was left
+        // behind here, documenting a method this file no longer has and attaching to whatever
+        // came next.
 
 
         /// <summary>
@@ -466,11 +475,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Checks all active series for zone lines (IsZoneLine == true) and plays a quiet
-        /// proximity tone on audio slot 2 when the current bar's price range overlaps a zone value.
-        /// Resistance zone (BaseFrequency ~650 Hz) → ceiling cue.
-        /// Support zone (BaseFrequency ~300 Hz) → floor cue.
-        /// Fires at most one cue per type per navigation step (highest-priority zone wins).
+        /// Checks all active series for zone lines (<c>IsZoneLine == true</c>) and SPEAKS when the
+        /// current bar's price range overlaps a zone value — nearest support below, nearest
+        /// resistance above, at most one of each per navigation step.
+        ///
+        /// <para>
+        /// It plays no tone. This block used to describe "a quiet proximity tone on audio slot 2"
+        /// with frequencies for the ceiling and floor cues, which the body has explicitly
+        /// disclaimed ever since ("Zone proximity is communicated via speech only") — and the
+        /// method is still called <c>CheckAndPlayZoneProximity</c>, which is the same leftover.
+        /// Prices go through <c>SpeechPriceFormatter</c>, never a fixed precision: these two lines
+        /// once used <c>:F0</c> and read every sub-dollar asset's level as "0".
+        /// </para>
         /// </summary>
         private void CheckAndPlayZoneProximity(WorkspaceState state, int dataIndex)
         {

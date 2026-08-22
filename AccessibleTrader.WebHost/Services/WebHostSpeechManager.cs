@@ -8,6 +8,9 @@ using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.WebHost.Services
 {
+    /// <summary>Discriminated backend the speech manager picks at startup.</summary>
+    public enum SpeechBackend { OrcaDBus, SpdSay, BrowserTts }
+
     /// <summary>
     /// Decorator over <see cref="BlazorSpeechManager"/> that adds a
     /// real-speech output channel. Inner manager still journals and writes
@@ -30,9 +33,6 @@ namespace AccessibleTrader.WebHost.Services
     /// macOS, headless Linux, and the public-website demo deploy.</item>
     /// </list>
     /// </summary>
-    /// <summary>Discriminated backend the speech manager picks at startup.</summary>
-    public enum SpeechBackend { OrcaDBus, SpdSay, BrowserTts }
-
     public sealed class WebHostSpeechManager : ISpeechManager, IBrowserSpeechOutput
     {
         private const string OrcaBus  = "org.gnome.Orca1.Service";

@@ -21,7 +21,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
         // Slots 26–29: one-shot patch layers for level cues. Inside the UI earcon
         // range (16–31), below the chirp pair on 30/31, so cues layer cleanly over
-        // navigation (0–15) and playback (32–63) voices.
+        // navigation (0–15) and playback (32–95) voices.
         public const int CueSlotStart = 26;
         private const int MaxLayers = 4;
 

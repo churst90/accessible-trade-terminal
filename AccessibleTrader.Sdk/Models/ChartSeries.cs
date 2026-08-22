@@ -8,9 +8,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace AccessibleTrader.Sdk.Models
 {
     /// <summary>
-    /// Specifies how a component is visually rendered on the chart.
-    /// </summary>
-    /// <summary>
     /// Where a marker component is drawn vertically.
     ///
     /// <para>
@@ -32,6 +29,9 @@ namespace AccessibleTrader.Sdk.Models
         AboveBar
     }
 
+    /// <summary>
+    /// Specifies how a component is visually rendered on the chart.
+    /// </summary>
     public enum ComponentDisplayType
     {
         Line,
@@ -110,8 +110,13 @@ namespace AccessibleTrader.Sdk.Models
     
     /// <summary>
     /// Determines how the pitch (frequency) of a sonified component is mapped to its data values.
+    ///
+    /// <para>
+    /// <c>Price</c> maps the component's absolute price position within the viewport to pitch
+    /// (200–1000 Hz). <c>PriceDirection</c> ignores the component's base frequency entirely and
+    /// substitutes the Bullish/Bearish pair — see the caution in <c>SonificationProfileProvider</c>.
+    /// </para>
     /// </summary>
-    /// <summary>Price maps the component's absolute price position within the viewport to pitch (200–1000 Hz).</summary>
     public enum PitchMapping { None, Value, Direction, PriceDirection, Price }
     
     /// <summary>

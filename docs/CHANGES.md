@@ -2,16 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
-> **Gap:** there is no `[2.3.0]` section below, though 2.3.0 shipped on 2026-08-11. That release
-> documented itself in [WHATSNEW.md](WHATSNEW.md) and
-> [RELEASE_2.3.0_VERIFICATION.md](RELEASE_2.3.0_VERIFICATION.md) and never came back here. Writing
-> it retrospectively means reconstructing nineteen commits from their messages, which is a
-> different job from recording them as they land — so it is named as missing rather than
-> approximated.
-
----
-
 ## [Unreleased]
+
+### A third copy of a bug that had shipped twice, found by finally writing the guard (2026-08-22)
+
+Small-items pass. Five tracked chores, one of which stopped being a chore.
+
+**The `Environment.GetFolderPath` guard.** Two excellent tests already existed —
+`WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` — and both docstrings
+describe the identical defect: a service building its own per-user path instead of taking
+`IPlatformPathService`. Each was fixed at the site where it was reported. The scan that would catch
+the next one was never written, so it got written, and it immediately found a third:
+
+`SchwabOAuthService`'s constructor builds `%AppData%/AccessibleTrader` by hand and writes the
+Schwab OAuth **refresh token** there. On Unix `GetFolderPath` returns an empty string when the
+directory does not exist yet, which makes that a relative path resolving against the process's
+current directory. And in the hosted head it is not user-scoped at all, so every signed-in user
+shares one token file. The plugin ships in the WebHost build. It is tracked in the guard rather
+than fixed here, because the fix moves the token into `PluginHostServices.SecureStorage` and
+strands anyone already authenticated unless a migration comes with it — a decision, not a cleanup.
+
+The guard is three tests: the rule, a check that every exemption is still load-bearing, and a cap
+on the tracked-but-unfixed list so it can only shrink. An exemption that outlives the bug it
+covered is how a baseline quietly becomes permission.
+
+**A test with no assertion.** `DataOnly_provider_is_skipped_without_error` was one `await` and a
+`// must not throw` comment. It now asserts what "silently" means — no error, no earcon, no event —
+and carries a positive control that subscribes a real trading provider on the same service, which
+closes the hole the old test could not see: it would have stayed green if `SubscribeOrderUpdates`
+had been gutted for every provider on earth.
+
+**Eleven stacked `<summary>` blocks, where the item said two.** Same accident every time: a member
+was inserted above another or moved out, and its doc stayed behind — so the surviving doc describes
+the wrong member and the real one has none. Each was reattached rather than deleted, because in
+most cases the orphan was the only documentation the other member had. `ComponentDisplayType` got
+its summary back from `MarkerAnchor`, `RenderTriangleUp` from `ResolveMarkerY`, `NanArray` from
+`ShiftMarkersForward`, and the `WebHostSpeechManager` and `DemoPolicy` class docs from the enums
+declared above them.
+
+**The audio layer's slot map, corrected against the constants** rather than against itself: it is a
+128-voice engine, playback is 32–95 and cloud fills 96–127, and slots 8–15 hold patch layers rather
+than being "reserved for future". The `NavigationSonifier` block now says outright that it is a map
+and not a source of truth, and names the earcon round-robin's collision with slots 26–31 as a real
+defect instead of leaving two comments to disagree about it. In `SonificationProfileProvider`, the
+line claiming "a doji is quiet and a marubozu is loud" was the behaviour before loudness was made
+constant, and sat three lines above the comment that says so correctly.
+
+**`GradientWaveformA/B` removed from `SoundPatchRegistry`** — nothing read them, the only consumer
+was a test asserting they were non-null, and they named `"sine"` at the bullish end where both
+renderers play `"triangle"`. Removed rather than wired up, because wiring them changes what a user
+hears. The item also claimed `HarmonicAmount`/`HarmonicFreqMultiplier` were dead; they are not,
+`PropertiesModal` builds a preview layer from both.
+
+**And `[2.3.0]` is in this file now**, written retrospectively from the 23 commits between the tags
+plus WHATSNEW and the verification doc, and labelled as retrospective. Writing it turned up that
+the verification doc still said "Not yet tagged" eleven days after `v2.3.0` was tagged.
 
 ### Nine copies of one p-value, six of them different (2026-08-22)
 
@@ -269,6 +314,64 @@ rendering an unfixable "API key required"; `OhlcvStore` logs at Error when its t
 because `EnsureCreated` will not alter an existing database and a silently dead cache is
 indistinguishable from a cold one; `MarketOrchestrator`'s Economic fallback said `FMPAnalytics`
 where the provider is `FMP Analytics`; and `DemoPolicy.HostedProviders` omitted `My Data`.
+
+---
+
+## [2.3.0] — 2026-08-11
+
+*Written retrospectively on 2026-08-22 from the 23 commits between `v2.2.0` and `v2.3.0`, plus
+[WHATSNEW.md](WHATSNEW.md) and [RELEASE_2.3.0_VERIFICATION.md](RELEASE_2.3.0_VERIFICATION.md). It
+records what the commits and those two documents say, and nothing beyond them. Where the
+verification doc says "nineteen commits" it was counting at the moment it was written, before
+tagging; four more landed after, including the release-candidate fixes.*
+
+### The account, not just the chart (2026-08-11)
+
+2.2.0 was about what the chart *says*. 2.3.0 is about what the **account can do**. The blast radius
+is different and so is the risk: 2.2.0 could mis-speak, 2.3.0 can mis-state what an account is
+worth or let a control claim a power the venue does not grant. The mitigation was the one that has
+always worked here — check it against the real venue.
+
+- **Shorting is back, at 1x, with the arithmetic that makes it honest.** It was withdrawn in 2.2.0
+  because it was offered and did not work. Selling something you do not own means somebody lent it
+  to you and you owe it back at whatever it ends up costing, so the sale proceeds are locked and an
+  equal amount of margin is locked beside them. You are told what a short costs to open, what it is
+  worth now, and how far price can go against you before liquidation — a short that cannot say
+  where it dies is not a short, it is a trap.
+- **Two new venues.** **Gemini** — US-regulated, spot data, order book and trading, with its sandbox
+  reachable through Paper — verified live against a real key. And **Kraken Futures**, added as its
+  own venue rather than a setting on Kraken: different host, different signing, its own API keys
+  minted somewhere else entirely. Folding it into Kraken would have meant one credential slot
+  holding two credentials, which the user would have met as an authentication failure with no
+  explanation.
+- **The Balances tab can say what the account is worth.** It used to show quantities — asset, free,
+  locked — and no values at all. Now: what each holding is worth, the total, each one's share of the
+  account, and the day's change.
+- **A wallet, and deposit addresses read out properly.** A deposit address arrives in a read-only
+  field with a copy button, so a screen reader's review cursor and a braille display walk it
+  character by character with nothing special from us. It is checksum-verified before anyone sees
+  it, and case survives the trip — for some networks the capitals *are* the checksum. Kraken is the
+  first venue behind it, verified against a real account.
+- **Every control on the order ticket answers to what the broker can actually do.** The capability
+  surface was audited against reality rather than against its own documentation, by a static probe
+  of what providers *claim* versus what their code *does*, and it was wrong in both directions —
+  claiming things providers could not do and hiding things they could.
+- **Fixed: adding an API key kept insisting you needed an API key.** Add a key, activate it, and the
+  symbol list went on saying "API key required" for the provider you had just supplied, until you
+  restarted the app. Found by using the terminal rather than by a test, which is its own lesson.
+- **An empty list stops meaning five different things.** "Nothing here", "we could not reach the
+  venue" and "your key cannot read this" now read as what they are.
+- **The four-year cycle, re-anchored on a date the protocol fixes** rather than an inferred one.
+
+**Deliberately not in this release: moving funds off a venue.** The withdrawal path is built and
+tested — a separate key, a whitelist the app cannot add to, and a typed confirmation word — but no
+one had run a real withdrawal with it, and that is the one place in this terminal where being wrong
+loses money directly rather than through a trade. It shipped switched off.
+
+**Carried, and said plainly rather than in smaller print each time:** 2.2.0 ended with three items
+open at tagging. All three were still open at 2.3.0. The verification doc lists them again on
+purpose — a carried item mentioned in ever smaller print eventually stops being a decision and
+becomes a habit.
 
 ---
 

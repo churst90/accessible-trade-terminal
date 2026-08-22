@@ -49,9 +49,6 @@ namespace AccessibleTrader.Core.Services
     }
 
     /// <summary>
-    /// Per-level preference snapshot. Only non-null fields are applied as overrides.
-    /// </summary>
-    /// <summary>
     /// A user's saved overrides for one reference level, applied on top of the provider's defaults
     /// when a series is created.
     ///

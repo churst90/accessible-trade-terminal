@@ -47,11 +47,23 @@ namespace AccessibleTrader.Core.Services.Audio
         private readonly ISonificationStrategy _strategy;
         private readonly ISoundPatchRegistry _patchRegistry;
 
-        // ── Voice Slot Layout (64-voice polyphonic engine) ──────────────────────
-        // Slots  0– 7 : Navigation — current bar/component (SyncNavigationSlots uses slot 0)
-        // Slots  8–15 : Reserved for future multi-component navigation layering
-        // Slots 16–31 : UI earcons — round-robin via PlayNote (modulo 16)
-        // Slots 32–63 : Playback sequencer (AudioSequencer, PlaybackSlotOffset = 32)
+        // ── Voice Slot Layout (128-voice polyphonic engine) ─────────────────────
+        // Slots   0–  7 : Navigation — current bar/component. Slot 0 is the carrier,
+        //                 slot 1 the blend/detune partner; 2–7 are stopped together.
+        // Slots   8– 15 : Patch layers for the focused component (see the navSlot
+        //                 assignment in SyncNavigationSlots — layer li lands on 7 + li).
+        //                 These were documented as "reserved for future" long after they
+        //                 started being used.
+        // Slots  16– 31 : UI earcons — round-robin via PlayNote (modulo 16). NOTE: the
+        //                 round-robin walks the whole range, so it will land on 26–29
+        //                 (EarconPatchPlayer.CueSlotStart level cues) and 30/31 (the
+        //                 cross-chirp pair) and cut them off. That is a real defect, not
+        //                 a documentation gap — it is written up in docs/TODO.md.
+        // Slots  32– 95 : Playback sequencer (AudioSequencer, PlaybackSlotOffset = 32,
+        //                 PlaybackSlotEnd = 95).
+        // Slots  96–127 : Cloud fills (AudioSequencer, CloudSlotOffset = 96).
+        // The authoritative constants are AudioEngine.MaxVoices and the *SlotOffset /
+        // *SlotEnd fields in AudioSequencer. This block is a map, not a source of truth.
         // ────────────────────────────────────────────────────────────────────────
         private const int SLOT_NAV_START = 0;
         private const int SLOT_UI_START = 16;

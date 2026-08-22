@@ -50,9 +50,7 @@ namespace AccessibleTrader.Tests
                 DefaultDecayMs: 400,
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: null,
-                GradientWaveformB: null);
+                DetunedOffsetMs: 0);
 
             registry.Register("custom_test", custom);
             bool found = registry.TryGetPatch("custom_test", out var retrieved);
@@ -83,9 +81,7 @@ namespace AccessibleTrader.Tests
                 DefaultDecayMs: originalDecay + 1000,  // guaranteed different
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: null,
-                GradientWaveformB: null);
+                DetunedOffsetMs: 0);
 
             registry.Register("sine_bell", replacement);
             registry.TryGetPatch("sine_bell", out var updated);
@@ -107,21 +103,6 @@ namespace AccessibleTrader.Tests
             Assert.True(patch!.IsDetuned, "detuned_pair_bell must have IsDetuned=true.");
             Assert.True(patch.DetuneIntervalHz > 0f,
                 $"detuned_pair_bell must have DetuneIntervalHz > 0 (got {patch.DetuneIntervalHz}).");
-        }
-
-        // ── 6. gradient_blend has non-null GradientWaveformA and GradientWaveformB ──
-
-        [Fact]
-        public void GradientBlend_HasNonNullGradientWaveforms()
-        {
-            var registry = new SoundPatchRegistry();
-            registry.TryGetPatch("gradient_blend", out var patch);
-
-            Assert.NotNull(patch);
-            Assert.NotNull(patch!.GradientWaveformA);
-            Assert.NotNull(patch.GradientWaveformB);
-            Assert.False(string.IsNullOrEmpty(patch.GradientWaveformA));
-            Assert.False(string.IsNullOrEmpty(patch.GradientWaveformB));
         }
 
         // ── 7. dual_tone_bell has DetunedOffsetMs=0 (simultaneous) and IsDetuned=true ──
@@ -146,7 +127,7 @@ namespace AccessibleTrader.Tests
             Assert.Contains("crystal_bell", registry.GetPatchIds());
             Assert.Contains("detuned_pair_bell", registry.GetPatchIds());
 
-            registry.Register("my_custom", new SoundPatch("sine", 0f, 2f, 100, false, 0f, 0, null, null));
+            registry.Register("my_custom", new SoundPatch("sine", 0f, 2f, 100, false, 0f, 0));
             Assert.Contains("my_custom", registry.GetPatchIds());
         }
     }

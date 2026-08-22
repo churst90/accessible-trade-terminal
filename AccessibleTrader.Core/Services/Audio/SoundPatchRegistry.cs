@@ -23,11 +23,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// <summary>Second-voice pitch offset in Hz above the primary voice (used only when IsDetuned = true).</summary>
         float DetuneIntervalHz,
         /// <summary>Delay in ms before the second detuned voice fires (0 = simultaneous, 40 = staggered).</summary>
-        int DetunedOffsetMs,
-        /// <summary>Waveform name at the positive/bullish end of a gradient blend (null if not gradient_blend).</summary>
-        string? GradientWaveformA,
-        /// <summary>Waveform name at the negative/bearish end of a gradient blend (null if not gradient_blend).</summary>
-        string? GradientWaveformB
+        int DetunedOffsetMs
     );
 
     /// <summary>
@@ -65,9 +61,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 300,
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 0
+            ));
 
             // Hollow structural bell — triangle fundamental with natural odd harmonics, used for divergences.
             Register("triangle_bell", new SoundPatch(
@@ -77,9 +72,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 250,
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 0
+            ));
 
             // Crisp boundary bell — triangle with 3rd harmonic crystalline overtone, used for SR dots.
             Register("crystal_bell", new SoundPatch(
@@ -89,9 +83,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 200,
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 0
+            ));
 
             // Metallic pair — two simultaneous/staggered voices, used for Manipulation/Exhaustion.
             Register("detuned_pair_bell", new SoundPatch(
@@ -101,9 +94,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 320,
                 IsDetuned: true,
                 DetuneIntervalHz: 100f,         // second voice +100 Hz above primary
-                DetunedOffsetMs: 40,            // 40ms stagger before second voice fires
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 40            // 40ms stagger before second voice fires
+            ));
 
             // Dual simultaneous tones 220 Hz apart — golden chord for Triple Confluence Buy.
             // Both voices fire at the same time (DetunedOffsetMs=0) for a unified chord quality
@@ -115,9 +107,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 500,
                 IsDetuned: true,
                 DetuneIntervalHz: 220f,         // second voice at primary + 220 Hz (e.g. 440 + 220 = 660 Hz)
-                DetunedOffsetMs: 0,             // simultaneous — golden chord, not staggered metallic
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 0             // simultaneous — golden chord, not staggered metallic
+            ));
 
             // Quality long setup — bright ascending chord (sine + perfect 5th above), long sustain.
             // Used by composite strategies / signal composer to mark a high-quality long setup.
@@ -131,9 +122,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 700,
                 IsDetuned: true,
                 DetuneIntervalHz: 220f,         // perfect fifth above 440 Hz fundamental
-                DetunedOffsetMs: 0,             // simultaneous bright chord
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 0             // simultaneous bright chord
+            ));
 
             // Quality short setup — heavy descending tone (triangle + minor 3rd below + low octave),
             // long sustain. Used by composite strategies / signal composer to mark a high-quality
@@ -146,12 +136,20 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 700,
                 IsDetuned: true,
                 DetuneIntervalHz: -150f,        // descending minor-3rd-ish under fundamental
-                DetunedOffsetMs: 60,            // brief stagger gives a "two-toll" character
-                GradientWaveformA: null,
-                GradientWaveformB: null));
+                DetunedOffsetMs: 60            // brief stagger gives a "two-toll" character
+            ));
 
-            // Gradient blend — timbre interpolates by value position (sine→bullish, sawtooth→bearish),
-            // used for Cipher A momentum gradient dots.
+            // Gradient blend — used for Cipher A momentum gradient dots. All this patch still
+            // contributes is the neutral/midpoint waveform below.
+            //
+            // It used to carry GradientWaveformA/B ("sine" bullish, "sawtooth" bearish) and
+            // nothing ever read them: both renderers choose the blend waveform themselves and
+            // both hardcode triangle/sawtooth — NavigationSonifier.SyncNavigationSlots and
+            // AudioSequencer.ComputeGradientBlend. The patch did not even agree with the sound,
+            // naming sine where the renderers play triangle. Removed rather than wired up,
+            // because wiring them would change what a user hears; if the blend ever should be
+            // configurable it belongs in ComponentConfig with the other per-component sound
+            // settings, not in a code-defined built-in.
             Register("gradient_blend", new SoundPatch(
                 BaseWaveform: "triangle",       // neutral/midpoint waveform
                 HarmonicAmount: 0.0f,
@@ -159,9 +157,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 DefaultDecayMs: 80,
                 IsDetuned: false,
                 DetuneIntervalHz: 0f,
-                DetunedOffsetMs: 0,
-                GradientWaveformA: "sine",      // bullish end: sine+triangle blend
-                GradientWaveformB: "sawtooth"   // bearish end: sawtooth+triangle blend
+                DetunedOffsetMs: 0
             ));
         }
 

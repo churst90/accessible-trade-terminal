@@ -779,6 +779,9 @@ namespace AccessibleTrader.Core.Services
         // ── Order validation (caller holds _lock) ─────────────────────────────
 
         /// <summary>
+        /// How a fill would settle: what it closes, what it opens, and what that does
+        /// to free cash and to locked collateral — and whether it can settle at all.
+        ///
         /// Whether the account can actually settle this fill, with the reason in
         /// spoken words when it cannot.
         ///
@@ -794,10 +797,6 @@ namespace AccessibleTrader.Core.Services
         /// This is a refusal of the <i>impossible</i>, not a refusal on taste —
         /// a real spot venue rejects both of these too.
         /// </para>
-        /// </summary>
-        /// <summary>
-        /// How a fill would settle: what it closes, what it opens, and what that does
-        /// to free cash and to locked collateral.
         ///
         /// <para>
         /// **One calculation, used by both the check and the mutation.** A guard that

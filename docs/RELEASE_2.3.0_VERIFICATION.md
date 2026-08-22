@@ -1,6 +1,12 @@
 # 2.3.0 — verification checklist
 
-**Not yet tagged.** The live record of what has and has not been checked, kept in the same form as
+**Tagged `v2.3.0` on 2026-08-11** (this line read "Not yet tagged" until 2026-08-22; the doc was
+written before the tag and never came back). The counts below — nineteen commits, 75 files — were
+taken at the moment of writing; four more commits landed before the tag, including the
+release-candidate fixes, for 23 between `v2.2.0` and `v2.3.0`. The release is now also recorded in
+[CHANGES.md](CHANGES.md).
+
+The live record of what has and has not been checked, kept in the same form as
 `RELEASE_2.2.0_VERIFICATION.md` and `RELEASE_2.1.0_VERIFICATION.md` so the three can be compared.
 
 2.2.0 ended with three items open at the moment of tagging, recorded rather than quietly dropped.

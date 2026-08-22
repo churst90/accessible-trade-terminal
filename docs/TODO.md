@@ -64,7 +64,7 @@ version of the same idea:
   took the patch's new `Attach`/`Detach`/`SharedOwnership`/`PrimaryStore` block wholesale, which is
   the actual substance of fix 1.
 
-**Verified rather than taken on trust.** Suite 3736 green, both JS suites green (13 + 15), doc-guard
+**Verified rather than taken on trust.** Suite 3738 green, both JS suites green (13 + 15), doc-guard
 green, 0 warnings on every project that builds on Linux. Two of the patch's headline guards were
 checked the way this repo checks guards — by reintroducing the defect:
 
@@ -1715,28 +1715,82 @@ after the `StableSeed` sweep suggested there would be more. There was.
   wrong security comment is worse than none — someone could "restore" the fallback.
   `FINALIZATION_PLAN.md` §5 item 1 still lists the old behaviour as a to-fix item too.
 - [ ] **`USER_MANUAL.md:2023` overpromises hosted alerts** — see the background-alert item above.
-- [ ] **No `[2.3.0]` section in CHANGES.md.** Carried from the 2026-08-20 list; still open.
-- [ ] **Stale slot-layout comments across the audio layer.** `NavigationSonifier:50-55` says
-  "64-voice polyphonic engine", "Slots 8-15: Reserved for future" (they hold patch layers) and
-  "Slots 16-31: round-robin" (26-31 are reserved); `AudioSequencer:362` and `:565` say 32-63 and
-  64-79 (actual 32-95 and 96-127, and the inline comment three lines below `:565` has the right
-  numbers); `AudioEngine:231` says "permanent 64-element array" (it is 128);
-  `EarconPatchPlayer:22-24` says "playback (32-63)".
-- [ ] **A fourth drifted comment in `SonificationProfileProvider`** (`:69-71`), missed by
-  `0320d8a3`'s sweep of three: it says body amplitude scales so "a doji is quiet and a marubozu is
-  loud", which is the pre-change behaviour and the direct opposite of both the code and the comment
-  three lines below it. Also `:43-45` claims the volume bed's 330 Hz "seats it under the candle
-  body" — never used; and the section numbering uses 4, 5 and 7 twice each.
-- [ ] **`NavigationFeedbackManager:465-471`** documents an audio proximity tone on slot 2 that the
-  method does not produce and that line 524 explicitly disclaims; `:54-61` describes a "3 paths"
-  design that `:92-96` and `:231-234` both say was superseded; `:342-348` is an orphaned `///`
-  block for a method that moved.
-- [ ] **`SoundPatchRegistry`'s `HarmonicAmount`, `HarmonicFreqMultiplier`, `GradientWaveformA/B`
-  are documented in synthesis detail and never read by anything.** Both renderers hardcode
-  `"triangle"`/`"sawtooth"` instead of consulting the patch.
-- [ ] **`PaperTradingProvider:568-584`** carries a stacked second `<summary>` that is a stale copy
-  of `CanFill`'s doc, still describing the pre-2.3.0 "cannot sell what you do not hold" rule (also
-  a `CS1571` under `/doc`). `DemoPolicy:7-30` has the same double-summary shape.
+- [x] **WRITTEN 2026-08-22 — No `[2.3.0]` section in CHANGES.md.** Carried from the 2026-08-20
+  list. Written retrospectively from the 23 commits between `v2.2.0` and `v2.3.0` plus WHATSNEW
+  and the verification doc, and labelled as retrospective so nobody mistakes it for a
+  contemporaneous record. The "Gap" note at the top of CHANGES.md is gone with it. Two things
+  the reconstruction turned up: the verification doc's "nineteen commits" was a count taken
+  before tagging (four more landed, including the rc fixes), and its header still said **"Not
+  yet tagged"** eleven days after `v2.3.0` was tagged. Both corrected in place.
+- [x] **FIXED 2026-08-22 — Stale slot-layout comments across the audio layer.**
+  `NavigationSonifier:50-55` says "64-voice polyphonic engine", "Slots 8-15: Reserved for future"
+  (they hold patch layers) and "Slots 16-31: round-robin" (26-31 are reserved);
+  `AudioSequencer:362` and `:565` say 32-63 and 64-79 (actual 32-95 and 96-127, and the inline
+  comment three lines below `:565` has the right numbers); `AudioEngine:231` says "permanent
+  64-element array" (it is 128); `EarconPatchPlayer:22-24` says "playback (32-63)".
+
+  All corrected against the constants rather than against each other — `AudioEngine.MaxVoices`,
+  `PlaybackSlotOffset`/`PlaybackSlotEnd` and `CloudSlotOffset` are the truth, and the layout block
+  in `NavigationSonifier` now says so explicitly ("this block is a map, not a source of truth") so
+  the next drift is a smaller lie. Slots 8–15 are documented as what they actually hold, with a
+  pointer to the `7 + li` assignment that puts patch layers there. The round-robin collision with
+  26–31 is now named in that block as a real defect with a pointer here, rather than being
+  implied by two comments that disagree.
+- [x] **FIXED 2026-08-22 — A fourth drifted comment in `SonificationProfileProvider`** (`:69-71`),
+  missed by `0320d8a3`'s sweep of three: it says body amplitude scales so "a doji is quiet and a
+  marubozu is loud", which is the pre-change behaviour and the direct opposite of both the code and
+  the comment three lines below it. Also `:43-45` claims the volume bed's 330 Hz "seats it under
+  the candle body" — never used; and the section numbering uses 4, 5 and 7 twice each.
+
+  Both corrected against the code. The doji line now says loudness is constant and size is carried
+  by grit, and says what it used to claim so the change is legible. The 330 Hz claim is replaced by
+  a CAUTION explaining *why* it is never heard — `PitchMapping.PriceDirection` substitutes the
+  Bullish/Bearish pair outright — which is also the mechanism behind the still-open "volume bed and
+  candle body play the same two pitches" item, so the two are now linked in the source. Sections
+  renumbered 1a…10.
+- [x] **FIXED 2026-08-22 — `NavigationFeedbackManager:465-471`** documents an audio proximity tone
+  on slot 2 that the method does not produce and that line 524 explicitly disclaims; `:54-61`
+  describes a "3 paths" design that `:92-96` and `:231-234` both say was superseded; `:342-348` is
+  an orphaned `///` block for a method that moved.
+
+  All three rewritten. The proximity doc now says it speaks and plays nothing, and names the
+  method's own `CheckAndPlayZoneProximity` as the same leftover — the name is still a lie and
+  renaming it is a separate, larger change. The "3 paths" block now points at `SpeechFormatter`'s
+  strategy list where the precedence actually lives, keeping the token documentation, which is
+  still accurate. The orphaned summary is gone, keeping the "moved to" note.
+- [x] **FIXED 2026-08-22, and the item was half wrong — `SoundPatchRegistry`'s `HarmonicAmount`,
+  `HarmonicFreqMultiplier`, `GradientWaveformA/B` are documented in synthesis detail and never read
+  by anything.** Both renderers hardcode `"triangle"`/`"sawtooth"` instead of consulting the patch.
+
+  `HarmonicAmount` and `HarmonicFreqMultiplier` **are** read — `PropertiesModal.razor:852-855`
+  builds a preview oscillator layer from both. Only `GradientWaveformA/B` were dead, and deader
+  than the item says: the sole consumer was a `SoundPatchRegistryTests` fact asserting they were
+  non-null, i.e. a test guarding a field nothing used. They also disagreed with the sound, naming
+  `"sine"` at the bullish end where both renderers play `"triangle"`.
+
+  Removed rather than wired up, with the reasoning left in the source: wiring them would change
+  what a user hears, and if the blend should be configurable it belongs in `ComponentConfig` with
+  the other per-component sound settings, not in a code-defined built-in. The record parameters,
+  the eight registrations, the two test fixtures and the dead assertion all went together.
+- [x] **FIXED 2026-08-22 — `PaperTradingProvider:568-584`** carries a stacked second `<summary>`
+  that is a stale copy of `CanFill`'s doc, still describing the pre-2.3.0 "cannot sell what you do
+  not hold" rule (also a `CS1571` under `/doc`). `DemoPolicy:7-30` has the same double-summary
+  shape.
+
+  **There were eleven, not two.** A tree scan for a `</summary>` followed by another `<summary>`
+  with no member between them found stacked blocks in `DemoPolicy`, `IndicatorPreferencesService`,
+  `PaperTradingProvider`, `StandardRenderers` (×2), `ChartSeries` (×2), `IndicatorMath`,
+  `WebHostSpeechManager`, `ScreenerCommand` and `ProviderCapabilityAudit`. Every one is the same
+  accident: a member was inserted above another, or moved out, and its doc stayed where it was —
+  so the surviving doc describes the wrong member and the real one has none.
+
+  Each was reattached rather than deleted, because in most cases the orphan is the *only*
+  documentation the other member has: `ComponentDisplayType` got its summary back from
+  `MarkerAnchor`, `RenderTriangleUp` from `ResolveMarkerY`, `NanArray` from `ShiftMarkersForward`,
+  the `WebHostSpeechManager` and `DemoPolicy` class docs from the enums declared above them, and
+  `ScreenerCommand.Screen` from a constant. Two were genuine duplicates and were merged
+  (`PaperTradingProvider`, `ProviderCapabilityAudit`); one was a stale one-liner and was dropped
+  (`IndicatorPreferencesService`). The scan now reports zero.
 
 ### Guard tests that do not guard — **ALL FOURTEEN FIXED 2026-08-22**
 
@@ -2025,12 +2079,36 @@ they belong to this section even though the audit filed them elsewhere:
   unreachable. `HostedAccountsAuthPolicyTests` asserts the *options objects* — correct and worth
   having, but it proves configuration, not that any request is ever authorized. Nothing proves
   `/alerts/recent` requires a login or that user A cannot dismiss user B's alert.
-- [ ] **The `Environment.GetFolderPath` per-user path bug has shipped twice and there is no guard.**
+- [x] **GUARDED 2026-08-22 — The `Environment.GetFolderPath` per-user path bug has shipped twice and there is no guard.**
   `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` are both excellent and
   both docstrings describe the *same* defect — a service building its own path from
   `Environment.GetFolderPath(LocalApplicationData)` instead of taking `IPlatformPathService`. The
   tree is currently clean, so a source-scan guard would pass today and cost nothing. The scan
   pattern already exists in `StrategyLibraryPolicyTests`.
+
+  `PerUserPathPolicyTests` now scans every shipping project. Three tests, not one: the rule itself,
+  a check that every exemption is still load-bearing (an entry that stops being an offender means
+  the bug was fixed and the exemption outlived it — that is how a baseline quietly becomes
+  permission), and a cap on the tracked-but-unfixed list so it can only shrink. Comments are
+  stripped before matching, because `IndicatorPreferencesService` and `WorkspaceLibraryService`
+  both *describe* this bug in their docstrings, having each been the victim of it once. Proven in
+  both directions: adding a hand-rolled path to an ordinary service turns the rule red, and
+  "fixing" the tracked offender turns the stale-exemption test red.
+
+  **The tree was not clean, which is the point — there is a third instance.**
+  `SchwabOAuthService`'s constructor builds `%AppData%/AccessibleTrader` by hand and writes the
+  Schwab OAuth **refresh token** there. Two problems, and the second is worse than the original
+  defect: on Unix the empty-string case makes that a relative path, and in the hosted head it is
+  not user-scoped at all, so every signed-in user shares one token file. The Schwab plugin ships
+  in the WebHost build. It is tracked in the guard rather than fixed here because the fix is to
+  move the token into `PluginHostServices.SecureStorage`, which strands the tokens of anyone
+  already authenticated unless a migration comes with it — that is a decision, not a cleanup.
+
+- [ ] **`SchwabOAuthService` writes an OAuth refresh token to a hand-built, non-user-scoped path.**
+  Split out from the item above so it is not mistaken for closed. Needs: the token moved to
+  `PluginHostServices.SecureStorage`, a migration for existing desktop users (or an explicit
+  decision that they re-authenticate), and the `KnownOffenders` entry in `PerUserPathPolicyTests`
+  deleted as part of the fix — the test fails if it is left behind.
 - [ ] **Zero tests for:** `Services/AI/` (all four files — network calls carrying user API keys),
   `EmailAlertChannel` and `TelegramAlertChannel` (the two delivery channels without tests;
   `WebhookAlertChannel` has 264 lines), all five level providers plus `LevelService` (they feed
@@ -2099,8 +2177,17 @@ None of this makes 12 seconds untrustworthy today; all of it will bite on a load
   swapped, and the un-swapped one would attempt a **real network call from a test**
   (`FakeHttpMessageHandler.StrictMode` cannot catch it — that client is not wired to the fake).
   Match by name and assert exactly one candidate.
-- [ ] **`GeneralOrderServiceTests.DataOnly_provider_is_skipped_without_error` has no assertion at
-  all**, and does not assert the provider was skipped — only that nothing threw.
+- [x] **FIXED 2026-08-22 — `GeneralOrderServiceTests.DataOnly_provider_is_skipped_without_error`
+  has no assertion at all**, and does not assert the provider was skipped — only that nothing threw.
+
+  Rewritten as `DataOnly_provider_is_skipped_silently_while_a_trading_provider_still_wires_up`. The
+  skip half asserts what "silently" means — no error reported, no earcon, no event published —
+  because reporting "could not subscribe to order updates" every time a macroeconomic feed connects
+  would train the user to ignore the channel that announces refused orders. The positive control in
+  the same test then subscribes a real trading provider on the same service and asserts its fill
+  arrives, which closes the hole the old test could not see: it would have stayed green if
+  `SubscribeOrderUpdatesAsync` had been gutted for every provider on earth. Both proven by
+  reintroducing each defect.
 
 ### Tests that should exist and do not
 
@@ -2211,8 +2298,9 @@ and deliberately not fixed, each with the reason.
   maui-android workload not installed`), so its edits in the 2026-08-20 batch are the only changes
   no compiler has checked. They mirror WebHost edits that do compile. Worth a build on a machine
   with the workload before shipping a desktop build.
-- [ ] **No `[2.3.0]` section in [CHANGES.md](CHANGES.md).** 2.3.0 documented itself in WHATSNEW and
-  its verification doc and never came back to the changelog.
+- [x] **WRITTEN 2026-08-22 — No `[2.3.0]` section in [CHANGES.md](CHANGES.md).** 2.3.0 documented
+  itself in WHATSNEW and its verification doc and never came back to the changelog. Now written
+  retrospectively and labelled as such; see the fuller note in the Documentation drift section.
 
 ## Terminal / lab split (2026-08-01)
 

@@ -40,9 +40,14 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         // 3a. Volume bars: base SINE with a brown-noise tinge and a SUB-OCTAVE saw weight ∝ bar
         //     size (both set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as
         //     GRIT, not loudness — quiet bars stay clearly audible instead of dropping toward
-        //     silence. Sub-octave rather than same-octave: the latter fizzes. Low base pitch
-        //     (330 Hz) seats it under the candle body / price line as its own distinct instrument,
-        //     and a sustained envelope makes it a continuous bed during playback.
+        //     silence. Sub-octave rather than same-octave: the latter fizzes. A sustained envelope
+        //     makes it a continuous bed during playback.
+        //     CAUTION: the 330 Hz base frequency below is NOT what you hear. PitchMapping
+        //     .PriceDirection replaces it outright with the component's Bullish/BearishFrequency
+        //     (see ISonificationStrategy's pitch block), which is the same pair the candle body
+        //     uses — so the volume bed does not sit under the body, it sits on top of it. That is
+        //     a real defect and it is written up in docs/TODO.md; the 330 here is dead weight
+        //     until the pitch mapping is changed.
         if (role == ComponentRole.Volume)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 330, 1.0, false, "Sustain");
 
@@ -66,9 +71,11 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (displayType == ComponentDisplayType.Dot || displayType == ComponentDisplayType.Arrow)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Direction, 660, 1.0, false, "Ping");
 
-        // 4. Candle bodies: direction-mapped pitch (440 Hz bullish / 220 Hz bearish).
-        // DeltaFromPrice amplitude: body volume scales with |close-open|/(high-low) ratio
-        // so a doji is quiet and a marubozu is loud, viewport-normalized (no absolute-price floor issue).
+        // 6. Candle bodies: direction-mapped pitch (440 Hz bullish / 220 Hz bearish).
+        // DeltaFromPrice amplitude: body loudness is CONSTANT (see the DeltaFromPrice block in
+        // ISonificationStrategy) and body size is carried by grit instead. This line used to say
+        // "a doji is quiet and a marubozu is loud", which was the behaviour before that change and
+        // the exact opposite of the comment three lines below it.
         if (displayType == ComponentDisplayType.Candle)
             // Base SINE with a fixed square partial + saw ∝ body size (set in CreateAudioPoint):
             // a distinct "body" timbre vs the pure-sine price line, where body size reads as GRIT
@@ -76,23 +83,23 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
             // present, differing in character).
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.Direction, 440, 1.0, false, "Sustain");
 
-        // 5. Static levels: quiet low sine
+        // 7. Static levels: quiet low sine
         if (displayType == ComponentDisplayType.Level)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.None, 220, 1.0, false, "Sustain");
 
-        // 6. New marker shapes: transient ping, direction-mapped pitch (440 Hz up / 220 Hz down).
+        // 8. New marker shapes: transient ping, direction-mapped pitch (440 Hz up / 220 Hz down).
         //    TriangleUp/Down have fixed visual direction; Diamond/Square/Cross are value-neutral markers.
         if (displayType is ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown
             or ComponentDisplayType.Diamond or ComponentDisplayType.Square or ComponentDisplayType.Cross)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Direction, 440, 1.0, false, "Ping");
 
-        // 7. GradientDot: continuous momentum ribbon — smooth sustain, pitch tracks WT value.
+        // 9. GradientDot: continuous momentum ribbon — smooth sustain, pitch tracks WT value.
         //    Renders on every bar (not sparse), so Sustain avoids rapid-fire click artefacts.
         //    PitchMapping.Value lets the tone glide higher (positive/overbought) or lower (negative/oversold).
         if (displayType == ComponentDisplayType.GradientDot)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, true, "Sustain");
 
-        // 7. Default lines: smooth sine
+        // 10. Default lines: smooth sine
         return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, false, "Sustain");
     }
 }

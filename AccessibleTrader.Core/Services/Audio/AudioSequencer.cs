@@ -359,7 +359,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 int count = data.Count;
 
                 // ── Stable voice-slot plan ──────────────────────────────────────────
-                // Playback voices live in slots 32-63 (32 total). Rather than a fixed
+                // Playback voices live in slots 32-95 (64 total). Rather than a fixed
                 // 8-per-series / 4-series grid (which silently dropped the 5th series and
                 // the 9th component of any series), pack every visible + unmuted component
                 // across every visible + unmuted series into the budget sequentially, so
@@ -559,7 +559,7 @@ namespace AccessibleTrader.Core.Services.Audio
         }
 
         /// <summary>
-        /// Stops every voice this sequencer can drive — component slots 32-63 and cloud slots 64-79.
+        /// Stops every voice this sequencer can drive — component slots 32-95 and cloud slots 96-127.
         /// Playback voices are continuous Sustain oscillators (see <c>continuous = EnvelopeType != "Ping"</c>),
         /// so they ring until explicitly stopped. Called both on <see cref="Stop"/> and on entering pause,
         /// where the loop parks without advancing: without this the last bar's chord drones indefinitely

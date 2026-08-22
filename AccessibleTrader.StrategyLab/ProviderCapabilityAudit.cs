@@ -44,8 +44,7 @@ namespace AccessibleTrader.StrategyLab
         /// as <c>signal.Field</c> reads; <c>Methods</c> must not be constant-return
         /// stubs. A capability with neither is honestly marked unverifiable rather
         /// than quietly passed.
-        /// </summary>
-        /// <summary>
+        ///
         /// Evidence is an OR of ANDs: the capability is backed when **any one group**
         /// is fully satisfied, and reported as partial when a group is only partly
         /// satisfied. That shape is needed because a capability can legitimately be

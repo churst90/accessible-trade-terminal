@@ -5,6 +5,18 @@ using System.Linq;
 namespace AccessibleTrader.Core.Services
 {
     /// <summary>
+    /// Which deployment a <see cref="DemoPolicy"/> governs.
+    /// <list type="bullet">
+    /// <item><b>Full</b> — desktop (MAUI) and local web: every feature on.</item>
+    /// <item><b>Demo</b> — the public, anonymous <c>--demo</c> build: whitelisted, locked-down taste.</item>
+    /// <item><b>Hosted</b> — the public, logged-in <c>--accounts</c> build: the FULL app MINUS the
+    /// desktop-only differentiators (custom scripts, real-money trading, broker API keys, AI analyst).
+    /// Paper trading and all indicators/markets/sound/settings/workspaces are ON.</item>
+    /// </list>
+    /// </summary>
+    public enum HostMode { Full, Demo, Hosted }
+
+    /// <summary>
     /// Central, server-side policy for the public website demo (the build run with
     /// <c>--demo</c> and reverse-proxied under <c>/app/</c> on trade.codyhurst.com).
     ///
@@ -18,18 +30,6 @@ namespace AccessibleTrader.Core.Services
     /// completely unaffected. Register a singleton with isDemo:false in the MAUI /
     /// desktop heads, and isDemo:(the --demo flag) in the WebHost.
     /// </summary>
-    /// <summary>
-    /// Which deployment a <see cref="DemoPolicy"/> governs.
-    /// <list type="bullet">
-    /// <item><b>Full</b> — desktop (MAUI) and local web: every feature on.</item>
-    /// <item><b>Demo</b> — the public, anonymous <c>--demo</c> build: whitelisted, locked-down taste.</item>
-    /// <item><b>Hosted</b> — the public, logged-in <c>--accounts</c> build: the FULL app MINUS the
-    /// desktop-only differentiators (custom scripts, real-money trading, broker API keys, AI analyst).
-    /// Paper trading and all indicators/markets/sound/settings/workspaces are ON.</item>
-    /// </list>
-    /// </summary>
-    public enum HostMode { Full, Demo, Hosted }
-
     public sealed class DemoPolicy
     {
         /// <summary>Which deployment this policy governs (see <see cref="HostMode"/>).</summary>
