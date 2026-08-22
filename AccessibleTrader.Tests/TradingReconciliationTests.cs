@@ -217,7 +217,7 @@ public class TradingReconciliationTests
         }));
         await ConnectAsync(s2, "Kraken");
 
-        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        var away = Announcements(s2.Bus).Find(a => a.Message?.Contains("While you were away") == true);
         Assert.NotNull(away);
         Assert.Contains("BTC/USD position closed", away!.Message);
         Assert.Contains("Sold at", away.Message);
@@ -250,7 +250,7 @@ public class TradingReconciliationTests
         }));
         await ConnectAsync(s2, "Tradier");
 
-        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        var away = Announcements(s2.Bus).Find(a => a.Message?.Contains("While you were away") == true);
         Assert.NotNull(away);
         Assert.Contains("Loss", away!.Message); // (190 − 200) × 10 = −100
         s2.Coordinator.Dispose();
@@ -275,7 +275,7 @@ public class TradingReconciliationTests
         s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s2, "Kraken");
 
-        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("While you were away"));
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message?.Contains("While you were away") == true);
         s2.Coordinator.Dispose();
     }
 
@@ -363,7 +363,7 @@ public class TradingReconciliationTests
         s2.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(Ok(new List<TradeFill>()));
         await ConnectAsync(s2, "Kraken");
 
-        var away = Announcements(s2.Bus).Find(a => a.Message.Contains("While you were away"));
+        var away = Announcements(s2.Bus).Find(a => a.Message?.Contains("While you were away") == true);
         Assert.NotNull(away);
         Assert.Contains("reduced to 0.4", away!.Message);
         s2.Coordinator.Dispose();
@@ -401,8 +401,8 @@ public class TradingReconciliationTests
         s2.Orders.GetOpenOrdersAsync("Kraken").Returns(Ok(new List<OpenOrder>()));
         await ConnectAsync(s2, "Kraken");
 
-        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("While you were away"));
-        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message.Contains("closed"));
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message?.Contains("While you were away") == true);
+        Assert.DoesNotContain(Announcements(s2.Bus), a => a.Message?.Contains("closed") == true);
         s2.Coordinator.Dispose();
 
         // …and the snapshot must be INTACT, so a later good read still sees the
@@ -415,7 +415,7 @@ public class TradingReconciliationTests
         s3.Orders.GetFillsAsync("Kraken", "BTC/USD", Arg.Any<int>()).Returns(Ok(new List<TradeFill>()));
         await ConnectAsync(s3, "Kraken");
 
-        Assert.Contains(Announcements(s3.Bus), a => a.Message.Contains("While you were away"));
+        Assert.Contains(Announcements(s3.Bus), a => a.Message?.Contains("While you were away") == true);
         s3.Coordinator.Dispose();
     }
 
@@ -432,7 +432,7 @@ public class TradingReconciliationTests
 
         await ConnectAsync(h, "Kraken");
 
-        var msg = Assert.Single(Announcements(h.Bus), a => a.Message.Contains("permissions"));
+        var msg = Assert.Single(Announcements(h.Bus), a => a.Message?.Contains("permissions") == true);
         Assert.Equal(FeedbackType.Error, msg.Type);
     }
 

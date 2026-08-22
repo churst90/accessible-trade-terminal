@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using AccessibleTrader.Core.Services.Strategies;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Strategies;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -25,26 +29,95 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class StrategyLibraryPolicyTests
     {
-        private static string RepoRoot()
-        {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
-                dir = dir.Parent;
-            Assert.NotNull(dir);
-            return dir!.FullName;
-        }
+        private static string RepoRoot() => ProviderRoster.RepoRoot();
 
-        private static string[] AppSources()
+        /// <summary>
+        /// Projects that are NOT shipping code. <c>StrategyLab</c> is the research lab and is
+        /// where the catalogue is supposed to live; the test project and the calibrator tool
+        /// never reach a user.
+        /// </summary>
+        private static readonly string[] NotShippingCode =
+        {
+            "AccessibleTrader.StrategyLab",
+            "AccessibleTrader.Tests",
+            "DotPadCalibrator",
+        };
+
+        /// <summary>
+        /// Every shipping project, read from the solution file.
+        ///
+        /// <para>
+        /// This used to be a hand-written list of three directory names, one of which
+        /// (<c>AccessibleTrader.Maui</c>) had not existed for a long time and was silently
+        /// dropped by a <c>.Where(Directory.Exists)</c>. It scanned two of the shipping projects.
+        /// Missing were <c>AccessibleTrader.BlazorClient</c> and — the one that matters —
+        /// <c>AccessibleTrader.WebHost</c>, whose <c>Program.cs</c> is the composition root and
+        /// the single most natural home for exactly the first-launch seeder these guards exist
+        /// to prevent. Reading the solution means adding a project cannot leave a hole.
+        /// </para>
+        /// </summary>
+        internal static string[] ShippingProjectDirectories()
         {
             string root = RepoRoot();
-            return new[] { "AccessibleTrader.Core", "AccessibleTrader.BlazorClient.Components", "AccessibleTrader.Maui" }
-                .Select(d => Path.Combine(root, d))
-                .Where(Directory.Exists)
+            string slnx = File.ReadAllText(Path.Combine(root, "AccessibleTrader.slnx"));
+
+            var dirs = System.Text.RegularExpressions.Regex
+                .Matches(slnx, @"Project\s+Path=""([^""]+)""")
+                .Select(m => m.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar))
+                .Select(rel => Path.GetDirectoryName(Path.Combine(root, rel))!)
+                .Where(dir => !NotShippingCode.Contains(Path.GetFileName(dir)))
+                .Distinct()
+                .OrderBy(d => d, StringComparer.Ordinal)
+                .ToArray();
+
+            // Assert existence rather than filtering on it — a filter is how the stale Maui
+            // entry above went unnoticed for however long it was wrong.
+            foreach (var dir in dirs)
+                Assert.True(Directory.Exists(dir), $"AccessibleTrader.slnx lists a project whose directory is missing: {dir}");
+
+            return dirs;
+        }
+
+        private static string[] AppSources() =>
+            ShippingProjectDirectories()
                 .SelectMany(d => Directory.EnumerateFiles(d, "*.*", SearchOption.AllDirectories))
                 .Where(f => f.EndsWith(".cs") || f.EndsWith(".razor"))
                 .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                          && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
                 .ToArray();
+
+        /// <summary>
+        /// The four guards below all iterate <see cref="AppSources"/>; a scan that covers less
+        /// than it says it does passes for the wrong reason, which is precisely how the WebHost
+        /// stayed outside these rules.
+        /// </summary>
+        [Fact]
+        public void TheScanCoversEveryShippingProject()
+        {
+            var names = ShippingProjectDirectories().Select(Path.GetFileName).ToList();
+
+            foreach (var required in new[]
+            {
+                "AccessibleTrader.Core",
+                "AccessibleTrader.BlazorClient",
+                "AccessibleTrader.BlazorClient.Components",
+                "AccessibleTrader.WebHost",
+            })
+                Assert.Contains(required, names);
+
+            Assert.DoesNotContain("AccessibleTrader.StrategyLab", names);   // the catalogue's own home
+            Assert.DoesNotContain("AccessibleTrader.Tests", names);
+
+            // …and the file scan behind them is non-empty in each of those projects.
+            var files = AppSources();
+            foreach (var required in new[]
+            {
+                "AccessibleTrader.Core",
+                "AccessibleTrader.BlazorClient",
+                "AccessibleTrader.BlazorClient.Components",
+                "AccessibleTrader.WebHost",
+            })
+                Assert.Contains(files, f => f.Contains(required + Path.DirectorySeparatorChar));
         }
 
         /// <summary>Strips comments so a note ABOUT the removal does not read as a reintroduction.</summary>
@@ -117,10 +190,51 @@ namespace AccessibleTrader.Tests
             // The import path is the ONLY way a strategy the user did not write reaches the
             // library, which makes "importing a file never starts anything" a policy property
             // and not merely an implementation detail of StrategyBundleService.
-            string source = File.ReadAllText(Path.Combine(
-                RepoRoot(), "AccessibleTrader.Core", "Services", "Strategies", "StrategyBundle.cs"));
+            //
+            // This used to be a substring match for "IsAutoActivate = false" over the WHOLE of
+            // StrategyBundle.cs — comments included, and the file's own class remarks contain
+            // that sentence. It passed with an `IsAutoActivate = true` on the live path as long
+            // as the false string existed anywhere in the file. Now it imports a bundle that
+            // asks to auto-start and looks at what the library got.
+            var library = new RecordingLibrary();
+            var hostile = new StrategySpec(
+                Id: "policy.autostart",
+                Name: "Wants to start itself",
+                Description: "a bundle that claims auto-activate",
+                Side: OrderSide.Buy,
+                Conditions: new ConditionLeaf("leaf", "REGIME.AboveSma200", LeafOperator.GreaterThan, Value: 0),
+                Risk: new RiskPlan(
+                    new StopSource(StopSourceKind.AtrMultiple),
+                    new List<TpLadderRung> { new(TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 1.0) },
+                    new PositionSizing(),
+                    new EntryTrigger()),
+                IsAutoActivate: true);
 
-            Assert.Contains("IsAutoActivate = false", source);
+            var result = StrategyBundleService.Import(
+                new StrategyBundle(StrategyBundle.CurrentFormatVersion, "test", null, DateTime.UtcNow,
+                    new List<StrategySpec> { hostile }),
+                library);
+
+            Assert.Single(result.Imported);
+            Assert.False(Assert.Single(library.All).IsAutoActivate,
+                "An imported strategy came back auto-activating. Importing a file must never start "
+              + "trading logic in an app the user has not touched since.");
+        }
+
+        /// <summary>Minimal in-memory library — the import path only needs lookup and upsert.</summary>
+        private sealed class RecordingLibrary : IStrategyLibrary
+        {
+            private readonly List<StrategySpec> _specs = new();
+            public IReadOnlyList<StrategySpec> All => _specs;
+            public StrategySpec? GetById(string id) => _specs.FirstOrDefault(s => s.Id == id);
+            public void Upsert(StrategySpec spec)
+            {
+                _specs.RemoveAll(s => s.Id == spec.Id);
+                _specs.Add(spec);
+            }
+            public void Remove(string id) => _specs.RemoveAll(s => s.Id == id);
+            public void Save() { }
+            public void Reload() { }
         }
 
         [Fact]

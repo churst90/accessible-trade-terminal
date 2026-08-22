@@ -20,58 +20,37 @@ namespace AccessibleTrader.Tests
     [Collection("ProviderCredentialBridge")]
     public class ProviderCapabilityHonestyTests
     {
-        // Trading-capable providers with parameterless constructors (Capabilities is a pure
-        // property — no credentials or network needed to read it).
+        // Trading-capable providers (Capabilities is a pure property — no credentials or network
+        // needed to read it).
         //
-        // Coinbase, Bitstamp and Oanda were MISSING from this list, which is why every
-        // invariant below was passing on seven of ten providers while calling itself a
-        // sweep. Oanda is the one that mattered: it declared TrailingStop with no
-        // trailing implementation at all, and no test here could see it because Oanda
-        // was not enumerated. A sweep that does not enumerate everything is a spot
-        // check wearing a sweep's name — see AllTradingProvidersAreEnumeratedHere.
-        private static IEnumerable<BaseMarketDataProvider> TradingProviders()
-        {
-            yield return new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider();
-            yield return new AccessibleTrader.Plugins.Mexc.MexcProvider();
-            yield return new AccessibleTrader.Plugins.Binance.BinanceProvider();
-            yield return new AccessibleTrader.Plugins.Kraken.KrakenProvider();
-            yield return new AccessibleTrader.Plugins.Tradier.TradierProvider();
-            yield return new AccessibleTrader.Plugins.Schwab.SchwabProvider();
-            yield return new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
-            yield return new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider();
-            yield return new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
-            yield return new AccessibleTrader.Plugins.Oanda.OandaProvider();
-            yield return new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
-            yield return new AccessibleTrader.Plugins.Gemini.GeminiProvider();
-        }
+        // Coinbase, Bitstamp and Oanda were once MISSING from a hand-written version of this
+        // list, which is why every invariant below was passing on seven of ten providers while
+        // calling itself a sweep. Oanda is the one that mattered: it declared TrailingStop with
+        // no trailing implementation at all, and no test here could see it because Oanda was not
+        // enumerated. A sweep that does not enumerate everything is a spot check wearing a
+        // sweep's name — so the list is no longer written by hand. ProviderRoster discovers it
+        // from the build output, and AllTradingProvidersAreEnumeratedHere cross-checks that
+        // against a source scan of the repo.
+        private static IEnumerable<BaseMarketDataProvider> TradingProviders() => ProviderRoster.Trading();
 
         /// <summary>
-        /// The list above must not fall behind the repo. A hand-maintained roster
-        /// silently stops covering anything added after it was written, and every
-        /// assertion that iterates it keeps passing — which is exactly what happened.
-        /// The audit's own file sweep is the cross-check.
+        /// The roster must not fall behind the repo. Reflection over the build output and the
+        /// audit's source scan are independent routes to the same answer, so disagreement means
+        /// one of them has gone blind — most likely a plugin the test project stopped referencing.
         /// </summary>
         [Fact]
         public void AllTradingProvidersAreEnumeratedHere()
         {
             var onDisk = AccessibleTrader.StrategyLab.ProviderCapabilityAudit
-                .Run(RepoRoot()).Select(a => a.Name).ToHashSet();
+                .Run(ProviderRoster.RepoRoot()).Select(a => a.Name).ToHashSet();
             var enumerated = TradingProviders().Select(p => p.GetType().Name).ToHashSet();
 
+            Assert.NotEmpty(onDisk);
             Assert.True(onDisk.SetEquals(enumerated),
                 "TradingProviders() has drifted from the trading providers in the repo. "
               + "Missing here: " + string.Join(", ", onDisk.Except(enumerated).DefaultIfEmpty("none"))
               + ". Listed but not found on disk: "
               + string.Join(", ", enumerated.Except(onDisk).DefaultIfEmpty("none")));
-        }
-
-        private static string RepoRoot()
-        {
-            var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
-                dir = dir.Parent;
-            Assert.NotNull(dir);
-            return dir!.FullName;
         }
 
         [Fact]

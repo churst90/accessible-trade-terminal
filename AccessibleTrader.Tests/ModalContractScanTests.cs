@@ -32,6 +32,28 @@ namespace AccessibleTrader.Tests
             return dir!.FullName;
         }
 
+        /// <summary>
+        /// The file with its comments removed — razor <c>@* … *@</c> blocks, <c>/* … */</c> blocks
+        /// and <c>//</c> line comments.
+        ///
+        /// <para>
+        /// Every check below used to run against the raw text, so a COMMENTED-OUT
+        /// <c>base.OnInitialized()</c> satisfied the contract — which is close to the exact shape
+        /// of the SaveWorkspaceModal bug this scanner exists to catch, since commenting the call
+        /// out while debugging Escape is a plausible way to arrive there. A note ABOUT the
+        /// contract must not read as an implementation of it.
+        /// </para>
+        /// </summary>
+        internal static string CodeOnly(string text)
+        {
+            text = Regex.Replace(text, @"@\*.*?\*@", "", RegexOptions.Singleline);
+            text = Regex.Replace(text, @"/\*.*?\*/", "", RegexOptions.Singleline);
+            // Line comments only when the "//" starts the line (after whitespace): a bare
+            // strip would eat "https://" out of a URL attribute and shorten real markup.
+            text = Regex.Replace(text, @"(?m)^\s*//.*$", "");
+            return text;
+        }
+
         private static IEnumerable<string> DialogComponents()
         {
             string componentsDir = Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components");
@@ -53,9 +75,11 @@ namespace AccessibleTrader.Tests
             {
                 scanned++;
                 string name = Path.GetFileName(file);
-                string text = File.ReadAllText(file);
+                string text = CodeOnly(File.ReadAllText(file));
 
-                if (text.Contains("@inherits ModalBase"))
+                bool inheritsModalBase = text.Contains("@inherits ModalBase");
+
+                if (inheritsModalBase)
                 {
                     // Base-class path: an OnInitialized override MUST call base —
                     // the exact SaveWorkspaceModal bug (ModalBase also self-heals in
@@ -64,25 +88,40 @@ namespace AccessibleTrader.Tests
                     if (Regex.IsMatch(text, @"override\s+void\s+OnInitialized\s*\(")
                         && !text.Contains("base.OnInitialized()"))
                         failures.Add($"{name}: inherits ModalBase but overrides OnInitialized without base.OnInitialized().");
-                    continue;
                 }
 
-                // Self-implemented path.
+                // Name agreement, for BOTH paths.
+                //
+                // This used to `continue` past here for every ModalBase inheritor, so an
+                // inheritor that published its own ModalStateChangedEvent(true, "Foo") /
+                // (false, "Bar") — or whose events disagreed with its own ModalName override —
+                // was never checked at all. ModalBase arms the subscription; it cannot stop a
+                // subclass publishing a second, differently-named pair alongside it, and a
+                // close event under the wrong name leaks the modal stack exactly as it does on
+                // the self-implemented path.
                 var openNames = Regex.Matches(text, @"ModalStateChangedEvent\(\s*true\s*,\s*""([^""]+)""")
                     .Select(m => m.Groups[1].Value).Distinct().ToList();
                 var closeNames = Regex.Matches(text, @"ModalStateChangedEvent\(\s*false\s*,\s*""([^""]+)""")
                     .Select(m => m.Groups[1].Value).Distinct().ToList();
                 var escapeNames = Regex.Matches(text, @"e\.ModalName\s*==\s*""([^""]+)""")
                     .Select(m => m.Groups[1].Value).Distinct().ToList();
+                // A ModalBase inheritor names itself through the override, not through a literal.
+                var declaredNames = Regex.Matches(text, @"override\s+string\s+ModalName\s*=>\s*""([^""]+)""")
+                    .Select(m => m.Groups[1].Value).Distinct().ToList();
 
-                if (openNames.Count == 0)
-                    failures.Add($"{name}: never publishes ModalStateChangedEvent(true, …) — the open announcement and modal-stack tracking are missing.");
-                if (closeNames.Count == 0)
-                    failures.Add($"{name}: never publishes ModalStateChangedEvent(false, …) — the modal stack leaks and chart commands stay suppressed.");
-                if (!text.Contains("CloseTopModalEvent"))
-                    failures.Add($"{name}: no CloseTopModalEvent subscription — Escape cannot close it.");
+                if (!inheritsModalBase)
+                {
+                    // Self-implemented path: the base class is not doing any of this for it.
+                    if (openNames.Count == 0)
+                        failures.Add($"{name}: never publishes ModalStateChangedEvent(true, …) — the open announcement and modal-stack tracking are missing.");
+                    if (closeNames.Count == 0)
+                        failures.Add($"{name}: never publishes ModalStateChangedEvent(false, …) — the modal stack leaks and chart commands stay suppressed.");
+                    if (!text.Contains("CloseTopModalEvent"))
+                        failures.Add($"{name}: no CloseTopModalEvent subscription — Escape cannot close it.");
+                }
 
-                var allNames = openNames.Concat(closeNames).Concat(escapeNames).Distinct().ToList();
+                var allNames = openNames.Concat(closeNames).Concat(escapeNames).Concat(declaredNames)
+                    .Distinct().ToList();
                 if (allNames.Count > 1)
                     failures.Add($"{name}: open/close/Escape names disagree: {string.Join(", ", allNames)}.");
             }
@@ -90,6 +129,65 @@ namespace AccessibleTrader.Tests
             Assert.True(scanned >= 15, $"Only {scanned} dialogs scanned — the glob is broken, not the modals.");
             Assert.True(failures.Count == 0,
                 "Modal contract violations:\n" + string.Join("\n", failures));
+        }
+
+        /// <summary>
+        /// The comment stripper, on its own. The contract scan above is a source scan, so its
+        /// correctness IS this function's correctness — and its failure mode (a commented-out
+        /// call reading as a real one) is invisible from the scan's own green.
+        /// </summary>
+        [Fact]
+        public void TheCommentStripper_RemovesCommentsAndKeepsCode()
+        {
+            const string markup = """
+                @* base.OnInitialized(); *@
+                @inherits ModalBase
+                // base.OnInitialized();
+                /* base.OnInitialized(); */
+                <a href="https://example.com/x">link</a>
+                protected override void OnInitialized() { }
+                """;
+
+            string code = ModalContractScanTests.CodeOnly(markup);
+
+            Assert.DoesNotContain("base.OnInitialized()", code);
+            Assert.Contains("@inherits ModalBase", code);
+            // A URL is not a line comment: stripping "//" anywhere would shorten real markup.
+            Assert.Contains("https://example.com/x", code);
+        }
+
+        /// <summary>
+        /// The name-agreement check now runs for ModalBase inheritors too, and today no inheritor
+        /// publishes its own state events — so that branch is currently VACUOUS. This pins the
+        /// detection itself against a synthetic file, so the rule is known to work on the day
+        /// someone writes the modal that needs it.
+        /// </summary>
+        [Fact]
+        public void NameDisagreement_IsDetected_EvenForAModalBaseInheritor()
+        {
+            const string markup = """
+                @inherits ModalBase
+                <div role="dialog"></div>
+                @code {
+                    protected override string ModalName => "Foo";
+                    void Open()  { EventBus.Publish(new ModalStateChangedEvent(true, "Foo")); }
+                    void Close() { EventBus.Publish(new ModalStateChangedEvent(false, "Bar")); }
+                }
+                """;
+
+            string text = ModalContractScanTests.CodeOnly(markup);
+
+            var open = Regex.Matches(text, @"ModalStateChangedEvent\(\s*true\s*,\s*""([^""]+)""")
+                .Select(m => m.Groups[1].Value);
+            var close = Regex.Matches(text, @"ModalStateChangedEvent\(\s*false\s*,\s*""([^""]+)""")
+                .Select(m => m.Groups[1].Value);
+            var declared = Regex.Matches(text, @"override\s+string\s+ModalName\s*=>\s*""([^""]+)""")
+                .Select(m => m.Groups[1].Value);
+
+            var all = open.Concat(close).Concat(declared).Distinct().ToList();
+
+            Assert.Equal(new[] { "Foo", "Bar" }, all);
+            Assert.True(all.Count > 1, "The scan would not have flagged this modal.");
         }
 
         // ── Tablists must handle arrow keys ──────────────────────────────────

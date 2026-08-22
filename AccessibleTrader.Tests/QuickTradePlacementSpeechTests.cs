@@ -66,7 +66,7 @@ public class QuickTradePlacementSpeechTests
         svc.Place(market: true);
 
         var after = bus.Log.Skip(before).ToList();
-        int speechAt = after.FindIndex(e => e is FeedbackRequestEvent f && f.Message.Contains("sent", StringComparison.OrdinalIgnoreCase));
+        int speechAt = after.FindIndex(e => e is FeedbackRequestEvent f && f.Message?.Contains("sent", StringComparison.OrdinalIgnoreCase) == true);
         int orderAt  = after.FindIndex(e => e is QuickTradeRequestedEvent);
 
         Assert.True(speechAt >= 0, "The placement must be announced.");

@@ -38,6 +38,9 @@
 @inject ILogger<MainLayout> _layoutLogger
 @inject AccessibleTrader.Core.Services.ThemeService _themeService
 @inject DemoPolicy Demo
+@* Same seam as ApiKeysModal: the release gate arrives as a value so it is not a static
+   that only a source grep can check. See WithdrawalReleasePolicy. *@
+@inject IServiceProvider Services
 @inject ISettingsManager _settings
 @* Injected purely to construct it. It subscribes to QuickTradeRequestedEvent in its constructor and
    is the thing that turns a committed quick trade into an actual order — a service nobody resolves
@@ -121,11 +124,11 @@
        raised when CanWithdrawAsync is true — provider capability AND a
        withdrawal-enabled key profile, both checked in the service.
 
-       Plus the release gate: WithdrawalService.Released is false for 2.3.0, so the
+       Plus the release gate: the withdrawal gate is closed for 2.3.0, so the
        dialog is not even instantiated. Not strictly required — CanWithdrawAsync
        already refuses, so nothing raises the event — but a modal that cannot open
        should not be in the render tree waiting for one. *@
-    @if (Demo.AllowTrading && AccessibleTrader.Core.Services.Trading.WithdrawalService.Released)
+    @if (Demo.AllowTrading && WithdrawalsReleased)
                                      { <WithdrawModal /> }
     @if (Demo.AllowStrategies)       { <StrategyModal /> }
     @if (Demo.AllowAlerts)           { <AlertsModal /> }
@@ -175,6 +178,11 @@
 @inject AccessibleTrader.Core.Services.IEventBus _eventBus
 
 @code {
+    /// <summary>The withdrawal release gate. Falls back to the shipped (closed) value when
+    /// nothing is registered — see WithdrawalReleasePolicy.</summary>
+    private bool WithdrawalsReleased =>
+        AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.From(Services).Released;
+
     private string _latestSpeech = "";
     private int _activeBuffer = 1;
     private IDisposable? _stateSub;

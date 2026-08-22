@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Tests.Fakes;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -25,6 +27,8 @@ namespace AccessibleTrader.Tests
     /// - Coinbase inlines <c>Replace("/", "-").ToUpper()</c> at call-sites
     ///   (product-id convention, e.g. "BTC-USD").
     /// </summary>
+    // Constructs real providers, which touch the global ApiKeys bridge — see BrokerParityTests.
+    [Collection("ProviderCredentialBridge")]
     public class ProviderSymbolNormalisationTests
     {
         // ── BaseMarketDataProvider.CleanSymbol ────────────────────────────────
@@ -88,20 +92,46 @@ namespace AccessibleTrader.Tests
         }
 
         // ── Coinbase product-id convention ────────────────────────────────────
+        //
+        // This used to assert `input.Replace("/", "-").ToUpperInvariant()` — the BCL, on a
+        // symbol-routing money path — with CoinbaseProvider never constructed. The comment
+        // saying the provider "does not expose a helper" had also gone stale: ToProductId has
+        // been the one transform for a while, and the test never noticed either way.
 
         [Theory]
         [InlineData("BTC/USD",  "BTC-USD")]
         [InlineData("btc/usd",  "BTC-USD")]
         [InlineData("ETH-USDT", "ETH-USDT")]  // already dashed → only uppercased
         [InlineData("SOLUSD",   "SOLUSD")]    // no separator → passed through
+        [InlineData("",         "")]          // null-safe / empty short-circuit
         public void Coinbase_ProductId_ReplacesSlashWithDashAndUppercases(string input, string expected)
         {
-            // CoinbaseProvider does not expose a helper; the transform is inline at
-            // multiple call sites (GetOrderBook, SubscribeOrderBook, GetOpenOrders).
-            // This test mirrors the exact transform so a future refactor that
-            // consolidates it into a helper lands on the same behaviour.
-            string actual = input.Replace("/", "-").ToUpperInvariant();
+            string actual = InvokeProviderStatic<string>(
+                "AccessibleTrader.Plugins.Coinbase", "CoinbaseProvider", "ToProductId", input);
             Assert.Equal(expected, actual);
+        }
+
+        /// <summary>
+        /// …and the transform is actually on the path a request takes. A correct helper nobody
+        /// calls is the same outage as a wrong one, and the three call sites the old comment
+        /// named were never exercised.
+        /// </summary>
+        [Fact]
+        public async Task Coinbase_ProductId_ReachesTheWire()
+        {
+            var handler = new FakeHttpMessageHandler().Get(@"coinbase\.com", """{"candles":[]}""");
+            var provider = new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider();
+            provider.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "test",
+                ["ApiSecret"] = "test-secret",
+            });
+            SwapHttpClient(provider, handler);
+
+            await provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "btc/usd", "1m", 10));
+
+            Assert.NotEmpty(handler.Captured);
+            Assert.Contains("/products/BTC-USD/candles", handler.Captured[0].RequestUri!.ToString());
         }
 
         // ── Bitstamp: CleanSymbol + usdt→usd quote swap ──────────────────────
@@ -125,42 +155,65 @@ namespace AccessibleTrader.Tests
         }
 
         // ── Oanda: forex "EUR_USD" underscore convention ─────────────────────
+        //
+        // Same class of defect as the Coinbase case above, and the mirror was WRONG as well as
+        // vacuous: the real FormatInstrument splits a 6-character separator-less symbol, so
+        // "EURUSD" becomes "EUR_USD" — the test's copy would have left it as "EURUSD" and
+        // nobody would have known, because no row covered it.
 
         [Theory]
         [InlineData("EUR/USD", "EUR_USD")]
         [InlineData("eur/usd", "EUR_USD")]
         [InlineData("GBP-JPY", "GBP_JPY")]
         [InlineData("EUR_USD", "EUR_USD")]  // already underscored → uppercased only
+        [InlineData("EURUSD",  "EUR_USD")]  // 6 chars, no separator → split at [3]
+        [InlineData("XAUUSD",  "XAU_USD")]
         public void Oanda_ForexSymbol_UsesUnderscoreSeparator(string input, string expected)
         {
-            // OANDA v20 REST API expects instrument names as BASE_QUOTE with an
-            // underscore. Inline at each call site in OandaProvider.
-            string actual = input.Replace("/", "_").Replace("-", "_").ToUpperInvariant();
+            string actual = InvokeProviderStatic<string>(
+                "AccessibleTrader.Plugins.Oanda", "OandaProvider", "FormatInstrument", input);
             Assert.Equal(expected, actual);
         }
 
-        // ── Polygon: crypto "X:BTCUSD" prefix, stocks uppercase passthrough ──
+        [Fact]
+        public async Task Oanda_Instrument_ReachesTheWire()
+        {
+            var handler = new FakeHttpMessageHandler().Get(@"oanda\.com", """{"candles":[]}""");
+            var provider = new AccessibleTrader.Plugins.Oanda.OandaProvider();
+            SwapHttpClient(provider, handler);   // Oanda writes auth headers in Configure
+            provider.Configure(new Dictionary<string, string>
+            {
+                ["AccessToken"] = "test-token",
+                ["AccountId"]   = "test-acct",
+            });
+
+            await provider.FetchOhlcvAsync(new MarketDataRequest("Forex", "eur/usd", "1h", 10));
+
+            Assert.NotEmpty(handler.Captured);
+            Assert.Contains("/instruments/EUR_USD/candles", handler.Captured[0].RequestUri!.ToString());
+        }
+
+        // ── Polygon: stock ticker passthrough, asserted on the wire ──────────
+        //
+        // The two theories that used to live here asserted `input.ToUpperInvariant()` against
+        // no provider at all — there is no Polygon or equity normalisation helper to drift
+        // from, so the only claim worth making is about what actually lands in the URL.
 
         [Theory]
         [InlineData("AAPL", "AAPL")]     // stock ticker unchanged
-        [InlineData("spy",  "SPY")]      // uppercase
-        [InlineData("MSFT", "MSFT")]
-        public void Polygon_StockTicker_UppercasesPassthrough(string input, string expected)
-        {
-            string actual = input.ToUpperInvariant();
-            Assert.Equal(expected, actual);
-        }
-
-        // ── Schwab / Tradier / Finnhub equity: uppercase passthrough ─────────
-
-        [Theory]
-        [InlineData("aapl",  "AAPL")]
-        [InlineData("TSLA",  "TSLA")]
+        [InlineData("spy",  "SPY")]      // uppercased on the way out
         [InlineData("brk.b", "BRK.B")]   // dotted ticker kept (Berkshire B)
-        public void Equity_Ticker_UppercasesPassthrough(string input, string expected)
+        public async Task Polygon_StockTicker_ReachesTheWire_Uppercased(string input, string expected)
         {
-            string actual = input.ToUpperInvariant();
-            Assert.Equal(expected, actual);
+            var handler = new FakeHttpMessageHandler().Get(@"polygon\.io", """{"results":[]}""");
+            var provider = new AccessibleTrader.Plugins.Polygon.PolygonProvider();
+            provider.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
+            SwapHttpClient(provider, handler);
+
+            await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", input, "1m", 10));
+
+            Assert.NotEmpty(handler.Captured);
+            Assert.Contains($"/aggs/ticker/{expected}/range/", handler.Captured[0].RequestUri!.ToString());
         }
 
         // ── MEXC + Alpaca crypto: CleanSymbol pattern (covered above) ────────
@@ -197,20 +250,38 @@ namespace AccessibleTrader.Tests
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        private static T InvokeKrakenStatic<T>(string methodName, string arg)
+        private static T InvokeKrakenStatic<T>(string methodName, string arg) =>
+            InvokeProviderStatic<T>("AccessibleTrader.Plugins.Kraken", "KrakenProvider", methodName, arg);
+
+        /// <summary>
+        /// Calls a provider's private static string→string normaliser. These transforms are
+        /// deliberately not public — they are wire-format details — but "not public" is not a
+        /// reason to assert a copy of them instead, which is what several tests in this file
+        /// used to do. A missing method throws rather than silently skipping.
+        /// </summary>
+        private static T InvokeProviderStatic<T>(string assemblyName, string typeName, string methodName, string arg)
         {
-            // KrakenProvider lives in AccessibleTrader.Plugins.Kraken — load by fully-
-            // qualified name. The private static methods FormatPair/FormatRestPair are
-            // the tested surface. Reflection keeps the test project from taking a
-            // hard plugin dependency.
-            var asm = Assembly.Load("AccessibleTrader.Plugins.Kraken");
-            var type = asm.GetType("AccessibleTrader.Plugins.Kraken.KrakenProvider")
-                ?? throw new InvalidOperationException("KrakenProvider not found.");
+            var asm = Assembly.Load(assemblyName);
+            var type = asm.GetType($"{assemblyName}.{typeName}")
+                ?? throw new InvalidOperationException($"{typeName} not found in {assemblyName}.");
             var method = type.GetMethod(methodName,
                 BindingFlags.NonPublic | BindingFlags.Static,
                 binder: null, types: new[] { typeof(string) }, modifiers: null)
-                ?? throw new MissingMethodException($"{methodName} not found on KrakenProvider.");
+                ?? throw new MissingMethodException($"{methodName}(string) not found on {typeName}.");
             return (T)method.Invoke(null, new object[] { arg })!;
+        }
+
+        /// <summary>Swap a provider's private HttpClient for one wired to a fake handler —
+        /// the same trick <see cref="ProviderFetchOhlcvTests"/> and <see cref="BrokerParityTests"/>
+        /// already use. Providers name the field differently, so it is found by type.</summary>
+        private static void SwapHttpClient(object provider, FakeHttpMessageHandler handler)
+        {
+            var target = provider.GetType()
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(f => f.FieldType == typeof(System.Net.Http.HttpClient))
+                ?? throw new InvalidOperationException(
+                    $"{provider.GetType().Name} has no HttpClient-typed private field.");
+            target.SetValue(provider, new System.Net.Http.HttpClient(handler));
         }
 
         // ── Minimal concrete subclass to exercise protected CleanSymbol ──────

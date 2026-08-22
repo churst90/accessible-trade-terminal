@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using Xunit;
@@ -11,45 +12,37 @@ namespace AccessibleTrader.Tests
     /// the global ApiKeys bridge), so it shares the signed-path collection to stay
     /// serialized. Capability-flag consistency lives in
     /// <see cref="ProviderCapabilityHonestyTests"/>.
+    ///
+    /// <para>
+    /// The roster used to be typed out here by hand, and it had fallen two providers behind the
+    /// repo: **Gemini and KrakenFutures were absent**, so neither got the Name / Description /
+    /// MaxBarsPerRequest / timeframe-parse / capability gate this file calls universal. It now
+    /// enumerates <see cref="ProviderRoster"/>, which discovers providers from the build output.
+    /// </para>
     /// </summary>
     [Collection("ProviderCredentialBridge")]
     public class ProviderConformanceTests
     {
-        public static IEnumerable<object[]> Providers()
-        {
-            yield return P(new AccessibleTrader.Plugins.Binance.BinanceProvider());
-            yield return P(new AccessibleTrader.Plugins.Bitstamp.BitstampProvider());
-            yield return P(new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider());
-            yield return P(new AccessibleTrader.Plugins.Kraken.KrakenProvider());
-            yield return P(new AccessibleTrader.Plugins.Mexc.MexcProvider());
-            yield return P(new AccessibleTrader.Plugins.Alpaca.AlpacaProvider());
-            yield return P(new AccessibleTrader.Plugins.Oanda.OandaProvider());
-            yield return P(new AccessibleTrader.Plugins.Tradier.TradierProvider());
-            yield return P(new AccessibleTrader.Plugins.Schwab.SchwabProvider());
-            yield return P(new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider());
-            yield return P(new AccessibleTrader.Plugins.Polygon.PolygonProvider());
-            yield return P(new AccessibleTrader.Plugins.Finnhub.FinnhubProvider());
-            yield return P(new AccessibleTrader.Plugins.Fmp.FmpProvider());
-            yield return P(new AccessibleTrader.Plugins.TwelveData.TwelveDataProvider());
-        }
+        // xUnit serializes theory arguments for discovery, so rows carry the type name and the
+        // provider is constructed in the body.
+        public static IEnumerable<object[]> TradingProviderTypeNames() =>
+            ProviderRoster.Types
+                .Where(t => typeof(ITradingProvider).IsAssignableFrom(t))
+                .Select(t => new object[] { t.FullName! });
 
-        private static object[] P(BaseMarketDataProvider provider) => new object[] { new Wrapped(provider) };
+        public static IEnumerable<object[]> AllProviderTypeNames() =>
+            ProviderRoster.Types.Select(t => new object[] { t.FullName! });
 
-        // Boxes the provider with a readable ToString so a failing row names the provider.
-        public sealed class Wrapped
-        {
-            public BaseMarketDataProvider Provider { get; }
-            public Wrapped(BaseMarketDataProvider p) { Provider = p; }
-            public override string ToString() => Provider.Name;
-        }
+        private static BaseMarketDataProvider Build(string typeName) =>
+            ProviderRoster.All().First(p => p.GetType().FullName == typeName);
 
         [Theory]
-        [MemberData(nameof(Providers))]
-        public void Provider_satisfies_universal_contracts(Wrapped w)
+        [MemberData(nameof(AllProviderTypeNames))]
+        public void Provider_satisfies_universal_contracts(string providerTypeName)
         {
-            var p = w.Provider;
+            using var p = Build(providerTypeName);
 
-            Assert.False(string.IsNullOrWhiteSpace(p.Name), "Name must be set.");
+            Assert.False(string.IsNullOrWhiteSpace(p.Name), $"{p.GetType().Name}: Name must be set.");
             Assert.False(string.IsNullOrWhiteSpace(p.Description), $"{p.Name}: Description must be set.");
             Assert.NotEmpty(p.SupportedMarkets);
             Assert.True(p.MaxBarsPerRequest > 0, $"{p.Name}: MaxBarsPerRequest must be positive.");
@@ -62,6 +55,40 @@ namespace AccessibleTrader.Tests
 
             // GetCapability must at least surface the market-data face.
             Assert.NotNull(p.GetCapability<IMarketDataProvider>());
+        }
+
+        /// <summary>
+        /// A trading provider must also be reachable *as* one through the capability bridge —
+        /// the order service asks for <see cref="ITradingProvider"/> via <c>GetCapability</c>,
+        /// not by casting, so a provider that implements the interface but does not surface it
+        /// there cannot place an order.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(TradingProviderTypeNames))]
+        public void Trading_provider_surfaces_its_trading_face(string providerTypeName)
+        {
+            using var p = Build(providerTypeName);
+            Assert.NotNull(p.GetCapability<ITradingProvider>());
+        }
+
+        /// <summary>
+        /// Anti-vacuity: both theories above iterate whatever the roster hands them, so an empty
+        /// or shrunken roster reports success on no work. Two providers went missing from the
+        /// old hand-written version of this list without anything noticing.
+        /// </summary>
+        [Fact]
+        public void The_sweep_covers_every_provider_and_every_trading_provider()
+        {
+            Assert.Equal(ProviderRoster.Types.Count, AllProviderTypeNames().Count());
+            Assert.True(AllProviderTypeNames().Count() >= 25,
+                $"Only {AllProviderTypeNames().Count()} providers swept.");
+
+            var trading = TradingProviderTypeNames().Select(r => (string)r[0]).ToList();
+            Assert.True(trading.Count >= 12, $"Only {trading.Count} trading providers swept.");
+
+            // The two that were missing, named explicitly — this file's own regression.
+            Assert.Contains(trading, n => n.Contains("Gemini"));
+            Assert.Contains(trading, n => n.Contains("KrakenFutures"));
         }
     }
 }

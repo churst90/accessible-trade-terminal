@@ -209,6 +209,9 @@ namespace AccessibleTrader.BlazorClient
             // Public-demo policy — always a no-op in the MAUI/desktop heads, but
             // registered so components and MarketOrchestrator can always @inject it.
             services.AddSingleton(new DemoPolicy(isDemo: false));
+            // The withdrawal release gate, injected rather than read off a static so the markup
+            // that depends on it can be rendered both ways in tests. Shipped == closed for 2.3.0.
+            services.AddSingleton(AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.Shipped);
 
             // Market / symbol / timeframe selection cascade.
             services.AddSingleton<IMarketOrchestrator, MarketOrchestrator>();

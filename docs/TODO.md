@@ -1542,7 +1542,66 @@ guesses are invisible until money moves.
   of `CanFill`'s doc, still describing the pre-2.3.0 "cannot sell what you do not hold" rule (also
   a `CS1571` under `/doc`). `DemoPolicy:7-30` has the same double-summary shape.
 
-### Guard tests that do not guard
+### Guard tests that do not guard — **ALL FOURTEEN FIXED 2026-08-22**
+
+Every open item in this section is now closed. Suite 3641, doc-guard green, and each fix was
+proven by reintroducing the defect the test claims to catch and watching it go red. Three
+recurring shapes, worth naming because they will come back:
+
+1. **The roster that fell behind.** `ProviderConformanceTests` was missing Gemini and
+   KrakenFutures; `ProviderTimeframeContractTests` constructed no provider at all. Both now read
+   `AccessibleTrader.Tests/ProviderRoster.cs`, which DISCOVERS providers by scanning
+   `AccessibleTrader.Plugins.*.dll` in the build output — 34 of them — and
+   `ProviderRosterDriftTests` cross-checks that against the plugin directories on disk, so a
+   dropped ProjectReference fails loudly instead of shrinking every sweep in the suite.
+   `ProviderCapabilityHonestyTests` shares the same roster.
+2. **The copy of the production rule.** `DataOrchestratorResilienceTests` had its own breaker
+   dictionary and its own `Transition` switch; `PostAuditRegressionTests` had its own zero-value
+   predicate and its own Kraken CAS loop; `ChartFormationLayerTests` had its own label placement;
+   `ProviderSymbolNormalisationTests` asserted `string.Replace`. All now call the real thing —
+   the orchestrator through its public surface, `LiveStreamManager` end to end,
+   `KrakenProvider.PostPrivateAsync` under 16-way contention, `ChartFormationLayer.NextLabelRow`
+   (now `internal`), and the providers' own `ToProductId` / `FormatInstrument`.
+3. **The assertion that cannot distinguish.** `HostileScriptTests` asserted only
+   `Success == false`, which any universal compile failure satisfies; it now requires a
+   SANDBOX-origin diagnostic and carries a benign positive control. `HostedPaperModeTests` never
+   set `trading.paperTradingMode` to an explicit `false` and never watched where an order went;
+   both are now tested, with a desktop control. `WithdrawalReleaseGateTests` grepped the markup;
+   both surfaces now read an injected `WithdrawalReleasePolicy` and the API Keys dialog is
+   rendered under bUnit with the gate open AND closed.
+
+**Four things the sweep found that the audit did not list:**
+
+- The same "assert the BCL" defect as the Coinbase case lived in three more theories in
+  `ProviderSymbolNormalisationTests` — Oanda, Polygon and the equity passthrough. Worse, the
+  Oanda mirror was WRONG as well as vacuous: the real `FormatInstrument` splits a 6-character
+  separator-less symbol, so `EURUSD` → `EUR_USD`, and the test's copy would have left it alone.
+  No row covered it. Polygon and the equity providers have no normaliser at all, so those
+  theories now assert what reaches the URL.
+- `ModalContractScanTests` scanned RAW source, so a commented-out `base.OnInitialized()` read as
+  a real one — which is close to the exact SaveWorkspaceModal bug the scanner exists to catch.
+  It now strips comments first (and has a unit test for the stripper, since a source scan's
+  correctness IS its stripper's correctness).
+- `DataState.Stalled` is unreachable in the shipping app: nothing fires
+  `DataTrigger.NetworkLagged`. The old test "covered" it by driving its own copy of the switch.
+  The guard is now on the premise — if a producer appears, the test says to write a behavioural
+  test for the Stalled edge.
+- `StrategyLibraryPolicyTests` listed a NONEXISTENT `AccessibleTrader.Maui` directory and dropped
+  it silently via `.Where(Directory.Exists)`. The project list now comes from
+  `AccessibleTrader.slnx` and asserts existence rather than filtering on it.
+
+**One production change made to enable a test, recorded because it was not asked for:**
+`WithdrawalService.Released` stays a `static readonly` (the codebase's own note against a mutable
+static — parallel test classes — still holds), but the two markup surfaces now read
+`WithdrawalReleasePolicy`, resolved from the container with a fallback to the shipped closed
+value. A host that forgets to register it behaves exactly as before; it cannot dark-fail open.
+
+**A flake found and fixed on the way:** `OutOfProcessScriptingTests` sets
+`ACCESSIBLETRADER_SCRIPT_IN_PROCESS` process-wide for the length of one test, and any other test
+compiling a script inside that window takes the in-process branch. The new sandbox control
+accepts either outcome for that reason.
+
+---
 
 The suite is genuinely strong — 3,327 cases, 2,383 `Assert.Equal` against only 205
 `Assert.NotNull`, and the money paths (order validation, bracket wire payloads, paper fill
@@ -1573,7 +1632,7 @@ they belong to this section even though the audit filed them elsewhere:
   `IndicatorCausalityTests` now does that comparison empirically for every provider, and Cipher A
   has per-component pins. The stale NOTE is gone.
 
-- [ ] **`ProviderTimeframeContractTests` asserts a hardcoded copy of the timeframe lists and never
+- [x] **`ProviderTimeframeContractTests` asserts a hardcoded copy of the timeframe lists and never
   constructs a provider.** VERIFIED — `providerName` is a bare `string` label; the body only calls
   `TimeframeUtility.ToSeconds(tf)` on the strings declared in the test file. If a provider changed
   `"1h"` to `"1H"` — the exact typo the docstring names as the motivating bug — the test's own
@@ -1581,7 +1640,7 @@ they belong to this section even though the audit filed them elsewhere:
   both directions. 30 rows of green guarding nothing.
   `EveryDeclaredTimeframe_HasNoDuplicates` asserts the test author did not type the same string
   twice. Fix: drive the theory from real `p.NativelySupportedTimeframes`.
-- [ ] **`ProviderConformanceTests` calls itself the "universal contract every trading provider must
+- [x] **`ProviderConformanceTests` calls itself the "universal contract every trading provider must
   satisfy" and enumerates 14 of 16.** VERIFIED — **Gemini and KrakenFutures are absent** from a
   hand-maintained roster with no drift guard, so neither gets the Name/Description/
   MaxBarsPerRequest/timeframe-parse/capability gate. Combined with the item above, **nothing
@@ -1589,7 +1648,7 @@ they belong to this section even though the audit filed them elsewhere:
   `ProviderCapabilityHonestyTests:24-31` already documents being burned by — *"a sweep that does
   not enumerate everything is a spot check wearing a sweep's name"* — and that file fixed itself
   with `AllTradingProvidersAreEnumeratedHere`. Copy that assertion here, or share one roster.
-- [ ] **`DataOrchestratorResilienceTests` redeclares the state machine and the Polly config inside
+- [x] **`DataOrchestratorResilienceTests` redeclares the state machine and the Polly config inside
   the test file.** A private `Transition` switch copy backs five tests; a local
   `ConcurrentDictionary` of breakers backs three more. `DataOrchestrator` is never constructed. So
   the breaker test proves Polly keys a dictionary, not that the orchestrator keys breakers per
@@ -1598,34 +1657,34 @@ they belong to this section even though the audit filed them elsewhere:
   "If the production switch changes, these tests must change with it" — if the production switch
   changes, nothing happens. Partly rescued by `StateMachineTests`, which drives the real
   orchestrator, but only on the happy path.
-- [ ] **`PostAuditRegressionTests.ZeroValueFilter_MirrorsLiveStreamManagerRule`** defines the
+- [x] **`PostAuditRegressionTests.ZeroValueFilter_MirrorsLiveStreamManagerRule`** defines the
   predicate inside the test body. Seven green cases; `LiveStreamManager` never constructed. If the
   real filter started admitting zero-close bars — corrupt ticks poisoning the chart and every
   indicator downstream — they stay green.
-- [ ] **`PostAuditRegressionTests.NonceCasLoop_...`** reimplements Kraken's nonce CAS loop in the
+- [x] **`PostAuditRegressionTests.NonceCasLoop_...`** reimplements Kraken's nonce CAS loop in the
   test and asserts the reimplementation. A duplicate nonce means rejected authenticated requests —
   order placement, cancellation and balance reads all fail under concurrency. The stated reason
   ("the real provider lives in a plugin DLL and depends on HttpClient and credentials") is
   contradicted by `BrokerParityTests:227-233`, which constructs a real `KrakenProvider` and swaps
   its `HttpClient` by reflection. The machinery is already in the suite.
-- [ ] **`ProviderSymbolNormalisationTests.Coinbase_ProductId_...` asserts `string.Replace`.**
+- [x] **`ProviderSymbolNormalisationTests.Coinbase_ProductId_...` asserts `string.Replace`.**
   `input.Replace("/", "-").ToUpperInvariant()` — `CoinbaseProvider` never constructed, four green
   cases asserting the BCL, on a symbol-routing money path. The comment names three real call sites
   (`GetOrderBook`, `SubscribeOrderBook`, `GetOpenOrders`) and exercises none. The Bitstamp test two
   cases below calls the real `BitstampProvider.ToBitstampPair` — that is the right shape.
-- [ ] **`StrategyLibraryPolicyTests` scans two of four shipping projects.** `AppSources()` lists
+- [x] **`StrategyLibraryPolicyTests` scans two of four shipping projects.** `AppSources()` lists
   `AccessibleTrader.Core`, `AccessibleTrader.BlazorClient.Components` and a **nonexistent
   `AccessibleTrader.Maui`** — silently dropped by `.Where(Directory.Exists)`. Missing:
   `AccessibleTrader.BlazorClient/` and `AccessibleTrader.WebHost/`. So all four "no catalogue in
   shipping code" guards are blind to a reintroduction in the WebHost, whose `Program.cs` is the
   composition root and the natural home for exactly the first-launch seeder the guard prevents.
   Enumerate from `AccessibleTrader.slnx` and assert `Directory.Exists` rather than filtering.
-- [ ] **`ImportedStrategiesCannotStartThemselves` is a substring match over a whole file, comments
+- [x] **`ImportedStrategiesCannotStartThemselves` is a substring match over a whole file, comments
   included** — and the file has a `CodeOnly()` comment-stripper built for exactly this reason that
   this test does not use. Passes with an `IsAutoActivate = true` on the live path as long as the
   false string exists anywhere. Make it behavioural: import a bundle whose spec is
   `IsAutoActivate = true` and assert the library entry comes back false.
-- [ ] **The markup half of `WithdrawalReleaseGateTests` passes with the guard inverted.**
+- [x] **The markup half of `WithdrawalReleaseGateTests` passes with the guard inverted.**
   `Assert.Contains("WithdrawalService.Released", keys)` is satisfied by
   `@if (WithdrawalService.Released || _debug)`, and `box > guard` compares *first* occurrence
   indices — textual order, not lexical nesting. The **service** half is genuinely strong
@@ -1633,7 +1692,7 @@ they belong to this section even though the audit filed them elsewhere:
   `DidNotReceiveWithAnyArgs().WithdrawAsync`), and that is the assertion that matters. But this is
   the only path that moves money off an exchange; render both components under bUnit with
   `Released` forced each way and assert presence/absence.
-- [ ] **`HostileScriptTests` asserts only `Success == false`, never the failure origin, and has no
+- [x] **`HostileScriptTests` asserts only `Success == false`, never the failure origin, and has no
   positive control in the file.** Six sandbox-escape tests that all stay green under *any* universal
   compile failure — a broken implicit-usings injection (none of the test sources declare their
   `using`s), a Roslyn reference failure, a renamed SDK interface. The docstring claims "rejected
@@ -1641,20 +1700,20 @@ they belong to this section even though the audit filed them elsewhere:
   different path with a real worker binary, while `HostileScriptTests` deliberately uses a bogus
   worker path. Add a benign-script control through the same factory and assert the diagnostic
   prefix.
-- [ ] **`HostedAccountsTwoFactorTests.Disable_flow_...` performs the two Identity calls itself**,
+- [x] **`HostedAccountsTwoFactorTests.Disable_flow_...` performs the two Identity calls itself**,
   then asserts Identity did what Identity does. If `SecurityModel.OnPostDisableAsync` dropped its
   `ResetAuthenticatorKeyAsync` call — the exact named regression, which revives a leaked TOTP
   secret on re-enrollment — this stays green. `SecurityModel` is the one PageModel with a test
   reference; call the handler.
-- [ ] **`ChartFormationLayerTests.PlaceLabel` reimplements the layer's label-placement rule** and
+- [x] **`ChartFormationLayerTests.PlaceLabel` reimplements the layer's label-placement rule** and
   two tests assert the copy. The stated reason for not exposing the rule is sound; assert on the
   rendered output instead.
-- [ ] **`HostedPaperModeTests` never tests the case it exists for** — `HostMode.Hosted` with
+- [x] **`HostedPaperModeTests` never tests the case it exists for** — `HostMode.Hosted` with
   `trading.paperTradingMode` explicitly `false`. Every test leaves the setting at the substitute
   default (null), so "hosted forces paper *regardless of the setting*" is never exercised. All four
   also assert only `SupportsTradingAsync`; nothing asserts an order actually routes to
   `IPaperTradingProvider` and never to the live provider.
-- [ ] **`ModalContractScanTests`' `ModalBase` branch `continue`s past the open/close/Escape
+- [x] **`ModalContractScanTests`' `ModalBase` branch `continue`s past the open/close/Escape
   name-agreement check**, so a `ModalBase` inheritor publishing `ModalStateChangedEvent(true,
   "Foo")` / `(false, "Bar")` is never checked. Also `base.OnInitialized()` is a substring test — a
   commented-out call passes. (The `scanned >= 15` anti-vacuity guard is good and correct.)

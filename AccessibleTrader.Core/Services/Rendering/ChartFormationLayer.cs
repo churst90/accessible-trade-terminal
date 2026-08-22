@@ -179,15 +179,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         private static void Label(RenderContext ctx, string text, float x, float y, SKColor colour,
             List<float> taken)
         {
-            float lineHeight = 12f * ctx.Density;
-            float row = y - 3 * ctx.Density;
-
-            // Push down past anything already occupying this row.
-            while (taken.Any(t => Math.Abs(t - row) < lineHeight)) row += lineHeight;
-
-            // Never outside the pane: a label drawn above the top edge is simply lost.
-            row = Math.Clamp(row, ctx.PaneRect.Top + lineHeight, ctx.PaneRect.Bottom - 2 * ctx.Density);
-            taken.Add(row);
+            float row = NextLabelRow(ctx, taken, y);
 
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
@@ -211,6 +203,33 @@ namespace AccessibleTrader.Core.Services.Rendering
             ctx.Canvas.DrawRoundRect(plate, 2f * ctx.Density, 2f * ctx.Density, platePaint);
 
             ctx.Canvas.DrawText(text, x, row, SKTextAlign.Left, font, paint);
+        }
+
+        /// <summary>
+        /// Where the next label goes: above its own line, nudged clear of every row already taken,
+        /// and clamped inside the pane. Appends the chosen row to <paramref name="taken"/>.
+        ///
+        /// <para>
+        /// <c>internal</c> rather than private purely so the tests can assert THIS rule instead of
+        /// a copy of it. <see cref="ChartFormationLayerTests"/> used to reimplement these six lines
+        /// in the test file and assert the reimplementation, on the reasoning that exposing the
+        /// rule would invite a caller to depend on it — sound as far as it goes, but the result was
+        /// two tests that could not fail no matter what the layer did. Internal keeps it off the
+        /// public surface while letting the assertion reach the real thing.
+        /// </para>
+        /// </summary>
+        internal static float NextLabelRow(RenderContext ctx, List<float> taken, float y)
+        {
+            float lineHeight = 12f * ctx.Density;
+            float row = y - 3 * ctx.Density;
+
+            // Push down past anything already occupying this row.
+            while (taken.Any(t => Math.Abs(t - row) < lineHeight)) row += lineHeight;
+
+            // Never outside the pane: a label drawn above the top edge is simply lost.
+            row = Math.Clamp(row, ctx.PaneRect.Top + lineHeight, ctx.PaneRect.Bottom - 2 * ctx.Density);
+            taken.Add(row);
+            return row;
         }
 
         /// <summary>

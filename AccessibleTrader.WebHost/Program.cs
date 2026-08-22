@@ -79,6 +79,9 @@ var hostMode = accountsEnabled ? HostMode.Hosted
              : demoMode        ? HostMode.Demo
              :                    HostMode.Full;
 builder.Services.AddSingleton(new DemoPolicy(hostMode));
+// The withdrawal release gate, injected rather than read off a static so the markup that
+// depends on it can be rendered both ways in tests. Shipped == closed for 2.3.0.
+builder.Services.AddSingleton(AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.Shipped);
 
 // Local background monitoring (HostMode.Full only): the server process outlives
 // the browser tab, so alerts keep evaluating — heard through Orca/spd-say +

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using AccessibleTrader.Sdk.Models;
@@ -13,75 +14,69 @@ namespace AccessibleTrader.Tests
     /// the bar step — a zero/negative result falls through to an empty result
     /// with no error, so users just see "no data" for that provider.
     ///
-    /// Each row below mirrors the verbatim <c>NativelySupportedTimeframes</c>
-    /// list declared in the corresponding plugin. Any drift in either direction
-    /// breaks the test — which is the point: the test enforces that plugin
-    /// declarations stay within the shared vocabulary that TimeframeUtility and
-    /// the fetch pipeline understand.
+    /// <para>
+    /// **This test used to guard nothing.** It carried a hand-copied duplicate of every
+    /// provider's timeframe list and asserted that *those strings* parsed — no provider was
+    /// ever constructed. So the exact typo the paragraph above names as the motivating bug
+    /// ("1h" becoming "1H" in a plugin) left the test's own "1h" parsing happily, and 30 rows
+    /// of green guarded nothing in either direction. The rows now come from
+    /// <see cref="ProviderRoster"/>, which reads <c>NativelySupportedTimeframes</c> off the
+    /// real objects.
+    /// </para>
     /// </summary>
+    // Constructs real providers, which touch the global ApiKeys bridge — see ProviderRoster.
+    [Collection("ProviderCredentialBridge")]
     public class ProviderTimeframeContractTests
     {
-        public static IEnumerable<object[]> ProviderTimeframes()
-        {
-            // Trading providers.
-            yield return new object[] { "Binance",  new[] { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M" } };
-            yield return new object[] { "Mexc",     new[] { "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M" } };
-            yield return new object[] { "Coinbase", new[] { "1m", "5m", "15m", "1h", "6h", "1d" } };
-            yield return new object[] { "Kraken",   new[] { "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w" } };
-            yield return new object[] { "Bitstamp", new[] { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "3d" } };
-            yield return new object[] { "Alpaca",   new[] { "1m", "5m", "15m", "1h", "1d", "1w", "1M" } };
-            yield return new object[] { "Polygon",  new[] { "1m", "5m", "15m", "1h", "1d", "1w", "1M" } };
-            yield return new object[] { "Tradier",  new[] { "1m", "5m", "15m", "1d", "1w", "1M" } };
-            yield return new object[] { "Schwab",   new[] { "1m", "5m", "10m", "15m", "30m", "1d", "1w", "1M" } };
-            yield return new object[] { "Oanda",    new[] { "1m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "1w", "1M" } };
-            yield return new object[] { "Finnhub",  new[] { "1m", "5m", "15m", "30m", "1h", "1d", "1w", "1M" } };
-            yield return new object[] { "InteractiveBrokers", new[] { "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M" } };
-            yield return new object[] { "TwelveData", new[] { "1m", "5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M" } };
-            yield return new object[] { "Fmp",      new[] { "1m", "5m", "15m", "30m", "1h", "4h", "1d" } };
+        // xUnit needs theory arguments it can serialize for test discovery, so the row carries
+        // the type's full name and the provider is built inside the test body.
+        public static IEnumerable<object[]> ProviderTypeNames() =>
+            ProviderRoster.Types.Select(t => new object[] { t.FullName! });
 
-            // Analytics providers.
-            yield return new object[] { "AlternativeMe",      new[] { "1d" } };
-            // Wikipedia per-article pageviews serves daily and monthly only — hourly is a 400.
-            yield return new object[] { "Wikipedia",          new[] { "1d", "1M" } };
-            yield return new object[] { "SEC EDGAR",          new[] { "1d" } };
-            yield return new object[] { "BGeometrics",        new[] { "1d" } };
-            yield return new object[] { "CoinGecko",          new[] { "1d" } };
-            yield return new object[] { "CoinMetrics",        new[] { "1d" } };
-            yield return new object[] { "DefiLlama",          new[] { "1d" } };
-            yield return new object[] { "Etherscan",          new[] { "1d" } };
-            yield return new object[] { "Glassnode",          new[] { "1d" } };
-            yield return new object[] { "Mempool",            new[] { "1d" } };
-            yield return new object[] { "BinanceVision",      new[] { "1h", "4h", "1d" } };
-            yield return new object[] { "BinanceDerivatives", new[] { "5m", "15m", "30m", "1h", "4h", "1d" } };
-            yield return new object[] { "OkxDerivatives",     new[] { "5m", "15m", "30m", "1h", "4h", "1d" } };
-            yield return new object[] { "Fred",               new[] { "1d", "1w", "1m", "3m" } };
-            yield return new object[] { "FmpAnalytics",       new[] { "1d" } };
-        }
+        private static Sdk.Plugins.BaseMarketDataProvider Build(string typeName) =>
+            ProviderRoster.All().First(p => p.GetType().FullName == typeName);
 
         [Theory]
-        [MemberData(nameof(ProviderTimeframes))]
-        public void EveryDeclaredTimeframe_ParsesToPositiveSeconds(string providerName, string[] timeframes)
+        [MemberData(nameof(ProviderTypeNames))]
+        public void EveryDeclaredTimeframe_ParsesToPositiveSeconds(string providerTypeName)
         {
-            foreach (var tf in timeframes)
+            using var p = Build(providerTypeName);
+
+            Assert.NotEmpty(p.NativelySupportedTimeframes);
+
+            foreach (var tf in p.NativelySupportedTimeframes)
             {
                 int seconds = TimeframeUtility.ToSeconds(tf);
                 Assert.True(seconds > 0,
-                    $"{providerName}: timeframe '{tf}' failed to parse (ToSeconds returned {seconds}). "
+                    $"{p.Name} ({p.GetType().Name}): timeframe '{tf}' failed to parse "
+                    + $"(ToSeconds returned {seconds}). "
                     + "A zero / negative result silently disables the provider's fetch path.");
             }
         }
 
-        [Fact]
-        public void EveryDeclaredTimeframe_HasNoDuplicates()
+        [Theory]
+        [MemberData(nameof(ProviderTypeNames))]
+        public void EveryDeclaredTimeframe_HasNoDuplicates(string providerTypeName)
         {
-            foreach (var row in ProviderTimeframes())
-            {
-                var providerName = (string)row[0];
-                var timeframes = (string[])row[1];
-                var distinct = timeframes.Distinct().Count();
-                Assert.True(distinct == timeframes.Length,
-                    $"{providerName}: duplicate timeframes in NativelySupportedTimeframes.");
-            }
+            using var p = Build(providerTypeName);
+            var timeframes = p.NativelySupportedTimeframes;
+
+            Assert.True(timeframes.Distinct().Count() == timeframes.Count,
+                $"{p.Name} ({p.GetType().Name}): duplicate timeframes in NativelySupportedTimeframes — "
+                + string.Join(", ", timeframes));
+        }
+
+        /// <summary>
+        /// The theories above iterate a list; an empty roster would make both pass by doing
+        /// nothing. The roster has its own guard in <see cref="ProviderRosterDriftTests"/>, but
+        /// a sweep should also refuse to report success on zero work of its own.
+        /// </summary>
+        [Fact]
+        public void TheSweep_CoversEveryProviderInTheRoster()
+        {
+            var rows = ProviderTypeNames().ToList();
+            Assert.Equal(ProviderRoster.Types.Count, rows.Count);
+            Assert.True(rows.Count >= 25, $"Only {rows.Count} providers swept.");
         }
 
         [Theory]

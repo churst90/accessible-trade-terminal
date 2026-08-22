@@ -4,6 +4,9 @@
 @inject IDataService DataService
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
+@* Resolved through the container rather than read off the static so this surface can be
+   rendered with the gate BOTH open and closed — see WithdrawalReleasePolicy. *@
+@inject IServiceProvider Services
 @implements IDisposable
 
 @* API Keys manager: add, edit, remove, and activate credential profiles per provider.
@@ -181,15 +184,15 @@
                    in passing. The explanation is part of the control — without the WHY,
                    the obvious "fix" is to grant withdrawal to the trading key.
 
-                   Hidden while WithdrawalService.Released is false (2.3.0): offering a
+                   Hidden while the withdrawal release gate is closed (2.3.0): offering a
                    checkbox that creates a profile nothing can use would be worse than
                    offering nothing, because the user would go to the venue, mint a
                    withdrawal key, and find no screen that takes it. _newAllowsWithdrawal
                    stays false when this block does not render, so the saved profile is
                    an ordinary one. *@
-                @if (AccessibleTrader.Core.Services.Trading.WithdrawalService.Released)
+                @if (WithdrawalsReleased)
                 {
-                    <div style="border:1px solid var(--border-color); padding:10px 12px; margin-top:12px;">
+                    <div id="key-withdrawal-block" style="border:1px solid var(--border-color); padding:10px 12px; margin-top:12px;">
                         <div class="modal-row" style="margin:0;">
                             <input id="key-withdrawal" type="checkbox"
                                    @bind="_newAllowsWithdrawal"
@@ -231,6 +234,11 @@
 }
 
 @code {
+    /// <summary>The release gate for the withdrawal-profile checkbox. Falls back to the shipped
+    /// (closed) value when nothing is registered — see WithdrawalReleasePolicy.</summary>
+    private bool WithdrawalsReleased =>
+        AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.From(Services).Released;
+
     private bool _isVisible;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;

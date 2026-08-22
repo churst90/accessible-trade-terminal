@@ -1173,6 +1173,12 @@
     /// </summary>
     private void RenameDrawing(string? raw)
     {
+        // The rename box only renders inside `@if (_isVisible && _series != null)`, so this is
+        // unreachable in the running app — but a late @onchange from a box the modal has already
+        // closed behind is exactly the shape that has bitten elsewhere, and an unguarded
+        // dereference here would take the whole render loop down rather than drop one rename.
+        if (_series == null) return;
+
         string name = (raw ?? "").Trim();
         if (name.Length == 0)
             name = _series.Drawing?.Type.ToString() ?? "Drawing";

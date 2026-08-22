@@ -1,9 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.ScriptSandbox;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace AccessibleTrader.Tests
@@ -99,56 +109,43 @@ namespace AccessibleTrader.Tests
             ms.Write(bytes, 0, bytes.Length);
         }
 
-        // ── Week 1: Kraken nonce CAS idempotence ──
+        // ── Week 1: LiveStreamManager zero-value filter, driven not mirrored ──
         //
-        // The real provider lives in a plugin DLL and depends on HttpClient and
-        // credentials, but the nonce CAS pattern is isolated logic — mirror the
-        // same CAS loop here and assert it never produces a duplicate under
-        // thread contention.
+        // This used to define the predicate INSIDE the test body and assert the copy;
+        // LiveStreamManager was never constructed, so if the real filter had started
+        // admitting zero-close bars — corrupt ticks poisoning the chart and every
+        // indicator downstream — all seven cases stayed green. The rule now lives in
+        // BarBucketConsolidator.Apply, and the assertions below push a tick through a
+        // REAL LiveStreamManager and look at what comes out of its channel. That covers
+        // both halves: that the rule is right, and that the rule is still wired in.
 
-        [Fact]
-        public async Task NonceCasLoop_ConcurrentCallers_ProduceStrictlyIncreasingUniqueValues()
+        /// <summary>A provider whose live ticks the test can push by hand.</summary>
+        private sealed class TickProvider : BaseMarketDataProvider
         {
-            long counter = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            const int threads = 16;
-            const int perThread = 500;
-            var nonces = new System.Collections.Concurrent.ConcurrentBag<long>();
+            public override string Name => "TickProv";
+            public override string Description => "test";
+            public override List<MarketType> SupportedMarkets => new() { MarketType.Crypto };
+            public override bool SupportsSymbolSearch => false;
+            public override bool RequiresApiKey => false;
+            public override bool IsConfigured => true;
+            public override bool SupportsLiveUpdates => true;
+            public override ProviderEnvironment Environment => ProviderEnvironment.Live;
+            public override int MaxBarsPerRequest => 100;
+            public override List<string> NativelySupportedTimeframes => new() { "1h" };
+            public override void Configure(Dictionary<string, string> config) { }
+            public override Task EnsureConnectedAsync() => Task.CompletedTask;
+            public override Task SetSubscriptionAsync(string market, string symbol, string timeframe) => Task.CompletedTask;
+            public override Task DisconnectAsync() => Task.CompletedTask;
+            public override Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot") => Task.FromResult(new List<string>());
+            public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => Task.FromResult(new List<string>());
+            public override Task<List<string>> GetSupportedTimeframesAsync() => Task.FromResult(new List<string>());
+            public override Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
+                => Task.FromResult((new List<Ohlcv>(), new List<(long, double)>()));
+            public override Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
+                => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
 
-            var tasks = new Task[threads];
-            for (int t = 0; t < threads; t++)
-            {
-                tasks[t] = Task.Run(() =>
-                {
-                    for (int i = 0; i < perThread; i++)
-                    {
-                        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                        long next;
-                        while (true)
-                        {
-                            long current = Interlocked.Read(ref counter);
-                            long candidate = Math.Max(current + 1, now);
-                            if (Interlocked.CompareExchange(ref counter, candidate, current) == current)
-                            {
-                                next = candidate;
-                                break;
-                            }
-                        }
-                        nonces.Add(next);
-                    }
-                });
-            }
-            await Task.WhenAll(tasks);
-
-            var distinct = new System.Collections.Generic.HashSet<long>(nonces);
-            Assert.Equal(threads * perThread, distinct.Count);
+            public void PushTick(Ohlcv tick) => _liveStream.OnNext(tick);
         }
-
-        // ── Week 1: LiveStreamManager zero-value filter intent ──
-        //
-        // The filter itself lives inside a private callback; the invariant we
-        // want to protect is "any OHLC leg at 0 makes the bar invalid, Volume
-        // of exactly 0 is still allowed on a first-tick". Express that as a
-        // pure predicate test so the rule is documented.
 
         [Theory]
         [InlineData(100.0, 100.0, 100.0, 100.0, 0.0,  true)]   // first tick, zero volume ok
@@ -158,12 +155,53 @@ namespace AccessibleTrader.Tests
         [InlineData(100.0, 100.0, 0.0,   100.0, 1.0,  false)]  // zero low
         [InlineData(100.0, 100.0, 100.0, 0.0,   1.0,  false)]  // zero close
         [InlineData(100.0, 100.0, 100.0, 100.0, -0.1, false)]  // negative volume
-        public void ZeroValueFilter_MirrorsLiveStreamManagerRule(double o, double h, double l, double c, double v, bool expected)
+        public async Task ZeroValueFilter_IsEnforcedByTheRealLiveStreamPath(
+            double o, double h, double l, double c, double v, bool expectPublished)
         {
-            bool Predicate(double open, double high, double low, double close, double volume)
-                => open > 0 && high > 0 && low > 0 && close > 0 && volume >= 0;
+            var provider = new TickProvider();
+            var data = Substitute.For<IDataService>();
+            data.GetProviderAsync("TickProv").Returns(Task.FromResult<IMarketDataProvider?>(provider));
 
-            Assert.Equal(expected, Predicate(o, h, l, c, v));
+            using var manager = new LiveStreamManager(
+                data,
+                new MockHistoricalFetcher(),
+                Substitute.For<IGlobalErrorCoordinator>(),
+                NullLogger<LiveStreamManager>.Instance);
+
+            await manager.StartLiveStreamAsync("Crypto", "TickProv", "BTC/USD", "1h");
+
+            provider.PushTick(new Ohlcv(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), o, h, l, c, v));
+
+            bool published = manager.LiveStream.TryRead(out var emitted);
+            Assert.Equal(expectPublished, published);
+            if (expectPublished)
+            {
+                Assert.Equal(c, emitted.Bar.Close);
+                Assert.Equal("TickProv", emitted.Identity.Provider);
+            }
+        }
+
+        /// <summary>
+        /// Anti-vacuity for the theory above: if <c>StartLiveStreamAsync</c> silently failed to
+        /// subscribe — a null provider, a changed name — every "must be dropped" row would pass
+        /// for the wrong reason. A known-good tick must make it all the way through.
+        /// </summary>
+        [Fact]
+        public async Task TheLiveStreamPath_UnderTest_ActuallyDeliversAGoodTick()
+        {
+            var provider = new TickProvider();
+            var data = Substitute.For<IDataService>();
+            data.GetProviderAsync("TickProv").Returns(Task.FromResult<IMarketDataProvider?>(provider));
+
+            using var manager = new LiveStreamManager(
+                data, new MockHistoricalFetcher(), Substitute.For<IGlobalErrorCoordinator>(),
+                NullLogger<LiveStreamManager>.Instance);
+
+            await manager.StartLiveStreamAsync("Crypto", "TickProv", "BTC/USD", "1h");
+            provider.PushTick(new Ohlcv(new DateTime(2026, 1, 1, 0, 30, 0, DateTimeKind.Utc), 10, 12, 9, 11, 3));
+
+            Assert.True(manager.LiveStream.TryRead(out var bar));
+            Assert.Equal(11, bar.Bar.Close);
         }
 
         // ── Week 1: ChartSeries.Clone isolates Levels / ZoneBands ──
@@ -189,6 +227,95 @@ namespace AccessibleTrader.Tests
             cloned.Levels.Add(new LevelConfig { Value = 70, Name = "Overbought" });
             Assert.Single(original.Levels);
             Assert.Equal(2, cloned.Levels.Count);
+        }
+    }
+
+    /// <summary>
+    /// Week 1: Kraken nonce CAS idempotence — against the real provider.
+    ///
+    /// <para>
+    /// The old version of this reimplemented Kraken's CAS loop inside the test and asserted the
+    /// reimplementation, on the stated grounds that "the real provider lives in a plugin DLL and
+    /// depends on HttpClient and credentials". <see cref="BrokerParityTests"/> already
+    /// contradicts that: it constructs a real <c>KrakenProvider</c> and swaps its
+    /// <c>HttpClient</c> by reflection. The machinery was in the suite the whole time.
+    /// </para>
+    /// <para>
+    /// What is at stake: a duplicate nonce means Kraken rejects the authenticated request, so
+    /// order placement, cancellation and balance reads all fail under concurrency. The signer is
+    /// private, so it is invoked by reflection — the alternative is a public entry point behind
+    /// a rate limiter that would serialize the callers and make the contention this test exists
+    /// to create impossible.
+    /// </para>
+    /// </summary>
+    // Constructs a real KrakenProvider, which reads the global PluginHostServices.ApiKeys
+    // bridge at sign time — see BrokerParityTests for why that must stay serialized.
+    [Collection("ProviderCredentialBridge")]
+    public class KrakenNonceRegressionTests
+    {
+        /// <summary>Records every nonce that reached the wire. Thread-safe on purpose: the whole
+        /// point is to have many signers in flight at once.</summary>
+        private sealed class NonceRecordingHandler : HttpMessageHandler
+        {
+            public readonly System.Collections.Concurrent.ConcurrentBag<long> Nonces = new();
+
+            protected override async Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                string body = request.Content == null
+                    ? string.Empty
+                    : await request.Content.ReadAsStringAsync(cancellationToken);
+
+                var match = System.Text.RegularExpressions.Regex.Match(body, @"nonce=(\d+)");
+                if (match.Success)
+                    Nonces.Add(long.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"error\":[],\"result\":{}}",
+                        System.Text.Encoding.UTF8, "application/json"),
+                };
+            }
+        }
+
+        [Fact]
+        public async Task Kraken_concurrent_signers_never_reuse_a_nonce()
+        {
+            var provider = new AccessibleTrader.Plugins.Kraken.KrakenProvider();
+            provider.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "k",
+                ["ApiSecret"] = Convert.ToBase64String(new byte[32]),
+            });
+
+            var handler = new NonceRecordingHandler();
+            var httpField = provider.GetType()
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .First(f => f.FieldType == typeof(HttpClient));
+            httpField.SetValue(provider, new HttpClient(handler));
+
+            var sign = provider.GetType().GetMethod("PostPrivateAsync",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.NotNull(sign);
+
+            const int threads = 16;
+            const int perThread = 100;
+
+            var tasks = new Task[threads];
+            for (int t = 0; t < threads; t++)
+            {
+                tasks[t] = Task.Run(async () =>
+                {
+                    for (int i = 0; i < perThread; i++)
+                        await (Task<string>)sign!.Invoke(provider,
+                            new object[] { "/0/private/Balance", new Dictionary<string, string>() })!;
+                });
+            }
+            await Task.WhenAll(tasks);
+
+            var nonces = handler.Nonces.ToList();
+            Assert.Equal(threads * perThread, nonces.Count);
+            Assert.Equal(nonces.Count, nonces.Distinct().Count());
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using AccessibleTrader.WebHost;
 using AccessibleTrader.WebHost.Account;
+using AccessibleTrader.WebHost.Pages.Account;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -46,11 +47,13 @@ public class HostedAccountsTwoFactorTests : IDisposable
         try { Directory.Delete(_dataRoot, recursive: true); } catch { /* best effort */ }
     }
 
+    private const string Password = "Correct horse battery 7 staple";
+
     private async Task<AppUser> NewUserAsync()
     {
         var user = new AppUser { UserName = $"u{Guid.NewGuid():N}@example.com" };
         user.Email = user.UserName;
-        var create = await _users.CreateAsync(user, "Correct horse battery 7 staple");
+        var create = await _users.CreateAsync(user, Password);
         Assert.True(create.Succeeded, string.Join("; ", create.Errors.Select(e => e.Description)));
         return user;
     }
@@ -130,18 +133,72 @@ public class HostedAccountsTwoFactorTests : IDisposable
     [Fact]
     public async Task Disable_flow_resets_the_key_so_reenrollment_mints_a_fresh_secret()
     {
-        // Mirrors SecurityModel.OnPostDisableAsync: disable + key reset together.
-        // Re-enabling must never revive a possibly-leaked old secret.
+        // This used to perform the two Identity calls ITSELF and then assert that Identity had
+        // done what Identity does. If SecurityModel.OnPostDisableAsync dropped its
+        // ResetAuthenticatorKeyAsync call — the exact named regression, which revives a
+        // possibly-leaked TOTP secret on re-enrollment — the test stayed green. It now drives
+        // the handler.
         var user = await NewUserAsync();
         await _users.ResetAuthenticatorKeyAsync(user);
         string? oldKey = await _users.GetAuthenticatorKeyAsync(user);
         await _users.SetTwoFactorEnabledAsync(user, true);
 
-        await _users.SetTwoFactorEnabledAsync(user, false);
-        await _users.ResetAuthenticatorKeyAsync(user);
-        string? newKey = await _users.GetAuthenticatorKeyAsync(user);
+        var page = BuildSecurityPage(user);
+        await page.OnPostDisableAsync(Password);
 
-        Assert.NotEqual(oldKey, newKey);
+        Assert.False(await _users.GetTwoFactorEnabledAsync(user));
+        Assert.NotEqual(oldKey, await _users.GetAuthenticatorKeyAsync(user));
+    }
+
+    [Fact]
+    public async Task A_wrong_password_disables_nothing_and_leaves_the_key_alone()
+    {
+        // The vacuity control for the test above: if the handler refused everything, or if the
+        // page never reached the user at all, the assertions there would pass for the wrong
+        // reason. A bad password must change neither the flag nor the secret.
+        var user = await NewUserAsync();
+        await _users.ResetAuthenticatorKeyAsync(user);
+        string? oldKey = await _users.GetAuthenticatorKeyAsync(user);
+        await _users.SetTwoFactorEnabledAsync(user, true);
+
+        var page = BuildSecurityPage(user);
+        await page.OnPostDisableAsync("not the password");
+
+        Assert.True(await _users.GetTwoFactorEnabledAsync(user));
+        Assert.Equal(oldKey, await _users.GetAuthenticatorKeyAsync(user));
+    }
+
+    /// <summary>
+    /// A real <see cref="SecurityModel"/> with just enough <c>PageContext</c> for the handler:
+    /// a signed-in principal (so <c>GetUserAsync(User)</c> resolves) and an HttpContext (the
+    /// audit record reads the remote IP off it).
+    /// </summary>
+    private SecurityModel BuildSecurityPage(AppUser user)
+    {
+        var audit = new AccessibleTrader.Core.Services.Security.SecurityEventLog();
+        var page = new SecurityModel(_users, audit);
+
+        var identity = new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim(
+                _users.Options.ClaimsIdentity.UserIdClaimType, user.Id),
+            new System.Security.Claims.Claim(
+                _users.Options.ClaimsIdentity.UserNameClaimType, user.UserName!),
+        }, "TestAuth");
+
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext
+        {
+            User = new System.Security.Claims.ClaimsPrincipal(identity),
+            RequestServices = _scope.ServiceProvider,
+        };
+
+        page.PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext(
+            new Microsoft.AspNetCore.Mvc.ActionContext(
+                http,
+                new Microsoft.AspNetCore.Routing.RouteData(),
+                new Microsoft.AspNetCore.Mvc.RazorPages.PageActionDescriptor()));
+
+        return page;
     }
 
     // ── Enrollment helper contracts ──────────────────────────────────────────

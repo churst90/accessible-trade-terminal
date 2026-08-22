@@ -3,9 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.BlazorClient.Components;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Tests.Blazor;
+using Bunit;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -109,26 +113,90 @@ namespace AccessibleTrader.Tests
                 default!, default!, default, default);
         }
 
-        [Fact]
-        public void Both_user_facing_surfaces_are_wired_to_the_same_flag()
+        // ── The API Keys checkbox, rendered ──────────────────────────────────
+        //
+        // This used to be `Assert.Contains("WithdrawalService.Released", source)` plus a
+        // comparison of two IndexOf results. Both were weaker than they read: the substring is
+        // satisfied by `@if (WithdrawalService.Released || _debug)`, and comparing FIRST
+        // occurrence indices is textual order, not lexical nesting — it says nothing about
+        // whether the checkbox is inside the block. The gate is now injected
+        // (WithdrawalReleasePolicy) so the dialog can be rendered with it CLOSED and OPEN, and
+        // the assertion is on what a user would actually see.
+
+        private static IRenderedComponent<ApiKeysModal> RenderApiKeys(BlazorTestHarness h, bool? releasedOverride)
         {
-            // The markup stays in the tree — reverting would throw away work that is
-            // probably right — so what has to be pinned is that it cannot RENDER.
-            // Two surfaces expose withdrawals: the API Keys checkbox that mints the
-            // profile, and the dialog itself.
-            string keys   = Read("AccessibleTrader.BlazorClient.Components", "ApiKeysModal.razor");
+            var keys = Substitute.For<IApiKeyService>();
+            keys.GetAllKeysAsync().Returns(Task.FromResult(new List<ApiKeyConfig>()));
+            h.With(keys);
+            h.With(Substitute.For<IDataService>());
+            if (releasedOverride is { } released)
+                h.With(new WithdrawalReleasePolicy(released));
+
+            return h.OpenModal<ApiKeysModal>(bus => bus.Publish(new OpenApiKeysEvent()));
+        }
+
+        [Fact]
+        public void The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed()
+        {
+            using var h = new BlazorTestHarness();
+            // No policy registered at all — the shipped fallback, i.e. exactly what a user gets.
+            var cut = RenderApiKeys(h, releasedOverride: null);
+
+            Assert.Empty(cut.FindAll("#key-withdrawal"));
+            Assert.Empty(cut.FindAll("#key-withdrawal-block"));
+
+            // Anti-vacuity: the dialog really did render, so the absence above is the gate and
+            // not a modal that never opened. The API-key field lives in the same fieldset as
+            // the withdrawal block.
+            Assert.NotNull(cut.Find("#key-apikey"));
+            Assert.NotNull(cut.Find("#apikeys-save"));
+        }
+
+        [Fact]
+        public void The_withdrawal_checkbox_renders_INSIDE_the_guard_when_the_gate_opens()
+        {
+            using var h = new BlazorTestHarness();
+            var cut = RenderApiKeys(h, releasedOverride: true);
+
+            // Present…
+            var box = cut.Find("#key-withdrawal");
+            Assert.Equal("checkbox", box.GetAttribute("type"));
+
+            // …and genuinely nested inside the guarded block, which is what the old
+            // first-occurrence index comparison only appeared to check. An unguarded checkbox
+            // would let a user mint a withdrawal profile, go to the venue for a withdrawal key,
+            // and find no screen that takes it.
+            var block = cut.Find("#key-withdrawal-block");
+            Assert.Single(block.QuerySelectorAll("#key-withdrawal"));
+
+            // The explanation is part of the control, and the checkbox points at it.
+            Assert.Equal("key-withdrawal-why", box.GetAttribute("aria-describedby"));
+            Assert.NotNull(cut.Find("#key-withdrawal-why"));
+        }
+
+        [Fact]
+        public void The_layout_only_instantiates_the_withdraw_dialog_behind_the_same_gate()
+        {
+            // MainLayout injects ~25 services and renders the whole app shell, so it is not
+            // rendered here; the assertion is structural, but properly scoped rather than the
+            // first-occurrence index comparison it replaces. The service half is what actually
+            // makes this safe (A_closed_gate_refuses_before_the_venue_is_ever_called) — the
+            // layout gate is defence in depth, as its own comment says.
             string layout = Read("AccessibleTrader.BlazorClient.Components", "Layout", "MainLayout.razor");
 
-            Assert.Contains("WithdrawalService.Released", keys);
-            Assert.Contains("WithdrawalService.Released", layout);
+            var guarded = System.Text.RegularExpressions.Regex.Match(
+                layout, @"@if\s*\(\s*Demo\.AllowTrading\s*&&\s*WithdrawalsReleased\s*\)\s*\{([^}]*)\}");
 
-            // The checkbox must sit INSIDE the guard, not merely near it: an unguarded
-            // checkbox would let a user mint a withdrawal profile, go to the venue for a
-            // withdrawal key, and find no screen that takes it.
-            int guard = keys.IndexOf("WithdrawalService.Released", StringComparison.Ordinal);
-            int box   = keys.IndexOf("id=\"key-withdrawal\"", StringComparison.Ordinal);
-            Assert.True(box > guard,
-                "The withdrawal checkbox is no longer inside the release guard.");
+            Assert.True(guarded.Success,
+                "MainLayout no longer instantiates <WithdrawModal /> behind the withdrawal release gate.");
+            Assert.Contains("<WithdrawModal", guarded.Groups[1].Value);
+
+            // And <WithdrawModal /> appears nowhere else — one gated instantiation, not two.
+            Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(layout, "<WithdrawModal").Count);
+
+            // The gate the layout reads is the injected policy, which falls back to the shipped
+            // (closed) value — so a host that forgets to register it cannot open the dialog.
+            Assert.Contains("WithdrawalReleasePolicy.From(Services).Released", layout);
         }
 
         [Fact]

@@ -239,20 +239,21 @@ public class ChartFormationLayerTests : IDisposable
     }
 
     /// <summary>
-    /// Mirrors the layer's own placement rule. Kept in the test rather than made public on the
-    /// layer, because the rule is an implementation detail of drawing and exposing it would invite
-    /// a caller to depend on it.
+    /// Calls the layer's OWN placement rule.
+    ///
+    /// <para>
+    /// This used to be a copy of those six lines living in the test file, and the two tests above
+    /// asserted the copy — so the staggering and the clamping could both have been deleted from
+    /// <see cref="ChartFormationLayer"/> without either going red. The rule is now
+    /// <c>internal static</c> on the layer (see the remarks there for why internal and not public),
+    /// and only the price-to-pixel conversion, which is the caller's job, happens here.
+    /// </para>
     /// </summary>
     private static float PlaceLabel(RenderContext ctx, List<float> taken, double price)
     {
         double frac = (price - ctx.Min) / (ctx.Max - ctx.Min);
         float y = ctx.PaneRect.Bottom - (float)(frac * ctx.PaneRect.Height);
 
-        float lineHeight = 12f * ctx.Density;
-        float row = y - 3 * ctx.Density;
-        while (taken.Any(t => Math.Abs(t - row) < lineHeight)) row += lineHeight;
-        row = Math.Clamp(row, ctx.PaneRect.Top + lineHeight, ctx.PaneRect.Bottom - 2 * ctx.Density);
-        taken.Add(row);
-        return row;
+        return ChartFormationLayer.NextLabelRow(ctx, taken, y);
     }
 }
