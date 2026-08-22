@@ -6,6 +6,43 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## Polygon's timeout swallow (patch applied 2026-08-22)
+
+`patches/polygon-timeout-swallow-0822.patch`, written against `12937dd3` and applied on top of
+`dc652371`. Applied three-way, **clean, no conflicts** — it touches `PolygonProvider` and
+`PipelineIdentityAndResilienceTests` only, neither of which the surrogate/IPC work went near.
+
+**Both claims verified against the code before applying, not taken from the README.**
+`TransportFailure.IsTransient` does walk `InnerException` and does return true for a bare
+`TimeoutException` (`TransportFailure.cs:63-68`), and `PolygonProvider`'s
+`catch (TaskCanceledException)` did sit at line 274, ahead of the generic `catch (Exception)` at
+284 that carries the rethrow. So HttpClient's own timeout — which arrives as a
+`TaskCanceledException` wrapping a `TimeoutException` — was caught by the narrow clause, returned
+an empty bar list, and never reached the guard. Polygon was the one provider where `5427b691`'s
+fix was unreachable, and the method takes no `CancellationToken`, so a timeout was in practice the
+only thing that clause ever caught.
+
+**The guard was proven here too**, not just in the patch author's tree: reverting only the
+`when (!TransportFailure.IsTransient(ex))` filter turns
+`No_provider_swallows_a_timeout_through_an_unfiltered_cancellation_catch` red on its own, and
+restoring it turns it green. It carries the same `scanned >= 30` vacuity floor as the scan beside
+it. The second cancellation catch in `PolygonProvider` (line 325, `GetAvailableSymbolsAsync`) is
+untouched and correctly so — that method is not under the retry/breaker policy.
+
+**Worth keeping from the patch's own write-up**, because it generalises past this bug: the
+existing scan asked whether the method *body* mentions `TransportFailure.IsTransient` anywhere,
+and Polygon's body did — in the generic catch that an earlier clause routed around. **Presence of
+the right call somewhere in a method is not the same as no path around it.** That is the same
+false-negative shape the file's own docs already warned about for comments, one level up in code.
+
+Two operational items the patch README raises, left for a separate pass: 87 stale
+`Microsoft.AspNetCore.*.dll` from an older publish shape sitting in `/opt/accessible-trader-terminal`
+(the demo has none and runs fine), and the in-tree state directories under both deploy roots that
+survive only because the deploys do not use `rsync --delete` — the XDG-fallback leak already on
+record.
+
+---
+
 ## Three audit fixes (patch applied 2026-08-22)
 
 `patches/accessible-trader-2026-08-22.patch` + `accessible-trader-docs-2026-08-22.patch`, written
@@ -27,7 +64,7 @@ version of the same idea:
   took the patch's new `Attach`/`Detach`/`SharedOwnership`/`PrimaryStore` block wholesale, which is
   the actual substance of fix 1.
 
-**Verified rather than taken on trust.** Suite 3719 green, both JS suites green (13 + 15), doc-guard
+**Verified rather than taken on trust.** Suite 3720 green, both JS suites green (13 + 15), doc-guard
 green, 0 warnings on every project that builds on Linux. Two of the patch's headline guards were
 checked the way this repo checks guards — by reintroducing the defect:
 

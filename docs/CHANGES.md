@@ -13,6 +13,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The one provider the transport guard could not reach (2026-08-22)
+
+`5427b691` made the pipeline's Polly retry and circuit breaker reachable by replacing every
+provider's `catch (Exception) { report; return empty; }` with a rethrow for transport faults. It
+landed in all 31 providers. It was unreachable in exactly one.
+
+`PolygonProvider.FetchOhlcvAsync` has a `catch (TaskCanceledException)` clause *ahead of* the
+generic catch that does the rethrow. HttpClient's own timeout arrives as a `TaskCanceledException`
+wrapping a `TimeoutException` — which `TransportFailure.IsTransient` is specifically written to
+unwrap and call transport — so on Polygon a timeout was caught by the narrower clause, returned an
+empty bar list, and never reached the guard. The method takes no `CancellationToken`, so a timeout
+was in practice the only thing that clause could catch.
+
+The fix is a filter: `catch (TaskCanceledException ex) when (!TransportFailure.IsTransient(ex))`.
+
+The suite was green throughout, and the reason is worth keeping. The existing scan asks whether a
+provider's `FetchOhlcvAsync` **body** mentions `TransportFailure.IsTransient` anywhere. Polygon's
+body did — in the generic catch that an earlier clause routed around. *Presence of the right call
+somewhere in a method is not the same as no path around it.* A new guard now scans for a
+cancellation catch with no `when` filter, with the same `scanned >= 30` vacuity floor as the scan
+beside it, and it was proven by reverting the one-line fix and watching it go red.
+
 ### A control that resampled itself every run (2026-08-22)
 
 `RespectCommand` seeded its surrogate significance test like this:

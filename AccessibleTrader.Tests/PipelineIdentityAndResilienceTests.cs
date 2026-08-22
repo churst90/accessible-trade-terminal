@@ -234,6 +234,57 @@ namespace AccessibleTrader.Tests
         }
 
         /// <summary>
+        /// A cancellation catch in <c>FetchOhlcvAsync</c> must carry a filter, because
+        /// HttpClient's own timeout arrives as a <see cref="TaskCanceledException"/> WRAPPING a
+        /// <see cref="TimeoutException"/> — transport, and the retry and breaker's to handle.
+        ///
+        /// <para>
+        /// This exists because the scan above could not see the hole it was written to close.
+        /// It asks whether the METHOD BODY mentions <c>TransportFailure.IsTransient</c> anywhere,
+        /// so a provider that rethrows correctly in its generic <c>catch (Exception)</c> passes —
+        /// even while an EARLIER, narrower clause swallows the timeout before it can ever reach
+        /// that guard. PolygonProvider did exactly that and the suite was green. Presence of the
+        /// right call somewhere in a method is not the same as no path around it.
+        /// </para>
+        /// <para>
+        /// None of these methods take a <c>CancellationToken</c>, so an unfiltered clause is not
+        /// merely imprecise — a timeout is the only thing it can realistically catch.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void No_provider_swallows_a_timeout_through_an_unfiltered_cancellation_catch()
+        {
+            var offenders = new List<string>();
+            int scanned = 0;
+
+            foreach (var file in ProviderSourceFiles())
+            {
+                var source = StripCommentsAndStrings(File.ReadAllText(file));
+                var body = MethodBody(source, "FetchOhlcvAsync(MarketDataRequest");
+                if (body == null) continue;
+                scanned++;
+
+                // A cancellation clause is fine WITH a `when (…)` filter — that is how the
+                // timeout is let through to the transport guard. Without one it catches both.
+                foreach (Match m in Regex.Matches(
+                             body, @"catch\s*\(\s*(?:System\.Threading\.Tasks\.)?(TaskCanceled|OperationCanceled)Exception\b[^)]*\)\s*(?<filter>when\b)?"))
+                {
+                    if (!m.Groups["filter"].Success)
+                        offenders.Add($"{Path.GetFileName(file)} ({m.Groups[1].Value}Exception)");
+                }
+            }
+
+            Assert.True(scanned >= 30,
+                $"Expected to scan 30+ provider FetchOhlcvAsync bodies; found {scanned}. " +
+                "The scan lost its targets — fix the discovery, do not lower the floor.");
+            Assert.True(offenders.Count == 0,
+                "These providers catch cancellation unfiltered in FetchOhlcvAsync, which swallows "
+                + "HttpClient's timeout (TaskCanceledException wrapping TimeoutException) before the "
+                + "transport guard can rethrow it — add `when (!TransportFailure.IsTransient(ex))`: "
+                + string.Join(", ", offenders));
+        }
+
+        /// <summary>
         /// The innermost body of the policy must be able to fail. <c>DataService</c>'s
         /// blanket <c>catch (Exception) { return empty; }</c> is the single line that
         /// made three layers of Polly decorative, and it is invisible on review because

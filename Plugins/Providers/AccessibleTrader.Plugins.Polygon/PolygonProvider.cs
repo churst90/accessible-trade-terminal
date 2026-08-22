@@ -272,9 +272,18 @@ namespace AccessibleTrader.Plugins.Polygon
                 _errorStream.OnNext($"Polygon: network error fetching {symbol}: {ex.Message}");
                 throw;
             }
-            catch (TaskCanceledException)
+            catch (TaskCanceledException ex) when (!TransportFailure.IsTransient(ex))
             {
-                // Request timeout or upstream cancellation — the caller already knows.
+                // Genuine cancellation only — the caller already knows, and a tab switch is
+                // not a network fault (see TransportFailure).
+                //
+                // The filter matters because HttpClient's own timeout arrives as a
+                // TaskCanceledException WRAPPING a TimeoutException, which is transport and
+                // belongs to the retry + breaker. Catching the outermost type unfiltered
+                // swallowed it here — ahead of the generic guard below, so it never reached
+                // TransportFailure. This method takes no CancellationToken, so a timeout was
+                // in practice the ONLY thing this clause ever caught: Polygon alone kept the
+                // empty chart that the rest of this commit's rethrows removed.
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
             catch (Newtonsoft.Json.JsonException ex)
