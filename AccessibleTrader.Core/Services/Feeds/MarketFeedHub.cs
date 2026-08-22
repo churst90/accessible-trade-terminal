@@ -447,10 +447,10 @@ namespace AccessibleTrader.Core.Services.Feeds
             if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
 
             // Drain residue before pumping: the orchestrator's channel may still
-            // hold buffered ticks of the PREVIOUS subscription's symbol, and the
-            // pump routes by current focus — those ticks would merge into the new
-            // feed. (The pre-refactor pipeline had the same misrouting but its
-            // wholesale refresh masked it; the warm-feed fast path does not.)
+            // hold buffered ticks of the PREVIOUS subscription. The identity check
+            // in the pump is what makes cross-symbol merging impossible; this drain
+            // is the cheaper half of the same job — it also sheds STALE ticks of the
+            // same identity, which the identity check cannot distinguish.
             while (_orchestrator.LiveStream.TryRead(out _)) { }
 
             _pumpCts = new CancellationTokenSource();
@@ -462,10 +462,31 @@ namespace AccessibleTrader.Core.Services.Feeds
                 {
                     await foreach (var tick in _orchestrator.LiveStream.ReadAllAsync(token))
                     {
-                        // Route to whichever feed holds focus NOW — a tab switch mid-pump
-                        // must not deliver the outgoing symbol's ticks to the old buffer
-                        // (the orchestrator's subscription is retargeted by the caller).
-                        _focused?.ApplyLiveTick(tick);
+                        // Route to whichever feed holds focus NOW, but ONLY if the tick
+                        // was subscribed for that same identity.
+                        //
+                        // Focus moves synchronously (DataManager.Identity → SetFocus) while
+                        // the subscription is retargeted at the END of the catch-up, after
+                        // an awaited gap-fill round-trip. For that whole window this pump
+                        // holds the OUTGOING symbol's ticks and the INCOMING symbol's feed,
+                        // and applying one to the other corrupts the last bar (ReplaceLast)
+                        // or fabricates a bar at the wrong symbol's price (Append) — which
+                        // raises LiveAppend, which is what StrategyEngine evaluates a closed
+                        // bar on, which can place a real order.
+                        //
+                        // The comment that used to sit here asserted this could not happen
+                        // "because the subscription is retargeted by the caller". It is, but
+                        // not before focus moves. Compare, don't assume.
+                        var target = _focused;
+                        if (target == null) continue;
+                        if (target.Identity != tick.Identity)
+                        {
+                            _logger.LogDebug(
+                                "MarketFeedHub: dropped a live tick for {TickIdentity} while {FocusIdentity} holds focus (subscription retarget in flight).",
+                                tick.Identity, target.Identity);
+                            continue;
+                        }
+                        target.ApplyLiveTick(tick.Bar);
                     }
                 }
                 catch (OperationCanceledException) { /* normal stop */ }

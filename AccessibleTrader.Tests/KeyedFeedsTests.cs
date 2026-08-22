@@ -42,10 +42,16 @@ namespace AccessibleTrader.Tests
             public int LiveStops;
             public TaskCompletionSource? FetchGate;
 
-            private readonly System.Threading.Channels.Channel<Ohlcv> _channel =
-                System.Threading.Channels.Channel.CreateUnbounded<Ohlcv>();
-            public System.Threading.Channels.ChannelWriter<Ohlcv> LiveWriter => _channel.Writer;
-            public System.Threading.Channels.ChannelReader<Ohlcv> LiveStream => _channel.Reader;
+            private readonly System.Threading.Channels.Channel<LiveTick> _channel =
+                System.Threading.Channels.Channel.CreateUnbounded<LiveTick>();
+            public System.Threading.Channels.ChannelReader<LiveTick> LiveStream => _channel.Reader;
+
+            /// <summary>Emits a tick stamped with the identity its subscription was
+            /// opened for — the real LiveStreamManager stamps the same way. There is
+            /// deliberately no way to push an UNSTAMPED bar: routing a live bar without
+            /// saying which symbol it belongs to is the bug this type exists to prevent.</summary>
+            public void PushTick(ChartIdentity identity, Ohlcv bar)
+                => _channel.Writer.TryWrite(new LiveTick(identity, bar));
 
             public DataState CurrentState => DataState.LiveStreaming;
             public IObservable<DataState> StateChanged => System.Reactive.Linq.Observable.Never<DataState>();
@@ -303,14 +309,14 @@ namespace AccessibleTrader.Tests
             await hub.StartFocusedLiveAsync();
             Assert.Equal(new[] { "BTC/USD@1h" }, orch.LiveStarts);
 
-            orch.LiveWriter.TryWrite(Bar(1, close: 77));
+            orch.PushTick(Id("BTC/USD"), Bar(1, close: 77));
             await WaitUntil(() => feed.Bars.Count == 2);
             Assert.Equal(77, feed.Bars[^1].Close);
 
             int stopsBefore = orch.LiveStops; // Start begins with a defensive stop, same as the old pipeline
             await hub.StopFocusedLiveAsync();
             Assert.Equal(stopsBefore + 1, orch.LiveStops);
-            orch.LiveWriter.TryWrite(Bar(2));
+            orch.PushTick(Id("BTC/USD"), Bar(2));
             await Task.Delay(100);
             Assert.Equal(2, feed.Bars.Count); // pump stopped — tick not applied
         }
@@ -429,7 +435,7 @@ namespace AccessibleTrader.Tests
             h.Manager.DataUpdated += () => dataUpdated = true;
             lock (h.Dispatched) h.Dispatched.Clear();
 
-            h.Orch.LiveWriter.TryWrite(Bar(1));
+            h.Orch.PushTick(Id("BTC/USD"), Bar(1));
             await WaitUntil(() => { lock (h.Dispatched) return h.Dispatched.OfType<UpdateDataAction>().Any(); });
 
             Assert.False(dataUpdated);

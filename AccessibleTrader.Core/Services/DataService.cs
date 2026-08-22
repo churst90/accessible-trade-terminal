@@ -264,30 +264,57 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Fetches bars from one provider.
+        ///
+        /// <para>
+        /// <b>Throws.</b> This method is the innermost body of the pipeline's retry +
+        /// circuit-breaker policy (<see cref="DataOrchestrator"/>), and it used to end
+        /// in <c>catch (Exception) { return empty; }</c>. That one catch made the whole
+        /// resilience layer decorative: no transport exception could reach the policy,
+        /// so the retries never retried, the breakers never tripped,
+        /// <c>onBreak</c>/<c>onReset</c> never fired, and neither
+        /// <c>ConnectionStatusEvent(Error)</c> nor <c>DataTrigger.ErrorOccurred</c> was
+        /// reachable from a network failure. The only symptom a user ever got was an
+        /// empty chart — silence, on a terminal whose entire premise is that you cannot
+        /// see the screen.
+        /// </para>
+        /// <para>
+        /// A policy whose body cannot fail is not a policy. Every caller
+        /// (<see cref="HistoricalDataFetcher"/> via the orchestrator's policy,
+        /// <c>BackfillManager</c>, <c>MarketFeeds</c>) has its own terminal handler, so
+        /// letting the exception out costs nothing and is what makes the layer real.
+        /// </para>
+        /// </summary>
         public async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string providerName, MarketDataRequest request)
         {
             if (!_isInitialized) return (new List<Ohlcv>(), new List<(long, double)>());
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
             if (provider == null) return (new List<Ohlcv>(), new List<(long, double)>());
 
-            try
-            {
-                var parts = request.Market.Split('|');
-                string subType = parts.Length > 1 ? parts[1] : "Spot";
-                await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
+            var parts = request.Market.Split('|');
+            string subType = parts.Length > 1 ? parts[1] : "Spot";
+            await EnsureProviderConfiguredAsync(providerName, subType).ConfigureAwait(false);
 
-                // ── Analytics series cache ──────────────────────────────────────────────
-                // Economic / on-chain / derivatives / sentiment series are published on a slow
-                // schedule — FRED revises daily at best, most on-chain metrics are one point per
-                // day — yet every chart load, asset switch and timeframe change re-fetched them
-                // from scratch. That is wasted latency for the user and wasted quota against
-                // providers that meter us (FRED allows 120 requests/minute; the free CoinGecko
-                // tier is far tighter).
-                //
-                // Only analytics markets are cached. Live crypto/stock bars must NOT be: the last
-                // bar changes on every tick, and serving a cached one would freeze the chart.
-                var cacheKey = AnalyticsCacheKey(providerName, request);
-                if (cacheKey != null)
+            // ── Analytics series cache ──────────────────────────────────────────────
+            // Economic / on-chain / derivatives / sentiment series are published on a slow
+            // schedule — FRED revises daily at best, most on-chain metrics are one point per
+            // day — yet every chart load, asset switch and timeframe change re-fetched them
+            // from scratch. That is wasted latency for the user and wasted quota against
+            // providers that meter us (FRED allows 120 requests/minute; the free CoinGecko
+            // tier is far tighter).
+            //
+            // Only analytics markets are cached. Live crypto/stock bars must NOT be: the last
+            // bar changes on every tick, and serving a cached one would freeze the chart.
+            //
+            // Both halves are guarded on their own: a corrupt or unreadable cache file is a
+            // LOCAL fault, and letting it out of here would count against the network circuit
+            // breaker and be announced to the user as a connection problem. Falling through to
+            // the provider is always the right answer.
+            var cacheKey = AnalyticsCacheKey(providerName, request);
+            if (cacheKey != null)
+            {
+                try
                 {
                     var hit = await _cacheService.GetAsync<CachedSeries>(cacheKey).ConfigureAwait(false);
                     if (hit?.Bars is { Count: > 0 })
@@ -297,10 +324,17 @@ namespace AccessibleTrader.Core.Services
                         return (hit.Bars, hit.Volume.Select(v => (v.Timestamp, v.Volume)).ToList());
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Analytics cache read failed for {Key}; fetching from the provider.", cacheKey);
+                }
+            }
 
-                var fetched = await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
+            var fetched = await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
 
-                if (cacheKey != null && fetched.Ohlcv is { Count: > 0 })
+            if (cacheKey != null && fetched.Ohlcv is { Count: > 0 })
+            {
+                try
                 {
                     var payload = new CachedSeries
                     {
@@ -314,14 +348,13 @@ namespace AccessibleTrader.Core.Services
                     await _cacheService.SetAsync(cacheKey, payload, AnalyticsCacheTtl(request.Timeframe))
                         .ConfigureAwait(false);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Analytics cache write failed for {Key}; the bars are still returned.", cacheKey);
+                }
+            }
 
-                return fetched;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch OHLCV for {Symbol}.", request.Symbol);
-                return (new List<Ohlcv>(), new List<(long, double)>());
-            }
+            return fetched;
         }
 
         // ── Analytics series cache ───────────────────────────────────────────────────────

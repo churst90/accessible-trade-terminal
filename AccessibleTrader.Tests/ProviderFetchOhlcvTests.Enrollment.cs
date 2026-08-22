@@ -130,15 +130,21 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// A 5xx must ESCAPE the provider. It used to be swallowed into an empty
+            /// result — which is what left DataOrchestrator's retry and circuit breaker
+            /// unreachable, and an empty chart as the only symptom of a dead upstream.
+            /// A 4xx is still swallowed (see the Fmp 403 case): retrying a bad key or an
+            /// unknown symbol cannot help. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorStatus_ReturnsEmpty_NoThrow()
+            public async Task HttpErrorStatus_Throws_SoTheResiliencePolicyCanSeeIt()
             {
                 var handler = new FakeHttpMessageHandler().Get(@"api\.binance\.com", "{}", HttpStatusCode.InternalServerError);
                 var provider = NewProvider(handler);
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USDT", "1m", 100));
-
-                Assert.Empty(result.Ohlcv);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USDT", "1m", 100)));
             }
 
             [Fact]
@@ -228,15 +234,21 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// A 5xx must ESCAPE the provider. It used to be swallowed into an empty
+            /// result — which is what left DataOrchestrator's retry and circuit breaker
+            /// unreachable, and an empty chart as the only symptom of a dead upstream.
+            /// A 4xx is still swallowed (see the Fmp 403 case): retrying a bad key or an
+            /// unknown symbol cannot help. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorStatus_ReturnsEmpty_NoThrow()
+            public async Task HttpErrorStatus_Throws_SoTheResiliencePolicyCanSeeIt()
             {
                 var handler = new FakeHttpMessageHandler().Get(@"finnhub\.io", "{}", HttpStatusCode.InternalServerError);
                 var provider = NewConfigured(handler);
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1m", 100));
-
-                Assert.Empty(result.Ohlcv);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1m", 100)));
             }
 
             [Fact]
@@ -358,15 +370,21 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// A 5xx must ESCAPE the provider. It used to be swallowed into an empty
+            /// result — which is what left DataOrchestrator's retry and circuit breaker
+            /// unreachable, and an empty chart as the only symptom of a dead upstream.
+            /// A 4xx is still swallowed (see the Fmp 403 case): retrying a bad key or an
+            /// unknown symbol cannot help. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorStatus_ReturnsEmpty_NoThrow()
+            public async Task HttpErrorStatus_Throws_SoTheResiliencePolicyCanSeeIt()
             {
                 var handler = new FakeHttpMessageHandler().Get(@"twelvedata\.com", "{}", HttpStatusCode.InternalServerError);
                 var provider = NewConfigured(handler);
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 100));
-
-                Assert.Empty(result.Ohlcv);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 100)));
             }
 
             [Fact]
@@ -486,8 +504,14 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// The counterpart to the 5xx tests above: a 403 is a bad or exhausted key,
+            /// not a network fault. Retrying it cannot help and tripping a breaker
+            /// labelled "network issue" over it would suspend a provider that is fine,
+            /// so it is still reported and swallowed. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorStatus_ReturnsEmpty_NoThrow()
+            public async Task HttpForbidden_ReturnsEmpty_NoThrow()
             {
                 var handler = new FakeHttpMessageHandler().Get(@"historical-price-full", "{}", HttpStatusCode.Forbidden);
                 var provider = NewConfigured(handler);
@@ -613,17 +637,21 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// A 5xx must ESCAPE the provider so DataOrchestrator's retry and circuit
+            /// breaker can see it — the conid lookup succeeded, so this is the gateway
+            /// failing, not a bad symbol. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorOnHistory_ReturnsEmpty_NoThrow()
+            public async Task HttpErrorOnHistory_Throws_SoTheResiliencePolicyCanSeeIt()
             {
                 var handler = new FakeHttpMessageHandler()
                     .Post(@"iserver/secdef/search", """[{"conid":265598}]""")
                     .Get(@"iserver/marketdata/history", "{}", HttpStatusCode.InternalServerError);
                 var provider = NewProvider(handler);
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1m", 100));
-
-                Assert.Empty(result.Ohlcv);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1m", 100)));
             }
         }
 
@@ -727,17 +755,23 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(result.Ohlcv);
             }
 
+            /// <summary>
+            /// A 5xx must ESCAPE the provider. It used to be swallowed into an empty
+            /// result — which is what left DataOrchestrator's retry and circuit breaker
+            /// unreachable, and an empty chart as the only symptom of a dead upstream.
+            /// A 4xx is still swallowed (see the Fmp 403 case): retrying a bad key or an
+            /// unknown symbol cannot help. See TransportFailure.
+            /// </summary>
             [Fact]
-            public async Task HttpErrorStatus_ReturnsEmpty_NoThrow()
+            public async Task HttpErrorStatus_Throws_SoTheResiliencePolicyCanSeeIt()
             {
                 var handler = new FakeHttpMessageHandler()
                     .Post(@"schwabapi\.com/v1/oauth/token", TokenBody)
                     .Get(@"marketdata/v1/pricehistory", "{}", HttpStatusCode.InternalServerError);
                 var provider = NewConfigured(handler);
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 100));
-
-                Assert.Empty(result.Ohlcv);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 100)));
             }
 
             [Fact]

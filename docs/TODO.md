@@ -16,7 +16,8 @@ still want a second look before anyone acts on them.
 Nothing was fixed *by the audit* — it was analysis only. Fixes have landed since, in agreed
 batches, and each one is marked `[x]` in place with the date and what the twin sweep turned up.
 Closed so far: the four paper-trading criticals, the UI/contrast/keyboard batch, the indicator
-causality contract, and the `FeedbackType.Alert` / master-gain / fixed-precision-price batch.
+causality contract, the `FeedbackType.Alert` / master-gain / fixed-precision-price batch, and the
+two data-pipeline ship-blockers (the tab-switch tick merge and the unreachable Polly layer).
 
 The single most useful thing this audit found is not any individual bug. It is a **pattern**: a
 defect gets fixed at the site where it was reported and not at the two or three structurally
@@ -89,9 +90,19 @@ gapped-through stop at the stop it had skipped. The fill rule now lives in ONE p
   are worse — the legs still carry the original quantity. `TradeSignal.ReduceOnly` exists in the
   SDK and `PaperTradingProvider` never reads it.
 
-### Ship-blockers — data pipeline
+### Ship-blockers — data pipeline — **FIRST TWO FIXED 2026-08-22**
 
-- [ ] **A tab switch merges the OLD symbol's live ticks into the NEW tab's buffer, and that path
+The two closed here are the tab-switch tick merge and the unreachable Polly layer. Both are guarded
+by `AccessibleTrader.Tests/PipelineIdentityAndResilienceTests.cs` (19 tests), and every guard in it
+was **proven to fail** by reintroducing the defect and watching it go red before being trusted —
+including the provider scan, which was checked against the specific false negative that killed two
+guards on 2026-08-21: the explanatory comment above each rethrow names `TransportFailure`, so a scan
+that read comments would have passed on the prose describing the fix while the code did the
+opposite. It strips comments and string literals before scanning, asserts it found 30+ provider
+bodies (so losing its targets fails loudly instead of passing vacuously), and both behavioural
+guards carry an explicit vacuity check proving they do not simply drop everything.
+
+- [x] **FIXED — A tab switch merges the OLD symbol's live ticks into the NEW tab's buffer, and that path
   can auto-execute a strategy.** VERIFIED. `MarketOrchestrator:251` sets `_dataManager.Identity`,
   a synchronous property whose setter is `_hub.SetFocus(value)` — `_focused` swaps immediately.
   But the orchestrator's subscription is only retargeted at **Step 4** of
@@ -104,13 +115,67 @@ gapped-through stop at the stop it had skipped. The fill rule now lives in ONE p
   switch mid-pump must not deliver the outgoing symbol's ticks… the subscription is retargeted by
   the caller"). Fix is two lines: carry the subscribed identity on the tick and drop it when it
   does not match `_focused.Identity`.
-- [ ] **Every Polly retry and circuit breaker in the pipeline is unreachable.** VERIFIED.
+
+  **Fixed 2026-08-22 as written, but as a TYPE rather than a check.** The pipeline's live channel
+  now carries `Core/Models/LiveTick.cs` — `(ChartIdentity Identity, Ohlcv Bar)` — instead of a bare
+  `Ohlcv`, stamped by `LiveStreamManager.SubscribeToProvider` from the subscription's OWN parameters
+  (captured, not read back off the mutable `_current*` fields, so a tick arriving late from the
+  outgoing socket is stamped with the outgoing identity). `MarketFeedHub`'s pump compares and drops.
+  Making it a type rather than an `if` is the load-bearing part: a live bar can no longer be routed
+  without saying whose it is, so the defect cannot come back through a different door.
+
+  **The twin, one layer up, which the audit did not list.** `DataManager` captures
+  `_hub.FocusedFeed`, awaits a fetch, then dispatches `UpdateDataAction` — and that action carries
+  no identity, so the store cannot tell that the bars belong to the tab the user just left. The
+  tab-switch `CancellationToken` closes most of the window (`ChartFeed` checks it after each fetch)
+  but not the last of it. All five dispatch sites now go through `DispatchIfStillFocused`. This is
+  not cosmetic: `PaperTradingProvider.OnState` reads exactly the pair (`st.Identity`, last bar of
+  `st.Data`) to price positions and fill resting orders, so the previous symbol's close filed under
+  the new symbol's name fills orders at a price that symbol never traded at.
+- [x] **FIXED — Every Polly retry and circuit breaker in the pipeline is unreachable.** VERIFIED.
   `DataService.FetchOhlcvAsync:320-324` catches `Exception` and returns an empty tuple. That call
   is the body of `HistoricalDataFetcher`'s policy, which is the body of `DataOrchestrator`'s
   policy. No transport exception can reach either, so the retries never retry, the breakers never
   trip, `onBreak`/`onReset` never fire, and `ConnectionStatusEvent(Error)` /
   `DataTrigger.ErrorOccurred` are unreachable from network failure. The only visible failure mode
   is an empty chart. Two carefully-configured, well-commented, entirely decorative Polly stacks.
+
+  **Fixed 2026-08-22 — and the audit understated it by a factor of thirty.** `DataService` was the
+  reported site, but the sweep for "what is the class, and where else does it live?" found that
+  **every one of the 31 data providers** ended its `FetchOhlcvAsync` in
+  `catch (Exception) { report; return empty; }` too. Fixing only `DataService` would have left the
+  policy just as unreachable and the fix just as invisible — the audit's own recurrence pattern,
+  caught before it recurred.
+
+  - **One definition of the failure class:** `Sdk/Plugins/TransportFailure.IsTransient` — HTTP with
+    no status (DNS/TLS/refused), 5xx, 408, 429, socket, IO, timeout — walking inner exceptions,
+    because HttpClient's own timeout arrives as a `TaskCanceledException` wrapping a
+    `TimeoutException`. A 4xx is deliberately NOT transient: retrying a bad key or an unknown symbol
+    cannot help, and announcing it as "network issue" names the wrong problem. Cancellation is not
+    transient either — a tab switch is not a network fault. `DataOrchestrator` tests the same
+    predicate, so the layer that throws and the layer that handles cannot drift apart.
+  - **31 providers rethrow it and swallow the rest.** They still report on their `ErrorStream`
+    first, so nothing that was audible became silent.
+  - **`DataService` no longer swallows at all.** Its analytics cache read and write are guarded
+    individually instead: a corrupt cache file is a LOCAL fault and must not count against a
+    network breaker. `HistoricalDataFetcher` got the same treatment for its `OhlcvStore` read and
+    write.
+  - **One resilience stack, not two.** `HistoricalDataFetcher` had a near-duplicate retry+breaker
+    INSIDE `DataOrchestrator`'s. Reviving both would have turned one failed request into four
+    against a provider already in trouble — classic retry amplification. Its policy is gone; what
+    it had that the orchestrator lacked moved up: `TimeoutException` in the retry set, and the
+    429/rate-limit breaker (2 failures / 30 s), which is deliberately NOT wired to
+    `ConnectionStatusEvent` because `GeneralOrderService` and `TradingReconciliationCoordinator`
+    read `Connected` as "re-hook this broker's order stream and reconcile live positions" — a
+    market-data rate limit clearing is not a broker reconnecting.
+  - **The user can now HEAR it.** Nothing subscribed to `ConnectionStatusEvent` announces anything
+    (both subscribers only act on `Connected`), so `onBreak` also publishes a
+    `FeedbackRequestEvent`. `BrokenCircuitException` stays deliberately silent — every fetch during
+    the open window lands there, and announcing each would bury the one message that mattered.
+  - **Contract tests that encoded the bug were flipped, not deleted.** Six
+    `HttpErrorStatus_ReturnsEmpty_NoThrow` tests asserted the swallow. They now assert the throw;
+    the Fmp 403 case was renamed `HttpForbidden_ReturnsEmpty_NoThrow` and kept as the counterweight
+    proving the 4xx boundary is real.
 - [ ] **`OhlcvStore` can write bars that were never real, and being insert-only can never repair
   them.** VERIFIED on both halves. (a) The forming-bar filter is `ToMs(b.Date) + barMs <= nowMs`
   with `"M" => value * 2592000000L, // Approx 30 days` (`TimeframeUtility:46`), so on the 31st of a

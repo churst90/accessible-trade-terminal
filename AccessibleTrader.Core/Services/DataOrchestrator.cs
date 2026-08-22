@@ -16,7 +16,10 @@ namespace AccessibleTrader.Core.Services
     public interface IDataOrchestrator
     {
         Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false);
-        System.Threading.Channels.ChannelReader<Ohlcv> LiveStream { get; }
+        /// <summary>Consolidated live bars, each stamped with the identity its
+        /// subscription was opened for. Consumers MUST route on that identity —
+        /// see <see cref="LiveTick"/> for why "whatever holds focus now" is wrong.</summary>
+        System.Threading.Channels.ChannelReader<LiveTick> LiveStream { get; }
         
         /// <summary>
         /// Fast-path notification for price ticks. Bypasses Rx overhead for maximum performance 
@@ -58,14 +61,14 @@ namespace AccessibleTrader.Core.Services
         // without limit on a fast feed (mirrors LiveStreamManager's channel). Stale
         // oldest bars are the right thing to shed — newer writes of the same bucket
         // supersede them.
-        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel =
-            System.Threading.Channels.Channel.CreateBounded<Ohlcv>(
+        private readonly System.Threading.Channels.Channel<LiveTick> _liveStreamChannel =
+            System.Threading.Channels.Channel.CreateBounded<LiveTick>(
                 new System.Threading.Channels.BoundedChannelOptions(1024)
                 {
                     FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
                 });
 
-        public System.Threading.Channels.ChannelReader<Ohlcv> LiveStream => _liveStreamChannel.Reader;
+        public System.Threading.Channels.ChannelReader<LiveTick> LiveStream => _liveStreamChannel.Reader;
         public DataState CurrentState => _stateMachine.CurrentState;
         public IObservable<DataState> StateChanged => _stateMachine.StateChanged;
 
@@ -83,20 +86,52 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// True for the exceptions that mean "the network, not the code" — the set the
+        /// retry and the transport breaker both act on. It delegates to
+        /// <see cref="TransportFailure"/> rather than restating the list, because the
+        /// SAME predicate decides which exceptions the providers are allowed to swallow.
+        /// A provider that eats a fault this policy is waiting for is what made the
+        /// whole stack decorative in the first place; two copies of the list is how
+        /// that comes back.
+        ///
+        /// <para>
+        /// The retry used to handle only <see cref="HttpRequestException"/> while the
+        /// breaker also counted socket and IO faults, so a broken socket was never
+        /// retried and a timeout was neither retried nor counted.
+        /// </para>
+        /// </summary>
+        private static bool IsTransport(Exception ex) => TransportFailure.IsTransient(ex);
+
+        /// <summary>
+        /// Rate-limit shape. Providers signal 429 in wildly different ways and most of
+        /// them only in the message, so this stays a substring test — inherited from
+        /// HistoricalDataFetcher, which is where the rate-limit breaker used to live.
+        /// </summary>
+        private static bool IsRateLimited(Exception ex) =>
+            ex.Message.Contains("429") || ex.Message.Contains("Rate");
+
+        /// <summary>
         /// Returns the retry+circuit-breaker policy pair for a given provider, building
         /// it on first use. Scoping the breaker per provider means one dead source
         /// (e.g. Polygon throwing timeouts) no longer blocks every other provider for
-        /// five seconds. 10 consecutive failures trip the breaker; 5 seconds open;
-        /// single retry before the first failure count increments.
+        /// five seconds. 10 consecutive failures trip the transport breaker; 5 seconds
+        /// open; single retry before the first failure count increments. A separate,
+        /// much twitchier breaker (2 failures, 30 seconds) handles rate limiting, where
+        /// continuing to ask is what keeps you banned.
+        ///
+        /// <para>
+        /// This is now the pipeline's ONLY resilience stack. HistoricalDataFetcher had a
+        /// near-duplicate one inside this one; both were unreachable because DataService
+        /// swallowed everything beneath them, and reviving both would have made one
+        /// failed request into four against a provider already in trouble.
+        /// </para>
         /// </summary>
         private (IAsyncPolicy Policy, AsyncCircuitBreakerPolicy Breaker) GetResiliencePolicy(string providerId)
         {
             return _providerPolicies.GetOrAdd(providerId, pid =>
             {
                 var breaker = Polly.Policy
-                    .Handle<HttpRequestException>()
-                    .Or<System.Net.Sockets.SocketException>()
-                    .Or<System.IO.IOException>()
+                    .Handle<Exception>(IsTransport)
                     .CircuitBreakerAsync(
                         exceptionsAllowedBeforeBreaking: 10,
                         durationOfBreak: TimeSpan.FromSeconds(5),
@@ -104,12 +139,20 @@ namespace AccessibleTrader.Core.Services
                         {
                             _logger.LogCritical(ex, "CIRCUIT BROKEN [{Provider}]: Suspending requests for {BreakDelaySeconds}s.", pid, breakDelay.TotalSeconds);
                             _eventBus.Publish(new ConnectionStatusEvent(pid, ConnectionState.Error, $"{pid} network issue. Circuit tripped."));
+                            // Say it. Nothing subscribed to ConnectionStatusEvent announces
+                            // anything (both subscribers only act on Connected), so with the
+                            // breaker reachable at last, this is the difference between a
+                            // trader knowing the provider is down and a chart that just stops.
+                            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                                $"{pid} is not responding. Pausing requests for {breakDelay.TotalSeconds:0} seconds."));
                             _stateMachine.Fire(DataTrigger.ErrorOccurred);
                         },
                         onReset: () =>
                         {
                             _logger.LogInformation("CIRCUIT RESET [{Provider}]: Connection restored.", pid);
                             _eventBus.Publish(new ConnectionStatusEvent(pid, ConnectionState.Connected, $"{pid} connection restored."));
+                            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{pid} connection restored.",
+                                Interrupt: false, IsUserInitiated: false));
                             _stateMachine.Fire(DataTrigger.Reset);
                         },
                         onHalfOpen: () =>
@@ -117,13 +160,41 @@ namespace AccessibleTrader.Core.Services
                             _logger.LogInformation("CIRCUIT HALF-OPEN [{Provider}]: Testing connection...", pid);
                         });
 
+                // Deliberately NOT a ConnectionStatusEvent: the two subscribers to that
+                // event (GeneralOrderService, TradingReconciliationCoordinator) treat
+                // Connected as "re-hook this broker's order stream and reconcile live
+                // positions". A market-data rate limit clearing is not a broker
+                // reconnecting, and firing that machinery on it would be a announcement
+                // storm with real trading side effects. Feedback only.
+                var rateLimitBreaker = Polly.Policy
+                    .Handle<Exception>(IsRateLimited)
+                    .CircuitBreakerAsync(
+                        exceptionsAllowedBeforeBreaking: 2,
+                        durationOfBreak: TimeSpan.FromSeconds(30),
+                        onBreak: (ex, breakDelay) =>
+                        {
+                            _logger.LogWarning(ex, "RATE LIMIT [{Provider}]: Backing off for {BreakDelaySeconds}s.", pid, breakDelay.TotalSeconds);
+                            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                                $"{pid} is rate limiting us. Pausing requests for {breakDelay.TotalSeconds:0} seconds."));
+                        },
+                        onReset: () =>
+                        {
+                            _logger.LogInformation("RATE LIMIT CLEARED [{Provider}].", pid);
+                            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{pid} rate limit cleared.",
+                                Interrupt: false, IsUserInitiated: false));
+                        });
+
+                // No backoff on the retry: it runs on the chart-load path, and a blind
+                // user waiting on an announcement notices a stalled second more than a
+                // second request. Rate limiting is the one case where waiting IS the
+                // fix, and that is the breaker's job, not the retry's.
                 var retryPolicy = Polly.Policy
-                    .Handle<HttpRequestException>()
+                    .Handle<Exception>(IsTransport)
                     .WaitAndRetryAsync(
                         retryCount: 1,
                         sleepDurationProvider: _ => TimeSpan.FromSeconds(1));
 
-                return (Polly.Policy.WrapAsync(retryPolicy, breaker), breaker);
+                return (Polly.Policy.WrapAsync(retryPolicy, rateLimitBreaker, breaker), breaker);
             });
         }
 
@@ -192,7 +263,10 @@ namespace AccessibleTrader.Core.Services
             }
             catch (BrokenCircuitException)
             {
-                // Instant fail if circuit is open - prevents UI hanging on timeouts
+                // Instant fail if circuit is open - prevents UI hanging on timeouts.
+                // Deliberately silent: onBreak already announced the trip once. Every
+                // fetch attempted during the open window lands here, and announcing
+                // each one would bury the one message that mattered.
                 _logger.LogWarning("Fetch aborted: Circuit is OPEN for {Symbol}.", symbol);
                 if (!silent) _stateMachine.Fire(DataTrigger.ErrorOccurred);
                 return new List<Ohlcv>();

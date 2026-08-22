@@ -56,15 +56,18 @@ namespace AccessibleTrader.Tests
             var feed = hub.SetFocus(Id(symbol: "ETH/USD"));
             feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0) }));
 
-            // Residue from the old symbol's subscription, still buffered.
-            orch.LiveWriter.TryWrite(Bar(5, close: 999));
-            orch.LiveWriter.TryWrite(Bar(6, close: 998));
+            // Residue from a PREVIOUS subscription for this same identity, still
+            // buffered. Stamped with the focused identity on purpose: a tick for a
+            // different symbol is now dropped by the pump's identity check, so only a
+            // same-identity stale tick can still prove the drain does its own job.
+            orch.PushTick(Id(symbol: "ETH/USD"), Bar(5, close: 999));
+            orch.PushTick(Id(symbol: "ETH/USD"), Bar(6, close: 998));
 
             await hub.StartFocusedLiveAsync();
             await Task.Delay(100);
             Assert.Equal(1, feed.Bars.Count); // stale ticks drained, not merged
 
-            orch.LiveWriter.TryWrite(Bar(1, close: 111)); // genuinely new tick
+            orch.PushTick(Id(symbol: "ETH/USD"), Bar(1, close: 111)); // genuinely new tick
             await WaitUntil(() => feed.Bars.Count == 2);
             Assert.Equal(111, feed.Bars[^1].Close);
             await hub.StopFocusedLiveAsync();
@@ -83,7 +86,7 @@ namespace AccessibleTrader.Tests
             await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => hub.StartFocusedLiveAsync()));
             await hub.StopFocusedLiveAsync();
 
-            orch.LiveWriter.TryWrite(Bar(1));
+            orch.PushTick(Id(), Bar(1));
             await Task.Delay(200);
             Assert.Equal(1, feed.Bars.Count); // a leaked pump would have applied it
         }

@@ -105,16 +105,22 @@ namespace AccessibleTrader.Tests
             Assert.Empty(result.Ohlcv);
         }
 
+        /// <summary>
+        /// A 5xx must ESCAPE the provider so DataOrchestrator's retry and circuit breaker
+        /// can see it. It used to be swallowed into an empty result, which is what made
+        /// the whole resilience layer decorative — and for a research series like COT,
+        /// "no bars" and "the server is down" look identical on a chart you cannot see.
+        /// See TransportFailure.
+        /// </summary>
         [Fact]
-        public async Task HttpError_ReturnsEmpty_NoThrow()
+        public async Task HttpError_Throws_SoTheResiliencePolicyCanSeeIt()
         {
             var handler = new FakeHttpMessageHandler()
                 .Get(@"publicreporting\.cftc\.gov", "{}", HttpStatusCode.InternalServerError);
             var provider = NewProvider(handler);
 
-            var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "GOLD_COT", "1w", 100));
-
-            Assert.Empty(result.Ohlcv);
+            await Assert.ThrowsAsync<HttpRequestException>(() =>
+                provider.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "GOLD_COT", "1w", 100)));
         }
 
         [Fact]

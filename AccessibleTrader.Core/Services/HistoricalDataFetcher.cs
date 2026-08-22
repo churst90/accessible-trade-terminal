@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Persistence;
@@ -10,9 +8,6 @@ using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Core.Services.Accessibility;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.CircuitBreaker;
-using Polly.Retry;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -23,7 +18,6 @@ namespace AccessibleTrader.Core.Services
         private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<HistoricalDataFetcher> _logger;
         private readonly IOhlcvStore? _store;
-        private readonly ConcurrentDictionary<string, IAsyncPolicy> _providerPolicies = new();
 
         // No IDbContextFactory: the fetcher no longer touches the database directly. All OHLCV
         // persistence goes through IOhlcvStore, which owns the closed-window and all-or-nothing
@@ -42,30 +36,18 @@ namespace AccessibleTrader.Core.Services
             _store = store;
         }
 
-        private IAsyncPolicy GetProviderPolicy(string provider)
-        {
-            return _providerPolicies.GetOrAdd(provider, p => 
-            {
-                // Simple 1-time retry for transient network issues. 
-                // We don't want exponential backoff here because it blocks the UI/Announcements.
-                var retryPolicy = Policy
-                    .Handle<HttpRequestException>()
-                    .Or<TimeoutException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 1,
-                        sleepDurationProvider: _ => TimeSpan.FromSeconds(1));
+        // The retry + circuit-breaker stack that used to live here has moved UP into
+        // DataOrchestrator, which already wrapped this method in a second, nearly
+        // identical one. Both were dead — DataService swallowed every exception below
+        // them — and simply reviving both would have turned one failed request into
+        // four (outer retry × inner retry) against a provider that is already
+        // struggling, which is the classic retry-amplification failure. One layer,
+        // one place: DataOrchestrator.GetResiliencePolicy, which is also the one that
+        // publishes ConnectionStatusEvent and fires the pipeline state triggers.
+        // What this class contributed and the orchestrator did not — TimeoutException
+        // in the retry set, and the 429/rate-limit breaker — moved with it.
 
-                var circuitBreakerPolicy = Policy
-                    .Handle<Exception>(ex => ex.Message.Contains("429") || ex.Message.Contains("Rate"))
-                    .CircuitBreakerAsync(
-                        exceptionsAllowedBeforeBreaking: 2,
-                        durationOfBreak: TimeSpan.FromSeconds(30));
-
-                return Policy.WrapAsync(circuitBreakerPolicy, retryPolicy);
-            });
-        }
-
-        public virtual async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)        
+        public virtual async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)
         {
             _logger.LogInformation("Orchestrating fetch for {Market}:{ProviderName}:{Symbol} @ {Timeframe}.", market, providerName, symbol, timeframe);
             
@@ -81,14 +63,25 @@ namespace AccessibleTrader.Core.Services
             // nothing about it looks wrong. See OhlcvStore.
             if (_store != null && until.HasValue && IsClosedWindow(until.Value, timeframe))
             {
-                var stored = await _store
-                    .TryReadClosedWindowAsync(market, providerName, symbol, timeframe, until.Value, limit ?? 200)
-                    .ConfigureAwait(false);
-                if (stored.Count > 0)
+                // Guarded on its own: a local disk fault must not be reported as, or
+                // counted as, a network failure — the network is right there and can
+                // serve the same window. Same reason DataService guards its cache.
+                try
                 {
-                    _logger.LogInformation("Served {Count} {Timeframe} bars for {Symbol} from the local store.",
-                        stored.Count, timeframe, symbol);
-                    return ApplyFinalFilters(stored, since, until, limit ?? 200);
+                    var stored = await _store
+                        .TryReadClosedWindowAsync(market, providerName, symbol, timeframe, until.Value, limit ?? 200)
+                        .ConfigureAwait(false);
+                    if (stored.Count > 0)
+                    {
+                        _logger.LogInformation("Served {Count} {Timeframe} bars for {Symbol} from the local store.",
+                            stored.Count, timeframe, symbol);
+                        return ApplyFinalFilters(stored, since, until, limit ?? 200);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Local store read failed for {Symbol} @ {Timeframe}; falling through to the provider.",
+                        symbol, timeframe);
                 }
             }
 
@@ -114,60 +107,59 @@ namespace AccessibleTrader.Core.Services
                 _logger.LogInformation("Provider {ProviderName} does not support {Timeframe} natively. Pivoting to {EffectiveTimeframe} with limit {EffectiveLimit}.", providerName, timeframe, effectiveTimeframe, effectiveLimit);
             }
 
-            var policy = GetProviderPolicy(providerName);
+            var request = new MarketDataRequest(market, symbol, effectiveTimeframe, effectiveLimit, since, until);
 
-            try
+            // No try/catch: transport failures belong to DataOrchestrator's policy, which
+            // is what turns them into a retry, a tripped breaker, a ConnectionStatusEvent
+            // and an audible "failed to load data". Swallowing them here — as this method
+            // and DataService both used to — is what left an empty chart as the only
+            // symptom of a dead network.
+            var (nativeBars, _) = await _dataService.FetchOhlcvAsync(providerName, request).ConfigureAwait(false);
+
+            if (nativeBars.Any())
             {
-                var request = new MarketDataRequest(market, symbol, effectiveTimeframe, effectiveLimit, since, until);
-                
-                var (nativeBars, _) = await policy.ExecuteAsync(async () =>
+                // Verification Phase
+                bool actualNeedsResample = needsResample;
+                if (nativeBars.Count >= 2 && !actualNeedsResample)
                 {
-                    return await _dataService.FetchOhlcvAsync(providerName, request).ConfigureAwait(false);
-                }).ConfigureAwait(false);
-
-                if (nativeBars.Any())
-                {
-                    // Verification Phase
-                    bool actualNeedsResample = needsResample;
-                    if (nativeBars.Count >= 2 && !actualNeedsResample)
+                    long actualIntervalMs = new DateTimeOffset(DateTime.SpecifyKind(nativeBars[1].Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds() - new DateTimeOffset(DateTime.SpecifyKind(nativeBars[0].Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+                    long expectedIntervalMs = TimeframeUtility.ToMilliseconds(timeframe);
+                    
+                    // Fuzzy Verification: If the actual interval is significantly smaller than the expected timeframe, provider lied.
+                    // We check if it's less than 95% of expected interval to allow for slight provider jitter
+                    if (expectedIntervalMs > 0 && actualIntervalMs > 0 && actualIntervalMs < (expectedIntervalMs * 0.95))
                     {
-                        long actualIntervalMs = new DateTimeOffset(DateTime.SpecifyKind(nativeBars[1].Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds() - new DateTimeOffset(DateTime.SpecifyKind(nativeBars[0].Date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
-                        long expectedIntervalMs = TimeframeUtility.ToMilliseconds(timeframe);
-                        
-                        // Fuzzy Verification: If the actual interval is significantly smaller than the expected timeframe, provider lied.
-                        // We check if it's less than 95% of expected interval to allow for slight provider jitter
-                        if (expectedIntervalMs > 0 && actualIntervalMs > 0 && actualIntervalMs < (expectedIntervalMs * 0.95))
-                        {
-                            _logger.LogWarning("Data verification failed for {ProviderName}. Expected {Timeframe} ({ExpectedIntervalMs}ms) but received ~{ActualIntervalMs}ms. Forcing local resample.", providerName, timeframe, expectedIntervalMs, actualIntervalMs);
-                            actualNeedsResample = true;
-                        }
+                        _logger.LogWarning("Data verification failed for {ProviderName}. Expected {Timeframe} ({ExpectedIntervalMs}ms) but received ~{ActualIntervalMs}ms. Forcing local resample.", providerName, timeframe, expectedIntervalMs, actualIntervalMs);
+                        actualNeedsResample = true;
                     }
+                }
 
-                    // Store what the user actually charts — post-resample, at the REQUESTED
-                    // timeframe. The old read path only ever looked at 1m, which is why a
-                    // 1h or 1d chart could never be served from disk.
-                    var finalBars = actualNeedsResample
-                        ? ApplyFinalFilters(_resampler.Resample(nativeBars, timeframe), since, until, limit ?? 200)
-                        : ApplyFinalFilters(nativeBars, since, until, limit ?? 200);
+                // Store what the user actually charts — post-resample, at the REQUESTED
+                // timeframe. The old read path only ever looked at 1m, which is why a
+                // 1h or 1d chart could never be served from disk.
+                var finalBars = actualNeedsResample
+                    ? ApplyFinalFilters(_resampler.Resample(nativeBars, timeframe), since, until, limit ?? 200)
+                    : ApplyFinalFilters(nativeBars, since, until, limit ?? 200);
 
-                    if (_store != null && finalBars.Count > 0)
+                if (_store != null && finalBars.Count > 0)
+                {
+                    // Fire-and-forget would race the next read; awaiting costs a few ms of
+                    // local I/O against a network fetch we just paid for. Guarded for the
+                    // same reason the read above is: a full disk must not discard bars we
+                    // already have in hand, nor be reported as a network fault.
+                    try
                     {
-                        // Fire-and-forget would race the next read; awaiting costs a few ms of
-                        // local I/O against a network fetch we just paid for.
                         await _store.SaveAsync(market, providerName, symbol, timeframe, finalBars)
                             .ConfigureAwait(false);
                     }
-
-                    return finalBars;
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Local store write failed for {Symbol} @ {Timeframe}; the bars are still returned.",
+                            symbol, timeframe);
+                    }
                 }
-            }
-            catch (BrokenCircuitException)
-            {
-                _logger.LogWarning("Fetch request blocked for {ProviderName} because circuit is open.", providerName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unhandled fetch error for {ProviderName}.", providerName);
+
+                return finalBars;
             }
 
             return new List<Ohlcv>();

@@ -174,9 +174,15 @@ public class WikipediaPageviewsProviderTests
         Assert.Null(error);
     }
 
-    /// <summary>A real transport failure, by contrast, must be visible.</summary>
+    /// <summary>
+    /// A real transport failure, by contrast, must be visible — and visible TWICE over:
+    /// reported on the error stream, and rethrown so DataOrchestrator's retry and
+    /// circuit breaker can act on it. It used to be reported and then swallowed into an
+    /// empty result, which is indistinguishable from "this article has no pageviews".
+    /// See TransportFailure.
+    /// </summary>
     [Fact]
-    public async Task ServerError_ReportsOnTheErrorStreamAndReturnsEmpty()
+    public async Task ServerError_ReportsOnTheErrorStreamAndRethrows()
     {
         var provider = NewProvider(new FakeHttpMessageHandler()
             .Get(@"per-article", "boom", HttpStatusCode.InternalServerError));
@@ -184,10 +190,9 @@ public class WikipediaPageviewsProviderTests
         string? error = null;
         using var sub = provider.ErrorStream.Subscribe(e => error = e);
 
-        var (bars, _) = await provider.FetchOhlcvAsync(
-            new MarketDataRequest("Sentiment", "BTC_VIEWS", "1d", 10));
+        await Assert.ThrowsAsync<HttpRequestException>(() => provider.FetchOhlcvAsync(
+            new MarketDataRequest("Sentiment", "BTC_VIEWS", "1d", 10)));
 
-        Assert.Empty(bars);
         Assert.NotNull(error);
     }
 

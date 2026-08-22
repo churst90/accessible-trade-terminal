@@ -94,12 +94,13 @@ namespace AccessibleTrader.Tests
 
     public class MockLiveStreamManager : LiveStreamManager
     {
-        private readonly Channel<Ohlcv> _channel = Channel.CreateUnbounded<Ohlcv>();
+        private readonly Channel<LiveTick> _channel = Channel.CreateUnbounded<LiveTick>();
         public MockLiveStreamManager() : base(null!, null!, null!, null!) { }
-        public override ChannelReader<Ohlcv> LiveStream => _channel.Reader;
+        public override ChannelReader<LiveTick> LiveStream => _channel.Reader;
         public override Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe) => Task.CompletedTask;
         public override Task StopLiveStreamAsync() => Task.CompletedTask;
-        public void EmitTick(Ohlcv tick) => _channel.Writer.TryWrite(tick);
+        public void EmitTick(Ohlcv tick)
+            => _channel.Writer.TryWrite(new LiveTick(new ChartIdentity("Spot", "Test", "BTC/USD", "1h"), tick));
     }
 }
 

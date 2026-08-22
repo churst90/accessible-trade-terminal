@@ -103,6 +103,12 @@ namespace AccessibleTrader.Plugins.Deribit
             catch (Exception ex)
             {
                 SurfaceError($"Deribit fetch failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                // Transport faults belong to the pipeline's retry + circuit breaker
+                // (see TransportFailure). Swallowing them here is what made all three
+                // Polly layers above this call decorative and left an empty chart as
+                // the only symptom of a dead network. Everything else — a malformed
+                // payload, an unknown symbol, an auth refusal — is still ours to eat.
+                if (TransportFailure.IsTransient(ex)) throw;
                 return (new(), new());
             }
         }

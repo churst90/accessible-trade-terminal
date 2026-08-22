@@ -265,8 +265,12 @@ namespace AccessibleTrader.Plugins.Polygon
             }
             catch (HttpRequestException ex)
             {
+                // Polygon is the only provider that names the network case separately,
+                // which made it the only one where the generic guard below would not
+                // have been enough — it never reached it. Same rule: report, then let
+                // the pipeline's retry and breaker have it.
                 _errorStream.OnNext($"Polygon: network error fetching {symbol}: {ex.Message}");
-                return (new List<Ohlcv>(), new List<(long, double)>());
+                throw;
             }
             catch (TaskCanceledException)
             {
@@ -281,6 +285,12 @@ namespace AccessibleTrader.Plugins.Polygon
             catch (Exception ex)
             {
                 _errorStream.OnNext($"Polygon: fetch error for {symbol}: {ex.Message}");
+                // Transport faults belong to the pipeline's retry + circuit breaker
+                // (see TransportFailure). Swallowing them here is what made all three
+                // Polly layers above this call decorative and left an empty chart as
+                // the only symptom of a dead network. Everything else — a malformed
+                // payload, an unknown symbol, an auth refusal — is still ours to eat.
+                if (TransportFailure.IsTransient(ex)) throw;
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }

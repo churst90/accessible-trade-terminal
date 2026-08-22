@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using Microsoft.Extensions.Logging;
 
@@ -22,13 +23,16 @@ namespace AccessibleTrader.Core.Services
         // healthy UI ever leaves unread; when the consumer lags that badly, the
         // stale oldest bars are the right thing to shed (each newer write of the
         // same bucket supersedes them anyway).
-        private readonly System.Threading.Channels.Channel<Ohlcv> _liveStreamChannel =
-            System.Threading.Channels.Channel.CreateBounded<Ohlcv>(
+        private readonly System.Threading.Channels.Channel<LiveTick> _liveStreamChannel =
+            System.Threading.Channels.Channel.CreateBounded<LiveTick>(
                 new System.Threading.Channels.BoundedChannelOptions(1024)
                 {
                     FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest,
                 });
-        public virtual System.Threading.Channels.ChannelReader<Ohlcv> LiveStream => _liveStreamChannel.Reader;
+        // Ticks carry the identity they were SUBSCRIBED FOR, not just a bar: the
+        // consumer routes by focus, and focus moves before the subscription is
+        // retargeted. See LiveTick.
+        public virtual System.Threading.Channels.ChannelReader<LiveTick> LiveStream => _liveStreamChannel.Reader;
 
         private IDisposable? _currentProviderSubscription;
         private IDisposable? _currentErrorSubscription;
@@ -110,7 +114,7 @@ namespace AccessibleTrader.Core.Services
             _reconnectAttempts = 0;
             _lastTickAtMs = Environment.TickCount64;
 
-            SubscribeToProvider(provider, market, symbol, timeframe);
+            SubscribeToProvider(provider, market, providerName, symbol, timeframe);
 
             try
             {
@@ -126,7 +130,7 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private void SubscribeToProvider(IMarketDataProvider provider, string market, string symbol, string timeframe)
+        private void SubscribeToProvider(IMarketDataProvider provider, string market, string providerName, string symbol, string timeframe)
         {
             _currentErrorSubscription?.Dispose();
             _currentProviderSubscription?.Dispose();
@@ -149,6 +153,13 @@ namespace AccessibleTrader.Core.Services
             // volume on every ~1s kline update. Malformed-tick filtering (zero OHLC
             // legs) lives inside the consolidator now.
             var consolidator = new BarBucketConsolidator(timeframe, provider.LiveTickStyle);
+            // Captured, not read from the mutable _current* fields: this closure
+            // outlives the next StartLiveStreamAsync by however long it takes the
+            // outgoing socket to stop delivering, and a tick from the OLD socket
+            // must be stamped with the OLD identity or the consumer's check is
+            // worthless. _currentProviderName is not in scope here for the same
+            // reason — the subscription's own parameters are the truth.
+            var identity = new ChartIdentity(market, providerName, symbol, timeframe);
             _currentProviderSubscription = provider.LiveStream.Subscribe(tick =>
             {
                 _lastTickAtMs = Environment.TickCount64;
@@ -157,7 +168,7 @@ namespace AccessibleTrader.Core.Services
 
                 var bar = consolidator.Apply(tick);
                 if (bar.HasValue)
-                    _liveStreamChannel.Writer.TryWrite(bar.Value);
+                    _liveStreamChannel.Writer.TryWrite(new LiveTick(identity, bar.Value));
             });
         }
 
@@ -258,7 +269,7 @@ namespace AccessibleTrader.Core.Services
             _currentLiveProvider = provider;
             _lastTickAtMs = Environment.TickCount64;
 
-            SubscribeToProvider(provider, market, symbol, timeframe);
+            SubscribeToProvider(provider, market, providerName, symbol, timeframe);
             await provider.SetSubscriptionAsync(market, symbol, timeframe).ConfigureAwait(false);
 
             _logger.LogInformation("Reconnected live stream for {Provider} {Symbol} @ {Timeframe}.", providerName, symbol, timeframe);

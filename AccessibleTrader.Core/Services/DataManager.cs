@@ -101,6 +101,42 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Dispatches a feed's bars to the store ONLY while that feed still holds
+        /// focus.
+        ///
+        /// <para>
+        /// Every load path here captures <c>_hub.FocusedFeed</c>, awaits a network
+        /// round-trip, and then dispatches. Focus moves synchronously on a tab
+        /// switch (<see cref="Identity"/> → <c>SetFocus</c>), so the awaited call
+        /// can return into a world where the store's Identity is already the NEXT
+        /// symbol — and <see cref="UpdateDataAction"/> carries no identity of its
+        /// own, so the store cannot tell. The result is the previous symbol's bars
+        /// filed under the new symbol's name: a wrong chart, and a wrong last price
+        /// for <c>PaperTradingProvider.OnState</c>, which fills resting orders from
+        /// exactly that pair of fields.
+        /// </para>
+        /// <para>
+        /// The <c>CancellationToken</c> from MarketOrchestrator's tab-switch CTS
+        /// closes most of this window but not the last of it — cancellation is
+        /// observed inside <see cref="ChartFeed"/>, and focus can still move between
+        /// that check and this dispatch. This is the same "compare, don't assume"
+        /// rule the focused live pump applies to ticks; see <see cref="Models.LiveTick"/>.
+        /// </para>
+        /// </summary>
+        private bool DispatchIfStillFocused(ChartFeed feed, UpdateDataAction action)
+        {
+            if (!ReferenceEquals(_hub.FocusedFeed, feed))
+            {
+                _logger.LogDebug(
+                    "DataManager: dropped a store update for {Stale} — {Focused} took focus during the fetch.",
+                    feed.Identity, _hub.FocusedFeed?.Identity);
+                return false;
+            }
+            _store.Dispatch(action);
+            return true;
+        }
+
         public async Task RefreshDataAsync(CancellationToken ct = default)
         {
             var feed = _hub.FocusedFeed;
@@ -110,7 +146,7 @@ namespace AccessibleTrader.Core.Services
             {
                 if (!await feed.RefreshAsync(ct).ConfigureAwait(false)) return;
 
-                _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: true));
+                if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: true))) return;
                 _store.Dispatch(new ZoomAction(100));
                 _store.Dispatch(new NavigateAction(feed.Bars.Count - 1));
 
@@ -156,7 +192,7 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogInformation(
                         "DataManager: warm feed hit for {Symbol} — {Count} bars bound with no snapshot restore.",
                         feed.Identity.Symbol, warm.Count);
-                    _store.Dispatch(new UpdateDataAction(warm, IsInitialLoad: false));
+                    if (!DispatchIfStillFocused(feed, new UpdateDataAction(warm, IsInitialLoad: false))) return;
                     DataUpdated?.Invoke();
 
                     ct.ThrowIfCancellationRequested();
@@ -168,7 +204,7 @@ namespace AccessibleTrader.Core.Services
                     // pre-refactor cost; the instant bind above already happened.
                     if (await feed.GapFillAsync(ct).ConfigureAwait(false))
                     {
-                        _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                        if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: false))) return;
                         DataUpdated?.Invoke();
                     }
                 }
@@ -181,7 +217,7 @@ namespace AccessibleTrader.Core.Services
                     // without waiting for a network round-trip. IsInitialLoad=false so the
                     // snapshot-restored cursor/viewport from WorkspaceState is preserved.
                     feed.RestoreSnapshot(snapshotData);
-                    _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                    if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: false))) return;
                     DataUpdated?.Invoke();
 
                     ct.ThrowIfCancellationRequested();
@@ -190,7 +226,7 @@ namespace AccessibleTrader.Core.Services
                     // was inactive, without touching the preserved scrollback.
                     if (await feed.GapFillAsync(ct).ConfigureAwait(false))
                     {
-                        _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
+                        if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: false))) return;
                         DataUpdated?.Invoke();
                     }
                 }
@@ -229,9 +265,8 @@ namespace AccessibleTrader.Core.Services
                     _store.Dispatch(new SetDataStatusAction(DataStatus.LoadingHistorical));
                 }).ConfigureAwait(false);
 
-                if (prepended > 0)
+                if (prepended > 0 && DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: false)))
                 {
-                    _store.Dispatch(new UpdateDataAction(feed.Bars, IsInitialLoad: false));
                     DataUpdated?.Invoke();
                 }
             }
