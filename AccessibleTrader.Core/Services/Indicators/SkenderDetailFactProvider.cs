@@ -93,7 +93,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                     double percentB = (u - l) > 0 ? (data[index].Close - l) / (u - l) : 0.5;
                     string position = percentB > 0.95 ? "At upper band" : (percentB < 0.05 ? "At lower band" : $"At {percentB:P0} of range (%B)");
-                    return $"{squeeze}{position}. Band width {u - l:F2}.";
+                    return $"{squeeze}{position}. Band width {Accessibility.SpeechPriceFormatter.FormatPrice(u - l)}.";
                 }
             }
 
@@ -255,7 +255,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     if (index > 0 && !double.IsNaN(vwapLine[index - 1]))
                         trend = vwap > vwapLine[index - 1] ? " VWAP rising." : (vwap < vwapLine[index - 1] ? " VWAP falling." : "");
 
-                    return $"VWAP {vwap:F2}.{priceVsVwap}{trend}";
+                    return $"VWAP {Accessibility.SpeechPriceFormatter.FormatPrice(vwap)}.{priceVsVwap}{trend}";
                 }
             }
 
@@ -283,7 +283,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         double atrPct = price > 0 ? (atr / price) * 100.0 : 0;
                         priceContext = $" {atrPct:F2} percent of price.";
                     }
-                    return $"ATR {atr:F2}.{priceContext}{trend}";
+                    return $"ATR {Accessibility.SpeechPriceFormatter.FormatPrice(atr)}.{priceContext}{trend}";
                 }
             }
 

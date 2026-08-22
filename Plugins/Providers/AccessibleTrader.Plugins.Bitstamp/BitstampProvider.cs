@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -629,13 +630,24 @@ namespace AccessibleTrader.Plugins.Bitstamp
                         ? $"/api/v2/buy/{(isMkt ? "market/" : "")}{pair}/"
                         : $"/api/v2/sell/{(isMkt ? "market/" : "")}{pair}/";
 
-                    var postData = new Dictionary<string, string> { ["amount"] = signal.Quantity.ToString("F8") };
+                    // FOUND 2026-08-21 by the fixed-precision price sweep. These were "F2",
+                    // which is the speech bug with a far worse victim: this string is the ORDER,
+                    // not a description of one. A limit on a sub-dollar pair — and Bitstamp
+                    // lists plenty — was submitted rounded to the nearest cent, so 0.0363
+                    // became "0.04" (7 percent away from the level the user chose) and anything
+                    // under half a cent became "0.00". Neither format carried the culture
+                    // either, so a comma-decimal machine posted "0,04" to the exchange.
+                    //
+                    // Every other provider in this repo already does exactly this: full
+                    // precision, invariant culture. Bitstamp was the one that did not.
+                    var postData = new Dictionary<string, string>
+                        { ["amount"] = signal.Quantity.ToString(CultureInfo.InvariantCulture) };
                     if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        postData["price"] = signal.Price.Value.ToString("F2");
+                        postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
 
                     // Bitstamp supports limit_price for instant orders (acts as price ceiling/floor)
                     if (isMkt && signal.Price.HasValue)
-                        postData["limit_price"] = signal.Price.Value.ToString("F2");
+                        postData["limit_price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
 
                     var response = await PostAuthenticatedAsync(endpoint, postData);
                     var json     = JObject.Parse(response);

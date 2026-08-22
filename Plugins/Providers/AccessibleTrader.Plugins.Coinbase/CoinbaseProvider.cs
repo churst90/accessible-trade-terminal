@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
@@ -560,20 +561,24 @@ namespace AccessibleTrader.Plugins.Coinbase
                     string productId = ToProductId(signal.Symbol);
                     string clientOid = signal.ClientOid ?? Guid.NewGuid().ToString();
 
+                    // F8 carries a sub-cent price without collapsing it, so the precision here
+                    // was already right — but none of these carried a culture, so on a
+                    // comma-decimal machine every size and price on the wire read "0,04000000".
+                    // Same defect class as Bitstamp's F2, one field short of it.
                     JObject orderConfig;
                     if (signal.Type == OrderType.Market)
-                        orderConfig = new JObject { ["market_market_ioc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8") } };
+                        orderConfig = new JObject { ["market_market_ioc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture) } };
                     else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        orderConfig = new JObject { ["limit_limit_gtc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8"), ["limit_price"] = signal.Price.Value.ToString("F8"), ["post_only"] = false } };
+                        orderConfig = new JObject { ["limit_limit_gtc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture), ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture), ["post_only"] = false } };
                     else if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
                     {
                         orderConfig = new JObject
                         {
                             ["stop_limit_stop_limit_gtc"] = new JObject
                             {
-                                ["base_size"] = signal.Quantity.ToString("F8"),
-                                ["limit_price"] = (signal.StopLoss.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)).ToString("F8"),
-                                ["stop_price"] = signal.StopLoss.Value.ToString("F8"),
+                                ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
+                                ["limit_price"] = (signal.StopLoss.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)).ToString("F8", CultureInfo.InvariantCulture),
+                                ["stop_price"] = signal.StopLoss.Value.ToString("F8", CultureInfo.InvariantCulture),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };
@@ -584,9 +589,9 @@ namespace AccessibleTrader.Plugins.Coinbase
                         {
                             ["stop_limit_stop_limit_gtc"] = new JObject
                             {
-                                ["base_size"] = signal.Quantity.ToString("F8"),
-                                ["limit_price"] = signal.Price.Value.ToString("F8"),
-                                ["stop_price"] = signal.StopLoss.Value.ToString("F8"),
+                                ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
+                                ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture),
+                                ["stop_price"] = signal.StopLoss.Value.ToString("F8", CultureInfo.InvariantCulture),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };

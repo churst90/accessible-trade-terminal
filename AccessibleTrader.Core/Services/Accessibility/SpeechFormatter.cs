@@ -566,7 +566,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
             }
 
-            return $"{ctx.Comp.DisplayName}. {direction}, width {absWidth:F2}.{pricePosition}";
+            // Width is the distance between two lines on the same axis as price, so it is
+            // price-space: an Ichimoku Kumo on a sub-cent asset is thousandths of a cent wide
+            // and F2 announced every one of them as "width 0.00".
+            return $"{ctx.Comp.DisplayName}. {direction}, width {SpeechPriceFormatter.FormatPrice(absWidth)}.{pricePosition}";
         }
     }
 

@@ -68,12 +68,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
+                    // MACD is a difference of two moving averages, so it lives in PRICE units —
+                    // unlike every bounded oscillator in this file. On a sub-dollar asset all
+                    // three components sit far below 0.01 and F2 spoke "0.00" for the line, the
+                    // signal and the histogram alike, including across the cross that is the
+                    // entire point of the indicator.
                     new() { Name = "Macd",      DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#00BCD4", DefaultThickness = 1.5f,
-                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:price}." },
                     new() { Name = "Signal",    DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#FF9800", DefaultThickness = 1.5f,
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            SpeechTemplate = "{name}. {type}. {value:price}." },
                     new() { Name = "Histogram", DisplayType = ComponentDisplayType.Histogram, DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
-                            DefaultColorSource = ColorSource.Value, SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
+                            DefaultColorSource = ColorSource.Value, SpeechTemplate = "{name}. {type}. {value:price}. {zone}." },
                 },
             },
             new IndicatorMetadata

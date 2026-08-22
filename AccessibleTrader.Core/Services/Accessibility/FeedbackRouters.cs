@@ -169,6 +169,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // the sandbox advisory) was SILENT. Now a real alert sound.
                 case FeedbackType.Alert: _earcons.PlayAlert(); break;
                 case FeedbackType.Boundary: _earcons.PlayBoundary(); break;
+
+                // FOUND 2026-08-21, the same defect one rung further down: Alert got its arm in
+                // July and the OTHER five members were left dead. PlayEarcon(StateChange) is what
+                // AccessibilityFeedbackCoordinator requests for OrderCancelledEvent — a call added
+                // specifically because "cancels were the one order state change that vanished
+                // silently", and which itself did nothing. Navigation, VolumeChange,
+                // SeriesSelection, ComponentSelection, PointFocus and ViewportChange were dead too,
+                // taking five of sixteen EarconType values with them through
+                // GlobalErrorCoordinator.PlayEarcon's mapping.
+                //
+                // A caller that asks for a sound gets a sound. Info's neutral blip is the floor —
+                // no member of this enum is allowed to mean silence, because a silent earcon is
+                // indistinguishable from a broken binding, and that is what the feedback contract
+                // exists to forbid.
+                default: _earcons.PlayInfo(); break;
             }
         }
 

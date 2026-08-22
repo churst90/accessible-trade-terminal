@@ -102,7 +102,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 EarconType.TakeProfit => FeedbackType.Info,
                 EarconType.Alert => FeedbackType.Alert,
                 EarconType.Confirmation => FeedbackType.Info,
-                EarconType.Boundary => FeedbackType.Navigation,
+                // Was FeedbackType.Navigation — a boundary asked for, and would have got, the
+                // wrong sound. Doubly invisible while Navigation had no arm in the earcon router
+                // at all, so the mismap produced silence rather than an audible mistake.
+                EarconType.Boundary => FeedbackType.Boundary,
                 EarconType.ModeSwitch => FeedbackType.StateChange,
                 EarconType.Navigation => FeedbackType.Navigation,
                 EarconType.PlaybackStart => FeedbackType.Info,

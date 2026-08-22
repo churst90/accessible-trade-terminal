@@ -109,7 +109,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     double anchor1Close = (double)state.Data[state.CoordinateEntryAnchor1Index].Close;
                     double delta = (double)pt.Close - anchor1Close;
                     string sign = delta >= 0 ? "+" : "";
-                    ceMsg += $". Change from anchor: {sign}{delta:F0}";
+                    // The delta is in quote currency, so it formats like a price. F0 said
+                    // "+0" for every move a sub-dollar asset can make — the anchor exists
+                    // precisely to measure that move.
+                    ceMsg += $". Change from anchor: {sign}{SpeechPriceFormatter.FormatPrice(delta)}";
                 }
 
                 _speechRouter.Speak(ceMsg, interrupt: isUserInitiated);

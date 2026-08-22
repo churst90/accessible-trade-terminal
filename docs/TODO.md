@@ -9,9 +9,14 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 ## Production-readiness audit (2026-08-21) — findings, unfixed
 
 A full read-through of the codebase for production readiness: every area reviewed against the
-code rather than against its own comments. Nothing below has been fixed. Everything marked
-**VERIFIED** was confirmed by reading the cited lines during the audit; items without that marker
-are reported from the review pass and still want a second look before anyone acts on them.
+code rather than against its own comments. Everything marked **VERIFIED** was confirmed by reading
+the cited lines during the audit; items without that marker are reported from the review pass and
+still want a second look before anyone acts on them.
+
+Nothing was fixed *by the audit* — it was analysis only. Fixes have landed since, in agreed
+batches, and each one is marked `[x]` in place with the date and what the twin sweep turned up.
+Closed so far: the four paper-trading criticals, the UI/contrast/keyboard batch, the indicator
+causality contract, and the `FeedbackType.Alert` / master-gain / fixed-precision-price batch.
 
 The single most useful thing this audit found is not any individual bug. It is a **pattern**: a
 defect gets fixed at the site where it was reported and not at the two or three structurally
@@ -484,7 +489,51 @@ prevents the next one.
 Each of these is a wrong or absent utterance, which for this product is the failure mode that
 matters most.
 
-- [ ] **`FeedbackType.Alert` is dropped entirely — neither spoken nor earconed.** VERIFIED. The
+**Three fixed 2026-08-21 (the `FeedbackType.Alert` / master-gain / `:F0` batch)** — see the three
+`[x]` entries below. What the twin sweeps turned up, none of it in the audit's 203 findings:
+
+- **`BitstampProvider.PlaceOrderAsync` formatted the LIMIT PRICE with `ToString("F2")`.** Not a
+  description of an order — the order. A limit at 0.0363 went to the exchange as "0.04"; anything
+  under half a cent went as "0.00". No `InvariantCulture` either, so a comma-decimal machine
+  posted "0,04". Every other provider in the tree already did full-precision invariant; Bitstamp
+  was the one that did not. Found by the new sweep test, which is the whole argument for writing
+  it. Coinbase (`F8`, nine sites) and Alpaca (`qty` at `F4`) had the culture half of the same
+  defect and are fixed too.
+- **Chart volume was applied twice, so F7 ran backwards.** `ChartCommandManager` pushed
+  `ChartVolume` into the engine's *global* master gain **and** it is threaded into every
+  chart-sonification path as the per-note `masterVolume` factor. The chart therefore played at
+  ChartVolume **squared**: raising the volume from 50% to 60% made it *quieter* (0.50 → 0.36).
+  Fixed by deleting the master-gain push — see the decision note in the master-gain item below.
+- **`EarconType.Boundary` mapped to `FeedbackType.Navigation`** in `GlobalErrorCoordinator` — a
+  boundary asking for the wrong sound, invisible only because `Navigation` had no arm at all.
+- **`PlayEarcon` was dead for six more members**, not just `Alert` — the finding below about
+  `StateChange`/`Navigation` is the same missing-arm bug and was fixed in the same pass.
+- **The AI analyst was fed `F2` OHLC.** `AIAnalystService:212` sent up to 50 bars to the model as
+  `O=0.00 H=0.00 L=0.00 C=0.00` for any sub-dollar asset, so the model analysed a flat chart and
+  answered confidently about it.
+
+Still open from that sweep, and deliberately not done in it:
+
+- [ ] **Component metadata has no way to say "this value is a price."** The fix above changed the
+  price-space components' `SpeechTemplate` defaults to the `{value:price}` token one by one
+  (pivots, AVWAP, VWAP, Bollinger, MACD). That is a list someone has to keep correct by reading.
+  `SpeechFormatter.ResolveComponentValue` already overrides fixed precision automatically — but
+  only for series whose id is `price`/`candles`, so every main-pane *overlay* is outside it. A
+  declared flag on `IndicatorComponentMetadata` (or a rule derived from "plotted on the price
+  axis") would make the whole class structural instead of enumerated.
+- [ ] **Saved workspaces persist `SpeechTemplate`, so existing users keep the old `{value:F2}`**
+  on those components. The comment at `SpeechFormatter:747` already anticipates exactly this for
+  the price series and overrides it; overlays have no such override. Either migrate stored
+  templates or extend the override — the second one is the same work as the item above.
+
+- [x] **`FeedbackType.Alert` is dropped entirely — neither spoken nor earconed.** **FIXED
+  2026-08-21.** Arms added for `Alert` (earcon then speech on the Event channel, matching
+  `AlertFiredEvent`) and for `SeriesSelection`/`ComponentSelection`/`PointFocus`/`ViewportChange`,
+  plus a `default` that logs the unhandled member and still speaks any message rather than
+  dropping it. The earcon router got a `default: PlayInfo()` for the same reason — a caller that
+  asks for a sound gets a sound. Guarded by `FeedbackTypeCoverageTests`, which enumerates
+  `Enum.GetValues<FeedbackType>()` for both routers; proven to fail by deleting each arm.
+  Original finding, for the record: the
   enum has eleven members; `AccessibilityFeedbackCoordinator.OnFeedbackRequest` handles six
   (`StateChange`, `Navigation`, `VolumeChange`, `Error`, `Boundary`, `Info`) with **no `default`**.
   `GlobalErrorCoordinator:84` publishes every network-retry notification as `Alert` — *"Connection
@@ -496,15 +545,29 @@ matters most.
   was not. `SeriesSelection`, `ComponentSelection`, `PointFocus` and `ViewportChange` are also
   unhandled. Fix: add the arms, add a `default` that logs the unhandled member, and add a test that
   enumerates `Enum.GetValues<FeedbackType>()`.
-- [ ] **Any voice command resets master gain to full, so F7-to-zero does not mute.** VERIFIED.
+- [x] **Any voice command resets master gain to full, so F7-to-zero does not mute.** **FIXED
+  2026-08-21.** `AudioEngine` now keeps `_userMasterGain` (the last value anyone asked for) apart
+  from `_stopAllFaded` (the flag saying a zero is OURS). The re-arm restores the user's value and
+  only after a stop-all fade, so a chosen zero survives every subsequent command. Guarded by
+  `MasterGainTests`, proven to fail against the old line.
+  **A decision was made here that the audit did not ask for, and it should be read before anyone
+  "restores" the old behaviour:** the audit's framing was that a master the user set to silent
+  should stay silent, including for earcons. But F7 is documented as *chart* volume, and the
+  2026-07-21 mute-tier redesign deliberately separated the tiers — F3 owns chart sonification,
+  Shift+F3 owns earcons, and `EarconService.CanPlay` carries the note *"Before 2026-07-21 earcons
+  silently died with F3."* Putting every earcon behind a chart-scope control would reintroduce that
+  exact bug on a different key, and would silence stop-hit and order-fill cues. So chart volume no
+  longer touches the global master gain at all (it was being applied twice anyway — see the squared
+  -volume finding above); it scales chart notes through the per-note factor it already threads, and
+  earcons answer to Shift+F3. Master gain answers to `StopAll`, and to nothing else.
+  Original finding, for the record:
   `AudioEngine:400` — `if (cmd.IsActive && _targetMasterGain == 0.0f) _targetMasterGain = 1.0f;`.
   The line exists to re-arm gain after `StopAll` faded it out, but it cannot tell that condition
   apart from a user-set gain of zero. Take chart volume to 0% with `Shift+F7` (speech confirms
   "0%"), and the next arrow key snaps master gain to 1.0. Navigation notes stay quiet because
   `ChartVolume` also multiplies into `baseVolume`, but **earcons do not** — `EarconService` passes
   fixed literal volumes — so an order fill, a stop hit or a boundary earcon then fires at full
-  volume on a master the user set to silent. Fix: keep `_userMasterGain` separate from the
-  stop-all fade flag and restore to the user's value, never to a hardcoded 1.0f.
+  volume on a master the user set to silent.
 - [ ] **Zone-proximity speech overwrites the bar reading on the web head.** VERIFIED as a second
   `Speak` in the same synchronous call stack: `NavigationFeedbackManager:306` speaks the composed
   utterance, then `CheckAndPlayZoneProximity` (called at `:313`) speaks again at `:530-533`. The
@@ -514,14 +577,22 @@ matters most.
   and loses the price, OHLC, volume, pattern and formation clause. Different content per head from
   the same keypress. Fix: return the clauses and append them to `utterance` before the single
   `Speak`. Test: assert exactly one `Speak` per `HandleNavigationFeedback`.
-- [ ] **Two surviving `:F0` price formats collapse every sub-dollar value to "0".**
+- [x] **Two surviving `:F0` price formats collapse every sub-dollar value to "0".** **FIXED
+  2026-08-21**, along with fourteen more sites the audit did not list, found by reading every
+  price-space call site rather than only the two reported. Both named sites now route through
+  `SpeechPriceFormatter`; the metadata sites (pivot lines, AVWAP from high/low, VWAP, Bollinger
+  bands and centreline, all three MACD components) use the `{value:price}` token; the direct
+  interpolations (Cipher S/R nearest levels and level readout, Skender band width / VWAP / ATR
+  detail facts, Regime's close-minus-SMA, the Ichimoku cloud width in `SpeechFormatter`, the AI
+  analyst's OHLC rows) call `FormatPrice`. `PriceFormatScanTests` is the sweep: it fails on a
+  fixed `F0`/`F1`/`F2` sitting next to a quote-currency word, and separately on any order field
+  serialised without `InvariantCulture`. The second check is what caught Bitstamp.
+  Original finding, for the record:
   `NavigationFeedbackManager:112` (coordinate-entry delta — *"Change from anchor: +0"* for every
   KAS/SHIB/PEPE move) and `AutoNarrationService:403-404` (support/resistance **break** — *"Support
   at 0 broken"*, on arguably the most consequential message the narrator produces; the touch,
   approach and cross messages 20-60 lines below all correctly use `SpeechPriceFormatter`). The file
-  itself documents this exact bug class at `:526-529`. Fix both, then add a sweep test that fails
-  on `:F0`/`:F1`/`:F2` in any string containing a price-ish token — three separate commits have now
-  each fixed some but not all of these.
+  itself documents this exact bug class at `:526-529`.
 - [ ] **Component-context speech reads RAW OHLC under Heikin-Ashi.** `NavigationFeedbackManager`
   carefully HA-transforms the bar and passes it as `pt`, but `SpeechFormatter.GetPointValue:369-389`
   ignores `pt` and returns `series.GetComponentData(name)[i]`, which `ViewportReducer` fills from
@@ -578,7 +649,9 @@ matters most.
   at the router, not at call sites — per-call-site `IsSpeechEnabled` checks are exactly how the F2
   bypasses crept in."* So F2 (manual-speech mute) also silences event-channel narration — the one
   channel the user deliberately left on.
-- [ ] **`PlayEarcon(StateChange)` and `PlayEarcon(Navigation)` are silent no-ops.**
+- [x] **`PlayEarcon(StateChange)` and `PlayEarcon(Navigation)` are silent no-ops.** **FIXED
+  2026-08-21** in the `FeedbackType.Alert` pass — same missing-arm defect, one rung down, so it
+  was fixed with the same `Enum.GetValues<FeedbackType>()` guard. Original finding:
   `FeedbackRouters:163-173` has arms for `Error`, `Info`, `Alert`, `Boundary` and no `default`.
   `AccessibilityFeedbackCoordinator:144` requests `StateChange` for `OrderCancelledEvent` — with a
   comment two lines above saying *"Cancels were the one order state change that vanished silently
@@ -1606,8 +1679,12 @@ Ordered by value. Every one of these would have caught something above.
   passes while `LiveStreaming` is unreachable and the breakers never fire.
   `KeyedFeedsTests.FakeOrchestrator` shows the mock farm is affordable.
 - [ ] **Run the speech-formatting suite under `de-DE`.** Zero tests use a non-invariant culture.
-- [ ] **Sweep every price-formatting call site** for `:F0`/`:F1`/`:F2` on price-space values. Three
-  commits have each fixed some and missed others.
+- [x] **Sweep every price-formatting call site** for `:F0`/`:F1`/`:F2` on price-space values. Three
+  commits have each fixed some and missed others. **DONE 2026-08-21** — `PriceFormatScanTests`.
+  Note what it can and cannot do: it matches a fixed format sitting next to a quote-currency word,
+  which is the class that recurs, but no source scanner can know that MACD is in price units or
+  that a Bollinger band is. Those were found by reading in the same pass. The structural version of
+  this — a component declaring that its values are prices — is written up under the audio section.
 - [ ] **Mute as a `[Theory]` over every `ComponentDisplayType`** with a dedicated render path —
   Candle, Wick, Cloud, Oscillator, Histogram, Bar, Line, Profile, Heatmap. Currently only Candle.
 - [ ] **Heikin-Ashi component-context speech** — HA on, a bar whose raw lower shadow is 19% and

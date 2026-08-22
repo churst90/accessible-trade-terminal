@@ -209,7 +209,15 @@ public sealed class AIAnalystService : IAIAnalystService
             for (int i = from; i <= end; i++)
             {
                 var bar = state.Data[i];
-                sb.AppendLine($"  {bar.Date:yyyy-MM-dd HH:mm}  O={bar.Open:F2}  H={bar.High:F2}  L={bar.Low:F2}  C={bar.Close:F2}  V={bar.Volume:F0}");
+                // Same F2 collapse as the speech paths, with a different victim: on a sub-dollar
+                // asset every row read O=0.00 H=0.00 L=0.00 C=0.00, so the model was asked to
+                // analyse fifty identical flat bars and answered confidently about them.
+                sb.AppendLine($"  {bar.Date:yyyy-MM-dd HH:mm}" +
+                              $"  O={Accessibility.SpeechPriceFormatter.FormatPrice(bar.Open)}" +
+                              $"  H={Accessibility.SpeechPriceFormatter.FormatPrice(bar.High)}" +
+                              $"  L={Accessibility.SpeechPriceFormatter.FormatPrice(bar.Low)}" +
+                              $"  C={Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}" +
+                              $"  V={bar.Volume:F0}");
             }
             sb.AppendLine();
         }

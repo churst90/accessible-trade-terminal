@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.WebSockets;
@@ -713,7 +714,12 @@ namespace AccessibleTrader.Plugins.Alpaca
                     var body = new JObject
                     {
                         ["symbol"]        = signal.Symbol,
-                        ["qty"]           = signal.Quantity.ToString("F4"),
+                        // F4 both truncated and carried the ambient culture: a fractional-share
+                        // or crypto quantity below 0.0001 was sent as "0.0000", and a
+                        // comma-decimal machine sent "0,5000". Prices below go in as JSON
+                        // numbers, which Newtonsoft already writes invariant — this was the one
+                        // field on this request serialised by hand.
+                        ["qty"]           = signal.Quantity.ToString(CultureInfo.InvariantCulture),
                         ["side"]          = signal.Side == OrderSide.Buy ? "buy" : "sell",
                         ["time_in_force"] = "gtc"
                     };

@@ -39,6 +39,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Held purely to ensure AutoNarrationService is instantiated at startup.
         // All work is done inside that service via its own subscriptions.
         private readonly IAutoNarrationService _autoNarration;
+        // Optional so existing construction (tests, manual composition) keeps working; DI
+        // supplies it. Only consumer is the unhandled-FeedbackType arm in OnFeedbackRequest.
+        private readonly ILogger<AccessibilityFeedbackCoordinator>? _logger;
         private readonly CompositeDisposable _subscriptions = new();
 
         private WorkspaceState _previousState;
@@ -61,8 +64,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IChartPatternCache patternCache,
             IChartPatternFocus patternFocus,
             IAutoNarrationService autoNarration,
-            Trading.IQuickTradeService? quickTrade = null)
+            Trading.IQuickTradeService? quickTrade = null,
+            ILogger<AccessibilityFeedbackCoordinator>? logger = null)
         {
+            _logger = logger;
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -551,6 +556,36 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _speechRouter.Speak(e.Message, interrupt: true);
                     break;
 
+                // Alert had no arm at all, so every FeedbackRequestEvent(Alert) was constructed,
+                // published and thrown away — the websocket could drop mid-session
+                // (GlobalErrorCoordinator.ReportNetworkRetry) and the trader was told nothing,
+                // and a strategy silently overriding the user's configured entry trigger
+                // (ConfigurableStrategy) announced itself to no one.
+                //
+                // This is the same missing-switch-arm defect FeedbackRouters:167 already carries a
+                // note about — the EARCON router was fixed in 2026-07-21 and the SPEECH router was
+                // not. Earcon first (immediate cue even mid-phrase) then the detail, matching the
+                // Error branch. Event channel, not Critical: an alert is something that happened
+                // TO the user, so Shift+F2 is allowed to mute it, exactly like AlertFiredEvent.
+                case FeedbackType.Alert:
+                    _audioRouter.PlayEarcon(FeedbackType.Alert);
+                    if (!string.IsNullOrEmpty(e.Message))
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: SpeechChannel.Event);
+                    break;
+
+                // The remaining members. None of these has a publisher that carries a message
+                // today (ViewportChange is published with "" by ViewportManager and
+                // DrawingInteractionManager, whose announcements come from OnStateChanged), but
+                // a member with no arm is how Alert stayed silent for months. Speaking any
+                // message that IS supplied costs nothing and cannot go quiet.
+                case FeedbackType.SeriesSelection:
+                case FeedbackType.ComponentSelection:
+                case FeedbackType.PointFocus:
+                case FeedbackType.ViewportChange:
+                    if (!string.IsNullOrEmpty(e.Message))
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt);
+                    break;
+
                 case FeedbackType.Info:
                     if (e.Message == "CONTEXT_SUMMARY")
                     {
@@ -588,6 +623,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         _speechRouter.Speak(e.Message, interrupt: true);
                     }
+                    break;
+
+                // Every member of FeedbackType is handled above, and FeedbackTypeCoverageTests
+                // enumerates the enum to keep it that way. This arm exists for the member added
+                // NEXT year: it fails loud (logged, and spoken if the caller supplied words)
+                // rather than dropping the message the way Alert was dropped.
+                default:
+                    _logger?.LogWarning(
+                        "[AccessibilityFeedbackCoordinator] Unhandled FeedbackType {Type} — message '{Message}' has no routing arm.",
+                        e.Type, e.Message);
+                    if (!string.IsNullOrEmpty(e.Message))
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt);
                     break;
             }
         }

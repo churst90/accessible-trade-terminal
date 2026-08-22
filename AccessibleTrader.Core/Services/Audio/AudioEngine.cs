@@ -207,6 +207,20 @@ namespace AccessibleTrader.Core.Services.Audio
         private float _masterGain = 1.0f;
         private float _targetMasterGain = 1.0f;
 
+        // The gain the USER (or the app on their behalf) last asked for, kept apart from the
+        // stop-all fade. Before this split, Read() re-armed a faded-out master by snapping the
+        // target to a hardcoded 1.0f whenever any voice command arrived — and it could not tell
+        // "StopAll just faded us to zero" from "the user set the volume to zero". Setting the
+        // volume to 0% and pressing an arrow key therefore restored FULL output, so a mute was
+        // never a mute: order-fill, stop-hit and boundary earcons pass fixed literal volumes and
+        // would fire at full scale on a master that had been silenced deliberately.
+        //
+        // _stopAllFaded is the flag the old test could not express: true only while the zero was
+        // OURS. The re-arm restores _userMasterGain, never a literal — so a user-chosen zero
+        // survives every subsequent command.
+        private float _userMasterGain = 1.0f;
+        private volatile bool _stopAllFaded;
+
         public int SampleRate => _sampleRate;
         public int Channels => 2;
 
@@ -221,7 +235,12 @@ namespace AccessibleTrader.Core.Services.Audio
 
         public void SetMasterGain(float gain)
         {
-            _targetMasterGain = Math.Clamp(gain, 0.0f, 1.0f);
+            float clamped = Math.Clamp(gain, 0.0f, 1.0f);
+            _userMasterGain = clamped;
+            _targetMasterGain = clamped;
+            // An explicit request supersedes any in-flight stop-all fade: whatever the caller
+            // just asked for IS the user's value now, including zero.
+            _stopAllFaded = false;
         }
 
         public void SetVoice(int slot, double freq, float vol, float pan, string wave, bool continuous, double durationSec, int dataIndex = -1, string envelope = "Sustain", bool click = false, float noiseAmount = 0f, string noiseType = "pink", float squareMix = 0f, float sawMix = 0f, float triangleMix = 0f, float subSawMix = 0f)
@@ -326,8 +345,11 @@ namespace AccessibleTrader.Core.Services.Audio
             // is the sole writer to _voices[].  Direct writes here would race with Read()
             // on the WASAPI callback thread and can produce clicks or corrupted state.
             StopAll();
-            // Master gain is written only from the main thread and read only in Read();
-            // both are single-word aligned floats, so a torn read is impossible on x86/x64.
+            // Both gains are single-word aligned floats, so a torn read is impossible on
+            // x86/x64 even though Read() writes them too (the fade ramp and the re-arm below).
+            // The zero written here is OURS, not the user's — flag it so the next voice command
+            // restores _userMasterGain rather than treating a deliberate mute as a stale fade.
+            _stopAllFaded = true;
             _targetMasterGain = 0;
             _masterGain = 0;
         }
@@ -387,7 +409,11 @@ namespace AccessibleTrader.Core.Services.Audio
             // When stop-all is requested, fade master gain to zero.  The per-frame master-gain
             // loop below deactivates all voices once gain reaches 0.0f — that is the ONLY safe
             // write path to _voices[].IsActive, because it executes on this (audio callback) thread.
-            if (stopAllRequested) _targetMasterGain = 0.0f;
+            if (stopAllRequested)
+            {
+                _targetMasterGain = 0.0f;
+                _stopAllFaded = true;
+            }
 
             // 2. APPLY EFFECTIVE COMMANDS
             if (anyPending)
@@ -397,7 +423,13 @@ namespace AccessibleTrader.Core.Services.Audio
                     if (!_pendingSet[i]) continue;
 
                     var cmd = _pendingCommands[i];
-                    if (cmd.IsActive && _targetMasterGain == 0.0f) _targetMasterGain = 1.0f;
+                    // Re-arm after a stop-all fade — and ONLY after one. A zero the user chose
+                    // is not a condition to recover from, so it is left exactly where it is.
+                    if (cmd.IsActive && _stopAllFaded)
+                    {
+                        _targetMasterGain = _userMasterGain;
+                        _stopAllFaded = false;
+                    }
 
                     var voice = _voices[i];
                     if (!cmd.IsActive)

@@ -137,7 +137,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (index >= smaArr.Length) return string.Empty;
             double s = smaArr[index];
             if (double.IsNaN(s)) return "Regime: warming up.";
-            return s > 0 ? $"Regime: bull (close above 200 SMA by {s:F0})." : $"Regime: bear (close below 200 SMA by {-s:F0}).";
+            return s > 0
+                ? $"Regime: bull (close above 200 SMA by {Accessibility.SpeechPriceFormatter.FormatPrice(s)})."
+                : $"Regime: bear (close below 200 SMA by {Accessibility.SpeechPriceFormatter.FormatPrice(-s)}).";
         }
 
         public string GetSpeechFact(string code, string componentName, ReadOnlySpan<Ohlcv> data, IReadOnlyDictionary<string, double[]> calculatedResults, int index, Dictionary<string, object> parameters) => "";

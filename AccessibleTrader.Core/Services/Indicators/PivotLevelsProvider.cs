@@ -230,7 +230,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 string label = value > 0.5 ? "at resistance" : value < -0.5 ? "at support" : "neutral";
                 return $"Pivot zone {label}.";
             }
-            return $"{componentName} {value:F2}.";
+            return $"{componentName} {Accessibility.SpeechPriceFormatter.FormatPrice(value)}.";
         }
 
         public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data,
@@ -238,7 +238,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             Dictionary<string, object> parameters)
         {
             double pp = TryGet(calculatedResults, CompPP, index);
-            return $"Pivots: PP {(double.IsNaN(pp) ? "n/a" : pp.ToString("F2"))}.";
+            return $"Pivots: PP {(double.IsNaN(pp) ? "n/a" : Accessibility.SpeechPriceFormatter.FormatPrice(pp))}.";
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────────
@@ -255,7 +255,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 DefaultPlaybackLayer = PlaybackLayer.Background,
                 DefaultWaveform = "sine",
                 DefaultPitchMapping = PitchMapping.Value,
-                SpeechTemplate = $"{display} {{value:F2}}.",
+                // Pivot lines are absolute price levels drawn on the price axis, so they take
+                // the magnitude-aware token. {value:F2} spoke "S1 0.00" for every sub-dollar
+                // asset — on the one number a user would put in an order.
+                SpeechTemplate = $"{display} {{value:price}}.",
                 IsVisible = visible
             };
 

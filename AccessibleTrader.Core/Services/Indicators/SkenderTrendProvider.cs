@@ -174,7 +174,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Vwap", DefaultColorHex = "#F48FB1", DefaultThickness = 1.5f,
-                            SpeechTemplate = "VWAP. {value:F2}." },
+                            SpeechTemplate = "VWAP. {value:price}." },
                 },
             },
             new IndicatorMetadata

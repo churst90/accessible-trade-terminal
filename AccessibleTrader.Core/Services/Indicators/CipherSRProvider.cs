@@ -436,9 +436,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             double supLevel = !double.IsNaN(supDot) ? supDot : supZone;
 
             if (!double.IsNaN(resLevel))
-                sb.Append($"Nearest resistance: {resLevel:F0}. ");
+                sb.Append($"Nearest resistance: {Accessibility.SpeechPriceFormatter.FormatPrice(resLevel)}. ");
             if (!double.IsNaN(supLevel))
-                sb.Append($"Nearest support: {supLevel:F0}. ");
+                sb.Append($"Nearest support: {Accessibility.SpeechPriceFormatter.FormatPrice(supLevel)}. ");
 
             if (!double.IsNaN(resLevel) && !double.IsNaN(supLevel))
             {
@@ -508,7 +508,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 touches = (int)arr[dataIndex];
 
             string touchStr = touches == 0 ? "" : touches == 1 ? ", tested once" : $", tested {touches} times";
-            return $"{level:F2}, {posStr}{touchStr}";
+            return $"{Accessibility.SpeechPriceFormatter.FormatPrice(level)}, {posStr}{touchStr}";
         }
 
         // ── Data helpers ──────────────────────────────────────────────────────────────────

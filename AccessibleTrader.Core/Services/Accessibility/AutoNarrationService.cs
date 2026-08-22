@@ -399,9 +399,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     if (double.IsNaN(currentVal) && !double.IsNaN(lastVal))
                     {
+                        // The touch, approach and cross messages below all route through
+                        // SpeechPriceFormatter; the BREAK message — arguably the most
+                        // consequential thing this narrator says — was still on F0, so a
+                        // sub-dollar asset heard "Support at 0 broken."
                         string breakMsg = isResistance
-                            ? $"{series.FriendlyName}: Resistance at {lastVal:F0} broken."
-                            : $"{series.FriendlyName}: Support at {lastVal:F0} broken.";
+                            ? $"{series.FriendlyName}: Resistance at {SpeechPriceFormatter.FormatPrice(lastVal)} broken."
+                            : $"{series.FriendlyName}: Support at {SpeechPriceFormatter.FormatPrice(lastVal)} broken.";
                         _speechRouter.Speak(breakMsg, interrupt: false, channel: SpeechChannel.Event);
                         _lastZoneLineValue.Remove(zoneKey);
                         _inProximity.Remove(zoneKey);

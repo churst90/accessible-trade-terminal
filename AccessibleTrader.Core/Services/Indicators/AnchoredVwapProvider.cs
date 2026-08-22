@@ -61,7 +61,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultWaveform = "sine",
                             DefaultPitchMapping = PitchMapping.Value,
-                            SpeechTemplate = "AVWAP from high {value:F2}.",
+                            SpeechTemplate = "AVWAP from high {value:price}.",
                             IsVisible = true },
                     new() { Name = CompFromLow, DisplayName = "VWAP From Low",
                             DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
@@ -69,7 +69,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultWaveform = "sine",
                             DefaultPitchMapping = PitchMapping.Value,
-                            SpeechTemplate = "AVWAP from low {value:F2}.",
+                            SpeechTemplate = "AVWAP from low {value:price}.",
                             IsVisible = true },
                     new() { Name = CompBias, DisplayName = "AVWAP Bias",
                             DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
@@ -217,8 +217,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (double.IsNaN(value)) return null;
             return componentName switch
             {
-                CompFromHigh => $"AVWAP from high {value:F2}.",
-                CompFromLow  => $"AVWAP from low {value:F2}.",
+                CompFromHigh => $"AVWAP from high {Accessibility.SpeechPriceFormatter.FormatPrice(value)}.",
+                CompFromLow  => $"AVWAP from low {Accessibility.SpeechPriceFormatter.FormatPrice(value)}.",
                 CompBias     => $"AVWAP bias {value:F0}.",
                 _ => null
             };

@@ -21,7 +21,6 @@ namespace AccessibleTrader.Core.Services
         private readonly IDataManager _dataManager;
         private readonly IDrawingInteractionManager _drawingManager;
         private readonly ISpeechManager _speechManager;
-        private readonly ISonificationManager _sonificationManager;
         private readonly ISeriesManagementService _seriesManager;
         private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
         private readonly IWorkspaceStore _store;
@@ -32,6 +31,9 @@ namespace AccessibleTrader.Core.Services
             IDataManager dataManager,
             IDrawingInteractionManager drawingManager,
             ISpeechManager speechManager,
+            // Kept in the signature (DI resolves it) but no longer held: the only use was
+            // pushing ChartVolume into the engine's global master gain, which double-applied
+            // the factor and put earcons behind a chart-scope control. See the VOLUME handler.
             ISonificationManager sonificationManager,
             ISeriesManagementService seriesManager,
             IWorkspaceStore store,
@@ -41,7 +43,6 @@ namespace AccessibleTrader.Core.Services
             _dataManager = dataManager;
             _drawingManager = drawingManager;
             _speechManager = speechManager;
-            _sonificationManager = sonificationManager;
             _seriesManager = seriesManager;
             _store = store;
             _logger = logger;
@@ -98,8 +99,20 @@ namespace AccessibleTrader.Core.Services
                     }
                     else
                     {
+                        // ChartVolume is applied ONCE, where it belongs: it is threaded into every
+                        // chart-sonification path as the masterVolume factor (NavigationSonifier,
+                        // AudioSequencer), which multiplies it into each note's volume.
+                        //
+                        // It used to ALSO be pushed into the engine's global master gain, and that
+                        // was wrong twice over. The gain applied a second time, so the chart played
+                        // at ChartVolume SQUARED — raising the volume from 50% to 60% made the chart
+                        // quieter (0.50 → 0.36), which is the opposite of what the key says it does.
+                        // And the engine's master gain is global, not chart-scope: driving it from
+                        // F7 put every earcon behind a control documented as "chart volume", which
+                        // is precisely the failure the 2026-07-21 mute-tier redesign removed for F3
+                        // ("earcons silently died with F3"). Earcons answer to Shift+F3; chart notes
+                        // answer to F7. Master gain answers to StopAll, and to nothing else.
                         volume = postState.ChartVolume;
-                        _sonificationManager.SetMasterVolume(volume);
                     }
 
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
