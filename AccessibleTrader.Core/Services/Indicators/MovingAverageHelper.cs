@@ -1,4 +1,5 @@
 using System;
+using AccessibleTrader.Sdk.Indicators;
 
 namespace AccessibleTrader.Core.Services.Indicators
 {
@@ -29,23 +30,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             };
         }
 
-        /// <summary>Exponential Moving Average (Wilder smoothing factor: 2 / (period + 1)).</summary>
-        public static double[] Ema(double[] src, int period)
-        {
-            var r = new double[src.Length];
-            double k = 2.0 / (period + 1.0);
-            double ema = double.NaN;
-            int warmup = 0;
-            for (int i = 0; i < src.Length; i++)
-            {
-                double v = src[i];
-                if (double.IsNaN(v)) { r[i] = double.NaN; continue; }
-                if (double.IsNaN(ema)) { ema = v; warmup = 1; }
-                else { ema = v * k + ema * (1.0 - k); warmup++; }
-                r[i] = warmup < period ? double.NaN : ema;
-            }
-            return r;
-        }
+        /// <summary>
+        /// Exponential Moving Average (smoothing factor 2 / (period + 1)). Forwards to the SDK's
+        /// <see cref="IndicatorMath.Ema"/> — the two were byte-identical, and a plugin computing a
+        /// different EMA from the app it renders into is not a difference anyone would spot.
+        /// </summary>
+        public static double[] Ema(double[] src, int period) => IndicatorMath.Ema(src, period);
 
         /// <summary>Simple Moving Average (equal-weighted arithmetic mean over period).</summary>
         public static double[] Sma(double[] src, int period)

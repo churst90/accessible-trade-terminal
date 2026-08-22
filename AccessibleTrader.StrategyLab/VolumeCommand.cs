@@ -61,7 +61,7 @@ public static class VolumeCommand
             var bars = snap.Bars;
             if (bars.Count < 400) continue;
 
-            string cls = ClassOf(Path.GetFileName(file));
+            string cls = LabSnapshots.AssetClass(Path.GetFileName(file));
             if (cls == "skip") continue;
 
             // A series with no volume feed reports zeros. Counting those as "low volume" would put
@@ -293,30 +293,12 @@ public static class VolumeCommand
         return v[v.Count / 2];
     }
 
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs)
-    {
-        var rng = new Random(8181);
-        var work = (double[])pool.Clone();
-        int extreme = 0;
-        int use = Math.Min(runs, 4000);
-        for (int p = 0; p < use; p++)
-        {
-            for (int i = work.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (work[i], work[j]) = (work[j], work[i]); }
-            double a = 0, b = 0;
-            for (int i = 0; i < nA && i < work.Length; i++) a += work[i];
-            for (int i = nA; i < nA + nB && i < work.Length; i++) b += work[i];
-            if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
-        }
-        return (extreme + 1.0) / (use + 1.0);
-    }
-
-    private static string ClassOf(string fileName)
-    {
-        string f = fileName.ToLowerInvariant();
-        if (f.StartsWith("bitstamp_") || f.StartsWith("mexc_")) return "crypto";
-        if (f.Contains("xau") || f.Contains("_gld_") || f.Contains("_slv_") || f.Contains("_uso_")) return "commod";
-        if (f.Contains("_tlt_") || f.Contains("_ief_")) return "bond";
-        if (f.StartsWith("twelvedata_") || f.StartsWith("yahoo_") || f.StartsWith("alpaca_")) return "equity";
-        return "skip";
-    }
+    /// <summary>
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// not in the shared helper, because it is this command's research parameter.
+    /// Capped at 4,000 permutations: this command runs the test inside a loop over
+    /// many buckets, and the full count would dominate its runtime.
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 8181, cap: 4_000);
 }

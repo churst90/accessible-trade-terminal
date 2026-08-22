@@ -81,7 +81,7 @@ internal static class OnChainRobustness
     /// </summary>
     private static (double Equity, int Trades, double Exposure) Book(List<Ohlcv> bars, double[] values, double bps)
     {
-        var z = RollingZ(values, 365);
+        var z = LabStats.RollingZ(values, 365);
         double eq = 1.0;
         bool inMkt = false;
         int trades = 0, barsIn = 0, barsTotal = 0;
@@ -108,7 +108,7 @@ internal static class OnChainRobustness
         Console.WriteLine("    ── eras (does it beat holding in each third?) ──");
         foreach (var p in set)
         {
-            var z = RollingZ(p.Values, 365);
+            var z = LabStats.RollingZ(p.Values, 365);
             int start = 365, n = p.Bars.Count - start;
             if (n < 600) continue;
             Console.Write($"      {p.Symbol,-6}");
@@ -279,24 +279,5 @@ internal static class OnChainRobustness
         Console.WriteLine("      It is also the narrowest cross-section in the lab: 4 symbols against 39 for");
         Console.WriteLine("      cross-sectional momentum. Read every number above with that in mind.");
         Console.WriteLine();
-    }
-
-    private static double[] RollingZ(double[] v, int win)
-    {
-        var z = new double[v.Length];
-        Array.Fill(z, double.NaN);
-        for (int i = win; i < v.Length; i++)
-        {
-            double sum = 0, sumSq = 0; int n = 0;
-            for (int j = i - win; j <= i; j++)
-            {
-                if (double.IsNaN(v[j])) continue;
-                sum += v[j]; sumSq += v[j] * v[j]; n++;
-            }
-            if (n < win / 2) continue;
-            double mean = sum / n, var = sumSq / n - mean * mean;
-            if (var > 1e-12) z[i] = (v[i] - mean) / Math.Sqrt(var);
-        }
-        return z;
     }
 }

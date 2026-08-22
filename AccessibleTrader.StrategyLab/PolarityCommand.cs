@@ -62,7 +62,7 @@ public static class PolarityCommand
             var bars = snap.Bars;
             if (bars.Count < 400) continue;
 
-            string cls = ClassOf(Path.GetFileName(file));
+            string cls = LabSnapshots.AssetClass(Path.GetFileName(file));
             if (cls == "skip") continue;
 
             var closes = bars.Select(b => b.Close).ToArray();
@@ -539,21 +539,5 @@ public static class PolarityCommand
             if (!double.IsNaN(s) && Math.Abs(s) >= Math.Abs(observed)) extreme++;
         }
         return (extreme + 1.0) / (runs + 1.0);
-    }
-
-    /// <summary>
-    /// Class from the snapshot filename. Provider is a reliable proxy here: bitstamp and mexc are
-    /// crypto-only, twelvedata and yahoo carry the equities, ETFs and metals. Gold and silver are
-    /// tagged separately rather than lumped in with equities — they are neither, and folding them
-    /// into a class mean would corrupt the demeaned test.
-    /// </summary>
-    private static string ClassOf(string fileName)
-    {
-        string f = fileName.ToLowerInvariant();
-        if (f.StartsWith("bitstamp_") || f.StartsWith("mexc_")) return "crypto";
-        if (f.Contains("xau") || f.Contains("_gld_") || f.Contains("_slv_") || f.Contains("_uso_")) return "commod";
-        if (f.Contains("_tlt_") || f.Contains("_ief_")) return "bond";
-        if (f.StartsWith("twelvedata_") || f.StartsWith("yahoo_") || f.StartsWith("alpaca_")) return "equity";
-        return "skip";
     }
 }

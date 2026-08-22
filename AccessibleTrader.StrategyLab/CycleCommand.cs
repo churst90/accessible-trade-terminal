@@ -283,20 +283,12 @@ public static class CycleCommand
         return s[s.Count / 2];
     }
 
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs)
-    {
-        var rng = new Random(9090);
-        var work = (double[])pool.Clone();
-        int extreme = 0;
-        int use = Math.Min(runs, 20000);
-        for (int p = 0; p < use; p++)
-        {
-            for (int i = work.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (work[i], work[j]) = (work[j], work[i]); }
-            double a = 0, b = 0;
-            for (int i = 0; i < nA && i < work.Length; i++) a += work[i];
-            for (int i = nA; i < nA + nB && i < work.Length; i++) b += work[i];
-            if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
-        }
-        return (extreme + 1.0) / (use + 1.0);
-    }
+    /// <summary>
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// not in the shared helper, because it is this command's research parameter.
+    /// Capped at 20,000 permutations: this command runs the test inside a loop over
+    /// many buckets, and the full count would dominate its runtime.
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 9090, cap: 20_000);
 }

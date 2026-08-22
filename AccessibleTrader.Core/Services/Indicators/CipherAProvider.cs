@@ -276,17 +276,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // ── Wave Trend ─────────────────────────────────────────────────────────────────
-            var esa     = Ema(hlc3, wt1Period);
+            var esa     = MovingAverageHelper.Ema(hlc3, wt1Period);
             var absDiff = new double[n];
             for (int i = 0; i < n; i++)
                 absDiff[i] = double.IsNaN(esa[i]) ? double.NaN : Math.Abs(hlc3[i] - esa[i]);
-            var d  = Ema(absDiff, wt1Period);
+            var d  = MovingAverageHelper.Ema(absDiff, wt1Period);
             var ci = new double[n];
             for (int i = 0; i < n; i++)
                 ci[i] = (double.IsNaN(d[i]) || d[i] < 1e-10)
                     ? double.NaN
                     : (hlc3[i] - esa[i]) / (0.015 * d[i]);
-            var wt1 = Ema(ci, wt2Period);
+            var wt1 = MovingAverageHelper.Ema(ci, wt2Period);
             // WT2 uses WMA(4) instead of SMA(4): same smoothing window but weights
             // recent bars more heavily, reducing WT2's lag at regime changes by ~1 bar.
             var wt2 = MovingAverageHelper.Wma(wt1, 4);
@@ -304,7 +304,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 double clv = ((close[i] - low[i]) - (high[i] - close[i])) / range; // Chaikin CLV in [-1..+1]
                 mfv[i] = volume[i] * clv;
             }
-            var mf = Sma(mfv, mfPeriod);
+            var mf = MovingAverageHelper.Sma(mfv, mfPeriod);
 
             // ── Output arrays ──────────────────────────────────────────────────────────────
             var wtMomentum   = new double[n];  // close price (Y position for Dot)
@@ -593,37 +593,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         // ── DSP helpers ───────────────────────────────────────────────────────────────────
-
-        private static double[] Ema(double[] src, int period)
-        {
-            var r = new double[src.Length];
-            double k = 2.0 / (period + 1.0);
-            double ema = double.NaN;
-            int warmup = 0;
-            for (int i = 0; i < src.Length; i++)
-            {
-                double v = src[i];
-                if (double.IsNaN(v)) { r[i] = double.NaN; continue; }
-                if (double.IsNaN(ema)) { ema = v; warmup = 1; }
-                else { ema = v * k + ema * (1.0 - k); warmup++; }
-                r[i] = warmup < period ? double.NaN : ema;
-            }
-            return r;
-        }
-
-        private static double[] Sma(double[] src, int period)
-        {
-            var r = new double[src.Length];
-            for (int i = 0; i < src.Length; i++)
-            {
-                if (i < period - 1) { r[i] = double.NaN; continue; }
-                double sum = 0; int cnt = 0;
-                for (int j = i - period + 1; j <= i; j++)
-                    if (!double.IsNaN(src[j])) { sum += src[j]; cnt++; }
-                r[i] = cnt == period ? sum / period : double.NaN;
-            }
-            return r;
-        }
 
         private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)
         {

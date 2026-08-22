@@ -133,7 +133,7 @@ public static class PyramidCommand
             if (bars.Count < 600) continue;
 
             string asset = snap.Symbol;
-            string cls = ClassOf(f);
+            string cls = LabSnapshots.CryptoOrEquities(f);
 
             var atr = AccessibleTrader.Sdk.Indicators.IndicatorMath.Atr(bars.ToArray(), 14);
             var entries = Entries(bars);
@@ -438,11 +438,5 @@ public static class PyramidCommand
         for (int i = entry + 1; i < bars.Count && i < entry + MaxHold; i++)
             if (!double.IsNaN(z[i]) && z[i] < ExitZ) return i;
         return Math.Min(entry + MaxHold, bars.Count - 1);
-    }
-
-    private static string ClassOf(string file)
-    {
-        string n = Path.GetFileName(file);
-        return n.StartsWith("bitstamp") || n.StartsWith("mexc") ? "crypto" : "equities";
     }
 }

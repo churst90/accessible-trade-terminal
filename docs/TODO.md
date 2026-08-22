@@ -64,7 +64,7 @@ version of the same idea:
   took the patch's new `Attach`/`Detach`/`SharedOwnership`/`PrimaryStore` block wholesale, which is
   the actual substance of fix 1.
 
-**Verified rather than taken on trust.** Suite 3720 green, both JS suites green (13 + 15), doc-guard
+**Verified rather than taken on trust.** Suite 3736 green, both JS suites green (13 + 15), doc-guard
 green, 0 warnings on every project that builds on Linux. Two of the patch's headline guards were
 checked the way this repo checks guards — by reintroducing the defect:
 
@@ -1436,6 +1436,79 @@ guesses are invisible until money moves.
 - [ ] **The owner-seed ignores its `IdentityResult`.** `Program.cs:188` — `await
   users.CreateAsync(seedUser)` with no check, so a failed seed is silent.
 
+### Duplication swept 2026-08-22, and what the sweep found
+
+The lab and indicator layers were scanned for byte-identical and near-identical method bodies
+after the `StableSeed` sweep suggested there would be more. There was.
+
+- [x] **FIXED — Nine `PermutationP` copies, six of them different.** The two-sample permutation
+  test — the p-value behind the confluence, crowding, gate, cycle, events, on-chain, volume and
+  micro-ricochet verdicts — existed as nine private copies in six distinct versions. They differed
+  in seed (4242 / 9090 / 4747 / 999 / 6161 / 8181), in whether they silently capped the permutation
+  count, and in one case in whether the sum loop was bounds-checked at all. Now one
+  `LabStats.PermutationP`, with each command keeping a one-line forwarder that carries its own seed
+  and cap — those are research parameters and belong where a reader can see them, not hidden in a
+  shared helper. **No numeric output changes:** every seed and cap was preserved exactly.
+  `PolarityCommand.PermutationP` is left alone; despite the name it is a different test (a Spearman
+  correlation permutation), which is itself worth knowing.
+- [x] **FIXED — a latent bug in all nine.** Every copy computed `a / nA` with no guard, so an empty
+  group gave NaN, and `NaN >= x` is false — no permutation ever counted as extreme and the function
+  returned its *floor*. An empty group produced the most significant p-value the test can report.
+  Every call site gates on a minimum count so nothing in the archive was affected, but the failure
+  direction was exactly backwards. Now returns 1.0, with a test.
+- [x] **FIXED — three `RollingZ` copies** (events, on-chain, on-chain robustness), byte-identical,
+  now `LabStats.RollingZ`.
+- [x] **FIXED — six `ClassOf` copies that were two different functions sharing a name.** A two-way
+  crypto/equities split (pyramid, regime-persistence, weekly-persistence) and a five-way split that
+  also separates commodities and bonds and returns `skip` for unrecognised providers (polarity,
+  xs-momentum, volume). Two commands could group by "asset class" and mean different things, with
+  nothing in either file to say so. Now `LabSnapshots.CryptoOrEquities` and
+  `LabSnapshots.AssetClass`, named so the difference is unmissable.
+- [x] **FIXED — `MovingAverageHelper`'s own docstring was out of date about itself.** It says it
+  "replaces the duplicate Ema/Sma/Wma helpers scattered across CipherA, CipherC, EmaFill and
+  SpiderLines" — and `CipherAProvider` still had private `Ema` and `Sma`, `CipherCProvider` a
+  private `Wma`, all semantically identical to the shared ones. Removed. `MovingAverageHelper.Ema`
+  now forwards to the SDK's `IndicatorMath.Ema`, which was byte-identical: a plugin computing a
+  different EMA from the app it renders into is not a difference anyone would spot.
+- [x] **`LabStats` has 16 tests**, all proven by reintroducing the defect. Two of them survived the
+  first mutation round and had to be strengthened: the tie-breaking test used a pool with spread,
+  where a shuffled gap is never *exactly* zero so `>` and `>=` agree and the test could not tell
+  them apart; and the variance-floor test used an exactly constant series, where the score is
+  0/0 = NaN whether or not the threshold exists. A tie has to be reachable for a test about
+  tie-breaking to mean anything.
+
+- [ ] **36 copies of the indicator parameter accessors, in 15 distinct implementations, and they
+  do not agree.** Found by the same scan; NOT fixed, because unifying them changes shipped
+  indicator values and the choice of which semantics win is a decision, not a cleanup.
+  `GetInt` has 16 copies in 6 versions, `GetDbl` 14 in 5, `GetBool` 6 in 4. The differences are
+  real:
+  - **Truncate vs round.** Twelve providers use `(int)Convert.ToDouble(v)`, which truncates;
+    `VolRegimeProvider` uses `Convert.ToInt32(v)`, which rounds half-to-even. The same parameter
+    value gives a different period in different indicators.
+  - **Culture.** `Convert.ToDouble(v)` on a string uses the *ambient* culture. `PulseProvider` is
+    the only one pinning `InvariantCulture`. Workspaces persist parameters as JSON, so a value that
+    round-trips as a string misparses or throws on a comma-decimal locale — the same defect class
+    as the price-format sweep, which found it formatting a live order price.
+  - **Null.** Four of sixteen guard `p != null`; the rest would NRE. And `Convert.ToDouble(null)`
+    returns 0 rather than the caller's default, so a null value silently becomes 0 in the most
+    common variant.
+  Fix shape: one `Sdk` parameter-accessor helper with invariant parsing, an explicit rounding rule,
+  and null → default; then convert all 36 sites with a source-scan guard. Needs tests per
+  indicator, because it will move values.
+- [ ] **`ValueDeviationProvider.Ema` is a different algorithm from every other EMA in the tree.**
+  Left in place deliberately during the sweep. The other three are seeded from the first value; this
+  one is SMA-seeded over the first `period` bars, which is the more standard construction and gives
+  different values for the whole early series. One of the two is wrong for its context and nothing
+  says which.
+- [ ] **The permutation cap is silent.** Four commands clamp `--permutations` to 4,000 or 20,000
+  and print nothing about it, so asking for 50,000 quietly gives you 4,000. `LabStats.PermutationP`
+  now returns `runsUsed` through an overload precisely so a caller can report what was actually
+  done; no command uses it yet.
+- [ ] **Three near-identical JSON-backed list stores.** `JsonScreenerLibrary`,
+  `JsonWatchlistLibrary` and `JsonStrategyLibrary` share the same constructor, `GetById`, `Upsert`,
+  `Save` and `Reload` shape over different item types. A generic base would remove all three; not
+  attempted here because it is shipped persistence code and wants its own pass with tests.
+
 ### Correctness / duplication debt found by this audit
 
 - [ ] **NOT IN THE AUDIT — `EmaFillProvider` is an empty subclass of `MACloudProvider` kept as a name
@@ -1587,11 +1660,30 @@ guesses are invisible until money moves.
   biting: `--list-tests` counts test *methods*, the runner counts *cases*, so a `[Theory]` makes
   the two figures differ. The README carries the `--list-tests` figure, because that is what the
   guard compares against.
-- [ ] **The guard checks only the first provider-count claim.** `README_PROVIDER_RE.search(md)`
-  matches line 367's "33 … (16 trading + 17 analytics)", which is correct, and never sees line 45's
-  "**29 data providers** — 14 in `Plugins/Providers/` … 15 in `Plugins/Analytics/`", which is
-  wrong and whose prose list omits Gemini, Kraken Futures, SEC EDGAR and Wikipedia. Widen the regex
-  to `findall` and validate every occurrence.
+- [x] **FIXED 2026-08-22 — The guard checks only the first provider-count claim.**
+  `README_PROVIDER_RE.search(md)` matches line 367's "33 … (16 trading + 17 analytics)", which is
+  correct, and never sees line 45's "**29 data providers** — 14 in `Plugins/Providers/` … 15 in
+  `Plugins/Analytics/`", which is wrong and whose prose list omits Gemini, Kraken Futures, SEC
+  EDGAR and Wikipedia. Widen the regex to `findall` and validate every occurrence.
+
+  Both counts now validate **every** occurrence and report the line number of each mismatch, and
+  the test-count check additionally fails when the README's own claims disagree with each other —
+  which they had, in three places, for three releases. Line 45 is fixed (33 / 16 / 17, canonical
+  phrasing) and its prose list now names Gemini, Kraken Futures, SEC EDGAR and Wikipedia
+  Pageviews; the FMP analytics surface is labelled as part of the FMP *trading* plugin, which is
+  why the analytics list was one short of the directory count.
+
+  **Both new checks proven by reintroducing the defect.** Putting "29 data providers (14 trading …
+  15 analytics)" back on line 45 alone now produces
+  `PLUGIN GUARD: docs/README.md:45 claims 29 plugins …`, where the old guard reported green. Making
+  the two test-count claims disagree produces `TEST GUARD: … claims different test counts in
+  different places: 3701 (line 371), 3736 (line 208)`.
+
+  Both checks carry a floor on the number of claims found (`MIN_PROVIDER_CLAIMS`, `MIN_TEST_CLAIMS`)
+  so that a rephrase which hides a claim from the regex fails loudly instead of silently reducing
+  coverage — the same anti-vacuity discipline as the `scanned >= 30` floors in the source scans.
+  The floor caught a real case while being written: only two of the three provider claims matched
+  until line 45 was put into the canonical phrasing.
 - [ ] **README is two to three releases stale in its most prominent sections.** Line 14 still says
   "latest release: **v2.0.1**"; line 104 heads "Current Status (2026-08-01)" with 2.1.0; line 142
   says "Suite 2109 → 2836" while lines 208/370 say 3227; line 142 says 15 JS gesture tests while

@@ -821,34 +821,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (period < 2) period = 2;
             int halfPeriod = Math.Max(2, period / 2);
             int sqrtPeriod = Math.Max(2, (int)Math.Round(Math.Sqrt(period)));
-            var wmaHalf = Wma(src, halfPeriod);
-            var wmaFull = Wma(src, period);
+            var wmaHalf = MovingAverageHelper.Wma(src, halfPeriod);
+            var wmaFull = MovingAverageHelper.Wma(src, period);
             var diff    = new double[src.Length];
             for (int i = 0; i < src.Length; i++)
                 diff[i] = double.IsNaN(wmaHalf[i]) || double.IsNaN(wmaFull[i])
                     ? double.NaN : 2.0 * wmaHalf[i] - wmaFull[i];
-            return Wma(diff, sqrtPeriod);
-        }
-
-        /// <summary>Weighted Moving Average. Returns NaN during warmup and on NaN input.</summary>
-        private static double[] Wma(double[] src, int period)
-        {
-            if (period < 1) period = 1;
-            var    r     = new double[src.Length];
-            double denom = period * (period + 1.0) / 2.0;
-            for (int i = 0; i < src.Length; i++)
-            {
-                if (i < period - 1) { r[i] = double.NaN; continue; }
-                double sum = 0.0; bool hasNan = false;
-                for (int j = 0; j < period; j++)
-                {
-                    double v = src[i - j];
-                    if (double.IsNaN(v)) { hasNan = true; break; }
-                    sum += v * (period - j);
-                }
-                r[i] = hasNan ? double.NaN : sum / denom;
-            }
-            return r;
+            return MovingAverageHelper.Wma(diff, sqrtPeriod);
         }
 
         private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)

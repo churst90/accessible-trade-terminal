@@ -418,7 +418,7 @@ public static class XsMomentumCommand
             try { snap = SnapshotCommand.Load(file); } catch { continue; }
             if (snap.Bars.Count < 400) continue;
 
-            string cls = ClassOf(Path.GetFileName(file));
+            string cls = LabSnapshots.AssetClass(Path.GetFileName(file));
             if (cls == "skip") continue;
 
             outp.Add(new Series
@@ -435,15 +435,5 @@ public static class XsMomentumCommand
         return outp.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase)
                    .Select(g => g.OrderByDescending(s => s.Dates.Length).First())
                    .ToList();
-    }
-
-    private static string ClassOf(string fileName)
-    {
-        string f = fileName.ToLowerInvariant();
-        if (f.StartsWith("bitstamp_") || f.StartsWith("mexc_")) return "crypto";
-        if (f.Contains("xau") || f.Contains("_gld_") || f.Contains("_slv_") || f.Contains("_uso_")) return "commod";
-        if (f.Contains("_tlt_") || f.Contains("_ief_")) return "bond";
-        if (f.StartsWith("twelvedata_") || f.StartsWith("yahoo_") || f.StartsWith("alpaca_")) return "equity";
-        return "skip";
     }
 }

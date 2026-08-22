@@ -91,7 +91,7 @@ public static class WeeklyPersistenceCommand
                 : ToWeekly(snap.Bars);
 
             if (weeks.Count < 120) continue;     // ~2.5 years of weeks; below that the arms are noise
-            results.Add(Analyse(symbol, ClassOf(file), weeks, permutations));
+            results.Add(Analyse(symbol, LabSnapshots.CryptoOrEquities(file), weeks, permutations));
         }
 
         if (results.Count == 0)
@@ -202,14 +202,6 @@ public static class WeeklyPersistenceCommand
 
     private static Weekly Fold(List<Ohlcv> week) => new(
         week[0].Date, week[0].Open, week.Max(x => x.High), week.Min(x => x.Low), week[^1].Close);
-
-    private static string ClassOf(string file)
-    {
-        string n = Path.GetFileName(file);
-        if (n.StartsWith("bitstamp") || n.StartsWith("mexc")) return "crypto";
-        return "equities";
-    }
-
     private static void Report(List<AssetResult> r, int permutations)
     {
         Console.WriteLine();

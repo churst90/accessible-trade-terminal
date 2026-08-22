@@ -13,6 +13,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Nine copies of one p-value, six of them different (2026-08-22)
+
+Housekeeping, after `StableSeed` suggested there would be more of the same. There was.
+
+The two-sample permutation test — the p-value behind the confluence, crowding, gate, cycle, events,
+on-chain, volume and micro-ricochet verdicts — existed as **nine private copies in six distinct
+versions**. They differed in seed, in whether they silently capped the permutation count, and in one
+case in whether the sum loop was bounds-checked at all. A statistics primitive is the last thing
+that should exist in nine versions: a defect in one becomes a wrong verdict in one report and a
+right verdict in the next, with nothing to compare.
+
+- **One `LabStats.PermutationP` and `LabStats.RollingZ`.** Each command keeps a one-line forwarder
+  carrying its own seed and cap, because those are research parameters and belong where a reader can
+  see them. Every seed and cap preserved exactly — no stored number moves.
+- **A latent bug in all nine, now fixed.** Every copy computed `a / nA` unguarded, so an empty group
+  gave NaN, `NaN >= x` is false, no permutation counted as extreme, and the function returned its
+  *floor*. An empty group produced the most significant p-value the test can report. Call sites all
+  gate on a minimum count, so nothing in the archive was affected — but the failure direction was
+  exactly backwards.
+- **Six `ClassOf` copies that were two different functions sharing a name** — a two-way
+  crypto/equities split and a five-way split that also separates commodities and bonds. Two commands
+  could group by "asset class" and mean different things, with nothing in either file to say so. Now
+  `LabSnapshots.CryptoOrEquities` and `LabSnapshots.AssetClass`.
+- **`MovingAverageHelper` was out of date about itself.** Its docstring says it "replaces the
+  duplicate Ema/Sma/Wma helpers scattered across CipherA, CipherC, EmaFill and SpiderLines" — and
+  CipherA still had private `Ema` and `Sma`, CipherC a private `Wma`. Removed, and
+  `MovingAverageHelper.Ema` now forwards to the SDK's byte-identical `IndicatorMath.Ema`.
+
+`LabStats` has 16 tests, all proven by reintroducing the defect. Two survived the first round and
+had to be strengthened — the tie-breaking test used a pool with spread, where a shuffled gap is
+never exactly zero and `>` and `>=` agree; the variance-floor test used an exactly constant series,
+where the score is 0/0 = NaN whether the threshold exists or not.
+
+**Also swept, also not fixed, and written up in `TODO.md`:** the indicator parameter accessors
+exist in **36 copies across 15 distinct implementations**, and they disagree about truncation
+vs rounding, about culture, and about null handling. Unifying them moves shipped indicator values,
+so which semantics win is a decision rather than a cleanup.
+
+### The doc-drift guard that validated the first claim and ignored the rest (2026-08-22)
+
+`README_PROVIDER_RE.search(md)` took the first match. It validated the correct claim near the bottom
+of the README and never saw the wrong one in the Key Subsystems section, where "**29 data
+providers** — 14 trading, 15 analytics" sat for three releases against a real 33 / 16 / 17, with the
+guard reporting green throughout.
+
+Both counts now validate **every** occurrence and name the line of each mismatch, and the test-count
+check additionally fails when the README's own claims disagree with each other. Both carry a floor
+on the number of claims found, so a rephrase that hides a claim from the regex fails loudly instead
+of quietly reducing coverage — that floor caught a real case while being written.
+
+Proven by reintroducing both defects. The README's provider list also gains Gemini, Kraken Futures,
+SEC EDGAR and Wikipedia Pageviews, which it had never mentioned.
+
 ### The one provider the transport guard could not reach (2026-08-22)
 
 `5427b691` made the pipeline's Polly retry and circuit breaker reachable by replacing every

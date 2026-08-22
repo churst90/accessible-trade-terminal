@@ -6,9 +6,16 @@ Asserts three things the README/SHORTCUTS docs claim match reality:
 
   1. Every SystemCommand default binding in ShortcutManager.InitializeDefaultProfile()
      has its key chord documented somewhere in docs/SHORTCUTS.md.
-  2. The plugin count in docs/README.md matches the directory layout in
+  2. EVERY plugin-count claim in docs/README.md matches the directory layout in
      Plugins/Providers/ and Plugins/Analytics/.
-  3. The test count in docs/README.md matches `dotnet test --list-tests` output.
+  3. EVERY test-count claim in docs/README.md agrees with the others and with
+     `dotnet test --list-tests` output.
+
+Checks 2 and 3 validate every occurrence, not the first one. They used to use `re.search`,
+which validated whichever claim appeared first and left the rest unchecked — that is how
+"29 data providers" survived in the README's most prominent section for three releases while
+the guard reported green. Both carry a floor on the number of claims found, so a rephrase
+that hides a claim from the regex fails instead of quietly reducing coverage.
 
 Run from the repo root:
     python scripts/check_doc_drift.py
@@ -159,11 +166,25 @@ def check_shortcut_drift(errors: list[str]) -> None:
             errors.append(f"   * {cmd:28s} -> {chord}")
 
 
+# Every provider-count claim in the README, in either phrasing the file uses:
+#   "33 exchange, data, and analytics provider plugins (16 trading + 17 analytics)"
+#   "33 data providers (16 trading in `Plugins/Providers/`, 17 analytics in `Plugins/Analytics/` …"
+# Matched with finditer, not search. The `search` version validated whichever claim came first —
+# in practice the correct one near the bottom of the file — and never saw the wrong one in the
+# far more prominent Key Subsystems section, which read "29 data providers" for three releases.
 README_PROVIDER_RE = re.compile(
-    r"(?P<total>\d+)\s*(?:exchange|data)[^\(]*\((?P<trading>\d+)\s*trading\s*\+\s*(?P<analytics>\d+)\s*analytics\)",
+    r"(?P<total>\d+)\s*(?:exchange|data)[^\(\n]*\("
+    r"(?P<trading>\d+)\s*trading\b[^,\+\)]*[,\+]\s*(?P<analytics>\d+)\s*analytics\b",
     re.IGNORECASE,
 )
 README_TEST_RE = re.compile(r"\((?P<n>\d+)\s*tests", re.IGNORECASE)
+
+# A guard that finds nothing passes for the wrong reason. Both counts are claimed in more than one
+# place in the README, so a rephrase that drops a claim out of the regex's reach has to fail
+# loudly rather than silently reduce coverage. Raise these if a claim is added; never lower them
+# to make a run go green.
+MIN_PROVIDER_CLAIMS = 3
+MIN_TEST_CLAIMS = 2
 
 
 def check_plugin_counts(errors: list[str]) -> None:
@@ -172,28 +193,41 @@ def check_plugin_counts(errors: list[str]) -> None:
     actual_total = actual_providers + actual_analytics
 
     md = README_MD.read_text(encoding="utf-8")
-    m = README_PROVIDER_RE.search(md)
-    if not m:
-        errors.append("PLUGIN GUARD: could not find '<N> exchange... (<N> trading + <N> analytics)' claim in docs/README.md.")
-        return
-    claim_total    = int(m.group("total"))
-    claim_trading  = int(m.group("trading"))
-    claim_analytics = int(m.group("analytics"))
-    if (claim_total, claim_trading, claim_analytics) != (actual_total, actual_providers, actual_analytics):
+    matches = list(README_PROVIDER_RE.finditer(md))
+    if len(matches) < MIN_PROVIDER_CLAIMS:
         errors.append(
-            f"PLUGIN GUARD: docs/README.md claims {claim_total} plugins "
-            f"({claim_trading} trading + {claim_analytics} analytics); "
-            f"filesystem has {actual_total} ({actual_providers} trading + {actual_analytics} analytics)."
+            f"PLUGIN GUARD: found {len(matches)} provider-count claim(s) in docs/README.md, "
+            f"expected at least {MIN_PROVIDER_CLAIMS}. Either a claim was removed or one was "
+            "rephrased out of the regex's reach — fix the discovery, do not lower the floor."
         )
+    for m in matches:
+        claim = (int(m.group("total")), int(m.group("trading")), int(m.group("analytics")))
+        if claim != (actual_total, actual_providers, actual_analytics):
+            line = md.count("\n", 0, m.start()) + 1
+            errors.append(
+                f"PLUGIN GUARD: docs/README.md:{line} claims {claim[0]} plugins "
+                f"({claim[1]} trading + {claim[2]} analytics); "
+                f"filesystem has {actual_total} ({actual_providers} trading + {actual_analytics} analytics)."
+            )
 
 
 def check_test_count(errors: list[str]) -> None:
     md = README_MD.read_text(encoding="utf-8")
-    m = README_TEST_RE.search(md)
-    if not m:
-        errors.append("TEST GUARD: could not find '(<N> tests' claim in docs/README.md.")
+    matches = list(README_TEST_RE.finditer(md))
+    if len(matches) < MIN_TEST_CLAIMS:
+        errors.append(
+            f"TEST GUARD: found {len(matches)} test-count claim(s) in docs/README.md, expected at "
+            f"least {MIN_TEST_CLAIMS}. Fix the discovery, do not lower the floor."
+        )
+    if not matches:
         return
-    claim = int(m.group("n"))
+    claims = {int(m.group("n")): md.count("\n", 0, m.start()) + 1 for m in matches}
+    if len(claims) > 1:
+        errors.append(
+            "TEST GUARD: docs/README.md claims different test counts in different places: "
+            + ", ".join(f"{n} (line {ln})" for n, ln in sorted(claims.items()))
+        )
+    claim = min(claims)
 
     if os.environ.get("DOC_DRIFT_SKIP_TESTS") == "1":
         print(f"TEST GUARD: skipped (DOC_DRIFT_SKIP_TESTS=1). README claims {claim}.")

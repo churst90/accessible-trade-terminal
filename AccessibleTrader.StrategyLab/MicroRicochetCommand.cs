@@ -303,23 +303,12 @@ public static class MicroRicochetCommand
         return bars;
     }
 
-    /// <summary>Two-sided permutation p-value for a difference in group means.</summary>
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs)
-    {
-        var rng = new Random(999);
-        var work = (double[])pool.Clone();
-        int extreme = 0;
-        for (int p = 0; p < runs; p++)
-        {
-            Shuffle(work, rng);
-            double a = 0, b = 0;
-            for (int i = 0; i < nA; i++) a += work[i];
-            for (int i = nA; i < nA + nB && i < work.Length; i++) b += work[i];
-            if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
-        }
-        return (extreme + 1.0) / (runs + 1.0);
-    }
-
+    /// <summary>
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// not in the shared helper, because it is this command's research parameter.
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 999);
     private static void Shuffle(double[] a, Random rng)
     {
         for (int i = a.Length - 1; i > 0; i--)

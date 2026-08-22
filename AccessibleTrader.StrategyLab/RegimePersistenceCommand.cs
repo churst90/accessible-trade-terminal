@@ -140,7 +140,7 @@ public static class RegimePersistenceCommand
             if (windows.Count < 4) { skippedShort++; continue; }   // need the recent era plus 3 to rank against
 
             foreach (var theta in thetas)
-                byTheta[theta].Add(Measure(symbol, ClassOf(file), bars, windows, theta, surrogates));
+                byTheta[theta].Add(Measure(symbol, LabSnapshots.CryptoOrEquities(file), bars, windows, theta, surrogates));
         }
 
         if (byTheta[thetas[0]].Count == 0)
@@ -559,12 +559,6 @@ public static class RegimePersistenceCommand
             if (better) chosen[symbol] = f;
         }
         return chosen;
-    }
-
-    private static string ClassOf(string file)
-    {
-        string n = Path.GetFileName(file);
-        return n.StartsWith("bitstamp") || n.StartsWith("mexc") ? "crypto" : "equities";
     }
 
     private static double Median(List<double> xs)

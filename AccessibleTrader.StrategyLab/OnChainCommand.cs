@@ -49,6 +49,7 @@ public static class OnChainCommand
         public string Symbol { get; set; } = "";
         public List<XsPoint> Points { get; set; } = new();
     }
+
     private sealed class XsPoint { public long Ts { get; set; } public double Value { get; set; } }
 
     public static int Run(string snapshotDir, string tf, int horizon, int permutations)
@@ -126,7 +127,7 @@ public static class OnChainCommand
         // Rolling z of the metric — a level threshold is meaningless on a secularly growing series,
         // and z-scoring is also what makes the comparison against a price z fair.
         const int ZWin = 365;
-        var z = RollingZ(values, ZWin);
+        var z = LabStats.RollingZ(values, ZWin);
 
         // The matched-speed price baseline. Its length is not assumed: it is the SMA whose
         // price/SMA ratio best tracks this metric, found by search. That makes "does the metric beat
@@ -315,25 +316,6 @@ public static class OnChainCommand
         return outp;
     }
 
-    private static double[] RollingZ(double[] v, int win)
-    {
-        var z = new double[v.Length];
-        Array.Fill(z, double.NaN);
-        for (int i = win; i < v.Length; i++)
-        {
-            double sum = 0, sumSq = 0; int n = 0;
-            for (int j = i - win; j <= i; j++)
-            {
-                if (double.IsNaN(v[j])) continue;
-                sum += v[j]; sumSq += v[j] * v[j]; n++;
-            }
-            if (n < win / 2) continue;
-            double mean = sum / n, var = sumSq / n - mean * mean;
-            if (var > 1e-12) z[i] = (v[i] - mean) / Math.Sqrt(var);
-        }
-        return z;
-    }
-
     private static double Correlation(double[] x, double[] y)
     {
         var keep = Enumerable.Range(0, Math.Min(x.Length, y.Length))
@@ -349,19 +331,12 @@ public static class OnChainCommand
         return sxx <= 0 || syy <= 0 ? double.NaN : sxy / Math.Sqrt(sxx * syy);
     }
 
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs)
-    {
-        var rng = new Random(6161);
-        var work = (double[])pool.Clone();
-        int extreme = 0, use = Math.Min(runs, 4000);
-        for (int p = 0; p < use; p++)
-        {
-            for (int i = work.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (work[i], work[j]) = (work[j], work[i]); }
-            double a = 0, b = 0;
-            for (int i = 0; i < nA && i < work.Length; i++) a += work[i];
-            for (int i = nA; i < nA + nB && i < work.Length; i++) b += work[i];
-            if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
-        }
-        return (extreme + 1.0) / (use + 1.0);
-    }
+    /// <summary>
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// not in the shared helper, because it is this command's research parameter.
+    /// Capped at 4,000 permutations: this command runs the test inside a loop over
+    /// many buckets, and the full count would dominate its runtime.
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 6161, cap: 4_000);
 }

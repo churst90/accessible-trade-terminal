@@ -90,7 +90,7 @@ public static class EventsCommand
             // backtest MUST honour, or it trades on positioning nobody could yet see. Six days is
             // used, which is conservative.
             var aligned = AlignLagged(cot, bars, 6);
-            var z = RollingZ(aligned, ZWin * 5);   // 26 weeks in daily bars
+            var z = LabStats.RollingZ(aligned, ZWin * 5);   // 26 weeks in daily bars
 
             var rows = new List<(double Z, double Fwd)>();
             for (int i = 200; i < bars.Count - horizon; i++)
@@ -216,38 +216,12 @@ public static class EventsCommand
         return outp;
     }
 
-    private static double[] RollingZ(double[] v, int win)
-    {
-        var z = new double[v.Length];
-        Array.Fill(z, double.NaN);
-        for (int i = win; i < v.Length; i++)
-        {
-            double sum = 0, sumSq = 0; int n = 0;
-            for (int j = i - win; j <= i; j++)
-            {
-                if (double.IsNaN(v[j])) continue;
-                sum += v[j]; sumSq += v[j] * v[j]; n++;
-            }
-            if (n < win / 2) continue;
-            double mean = sum / n, var = sumSq / n - mean * mean;
-            if (var > 1e-12) z[i] = (v[i] - mean) / Math.Sqrt(var);
-        }
-        return z;
-    }
-
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs)
-    {
-        var rng = new Random(4747);
-        var work = (double[])pool.Clone();
-        int extreme = 0, use = Math.Min(runs, 4000);
-        for (int p = 0; p < use; p++)
-        {
-            for (int i = work.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (work[i], work[j]) = (work[j], work[i]); }
-            double a = 0, b = 0;
-            for (int i = 0; i < nA && i < work.Length; i++) a += work[i];
-            for (int i = nA; i < nA + nB && i < work.Length; i++) b += work[i];
-            if (Math.Abs(a / nA - b / nB) >= Math.Abs(observed)) extreme++;
-        }
-        return (extreme + 1.0) / (use + 1.0);
-    }
+    /// <summary>
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// not in the shared helper, because it is this command's research parameter.
+    /// Capped at 4,000 permutations: this command runs the test inside a loop over
+    /// many buckets, and the full count would dominate its runtime.
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 4747, cap: 4_000);
 }
