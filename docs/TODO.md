@@ -6,6 +6,59 @@ This file tracks all known bugs, improvements, and roadmap items. Items are orga
 
 ---
 
+## The unclosable position (patch applied 2026-08-22)
+
+`patches/accessible-trader-unclosable-position-2026-08-21.patch` — written against `0320d8a3`,
+applied here on top of the seven commits since. Report: *"I see a position open in my positions tab
+and I can't close it."* Three defects stacked behind that one sentence; the patch's own README in
+`patches/` has the full narrative. What is recorded here is what changed on the way in.
+
+**One merge conflict, resolved by combining rather than choosing.** `PaperTradingProvider`'s market
+branch was rewritten by audit batch 1 after the patch's base. Kept: the reduce-only clamp
+(`mktQty`), which the patch's base did not have and which must survive — a close arriving a moment
+after the position went away must not open a fresh trade the other way. Taken: the price resolved
+before the lock, and the refusal that names the symbol and says what to do. Both halves are load
+bearing and neither side of the conflict had both. The rest of the branch's `Task.FromResult`
+returns became plain returns with `PlaceOrderAsync` now `async`.
+
+**One duplication removed.** The patch added a private `DescribeOrderFailure` to
+`TradingDashboardModal` — four lines from an existing call to `OrderResult.DescribeFailure`, whose
+own summary says "One translator, used by every path that places an order, is how that stays
+fixed." The modal now forwards to the shared one, which grew a `PROVIDER_NOT_*` arm (those codes
+gained reasons in this patch and `OrderResult` returned `null` for them, i.e. "the order went
+through") and a `DescribeFailureOrDefault` for callers appending to a sentence of their own. One
+patch test asserted the private copy's thinner phrasing for the `insufficient` case; the shared
+translator deliberately replaces that reason with what the user can act on, so the expectation was
+corrected rather than the behaviour, and a new test pins that the dashboard and the shared
+translator agree.
+
+**The twin the patch did not list.** Fix 1 is "a refusal reached the user with its reason removed".
+Asking where else that lives found `StrategyEngine.ExecuteSignalAsync` **discarding
+`PlaceOrderAsync`'s return value entirely** — the exact defect `QuickTradeExecutor:72` documents
+having fixed once. It is worse in the automated path: a strategy in Auto mode announces its signal
+and then places the order, so a refusal left the user having heard "buy signal" and nothing after
+it. Now announced, guarded by `QuickTradeFailureReportingTests.AnAutoStrategyAnnouncesAnOrderItCouldNotPlace`
+plus a vacuity check that a successful placement stays quiet. Both proven to fail by reverting.
+
+**Sweeps that came back empty**, recorded so nobody repeats them: Bitstamp is the only venue in the
+tree with a symbol remap (`usdt` → `usd`), so `GetCanonicalSymbol` has exactly one override and no
+untouched twin; and the only two sites that classify an order result for announcement are the two
+in `TradingDashboardModal` that the patch fixed.
+
+Three of the patch's twelve tests were verified to fail with fixes 2 and 3 reverted, matching its
+author's claim. Suite 3538 green.
+
+### Still open from the patch's own list
+
+- [ ] **The impossible tab.** Nothing validates a symbol/provider pair on workspace restore —
+  `MarketOrchestrator.LoadRestoredActiveTabAsync` assigns both straight from the saved identity,
+  which is how `BTCUSDT` came to be recorded against Bitstamp (a venue that lists `BTC/USD`).
+  `ResolvePriceAsync` now survives it by trying and dropping the pairing, but the source is unfixed.
+- [ ] **The stale `Leverage: BTC/USD = 3.0`** entry in the live paper account predates leverage
+  being withdrawn. Harmless, but it is recorded state describing a feature that no longer exists.
+
+---
+
 ## Production-readiness audit (2026-08-21) — findings, unfixed
 
 A full read-through of the codebase for production readiness: every area reviewed against the

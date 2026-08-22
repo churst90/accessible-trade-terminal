@@ -42,4 +42,11 @@
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets the test project reach internal helpers (e.g. the order-failure phrasing on
+         TradingDashboardModal) without widening them to the public surface. Same approach the
+         chart-pattern context uses. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

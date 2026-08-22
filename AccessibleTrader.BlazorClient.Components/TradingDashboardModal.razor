@@ -1226,7 +1226,11 @@
                 : "";
             if (sectorHint.Length > 0) sectorHint = " " + sectorHint;
             string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sectorHint}";
-            _orderStatus = _orderError ? $"Order rejected for {Store.State.Identity.Symbol}." : placed;
+            // Same rule as ClosePosition: a rejection carries its reason, and the reason is the
+            // part the user can act on. "Order rejected" alone sends them back to guess.
+            _orderStatus = _orderError
+                ? $"Order rejected for {Store.State.Identity.Symbol}. {DescribeOrderFailure(result)}"
+                : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
             EventBus.Publish(new FeedbackRequestEvent(_orderError ? FeedbackType.Error : FeedbackType.Info, _orderStatus, true));
@@ -1305,6 +1309,20 @@
         if (ok) await LoadAccountDataAsync();
     }
 
+    /// <summary>
+    /// The human half of an order-service failure code.
+    ///
+    /// <para>
+    /// A thin forward to <see cref="OrderResult.DescribeFailureOrDefault"/> rather than a second
+    /// implementation. This class of defect — one translator per caller, drifting apart — is the
+    /// reason <c>OrderResult</c> exists at all, and its own summary says so: "One translator, used
+    /// by every path that places an order, is how that stays fixed." A private copy here would
+    /// have started out identical and stopped being identical the first time either was improved.
+    /// </para>
+    /// </summary>
+    internal static string DescribeOrderFailure(string result) =>
+        OrderResult.DescribeFailureOrDefault(result);
+
     // Close (or reduce-to-flat) a position by submitting an opposing market order.
     private async Task ClosePosition(Position p)
     {
@@ -1323,7 +1341,13 @@
         string result = await OrderService.PlaceOrderAsync(provider, signal);
         bool err = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
         EventBus.Publish(new FeedbackRequestEvent(err ? FeedbackType.Error : FeedbackType.Info,
-            err ? $"Close failed for {p.Symbol}."
+            // Say WHY, not just that it failed. The provider returns a reason after the colon
+            // ("insufficient paper balance — …", "no live price for symbol — …") and this line
+            // used to throw it away, announcing a bare "Close failed for BTC/USD." A refusal a
+            // user can act on and a refusal that looks like a dead end are the same event with
+            // different words, and for a screen-reader user the actionable half is the half
+            // that was being dropped.
+            err ? $"Close failed for {p.Symbol}. {DescribeOrderFailure(result)}"
                 : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
             true));
         if (!err) await LoadAccountDataAsync();

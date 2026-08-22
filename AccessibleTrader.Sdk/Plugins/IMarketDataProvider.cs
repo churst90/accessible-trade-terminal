@@ -65,6 +65,16 @@ namespace AccessibleTrader.Sdk.Plugins
         string GetSymbolDisplayName(string symbol) => symbol;
 
         /// <summary>
+        /// The single identity of the market a UI symbol resolves to on this venue, for ledgers and
+        /// any other store that must hold ONE record per market however the user spelled it.
+        /// Default strips separators and uppercases: BTC/USD, btc-usd and BTCUSD are one market,
+        /// while BTCUSDT stays a different one. Venues that remap internally override it — see
+        /// BaseMarketDataProvider.GetCanonicalSymbol and the Bitstamp usdt-to-usd case.
+        /// </summary>
+        string GetCanonicalSymbol(string symbol) =>
+            symbol?.Replace("/", "").Replace("-", "").ToUpperInvariant() ?? string.Empty;
+
+        /// <summary>
         /// Returns optional per-symbol render + sonification hints for analytics metrics.
         /// See <see cref="SymbolRenderHints"/> for the full field documentation. Bounded
         /// analytics providers should override this to declare value range, reference

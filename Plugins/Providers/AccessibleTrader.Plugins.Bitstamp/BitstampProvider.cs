@@ -197,6 +197,16 @@ namespace AccessibleTrader.Plugins.Bitstamp
             return s;
         }
 
+        /// <summary>
+        /// The usdt→usd remap above is not merely a wire-format detail: it means two different UI
+        /// symbols name the SAME Bitstamp book. A ledger keying on the display string therefore
+        /// splits one market in two — which is exactly how an account came to hold a long under
+        /// "BTC/USD" and a short under "BTCUSDT" on this venue, offsetting positions that no net
+        /// exposure or risk check could see as related. Canonical form is the book itself.
+        /// </summary>
+        public override string GetCanonicalSymbol(string symbol) =>
+            string.IsNullOrEmpty(symbol) ? string.Empty : ToBitstampPair(symbol).ToUpperInvariant();
+
         // ── Keyed-feed subscriptions (multiple concurrent live streams) ───────
 
         public override bool SupportsMultipleLiveSubscriptions => true;

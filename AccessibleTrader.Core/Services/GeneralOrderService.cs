@@ -273,12 +273,14 @@ namespace AccessibleTrader.Core.Services
             if (tp == null)
             {
                 _errorCoordinator.ReportError($"Provider {providerName} does not support trading.", ErrorSeverity.Medium);
-                return "PROVIDER_NOT_SUPPORTED";
+                // Code:reason — the caller announces everything after the colon, so a refusal
+                // arrives as a sentence rather than as a bare code with nothing to act on.
+                return $"PROVIDER_NOT_SUPPORTED:{providerName} does not support trading";
             }
             if (!tp.IsConnected)
             {
                 _errorCoordinator.ReportError($"Cannot place order. {providerName} is not connected.", ErrorSeverity.High);
-                return "PROVIDER_NOT_CONNECTED";
+                return $"PROVIDER_NOT_CONNECTED:{providerName} is not connected";
             }
             try
             {
@@ -360,7 +362,7 @@ namespace AccessibleTrader.Core.Services
                         signal.Symbol, providerName);
                 }
                 _errorCoordinator.ReportError($"Order failed: {ex.Message}", ErrorSeverity.High);
-                return "ORDER_FAILED";
+                return $"ORDER_FAILED:{ex.Message}";
             }
         }
 

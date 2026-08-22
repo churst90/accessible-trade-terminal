@@ -181,6 +181,27 @@ namespace AccessibleTrader.Sdk.Plugins
         }
 
         /// <summary>
+        /// The single identity of the market a UI symbol resolves to on THIS venue — the key under
+        /// which a ledger should hold one position for it, whatever spelling the user arrived by.
+        ///
+        /// <para>
+        /// The default strips separators and uppercases, so <c>BTC/USD</c>, <c>btc-usd</c> and
+        /// <c>BTCUSD</c> are one market while <c>BTCUSDT</c> stays a different one — USD and USDT
+        /// are different quote assets and must not be conflated.
+        /// </para>
+        ///
+        /// <para>
+        /// Override where the venue itself remaps. Bitstamp routes a Tether-quoted symbol to its
+        /// USD book, so charting <c>BTCUSDT</c> there serves <c>btcusd</c> — the same market the
+        /// user would get from <c>BTC/USD</c>. Without that override a paper ledger keyed on the
+        /// display string recorded them as two positions in one market: a 2026-08-21 account held
+        /// a long under <c>BTC/USD</c> and a short under <c>BTCUSDT</c> that were the same Bitstamp
+        /// book, and neither the net exposure nor the risk warnings could see it.
+        /// </para>
+        /// </summary>
+        public virtual string GetCanonicalSymbol(string symbol) => CleanSymbol(symbol);
+
+        /// <summary>
         /// Drops references to any supplied credential strings so the GC can
         /// reclaim their backing storage on the next collection. Because .NET
         /// strings are immutable and interned, we cannot reliably zero the

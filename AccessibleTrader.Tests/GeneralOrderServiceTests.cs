@@ -278,7 +278,9 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
 
-            Assert.Equal("PROVIDER_NOT_CONNECTED", result);
+            // Code:reason — the reason is what the UI announces, so it must be carried, not dropped.
+            Assert.StartsWith("PROVIDER_NOT_CONNECTED:", result);
+            Assert.Contains("is not connected", result);
             h.Err.Received().ReportError(
                 Arg.Is<string>(m => m.Contains("not connected")),
                 ErrorSeverity.High,
@@ -300,7 +302,9 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
 
-            Assert.Equal("ORDER_FAILED", result);
+            // Code:reason — the exception message rides along so the UI can say WHY the order
+            // failed instead of announcing a bare "rejected" the user cannot act on.
+            Assert.StartsWith("ORDER_FAILED:", result);
             h.Err.Received().ReportError(
                 Arg.Is<string>(m => m.Contains("Order failed")),
                 ErrorSeverity.High,

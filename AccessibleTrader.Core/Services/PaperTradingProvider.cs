@@ -104,11 +104,22 @@ namespace AccessibleTrader.Core.Services
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
 
+        /// <summary>
+        /// Market-data access, for the two things the ledger cannot do from its own state: ask a
+        /// venue what market a symbol really is (<see cref="ResolveLedgerKeyAsync"/>) and fetch a price
+        /// for a symbol whose chart is not open (<see cref="ResolvePriceAsync"/>). Optional so the
+        /// desktop head and the tests can construct the account without a data layer; both paths
+        /// degrade to the behaviour that existed before rather than failing.
+        /// </summary>
+        private readonly IDataService? _data;
+
         public PaperTradingProvider(IWorkspaceStore store, IPlatformPathService paths,
-            ILogger<PaperTradingProvider> logger, IEventBus? eventBus = null)
+            ILogger<PaperTradingProvider> logger, IEventBus? eventBus = null,
+            IDataService? dataService = null)
         {
             _store = store;
             _logger = logger;
+            _data = dataService;
             _statePath = Path.Combine(paths.AppDataDirectory, "paper_account.json");
             Load();
 
@@ -246,25 +257,54 @@ namespace AccessibleTrader.Core.Services
 
         // ── Order management ──────────────────────────────────────────────────
 
-        public Task<string> PlaceOrderAsync(TradeSignal signal)
+        public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
-            string symbol = (signal.Symbol ?? "").ToUpperInvariant();
-            if (signal.Quantity <= 0) return Task.FromResult("ORDER_FAILED:quantity must be positive");
+            string raw = (signal.Symbol ?? "").ToUpperInvariant();
+            if (signal.Quantity <= 0) return "ORDER_FAILED:quantity must be positive";
+
+            // Resolved BEFORE the lock, because both need the network and no lock may be held
+            // across an await.
+            //
+            //  1. The market this symbol really is on its venue, so one book cannot become two
+            //     positions because the user reached it by two spellings.
+            //  2. A price, when the symbol's chart is not the one on screen. Without this a
+            //     position was unclosable whenever its tab was shut or the server had restarted:
+            //     the in-memory price table is deliberately not persisted, so Close returned "no
+            //     live price for symbol" and there was no way to act on it from that screen.
+            string symbol = await ResolveLedgerKeyAsync(raw).ConfigureAwait(false);
+
+            double marketPrice = 0;
+            if (signal.Type == OrderType.Market)
+            {
+                lock (_lock) marketPrice = PriceFor(symbol, 0);
+                if (marketPrice <= 0) marketPrice = await ResolvePriceAsync(symbol, raw).ConfigureAwait(false);
+            }
 
             lock (_lock)
             {
                 if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
-                // Remember which chart this symbol trades on, so the monitoring
-                // service can keep pricing it after the tab is closed.
+                // Remember which chart this symbol trades on, so the monitoring service — and
+                // ResolvePriceAsync — can keep pricing it after the tab is closed. Compared
+                // canonically: the live identity may spell the same market differently from the
+                // signal, and an identity filed under a spelling nothing looks up is an identity
+                // that will not be there when a close needs it.
                 var live = _store.State.Identity;
-                if (string.Equals(live.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(live.Provider)
+                    && string.Equals(LocalCanonical(live.Symbol ?? ""), LocalCanonical(raw),
+                                     StringComparison.OrdinalIgnoreCase))
                     _exposureIdentity[symbol] = live;
 
                 if (signal.Type == OrderType.Market)
                 {
-                    double px = PriceFor(symbol, 0);
-                    if (px <= 0) return Task.FromResult("ORDER_FAILED:no live price for symbol — load its chart first");
+                    // The price was resolved before the lock: PriceFor first, then the
+                    // venue if this symbol's chart is not the one on screen. The refusal
+                    // names the symbol and says what to do about it, because the half a
+                    // screen-reader user needs is the half the old message threw away.
+                    double px = marketPrice;
+                    if (px <= 0)
+                        return "ORDER_FAILED:no price available for " + raw
+                             + " — open its chart, or check the venue is reachable";
 
                     // Reduce-only means reduce-only whatever the order type. A "close
                     // position" that arrives a moment after the position went away must
@@ -278,7 +318,7 @@ namespace AccessibleTrader.Core.Services
                         {
                             const string gone = "the position was already closed";
                             Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Cancelled, false, false, reason: gone);
-                            return Task.FromResult("ORDER_FAILED:" + gone);
+                            return "ORDER_FAILED:" + gone;
                         }
                         mktQty = Math.Min(signal.Quantity, Math.Abs(held));
                     }
@@ -286,7 +326,7 @@ namespace AccessibleTrader.Core.Services
                     if (!CanFill(symbol, signal.Side, mktQty, px, out string? why))
                     {
                         Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity, OrderStatus.Rejected, false, false, reason: why);
-                        return Task.FromResult("ORDER_FAILED:" + why);
+                        return "ORDER_FAILED:" + why;
                     }
 
                     string id = NewId();
@@ -300,7 +340,7 @@ namespace AccessibleTrader.Core.Services
                     if (spec != null) AttachProtectiveLegs(symbol, signal.Side, mktQty, px, spec, id);
 
                     Persist();
-                    return Task.FromResult(id);
+                    return id;
                 }
 
                 // Resting limit / stop / take-profit order.
@@ -313,7 +353,7 @@ namespace AccessibleTrader.Core.Services
                     _ => null
                 };
                 if (price == null && trigger == null)
-                    return Task.FromResult("ORDER_FAILED:order needs a price or trigger");
+                    return "ORDER_FAILED:order needs a price or trigger";
 
                 bool isStop = signal.Type is OrderType.StopMarket or OrderType.StopLimit;
 
@@ -332,7 +372,7 @@ namespace AccessibleTrader.Core.Services
                     {
                         Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity,
                             OrderStatus.Rejected, true, false, reason: check.Message);
-                        return Task.FromResult("ORDER_FAILED:" + check.Message);
+                        return "ORDER_FAILED:" + check.Message;
                     }
                 }
 
@@ -356,7 +396,7 @@ namespace AccessibleTrader.Core.Services
                 _open.Add(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
                     ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket));
                 Persist();
-                return Task.FromResult(oid);
+                return oid;
             }
         }
 
@@ -873,6 +913,175 @@ namespace AccessibleTrader.Core.Services
                 : $"insufficient paper balance — that position needs {needed.ToString("N2", ci)} {Quote} "
                 + $"and the account holds {_cash.ToString("N2", ci)}";
             return false;
+        }
+
+        // ── Symbol identity and price resolution ─────────────────────────────
+        //
+        // Both exist because the ledger is one account spanning many venues, and a symbol string
+        // alone does not say which market it is. See GetCanonicalSymbol on IMarketDataProvider.
+
+        /// <summary>
+        /// Venue-independent normalisation: strip separators, uppercase. The fallback for when no
+        /// provider can be resolved, and the comparison used to decide whether two spellings could
+        /// possibly be the same market before paying for a lookup.
+        /// </summary>
+        private static string LocalCanonical(string symbol) =>
+            symbol?.Replace("/", "").Replace("-", "").ToUpperInvariant() ?? string.Empty;
+
+        /// <summary>
+        /// The ledger key for this order: an EXISTING position's key when one names the same
+        /// market, otherwise the symbol exactly as the user spelled it.
+        ///
+        /// <para>
+        /// Two rules, and the tension between them is the whole point. Matching is CANONICAL, so
+        /// <c>BTC/USD</c> and <c>BTCUSDT</c> on Bitstamp — one book, because the venue routes
+        /// Tether quotes to its USD market — find the same position instead of standing as a long
+        /// and a short that offset each other invisibly. Storing keeps the SPELLING, because the
+        /// key is what the positions table shows and what speech reads out, and silently renaming
+        /// a user's BTC/USD to BTCUSD is a worse bug than the one being fixed.
+        /// </para>
+        ///
+        /// <para>
+        /// Existing positions are matched, never renamed. Re-keying a stored account would mean
+        /// merging a long against a short, which books realised profit at a price no trade ever
+        /// happened at — an accounting guess written into somebody's balance without being asked.
+        /// </para>
+        /// </summary>
+        private async Task<string> ResolveLedgerKeyAsync(string raw)
+        {
+            IMarketDataProvider? provider = null;
+            string? providerName = ProviderForSymbol(raw);
+            if (_data != null && !string.IsNullOrEmpty(providerName))
+            {
+                try { provider = await _data.GetProviderAsync(providerName).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Provider lookup failed for {Provider}.", providerName);
+                }
+            }
+
+            string Canon(string sym)
+            {
+                try
+                {
+                    string c = provider?.GetCanonicalSymbol(sym) ?? "";
+                    if (c.Length > 0) return c.ToUpperInvariant();
+                }
+                catch { /* a venue that cannot answer falls back to the neutral form */ }
+                return LocalCanonical(sym);
+            }
+
+            string canonical = Canon(raw);
+            lock (_lock)
+            {
+                if (_positions.ContainsKey(raw)) return raw;
+                foreach (var key in _positions.Keys)
+                    if (string.Equals(Canon(key), canonical, StringComparison.OrdinalIgnoreCase))
+                        return key;
+            }
+            return raw;
+        }
+
+        /// <summary>
+        /// The data provider a symbol trades under: the chart it was traded on if that is still
+        /// recorded, otherwise the chart currently on screen. Null when neither is known.
+        /// </summary>
+        private string? ProviderForSymbol(string rawSymbol)
+        {
+            string local = LocalCanonical(rawSymbol);
+            lock (_lock)
+            {
+                foreach (var kv in _exposureIdentity)
+                {
+                    if (string.Equals(LocalCanonical(kv.Key), local, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrEmpty(kv.Value.Provider))
+                        return kv.Value.Provider;
+                }
+            }
+            var live = _store.State.Identity;
+            return string.IsNullOrEmpty(live.Provider) ? null : live.Provider;
+        }
+
+        /// <summary>
+        /// A price for a symbol whose chart is not loaded, fetched from its venue.
+        ///
+        /// <para>
+        /// <b>Why this is not optional.</b> <see cref="PriceFor"/> knows only the focused chart and
+        /// an in-memory table that is deliberately never persisted, so after a restart — or simply
+        /// with a different tab in front — every position in any other symbol became impossible to
+        /// close: the order was refused for want of a price, and the refusal was the only thing
+        /// standing between the user and their own money. A position you cannot close is not a
+        /// cache miss; it is a trap.
+        /// </para>
+        ///
+        /// <para>
+        /// The recorded identity is TRIED, not trusted. An identity can be internally impossible —
+        /// a symbol paired with a venue that does not list it, which is exactly what a workspace
+        /// restore produced on 2026-08-21 (BTCUSDT recorded against Bitstamp). So a fetch that
+        /// comes back empty falls through to the chart on screen rather than being taken as proof
+        /// there is no price, and a recorded identity that fails is dropped so it cannot poison
+        /// the next attempt.
+        /// </para>
+        /// </summary>
+        private async Task<double> ResolvePriceAsync(string symbol, string rawSymbol)
+        {
+            if (_data == null) return 0;
+
+            var attempts = new List<(ChartIdentity Id, bool FromRecord)>();
+            lock (_lock)
+            {
+                foreach (var kv in _exposureIdentity)
+                    if (string.Equals(LocalCanonical(kv.Key), LocalCanonical(rawSymbol), StringComparison.OrdinalIgnoreCase))
+                        attempts.Add((kv.Value, true));
+            }
+            var live = _store.State.Identity;
+            if (!string.IsNullOrEmpty(live.Provider)) attempts.Add((live, false));
+
+            foreach (var (id, fromRecord) in attempts)
+            {
+                if (string.IsNullOrEmpty(id.Provider)) continue;
+                try
+                {
+                    string market = string.IsNullOrEmpty(id.Market) ? "Crypto" : id.Market;
+                    string tf = string.IsNullOrEmpty(id.Timeframe) ? "1h" : id.Timeframe;
+                    var (bars, _) = await _data
+                        .FetchOhlcvAsync(id.Provider, new MarketDataRequest(market, rawSymbol, tf, 2))
+                        .ConfigureAwait(false);
+
+                    double px = bars is { Count: > 0 } ? bars[^1].Close : 0;
+                    if (px > 0)
+                    {
+                        lock (_lock) _lastPrice[symbol] = px;
+                        _logger.LogInformation(
+                            "Priced {Symbol} at {Price} from {Provider} for an order with no chart loaded.",
+                            rawSymbol, px, id.Provider);
+                        return px;
+                    }
+
+                    if (fromRecord)
+                    {
+                        // The venue does not answer for this symbol. Keeping the pairing would make
+                        // every later attempt fail the same way, silently.
+                        _logger.LogWarning(
+                            "Recorded chart identity {Provider}/{Symbol} returned no price; dropping it.",
+                            id.Provider, rawSymbol);
+                        lock (_lock)
+                        {
+                            var dead = _exposureIdentity
+                                .Where(kv => string.Equals(LocalCanonical(kv.Key), LocalCanonical(rawSymbol),
+                                                           StringComparison.OrdinalIgnoreCase)
+                                          && string.Equals(kv.Value.Provider, id.Provider, StringComparison.OrdinalIgnoreCase))
+                                .Select(kv => kv.Key).ToList();
+                            foreach (var k in dead) _exposureIdentity.Remove(k);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Price fetch failed for {Symbol} on {Provider}.", rawSymbol, id.Provider);
+                }
+            }
+            return 0;
         }
 
         private double CollateralOf(string symbol) =>

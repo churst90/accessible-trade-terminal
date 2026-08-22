@@ -36,14 +36,29 @@ namespace AccessibleTrader.Core.Services.Trading
             {
                 string reason = result.Substring("ORDER_FAILED:".Length).Trim();
 
+                if (reason.Length == 0) return "Not placed: the provider rejected the order.";
+
                 if (reason.Contains("insufficient", StringComparison.OrdinalIgnoreCase))
                     return "Not placed: that position costs more than the account holds. "
                          + "A risk-based size grows as the stop gets tighter, so choose a stop further away.";
 
-                if (reason.Contains("no live price", StringComparison.OrdinalIgnoreCase))
-                    return "Not placed: there is no live price for this symbol, so it cannot be filled.";
+                if (reason.Contains("no live price", StringComparison.OrdinalIgnoreCase)
+                 || reason.Contains("no price available", StringComparison.OrdinalIgnoreCase))
+                    return "Not placed: " + reason + ".";
 
                 return "Not placed: " + reason + ".";
+            }
+
+            // The PROVIDER_NOT_* family, which carries its reason the same way. These used to be
+            // bare codes and now arrive as CODE:reason, so both shapes are handled — a build where
+            // one side has been updated and the other has not must still say something usable.
+            if (result.StartsWith("PROVIDER_NOT", StringComparison.OrdinalIgnoreCase))
+            {
+                int colon = result.IndexOf(':');
+                string reason = colon >= 0 ? result[(colon + 1)..].Trim() : "";
+                return reason.Length > 0
+                    ? "Not placed: " + reason + "."
+                    : "Not placed: that provider is not available for trading.";
             }
 
             return result switch
@@ -55,5 +70,14 @@ namespace AccessibleTrader.Core.Services.Trading
                 _ => null,   // an order id — it went.
             };
         }
+
+        /// <summary>
+        /// <see cref="DescribeFailure"/> for a caller that has ALREADY decided this is a failure and
+        /// is appending the result to a sentence of its own ("Close failed for BTC/USD. …").
+        /// Never null and never empty: a caller in that position must not be left announcing a
+        /// dangling half-sentence just because a code arrived with no reason attached.
+        /// </summary>
+        public static string DescribeFailureOrDefault(string? result) =>
+            DescribeFailure(result) ?? "No reason was given.";
     }
 }

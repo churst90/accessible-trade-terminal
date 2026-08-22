@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
+using NSubstitute;
 using Xunit;
 
 namespace AccessibleTrader.Tests;
@@ -162,5 +164,115 @@ public class QuickTradeFailureReportingTests
 
         Assert.Equal(QuickTradeStage.Ready, svc.State.Stage);
         Assert.True(svc.State.CanPlace);
+    }
+
+    // ── The twin: the SAME dropped return value, in the automated path ───────
+
+    /// <summary>
+    /// <c>StrategyEngine.ExecuteSignalAsync</c> discarded <c>PlaceOrderAsync</c>'s return value
+    /// exactly as <c>QuickTradeExecutor</c> once did — found by asking where else this class lives
+    /// rather than by a new report. It is worse here, because nobody is at the keyboard: a strategy
+    /// in Auto mode announces its signal on the event bus and then places the order, so a refusal
+    /// left the user having heard "buy signal" and nothing after it. Believing you hold a position
+    /// you do not hold is the most expensive wrong belief this application can produce.
+    /// </summary>
+    [Fact]
+    public async Task AnAutoStrategyAnnouncesAnOrderItCouldNotPlace()
+    {
+        var h = new AutoStrategyHarness("ORDER_FAILED:insufficient paper balance");
+
+        await h.FireSignalAsync();
+
+        var spoken = await h.WaitForErrorAsync();
+        Assert.NotNull(spoken);
+        Assert.Contains("TestStrategy", spoken!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("stop further away", spoken.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Vacuity check: a placed order must stay quiet. An engine that announced a failure
+    /// for every fill would be noise, and would pass the test above for the wrong reason.</summary>
+    [Fact]
+    public async Task AnAutoStrategyThatPlacesSuccessfullySaysNothingExtra()
+    {
+        var h = new AutoStrategyHarness("paper-9f2c1a4b7e03");   // an order id — it went
+
+        await h.FireSignalAsync();
+        await Task.Delay(200);
+
+        Assert.DoesNotContain(h.Bus.Log.OfType<FeedbackRequestEvent>(),
+            e => e.Type == FeedbackType.Error);
+    }
+
+    /// <summary>
+    /// Drives a real StrategyEngine in Auto mode through one bar close, with a scripted answer
+    /// from the order service.
+    /// </summary>
+    private sealed class AutoStrategyHarness
+    {
+        public readonly SpyEventBus Bus = new();
+        private readonly AccessibleTrader.Core.Services.Feeds.MarketFeedHub _hub;
+        private readonly AccessibleTrader.Core.Services.Feeds.ChartFeed _feed;
+
+        public AutoStrategyHarness(string orderResult)
+        {
+            var identity = new ChartIdentity("Spot", "TestProv", "BTC/USD", "1h");
+            _hub = new AccessibleTrader.Core.Services.Feeds.MarketFeedHub(
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IDataOrchestrator>(),
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IDataService>(),
+                new AccessibleTrader.Core.Services.DemoPolicy(false),
+                Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+            _feed = _hub.SetFocus(identity);
+
+            var store = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IWorkspaceStore>();
+            store.State.Returns(WorkspaceState.Initial with { Identity = identity });
+
+            var orders = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IOrderExecutionService>();
+            orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<AccessibleTrader.Sdk.Plugins.TradeSignal>())
+                  .Returns(Task.FromResult(orderResult));
+
+            var strategy = NSubstitute.Substitute.For<AccessibleTrader.Sdk.Strategies.ITradingStrategy>();
+            strategy.Name.Returns("TestStrategy");
+            strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<System.Collections.Generic.IReadOnlyList<Ohlcv>>(),
+                           Arg.Any<WorkspaceState>())
+                    .Returns(new AccessibleTrader.Sdk.Strategies.StrategySignal(
+                        AccessibleTrader.Sdk.Plugins.OrderSide.Buy,
+                        AccessibleTrader.Sdk.Plugins.OrderType.Market,
+                        null, null, null, null, "twin test", 0.9));
+
+            var engine = new AccessibleTrader.Core.Services.StrategyEngine(
+                Bus, orders,
+                NSubstitute.Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<AccessibleTrader.Core.Services.StrategyEngine>.Instance,
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IDataManager>(), store,
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IStrategyIndicatorCache>(),
+                _hub);
+            engine.AddStrategy(strategy, null, AccessibleTrader.Sdk.Strategies.StrategyExecutionMode.Auto);
+        }
+
+        /// <summary>One live tick into a new period, which closes the previous bar — the trigger
+        /// StrategyEngine evaluates on.</summary>
+        public Task FireSignalAsync()
+        {
+            var start = new DateTime(2026, 1, 1);
+            _feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[]
+            {
+                new Ohlcv(start,                 100, 101, 99, 100, 1),
+                new Ohlcv(start.AddHours(1),     100, 101, 99, 100, 1),
+            }));
+            _feed.ApplyLiveTick(new Ohlcv(start.AddHours(2), 100, 101, 99, 100, 1));
+            return Task.CompletedTask;
+        }
+
+        public async Task<FeedbackRequestEvent?> WaitForErrorAsync(int timeoutMs = 3000)
+        {
+            var deadline = Environment.TickCount64 + timeoutMs;
+            while (Environment.TickCount64 < deadline)
+            {
+                var hit = Bus.Log.OfType<FeedbackRequestEvent>().FirstOrDefault(e => e.Type == FeedbackType.Error);
+                if (hit != null) return hit;
+                await Task.Delay(10);
+            }
+            return null;
+        }
     }
 }

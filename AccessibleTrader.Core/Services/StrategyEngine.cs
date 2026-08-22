@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
@@ -198,7 +199,26 @@ namespace AccessibleTrader.Core.Services
                     TakeProfit: signal.TakeProfit
                 );
 
-                await _orderService.PlaceOrderAsync(providerName, tradeSignal).ConfigureAwait(false);
+                string result = await _orderService.PlaceOrderAsync(providerName, tradeSignal).ConfigureAwait(false);
+
+                // ── Read the answer ──────────────────────────────────────────
+                //
+                // This call used to discard the return value, which is the same defect
+                // QuickTradeExecutor:72 documents having fixed — and it is worse here, because
+                // nobody is at the keyboard. A strategy in Auto mode announces its signal on the
+                // event bus, then places the order; if the order is refused for want of a price,
+                // for want of balance, or because the provider is not connected, the user has
+                // heard the signal and will hear nothing else. Believing you hold a position you
+                // do not hold is the most expensive wrong belief this application can create.
+                string? failure = OrderResult.DescribeFailure(result);
+                if (failure != null)
+                {
+                    _logger.LogError(
+                        $"Auto-execute for strategy '{active.Strategy.Name}' was not placed: {result}",
+                        nameof(StrategyEngine));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                        $"{active.Strategy.Name} could not place its {signal.Side} order. {failure}", true));
+                }
             }
             catch (Exception ex)
             {
