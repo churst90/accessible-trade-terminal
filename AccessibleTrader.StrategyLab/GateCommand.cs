@@ -77,7 +77,7 @@ public static class GateCommand
             // Varma's robustness test. Perturb every log return by gaussian noise scaled to this
             // series' own daily volatility and rebuild the path. A real edge should decay gradually;
             // one keyed to the exact price path collapses at the first perturbation.
-            if (noiseAlpha > 0) bars = Perturb(bars, noiseAlpha, noiseSeed + snap.Symbol.GetHashCode() % 1000);
+            if (noiseAlpha > 0) bars = Perturb(bars, noiseAlpha, noiseSeed + StableSeed.From(snap.Symbol) % 1000);
 
             Dictionary<string, double[]> cipherB;
             try

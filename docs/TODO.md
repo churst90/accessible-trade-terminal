@@ -27,7 +27,7 @@ version of the same idea:
   took the patch's new `Attach`/`Detach`/`SharedOwnership`/`PrimaryStore` block wholesale, which is
   the actual substance of fix 1.
 
-**Verified rather than taken on trust.** Suite 3660 green, both JS suites green (13 + 15), doc-guard
+**Verified rather than taken on trust.** Suite 3719 green, both JS suites green (13 + 15), doc-guard
 green, 0 warnings on every project that builds on Linux. Two of the patch's headline guards were
 checked the way this repo checks guards — by reintroducing the defect:
 
@@ -1768,7 +1768,8 @@ they belong to this section even though the audit filed them elsewhere:
 
 ### Untested code that decides money, security, or research truth
 
-- [ ] **`AccessibleTrader.ScriptSandbox/FrameCodec.cs` and `WorkerDispatcher.cs` have ZERO tests.**
+- [x] **TESTED 2026-08-22 — `AccessibleTrader.ScriptSandbox/FrameCodec.cs` and `WorkerDispatcher.cs`
+  have ZERO tests.**
   VERIFIED — zero references anywhere in the suite, though the `.csproj` already has the
   ProjectReference. This is the boundary that parses bytes coming back **from a process running
   untrusted user-compiled code**, and it is the least-tested file in the repo while
@@ -1778,7 +1779,35 @@ they belong to this section even though the audit filed them elsewhere:
   `var opcode = (Opcode)header[4];` — **any byte casts to the enum with no validation** and falls
   into the dispatcher's switch. `MaxFrameBytes` is 64 MB, so a hostile worker can force a 64 MB
   host allocation per frame, repeatedly. Highest-leverage single test-writing task in the repo.
-- [ ] **`AccessibleTrader.StrategyLab/SurrogateTest.cs` has ZERO tests.** VERIFIED — neither
+
+  **Closed by `FrameCodecTests` (22) and `WorkerDispatcherTests` (18).** Every item on the list
+  above is now covered: the reassembly loop is driven one byte per read; the header is asserted
+  byte-for-byte (a round-trip alone cannot tell big- from little-endian, and the Android worker is
+  a separately-built peer that would silently disagree); both length guards are asserted to refuse
+  on the five-byte header alone, with the stream position proving no payload allocation was
+  attempted; and `0xFFFF_FFFF` is a case of its own because it is the value where
+  `(int)length - 1` aliases to -2. The unvalidated opcode cast is left where it is — the codec's
+  job is framing — and the safety property is pinned one layer up:
+  `RunAsync_UndefinedOpcode_ReportsErrorAndKeepsServing` proves an undefined byte draws an Error
+  frame and leaves the worker serving. The dispatcher file's recurring assertion is that a bad
+  frame is not a fatal frame; each malformed-input test ends in a Shutdown and asserts the
+  acknowledgement came back, because that, not the Error frame, is what proves the loop survived.
+
+  **All twelve guards were proven by reintroducing the defect** — both length guards, the
+  big-endian write, the partial-read loop, the write-side cap, the ready-diagnostic ordering, the
+  `default:` branch, the pre-LoadAssembly null check, the Calculate catch, the single-use ALC
+  check, the `DisplayTypes` int projection, and the null-result check. Each mutation turns exactly
+  the intended tests red — reproduce by editing the named line in the source and watching the
+  named test fail.
+
+  Two things worth knowing that came out of writing this. First, a *failed* `LoadAssembly` still
+  assigns `_alc` before `LoadFromStream` throws, so a retry is refused as "already handled;
+  worker is single-use" rather than re-attempted. Harmless today — the host tears the whole
+  process down on a load failure and never retries in place — but the message is misleading if
+  that ever changes. Second, the fixture indicators here are compiled directly with Roslyn rather
+  than through `RoslynScriptingService`, deliberately: this file tests dispatch, and the
+  compiler's reference allow-list is `HostileScriptTests`' subject, not this one's.
+- [x] **TESTED 2026-08-22 — `AccessibleTrader.StrategyLab/SurrogateTest.cs` has ZERO tests.** VERIFIED — neither
   `SurrogateTest` nor `BlockBootstrap` is referenced anywhere in the suite. Every research verdict
   in this repo rests on `BlockBootstrap`, `PValue`, `ZScore` and `EdgePp`. Meanwhile
   `CatalogueProvenanceTests` rigorously verifies that a control was *claimed* — it asserts
@@ -1787,6 +1816,59 @@ they belong to this section even though the audit filed them elsewhere:
   systematically biases every "beat random" verdict, including the six specs retired as falsified
   and the one kept as `ControlTested`. Write known-input/known-output tests, plus the p-value
   boundary and the zero-stddev NaN path.
+
+  **Closed by `SurrogateTestTests` (19).** The arithmetic the item asked for is there — the
+  +1-corrected p-value (99 surrogates, none beaten → 0.01, never 0), ties counting *against* the
+  real series (a strict `>` would read 0.1 where the code reads 1.0), the sample n-1 standard
+  deviation (the population form inflates every z-score by 41% on the two-surrogate case), the
+  zero-variance NaN path (an infinite z-score prints as the most significant result the lab has
+  ever produced), signed `EdgePp`, and the surrogate-with-no-touches exclusion that keeps failed
+  draws out of the denominator.
+
+  **The block bootstrap is tested by decoding, not by eyeballing.** The fixture's log returns are
+  distinct multiples of 1e-5 and its wick and body ratios distinct multiples of 1e-4, so every
+  surrogate bar can be decoded back to the exact real bar it was drawn from. That turns the three
+  failure modes the item named into direct assertions: every decoded index is a real index
+  (resampling, not synthesis); indices advance by exactly one inside a block and break only at
+  block boundaries (contiguous runs of `BlockLength` — an i.i.d. draw would pass every other test
+  in the file while destroying the volatility clustering the docstring promises); and a bar's
+  shape is decoded to the *same* source bar as its return, because range and return magnitude are
+  correlated in real markets and resampling them independently is invisible to every other check.
+  Timestamps, length, the price path being destroyed, and the OHLC repair all have their own
+  tests. All sixteen guards proven by reintroducing the defect — including two rounds where the
+  mutation survived and the *test* was the thing that was wrong: the OHLC-invariant test could not
+  fail until the fixture carried malformed source bars (well-formed input cannot produce
+  ill-formed output, so the repair lines never fired), and the shape test missed the open and low
+  ratios until they were asserted separately.
+
+  **What this turned up, which was not in the 203.** `RespectCommand:169` seeded the surrogate run
+  with `Math.Abs(asset.GetHashCode()) % 100000` under the comment *"Seeded off the asset name so a
+  rerun reproduces exactly."* `string.GetHashCode()` is randomised per process in .NET, so the
+  comment had been untrue for as long as it had been there — verified by running the same
+  expression in three processes: 94763, 86418, 86392. The repo already knew this: seven files
+  carried an identical private `StableSeed` FNV-1a helper, four of them with a comment recording
+  that this exact bug had already bitten ("the same bucket read -5.6 and then -1.8 on two
+  consecutive runs of the same code") — while six *other* seed sites kept the raw hash. The
+  meta-finding again, in its purest form: understood once, commented well, and not swept.
+  Now one `StrategyLab/StableSeed.cs`, the seven private copies deleted, all six raw-hash sites
+  converted (`RespectCommand`, `OriginLineCommand` ×2, `ChannelProgressionCommand`,
+  `OnChainRobustness` ×2, `GateCommand`, `XsMomentumRobustness`), and
+  `NoLabCommandDerivesASeedFromGetHashCode` scanning the lab so it cannot return. `Math.Abs` is
+  gone from those call sites too — it throws on `int.MinValue`, which a raw hash can return.
+
+  **What that means for stored verdicts: nothing needs re-running, and nothing can be reproduced
+  exactly.** Every affected number was a single draw from an unknowable seed, so it was never
+  reproducible; the fix does not invalidate it, it just means future runs are comparable to each
+  other. Anything re-run now will differ slightly from the recorded figure for that reason alone.
+
+- [ ] **The block bootstrap is non-circular, so the sample edges are under-drawn.** Found while
+  writing the tests above, not previously recorded. Block starts are drawn from
+  `rng.Next(1, n - BlockLength)`, so a return near either end of the sample can only appear in a
+  handful of blocks where a mid-sample return appears in twenty — and `logReturns[n-1]`, the most
+  recent bar's return, is never drawn at all. This is the known edge effect of a moving-block
+  bootstrap and the textbook fix is the circular variant (wrap the block past the end). Left
+  alone deliberately: it is a small bias on a long series, and changing it reseeds every control
+  in the lab. Worth doing as a deliberate, announced change rather than a quiet one.
 - [ ] **WebHost has no integration test of any kind.** No `WebApplicationFactory`, no `TestServer`,
   no PageModel handler ever invoked. `Login`, `Register`, `ForgotPassword`, `ResetPassword`,
   `LoginWith2fa`, `LoginWithRecovery`, `Logout` and `EnableAuthenticator` are all zero-referenced,

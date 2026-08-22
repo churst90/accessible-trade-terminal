@@ -13,6 +13,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A control that resampled itself every run (2026-08-22)
+
+`RespectCommand` seeded its surrogate significance test like this:
+
+```csharp
+// Seeded off the asset name so a rerun reproduces exactly.
+int seed = Math.Abs(asset.GetHashCode()) % 100000;
+```
+
+`string.GetHashCode()` is randomised per process in .NET. The same expression, run three times:
+94763, 86418, 86392. The comment had been untrue for as long as it had been there, and a p-value
+that moves between runs is not a p-value.
+
+The repo already knew this. Seven lab files carried an identical private `StableSeed` FNV-1a
+helper, four of them with a comment recording that this exact bug had already bitten once — *"the
+same bucket read -5.6 and then -1.8 on two consecutive runs of the same code"* — while six other
+seed sites kept the raw hash. Found once, understood, commented well, and not swept.
+
+- **One `AccessibleTrader.StrategyLab/StableSeed.cs`.** The seven private copies are gone. All six
+  raw-hash sites now call it: `RespectCommand`, `OriginLineCommand` (×2),
+  `ChannelProgressionCommand`, `OnChainRobustness` (×2), `GateCommand`, `XsMomentumRobustness`.
+- **`Math.Abs` dropped from those call sites**, because the seed is non-negative by construction
+  and `Math.Abs` throws on `int.MinValue` — a value a raw hash can actually return.
+- **A guard scans the lab** so no future command can seed from `GetHashCode()` again.
+
+**For anyone reading a stored research verdict:** nothing needs re-running because of this, and
+nothing can be reproduced exactly either. Every affected number was a single draw from an
+unknowable seed, so it was never reproducible; runs from here on are comparable to each other, and
+anything re-run now will differ slightly from the recorded figure for that reason alone.
+
+### Two boundaries that decided things without a single test (2026-08-22)
+
+Both were named in the 2026-08-21 audit as the highest-leverage untested code in the tree.
+
+- **`FrameCodec` and `WorkerDispatcher`** — the IPC boundary that parses bytes coming back from a
+  process running untrusted, user-compiled indicator code. 40 tests. The partial-read reassembly
+  loop is driven one byte per read; the header is asserted byte-for-byte rather than round-tripped
+  (a round trip passes just as happily if both ends silently switched to little-endian, and the
+  Android worker is a separately-built peer); both frame-length guards are asserted to refuse on
+  the five-byte header alone, with the stream position proving no payload allocation was attempted.
+  The opcode byte is cast into the enum with no validation — deliberately, since framing is the
+  codec's job — so the safety property is pinned one layer up, where an undefined opcode draws an
+  Error frame and leaves the worker still serving.
+- **`SurrogateTest` / `BlockBootstrap`** — the control every "beat random" verdict in this repo
+  rests on. 19 tests. The fixture's returns and bar shapes are distinct arithmetic sequences, so
+  every surrogate bar decodes back to the exact real bar it came from; that turns "are the blocks
+  contiguous", "is this a resampling or a synthesis" and "did the bar's shape come from the same
+  bar as its return" into direct assertions rather than plausibility arguments. Plus the p-value
+  correction, the tie direction, the sample standard deviation, and the zero-variance case that
+  must be NaN rather than the infinity that would print as a discovery.
+
+Every guard in both was proven by reintroducing the defect and watching the named test go red.
+Twice the mutation survived and the *test* was the thing that was wrong; both are described in
+`TODO.md`.
+
 ### The chart may look back; a strategy may not (2026-08-21)
 
 Every indicator component was published to the strategy builder as something a condition could be

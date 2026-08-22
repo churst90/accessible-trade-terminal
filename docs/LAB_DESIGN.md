@@ -135,6 +135,15 @@ it at the right seam:
 | predicate → test with its named control | **deterministic code** | reproducible, re-runnable, no model in the loop |
 | result → ledger row | code | including the negatives |
 
+**Seeding a control — the one rule.** "Deterministic code" above is not free. Derive every RNG
+seed with `StableSeed.From(...)`, never from `string.GetHashCode()`, which is randomised per
+process in .NET: the same asset name gives a different seed in every run, the control resamples
+each time, and a p-value that moves between runs is not a p-value. This has bitten the lab twice —
+once as a bucket that read -5.6 and then -1.8 on consecutive runs of unchanged code, and once in
+`RespectCommand`'s surrogate test, where the line sat directly under a comment claiming it
+reproduced exactly. `SurrogateTestTests.NoLabCommandDerivesASeedFromGetHashCode` now scans the lab
+for it.
+
 The existing `trading-video-analysis` and `strategy-research` skills already cover the first two
 stages. What is missing is the last two being *one command* rather than a bespoke study each time.
 

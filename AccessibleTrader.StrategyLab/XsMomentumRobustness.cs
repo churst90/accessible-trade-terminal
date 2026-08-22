@@ -117,7 +117,7 @@ internal static class XsMomentumRobustness
             var edges = new List<double>();
             for (int rep = 0; rep < 5; rep++)
             {
-                var noisy = series.Select(s => s.WithNoise(alpha, 4242 + rep * 97 + s.Symbol.GetHashCode() % 1000)).ToList();
+                var noisy = series.Select(s => s.WithNoise(alpha, 4242 + rep * 97 + StableSeed.From(s.Symbol) % 1000)).ToList();
                 var p = Collect(noisy, start, end, look, skip, hold, volNorm);
                 if (p.Count >= 12) edges.Add(p.Average(q => q.Top - q.All));
             }

@@ -72,28 +72,12 @@ public static class ApproachCommand
             if (levels.Count < 5) continue;
 
             real.AddRange(Collect(bars, atr, levels));
-            random.AddRange(Collect(bars, atr, RandomLevels(bars, levels.Count, StableSeed(f))));
+            random.AddRange(Collect(bars, atr, RandomLevels(bars, levels.Count, StableSeed.From(f))));
             instruments++;
         }
 
         Report(real, random, instruments, tf);
         return 0;
-    }
-
-/// <summary>
-    /// A DETERMINISTIC seed from a string. string.GetHashCode() is randomised per process in .NET,
-    /// so seeding a control with it makes the control resample on every run — and a p-value that
-    /// moves between runs is not a p-value. This bit us: the same bucket read -5.6 and then -1.8 on
-    /// two consecutive runs of the same code. FNV-1a, fixed forever.
-    /// </summary>
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 
     // ── Measurement ─────────────────────────────────────────────────────────────

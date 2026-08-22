@@ -76,7 +76,7 @@ public static class LadderCommand
 
             // Random-parameter arm: same machinery, N and K drawn per trial. Seeded from the file
             // name so a re-run reproduces — a control that resamples is not a control.
-            var rng = new Random(StableSeed(f));
+            var rng = new Random(StableSeed.From(f));
             double randMean = 0;
             for (int t = 0; t < randomTrials; t++)
             {
@@ -214,15 +214,5 @@ public static class LadderCommand
     {
         var s = v.OrderBy(x => x).ToList();
         return s.Count == 0 ? 0 : s.Count % 2 == 1 ? s[s.Count / 2] : (s[s.Count / 2 - 1] + s[s.Count / 2]) / 2;
-    }
-
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 }

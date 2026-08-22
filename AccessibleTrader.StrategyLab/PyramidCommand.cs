@@ -165,7 +165,7 @@ public static class PyramidCommand
         var random = new List<TradeOutcome>();
         var flatAvg = new List<TradeOutcome>();
 
-        var rng = new Random(StableSeed(asset));
+        var rng = new Random(StableSeed.From(asset));
 
         foreach (var e in entries)
         {
@@ -444,20 +444,5 @@ public static class PyramidCommand
     {
         string n = Path.GetFileName(file);
         return n.StartsWith("bitstamp") || n.StartsWith("mexc") ? "crypto" : "equities";
-    }
-
-    /// <summary>
-    /// FNV-1a. string.GetHashCode() is randomised per process, so seeding the random-add control
-    /// with it would make the control resample on every run — and a number that moves between runs
-    /// is not a control.
-    /// </summary>
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 }

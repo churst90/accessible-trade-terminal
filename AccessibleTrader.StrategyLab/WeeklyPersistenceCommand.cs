@@ -162,7 +162,7 @@ public static class WeeklyPersistenceCommand
         // The random-week null: same number of weeks, drawn at random from the same series. Seeded
         // per asset so a re-run reproduces exactly — a p-value that moves between runs is not a
         // p-value.
-        var rng = new Random(StableSeed(asset));
+        var rng = new Random(StableSeed.From(asset));
         int atLeastAsGood = 0;
         for (int p = 0; p < permutations; p++)
         {
@@ -173,22 +173,6 @@ public static class WeeklyPersistenceCommand
         }
 
         return new ArmResult(name, idx.Count, rate, mean, (atLeastAsGood + 1.0) / (permutations + 1.0));
-    }
-
-/// <summary>
-    /// A DETERMINISTIC seed from a string. string.GetHashCode() is randomised per process in .NET,
-    /// so seeding a control with it makes the control resample on every run — and a p-value that
-    /// moves between runs is not a p-value. This bit us: the same bucket read -5.6 and then -1.8 on
-    /// two consecutive runs of the same code. FNV-1a, fixed forever.
-    /// </summary>
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────

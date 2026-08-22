@@ -165,8 +165,10 @@ public static class RespectCommand
             }
 
             // ── E4: surrogate significance ───────────────────────────────────
-            // Seeded off the asset name so a rerun reproduces exactly.
-            int seed = Math.Abs(asset.GetHashCode()) % 100000;
+            // Seeded off the asset name so a rerun reproduces exactly. StableSeed, not
+            // GetHashCode — the latter is randomised per process, which is what made this
+            // comment untrue for as long as it has been here.
+            int seed = StableSeed.From(asset) % 100000;
             foreach (var spec in focusSpecs)
             {
                 if (spec.SourceTimeframe != null &&

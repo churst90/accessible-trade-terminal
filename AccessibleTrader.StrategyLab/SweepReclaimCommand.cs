@@ -69,7 +69,7 @@ public static class SweepReclaimCommand
 
             Add(reclaim, cls, rec.Select(s => s.R));
             Add(breachOnly, cls, br.Select(s => s.R));
-            Add(random, cls, RandomArm(bars, br, StableSeed(f)));
+            Add(random, cls, RandomArm(bars, br, StableSeed.From(f)));
             instruments++;
         }
 
@@ -201,15 +201,5 @@ public static class SweepReclaimCommand
             outp.Add(Forward(bars, i, atr[i], m.Short));
         }
         return outp;
-    }
-
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 }

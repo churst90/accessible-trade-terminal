@@ -154,7 +154,7 @@ internal static class OnChainRobustness
             if (rets.Count < 500) continue;
 
             int want = (int)(exposure * rets.Count);
-            var rng = new Random(31337 + p.Symbol.GetHashCode() % 997);
+            var rng = new Random(31337 + StableSeed.From(p.Symbol) % 997);
             int beat = 0;
             var randomBooks = new List<double>();
 
@@ -203,7 +203,7 @@ internal static class OnChainRobustness
                 var books = new List<double>();
                 for (int rep = 0; rep < 5; rep++)
                 {
-                    var (nb, nv) = Perturb(p.Bars, p.Values, alpha, 909 + rep * 31 + p.Symbol.GetHashCode() % 500);
+                    var (nb, nv) = Perturb(p.Bars, p.Values, alpha, 909 + rep * 31 + StableSeed.From(p.Symbol) % 500);
                     books.Add(Book(nb, nv, 0).Equity);
                 }
                 books.Sort();

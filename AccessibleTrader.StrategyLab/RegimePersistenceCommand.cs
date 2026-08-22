@@ -306,7 +306,7 @@ public static class RegimePersistenceCommand
         var rets = new double[close.Length - 1];
         for (int i = 1; i < close.Length; i++) rets[i - 1] = Math.Log(close[i] / close[i - 1]);
 
-        var rng = new Random(StableSeed($"{symbol}|{sliceIdx}|{theta}"));
+        var rng = new Random(StableSeed.From($"{symbol}|{sliceIdx}|{theta}"));
         var path = new double[close.Length];
         var shuffled = new double[rets.Length];
         double years = close.Length / 252.0;
@@ -572,20 +572,5 @@ public static class RegimePersistenceCommand
         var s = xs.Where(x => !double.IsNaN(x)).OrderBy(x => x).ToList();
         if (s.Count == 0) return double.NaN;
         return s.Count % 2 == 1 ? s[s.Count / 2] : (s[s.Count / 2 - 1] + s[s.Count / 2]) / 2;
-    }
-
-    /// <summary>
-    /// Deterministic seed from a string. string.GetHashCode() is randomised per process in .NET, so
-    /// seeding a control with it makes the control resample on every run — and a p-value that moves
-    /// between runs is not a p-value. FNV-1a, fixed forever.
-    /// </summary>
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 }

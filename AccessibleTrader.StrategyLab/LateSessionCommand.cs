@@ -237,7 +237,7 @@ public static class LateSessionCommand
                                     int permutations, string symbol, int hour)
     {
         if (double.IsNaN(observed)) return double.NaN;
-        var rng = new Random(StableSeed($"{symbol}|{hour}"));
+        var rng = new Random(StableSeed.From($"{symbol}|{hour}"));
         var valid = rows.Where(r => r.Move != 0 && r.Next != 0).ToList();
         int atLeast = 0;
         for (int p = 0; p < permutations; p++)
@@ -357,15 +357,5 @@ public static class LateSessionCommand
             catch (InvalidTimeZoneException) { }
         }
         throw new InvalidOperationException("No US Eastern time zone available; the session filter cannot be trusted.");
-    }
-
-    private static int StableSeed(string s)
-    {
-        unchecked
-        {
-            uint h = 2166136261;
-            foreach (char c in s) { h ^= c; h *= 16777619; }
-            return (int)(h & 0x7fffffff);
-        }
     }
 }

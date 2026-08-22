@@ -58,7 +58,7 @@ public static class ChannelProgressionCommand
                 var real = Continuation(bars, spacing);
                 if (real.N < 30) continue;
 
-                var rng = new Random(Math.Abs((snap.Symbol + doublings).GetHashCode()) % 100000);
+                var rng = new Random(StableSeed.From(snap.Symbol + doublings) % 100000);
                 var surrRates = new List<double>();
                 int beaten = 0;
                 for (int s = 0; s < surrogates; s++)

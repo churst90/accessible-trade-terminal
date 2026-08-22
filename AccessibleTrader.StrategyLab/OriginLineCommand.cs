@@ -59,7 +59,7 @@ public static class OriginLineCommand
             var real = BestFit(bars);
             if (real.Pivots < 30) continue;
 
-            var rng = new Random(Math.Abs(snap.Symbol.GetHashCode()) % 100000);
+            var rng = new Random(StableSeed.From(snap.Symbol) % 100000);
             var surrR = new List<double>();
             int beaten = 0;
             for (int s = 0; s < surrogates; s++)
@@ -129,7 +129,7 @@ public static class OriginLineCommand
             var fit = BestFit(inPiv);
             double oos = ScoreFixed(outPiv, fit.SlopePerBar, fit.SpacingLog);
 
-            var rng = new Random(Math.Abs(snap.Symbol.GetHashCode()) % 100000);
+            var rng = new Random(StableSeed.From(snap.Symbol) % 100000);
             var surr = new List<double>();
             int beaten = 0;
             for (int s = 0; s < surrogates; s++)
