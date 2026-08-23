@@ -56,8 +56,8 @@ namespace AccessibleTrader.Tests
             var (coordinator, store, eventBus, mainThread, speech, sonify) = CreateTestHarness();
 
             var ohlcvData = new TimeSeriesBuffer<Ohlcv>(
-                new Ohlcv(DateTime.Now, 100, 110, 90, 105, 1000),
-                new Ohlcv(DateTime.Now.AddHours(1), 105, 115, 95, 110, 1200));
+                new Ohlcv(DateTime.UtcNow, 100, 110, 90, 105, 1000),
+                new Ohlcv(DateTime.UtcNow.AddHours(1), 105, 115, 95, 110, 1200));
 
             var initialState = WorkspaceState.Initial with { Data = ohlcvData, CurrentDataIndex = 0 };
             store.EmitState(initialState);
@@ -86,11 +86,11 @@ namespace AccessibleTrader.Tests
             var (coordinator, store, eventBus, mainThread, speech, sonify) = CreateTestHarness();
 
             var ohlcvData = new TimeSeriesBuffer<Ohlcv>(
-                new Ohlcv(DateTime.Now, 100, 110, 90, 105, 1000),
-                new Ohlcv(DateTime.Now.AddHours(1), 105, 115, 95, 110, 1200),
-                new Ohlcv(DateTime.Now.AddHours(2), 110, 120, 100, 115, 1400),
-                new Ohlcv(DateTime.Now.AddHours(3), 115, 125, 105, 120, 1600),
-                new Ohlcv(DateTime.Now.AddHours(4), 120, 130, 110, 125, 1800));
+                new Ohlcv(DateTime.UtcNow, 100, 110, 90, 105, 1000),
+                new Ohlcv(DateTime.UtcNow.AddHours(1), 105, 115, 95, 110, 1200),
+                new Ohlcv(DateTime.UtcNow.AddHours(2), 110, 120, 100, 115, 1400),
+                new Ohlcv(DateTime.UtcNow.AddHours(3), 115, 125, 105, 120, 1600),
+                new Ohlcv(DateTime.UtcNow.AddHours(4), 120, 130, 110, 125, 1800));
 
             var initialState = WorkspaceState.Initial with { Data = ohlcvData, CurrentDataIndex = 0 };
             store.EmitState(initialState);

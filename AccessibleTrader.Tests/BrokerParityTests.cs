@@ -28,9 +28,20 @@ namespace AccessibleTrader.Tests
     {
         private static void Swap(object provider, FakeHttpMessageHandler handler)
         {
-            var target = provider.GetType()
+            // Swap the REST client BY NAME, never "the first HttpClient field":
+            // CLR field order is not guaranteed, and Tradier really does carry a
+            // second client (`_streamClient`, long-poll order events) — under a
+            // .First() that happened to enumerate it first, these tests would
+            // fake the stream client and let PlaceOrderAsync make a REAL network
+            // call, invisible to FakeHttpMessageHandler.StrictMode because that
+            // client is not wired to the fake at all. The name set is the two
+            // spellings the broker plugins use for their signed REST client.
+            var candidates = provider.GetType()
                 .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
+                .Where(f => f.FieldType == typeof(HttpClient)
+                         && f.Name is "_httpClient" or "_http")
+                .ToList();
+            var target = Assert.Single(candidates);
             target.SetValue(provider, new HttpClient(handler));
         }
 

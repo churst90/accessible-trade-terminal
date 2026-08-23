@@ -58,22 +58,32 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void DataOrchestrator_IllegalTriggers_ShouldBeIgnored()
+        public async Task DataOrchestrator_IllegalTriggers_ShouldBeIgnored()
         {
             // Arrange
             var eventBus = new SpyEventBus();
             var logger = NullLogger<DataOrchestrator>.Instance;
             var fetcher = new MockHistoricalFetcher();
             var liveManager = new MockLiveStreamManager();
-            
+
             using var orchestrator = new DataOrchestrator(fetcher, liveManager, eventBus, logger, new DemoPolicy(isDemo: false));
 
             // Act: Fire TickReceived while Initializing (Illegal)
-            
+
             Assert.Equal(DataState.Initializing, orchestrator.CurrentState);
-            
+
             // Simulation of a tick from live stream manager
             liveManager.EmitTick(new Ohlcv());
+
+            // The tick is drained by a background reader that fires TickReceived
+            // BEFORE forwarding the tick into the orchestrator's own LiveStream —
+            // so once the forwarded tick is readable, the state machine has
+            // provably seen the trigger. Asserting without this sync point went
+            // green merely because the reader hadn't been scheduled yet, and
+            // would have gone green identically if the illegal trigger WERE
+            // honoured.
+            await orchestrator.LiveStream.ReadAsync().AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert: State should still be Initializing
             Assert.Equal(DataState.Initializing, orchestrator.CurrentState);

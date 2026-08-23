@@ -31,7 +31,8 @@ namespace AccessibleTrader.Tests
         }
 
         private static (PreferencePersistenceService svc, IWorkspaceStore store, FakeSettings fake,
-            BehaviorSubject<WorkspaceState> stream, List<UpdateSettingsAction> dispatched) Build()
+            BehaviorSubject<WorkspaceState> stream, List<UpdateSettingsAction> dispatched,
+            System.Reactive.Concurrency.HistoricalScheduler clock) Build()
         {
             var fake = new FakeSettings();
             var app = new AppSettings(fake);
@@ -49,15 +50,20 @@ namespace AccessibleTrader.Tests
                          stream.OnNext(u.Updater(stream.Value)); // apply like the real reducer
                      }
                  });
+            // Virtual time: the 1 s write-back throttle fires only when the test
+            // advances the clock, so both directions are deterministic — "the save
+            // happened" needs no real wait, and "no save happened" is a fact about
+            // an exhausted virtual timeline instead of a race against a 1.4 s nap.
+            var clock = new System.Reactive.Concurrency.HistoricalScheduler();
             var svc = new PreferencePersistenceService(store, app,
-                NullLogger<PreferencePersistenceService>.Instance);
-            return (svc, store, fake, stream, dispatched);
+                NullLogger<PreferencePersistenceService>.Instance, clock);
+            return (svc, store, fake, stream, dispatched, clock);
         }
 
         [Fact]
         public void Initialize_SeedsStoreFromPersistedSettings()
         {
-            var (svc, _, fake, stream, dispatched) = Build();
+            var (svc, _, fake, stream, dispatched, _) = Build();
             fake.Store[SettingsKeys.SpeakTimestamps] = JToken.FromObject(false);
             fake.Store[SettingsKeys.WasapiLatency] = JToken.FromObject(250);
             fake.Store[SettingsKeys.PanningGranularity] = JToken.FromObject(25);
@@ -74,35 +80,42 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task StoreChange_WritesBackToSettings()
+        public void StoreChange_WritesBackToSettings()
         {
-            var (svc, _, fake, stream, _) = Build();
+            var (svc, _, fake, stream, _, clock) = Build();
             svc.Initialize();
             int savesAfterSeed = fake.SaveCount;
 
             // A user edit lands in the store (e.g. Settings dialog Close).
             stream.OnNext(stream.Value with { SpeakTimestamps = false, WasapiLatency = 321 });
 
-            // Write-back is throttled (1 s) to coalesce key-repeat bursts.
-            await System.Threading.Tasks.Task.Delay(1500);
+            // Write-back is throttled (1 s) to coalesce key-repeat bursts: just
+            // short of the window nothing may be written yet...
+            clock.AdvanceBy(TimeSpan.FromMilliseconds(999));
+            Assert.Equal(savesAfterSeed, fake.SaveCount);
 
+            // ...and crossing it flushes exactly once.
+            clock.AdvanceBy(TimeSpan.FromMilliseconds(2));
             Assert.Equal(JToken.FromObject(false).ToString(),
                 fake.Store[SettingsKeys.SpeakTimestamps].ToString());
             Assert.Equal("321", fake.Store[SettingsKeys.WasapiLatency].ToString());
-            Assert.True(fake.SaveCount > savesAfterSeed, "Save was never called after the change.");
+            Assert.Equal(savesAfterSeed + 1, fake.SaveCount);
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task NonPreferenceChanges_DoNotTriggerWrites()
+        public void NonPreferenceChanges_DoNotTriggerWrites()
         {
-            var (svc, _, fake, stream, _) = Build();
+            var (svc, _, fake, stream, _, clock) = Build();
             svc.Initialize();
             int savesAfterSeed = fake.SaveCount;
 
-            // Navigation and other churn must not thrash settings.json.
+            // Navigation and other churn must not thrash settings.json. Advancing
+            // virtual time far past the throttle window proves "never", not
+            // "not yet" — the old 1.4 s real-time nap could go green simply
+            // because a loaded runner hadn't scheduled the write when it looked.
             stream.OnNext(stream.Value with { CurrentDataIndex = 42 });
             stream.OnNext(stream.Value with { CurrentDataIndex = 43 });
-            await System.Threading.Tasks.Task.Delay(1400);
+            clock.AdvanceBy(TimeSpan.FromMinutes(5));
 
             Assert.Equal(savesAfterSeed, fake.SaveCount);
         }
@@ -110,7 +123,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Initialize_IsIdempotent()
         {
-            var (svc, _, _, _, dispatched) = Build();
+            var (svc, _, _, _, dispatched, _) = Build();
             svc.Initialize();
             svc.Initialize();
             Assert.Single(dispatched);

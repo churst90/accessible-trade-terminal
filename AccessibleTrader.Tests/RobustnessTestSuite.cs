@@ -36,9 +36,9 @@ namespace AccessibleTrader.Tests
             var store = new MockWorkspaceStore();
 
             var ohlcvData = new TimeSeriesBuffer<Ohlcv>(
-                new Ohlcv(DateTime.Now, 100, 110, 90, 105, 1000),
-                new Ohlcv(DateTime.Now.AddHours(1), 105, 115, 95, 110, 1200),
-                new Ohlcv(DateTime.Now.AddHours(2), 110, 120, 100, 115, 1400));
+                new Ohlcv(DateTime.UtcNow, 100, 110, 90, 105, 1000),
+                new Ohlcv(DateTime.UtcNow.AddHours(1), 105, 115, 95, 110, 1200),
+                new Ohlcv(DateTime.UtcNow.AddHours(2), 110, 120, 100, 115, 1400));
 
             var formatter = new SpeechFormatter();
             var speechRouter = new SpeechFeedbackRouter(speech, formatter, store);

@@ -4,7 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### The credential-bridge collection is now enforced, and 43 test classes were racing it (2026-08-23)
+### The flake-risk pass: every timing-gated negative assertion now proves "never", not "not yet" (2026-08-23)
+
+The audit's flake-risk section warned that none of it made the suite untrustworthy on a quiet
+box, and all of it would bite on a loaded CI runner. The shape shared by every item: a NEGATIVE
+assertion gated on a fixed delay goes green precisely when the runner is too loaded to schedule
+the thing being denied — the false green lands exactly when it matters.
+
+- `PreferencePersistenceService` takes an optional Rx `IScheduler` for its 1 s write-back
+  throttle; the tests drive a `HistoricalScheduler` (no new package), so "navigation churn never
+  writes settings.json" is now a fact about an exhausted virtual timeline, the save boundary is
+  pinned at 999/1001 ms, and the class runs in milliseconds instead of 2.9 s.
+- `StateMachineTests`' illegal-trigger test — the only test of illegal-transition rejection —
+  asserted before the background channel reader could have run, and stayed green under a
+  sabotage that honoured the illegal trigger. It now awaits the tick the orchestrator forwards
+  AFTER firing the trigger, which is a sync point the production code already provided.
+- `GeneralOrderServiceTests`: "a streaming broker is never polled" now asserts the new
+  `OrderWatchesStarted` counter at the synchronous poll-or-not decision site, and "an Error
+  connection event never subscribes" anchors on a later Connected event's observable subscribe
+  instead of a 100 ms nap.
+- `BrokerParityTests.Swap` stopped taking "the first `HttpClient` field" by reflection — and the
+  strict rewrite failed immediately, because `TradierProvider` already carries a second client
+  (`_streamClient`): every green run so far had been riding CLR declaration order, one JIT
+  change away from faking the wrong client and letting a test hit the real Tradier API. Swap now
+  matches the REST client by name and `Assert.Single`s the candidates.
+- `DateTime.Now` → `DateTime.UtcNow` in the five diagnostic/cache test files that still used it.
+- New `WebHostLockoutIntegrationTests`: the HTTP lockout test the WebHost pass left open ("needs
+  11 auth POSTs, the rate limiter allows 10 per IP"). Solved with the forwarded-IP partition
+  Program.cs already trusts for nginx — which doubles as proof that rotating IPs beats the rate
+  limiter but not the per-account lockout. Ten wrong passwords lock the account; the correct
+  password from a fresh IP is then refused with the same generic wording a wrong one gets (the
+  anti-enumeration message is pinned).
+
+Every changed guard was proven red by reintroducing its defect (six sabotage classes, six reds).
+Test count 4294 → 4295.
 
 `PluginHostServices.ApiKeys` (and its `HttpClientFactory`/`SecureStorage` siblings) is a
 process-global static that tests swap fakes into; the `ProviderCredentialBridge` xUnit collection

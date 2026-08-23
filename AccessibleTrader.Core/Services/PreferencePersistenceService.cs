@@ -38,14 +38,20 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceStore _store;
         private readonly IAppSettings _settings;
         private readonly ILogger<PreferencePersistenceService> _logger;
+        private readonly System.Reactive.Concurrency.IScheduler _scheduler;
         private IDisposable? _sub;
 
+        /// <param name="scheduler">Drives the write-back throttle. Null (the DI default)
+        /// means real time; tests pass a virtual-time scheduler so the 1 s debounce can
+        /// be crossed — or provably NOT crossed — without waiting on the wall clock.</param>
         public PreferencePersistenceService(IWorkspaceStore store, IAppSettings settings,
-            ILogger<PreferencePersistenceService> logger)
+            ILogger<PreferencePersistenceService> logger,
+            System.Reactive.Concurrency.IScheduler? scheduler = null)
         {
             _store = store;
             _settings = settings;
             _logger = logger;
+            _scheduler = scheduler ?? System.Reactive.Concurrency.Scheduler.Default;
         }
 
         /// <summary>
@@ -107,7 +113,7 @@ namespace AccessibleTrader.Core.Services
                 .Select(FromState)
                 .DistinctUntilChanged()
                 .Skip(1)
-                .Throttle(TimeSpan.FromSeconds(1))
+                .Throttle(TimeSpan.FromSeconds(1), _scheduler)
                 .Subscribe(p =>
                 {
                     try

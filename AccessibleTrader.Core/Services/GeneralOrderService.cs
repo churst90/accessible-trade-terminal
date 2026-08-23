@@ -328,6 +328,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     var capturedSignal = signal;
                     string orderId = result;
+                    OrderWatchesStarted++;
                     SafeFireAndForget.Run(
                         () => PollOrderUntilResolvedAsync(tp, providerName, capturedSignal, orderId),
                         _logger, "PollOrderStatus");
@@ -444,6 +445,13 @@ namespace AccessibleTrader.Core.Services
         internal TimeSpan OrderPollSlowInterval = TimeSpan.FromSeconds(30);
         internal int OrderPollFastCount = 12;          // ~1 min of fast polling
         internal int OrderPollMaxConsecutiveErrors = 5;
+
+        /// <summary>How many poll watches PlaceOrderAsync has started, incremented at the
+        /// decision site itself. The streaming/non-streaming choice is made synchronously
+        /// inside PlaceOrderAsync, so a test can assert it the moment the call returns —
+        /// "no watch was started" is a fact here, where "no poll arrived within 100 ms"
+        /// was a race the thread pool usually happened to win.</summary>
+        internal int OrderWatchesStarted;
 
         private readonly System.Threading.CancellationTokenSource _disposeCts = new();
 

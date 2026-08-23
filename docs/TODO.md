@@ -2,7 +2,7 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 300 open of 1317 tracked items (1017 done). Suite green at 4294 tests.
+**Status 2026-08-23:** 295 open of 1317 tracked items (1022 done). Suite green at 4295 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
@@ -2166,9 +2166,18 @@ they belong to this section even though the audit filed them elsewhere:
   `XXXXX-XXXXX` and redeems verbatim, so no recovery code pasted exactly as issued could ever
   work: a user who lost their authenticator was locked out permanently. New
   `TwoFactorSupport.NormalizeRecoveryCode` preserves the hyphen (and re-inserts a missing one).
-  Not yet covered, still worth having: an HTTP lockout test (needs 10 failed logins, which the
-  rate limiter window makes awkward — drive `SignInManager` clock or partition by forwarded IP),
-  and `/alerts/recent` HTML assertions under a screen reader-oriented harness.
+  ~~Not yet covered, still worth having: an HTTP lockout test (needs 10 failed logins, which the
+  rate limiter window makes awkward — drive `SignInManager` clock or partition by forwarded IP)~~
+  — **DONE 2026-08-23**, `WebHostLockoutIntegrationTests`: the forwarded-IP partition approach
+  worked (Program.cs clears the forwarded-headers allow-lists for nginx, so the TestServer's
+  `X-Forwarded-For` is honoured and each phase gets its own rate-limit budget — which doubles as
+  proof that an IP-rotating brute-forcer beats the limiter but still hits the per-ACCOUNT
+  lockout). Positive control logs in first (also pins that success resets the counter), ten
+  wrong passwords lock the account (`IsLockedOutAsync` via the real `UserManager`), then the
+  CORRECT password from a fresh IP is refused with the same generic "Email or password is
+  incorrect." — the anti-enumeration wording is pinned so it can't regress into a "locked"
+  oracle. Proven red with `lockoutOnFailure: false`. Still open: `/alerts/recent` HTML
+  assertions under a screen reader-oriented harness.
 - [x] **GUARDED 2026-08-22 — The `Environment.GetFolderPath` per-user path bug has shipped twice and there is no guard.**
   `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` are both excellent and
   both docstrings describe the *same* defect — a service building its own path from
@@ -2354,30 +2363,63 @@ they belong to this section even though the audit filed them elsewhere:
 
 None of this makes 12 seconds untrustworthy today; all of it will bite on a loaded CI runner.
 
-- [ ] **Four negative assertions gated on a fixed delay** — inherently racy in the false-green
-  direction: `PreferencePersistenceTests:105` (1400 ms then "no write happened"),
+- [x] **FIXED 2026-08-23 — Four negative assertions gated on a fixed delay** — inherently racy in
+  the false-green direction: `PreferencePersistenceTests:105` (1400 ms then "no write happened"),
   `GeneralOrderServiceTests:513-516` and `:535-540`. Note the asymmetry: the suite's own `WaitFor`
   helper is used for *positive* assertions and fixed delays for negative ones, which is backwards.
-- [ ] **`StateMachineTests:60-80` asserts before the thing it tests can have happened.**
-  `EmitTick` writes to an unbounded channel drained by a background reader; the assertion runs with
-  no synchronization, so it passes because the reader has not been scheduled — it would pass
-  identically if the illegal trigger *were* honoured. False green on the only production-code test
-  of illegal-transition rejection.
-- [ ] **`PreferencePersistenceTests` burns 2.9 s of wall clock**, with 500 ms of margin between a
-  1000 ms throttle and a 1500 ms assertion. Use a `TestScheduler`.
-- [ ] **`DateTime.Now` in five files** — `UIDiagnosticTests`, `RobustnessTestSuite`,
-  `IntegrationDiagnosticTests`, `AudioDiagnosticTests`, `DataCacheTests` (where it is a dictionary
-  key). The rest of the suite is disciplined about UTC.
+
+  Each negative now rests on something that PROVES the window closed instead of hoping it did.
+  `NonPreferenceChanges_DoNotTriggerWrites` advances a virtual clock five minutes past the
+  throttle (see the TestScheduler item below) — "never", not "not yet".
+  `Streaming_broker_is_never_polled` asserts the new `GeneralOrderService.OrderWatchesStarted`
+  counter, incremented at the poll-or-not decision site, which is made synchronously inside
+  `PlaceOrderAsync` — assertable the moment the call returns, with the counter bound to real
+  polling behavior by the positive fill test asserting it reads 1.
+  `ConnectionStatusEvent_Error_does_not_subscribe` anchors on a Connected event for a second
+  provider queued AFTER the Error: when the anchor's `GetProviderAsync` lands, the Error's hop
+  (had the bug queued one) has had the same chance, and resolving the provider is provably the
+  first step of subscribing. All three proven red by reintroducing each defect.
+- [x] **FIXED 2026-08-23 — `StateMachineTests:60-80` asserts before the thing it tests can have
+  happened.** `EmitTick` writes to an unbounded channel drained by a background reader; the
+  assertion ran with no synchronization, so it passed because the reader had not been scheduled —
+  it would have passed identically if the illegal trigger *were* honoured. False green on the only
+  production-code test of illegal-transition rejection.
+
+  The sync point was already in the production code: `ProcessLiveStreamAsync` fires
+  `TickReceived` BEFORE forwarding the tick into the orchestrator's own `LiveStream` channel, so
+  awaiting the forwarded tick proves the state machine saw the trigger. Proven red by adding an
+  `(Initializing, TickReceived) → LiveStreaming` transition — the old form of the test stayed
+  green under that same sabotage on this box.
+- [x] **FIXED 2026-08-23 — `PreferencePersistenceTests` burns 2.9 s of wall clock**, with 500 ms
+  of margin between a 1000 ms throttle and a 1500 ms assertion.
+
+  `PreferencePersistenceService` now takes an optional `IScheduler` (null = `Scheduler.Default`,
+  which is what DI resolves — MS.DI honours the default for an unregistered optional) that drives
+  the write-back `Throttle`; the tests pass `HistoricalScheduler` (in System.Reactive itself — no
+  new package) and advance virtual time. The suite class now runs in milliseconds, and the
+  positive test also pins the boundary: at +999 ms nothing has been written, at +1001 ms exactly
+  one save. Proven red with `Throttle(TimeSpan.Zero)`.
+- [x] **FIXED 2026-08-23 — `DateTime.Now` in five files** — `UIDiagnosticTests`,
+  `RobustnessTestSuite`, `IntegrationDiagnosticTests`, `AudioDiagnosticTests`, `DataCacheTests`
+  (where it is a dictionary key). All 16 sites → `DateTime.UtcNow` (all were `Ohlcv` fixture
+  timestamps or cache keys; none asserted on local-time semantics).
 - [ ] **No time abstraction anywhere.** Every timeout, throttle, debounce, poll interval and
   watchdog sweep is tested against the real system clock. `MarketFeedWatchdogTests` and the
   injectable `OrderPollFastInterval` are the right mitigation applied per-service rather than
   systemically. Also `SpyEventBus.SubscribeCoalesced`/`SubscribeSampled` use the default Rx
   scheduler, so any test touching them acquires real wall-clock timing.
-- [ ] **`BrokerParityTests.Swap` picks the first `HttpClient` field by reflection.** Field order is
-  not guaranteed by the CLR; a provider that gains a second `HttpClient` may get the wrong one
-  swapped, and the un-swapped one would attempt a **real network call from a test**
-  (`FakeHttpMessageHandler.StrictMode` cannot catch it — that client is not wired to the fake).
-  Match by name and assert exactly one candidate.
+- [x] **FIXED 2026-08-23 — `BrokerParityTests.Swap` picks the first `HttpClient` field by
+  reflection.** Field order is not guaranteed by the CLR; a provider that gains a second
+  `HttpClient` may get the wrong one swapped, and the un-swapped one would attempt a **real
+  network call from a test** (`FakeHttpMessageHandler.StrictMode` cannot catch it — that client
+  is not wired to the fake). Match by name and assert exactly one candidate.
+
+  Done — and the feared second client was not hypothetical: the first strict run failed on
+  `TradierProvider`, which already carries `_httpClient` AND `_streamClient` (long-poll order
+  events). Every green run to date had been riding declaration order. Swap now matches by name
+  (`_httpClient`/`_http`, the two spellings the broker plugins use for the signed REST client)
+  and `Assert.Single`s the candidates, so a third client or a rename fails loudly instead of
+  silently faking the wrong one.
 - [x] **FIXED 2026-08-22 — `GeneralOrderServiceTests.DataOnly_provider_is_skipped_without_error`
   has no assertion at all**, and does not assert the provider was skipped — only that nothing threw.
 

@@ -62,7 +62,7 @@ namespace AccessibleTrader.Tests
         public void DataCacheService_ShouldUpdateExistingTick()
         {
             var cache = new DataCacheService();
-            var date = DateTime.Now;
+            var date = DateTime.UtcNow;
             var tick1 = new Ohlcv { Date = date, Close = 100 };
             var tick2 = new Ohlcv { Date = date, Close = 105 };
 
@@ -79,7 +79,7 @@ namespace AccessibleTrader.Tests
             var cache = new DataCacheService();
             for (int i = 0; i < 6000; i++)
             {
-                cache.Add(new Ohlcv { Date = DateTime.Now.AddMinutes(i), Close = i });
+                cache.Add(new Ohlcv { Date = DateTime.UtcNow.AddMinutes(i), Close = i });
             }
 
             Assert.Equal(5000, cache.Count);

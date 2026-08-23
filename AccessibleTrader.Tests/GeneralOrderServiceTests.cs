@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
@@ -39,7 +40,8 @@ namespace AccessibleTrader.Tests
             ISettingsManager Settings,
             IGlobalErrorCoordinator Err,
             EventBus Bus,
-            Subject<OrderUpdate> PaperStream);
+            Subject<OrderUpdate> PaperStream,
+            IDataService Data);
 
         private static Harness Build()
         {
@@ -71,7 +73,7 @@ namespace AccessibleTrader.Tests
             var svc = new GeneralOrderService(
                 data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings,
                 new DemoPolicy(isDemo: false), new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
-            return new Harness(svc, live, paper, settings, err, bus, paperStream);
+            return new Harness(svc, live, paper, settings, err, bus, paperStream, data);
         }
 
         // ── Dedup window ─────────────────────────────────────────────────────
@@ -493,6 +495,10 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Schwab", SaneSignal with { Symbol = "AAPL", Quantity = 10 });
             Assert.Equal("SCHWAB-1", result);
+            // Binds the OrderWatchesStarted counter to real behavior: the watch
+            // this counter records is the one whose fill lands below — which is
+            // what lets Streaming_broker_is_never_polled trust counter==0.
+            Assert.Equal(1, h.Svc.OrderWatchesStarted);
 
             await WaitFor(() => fills.Count == 1);
             Assert.Equal("SCHWAB-1", fills[0].Order.OrderId);
@@ -556,11 +562,16 @@ namespace AccessibleTrader.Tests
             h.LiveTp.SupportsOrderEventStreaming.Returns(true);
             h.LiveTp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("EX-9"));
 
-            // SaneSignal has no SL/TP → the protective verifier doesn't run either,
-            // so ANY GetOpenOrdersAsync call would come from the poller.
             await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
-            await Task.Delay(100);
 
+            // The poll-or-not decision is made synchronously inside PlaceOrderAsync,
+            // so "no watch was started" is assertable the moment it returns. (The old
+            // form waited 100 ms and asserted no poll had ARRIVED — a negative that
+            // stayed green on any runner too loaded to schedule the watch in time.)
+            Assert.Equal(0, h.Svc.OrderWatchesStarted);
+            // With no watch in existence there is nothing that can ever poll.
+            // SaneSignal has no SL/TP → the protective verifier doesn't run either,
+            // so ANY GetOpenOrdersAsync call would have come from a poller.
             await h.LiveTp.DidNotReceive().GetOpenOrdersAsync(Arg.Any<string?>());
         }
 
@@ -573,19 +584,27 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void ConnectionStatusEvent_Error_does_not_subscribe()
+        public async Task ConnectionStatusEvent_Error_does_not_subscribe()
         {
             var h = Build();
-            var liveStream = new Subject<OrderUpdate>();
-            h.LiveTp.OrderUpdateStream.Returns(liveStream);
-            var fills = new List<OrderFilledEvent>();
-            using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
 
             h.Bus.Publish(new ConnectionStatusEvent("Binance", ConnectionState.Error, "down"));
-            System.Threading.Thread.Sleep(100);
-            liveStream.OnNext(LiveFill("live-5"));
 
-            Assert.Empty(fills);
+            // Anchor for the negative: a Connected event queued AFTER the Error
+            // rides the same handler and the same thread-pool hop. Once its
+            // subscribe attempt is visible, the Error's hop — if the bug had
+            // queued one — has had every chance to land too. (The old form was
+            // a fixed 100 ms sleep: a negative that went green whenever the
+            // runner was slow, i.e. exactly when it mattered.)
+            h.Bus.Publish(new ConnectionStatusEvent("anchor", ConnectionState.Connected, "up"));
+            await WaitFor(() => h.Data.ReceivedCalls().Any(c =>
+                c.GetMethodInfo().Name == nameof(IDataService.GetProviderAsync)
+                && Equals(c.GetArguments()[0], "anchor")));
+
+            // Resolving the provider is the FIRST step of subscribing to its
+            // order stream; it never happened for the errored provider, so no
+            // subscription — and no fill announcement — can ever exist for it.
+            await h.Data.DidNotReceive().GetProviderAsync("Binance");
         }
     }
 }
