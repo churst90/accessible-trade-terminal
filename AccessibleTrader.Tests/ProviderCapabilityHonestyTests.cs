@@ -72,8 +72,11 @@ namespace AccessibleTrader.Tests
         {
             var ib = new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider();
             Assert.False(ib.Capabilities.HasFlag(ProviderCapabilities.OCO));
-            Assert.False(ib.Capabilities.HasFlag(ProviderCapabilities.Brackets));
             Assert.False(ib.Capabilities.HasFlag(ProviderCapabilities.TrailingStop));
+            // Brackets was withdrawn with the other two in 2026-07, then earned back
+            // on 2026-08-23 by the parent/child submit (children carry parentId =
+            // the parent's cOID). BrokerParityTests pins the wire payload.
+            Assert.True(ib.Capabilities.HasFlag(ProviderCapabilities.Brackets));
             // Single-leg protective orders ARE supported and must still be advertised.
             Assert.True(ib.SupportsStopLoss);
             Assert.True(ib.SupportsTakeProfit);

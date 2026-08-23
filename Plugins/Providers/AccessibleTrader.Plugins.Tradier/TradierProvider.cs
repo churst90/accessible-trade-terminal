@@ -631,8 +631,11 @@ namespace AccessibleTrader.Plugins.Tradier
             {
                 var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/positions");
                 var json = JObject.Parse(response);
-                var positions = json["positions"]?["position"];
-                if (positions == null) return new List<Position>();
+                // An empty account is {"positions":"null"} — the STRING — and
+                // indexing into a JValue throws, so an empty book must be detected
+                // before the child access, not after.
+                var positions = (json["positions"] as JObject)?["position"];
+                if (positions == null || positions.Type == JTokenType.Null) return new List<Position>();
 
                 JArray items = positions is JArray arr ? arr : new JArray { positions };
                 return items.Select(p => new Position(
@@ -658,8 +661,11 @@ namespace AccessibleTrader.Plugins.Tradier
             {
                 var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/orders");
                 var json = JObject.Parse(response);
-                var orders = json["orders"]?["order"];
-                if (orders == null) return new List<OpenOrder>();
+                // An empty book is {"orders":"null"} — the STRING — and indexing
+                // into a JValue throws, so it must be detected before the child
+                // access, not after.
+                var orders = (json["orders"] as JObject)?["order"];
+                if (orders == null || orders.Type == JTokenType.Null) return new List<OpenOrder>();
 
                 JArray items = orders is JArray arr ? arr : new JArray { orders };
                 var result = new List<OpenOrder>();
@@ -794,6 +800,22 @@ namespace AccessibleTrader.Plugins.Tradier
                 ? ((long)Math.Round(quantity)).ToString(CultureInfo.InvariantCulture)
                 : null;
 
+        // OCC option symbols end in a fixed 15-character tail — YYMMDD, C or P, and
+        // an 8-digit strike in thousandths (AAPL260918C00195000) — so the underlying
+        // is whatever precedes it (roots may themselves contain digits, so parse from
+        // the tail, never the front). Returns null when the tail doesn't scan; the
+        // callers omit or refuse rather than sending a mangled root to the venue.
+        internal static string? UnderlyingFromOccSymbol(string symbol)
+        {
+            if (symbol.Length <= 15) return null;
+            var tail = symbol.AsSpan(symbol.Length - 15);
+            if (tail[6] is not ('C' or 'P' or 'c' or 'p')) return null;
+            for (int i = 0; i < 15; i++)
+                if (i != 6 && tail[i] is < '0' or > '9') return null;
+            var root = symbol[..^15].TrimEnd();
+            return root.Length > 0 ? root : null;
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -810,26 +832,45 @@ namespace AccessibleTrader.Plugins.Tradier
                     // Entry with protective legs → Tradier's native advanced classes
                     // (exchange-side linking, not attach-after-fill): OTO for entry+one
                     // leg, OTOCO for entry+both (the exits are an OCO pair). Before
-                    // 2026-07-22 SL/TP on entries were SILENTLY DROPPED here.
-                    if (!isOption
-                        && signal.Type is OrderType.Market or OrderType.Limit
+                    // 2026-07-22 SL/TP on equity entries were SILENTLY DROPPED here;
+                    // option entries were refused until 2026-08-23 — the venue takes
+                    // the same indexed-leg classes with option_symbol + open/close sides.
+                    if (signal.Type is OrderType.Market or OrderType.Limit
                         && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
                     {
-                        return await PlaceBracketAsync(signal);
+                        return await PlaceBracketAsync(signal, isOption);
                     }
 
-                    // The options branch has no bracket path, and PlaceBracketAsync
-                    // above builds equity legs only. SupportsStopLoss/SupportsTakeProfit
-                    // are declared true for the provider as a whole, so the dashboard
-                    // offers the fields on an options ticket too and they were being
-                    // dropped exactly the way equity legs were before 2026-07-22 —
-                    // silently, on a live position. Same defect, one branch over.
-                    if (isOption
-                        && signal.Type is OrderType.Market or OrderType.Limit
-                        && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
+                    // Tradier's option side vocabulary is positional: buy_to_open /
+                    // buy_to_close / sell_to_open / sell_to_close — the bare
+                    // "buy"/"sell" this branch used to send is equity vocabulary the
+                    // venue refuses on class=option. Open-versus-close depends on the
+                    // position, so look it up; guessing turns "close my long call"
+                    // into a naked short. If the read fails, refuse loudly instead.
+                    string side;
+                    if (isOption)
                     {
-                        return "ORDER_FAILED:protective legs are not supported on options orders here yet. "
-                             + "Place the option order on its own, then set the stop or target on the position";
+                        double held;
+                        try
+                        {
+                            held = (await GetPositionsAsync())
+                                .FirstOrDefault(pos => string.Equals(pos.Symbol, signal.Symbol,
+                                    StringComparison.OrdinalIgnoreCase))
+                                ?.Quantity ?? 0;
+                        }
+                        catch (Exception ex)
+                        {
+                            _errorStream.OnNext($"Tradier option order: positions read failed ({ex.GetType().Name})");
+                            return "ORDER_FAILED:could not read positions to tell whether this option order "
+                                 + "opens or closes a position. Check the connection and place the order again";
+                        }
+                        side = signal.Side == OrderSide.Buy
+                            ? (held < 0 ? "buy_to_close" : "buy_to_open")
+                            : (held > 0 ? "sell_to_close" : "sell_to_open");
+                    }
+                    else
+                    {
+                        side = signal.Side == OrderSide.Buy ? "buy" : "sell";
                     }
 
                     var postData = new Dictionary<string, string>
@@ -839,12 +880,18 @@ namespace AccessibleTrader.Plugins.Tradier
                         // valid there); resting limit/stop orders keep gtc so they
                         // don't expire at the session close.
                         ["duration"] = signal.Type == OrderType.Market ? "day" : "gtc",
-                        ["side"] = signal.Side == OrderSide.Buy ? "buy" : "sell",
+                        ["side"] = side,
                         ["quantity"] = WholeShareQuantityOrNull(signal.Quantity)!
                     };
 
                     if (isOption)
+                    {
                         postData["option_symbol"] = signal.Symbol;
+                        // The option-order contract wants the underlying alongside the
+                        // OCC contract; omit it only when the tail doesn't scan.
+                        if (UnderlyingFromOccSymbol(signal.Symbol) is string underlying)
+                            postData["symbol"] = underlying;
+                    }
                     else
                         postData["symbol"] = signal.Symbol;
 
@@ -899,12 +946,21 @@ namespace AccessibleTrader.Plugins.Tradier
         /// type[0]/side[0]/quantity[0] is the entry; legs 1..n are the exits).
         /// class=oto for a single protective leg, class=otoco when both are given —
         /// the two exits are then an exchange-linked OCO pair. Exchange-side, so the
-        /// protection exists even if this terminal dies right after submit.
+        /// protection exists even if this terminal dies right after submit. Options
+        /// take the same classes with option_symbol and the open/close vocabulary.
         /// </summary>
-        private async Task<string> PlaceBracketAsync(TradeSignal signal)
+        private async Task<string> PlaceBracketAsync(TradeSignal signal, bool isOption)
         {
-            string entrySide = signal.Side == OrderSide.Buy ? "buy" : "sell";
-            string exitSide = signal.Side == OrderSide.Buy ? "sell" : "buy";
+            // A bracket IS an opening trade — protection on a position being
+            // entered — so the option position effect is fixed by shape: the entry
+            // opens, both exits close. (A close has no protective legs; it is the
+            // exit.) Equities keep the plain vocabulary.
+            string entrySide = isOption
+                ? (signal.Side == OrderSide.Buy ? "buy_to_open" : "sell_to_open")
+                : (signal.Side == OrderSide.Buy ? "buy" : "sell");
+            string exitSide = isOption
+                ? (signal.Side == OrderSide.Buy ? "sell_to_close" : "buy_to_close")
+                : (signal.Side == OrderSide.Buy ? "sell" : "buy");
             // PlaceOrderAsync has already refused fractional quantities.
             string qty = WholeShareQuantityOrNull(signal.Quantity)!;
             bool both = signal.StopLoss is > 0 && signal.TakeProfit is > 0;
@@ -913,11 +969,27 @@ namespace AccessibleTrader.Plugins.Tradier
             {
                 ["class"] = both ? "otoco" : "oto",
                 ["duration"] = "gtc",
-                ["symbol"] = signal.Symbol,
                 ["side[0]"] = entrySide,
                 ["quantity[0]"] = qty,
                 ["type[0]"] = signal.Type == OrderType.Limit ? "limit" : "market",
             };
+
+            // Non-indexed params apply to EVERY leg, and all three legs are the same
+            // instrument: equities carry the ticker in symbol; options carry the OCC
+            // contract in option_symbol plus the underlying in symbol.
+            if (isOption)
+            {
+                if (UnderlyingFromOccSymbol(signal.Symbol) is not string underlying)
+                    return "ORDER_FAILED:cannot read the underlying out of option symbol "
+                         + $"{signal.Symbol}, so a bracket cannot be built. Place the option "
+                         + "order on its own, then set the stop or target on the position";
+                p["symbol"] = underlying;
+                p["option_symbol"] = signal.Symbol;
+            }
+            else
+            {
+                p["symbol"] = signal.Symbol;
+            }
             if (signal.Type == OrderType.Limit && signal.Price.HasValue)
                 p["price[0]"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
 

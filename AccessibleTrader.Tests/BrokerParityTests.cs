@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Tests.Fakes;
 using Xunit;
@@ -325,6 +327,239 @@ namespace AccessibleTrader.Tests
             Assert.Equal(OrderSide.Sell, f.Side);
             Assert.Equal(0.25, f.Quantity);
             Assert.Equal(3.2, f.Fee);
+        }
+
+        // ── Tradier OPTION brackets + position-effect sides (2026-08-23) ─────
+        // The options branch refused protective legs until 2026-08-23, and worse,
+        // the plain option path sent bare "buy"/"sell" — equity vocabulary the
+        // venue refuses on class=option (it wants buy_to_open / sell_to_close /
+        // etc.). These pin the OTOCO/OTO option payloads and the side mapping.
+
+        private const string Occ = "AAPL260918C00195000";
+
+        [Fact]
+        public async Task Tradier_option_entry_with_both_legs_is_one_OTOCO_with_open_close_sides()
+        {
+            var h = new FakeHttpMessageHandler().Post(@"/accounts/ACC1/orders", """{"order":{"id":55}}""");
+            var p = Tradier(h);
+
+            string id = await p.PlaceOrderAsync(new TradeSignal(Occ, OrderSide.Buy, 2,
+                OrderType.Limit, Price: 5.5, StopLoss: 3, TakeProfit: 8, SubType: "Options"));
+
+            Assert.Equal("55", id);
+            string form = Uri.UnescapeDataString(await Form(h.Captured.Single()));
+            var pairs = form.Split('&');
+            Assert.Contains("class=otoco", pairs);
+            Assert.Contains("option_symbol=" + Occ, pairs);
+            Assert.Contains("symbol=AAPL", pairs);          // the underlying, not the OCC
+            Assert.Contains("side[0]=buy_to_open", pairs);  // entry opens
+            Assert.Contains("type[0]=limit", pairs);
+            Assert.Contains("price[0]=5.5", pairs);
+            Assert.Contains("side[1]=sell_to_close", pairs); // TP closes
+            Assert.Contains("price[1]=8", pairs);
+            Assert.Contains("side[2]=sell_to_close", pairs); // SL closes
+            Assert.Contains("type[2]=stop", pairs);
+            Assert.Contains("stop[2]=3", pairs);
+        }
+
+        [Fact]
+        public async Task Tradier_option_limit_entry_with_stop_only_is_an_OTO_with_a_resting_stop()
+        {
+            // The non-market-entry gap: a LIMIT entry with a stop must still rest
+            // the stop leg (every earlier bracket test entered at market).
+            var h = new FakeHttpMessageHandler().Post(@"/accounts/ACC1/orders", """{"order":{"id":56}}""");
+            var p = Tradier(h);
+
+            await p.PlaceOrderAsync(new TradeSignal(Occ, OrderSide.Buy, 1,
+                OrderType.Limit, Price: 5.5, StopLoss: 3, SubType: "Options"));
+
+            string form = Uri.UnescapeDataString(await Form(h.Captured.Single()));
+            var pairs = form.Split('&');
+            Assert.Contains("class=oto", pairs);
+            Assert.Contains("type[0]=limit", pairs);
+            Assert.Contains("type[1]=stop", pairs);
+            Assert.Contains("stop[1]=3", pairs);
+            Assert.Contains("side[1]=sell_to_close", pairs);
+            Assert.DoesNotContain(pairs, s => s.StartsWith("type[2]"));
+        }
+
+        [Fact]
+        public async Task Tradier_plain_option_sell_with_a_long_position_is_sell_to_close()
+        {
+            var h = new FakeHttpMessageHandler()
+                .Get(@"/accounts/ACC1/positions",
+                    """{"positions":{"position":{"symbol":"AAPL260918C00195000","quantity":2,"cost_basis":900}}}""")
+                .Post(@"/accounts/ACC1/orders", """{"order":{"id":57}}""");
+            var p = Tradier(h);
+
+            await p.PlaceOrderAsync(new TradeSignal(Occ, OrderSide.Sell, 2,
+                OrderType.Limit, Price: 8, SubType: "Options"));
+
+            string form = Uri.UnescapeDataString(await Form(
+                h.Captured.Single(r => r.Method == HttpMethod.Post)));
+            var pairs = form.Split('&');
+            Assert.Contains("class=option", pairs);
+            Assert.Contains("side=sell_to_close", pairs);
+            Assert.Contains("option_symbol=" + Occ, pairs);
+            Assert.Contains("symbol=AAPL", pairs);
+        }
+
+        [Fact]
+        public async Task Tradier_plain_option_buy_with_no_position_is_buy_to_open()
+        {
+            // {"positions":"null"} — the STRING — is Tradier's real empty-account
+            // shape, and it used to THROW in GetPositionsAsync (JValue indexing),
+            // which would have refused the very first option buy on a new account.
+            var h = new FakeHttpMessageHandler()
+                .Get(@"/accounts/ACC1/positions", """{"positions":"null"}""")
+                .Post(@"/accounts/ACC1/orders", """{"order":{"id":58}}""");
+            var p = Tradier(h);
+
+            await p.PlaceOrderAsync(new TradeSignal(Occ, OrderSide.Buy, 1,
+                OrderType.Market, SubType: "Options"));
+
+            string form = Uri.UnescapeDataString(await Form(
+                h.Captured.Single(r => r.Method == HttpMethod.Post)));
+            Assert.Contains("side=buy_to_open", form.Split('&'));
+        }
+
+        [Fact]
+        public async Task Tradier_plain_option_order_is_refused_when_positions_cannot_be_read()
+        {
+            // Open-versus-close depends on the position. If that read fails, the
+            // order must be refused with spoken text — guessing "sell" into
+            // sell_to_open would short a naked option the user meant to close.
+            var h = new FakeHttpMessageHandler()
+                .Get(@"/accounts/ACC1/positions", """{"error":"forbidden"}""", HttpStatusCode.Forbidden);
+            var p = Tradier(h);
+
+            string result = await p.PlaceOrderAsync(new TradeSignal(Occ, OrderSide.Sell, 1,
+                OrderType.Market, SubType: "Options"));
+
+            Assert.StartsWith("ORDER_FAILED:", result);
+            Assert.Contains("could not read positions", result);
+            Assert.DoesNotContain(h.Captured, r => r.Method == HttpMethod.Post); // nothing placed
+        }
+
+        [Theory]
+        [InlineData("AAPL260918C00195000", "AAPL")]
+        [InlineData("BRKB260116P00450000", "BRKB")]
+        [InlineData("SPXW261218C05500000", "SPXW")]
+        [InlineData("AAPL", null)]                  // no OCC tail at all
+        [InlineData("AAPL260918X00195000", null)]   // neither call nor put
+        [InlineData("260918C00195000", null)]       // tail with no root
+        public void Tradier_occ_underlying_parser(string symbol, string? expected) =>
+            Assert.Equal(expected,
+                AccessibleTrader.Plugins.Tradier.TradierProvider.UnderlyingFromOccSymbol(symbol));
+
+        // ── IBKR brackets (parent/child rows in ONE submit, 2026-08-23) ──────
+        // IBKR refused protective legs until 2026-08-23 ("place the entry on its
+        // own..."). Now the entry and its exits go up as one order array: children
+        // name the parent's cOID in parentId and the gateway OCA-links the exits.
+
+        private static AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider Ibkr(FakeHttpMessageHandler h)
+        {
+            var p = new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider();
+            p.Configure(new Dictionary<string, string> { ["AccountId"] = "DU111" });
+            p.SeedConIdCacheForTest("AAPL", "265598");
+            Swap(p, h);
+            return p;
+        }
+
+        private static async Task<JArray> IbkrOrders(FakeHttpMessageHandler h)
+        {
+            var body = await Form(h.Captured.Single(r => r.Method == HttpMethod.Post));
+            return (JArray)JObject.Parse(body)["orders"]!;
+        }
+
+        [Fact]
+        public async Task Ibkr_entry_with_both_legs_is_one_parent_child_submit()
+        {
+            var h = new FakeHttpMessageHandler().Post(@"/iserver/account/DU111/orders", """[{"order_id":"321"}]""");
+            var p = Ibkr(h);
+
+            string id = await p.PlaceOrderAsync(new TradeSignal("AAPL", OrderSide.Buy, 10,
+                OrderType.Market, StopLoss: 180, TakeProfit: 220));
+
+            Assert.Equal("321", id);
+            var orders = await IbkrOrders(h);
+            Assert.Equal(3, orders.Count);
+
+            var parent = (JObject)orders[0];
+            Assert.Equal("MKT", parent["orderType"]?.ToString());
+            Assert.Equal("BUY", parent["side"]?.ToString());
+            string parentOid = parent["cOID"]!.ToString();
+            Assert.False(string.IsNullOrEmpty(parentOid)); // children need it to link
+
+            var tp = (JObject)orders[1];
+            Assert.Equal("LMT", tp["orderType"]?.ToString());
+            Assert.Equal(220, tp["price"]?.Value<double>());
+            Assert.Equal("SELL", tp["side"]?.ToString());
+            Assert.Equal(parentOid, tp["parentId"]?.ToString());
+
+            var sl = (JObject)orders[2];
+            Assert.Equal("STP", sl["orderType"]?.ToString());
+            Assert.Equal(180, sl["auxPrice"]?.Value<double>());
+            Assert.Equal("SELL", sl["side"]?.ToString());
+            Assert.Equal(parentOid, sl["parentId"]?.ToString());
+        }
+
+        [Fact]
+        public async Task Ibkr_limit_entry_with_stop_only_rests_the_stop()
+        {
+            // The non-market-entry gap again: a LIMIT entry with a stop loss must
+            // produce a resting stop child, not a naked resting limit.
+            var h = new FakeHttpMessageHandler().Post(@"/iserver/account/DU111/orders", """[{"order_id":"322"}]""");
+            var p = Ibkr(h);
+
+            await p.PlaceOrderAsync(new TradeSignal("AAPL", OrderSide.Buy, 10,
+                OrderType.Limit, Price: 100, StopLoss: 90));
+
+            var orders = await IbkrOrders(h);
+            Assert.Equal(2, orders.Count);
+            Assert.Equal("LMT", orders[0]["orderType"]?.ToString());
+            Assert.Equal(100, orders[0]["price"]?.Value<double>());
+            Assert.Equal("STP", orders[1]["orderType"]?.ToString());
+            Assert.Equal(90, orders[1]["auxPrice"]?.Value<double>());
+            Assert.Equal(orders[0]["cOID"]!.ToString(), orders[1]["parentId"]?.ToString());
+        }
+
+        [Fact]
+        public async Task Ibkr_stop_entry_attaches_the_target_but_never_duplicates_its_own_trigger()
+        {
+            // On a STOP entry, StopLoss is the entry's own trigger — it must land
+            // in the parent's auxPrice and NOT come back as a second STP child at
+            // the same price. A TakeProfit alongside it is a real protective leg.
+            var h = new FakeHttpMessageHandler().Post(@"/iserver/account/DU111/orders", """[{"order_id":"323"}]""");
+            var p = Ibkr(h);
+
+            await p.PlaceOrderAsync(new TradeSignal("AAPL", OrderSide.Buy, 10,
+                OrderType.StopMarket, StopLoss: 90, TakeProfit: 120));
+
+            var orders = await IbkrOrders(h);
+            Assert.Equal(2, orders.Count);
+            Assert.Equal("STP", orders[0]["orderType"]?.ToString());
+            Assert.Equal(90, orders[0]["auxPrice"]?.Value<double>());
+            var child = Assert.Single(orders.Skip(1));
+            Assert.Equal("LMT", child["orderType"]?.ToString());
+            Assert.Equal(120, child["price"]?.Value<double>());
+        }
+
+        [Fact]
+        public async Task Ibkr_plain_order_stays_a_single_row_with_no_invented_cOID()
+        {
+            // No legs → exactly the pre-bracket payload: one row, and no cOID the
+            // caller didn't ask for (the generated one exists only to link children).
+            var h = new FakeHttpMessageHandler().Post(@"/iserver/account/DU111/orders", """[{"order_id":"324"}]""");
+            var p = Ibkr(h);
+
+            string id = await p.PlaceOrderAsync(new TradeSignal("AAPL", OrderSide.Sell, 5, OrderType.Market));
+
+            Assert.Equal("324", id);
+            var orders = await IbkrOrders(h);
+            var only = (JObject)Assert.Single(orders);
+            Assert.Null(only["cOID"]);
+            Assert.Null(only["parentId"]);
         }
     }
 }

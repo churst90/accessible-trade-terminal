@@ -90,14 +90,17 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
-        // Only capabilities PlaceOrderAsync can actually honor. OCO (no IOcoTradingProvider),
-        // TrailingStop (no TRAIL order body), and Brackets (no parent/child leg array) were
-        // declared but never implemented — the UI offered controls that silently placed a
-        // bare order with no linked/protective legs. Single stop-loss and take-profit orders
-        // ARE supported and stay advertised via SupportsStopLoss / SupportsTakeProfit below.
+        // Only capabilities PlaceOrderAsync can actually honor. OCO (no IOcoTradingProvider)
+        // and TrailingStop (no TRAIL order body) were declared but never implemented — the UI
+        // offered controls that silently placed a bare order with no linked/protective legs.
+        // Brackets earned the flag back on 2026-08-23: PlaceOrderAsync submits parent and
+        // protective children as one order array (children carry parentId = the parent's
+        // cOID; the gateway OCA-links the exits). Single stop-loss and take-profit orders
+        // stay advertised via SupportsStopLoss / SupportsTakeProfit below.
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.Shorting | ProviderCapabilities.Leverage |
-            ProviderCapabilities.MarginTrading | ProviderCapabilities.FuturesTrading;
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.FuturesTrading |
+            ProviderCapabilities.Brackets;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
@@ -651,43 +654,61 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                             orderBody["price"] = signal.Price ?? t;
                     }
 
-                    // Protective legs are NOT attached by this provider.
-                    //
-                    // An IBKR bracket is a parent/child OCA structure, which this
-                    // builder does not construct — but SupportsStopLoss and
-                    // SupportsTakeProfit above are both true, so the dashboard renders
-                    // the fields and the user fills them in. Everything above reads
-                    // StopLoss/TakeProfit only as an ENTRY trigger, so on a market or
-                    // limit entry they were being dropped on the floor: the user typed
-                    // a stop, heard the order confirmed, and held a naked position —
-                    // and with stop-distance sizing that position is sized for a stop
-                    // that does not exist.
-                    //
-                    // Refusing is the honest failure. Saying nothing is not.
-                    //
-                    // Scoped to stop loss and take profit because those are the two this
-                    // provider advertises. Trailing is deliberately not named here: the
-                    // TrailingStop capability is NOT declared, so those controls never
-                    // render for IBKR — and reading the trailing fields purely in order
-                    // to refuse them would read to ProviderCapabilityAudit as evidence
-                    // that trailing is implemented, which is how a capability claim the
-                    // code cannot back gets created rather than caught.
+                    if (!string.IsNullOrEmpty(signal.ClientOid))
+                        orderBody["cOID"] = signal.ClientOid;
+
+                    // Protective legs ride in the SAME submit as parent/child rows:
+                    // each child names the parent's cOID in parentId and the gateway
+                    // OCA-links the children (stop fills → target cancels, and vice
+                    // versa), server-side, so the protection survives this terminal
+                    // dying right after submit. On a stop or if-touched ENTRY the
+                    // StopLoss/TakeProfit field is the entry's own trigger (already
+                    // consumed above), not a leg — attaching it again would rest a
+                    // second order at the same price.
                     bool slIsEntryTrigger = signal.Type is OrderType.StopMarket or OrderType.StopLimit
                                             && signal.StopLoss.HasValue;
                     bool tpIsEntryTrigger = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
                                             && signal.TriggerPrice == null && signal.TakeProfit.HasValue;
-                    if ((signal.StopLoss is > 0 && !slIsEntryTrigger)
-                        || (signal.TakeProfit is > 0 && !tpIsEntryTrigger))
+                    bool attachSl = signal.StopLoss is > 0 && !slIsEntryTrigger;
+                    bool attachTp = signal.TakeProfit is > 0 && !tpIsEntryTrigger;
+
+                    var orderRows = new JArray { orderBody };
+                    if (attachSl || attachTp)
                     {
-                        return "ORDER_FAILED:this provider cannot attach a stop loss or take profit to an "
-                             + "entry order yet. Place the entry on its own, then set the protective levels "
-                             + "on the position once it fills";
+                        // Children reference the parent by client order id, so the
+                        // parent must carry one even when the caller supplied none.
+                        var parentOid = orderBody["cOID"]?.ToString();
+                        if (string.IsNullOrEmpty(parentOid))
+                        {
+                            parentOid = "bracket-" + Guid.NewGuid().ToString("N");
+                            orderBody["cOID"] = parentOid;
+                        }
+
+                        string exitSide = signal.Side == OrderSide.Buy ? "SELL" : "BUY";
+                        JObject Child(string orderType) => new JObject
+                        {
+                            ["conid"]     = int.Parse(conId),
+                            ["orderType"] = orderType,
+                            ["side"]      = exitSide,
+                            ["quantity"]  = signal.Quantity,
+                            ["tif"]       = "GTC",
+                            ["parentId"]  = parentOid
+                        };
+                        if (attachTp)
+                        {
+                            var tp = Child("LMT");
+                            tp["price"] = signal.TakeProfit!.Value;
+                            orderRows.Add(tp);
+                        }
+                        if (attachSl)
+                        {
+                            var sl = Child("STP");
+                            sl["auxPrice"] = signal.StopLoss!.Value;
+                            orderRows.Add(sl);
+                        }
                     }
 
-                    if (!string.IsNullOrEmpty(signal.ClientOid))
-                        orderBody["cOID"] = signal.ClientOid;
-
-                    var orders = new JObject { ["orders"] = new JArray { orderBody } };
+                    var orders = new JObject { ["orders"] = orderRows };
                     var content = new StringContent(orders.ToString(), Encoding.UTF8, "application/json");
                     var response = await _httpClient.PostAsync($"{_gatewayUrl}/iserver/account/{_accountId}/orders", content);
                     var respStr = await response.Content.ReadAsStringAsync();

@@ -1341,15 +1341,39 @@ guesses are invisible until money moves.
     on `MARKET` by copy-paste and are now ungated (a trailing distance is never an entry trigger).
   - **IB and Tradier-options: made loud, not fixed.** Both now return `ORDER_FAILED` with spoken
     text rather than placing a naked position. Neither builds brackets yet: IBKR needs a
-    parent/child OCA structure and Tradier needs OTOCO with option legs. **Those two are still
-    open** — see the new item below. The refusal is deliberately scoped to the capabilities each
+    parent/child OCA structure and Tradier needs OTOCO with option legs. **Both closed
+    2026-08-23** — see the item below. The refusal is deliberately scoped to the capabilities each
     provider actually declares; reading a field only in order to refuse it reads to
     `ProviderCapabilityAudit` as evidence the capability is implemented.
-- [ ] **IBKR and Tradier-options still cannot attach protective legs at all.** Both declare
+- [x] **IBKR and Tradier-options still cannot attach protective legs at all.** Both declare
   `SupportsStopLoss`/`SupportsTakeProfit`, so the dashboard renders the fields; both now refuse the
   order rather than dropping the legs silently. Real fix: build the IBKR parent/child OCA bracket,
   and extend `PlaceBracketAsync` to emit OTOCO with option legs. Until then the declared capability
   is honest only because the refusal is audible.
+  **DONE 2026-08-23** — IBKR submits entry + protective children as ONE order array (children
+  carry `parentId` = the parent's `cOID`, generated when the caller supplied none; the gateway
+  OCA-links the exits), the entry-trigger disambiguation kept (a STOP entry's own trigger never
+  duplicates as a leg), and the `Brackets` flag earned back. Tradier option entries route through
+  `PlaceBracketAsync` (same oto/otoco classes, `option_symbol` + underlying `symbol` on every
+  leg, entry `*_to_open` / exits `*_to_close`). The sweep also surfaced two adjacent live bugs,
+  both fixed: (1) the PLAIN option path sent bare `buy`/`sell` — equity vocabulary the venue
+  refuses on `class=option` — so every single-leg option order was dead on the wire; sides now
+  resolve open-vs-close from the held position, and refuse loudly if the positions read fails
+  (guessing would turn "close my long call" into a naked short). (2) Tradier's empty-account
+  shape is `{"positions":"null"}` — the STRING — and `json["positions"]?["position"]` THROWS on
+  a JValue, so `GetPositionsAsync`/`GetOpenOrdersAsync` errored on every empty account (found
+  because the side lookup made "first option buy in an empty account" hit it). Guards: the
+  BrokerParityTests IBKR parent/child + Tradier option-OTOCO/OTO sections (incl. limit-entry
+  resting stops — the non-market-entry gap — and the OCC-underlying parser theory), all proven
+  red by sabotage. Follow-up recorded below: equity sell/sell_short + buy_to_cover position
+  effect.
+- [ ] **Tradier equity sides ignore position effect: `sell` vs `sell_short`, `buy` vs
+  `buy_to_cover`.** The equity vocabulary is positional too (docs: buy, buy_to_cover, sell,
+  sell_short) and the provider always sends plain `buy`/`sell` — a short entry with no position
+  held is refused (or worse, misclassified) by the venue instead of opening as `sell_short`.
+  Same class as the option-side fix above; needs the same held-position lookup on the equity
+  path, plus a decision for the bracket legs (exits on a long bracket are plain `sell`, but a
+  SHORT equity bracket's entry is `sell_short` and its exits `buy_to_cover`).
 - [x] **`OandaProvider.cs:330-348` fabricates a symbol and a side on cancel** — a cancelled *sell* on
   EUR/USD is announced as a cancelled *buy* on an empty symbol — never reports rejections at all,
   and hardcodes `RemainingQuantity: 0` so partial fills announce as complete. `:590-607` also reports
