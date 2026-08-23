@@ -1459,12 +1459,23 @@ guesses are invisible until money moves.
   hole regex deliberately stops at line ends — its first draft matched 4 multi-line code blocks).
   **Still open from this item:** `TimestampParser` returning `DateTime.MinValue` on failure with
   no failure channel — that is a contract change, not a culture fix.
-- [ ] **`TwelveDataProvider.cs:231` — the Tradier/FMP intraday timezone bug, unfixed.** No
+- [x] **`TwelveDataProvider.cs:231` — the Tradier/FMP intraday timezone bug, unfixed.** No
   `&timezone=UTC`, so the venue returns exchange-local wall clock which `AssumeUniversal` then
   declares to be UTC. Every AAPL 5-minute bar sits 4–5 hours out of session, and the candles look
   plausible so nothing signals it. Conversely `FmpProvider.cs:341-346` applies the Eastern-time fix
   to **crypto and forex**, which FMP returns in UTC — the fix created a symmetrical instance of the
   bug it fixed, in the opposite direction, on four of five market types.
+  **DONE 2026-08-23** — TwelveData sends `&timezone=UTC` on every `time_series` request, VERIFIED
+  against the live venue with the repo's paper key (AAPL's last Friday bar reads "15:55:00" bare
+  and "19:55:00" with the parameter; BTC/USD is UTC either way), which also makes the venue read
+  the already-UTC-rendered `start_date`/`end_date` consistently. FMP's `ParseIntradayBar` now
+  takes the market: Stock keeps the Eastern conversion (that fix was empirical), the other four
+  types pass through as UTC. FMP could NOT be live-verified — intraday is plan-gated on the
+  repo's key on both `/stable` and legacy `/api/v3` — so the non-stock half rests on the audit's
+  claim; the code comment says so and names the place to flip if a paid key ever disagrees.
+  Guards: `TimezoneUtc_IsOnEveryTimeSeriesRequest` + `IntradayBars_ComeOutAsTheUtcInstantTheVenueSent`
+  (TwelveData) and the six-row `IntradayWallClock_IsEasternForStocksAndUtcForTheRest` theory (FMP —
+  summer AND winter stock rows so a fixed offset can't impersonate the timezone), sabotage-proven.
 - [ ] **`ReconnectingWebSocket` — three defects in the SDK's shared socket.** `SendAsync` is
   documented "safe to call from any thread" and is not (`ClientWebSocket` forbids concurrent sends;
   the heartbeat timer races provider subscribes), and it silently `return`s on a non-open socket so a

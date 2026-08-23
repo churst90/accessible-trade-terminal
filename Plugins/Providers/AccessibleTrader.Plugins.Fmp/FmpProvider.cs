@@ -300,8 +300,22 @@ namespace AccessibleTrader.Plugins.Fmp
             var body = await _httpClient!.GetStringAsync(url).ConfigureAwait(false);
             var arr = JArray.Parse(body);
 
+            // FMP serves intraday wall clock in US-Eastern for STOCKS (that is the
+            // empirically-fixed 4-5h skew ParseIntradayBar documents) but in UTC for
+            // the other four market types per the 2026-08-21 audit — applying the
+            // Eastern conversion there re-created the same skew in the opposite
+            // direction. Unknown/empty markets keep the Eastern path (the status quo
+            // for the equities this provider mostly charts). Intraday is plan-gated
+            // on the repo's key, so the non-stock half rests on the audit, not a live
+            // probe; if a paid key ever disagrees, this list is the place to fix.
+            bool utcWallClock =
+                   request.Market.Contains("Crypto", StringComparison.OrdinalIgnoreCase)
+                || request.Market.Contains("Forex", StringComparison.OrdinalIgnoreCase)
+                || request.Market.Contains("Commodity", StringComparison.OrdinalIgnoreCase)
+                || request.Market.Contains("Index", StringComparison.OrdinalIgnoreCase);
+
             return arr
-                .Select(ParseIntradayBar)
+                .Select(t => ParseIntradayBar(t, utcWallClock))
                 .Where(b => b.HasValue)
                 .Select(b => b!.Value)
                 .OrderBy(b => b.Date)
@@ -338,18 +352,23 @@ namespace AccessibleTrader.Plugins.Fmp
             catch { return null; }
         }
 
-        private static Ohlcv? ParseIntradayBar(JToken t)
+        private static Ohlcv? ParseIntradayBar(JToken t, bool utcWallClock)
         {
             try
             {
                 var dateStr = t["date"]?.ToString();
                 if (string.IsNullOrEmpty(dateStr)) return null;
-                // Intraday "date" is US-Eastern wall-clock ("2021-10-08 16:00:00").
+                // STOCK intraday "date" is US-Eastern wall-clock ("2021-10-08 16:00:00").
                 // The old AssumeUniversal+ToUniversalTime treated it as UTC, so every
                 // intraday bar was 4-5h off (silently WRONG data, not a blank chart).
+                // But crypto/forex/commodity/index arrive in UTC already (see the
+                // caller), and running THOSE through the Eastern conversion is the
+                // same 4-5h skew pointing the other way.
                 var wall = DateTime.Parse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.None);
                 return new Ohlcv(
-                    AccessibleTrader.Sdk.Models.ExchangeTime.EasternWallClockToUtc(wall),
+                    utcWallClock
+                        ? DateTime.SpecifyKind(wall, DateTimeKind.Utc)
+                        : AccessibleTrader.Sdk.Models.ExchangeTime.EasternWallClockToUtc(wall),
                     t["open"]?.Value<double>() ?? 0,
                     t["high"]?.Value<double>() ?? 0,
                     t["low"]?.Value<double>() ?? 0,

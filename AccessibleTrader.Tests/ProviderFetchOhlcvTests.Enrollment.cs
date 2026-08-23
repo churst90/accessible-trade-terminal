@@ -401,6 +401,40 @@ namespace AccessibleTrader.Tests
                 Assert.Single(handler.Captured);
                 Assert.Contains("apikey=test", handler.Captured[0].RequestUri!.ToString());
             }
+
+            [Fact]
+            public async Task TimezoneUtc_IsOnEveryTimeSeriesRequest()
+            {
+                // Without timezone=UTC the venue returns EXCHANGE-LOCAL wall clock
+                // (verified live 2026-08-23: AAPL's last bar reads "15:55:00" bare,
+                // "19:55:00" with the parameter; BTC/USD is UTC either way), which
+                // the AssumeUniversal parse then declares to be UTC — every US-stock
+                // intraday bar 4-5 hours out of session, with candles that look
+                // plausible so nothing signals it. This pins the parameter so it
+                // cannot fall off the URL.
+                var handler = new FakeHttpMessageHandler().Get(@"twelvedata\.com", """{"values":[]}""");
+                var provider = NewConfigured(handler);
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "5m", 10));
+
+                Assert.Contains("timezone=UTC", handler.Captured[0].RequestUri!.ToString());
+            }
+
+            [Fact]
+            public async Task IntradayBars_ComeOutAsTheUtcInstantTheVenueSent()
+            {
+                // The response half of the timezone contract: with timezone=UTC the
+                // venue's "19:55" IS 19:55Z and must come out as exactly that instant.
+                var handler = new FakeHttpMessageHandler().Get(@"twelvedata\.com/time_series", """
+                    {"values":[{"datetime":"2026-08-21 19:55:00","open":"1","high":"1","low":"1","close":"1","volume":"1"}]}
+                    """);
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "5m", 10));
+
+                var bar = Assert.Single(result.Ohlcv);
+                Assert.Equal(new DateTime(2026, 8, 21, 19, 55, 0, DateTimeKind.Utc), bar.Date);
+            }
         }
 
         // ── FMP — auth-gated (apikey= query param); daily vs intraday shapes ──
@@ -540,6 +574,36 @@ namespace AccessibleTrader.Tests
                 var uri = handler.Captured[0].RequestUri!.ToString();
                 Assert.Contains("/stable/historical-price-eod/full?symbol=BTCUSD", uri);
                 Assert.DoesNotContain("/api/v3", uri);
+            }
+
+            [Theory]
+            // Stocks arrive as US-Eastern wall clock: 15:55 EDT (summer) is 19:55Z,
+            // and the same wall clock in EST (winter) is 20:55Z — both rows must
+            // pass or the "conversion" is a fixed offset, not a time zone.
+            [InlineData("Stock", "2026-08-21 15:55:00", "2026-08-21T19:55:00")]
+            [InlineData("Stock", "2026-01-16 15:55:00", "2026-01-16T20:55:00")]
+            // The other four market types arrive in UTC already (2026-08-21 audit;
+            // intraday is plan-gated on the repo's key, so this half rests on the
+            // audit) and must pass through untouched — running them through the
+            // Eastern conversion is the original 4-5h skew pointing the other way.
+            [InlineData("Crypto", "2026-08-21 15:55:00", "2026-08-21T15:55:00")]
+            [InlineData("Forex", "2026-08-21 15:55:00", "2026-08-21T15:55:00")]
+            [InlineData("Commodity", "2026-08-21 15:55:00", "2026-08-21T15:55:00")]
+            [InlineData("Index", "2026-08-21 15:55:00", "2026-08-21T15:55:00")]
+            public async Task IntradayWallClock_IsEasternForStocksAndUtcForTheRest(
+                string market, string venueWallClock, string expectedUtc)
+            {
+                var handler = new FakeHttpMessageHandler().Get(@"historical-chart/5min",
+                    $$"""[{"date":"{{venueWallClock}}","open":1.0,"high":1.0,"low":1.0,"close":1.0,"volume":1}]""");
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest(market, "SYM", "5m", 10));
+
+                var bar = Assert.Single(result.Ohlcv);
+                var expected = DateTime.SpecifyKind(
+                    DateTime.Parse(expectedUtc, System.Globalization.CultureInfo.InvariantCulture),
+                    DateTimeKind.Utc);
+                Assert.Equal(expected, bar.Date);
             }
 
             [Fact]

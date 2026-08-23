@@ -228,7 +228,14 @@ namespace AccessibleTrader.Plugins.TwelveData
             string interval = MapToTwelveDataInterval(request.Timeframe);
             int limit = Math.Min(request.Limit, 5000);
 
-            string url = $"{RestUrl}/time_series?symbol={request.Symbol}&interval={interval}&outputsize={limit}&apikey={_apiKey}&format=JSON";
+            // timezone=UTC is load-bearing: without it the venue returns EXCHANGE-LOCAL
+            // wall clock (verified live 2026-08-23: AAPL's last Friday bar reads
+            // "15:55:00" bare and "19:55:00" with timezone=UTC; BTC/USD is UTC either
+            // way), which the AssumeUniversal parse below then declares to be UTC —
+            // every US-stock intraday bar sat 4-5 hours out of session, and the candles
+            // look plausible so nothing signals it. The parameter also makes the venue
+            // read start_date/end_date below in UTC, matching how they are rendered.
+            string url = $"{RestUrl}/time_series?symbol={request.Symbol}&interval={interval}&outputsize={limit}&apikey={_apiKey}&format=JSON&timezone=UTC";
 
             if (request.Since.HasValue)
                 url += $"&start_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}";
