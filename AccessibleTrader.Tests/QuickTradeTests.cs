@@ -272,14 +272,36 @@ public class QuickTradeTests
     [Fact]
     public void NonFiniteOrNegativeEquityIsIgnored()
     {
-        QuickTradeEquity.Reset();
-        QuickTradeEquity.Report(50_000);
+        var equity = new QuickTradeEquity();
+        equity.Report(50_000);
 
-        QuickTradeEquity.Report(double.NaN);
-        QuickTradeEquity.Report(double.PositiveInfinity);
-        QuickTradeEquity.Report(-1);
+        equity.Report(double.NaN);
+        equity.Report(double.PositiveInfinity);
+        equity.Report(-1);
 
-        Assert.Equal(50_000, QuickTradeEquity.Latest, 6);
-        QuickTradeEquity.Reset();
+        Assert.Equal(50_000, equity.Latest, 6);
+    }
+
+    /// <summary>
+    /// Equity is per account, never per process. The static this replaced meant that on the
+    /// multi-user WebHost, user A's balance became user B's quick-trade sizing input — and B
+    /// could infer the size of A's account from their own spoken position sizes.
+    /// </summary>
+    [Fact]
+    public void TwoUsersEquityCachesNeverShare()
+    {
+        var hub = new QuickTradeEquityHub();
+        var alice = hub.ForUser("alice");
+        var bob = hub.ForUser("bob");
+
+        alice.Report(1_000_000);
+
+        Assert.Equal(0, bob.Latest, 6);
+        Assert.Equal(1_000_000, alice.Latest, 6);
+
+        // Two tabs of one user still share one cache — the reason the old
+        // static existed — and a missing key degrades to "anon", not a crash.
+        Assert.Same(alice, hub.ForUser("alice"));
+        Assert.Same(hub.ForUser(null), hub.ForUser(""));
     }
 }

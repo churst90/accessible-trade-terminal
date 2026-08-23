@@ -24,6 +24,10 @@ namespace AccessibleTrader.Core.Services
         private readonly IPaperTradingProvider _paper;
         private readonly ISettingsManager _settings;
         private readonly DemoPolicy _demo;
+        // THIS account's equity cache — an instance, never a static, so on the
+        // multi-user WebHost one user's balance can never become another's
+        // quick-trade sizing input.
+        private readonly Trading.QuickTradeEquity _equity;
 
         // One live-broker order-stream subscription per provider, held for the
         // service lifetime. Keyed per provider (not single-slot) because several
@@ -62,7 +66,8 @@ namespace AccessibleTrader.Core.Services
             IEventBus eventBus,
             IPaperTradingProvider paper,
             ISettingsManager settings,
-            DemoPolicy demo)
+            DemoPolicy demo,
+            Trading.QuickTradeEquity equity)
         {
             _dataService = dataService;
             _errorCoordinator = errorCoordinator;
@@ -71,6 +76,7 @@ namespace AccessibleTrader.Core.Services
             _paper = paper;
             _settings = settings;
             _demo = demo;
+            _equity = equity;
             _paperStreamSub = paper.OrderUpdateStream.Subscribe(PublishOrderEvent);
 
             // Self-wire the live-broker streams: whenever a provider connects, hook
@@ -689,7 +695,7 @@ namespace AccessibleTrader.Core.Services
                 double equity = balances
                     .Where(b => Trading.QuickTradeEquity.IsCashAsset(b.Asset))
                     .Sum(b => b.Free + b.Locked);
-                Trading.QuickTradeEquity.Report(equity);
+                _equity.Report(equity);
 
                 return ProviderResult<List<Balance>>.Ok(balances);
             }

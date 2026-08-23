@@ -42,7 +42,7 @@ public sealed class HostedPaperModeTests
 
         var svc = new GeneralOrderService(
             data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings,
-            new DemoPolicy(mode));
+            new DemoPolicy(mode), new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
         return (svc, settings);
     }
 
@@ -71,7 +71,8 @@ public sealed class HostedPaperModeTests
         var settings = Substitute.For<ISettingsManager>();
         var svc = new GeneralOrderService(
             data, Substitute.For<IGlobalErrorCoordinator>(), NullLogger<GeneralOrderService>.Instance,
-            new EventBus(), paper, settings, new DemoPolicy(mode));
+            new EventBus(), paper, settings, new DemoPolicy(mode),
+            new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
 
         return (svc, settings, paper, liveTrading);
     }

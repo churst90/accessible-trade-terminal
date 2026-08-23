@@ -248,4 +248,51 @@ public class ApiKeyServiceTests
         Assert.Equal(20, all.Count);
         Assert.Equal(20, all.Select(k => k.Nickname).Distinct().Count());
     }
+
+    // ── DemoPolicy wall ──────────────────────────────────────────────────────
+    // AllowApiKeysModal was enforced only in Razor @if markup; these pin the
+    // service-layer wall. "Hosted" is the interesting mode: open registration,
+    // and the host promises broker credentials are never held server-side.
+
+    [Fact]
+    public async Task Hosted_RefusesUserKeyMutations_AtTheServiceLayer()
+    {
+        var storage = new InMemorySecureStorage();
+        var svc = new ApiKeyService(NullLogger<ApiKeyService>.Instance, storage,
+            TempLegacyPath(), new DemoPolicy(HostMode.Hosted));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SaveKeyAsync(Config("main")));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.RemoveKeyAsync("main"));
+        Assert.Empty(storage.Store);   // nothing persisted before the wall
+    }
+
+    [Fact]
+    public async Task Hosted_StillAllowsTheServersOwnSeededKeys_AndReads()
+    {
+        // Program.cs seeds shared read-only data keys (Twelve Data, FRED) on the
+        // demo/hosted heads. That path must survive the wall — and so must reads,
+        // which is how the data pipeline uses the seeded key.
+        var storage = new InMemorySecureStorage();
+        var svc = new ApiKeyService(NullLogger<ApiKeyService>.Instance, storage,
+            TempLegacyPath(), new DemoPolicy(HostMode.Hosted));
+
+        await svc.SaveServerManagedKeyAsync(Config("demo", provider: "Twelve Data"));
+
+        var got = await svc.GetKeyForProviderAsync("Twelve Data");
+        Assert.NotNull(got);
+        Assert.Equal("k", got!.ApiKey);
+    }
+
+    [Fact]
+    public async Task FullMode_UserKeyMutations_StayAllowed()
+    {
+        var storage = new InMemorySecureStorage();
+        var svc = new ApiKeyService(NullLogger<ApiKeyService>.Instance, storage,
+            TempLegacyPath(), new DemoPolicy(HostMode.Full));
+
+        await svc.SaveKeyAsync(Config("main"));
+        Assert.Single(await svc.GetAllKeysAsync());
+        await svc.RemoveKeyAsync("main");
+        Assert.Empty(await svc.GetAllKeysAsync());
+    }
 }

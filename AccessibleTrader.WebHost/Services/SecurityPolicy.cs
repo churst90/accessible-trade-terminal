@@ -111,14 +111,25 @@ public static class AuthRateLimitPolicy
     public static readonly System.TimeSpan AuthWindow = System.TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// True for requests that spend a credential-guessing attempt: POSTs to
-    /// the login/register pages. GETs (rendering the form) stay in the
-    /// general tier. Path is relative to any UsePathBase prefix.
+    /// True for requests that spend a credential-guessing attempt or write an
+    /// attacker-controlled audit record: POSTs to the login, register, 2FA,
+    /// recovery-code and password-reset pages. GETs (rendering the form) stay
+    /// in the general tier. Path is relative to any UsePathBase prefix.
+    /// ForgotPassword matters even though it guesses no credential: every POST
+    /// appends an attacker-supplied email to the security log under a global
+    /// file lock, so the general 200-per-10s tier is an unauthenticated
+    /// disk-fill. Note StartsWithSegments is segment-boundary aware, so
+    /// "/account/login" does NOT cover "/account/loginwith2fa" — each page is
+    /// listed explicitly.
     /// </summary>
     public static bool IsAuthMutation(string method, PathString path)
         => HttpMethods.IsPost(method)
            && (path.StartsWithSegments("/account/login")
-            || path.StartsWithSegments("/account/register"));
+            || path.StartsWithSegments("/account/register")
+            || path.StartsWithSegments("/account/loginwith2fa")
+            || path.StartsWithSegments("/account/loginwithrecovery")
+            || path.StartsWithSegments("/account/forgotpassword")
+            || path.StartsWithSegments("/account/resetpassword"));
 
     public static RateLimitPartition<string> GetPartition(HttpContext http)
     {
@@ -143,5 +154,48 @@ public static class AuthRateLimitPolicy
                 Window = GeneralWindow,
                 QueueLimit = 0,
             });
+    }
+}
+
+/// <summary>
+/// Refuses to serve <c>HostMode.Full</c> on a non-loopback address. Full mode
+/// is the fully-trusted local terminal — live trading, the API-keys modal and
+/// server-side Roslyn scripts all on, with no authentication in front of any
+/// of them. Before this guard, the difference between that and the hosted
+/// product was one absent command-line flag: a WebHost started with neither
+/// <c>--accounts</c> nor <c>--demo</c> on a public bind handed every anonymous
+/// visitor the whole terminal. Program.cs checks the actually-bound addresses
+/// right after Kestrel starts and shuts down if any is non-loopback, unless
+/// the operator passed <c>--unsafe-remote-full</c> (for a trusted LAN behind a
+/// firewall, where they accept that every visitor is themselves).
+/// </summary>
+public static class FullModeBindPolicy
+{
+    /// <summary>
+    /// Returns the first bound address that is not loopback, or null when every
+    /// address is safe for an unauthenticated Full-mode terminal. Addresses that
+    /// cannot be parsed (Kestrel's <c>http://+:80</c> / <c>http://*:80</c>
+    /// wildcard forms) bind every interface, so they fail closed.
+    /// </summary>
+    public static string? FindNonLoopbackAddress(System.Collections.Generic.IEnumerable<string> boundAddresses)
+    {
+        foreach (var address in boundAddresses)
+        {
+            if (!IsLoopback(address)) return address;
+        }
+        return null;
+    }
+
+    internal static bool IsLoopback(string address)
+    {
+        if (!System.Uri.TryCreate(address, System.UriKind.Absolute, out var uri))
+            return false; // wildcard binds ("+", "*") and garbage both fail closed
+        if (uri.Host.Equals("localhost", System.StringComparison.OrdinalIgnoreCase))
+            return true;
+        // IdnHost strips the brackets from IPv6 literals; "[::1]" parses either
+        // way, but be explicit. "0.0.0.0" and "::" parse fine and are NOT
+        // loopback — they bind every interface.
+        return System.Net.IPAddress.TryParse(uri.IdnHost, out var ip)
+            && System.Net.IPAddress.IsLoopback(ip);
     }
 }

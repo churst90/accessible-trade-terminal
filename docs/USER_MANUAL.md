@@ -2007,8 +2007,11 @@ names a symbol and provider keeps evaluating about once a minute with no
 browser open, and when one fires you hear it three ways — a notification
 sound, a desktop notification, and speech through Orca in your own voice. The
 watch list is simply your alert list; there is nothing separate to configure.
-Two honest limits: advanced condition-tree alerts and alerts scoped to "the
-current chart" stay session-only, and the background monitor stands down
+The honest limits: alerts that read the chart itself — indicator values, the
+volume-profile POC, trend and zone conditions, and advanced condition trees —
+stay session-only (the indicators they read exist only while their chart is
+open, and the terminal says so when you create one), alerts scoped to "the
+current chart" stay session-only too, and the background monitor stands down
 whenever a browser session is open so nothing is announced twice. The sound
 is replaceable — drop your own WAV at sounds/alert.wav in the app data
 folder. Pair it with a systemd user service and the terminal listens from
@@ -2136,10 +2139,15 @@ how a Bitcoin alert lands in your #btc Discord channel while a gold alert lands 
 it was created on and only evaluates there, so a BTC alert no longer fires against
 whatever chart happens to be on screen (choose "any symbol" if you do want that).
 
-On the **hosted terminal** your alerts do not need you at all: symbol-scoped
-alerts keep evaluating on the server after you close the browser, and anything
-that fires is delivered through your configured email, Telegram, and webhook
-channels. You can also enable **browser notifications** (Settings > Alerts >
+On the **hosted terminal**, alerts on **price and candle patterns** do not need
+you at all: symbol-scoped alerts of those kinds keep evaluating on the server
+after you close the browser, and anything that fires is delivered through your
+configured email, Telegram, and webhook channels. Alerts that read the chart
+itself — indicator values, the volume-profile POC, trend and zone conditions,
+and advanced condition trees — only run while their chart is open, because the
+indicators they read exist only there; the terminal tells you so the moment you
+create one, so you always know which alerts are watching while you're away and
+which are not. You can also enable **browser notifications** (Settings > Alerts >
 Browser notifications): your alerts then arrive as system notifications on that
 device — spoken by your screen reader like any other notification — even with
 the terminal tab closed, as long as the browser is running. While you are
@@ -2158,10 +2166,12 @@ indicator components, with optional higher timeframes per leaf — "RSI below 30
 AND price above the 200-day EMA" is three clicks. The alert fires the moment
 the whole tree first becomes true, then re-arms when it goes false; turn on
 repeat-while-active and it re-announces on your cooldown while conditions hold.
-Score trees speak their score ("conditions met, score 7 of 9"). Everything else
-about alerts applies unchanged — delivery channels, symbol scoping, and
-background tabs. One requirement: leaves reference indicators by code, so add
-the indicator to the chart before building conditions on it.
+Score trees speak their score ("conditions met, score 7 of 9"). Delivery
+channels and symbol scoping apply unchanged. One requirement: leaves reference
+indicators by code, so add the indicator to the chart before building
+conditions on it — which is also why an advanced alert evaluates only while its
+chart is open (in a foreground or background tab), never server-side with the
+browser closed. The terminal says so when you create one.
 
 ### Strategies
 

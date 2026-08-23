@@ -87,7 +87,7 @@ namespace AccessibleTrader.WebHost.Services
             var data = dataScope.ServiceProvider.GetRequiredService<IDataService>();
             await data.InitializeAsync(dataScope.ServiceProvider.GetRequiredService<IPluginLoaderService>());
             await data.ConfigureStoredKeyProvidersAsync();
-            var barsCache = new Dictionary<(string Provider, string Symbol, string Timeframe), List<Ohlcv>?>();
+            var barsCache = new Dictionary<(string Provider, string Symbol, string Timeframe, string Market), List<Ohlcv>?>();
 
             foreach (var userKey in userKeys)
             {
@@ -107,13 +107,35 @@ namespace AccessibleTrader.WebHost.Services
 
             // Users deleted between polls must not pin evaluator state forever.
             foreach (var stale in _evaluators.Keys.Where(k => !userKeys.Contains(k)).ToList())
+            {
                 _evaluators.Remove(stale);
+                _lastUnwatchableByUser.Remove(stale);
+            }
+        }
+
+        // Once per user per distinct set — a server-side alert the server cannot
+        // evaluate must at least be named in the log, not silently skipped forever.
+        private readonly Dictionary<string, string> _lastUnwatchableByUser = new(StringComparer.Ordinal);
+
+        private void WarnOnceAboutUnwatchable(
+            string userKey, IReadOnlyList<(AlertDefinition Alert, string Reason)> unwatchable)
+        {
+            var key = string.Join("|", unwatchable.Select(u => u.Alert.Id).OrderBy(id => id, StringComparer.Ordinal));
+            if (_lastUnwatchableByUser.TryGetValue(userKey, out var prev) && prev == key) return;
+            _lastUnwatchableByUser[userKey] = key;
+            if (unwatchable.Count == 0) return;
+
+            _logger.LogWarning(
+                "{Count} active alert(s) for {User} cannot be evaluated server-side: {Detail}. " +
+                "They still work while the user's chart is open.",
+                unwatchable.Count, userKey,
+                string.Join("; ", unwatchable.Select(u => $"'{u.Alert.Name}' — {u.Reason}")));
         }
 
         private async Task EvaluateUserAsync(
             string userKey,
             IDataService data,
-            Dictionary<(string, string, string), List<Ohlcv>?> barsCache,
+            Dictionary<(string, string, string, string), List<Ohlcv>?> barsCache,
             CancellationToken ct)
         {
             using var scope = _scopes.CreateScope();
@@ -127,6 +149,7 @@ namespace AccessibleTrader.WebHost.Services
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? true)) return;
 
             var alerts = scope.ServiceProvider.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
+            WarnOnceAboutUnwatchable(userKey, LocalBackgroundMonitor.DeriveUnwatchable(alerts));
             var watches = LocalBackgroundMonitor.DeriveWatches(alerts);
             if (watches.Count == 0) return;
 
@@ -142,7 +165,9 @@ namespace AccessibleTrader.WebHost.Services
             {
                 ct.ThrowIfCancellationRequested();
 
-                var key = (watch.Provider, watch.Symbol, watch.Timeframe);
+                // Market is part of the key: two users watching one symbol on
+                // different sub-types (Spot vs Futures) must not share a fetch.
+                var key = (watch.Provider, watch.Symbol, watch.Timeframe, watch.Market);
                 if (!barsCache.TryGetValue(key, out var bars))
                 {
                     bars = await FetchBarsAsync(data, watch, ct);
@@ -179,7 +204,7 @@ namespace AccessibleTrader.WebHost.Services
                 var provider = await data.GetProviderAsync(watch.Provider);
                 if (provider == null) return null;
                 var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
-                    "Spot", watch.Symbol, watch.Timeframe, Limit: 3));
+                    watch.Market, watch.Symbol, watch.Timeframe, Limit: 3));
                 return ohlcv;
             }
             catch (Exception ex)

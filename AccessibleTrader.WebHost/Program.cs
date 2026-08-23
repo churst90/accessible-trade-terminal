@@ -204,7 +204,15 @@ if (accountsEnabled)
             seedUser.PasswordHash = seedScope.ServiceProvider
                 .GetRequiredService<IPasswordHasher<AppUser>>()
                 .HashPassword(seedUser, seedPass);
-            await users.CreateAsync(seedUser);   // no password arg → skips the policy validators
+            var seeded = await users.CreateAsync(seedUser);   // no password arg → skips the policy validators
+            if (!seeded.Succeeded)
+            {
+                // A silently failed seed locks the operator out of the account they
+                // configured. Refuse to start rather than run without it.
+                throw new InvalidOperationException(
+                    "ACCOUNTS_SEED_EMAIL was set but the seed account could not be created: " +
+                    string.Join("; ", seeded.Errors.Select(e => e.Description)));
+            }
         }
     }
 }
@@ -372,11 +380,14 @@ if (accountsEnabled)
 
 // Diagnostic endpoint — returns the last N journal entries so we can see
 // what speech the server believes it produced. Useful for debugging the
-// speech pipeline when Orca isn't announcing changes. Local-only; gated
-// behind --enable-diag to keep it off in shipped builds.
+// speech pipeline when Orca isn't announcing changes. Gated behind
+// --enable-diag to keep it off in shipped builds, and — on the accounts
+// head — behind authorization: the journal is a transcript of everything
+// spoken to the user, and an anonymous dump of it on a hosted instance
+// would leak positions, balances and alerts.
 if (args.Contains("--enable-diag") || app.Environment.IsDevelopment())
 {
-    app.MapGet("/diag/journal", (AccessibleTrader.Core.Services.IJournalService journal) =>
+    var diag = app.MapGet("/diag/journal", (AccessibleTrader.Core.Services.IJournalService journal) =>
     {
         var snapshot = journal.Snapshot();
         var recent = snapshot
@@ -386,6 +397,7 @@ if (args.Contains("--enable-diag") || app.Environment.IsDevelopment())
             .ToList();
         return Results.Json(recent);
     });
+    if (accountsEnabled) diag.RequireAuthorization();
 }
 
 // Kick off the same startup sequence MAUI's MainPage constructor runs
@@ -512,8 +524,12 @@ if (demoMode || accountsEnabled)
 
         try
         {
-            var apiKeys = app.Services.GetRequiredService<IApiKeyService>();
-            await apiKeys.SaveKeyAsync(new ApiKeyConfig(
+            // The concrete type on purpose: SaveKeyAsync is walled off by DemoPolicy
+            // (no user-supplied credentials on hosted/demo heads), and this is the
+            // operator's own seeding of the shared read-only data keys.
+            var apiKeys = (AccessibleTrader.Core.Services.ApiKeyService)
+                app.Services.GetRequiredService<IApiKeyService>();
+            await apiKeys.SaveServerManagedKeyAsync(new ApiKeyConfig(
                 Provider:    seed.Provider,
                 Nickname:    "demo",
                 ApiKey:      key,
@@ -531,7 +547,34 @@ if (demoMode || accountsEnabled)
     }
 }
 
-app.Run();
+// Start Kestrel, then verify the bind before serving traffic in Full mode.
+// Full mode is the fully-trusted local terminal (live trading, API keys,
+// server-side Roslyn — no auth in front of any of it); refusing a non-loopback
+// bind means one absent command-line flag can no longer turn it into an open
+// terminal for every visitor. See FullModeBindPolicy.
+await app.StartAsync();
+
+if (hostMode == HostMode.Full && !args.Contains("--unsafe-remote-full"))
+{
+    var boundAddresses = app.Services
+        .GetService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+        ?.Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()
+        ?.Addresses ?? Array.Empty<string>();
+    var offending = AccessibleTrader.WebHost.Services.FullModeBindPolicy.FindNonLoopbackAddress(boundAddresses);
+    if (offending != null)
+    {
+        await app.StopAsync();
+        throw new InvalidOperationException(
+            $"Refusing to serve Full mode on non-loopback address '{offending}'. Full mode is the " +
+            "fully-trusted local terminal: live trading, the API-keys modal and custom scripts are " +
+            "all enabled with no authentication. To host publicly use --accounts (or --demo), or " +
+            "bind to localhost (Kestrel__Endpoints__Http__Url=http://localhost:5145). If this is a " +
+            "trusted private network and you accept that every visitor gets the whole terminal, " +
+            "pass --unsafe-remote-full.");
+    }
+}
+
+await app.WaitForShutdownAsync();
 
 static void OpenBrowser(string url)
 {

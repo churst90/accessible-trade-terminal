@@ -212,6 +212,12 @@
         var tree = _advancedCondition ? _advancedSpec.BuildConditionTree() : null;
         if (_advancedCondition && tree == null) return;
 
+        // Stamp the full chart identity, not just the symbol. The background
+        // monitors fetch by (provider, market, symbol, timeframe); with only a
+        // Symbol on the record, DeriveWatches had nothing to fetch by, so an
+        // alert created here was never watchable with the browser closed at all.
+        var identity = Store.State.Identity;
+
         var def = new AlertDefinition
         {
             Id = Guid.NewGuid().ToString(),
@@ -220,13 +226,27 @@
             Condition = _newAlertCondition,
             Threshold = _advancedCondition ? null : _newAlertThreshold,
             Delivery = _newAlertDelivery,
-            // Scope to the current chart's symbol (null = any) and route to the chosen webhook.
+            // Scope to the current chart (null = any) and route to the chosen webhook.
             Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
+            Provider = _newAlertScopeToSymbol ? identity.Provider : null,
+            Timeframe = _newAlertScopeToSymbol ? identity.Timeframe : null,
+            Market = _newAlertScopeToSymbol ? identity.Market : null,
             WebhookTarget = string.IsNullOrWhiteSpace(_newAlertWebhookTarget) ? null : _newAlertWebhookTarget,
             ConditionTree = tree,
             BreakThroughMutes = _newAlertBreakThrough,
         };
         AlertOrchestrator.AddAlert(def);
+
+        // If the background monitors cannot evaluate this alert, SAY so now —
+        // the alternative is a user closing the browser believing an alert is
+        // watching the market when it is not, which is the worst failure this
+        // app has. The alert still works while its chart is open.
+        var unwatchableReason = AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(def);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            unwatchableReason == null
+                ? $"Alert {def.Name} added."
+                : $"Alert {def.Name} added. It works while this chart is open, but background " +
+                  $"and server-side monitoring cannot watch it: {unwatchableReason}."));
         _newAlertName = "";
         _newAlertThreshold = 0;
         if (_advancedCondition) _advancedSpec = new Core.Services.Strategies.EditableStrategySpec();

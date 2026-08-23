@@ -129,6 +129,7 @@ namespace AccessibleTrader.WebHost.Services
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
 
             var alerts = scope.ServiceProvider.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
+            WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts));
             var watches = DeriveWatches(alerts);
             if (watches.Count == 0) return;
 
@@ -146,7 +147,7 @@ namespace AccessibleTrader.WebHost.Services
                 try
                 {
                     var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
-                        "Spot", watch.Symbol, watch.Timeframe, Limit: 3));
+                        watch.Market, watch.Symbol, watch.Timeframe, Limit: 3));
                     bars = ohlcv;
                 }
                 catch (Exception ex)
@@ -166,41 +167,85 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
+        // Warn once per distinct set, not once per poll: the monitor polls every
+        // minute for as long as the app runs, and a warning that repeats forever
+        // trains the reader to ignore the log.
+        private string? _lastUnwatchableKey;
+
+        private void WarnOnceAboutUnwatchable(IReadOnlyList<(AlertDefinition Alert, string Reason)> unwatchable)
+        {
+            var key = string.Join("|", unwatchable.Select(u => u.Alert.Id).OrderBy(id => id, StringComparer.Ordinal));
+            if (key == _lastUnwatchableKey) return;
+            _lastUnwatchableKey = key;
+            if (unwatchable.Count == 0) return;
+
+            _logger.LogWarning(
+                "{Count} active alert(s) cannot be watched in the background: {Detail}. " +
+                "They still work while their chart is open.",
+                unwatchable.Count,
+                string.Join("; ", unwatchable.Select(u => $"'{u.Alert.Name}' — {u.Reason}")));
+        }
+
         // ── Watch derivation (pure; unit-tested) ─────────────────────────────
 
         public sealed record Watch(string Provider, string Symbol, string Timeframe,
-            IReadOnlyList<AlertDefinition> Alerts);
+            IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot");
 
         /// <summary>
-        /// The watch list IS the user's alert list: every active, simple
-        /// (non-tree) alert with an explicit Symbol AND Provider is monitorable
-        /// with the browser closed. Grouped so each (provider, symbol, timeframe)
-        /// costs one fetch per poll.
+        /// Why background evaluation cannot watch an active alert, or null when it
+        /// can — see <see cref="AccessibleTrader.Core.Services.Alerts.BackgroundWatchability"/>,
+        /// which the alerts UI shares so the exclusion and the user-facing warning
+        /// can never disagree.
+        /// </summary>
+        public static string? WhyUnwatchable(AlertDefinition a)
+            => AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(a);
+
+        /// <summary>
+        /// The active alerts the background monitors CANNOT evaluate, with the
+        /// reason each is excluded — for the monitors' once-per-change warning and
+        /// for the alerts UI to say at creation time.
+        /// </summary>
+        public static IReadOnlyList<(AlertDefinition Alert, string Reason)> DeriveUnwatchable(
+            IEnumerable<AlertDefinition> alerts) =>
+            alerts.Where(a => a.IsActive)
+                  .Select(a => (Alert: a, Reason: WhyUnwatchable(a)))
+                  .Where(t => t.Reason != null)
+                  .Select(t => (t.Alert, t.Reason!))
+                  .ToList();
+
+        /// <summary>
+        /// The watch list IS the user's alert list: every active alert the
+        /// background evaluator can honestly evaluate (see
+        /// <see cref="WhyUnwatchable"/>) with an explicit Symbol AND Provider.
+        /// Grouped so each (provider, market, symbol, timeframe) costs one fetch
+        /// per poll. Market rides along from the alert (defaulting to "Spot" for
+        /// pre-existing alerts) — it used to be hardcoded to "Spot" at the fetch,
+        /// so a Futures or Derivatives alert quietly watched the wrong market.
         /// </summary>
         public static IReadOnlyList<Watch> DeriveWatches(IEnumerable<AlertDefinition> alerts) =>
             alerts
-                .Where(a => a.IsActive
-                            && a.ConditionTree == null           // trees need the indicator pipeline
-                            && !string.IsNullOrWhiteSpace(a.Symbol)
-                            && !string.IsNullOrWhiteSpace(a.Provider))
+                .Where(a => a.IsActive && WhyUnwatchable(a) == null)
                 .GroupBy(a => (Provider: a.Provider!.Trim(),
                                Symbol: a.Symbol!.Trim(),
-                               Timeframe: string.IsNullOrWhiteSpace(a.Timeframe) ? "1h" : a.Timeframe!.Trim()),
+                               Timeframe: string.IsNullOrWhiteSpace(a.Timeframe) ? "1h" : a.Timeframe!.Trim(),
+                               Market: string.IsNullOrWhiteSpace(a.Market) ? "Spot" : a.Market!.Trim()),
                     StringTupleComparer.Instance)
-                .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList()))
+                .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market))
                 .ToList();
 
-        private sealed class StringTupleComparer : IEqualityComparer<(string Provider, string Symbol, string Timeframe)>
+        private sealed class StringTupleComparer
+            : IEqualityComparer<(string Provider, string Symbol, string Timeframe, string Market)>
         {
             public static readonly StringTupleComparer Instance = new();
-            public bool Equals((string Provider, string Symbol, string Timeframe) a,
-                (string Provider, string Symbol, string Timeframe) b) =>
+            public bool Equals((string Provider, string Symbol, string Timeframe, string Market) a,
+                (string Provider, string Symbol, string Timeframe, string Market) b) =>
                 string.Equals(a.Provider, b.Provider, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(a.Symbol, b.Symbol, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(a.Timeframe, b.Timeframe, StringComparison.OrdinalIgnoreCase);
-            public int GetHashCode((string Provider, string Symbol, string Timeframe) v) =>
+                && string.Equals(a.Timeframe, b.Timeframe, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.Market, b.Market, StringComparison.OrdinalIgnoreCase);
+            public int GetHashCode((string Provider, string Symbol, string Timeframe, string Market) v) =>
                 HashCode.Combine(v.Provider.ToLowerInvariant(), v.Symbol.ToLowerInvariant(),
-                    v.Timeframe.ToLowerInvariant());
+                    v.Timeframe.ToLowerInvariant(), v.Market.ToLowerInvariant());
         }
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────

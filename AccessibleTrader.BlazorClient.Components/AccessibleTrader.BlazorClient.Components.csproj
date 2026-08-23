@@ -22,6 +22,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>AccessibleTrader.BlazorClient.Components</RootNamespace>
+    <!-- .NET SDK 10.0.300+ Razor source-generator regression: false RZ1021
+         ("Markup in a code block must start with a tag") for elements like
+         <text> inside @if/@switch blocks, corrupting the generated C# — 284
+         errors across 11 components on a CLEAN build. Incremental builds
+         masked it by reusing generated files cached under an older SDK, which
+         is why the suite stayed green until the obj/ cache was first dropped
+         on 2026-08-22. Falls back to the classic two-phase Razor compilation
+         until the SDK fix ships. https://github.com/dotnet/razor/issues/13184 -->
+    <UseRazorSourceGenerator>false</UseRazorSourceGenerator>
   </PropertyGroup>
 
   <ItemGroup>

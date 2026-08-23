@@ -28,25 +28,29 @@ namespace AccessibleTrader.Core.Services
         private readonly string _legacyFilePath;
         private readonly ILogger<ApiKeyService> _logger;
         private readonly ISecureStorageService _secureStorage;
+        private readonly DemoPolicy? _demo;
         private List<ApiKeyMetadata> _cache = new();
         private readonly SemaphoreSlim _lock = new(1, 1);
         private bool _isLoaded;
 
-        public ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage)
+        public ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage,
+            DemoPolicy? demo = null)
             // PlatformPaths, not GetFolderPath: an empty return on Unix would make this RELATIVE,
             // so the legacy-plaintext migration would look in the process's working directory and
             // silently find nothing to migrate.
             : this(logger, secureStorage,
-                   Path.Combine(PlatformPaths.AppDataRoot(), "apikeys_meta.json"))
+                   Path.Combine(PlatformPaths.AppDataRoot(), "apikeys_meta.json"), demo)
         {
         }
 
         /// <summary>Test seam: inject the legacy plaintext path so migration is verifiable.</summary>
-        internal ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage, string legacyFilePath)
+        internal ApiKeyService(ILogger<ApiKeyService> logger, ISecureStorageService secureStorage,
+            string legacyFilePath, DemoPolicy? demo = null)
         {
             _logger = logger;
             _secureStorage = secureStorage;
             _legacyFilePath = legacyFilePath;
+            _demo = demo;
         }
 
         private async Task EnsureLoadedAsync()
@@ -233,7 +237,37 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public async Task SaveKeyAsync(ApiKeyConfig config)
+        public Task SaveKeyAsync(ApiKeyConfig config)
+        {
+            ThrowIfUserKeyMutationDisabled();
+            return SaveKeyCoreAsync(config);
+        }
+
+        /// <summary>
+        /// The host's own seeding path — Program.cs storing the server-side shared
+        /// market-data keys (Twelve Data, FRED) at startup on the demo/hosted heads.
+        /// Bypasses the <see cref="DemoPolicy.AllowApiKeysModal"/> wall on purpose:
+        /// that wall exists so a TENANT cannot store broker credentials server-side,
+        /// not so the operator cannot configure the shared read-only data keys.
+        /// </summary>
+        public Task SaveServerManagedKeyAsync(ApiKeyConfig config) => SaveKeyCoreAsync(config);
+
+        /// <summary>
+        /// Service-layer enforcement of <see cref="DemoPolicy.AllowApiKeysModal"/>. The
+        /// Razor <c>@if</c> that hides the API-keys modal is presentation; a Blazor
+        /// refactor (or any new caller) that reaches this service from a hosted
+        /// circuit must hit this wall instead of quietly persisting credentials on
+        /// a server that promises not to hold them.
+        /// </summary>
+        private void ThrowIfUserKeyMutationDisabled()
+        {
+            if (_demo != null && !_demo.AllowApiKeysModal)
+                throw new InvalidOperationException(
+                    "API-key management is disabled on this host: broker credentials are " +
+                    "never held server-side outside the desktop (Full mode) build.");
+        }
+
+        private async Task SaveKeyCoreAsync(ApiKeyConfig config)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
 
@@ -265,6 +299,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task RemoveKeyAsync(string nickname)
         {
+            ThrowIfUserKeyMutationDisabled();
             await EnsureLoadedAsync().ConfigureAwait(false);
             await _lock.WaitAsync().ConfigureAwait(false);
             try

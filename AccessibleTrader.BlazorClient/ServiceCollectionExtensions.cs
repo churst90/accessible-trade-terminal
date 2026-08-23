@@ -362,6 +362,10 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.WalletService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.WithdrawalService>();
+            // Quick-trade equity: one instance for the process — the desktop head has one
+            // account, so this matches the old static's behaviour without the WebHost's
+            // cross-user leak (there, the hub hands each user their own).
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();
@@ -423,7 +427,7 @@ namespace AccessibleTrader.BlazorClient
                 new AccessibleTrader.Core.Services.Trading.QuickTradeService(
                     sp.GetRequiredService<IWorkspaceStore>(),
                     sp.GetRequiredService<IEventBus>(),
-                    equitySource: () => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.Latest,
+                    equitySource: () => sp.GetRequiredService<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>().Latest,
                     // Lets arming ASK for a balance when none has been cached yet. Without this the
                     // cache was only ever filled as a side effect of opening the trading dashboard,
                     // so anyone who ticked paper trading and went straight to the chart hit "connect
@@ -485,14 +489,15 @@ namespace AccessibleTrader.BlazorClient
             // via the Settings modal take effect immediately without a service reload.
             services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(
-                    () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+                    () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>()),
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.DemoPolicy>()));
             services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
-                    BuildAlertChannelHttpClient(),
+                    BuildAlertChannelHttpClient(sp),
                     () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddSingleton<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
-                    BuildAlertChannelHttpClient(),
+                    BuildAlertChannelHttpClient(sp),
                     () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>()),
                     // Wire the diagnostics dependencies so missing-target and delivery
                     // failures actually reach the log and the user's speech (both were
@@ -553,7 +558,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IRoslynScriptingService>(sp =>
                 new RoslynScriptingService(
                     sp.GetRequiredService<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(),
-                    RoslynScriptingService.DefaultWorkerPathResolver));
+                    RoslynScriptingService.DefaultWorkerPathResolver,
+                    sp.GetRequiredService<DemoPolicy>()));
 
             // Analysis — candle pattern recogniser and indicator context facts.
             services.AddSingleton<CandlePatternThresholds>();
@@ -673,17 +679,12 @@ namespace AccessibleTrader.BlazorClient
         }
 
         // ── Alert delivery helpers ───────────────────────────────────────────
-        // Shared HttpClient for the Telegram channel. Capped at 1 MB response
-        // (Telegram responses are small JSON) with a 30s timeout so a hung
-        // api.telegram.org call doesn't pin the alert-delivery thread.
-        private static System.Net.Http.HttpClient BuildAlertChannelHttpClient()
-        {
-            return new System.Net.Http.HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30),
-                MaxResponseContentBufferSize = 1 * 1024 * 1024,
-            };
-        }
+        // Alert-channel HttpClient from the shared Core factory (no redirects; 1 MB /
+        // 30 s envelope). The desktop is HostMode.Full, so BlockPrivateNetworkTargets
+        // is false and LAN webhook targets (e.g. Home Assistant) keep working.
+        private static System.Net.Http.HttpClient BuildAlertChannelHttpClient(IServiceProvider sp)
+            => AccessibleTrader.Core.Services.Alerts.AlertChannelHttpClient.Create(
+                sp.GetRequiredService<DemoPolicy>().BlockPrivateNetworkTargets);
 
         /// <summary>Loads email alert channel config from settings under the
         /// "alerts.email" key-path. Missing / malformed settings return null so the

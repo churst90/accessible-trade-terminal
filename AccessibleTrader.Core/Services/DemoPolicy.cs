@@ -207,6 +207,14 @@ namespace AccessibleTrader.Core.Services
         public bool AllowStrategies       => Mode == HostMode.Full;   // experimental auto-trading — local/desktop power feature
         public bool AllowBackgroundMonitoring => Mode == HostMode.Full; // multi-workspace background eval: N polling loops + N indicator recomputes is a desktop power feature; hosted stays single-workspace by design
 
+        // On a server, a user-supplied webhook URL or SMTP host/port is an SSRF
+        // primitive: "deliver my alert to https://169.254.169.254/…" or "connect
+        // to 10.0.0.5:6379" probes the network the SERVER sits on, with delivery
+        // success/failure spoken back as the oracle. On the desktop the same
+        // config only reaches the user's own machine and LAN — where pointing a
+        // webhook at Home Assistant on 192.168.x is a legitimate feature.
+        public bool BlockPrivateNetworkTargets => Mode != HostMode.Full;
+
         // Full-app features — ON in Hosted, OFF only in the locked Demo:
         public bool AllowTrading          => !IsDemo;   // paper-trading dashboard — the hosted educational core
         public bool AllowAlerts           => !IsDemo;

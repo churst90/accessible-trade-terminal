@@ -55,6 +55,15 @@ public record AlertDefinition
     public string? Provider { get; init; }
     /// <summary>Optional timeframe scope (informational / future multi-workspace routing); null = any.</summary>
     public string? Timeframe { get; init; }
+    /// <summary>
+    /// Market sub-type of the chart the alert was created on ("Spot", "Futures", …
+    /// — the <c>ChartIdentity.Market</c> string). The background monitors put this
+    /// in their <c>MarketDataRequest</c>; before it existed they hardcoded "Spot",
+    /// so an alert on a Futures/Derivatives chart silently watched the wrong
+    /// market. Null (every pre-existing alerts.json entry) falls back to "Spot",
+    /// which is what those alerts were — wrongly but consistently — getting.
+    /// </summary>
+    public string? Market { get; init; }
 
     // ── Per-asset webhook routing (Part B) ───────────────────────────────────
     /// <summary>Name of the configured webhook (see <c>alerts.webhooks</c>) this alert

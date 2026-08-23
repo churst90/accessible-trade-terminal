@@ -34,8 +34,24 @@ namespace AccessibleTrader.WebHost.Services
             ILogger<PaperTradingProvider> accountLogger,
             IEventBus eventBus,
             IDataService dataService,
-            ICurrentUser? currentUser = null)
+            ICurrentUser? currentUser = null,
+            AccessibleTrader.Core.Services.DemoPolicy? demo = null)
         {
+            // PaperTradingProvider reads IPlatformPathService.AppDataDirectory in its
+            // constructor, and UserScopedPathService's contract is "computed on access,
+            // AFTER the circuit handler has set ICurrentUser". On the hosted head that
+            // ordering is what keeps accounts apart: resolve this from a pre-circuit
+            // scope (or re-enable prerendering in App.razor) and every user's paper
+            // account would silently become users/anon/paper_account.json — one shared
+            // account for the whole site. Money state must fail loudly, so refuse.
+            if (demo?.IsHosted == true && currentUser?.IsAuthenticated != true)
+                throw new InvalidOperationException(
+                    "PaperAccountAttachment resolved before the circuit user was known. On the " +
+                    "hosted head the paper account is per-user; creating it from a pre-circuit " +
+                    "scope (or during prerendering) would bind every user to the shared 'anon' " +
+                    "account. Resolve IPaperTradingProvider only from inside an authenticated " +
+                    "circuit — see UserScopedPathService's computed-on-access contract.");
+
             string key = currentUser?.DataKey ?? "anon";
 
             Account = hub.ForUser(key, () =>

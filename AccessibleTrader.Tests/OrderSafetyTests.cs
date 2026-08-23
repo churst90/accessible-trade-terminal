@@ -58,7 +58,8 @@ namespace AccessibleTrader.Tests
             // Full host mode → AllowLiveTrading true, so routing follows the (unset)
             // paperTradingMode setting and reaches the live provider substitute above.
             var demo = new DemoPolicy(isDemo: false);
-            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings, demo);
+            var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings, demo,
+                new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
             return (svc, trading, data, err);
         }
 

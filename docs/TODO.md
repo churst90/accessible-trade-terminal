@@ -81,13 +81,11 @@ name ever changes upstream.
 
 ### Still open from this patch's own list
 
-- [ ] **Background alerts silently do not fire** for Indicator and POC targets — only Price and
-  Candle work, and the manual claims otherwise. A blind trader believing an alert is watching the
-  market when it is not is the worst failure this app has.
-- [ ] **SSRF through both alert channels** — any registered user, open registration, no allow-list,
-  and an arbitrary outbound TCP connect via the SMTP host/port.
-- [ ] **`QuickTradeEquity` is a process-wide static** — one user's balance becomes another's
-  sizing input.
+- [x] **FIXED 2026-08-22 — Background alerts silently do not fire** for Indicator and POC targets.
+  See the hosted-risks section below for what was actually done (exclude + say so, not silently
+  evaluate to null) and for the deeper finding underneath it.
+- [x] **FIXED 2026-08-22 — SSRF through both alert channels.** See below.
+- [x] **FIXED 2026-08-22 — `QuickTradeEquity` is a process-wide static.** See below.
 
 ---
 
@@ -1364,77 +1362,110 @@ guesses are invisible until money moves.
   test that `PlaceOrderAsync`'s return value reaches the poller. Every critical in this section is
   unguarded.
 
-### Hosted / WebHost — production risks on the live site
+### Hosted / WebHost — production risks on the live site (section closed 2026-08-22)
 
-- [ ] **The chart freezes exactly when the market is busy.** VERIFIED. `ChartArea.razor:329`
-  rate-limits rendering with `.Throttle(TimeSpan.FromMilliseconds(100))`. In Rx.NET `Throttle` is
-  *debounce* — it emits only after a 100 ms quiet gap. The trigger fires on every
-  `Store.StateStream` emission, and live ticks on Bitstamp/Binance/Kraken/MEXC (all hosted-enabled)
-  arrive faster than that during volatility, so the timer keeps resetting and the PNG stops
-  updating until the feed goes quiet. The intended operator is `Sample`. The codebase already
-  knows the difference: `EventBus.SubscribeCoalesced` uses `Throttle` and documents it as
-  "debouncing", `SubscribeSampled` uses `Sample`, and `TactileCanvasCoordinator:171` uses
-  `Throttle` correctly and deliberately. README:39 claims "~10 fps". One-word fix.
-- [ ] **Hosted background alerts silently do not fire for most alert types.** VERIFIED.
-  `LocalBackgroundMonitor.DeriveWatches` filters to `a.ConditionTree == null`, so every Advanced-
-  condition alert is excluded from server-side evaluation. Both monitors then evaluate with
-  `WorkspaceState.Initial` and an empty indicator dictionary, so in `AlertEvaluator.TryEvaluate`
-  the `Indicator` target hits `series == null → return null` and `Poc` hits `NaN → return null`.
-  Only Price and Candle targets work. Nothing warns the user, and `USER_MANUAL.md:2023` says
-  advanced alerts have "everything else about alerts unchanged — delivery channels, symbol scoping,
-  and background tabs". A blind trader believes an alert is watching the market when it is not.
-  Either evaluate them properly or refuse to save a server-side alert the server cannot evaluate,
-  and say which.
-- [ ] **Both background monitors hardcode `"Spot"` as the market sub-type.** VERIFIED —
-  `HostedAlertMonitor:182` and `LocalBackgroundMonitor:149`, and the `Watch` record carries no
-  market type at all. Alerts on Derivatives, Economic, OnChain or Sentiment — all in
-  `HostedMarkets` — request the wrong sub-type; the failure is logged at Debug and swallowed. Same
-  bug copy-pasted in two places.
-- [ ] **SSRF from the hosted server through both alert channels.** VERIFIED.
-  `WebhookAlertChannel.IsValid` accepts any absolute HTTPS URL — no host allow-list, no
-  private-IP/loopback block, default redirect-following. `EmailAlertChannel` does
-  `new SmtpClient(cfg.Host!, cfg.Port)` with user-supplied host and port, i.e. an arbitrary
-  outbound TCP connect usable as a port scanner. Both are reachable by any registered user
-  (registration is open, no email confirmation), and delivery success/failure is spoken back,
-  giving a boolean oracle. `BuildAlertChannelHttpClient()` deliberately bypasses
-  `PluginHostServices.CreateHttpClient` — the allow-listed factory every *provider* is required to
-  use. README boasts that all providers route through it; the channels that take a user-supplied
-  URL are the exception.
-- [ ] **`QuickTradeEquity` is a process-wide static on a multi-user host.** `private static double
-  _latest`, written by `GeneralOrderService.GetBalancesAsync` from every circuit. User A's balance
-  becomes user B's sizing input, and B can infer A's account size. The doc comment's reasoning
-  ("avoids a stale copy per browser tab") was written for the single-user desktop.
-- [ ] **`PaperTradingProvider` is `AddScoped` on the WebHost**, so two tabs for one user get two
-  independent accounts over one `paper_account.json` with no re-read and no file watch. Whichever
-  instance persists last wins, and a trade made in tab A can be overwritten out of existence by a
-  trailing-stop update in tab B. The desktop head is `AddSingleton` and unaffected. Fix: a
-  process-wide dictionary of accounts keyed by `ICurrentUser.DataKey`.
-- [ ] **`PaperTradingProvider` reads `AppDataDirectory` in its constructor**, defeating
-  `UserScopedPathService`'s explicit "computed on access, after the circuit handler has set
-  `ICurrentUser`" contract. Safe today only because `App.razor` sets `prerender: false`. Re-enable
-  prerendering, or resolve the broker from any pre-circuit scope, and every user's paper account
-  silently becomes `users/anon/paper_account.json` — one shared account for the whole site.
-- [ ] **`AllowCustomScripts` and `AllowApiKeysModal` are enforced only in Razor `@if` markup.**
-  `AllowLiveTrading` is properly enforced in `GeneralOrderService`; these two have no service-layer
-  check. Not currently exploitable — Blazor Server will not dispatch events to a component that was
-  never rendered — but server-side Roslyn is described in `DemoPolicy:203` as "RCE", and one
-  refactor is all that stands between a hosted user and it.
-- [ ] **A WebHost started with neither `--accounts` nor `--demo` serves `HostMode.Full` to every
-  anonymous visitor** — live trading, API-keys modal and custom scripts all on. The difference
-  between the hosted product and a fully-trusted local terminal is one absent command-line flag.
-  Refuse to start in `Full` when the bound URL is not loopback.
-- [ ] **`/diag/journal` is unauthenticated.** Mapped outside the `accountsEnabled` block with no
-  `.RequireAuthorization()`, gated only on `--enable-diag` or `IsDevelopment()`. On a hosted
-  instance run with that flag it is an anonymous dump of spoken-text history.
-- [ ] **`ForgotPassword`'s comment claims rate-limit coverage it does not have.**
-  `AuthRateLimitPolicy.IsAuthMutation` matches only `/account/login` and `/account/register` POSTs,
-  so `/account/forgotpassword` falls into the general 200-per-10s tier while writing an audit record
-  with an attacker-supplied email to `SecurityEventFileSink` — which opens, writes and closes a file
-  under a global lock per event, and whose own comment assumes "a couple per minute at most under
-  heavy load". Unauthenticated disk-fill and lock contention. `/account/loginwith2fa` and
-  `/account/loginwithrecovery` are also outside the auth tier (per-account lockout does cover them).
-- [ ] **The owner-seed ignores its `IdentityResult`.** `Program.cs:188` — `await
-  users.CreateAsync(seedUser)` with no check, so a failed seed is silent.
+Every item in this section was fixed on 2026-08-22, in one pass. Each guard listed below was
+proven by reintroducing its defect and watching it go red — all 18 sabotaged-run failures matched
+their guards exactly. Suite green afterwards. What is recorded per item is the shape of the fix
+and anything learned on the way in.
+
+- [x] **FIXED (earlier, `12937dd3`) — The chart freezes exactly when the market is busy.**
+  `.Throttle` → `.Sample` in `ChartArea.razor`; guarded by
+  `TheChartComponent_UsesSampleForItsRenderTrigger`. Recorded here because this section still
+  listed it as open.
+- [x] **FIXED — Hosted background alerts silently do not fire for most alert types.** The honest
+  option was taken: alerts the background evaluator cannot evaluate (condition trees, Indicator
+  and Poc targets, and TrendChange/EntersZone/ExitsZone — all of which read chart state that
+  `WorkspaceState.Initial` does not have) are now EXCLUDED from the watch list by
+  `BackgroundWatchability.WhyUnwatchable` (Core, shared with the UI so the exclusion and the
+  warning cannot disagree), the monitors log which alerts are unwatchable once per change, the
+  AlertsModal SPEAKS the limitation at the moment of creation, and USER_MANUAL's two claims were
+  corrected. **The deeper finding underneath:** `AlertsModal.AddAlert` never stamped `Provider`
+  (or `Timeframe`, or any market) on a new alert — only `Symbol` — and `DeriveWatches` requires
+  provider+symbol, so a modal-created alert was NEVER watchable with the browser closed, price
+  alerts included. The modal now stamps the full chart identity when scoping to the current chart.
+  Guards: `Chart_dependent_alerts_are_excluded_and_named_not_silently_no_opped`,
+  `AddAlert_StampsTheChartIdentity_SoBackgroundMonitorsCanFetch`,
+  `AddingAChartDependentAlert_SaysBackgroundMonitoringCannotWatchIt` + vacuity twin.
+- [x] **FIXED — Both background monitors hardcode `"Spot"`.** `AlertDefinition` gained a nullable
+  `Market` (old alerts.json entries read as null → "Spot", which is what they were wrongly-but-
+  consistently getting); the modal stamps it from `ChartIdentity.Market`; `Watch` carries it; it
+  joined the grouping key and the hosted monitor's bars-cache key (two users, one symbol, two
+  sub-types must not share a fetch); both `MarketDataRequest`s use it. Guards:
+  `Watches_carry_the_alerts_market_instead_of_hardcoding_spot`,
+  `Market_survives_the_newtonsoft_round_trip_and_old_json_reads_as_null`.
+- [x] **FIXED — SSRF from the hosted server through both alert channels.** A host allow-list is
+  the wrong tool for a user-chosen target, so the fix is a public-internet-only wall:
+  `OutboundNetworkGuard.IsPublic` (loopback, RFC1918, link-local incl. 169.254.169.254, CGNAT,
+  ULA, multicast, TEST-NETs, v4-mapped-v6 unmapped first) + `AlertChannelHttpClient.Create`,
+  which enforces it inside `SocketsHttpHandler.ConnectCallback` — the socket connects to an
+  address the guard itself resolved, so DNS rebinding has nothing to rebind — and never follows
+  redirects (both heads; an open redirect on an approved host must not re-aim a delivery).
+  `EmailAlertChannel` on non-Full hosts additionally restricts the port to {25,465,587,2525}
+  (kills the port-scan oracle; checked BEFORE DNS) and pre-resolves the host through the guard.
+  Gated by new `DemoPolicy.BlockPrivateNetworkTargets` (`Mode != Full`) — on the desktop a LAN
+  webhook (Home Assistant) is a feature, not an exploit. The two byte-identical
+  `BuildAlertChannelHttpClient` copies now both delegate to the Core factory. The sabotaged run
+  also demonstrated the bug live: with the guard off, the SMTP test spent 100 s genuinely trying
+  to reach 169.254.169.254. Guards: `OutboundNetworkGuardTests` (23 tests incl. desktop vacuity
+  twins).
+- [x] **FIXED — `QuickTradeEquity` is a process-wide static.** Now an instance class plus
+  `QuickTradeEquityHub` (same shape as `PaperAccountHub`, keyed on `ICurrentUser.DataKey`):
+  desktop registers one instance for the process (identical behaviour to the old static), the
+  WebHost resolves per-user through the hub, so tabs of one user still share a value and
+  different users never do. `GeneralOrderService` takes it by constructor. Guard:
+  `TwoUsersEquityCachesNeverShare`.
+- [x] **FIXED (earlier, `12937dd3`) — `PaperTradingProvider` AddScoped two-tab clobber** — the
+  `PaperAccountHub` work; was still listed open here.
+- [x] **FIXED — `PaperTradingProvider` reads `AppDataDirectory` in its constructor.** The silent
+  failure mode is what was fixed: `PaperAccountAttachment` now REFUSES (throws, naming the
+  computed-on-access contract) when resolved on the hosted head before the circuit user is known
+  — re-enable prerendering or resolve the broker pre-circuit and you get a loud exception on
+  first use, not every user silently sharing `users/anon/paper_account.json`. The ctor read
+  itself remains (the desktop needs it eager; the hub creates hosted instances only after the
+  guard passes). Guards: `PaperAccountAttachmentGuardTests` (4, incl. Full-mode anon-on-purpose).
+- [x] **FIXED — `AllowCustomScripts` / `AllowApiKeysModal` enforced only in Razor markup.**
+  Service-layer walls, mirroring how `AllowLiveTrading` is done: `RoslynScriptingService` (all
+  three compile/execute entry points) and `ScriptingService.ExecuteScriptAsync` (in-process
+  CSharpScript — no sandbox at all) throw when `!AllowCustomScripts`; `ApiKeyService.SaveKeyAsync`
+  / `RemoveKeyAsync` throw when `!AllowApiKeysModal`, with `SaveServerManagedKeyAsync` as the
+  explicit bypass for Program.cs's own seeding of the shared Twelve Data / FRED keys (that path
+  now casts to the concrete class on purpose). `StrategyAutoLoader` already wraps compiles in
+  try/catch, so a hosted library holding a Roslyn strategy degrades to a logged warning. Guards:
+  `ScriptingPolicyWallTests`, `ApiKeyServiceTests.Hosted_*` / `FullMode_*`.
+- [x] **FIXED — WebHost with neither `--accounts` nor `--demo` serves `HostMode.Full` to every
+  visitor.** Program.cs now starts Kestrel, checks the actually-bound addresses
+  (`FullModeBindPolicy`: localhost / 127/8 / [::1] pass; `0.0.0.0`, `[::]`, and the unparseable
+  `+`/`*` wildcard binds fail closed), and refuses to serve Full on a non-loopback bind with a
+  message naming the remedies. `--unsafe-remote-full` is the explicit trusted-LAN opt-out.
+  Guards: `FullModeBindPolicyTests`.
+- [x] **FIXED — `/diag/journal` is unauthenticated.** `.RequireAuthorization()` when accounts are
+  enabled (Full mode keeps it anonymous — local, loopback-guarded above). Guard:
+  `Diag_journal_requires_a_signed_in_user_when_it_is_mapped` (Development-environment hosted
+  factory, asserts the login redirect).
+- [x] **FIXED — `ForgotPassword` rate-limit gap.** `IsAuthMutation` now lists
+  forgotpassword/loginwith2fa/loginwithrecovery/resetpassword explicitly (StartsWithSegments is
+  segment-boundary aware, so `/account/login` never covered them); the ForgotPassword doc comment
+  now tells the truth. Guards: four new `IsAuthMutation` theory rows.
+- [x] **FIXED — owner-seed ignores its `IdentityResult`.** A failed seed now throws at startup
+  with the joined errors — a silently failed seed locks the operator out of the account they
+  configured.
+
+**Found while closing the section, worth its own line:** the .NET SDK 10.0.300+ Razor
+source-generator regression ([dotnet/razor#13184](https://github.com/dotnet/razor/issues/13184))
+falsely rejects valid markup (`<text>` in code blocks, etc.), corrupting generated C# — **284
+errors across 11 components on a CLEAN build of pristine HEAD**. Incremental builds had been
+reusing generated files cached under an older SDK, which is why every suite run stayed green
+until `obj/` was first dropped. Both Razor-compiling projects now set
+`<UseRazorSourceGenerator>false</UseRazorSourceGenerator>` (classic two-phase compilation) until
+the SDK fix ships — remove the property and re-clean-build to check.
+
+Smaller findings recorded, not fixed: `EmailAlertChannelConfig`'s doc comment claims credentials
+ride the encrypted `IApiKeyService` store, but `EmailPassword` / the Telegram bot token / webhook
+auth headers are stored as plain settings strings; `WebhookAlertChannel._warnedMissingTargets`
+is mutated without its lock (its sibling `_warnedFailingTargets` is locked) despite the
+`IAlertChannel` thread-safety contract; and `SettingsModal.PersistAlertSettings` still saves
+before the "Send test" runs, so an invalid channel config persists regardless of the test result.
 
 ### Duplication swept 2026-08-22, and what the sweep found
 

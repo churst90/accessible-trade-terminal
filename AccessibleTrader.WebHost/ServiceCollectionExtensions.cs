@@ -354,6 +354,13 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Trading.PortfolioValuationService>();
             services.AddScoped<AccessibleTrader.Core.Services.Trading.WalletService>();
             services.AddScoped<AccessibleTrader.Core.Services.Trading.WithdrawalService>();
+            // Quick-trade equity: one cache per USER (hub), resolved per circuit. Scoping the
+            // cache itself would give one user a stale copy per browser tab; the static it
+            // replaced leaked one user's balance into another's position sizing.
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.QuickTradeEquityHub>();
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.Trading.QuickTradeEquityHub>()
+                  .ForUser(sp.GetService<Account.ICurrentUser>()?.DataKey));
             services.AddScoped<IOrderExecutionService, GeneralOrderService>();
             services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
             services.AddScoped<IStrategyEngine, StrategyEngine>();
@@ -394,7 +401,7 @@ namespace AccessibleTrader.WebHost
                 new AccessibleTrader.Core.Services.Trading.QuickTradeService(
                     sp.GetRequiredService<IWorkspaceStore>(),
                     sp.GetRequiredService<IEventBus>(),
-                    equitySource: () => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.Latest,
+                    equitySource: () => sp.GetRequiredService<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>().Latest,
                     // Lets arming ASK for a balance when none has been cached yet. Without this the
                     // cache was only ever filled as a side effect of opening the trading dashboard,
                     // so anyone who ticked paper trading and went straight to the chart hit "connect
@@ -450,16 +457,22 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IReplayService, ReplayService>();
             services.AddScoped<ISplitViewCoordinator, SplitViewCoordinator>();
 
+            // Alert channels connect to USER-supplied targets (webhook URL, SMTP
+            // host/port), so their HttpClient comes from AlertChannelHttpClient —
+            // no redirects, and on non-Full hosts a public-internet-only connect
+            // guard. The provider allow-list factory cannot serve here: its whole
+            // model is a fixed host list, and these targets are chosen by the user.
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.EmailAlertChannel(
-                    () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>())));
+                    () => LoadEmailAlertConfig(sp.GetRequiredService<ISettingsManager>()),
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.DemoPolicy>()));
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.TelegramAlertChannel(
-                    BuildAlertChannelHttpClient(),
+                    BuildAlertChannelHttpClient(sp),
                     () => LoadTelegramAlertConfig(sp.GetRequiredService<ISettingsManager>())));
             services.AddScoped<AccessibleTrader.Sdk.Alerts.IAlertChannel>(sp =>
                 new AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel(
-                    BuildAlertChannelHttpClient(),
+                    BuildAlertChannelHttpClient(sp),
                     () => LoadWebhookAlertConfig(sp.GetRequiredService<ISettingsManager>()),
                     // Wire diagnostics so missing-target and delivery failures reach the
                     // log and (when a circuit is open) the user's speech — null before.
@@ -499,7 +512,11 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IRoslynScriptingService>(sp =>
                 new RoslynScriptingService(
                     sp.GetRequiredService<AccessibleTrader.Core.Services.Scripting.IScriptWorkerLauncher>(),
-                    RoslynScriptingService.DefaultWorkerPathResolver));
+                    RoslynScriptingService.DefaultWorkerPathResolver,
+                    // Service-layer enforcement of AllowCustomScripts: on Hosted/Demo the
+                    // compile entry points throw — the Razor @if that hides the modal is
+                    // presentation, not a security boundary.
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.DemoPolicy>()));
 
             services.AddScoped<CandlePatternThresholds>();
             services.AddScoped<ISdkCandlePatternAnalyzer, SdkCandlePatternAnalyzer>();
@@ -599,16 +616,11 @@ namespace AccessibleTrader.WebHost
             return services;
         }
 
-        // ── Alert delivery helpers (verbatim copies from the MAUI head) ──
+        // ── Alert delivery helpers (config loaders shared with the MAUI head) ──
 
-        private static System.Net.Http.HttpClient BuildAlertChannelHttpClient()
-        {
-            return new System.Net.Http.HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30),
-                MaxResponseContentBufferSize = 1 * 1024 * 1024,
-            };
-        }
+        private static System.Net.Http.HttpClient BuildAlertChannelHttpClient(IServiceProvider sp)
+            => AccessibleTrader.Core.Services.Alerts.AlertChannelHttpClient.Create(
+                sp.GetRequiredService<AccessibleTrader.Core.Services.DemoPolicy>().BlockPrivateNetworkTargets);
 
         private static AccessibleTrader.Core.Services.Alerts.EmailAlertChannelConfig? LoadEmailAlertConfig(ISettingsManager settings)
         {

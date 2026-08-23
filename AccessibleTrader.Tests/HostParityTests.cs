@@ -77,6 +77,11 @@ public class HostParityTests
             "Hosted-only, and paired with PaperAccountHub: it binds one circuit's chart to the "
           + "shared account and unbinds when the tab closes. A desktop head has one chart set and "
           + "no circuits to bind.",
+        ["QuickTradeEquityHub"] =
+            "Hosted-only, same shape as PaperAccountHub: one equity cache per USER so quick-trade "
+          + "sizing never reads another user's balance, while tabs of one user still share. The "
+          + "desktop head is single-user and registers QuickTradeEquity itself as a Singleton, "
+          + "which both heads consume identically.",
     };
 
     private const string WebHostFile = "AccessibleTrader.WebHost/ServiceCollectionExtensions.cs";

@@ -112,6 +112,11 @@ public class WebHostSecurityPolicyTests
     [InlineData("POST", "/account/login", true)]
     [InlineData("POST", "/account/register", true)]
     [InlineData("POST", "/Account/Login", true)]   // route casing must not bypass
+    [InlineData("POST", "/account/loginwith2fa", true)]      // 2FA code guessing
+    [InlineData("POST", "/account/loginwithrecovery", true)] // recovery-code guessing
+    [InlineData("POST", "/account/forgotpassword", true)]    // writes attacker-supplied audit records
+    [InlineData("POST", "/account/resetpassword", true)]     // token guessing
+    [InlineData("GET", "/account/forgotpassword", false)]    // rendering the form is general traffic
     [InlineData("GET", "/account/login", false)]   // rendering the form is general traffic
     [InlineData("POST", "/account/logout", false)] // logout is not a guessing surface
     [InlineData("POST", "/", false)]
@@ -151,5 +156,48 @@ public class WebHostSecurityPolicyTests
         // orders of magnitude below page-load rates or it is not doing its job.
         Assert.True(AuthRateLimitPolicy.AuthPermitLimit <= AuthRateLimitPolicy.GeneralPermitLimit / 10);
         Assert.True(AuthRateLimitPolicy.AuthWindow >= AuthRateLimitPolicy.GeneralWindow);
+    }
+}
+
+/// <summary>
+/// Pins the Full-mode bind guard: an unauthenticated fully-trusted terminal
+/// (live trading, API keys, server-side scripts) must never be served on an
+/// address other machines can reach. Before 2026-08-22 a WebHost started with
+/// neither --accounts nor --demo on a public bind gave HostMode.Full to every
+/// anonymous visitor.
+/// </summary>
+public class FullModeBindPolicyTests
+{
+    [Theory]
+    [InlineData("http://localhost:5145")]
+    [InlineData("https://LOCALHOST:443")]
+    [InlineData("http://127.0.0.1:5000")]
+    [InlineData("http://127.0.0.2:5000")]   // whole 127/8 block is loopback
+    [InlineData("http://[::1]:5000")]
+    public void Loopback_binds_are_allowed(string address)
+    {
+        Assert.True(FullModeBindPolicy.IsLoopback(address));
+        Assert.Null(FullModeBindPolicy.FindNonLoopbackAddress(new[] { address }));
+    }
+
+    [Theory]
+    [InlineData("http://0.0.0.0:5000")]     // binds every interface
+    [InlineData("http://[::]:5000")]        // binds every interface (v6)
+    [InlineData("http://+:80")]             // Kestrel wildcard — unparseable, fails closed
+    [InlineData("http://*:80")]             // Kestrel wildcard — unparseable, fails closed
+    [InlineData("http://192.168.1.20:5000")]
+    [InlineData("http://10.0.0.5:5000")]
+    [InlineData("https://trade.example.com:443")]
+    public void Non_loopback_binds_are_refused(string address)
+    {
+        Assert.False(FullModeBindPolicy.IsLoopback(address));
+        Assert.Equal(address, FullModeBindPolicy.FindNonLoopbackAddress(new[] { address }));
+    }
+
+    [Fact]
+    public void The_first_offending_address_is_named_even_among_safe_ones()
+    {
+        var addresses = new[] { "http://localhost:5145", "http://0.0.0.0:8080", "http://[::]:9090" };
+        Assert.Equal("http://0.0.0.0:8080", FullModeBindPolicy.FindNonLoopbackAddress(addresses));
     }
 }

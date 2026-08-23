@@ -18,30 +18,34 @@ namespace AccessibleTrader.Core.Services.Trading
     /// </para>
     ///
     /// <para>
-    /// Deliberately not a service with a lifetime: the WebHost scopes per circuit and the desktop
-    /// head is a singleton, and equity is a property of the account rather than of either. This
-    /// keeps one value for the process and avoids a stale copy per browser tab.
+    /// An instance per account, not a process-wide static. This WAS a static — "equity is a property
+    /// of the account rather than of either lifetime" — which was true on the desktop, where the
+    /// process has one account. On the multi-user WebHost it meant user A's balance became user B's
+    /// sizing input, and B could infer A's account size from their own quick-trade announcements.
+    /// The desktop head registers one instance for the process (same behaviour as before); the
+    /// WebHost hands each user their own via <see cref="QuickTradeEquityHub"/>, so tabs of one user
+    /// still share a value and different users never do.
     /// </para>
     /// </summary>
-    public static class QuickTradeEquity
+    public sealed class QuickTradeEquity
     {
-        private static double _latest;
+        private double _latest;
 
         /// <summary>Account equity in quote currency, or 0 when nothing has reported one.</summary>
-        public static double Latest => System.Threading.Volatile.Read(ref _latest);
+        public double Latest => System.Threading.Volatile.Read(ref _latest);
 
         /// <summary>
         /// Record an observed equity. Non-finite and negative values are ignored rather than
         /// stored: a provider hiccup must not be able to turn into a position size.
         /// </summary>
-        public static void Report(double equity)
+        public void Report(double equity)
         {
             if (double.IsFinite(equity) && equity >= 0)
                 System.Threading.Volatile.Write(ref _latest, equity);
         }
 
         /// <summary>Test seam: forget the cached value.</summary>
-        internal static void Reset() => System.Threading.Volatile.Write(ref _latest, 0);
+        internal void Reset() => System.Threading.Volatile.Write(ref _latest, 0);
 
         /// <summary>
         /// Whether a balance line is cash the risk budget can be a percentage of.
@@ -63,5 +67,24 @@ namespace AccessibleTrader.Core.Services.Trading
         private static readonly System.Collections.Generic.HashSet<string> CashAssets =
             new(System.StringComparer.OrdinalIgnoreCase)
             { "USD", "USDT", "USDC", "BUSD", "DAI", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF" };
+    }
+
+    /// <summary>
+    /// One equity cache per user, for the whole process — the same shape as
+    /// <c>PaperAccountHub</c> and for the same reason: a Blazor scope is a browser tab, so scoping
+    /// the cache would give one user a stale copy per tab, while a process-wide value leaks one
+    /// user's balance into another's position sizing. Keyed on <c>ICurrentUser.DataKey</c>.
+    /// </summary>
+    public sealed class QuickTradeEquityHub
+    {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, QuickTradeEquity> _byUser =
+            new(System.StringComparer.Ordinal);
+
+        /// <summary>This user's equity cache, created once on first use.</summary>
+        public QuickTradeEquity ForUser(string? userKey)
+        {
+            if (string.IsNullOrEmpty(userKey)) userKey = "anon";
+            return _byUser.GetOrAdd(userKey, _ => new QuickTradeEquity());
+        }
     }
 }

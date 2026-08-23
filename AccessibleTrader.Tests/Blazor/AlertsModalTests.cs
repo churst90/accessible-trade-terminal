@@ -206,4 +206,76 @@ public class AlertsModalTests
         cut.WaitForAssertion(() =>
             Assert.True(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
     }
+
+    [Fact]
+    public void AddAlert_StampsTheChartIdentity_SoBackgroundMonitorsCanFetch()
+    {
+        // The modal used to stamp only Symbol. DeriveWatches fetches by
+        // (provider, market, symbol, timeframe), so a modal-created alert had
+        // nothing to fetch by and was never watchable with the browser closed.
+        var (ctx, orch, bus) = BuildContext();
+        var cut = OpenModal(ctx, bus);
+
+        cut.Find("input#alert-name").Change("Big BTC move");
+        cut.Find("input#alert-threshold").Change("65000");
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var added = Assert.Single(orch.Added);
+            // The harness store carries ChartIdentity.Empty: ("Spot", "Bitstamp", "", "1h").
+            Assert.Equal("Bitstamp", added.Provider);
+            Assert.Equal("Spot", added.Market);
+            Assert.Equal("1h", added.Timeframe);
+        });
+    }
+
+    [Fact]
+    public void AddingAChartDependentAlert_SaysBackgroundMonitoringCannotWatchIt()
+    {
+        // "Nothing warns the user" was the finding: an indicator alert saved
+        // fine and then silently never evaluated in the background. The moment
+        // of creation is where the limitation must be spoken.
+        var (ctx, orch, bus) = BuildContext();
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("input#alert-name").Change("RSI watch");
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(orch.Added);
+            Assert.Contains(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
+    [Fact]
+    public void AddingAPriceAlert_AnnouncesPlainSuccess_NoScaryCaveat()
+    {
+        // Vacuity check for the warning: a watchable alert must announce success
+        // WITHOUT the cannot-watch caveat, or the warning means nothing.
+        var (ctx, orch, bus) = BuildContext();
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("input#alert-name").Change("Big BTC move");
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(orch.Added);
+            Assert.Contains(spoken, m => m.Contains("added", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
+        });
+    }
 }

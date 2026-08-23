@@ -19,6 +19,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>AccessibleTrader.WebHost</RootNamespace>
+    <!-- Same .NET SDK 10.0.300+ Razor source-generator regression as the
+         Components RCL (see its csproj header): false RZ1021 inside @if
+         blocks corrupts the generated C# for SpeechOutputPrompt.razor on a
+         clean build. Classic two-phase Razor compilation until the SDK fix
+         ships. https://github.com/dotnet/razor/issues/13184 -->
+    <UseRazorSourceGenerator>false</UseRazorSourceGenerator>
     <!-- Version inherited from Directory.Build.props — bump it there only. -->
     <!-- Release builds run as a windowed (GUI-subsystem) app on Windows so the
          shipped binary doesn't pop a black console window when the user double-

@@ -85,15 +85,36 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private readonly Func<string> _workerPathResolver;
 
+        // Host policy, when the head supplies one. Compiling user code is the
+        // "server-side Roslyn = RCE" line in DemoPolicy: the Razor @if that
+        // hides the scripts modal is presentation, THIS is the enforcement.
+        private readonly DemoPolicy? _demo;
+
         public RoslynScriptingService()
             : this(CreateDefaultLauncher(), DefaultWorkerPathResolver)
         {
         }
 
-        public RoslynScriptingService(IScriptWorkerLauncher workerLauncher, Func<string> workerPathResolver)
+        public RoslynScriptingService(IScriptWorkerLauncher workerLauncher, Func<string> workerPathResolver,
+            DemoPolicy? demo = null)
         {
             _workerLauncher = workerLauncher ?? throw new ArgumentNullException(nameof(workerLauncher));
             _workerPathResolver = workerPathResolver ?? throw new ArgumentNullException(nameof(workerPathResolver));
+            _demo = demo;
+        }
+
+        /// <summary>
+        /// Every compile/execute entry point starts here. A Blazor Server refactor
+        /// that dispatches an event to a never-rendered component, or any new
+        /// caller that skips the UI entirely, must hit this wall — not the sandbox,
+        /// which exists for ACCIDENTS in trusted-user code, not for hostile tenants.
+        /// </summary>
+        private void ThrowIfScriptsDisabled()
+        {
+            if (_demo != null && !_demo.AllowCustomScripts)
+                throw new InvalidOperationException(
+                    "Custom scripts are disabled on this host: compiling user code runs it " +
+                    "server-side, which is a desktop-only (Full mode) capability.");
         }
 
         /// <summary>
@@ -189,6 +210,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<CompileResult> CompileIndicatorAsync(string code)
         {
+            ThrowIfScriptsDisabled();
             if (string.IsNullOrWhiteSpace(code))
                 return new CompileResult(false, null, new[] { "Code is empty." });
 
@@ -392,6 +414,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<CompileStrategyResult> CompileStrategyAsync(string code)
         {
+            ThrowIfScriptsDisabled();
             if (string.IsNullOrWhiteSpace(code))
                 return new CompileStrategyResult(false, null, new[] { "Code is empty." });
 
@@ -497,6 +520,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<ScriptResult> ExecuteSimpleAsync(string code, List<Ohlcv> data)
         {
+            ThrowIfScriptsDisabled();
             if (string.IsNullOrWhiteSpace(code))
                 return new ScriptResult(false, new(), "Script code is empty.");
 

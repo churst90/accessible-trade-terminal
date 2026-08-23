@@ -51,7 +51,8 @@ namespace AccessibleTrader.Tests
             var settings = Substitute.For<ISettingsManager>();
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance,
-                new EventBus(), paper, settings, new DemoPolicy(isDemo: false));
+                new EventBus(), paper, settings, new DemoPolicy(isDemo: false),
+                new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
             return new Harness(svc, tp, paper, settings, err);
         }
 

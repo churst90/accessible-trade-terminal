@@ -37,8 +37,20 @@ namespace AccessibleTrader.Core.Services
     /// </remarks>
     public class ScriptingService : IScriptingService
     {
+        // Host policy, when the head supplies one — same wall as
+        // RoslynScriptingService.ThrowIfScriptsDisabled, because this class runs
+        // user code IN PROCESS (CSharpScript, no sandbox at all).
+        private readonly DemoPolicy? _demo;
+
+        public ScriptingService(DemoPolicy? demo = null) => _demo = demo;
+
         public async Task<ScriptResult> ExecuteScriptAsync(string code, List<Ohlcv> data)
         {
+            if (_demo != null && !_demo.AllowCustomScripts)
+                throw new InvalidOperationException(
+                    "Custom scripts are disabled on this host: this path runs user code " +
+                    "in-process, which is a desktop-only (Full mode) capability.");
+
             if (string.IsNullOrWhiteSpace(code))
                 return new ScriptResult(false, new(), "Script code is empty.");
 

@@ -15,8 +15,10 @@ namespace AccessibleTrader.WebHost.Pages.Account
     /// itself — on POST it ALWAYS shows the same neutral message regardless of
     /// whether the address is registered (closes the enumeration oracle) and
     /// records the request in the security log so the admin can mint a reset link
-    /// out of band (Program.cs <c>--reset-link</c>). Covered by the existing
-    /// <c>auth:{ip}</c> rate limiter (POST under /Account/).
+    /// out of band (Program.cs <c>--reset-link</c>). POSTs here are in the strict
+    /// <c>auth:{ip}</c> rate-limit tier — listed explicitly in
+    /// <c>AuthRateLimitPolicy.IsAuthMutation</c>, because every POST writes an
+    /// attacker-supplied email to the security log.
     /// </summary>
     public class ForgotPasswordModel : PageModel
     {

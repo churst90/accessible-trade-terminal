@@ -31,11 +31,22 @@ public sealed record EmailAlertChannelConfig
 /// </summary>
 public sealed class EmailAlertChannel : IAlertChannel
 {
-    private readonly Func<EmailAlertChannelConfig?> _configProvider;
+    /// <summary>
+    /// The submission ports SMTP legitimately uses. Enforced only when
+    /// <see cref="DemoPolicy.BlockPrivateNetworkTargets"/> is on: with a free
+    /// choice of port, `new SmtpClient(host, port)` from the hosted server is an
+    /// arbitrary outbound TCP connect — a port scanner whose result is spoken
+    /// back to the user as delivery success or failure.
+    /// </summary>
+    private static readonly int[] AllowedSmtpPorts = { 25, 465, 587, 2525 };
 
-    public EmailAlertChannel(Func<EmailAlertChannelConfig?> configProvider)
+    private readonly Func<EmailAlertChannelConfig?> _configProvider;
+    private readonly DemoPolicy? _demo;
+
+    public EmailAlertChannel(Func<EmailAlertChannelConfig?> configProvider, DemoPolicy? demo = null)
     {
         _configProvider = configProvider;
+        _demo = demo;
     }
 
     public string Id => "email";
@@ -57,6 +68,24 @@ public sealed class EmailAlertChannel : IAlertChannel
     {
         var cfg = _configProvider();
         if (cfg == null || !IsConfigured) return;
+
+        // A port outside 1–65535 would surface as ArgumentOutOfRangeException from
+        // deep inside SmtpClient; refuse it here with a message that names the field.
+        if (cfg.Port is < 1 or > 65535)
+            throw new InvalidOperationException($"SMTP port {cfg.Port} is not a valid port.");
+
+        if (_demo?.BlockPrivateNetworkTargets == true)
+        {
+            if (Array.IndexOf(AllowedSmtpPorts, cfg.Port) < 0)
+                throw new InvalidOperationException(
+                    $"SMTP port {cfg.Port} is not allowed on this host — use a mail submission " +
+                    "port (25, 465, 587 or 2525).");
+            // Resolve-and-check BEFORE SmtpClient does its own lookup. SmtpClient
+            // offers no connect hook, so a DNS record could in principle change
+            // between this check and the connect; the port allow-list above is what
+            // keeps even that residual race from being a useful scanner.
+            await OutboundNetworkGuard.ResolvePublicOrThrowAsync(cfg.Host!, ct).ConfigureAwait(false);
+        }
 
         using var msg = new MailMessage(cfg.FromAddress!, cfg.ToAddress!)
         {

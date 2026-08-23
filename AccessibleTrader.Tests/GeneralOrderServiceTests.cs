@@ -70,7 +70,7 @@ namespace AccessibleTrader.Tests
             // trading.paperTradingMode setting (unset = live provider).
             var svc = new GeneralOrderService(
                 data, err, NullLogger<GeneralOrderService>.Instance, bus, paper, settings,
-                new DemoPolicy(isDemo: false));
+                new DemoPolicy(isDemo: false), new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
             return new Harness(svc, live, paper, settings, err, bus, paperStream);
         }
 
@@ -417,7 +417,7 @@ namespace AccessibleTrader.Tests
 
             var svc = new GeneralOrderService(
                 data, h.Err, NullLogger<GeneralOrderService>.Instance, h.Bus, h.Paper, h.Settings,
-                new DemoPolicy(isDemo: false));
+                new DemoPolicy(isDemo: false), new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
 
             var fills = new List<OrderFilledEvent>();
             using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);

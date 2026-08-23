@@ -192,4 +192,31 @@ public sealed class WebHostHostedAccountsIntegrationTests
 
         Assert.NotEqual(HttpStatusCode.OK, resp.StatusCode);
     }
+
+    [Fact]
+    public async Task Diag_journal_requires_a_signed_in_user_when_it_is_mapped()
+    {
+        // Even when the endpoint IS mapped (Development / --enable-diag), the
+        // hosted head must never serve it anonymously: the journal is a
+        // transcript of everything spoken to a user. This boots a separate
+        // Development-environment hosted factory so the endpoint exists, then
+        // asserts an anonymous GET is turned away at the auth layer.
+        var root = System.IO.Directory.CreateTempSubdirectory("att-diag-").FullName;
+        try
+        {
+            using var factory = WebHostIntegration.HostedFactory(root, environment: "Development");
+            using var client = WebHostIntegration.NewClient(factory);
+
+            var resp = await client.GetAsync("/terminal/diag/journal");
+
+            Assert.NotEqual(HttpStatusCode.OK, resp.StatusCode);
+            // Cookie auth answers an unauthenticated GET with the login redirect.
+            Assert.Equal(HttpStatusCode.Found, resp.StatusCode);
+            Assert.StartsWith("/terminal/account/login", resp.Headers.Location!.AbsolutePath);
+        }
+        finally
+        {
+            try { System.IO.Directory.Delete(root, recursive: true); } catch { /* temp dir */ }
+        }
+    }
 }
