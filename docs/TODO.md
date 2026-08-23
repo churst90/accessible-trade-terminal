@@ -2250,12 +2250,21 @@ they belong to this section even though the audit filed them elsewhere:
   EVERY provider's `CreateHttpClient` call — a Schwab test racing through the process-global
   bridge landed its policy in the assertion (1-in-4 flake) and got a strict fake handler back;
   the factory now intercepts only its own provider id and hands everyone else the fallback.
-- [ ] **Every money modal is string-scanned, none is rendered.** `ApiKeysModal`, `WalletModal`,
+- [x] **Every money modal is string-scanned, none is rendered.** `ApiKeysModal`, `WalletModal`,
   `WithdrawModal`, `TradingDashboardModal`, `Toolbar` are source-text-scanned only; 18 further
   components are zero-referenced entirely (`JournalModal`, `MyDataModal`, `CustomScriptsModal`,
   `ThemeEditorModal`, `WatchlistModal`, `ObjectTreeModal`, `LevelReportModal`, `StatusBar`,
   `IndicatorBar` among them).
-- [ ] **The bUnit harness makes focus bugs untestable by construction.**
+  **DONE 2026-08-23** — `ModalCatalog` (Tests/Blazor) enrolls all 25 dialogs plus `Toolbar`,
+  `StatusBar`, `IndicatorBar` as bare renders; every one now renders under bUnit and passes
+  through the focus-contract, aria-value-scan, and dispose-leak suites (see the harness item
+  below). A source-scan enrollment guard (`CatalogCoversEveryOpenSubscription`) fails the suite
+  when a new modal subscribes to an `Open*` event without a catalog entry, so the "new modal,
+  zero render coverage" hole cannot silently reopen. Still unrendered: `MainLayout`, `ChartArea`
+  (JS-canvas-heavy), `ConditionTreeEditor`, `RiskPlanEditor`, `SummaryExport` (parameter-driven
+  children). Behavioural flows inside the money modals (add-key, withdraw confirmation) remain
+  covered by their dedicated string-scan/service tests only.
+- [x] **The bUnit harness makes focus bugs untestable by construction.**
   `BlazorTestHarness.cs:164` stubs `accessibleTrader.focusElement` with `SetupVoid(…, _ => true)`,
   so every test passes regardless of what a modal asks it to focus. **No test anywhere asserts that
   focus lands in a modal on open, that it is trapped, or that it is restored on close** — and the
@@ -2268,6 +2277,27 @@ they belong to this section even though the audit filed them elsewhere:
   every dialog moves focus to its `h2[tabindex="-1"]` on open; an `aria-*` value scan over each
   component's compiled render tree; and a dispose-leak test that renders a component, disposes it,
   publishes every event it subscribes to, and asserts no handler ran.
+  **DONE 2026-08-23** — all three shipped, driven by the new `ModalCatalog` (25 dialogs + 3 bars):
+  `ModalAccessibilityContractTests` asserts per dialog that `focusElement` was actually invoked
+  (bUnit records the stubbed calls; `BlazorTestHarness.FocusedElementIds` exposes them), that the
+  final target EXISTS in the rendered markup and is focusable, and that `role=dialog` carries
+  `aria-modal="true"` with a resolving, non-empty `aria-labelledby`. `AriaValueScanTests` walks
+  each rendered tree: enumerated aria values legal (catches `True` from a bool `ToString()`),
+  `aria-labelledby`/`describedby`/`activedescendant` resolve, `aria-controls` resolves for the
+  ACTIVE element, every tablist has exactly one selected tab — with a synthetic-violation vacuity
+  test proving the scanner fires. `ModalDisposeLeakTests` skips the banned wait-and-see-nothing
+  shape entirely: EventBus is `Subject<T>`-backed, so after renderer teardown it asserts every
+  subject has zero observers (no observers ⇒ no handler can EVER run), red-proven by a deliberately
+  leaky component. bUnit 1.40 gotcha recorded in that file: `DisposeComponents()` never disposes
+  component instances; `Ctx.Dispose()` does, asynchronously (~10 ms). Live bugs found by first
+  runs: **TradingDashboardModal never moved focus on venues without trading support** (the
+  `!supported` early-return sat above the focus call — dialog opened, screen-reader user left on
+  the chart); dangling `aria-describedby` in **AddIndicatorModal** (`#indicator-description` is
+  `@if`-gated on a selection) and **SettingsModal** (`#s-search-count` gated on a non-empty
+  query) — both now emit the attribute only while the target exists. Not done here: the JS Tab
+  trap still has no test (it lives in `MainLayout` + JS, outside bUnit's reach), and nothing yet
+  drives listbox/tree arrow-key navigation or Space-on-button; those stay open below. Suite
+  4180 → 4290.
 - [x] **No culture coverage anywhere.** One `CultureInfo` reference in 57,500 test lines, no test
   sets `DefaultThreadCurrentCulture`, and no `InvariantGlobalization` property in any csproj — so
   the shipped app picks up the OS locale. Under `de-DE`, `double.Parse("50000.5")` yields 500005.

@@ -18,6 +18,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Strategies;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -57,6 +58,10 @@ public sealed class BlazorTestHarness : IDisposable
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
     public AccessibleTrader.Core.Services.ISoundPatchLibrary SoundPatchLibrary { get; }
+    public IApiKeyService ApiKeyService { get; }
+    public IDataService DataService { get; }
+    public IMarketOrchestrator MarketOrchestrator { get; }
+    public IJournalService JournalService { get; }
 
     private readonly List<IAlertChannel> _alertChannels = new();
 
@@ -159,10 +164,73 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(SoundPatchLibrary);
         Ctx.Services.AddSingleton<AccessibleTrader.Core.Services.Audio.ISoundPatchRegistry>(new AccessibleTrader.Core.Services.Audio.SoundPatchRegistry());
 
+        // ── Services required only by the full-catalog contract tests
+        //    (ModalAccessibilityContractTests / AriaValueScanTests /
+        //    ModalDisposeLeakTests render every openable dialog). Substitutes by
+        //    default; a test that needs behaviour re-registers via With<T>(),
+        //    which appends a later registration that wins resolution.
+        ApiKeyService      = Substitute.For<IApiKeyService>();
+        DataService        = Substitute.For<IDataService>();
+        MarketOrchestrator = Substitute.For<IMarketOrchestrator>();
+        JournalService     = Substitute.For<IJournalService>();
+        // NSubstitute leaves Task<List<T>> / concrete-class members at null, and
+        // these are awaited unguarded on several modals' open paths.
+        ApiKeyService.GetAllKeysAsync().Returns(new List<ApiKeyConfig>());
+        ApiKeyService.GetKeysForProviderAsync(default!).ReturnsForAnyArgs(new List<ApiKeyConfig>());
+        DataService.LoadAvailableMarketsAsync().Returns(new List<string>());
+        DataService.LoadProvidersByMarketTypeAsync(default!).ReturnsForAnyArgs(new List<string>());
+        DataService.GetSupportedSubTypesAsync(default!, default!).ReturnsForAnyArgs(new List<string>());
+        DataService.LoadSymbolsAsync(default!, default!).ReturnsForAnyArgs(new List<string>());
+        ShortcutManager.CurrentProfile.Returns(new ShortcutProfile());
+        Ctx.Services.AddSingleton(ApiKeyService);
+        Ctx.Services.AddSingleton(DataService);
+        Ctx.Services.AddSingleton(MarketOrchestrator);
+        Ctx.Services.AddSingleton(JournalService);
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Analysis.IAssetDossierService>());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Analysis.ILevelProvenanceService>());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Analysis.IMaRespectRanker>());
+        Ctx.Services.AddSingleton(Substitute.For<IAlertOrchestrator>());
+        Ctx.Services.AddSingleton(Substitute.For<IRoslynScriptingService>());
+        Ctx.Services.AddSingleton(Substitute.For<IAIAnalystService>());
+        Ctx.Services.AddSingleton(Substitute.For<IWorkspaceInitializer>());
+        Ctx.Services.AddSingleton(Substitute.For<IAudioDriver>());
+        Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Screening.IWatchlistLibrary>());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Screening.IScreenerLibrary>());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Screening.IScreenerService>());
+        Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Accessibility.IViewportManager>());
+        // ThemeEditorModal injects the CONCRETE ThemeService (it edits presets in
+        // place); reuse the same instance registered above as IThemeService.
+        Ctx.Services.AddSingleton((ThemeService)ThemeService);
+        // Wallet/Withdraw/TradingDashboard inject sealed concrete services; they are
+        // constructible from the substitutes above, so their real logic runs against
+        // stubbed data/keys — which is exactly what their markup tests exercise.
+        Ctx.Services.AddSingleton(new WalletService(
+            DataService, Microsoft.Extensions.Logging.Abstractions.NullLogger<WalletService>.Instance));
+        Ctx.Services.AddSingleton(new WithdrawalService(
+            DataService, ApiKeyService, Microsoft.Extensions.Logging.Abstractions.NullLogger<WithdrawalService>.Instance));
+        Ctx.Services.AddSingleton(new PortfolioValuationService(
+            Substitute.For<AccessibleTrader.Core.Services.Trading.IAssetPriceSource>()));
+        // ILogger<T> for components that inject it directly (TradingDashboardModal, Toolbar).
+        Ctx.Services.AddSingleton(
+            typeof(Microsoft.Extensions.Logging.ILogger<>),
+            typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>));
+
         // Most modals call accessibleTrader.focusElement on first render via
-        // ModalBase.ShowModalAsync. Shim it once for every test.
+        // ModalBase.ShowModalAsync. Shim it once for every test. bUnit records
+        // every invocation, which FocusedElementIds exposes for assertions.
         Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
     }
+
+    /// <summary>Element ids passed to accessibleTrader.focusElement, in call
+    /// order. The stub above answers every call, but bUnit still records them —
+    /// this is how tests assert WHERE focus was sent rather than merely that
+    /// the modal rendered (the gap that made focus bugs untestable).</summary>
+    public IReadOnlyList<string> FocusedElementIds =>
+        Ctx.JSInterop.Invocations
+            .Where(i => i.Identifier == "accessibleTrader.focusElement")
+            .Select(i => i.Arguments.Count > 0 ? i.Arguments[0]?.ToString() ?? "" : "")
+            .ToList();
 
     /// <summary>Registers an additional service that isn't included in the
     /// default harness (e.g. IAlertOrchestrator, indicator-pipeline services).

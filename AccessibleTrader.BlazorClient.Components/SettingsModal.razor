@@ -47,11 +47,13 @@
                need to memorise which of six tabs holds a setting. *@
             <div class="modal-row" style="margin-bottom:10px;">
                 <label for="s-search">Search settings</label>
+                @* aria-describedby only while #s-search-count is actually rendered
+                   (the results region is @if-gated on a non-empty query). *@
                 <input id="s-search" type="search"
                        value="@_searchQuery"
                        @oninput="OnSearchInput"
                        placeholder="e.g. speech, theme, alerts"
-                       aria-describedby="s-search-count" />
+                       aria-describedby="@(string.IsNullOrWhiteSpace(_searchQuery) ? null : "s-search-count")" />
             </div>
             @if (!string.IsNullOrWhiteSpace(_searchQuery))
             {

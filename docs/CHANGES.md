@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Every dialog now renders under bUnit, and the focus contract caught a modal that opened silently (2026-08-23)
+
+Two tracked audit items closed together, because one is the infrastructure the other needed:
+"the bUnit harness makes focus bugs untestable by construction" and "every money modal is
+string-scanned, none is rendered."
+
+**The harness stops answering focus requests blind.** `BlazorTestHarness` still stubs
+`accessibleTrader.focusElement`, but bUnit records every stubbed invocation and the new
+`FocusedElementIds` property exposes them — so tests can finally assert WHERE a modal sent focus
+rather than merely that it rendered. The harness also grew default registrations (and null-safe
+stubs for `Task<List<T>>` members NSubstitute leaves null) for every service any dialog injects,
+which is what makes the next part possible.
+
+**All 25 dialogs plus `Toolbar`, `StatusBar` and `IndicatorBar` are enrolled in a single
+`ModalCatalog`** — one line per component: how to open it, what state it needs. Three suites
+iterate it:
+
+- `ModalAccessibilityContractTests` — on open, `focusElement` was invoked; its final target
+  exists in the rendered markup and is focusable; `role=dialog` carries `aria-modal="true"` and
+  an `aria-labelledby` that resolves to a non-empty element.
+- `AriaValueScanTests` — walks the real rendered tree: enumerated aria attributes hold legal
+  values (a bool `ToString()`'s `"True"` fails), id-reference attributes resolve, active
+  elements' `aria-controls` resolve, and every tablist has exactly one selected tab. A
+  synthetic-violation test proves the scanner fires.
+- `ModalDisposeLeakTests` — no publish-and-wait-for-nothing (the banned negative-delay shape):
+  the EventBus is `Subject<T>`-backed, so after renderer teardown the suite asserts every
+  subject has zero observers — no observers means no leaked handler can ever run. Red-proven by
+  a deliberately leaky component. Recorded on the way: bUnit 1.40's `DisposeComponents()` never
+  disposes component instances (verified empirically); `Ctx.Dispose()` does, asynchronously.
+
+A source-scan enrollment guard (`CatalogCoversEveryOpenSubscription`) matches the subscription
+call itself — not the event name — so a new modal that subscribes to an `Open*` event without a
+catalog entry fails the suite.
+
+First runs found three shipped bugs. The real one: **on a venue without trading support, the
+Trading Dashboard opened without ever moving focus** — the `!supported` early-return sat above
+the focus call, so a screen-reader user pressed the shortcut and was left on the chart with a
+modal open and no announcement. Focus now moves to the title either way; only the trading-only
+work stays gated. The other two are dangling `aria-describedby` references — `AddIndicatorModal`
+pointed at `#indicator-description` (rendered only once an indicator is selected) and
+`SettingsModal` at `#s-search-count` (rendered only while a search query is non-empty); both now
+emit the attribute only while its target exists.
+
+Test count 4180 → 4290.
+
 ### The token moved into the bridge, and the first integration tests caught two shipped bugs (2026-08-22)
 
 Two tracked items, closed together because they meet in `Program.cs`: the Schwab refresh-token

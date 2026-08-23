@@ -71,8 +71,10 @@ namespace AccessibleTrader.Tests
             Assert.Contains("meta.Description", text);
 
             // Bound to the list so the description is announced with the selection rather than
-            // being something you have to go and find.
-            Assert.Contains("aria-describedby=\"indicator-description\"", text);
+            // being something you have to go and find. The reference is conditional: the
+            // description div is @if-gated on a selection, and a dangling aria-describedby is
+            // itself a defect (AriaValueScanTests scans the rendered tree for exactly that).
+            Assert.Contains("aria-describedby=\"@(_selectedMeta is null ? null : \"indicator-description\")\"", text);
         }
 
         [Fact]

@@ -45,9 +45,12 @@
 
             <div class="modal-row">
                 <label for="indicator-name">Indicator</label>
+                @* aria-describedby only while #indicator-description is actually
+                   rendered (it is @if-gated on a selection) — a dangling reference
+                   is skipped silently by some screen readers and flagged by others. *@
                 <select id="indicator-name" size="8"
                         value="@_selectedIndicatorCode"
-                        aria-describedby="indicator-description"
+                        aria-describedby="@(_selectedMeta is null ? null : "indicator-description")"
                         @onchange="OnIndicatorChanged" style="flex:1; min-width:18em;">
                     @foreach (var ind in _filteredIndicators)
                     {

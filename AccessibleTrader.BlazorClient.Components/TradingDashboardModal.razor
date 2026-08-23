@@ -839,10 +839,13 @@
         EventBus.Publish(new ModalStateChangedEvent(true, "Trading dashboard"));
         StateHasChanged();
 
-        if (!supported) return;
-
+        // Focus moves to the title whether or not this venue supports trading —
+        // the dialog opened either way, and a keyboard user parked on the chart
+        // would otherwise never hear it. Only the trading-only work is gated.
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "trade-title"); } catch { }
+
+        if (!supported) return;
 
         await LoadAccountDataAsync();
         
