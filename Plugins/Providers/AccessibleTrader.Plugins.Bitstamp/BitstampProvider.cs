@@ -279,8 +279,8 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     if (data != null)
                     {
                         var symbol = channel.Replace("diff_order_book_", "").ToUpperInvariant();
-                        var bids = (data["bids"] as JArray)?.Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString()), double.Parse(b[1]!.ToString()))).ToList() ?? new();
-                        var asks = (data["asks"] as JArray)?.Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString()), double.Parse(a[1]!.ToString()))).ToList() ?? new();
+                        var bids = (data["bids"] as JArray)?.Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString(), CultureInfo.InvariantCulture), double.Parse(b[1]!.ToString(), CultureInfo.InvariantCulture))).ToList() ?? new();
+                        var asks = (data["asks"] as JArray)?.Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString(), CultureInfo.InvariantCulture), double.Parse(a[1]!.ToString(), CultureInfo.InvariantCulture))).ToList() ?? new();
                         _orderBookSubject.OnNext(new OrderBookUpdate(symbol, bids, asks, 0, DateTime.UtcNow));
                     }
                 }
@@ -523,11 +523,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
                     var ohlcvList = ohlcArray.Select(item => new Ohlcv(
                         DateTimeOffset.FromUnixTimeSeconds(long.Parse(item["timestamp"]?.ToString() ?? "0")).UtcDateTime,
-                        double.Parse(item["open"]?.ToString()   ?? "0"),
-                        double.Parse(item["high"]?.ToString()   ?? "0"),
-                        double.Parse(item["low"]?.ToString()    ?? "0"),
-                        double.Parse(item["close"]?.ToString()  ?? "0"),
-                        double.Parse(item["volume"]?.ToString() ?? "0")
+                        double.Parse(item["open"]?.ToString()   ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(item["high"]?.ToString()   ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(item["low"]?.ToString()    ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(item["close"]?.ToString()  ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(item["volume"]?.ToString() ?? "0", CultureInfo.InvariantCulture)
                     )).Where(x => x.Open > 0 && x.High > 0 && x.Low > 0 && x.Close > 0).OrderBy(x => x.Date).ToList();
 
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
@@ -555,8 +555,8 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 {
                     var response = await _httpClient.GetStringAsync($"{BaseUrl}/order_book/{cleanSymbol}/");
                     var json = JObject.Parse(response);
-                    var bids = (json["bids"] as JArray)?.Take(limit).Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString()), double.Parse(b[1]!.ToString()))).ToList() ?? new();
-                    var asks = (json["asks"] as JArray)?.Take(limit).Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString()), double.Parse(a[1]!.ToString()))).ToList() ?? new();
+                    var bids = (json["bids"] as JArray)?.Take(limit).Select(b => new OrderBookEntry(double.Parse(b[0]!.ToString(), CultureInfo.InvariantCulture), double.Parse(b[1]!.ToString(), CultureInfo.InvariantCulture))).ToList() ?? new();
+                    var asks = (json["asks"] as JArray)?.Take(limit).Select(a => new OrderBookEntry(double.Parse(a[0]!.ToString(), CultureInfo.InvariantCulture), double.Parse(a[1]!.ToString(), CultureInfo.InvariantCulture))).ToList() ?? new();
                     return (bids, asks);
                 });
             }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.RateLimiting;
@@ -12,6 +13,14 @@ using AccessibleTrader.WebHost;
 using AccessibleTrader.WebHost.Account;
 using AccessibleTrader.WebHost.Components;
 using AccessibleTrader.WebHost.Services;
+
+// Everything this app emits — spoken numbers, JSON payloads, request URLs — is English and
+// dot-decimal; nothing is localized. Pinning the process culture is the only fix that covers
+// bare $"{value}" interpolation, which no source scan can enumerate. Per-site InvariantCulture
+// in providers stays as defense in depth for plugins hosted outside these entry points.
+// Guarded by CultureInvariantScanTests.EveryHostPinsInvariantCultureBeforeItsFirstRealAction.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 

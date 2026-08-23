@@ -231,9 +231,9 @@ namespace AccessibleTrader.Plugins.TwelveData
             string url = $"{RestUrl}/time_series?symbol={request.Symbol}&interval={interval}&outputsize={limit}&apikey={_apiKey}&format=JSON";
 
             if (request.Since.HasValue)
-                url += $"&start_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime:yyyy-MM-dd HH:mm:ss}";
+                url += $"&start_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}";
             if (request.Until.HasValue)
-                url += $"&end_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime:yyyy-MM-dd HH:mm:ss}";
+                url += $"&end_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}";
 
             try
             {
@@ -255,7 +255,7 @@ namespace AccessibleTrader.Plugins.TwelveData
                     var ohlcvList = values.Select(v =>
                     {
                         var dateStr = v["datetime"]?.ToString() ?? "";
-                        DateTime.TryParse(dateStr, null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date);
+                        DateTime.TryParse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date);
                         return new Ohlcv(
                             date,
                             double.Parse(v["open"]?.ToString()   ?? "0", CultureInfo.InvariantCulture),

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -219,7 +220,7 @@ namespace AccessibleTrader.Plugins.BinanceDerivatives
                 foreach (var entry in arr)
                 {
                     long ts = entry["fundingTime"]?.Value<long>() ?? 0;
-                    double rate = double.TryParse(entry["fundingRate"]?.ToString(), out var r) ? r : 0.0;
+                    double rate = double.TryParse(entry["fundingRate"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var r) ? r : 0.0;
 
                     var date = DateTimeOffset.FromUnixTimeMilliseconds(ts).UtcDateTime;
                     // Multiply by 100 so the chart displays in percent rather than fraction —
@@ -259,7 +260,7 @@ namespace AccessibleTrader.Plugins.BinanceDerivatives
                 foreach (var entry in arr)
                 {
                     long ts = entry["timestamp"]?.Value<long>() ?? 0;
-                    double oiUsd = double.TryParse(entry["sumOpenInterestValue"]?.ToString(), out var v) ? v : 0.0;
+                    double oiUsd = double.TryParse(entry["sumOpenInterestValue"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0.0;
                     var date = DateTimeOffset.FromUnixTimeMilliseconds(ts).UtcDateTime;
                     bars.Add(new Ohlcv(date, oiUsd, oiUsd, oiUsd, oiUsd, 0));
                 }

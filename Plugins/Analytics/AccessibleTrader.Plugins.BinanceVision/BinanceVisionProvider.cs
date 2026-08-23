@@ -275,7 +275,7 @@ namespace AccessibleTrader.Plugins.BinanceVision
             var endMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             for (var month = startMonth; month <= endMonth; month = month.AddMonths(1))
             {
-                var url = $"{FundingBase}/{underlying}/{underlying}-fundingRate-{month:yyyy-MM}.zip";
+                var url = $"{FundingBase}/{underlying}/{underlying}-fundingRate-{month.ToString("yyyy-MM", CultureInfo.InvariantCulture)}.zip";
                 try
                 {
                     using var response = await _http.GetAsync(url).ConfigureAwait(false);
@@ -286,7 +286,7 @@ namespace AccessibleTrader.Plugins.BinanceVision
                 catch
                 {
                     // Network hiccup on a single monthly file — log and move on.
-                    _errorStream.OnNext($"BinanceVision funding {underlying} {month:yyyy-MM}: fetch error");
+                    _errorStream.OnNext($"BinanceVision funding {underlying} {month.ToString("yyyy-MM", CultureInfo.InvariantCulture)}: fetch error");
                 }
             }
 
@@ -360,7 +360,7 @@ namespace AccessibleTrader.Plugins.BinanceVision
                 {
                     try
                     {
-                        var url = $"{OiBase}/{underlying}/{underlying}-metrics-{date:yyyy-MM-dd}.zip";
+                        var url = $"{OiBase}/{underlying}/{underlying}-metrics-{date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.zip";
                         using var resp = await _http.GetAsync(url).ConfigureAwait(false);
                         if (!resp.IsSuccessStatusCode) return;
                         var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.WebView.Maui;
+﻿using System.Globalization;
+using Microsoft.AspNetCore.Components.WebView.Maui;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SkiaSharp.Views.Maui.Controls.Hosting;
@@ -9,6 +10,13 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
+		// Everything this app emits — spoken numbers, JSON payloads, request URLs — is English
+		// and dot-decimal; nothing is localized. Pinning the process culture is the only fix
+		// that covers bare $"{value}" interpolation, which no source scan can enumerate.
+		// Guarded by CultureInvariantScanTests.EveryHostPinsInvariantCultureBeforeItsFirstRealAction.
+		CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+		CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
 		// Catch any unhandled exceptions on background threads and write them to a crash log.
 		AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 		{

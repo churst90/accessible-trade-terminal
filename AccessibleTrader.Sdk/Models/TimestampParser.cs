@@ -18,7 +18,9 @@ namespace AccessibleTrader.Sdk.Models
             // Try ISO 8601 parsing first if it looks like a date string
             if (tsStr.Contains("T") || tsStr.Contains("-"))
             {
-                if (DateTime.TryParse(tsStr, null, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsedDt))
+                // Invariant, not null: null means CurrentCulture — under th-TH that reads the
+                // year as Buddhist-era, and every venue in this repo speaks ISO/Gregorian.
+                if (DateTime.TryParse(tsStr, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsedDt))
                 {
                     return parsedDt;
                 }

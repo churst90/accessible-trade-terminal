@@ -351,8 +351,8 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             // /stable takes ONE sector and a date range and returns rows already scoped to it,
             // where v3 returned every sector per date in wide form.
-            var to = DateTime.UtcNow.ToString("yyyy-MM-dd");
-            var from = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd");
+            var to = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var from = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var url = $"{BaseUrl}/historical-sector-performance?sector={Uri.EscapeDataString(sector)}&from={from}&to={to}&apikey={_apiKey}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
@@ -390,8 +390,8 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchEarningsCalendarAsync(int limit)
         {
-            var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd");
-            var from = DateTime.UtcNow.AddMonths(-3).ToString("yyyy-MM-dd");
+            var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var from = DateTime.UtcNow.AddMonths(-3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var url = $"{BaseUrl}/earnings-calendar?from={from}&to={to}&apikey={_apiKey}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
@@ -416,8 +416,8 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchEconomicCalendarAsync(int limit)
         {
-            var to = DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd");
-            var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd");
+            var to = DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var url = $"{BaseUrl}/economic-calendar?from={from}&to={to}&apikey={_apiKey}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
@@ -441,8 +441,8 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchCalendarAsync(string endpoint, int limit)
         {
-            var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd");
-            var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd");
+            var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var url = $"{BaseUrl}/{endpoint}?from={from}&to={to}&apikey={_apiKey}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();

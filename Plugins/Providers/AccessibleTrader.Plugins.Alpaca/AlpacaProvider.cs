@@ -334,9 +334,9 @@ namespace AccessibleTrader.Plugins.Alpaca
                         order["id"]?.ToString() ?? "",
                         order["symbol"]?.ToString() ?? "",
                         order["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                        double.TryParse(order["filled_qty"]?.ToString(), out double fq) ? fq : 0,
-                        double.TryParse(order["filled_avg_price"]?.ToString(), out double fp) ? fp : 0,
-                        double.TryParse(order["qty"]?.ToString(), out double tq) ? tq - fq : 0,
+                        double.TryParse(order["filled_qty"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fq) ? fq : 0,
+                        double.TryParse(order["filled_avg_price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fp) ? fp : 0,
+                        double.TryParse(order["qty"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double tq) ? tq - fq : 0,
                         status, false, false, DateTime.UtcNow));
                 }
             }
@@ -379,8 +379,8 @@ namespace AccessibleTrader.Plugins.Alpaca
                     ? $"{CryptoDataUrl}/us/bars?symbols={Uri.EscapeDataString(cryptoSym)}&timeframe={timeframe}"
                     : $"{StockDataUrl}/stocks/{stockSym}/bars?timeframe={timeframe}&feed={_stockFeed}&adjustment=all";
                 u += $"&limit={Math.Min(limit, 10000)}";
-                if (request.Since.HasValue) u += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
-                if (request.Until.HasValue) u += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
+                if (request.Since.HasValue) u += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}";
+                if (request.Until.HasValue) u += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}";
                 if (!string.IsNullOrEmpty(pageToken)) u += $"&page_token={Uri.EscapeDataString(pageToken!)}";
                 return u;
             }
@@ -540,10 +540,10 @@ namespace AccessibleTrader.Plugins.Alpaca
                         if (book == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
 
                         var bids = (book["b"] as JArray)?.Take(limit)
-                            .Select(b => new OrderBookEntry(double.Parse(b["p"]!.ToString()), double.Parse(b["s"]!.ToString())))
+                            .Select(b => new OrderBookEntry(double.Parse(b["p"]!.ToString(), CultureInfo.InvariantCulture), double.Parse(b["s"]!.ToString(), CultureInfo.InvariantCulture)))
                             .ToList() ?? new();
                         var asks = (book["a"] as JArray)?.Take(limit)
-                            .Select(a => new OrderBookEntry(double.Parse(a["p"]!.ToString()), double.Parse(a["s"]!.ToString())))
+                            .Select(a => new OrderBookEntry(double.Parse(a["p"]!.ToString(), CultureInfo.InvariantCulture), double.Parse(a["s"]!.ToString(), CultureInfo.InvariantCulture)))
                             .ToList() ?? new();
                         return (bids, asks);
                     }

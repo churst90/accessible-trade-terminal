@@ -1,4 +1,11 @@
+using System.Globalization;
 using AccessibleTrader.StrategyLab;
+
+// Research numbers must not vary with the OS locale — CLI flags like --fit 0.6 parse with the
+// ambient culture (15 sites below), and every CSV/JSON the lab writes must round-trip. Same
+// pin as every other host — see CultureInvariantScanTests.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 // Simple positional/flag dispatcher. No System.CommandLine dependency on purpose — keeps the
 // project lean and the build matrix small. Each subcommand parses its own arguments.

@@ -497,8 +497,8 @@ namespace AccessibleTrader.Plugins.Schwab
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string start = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
-                    string end = Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+                    string start = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
+                    string end = Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
                     var url = $"{TraderV1}/accounts/{_primaryAccountHash}/transactions?startDate={start}&endDate={end}&types=TRADE";
                     var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
                     var arr = JArray.Parse(body);

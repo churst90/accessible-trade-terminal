@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -22,6 +23,12 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // User-authored indicator scripts format and parse numbers; their output must not
+        // vary with the OS locale of the machine the worker happens to run on. Same pin as
+        // every other host — see CultureInvariantScanTests.
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
         // Force binary mode on stdio — we are sending raw bytes, not text.
         var stdin  = Console.OpenStandardInput();
         var stdout = Console.OpenStandardOutput();

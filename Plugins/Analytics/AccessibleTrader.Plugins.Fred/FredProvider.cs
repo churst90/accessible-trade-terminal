@@ -139,9 +139,9 @@ namespace AccessibleTrader.Plugins.Fred
             string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={apiKeyParam}&file_type=json";
             if (!string.IsNullOrEmpty(frequency)) url += $"&frequency={frequency}";
             if (request.Since.HasValue)
-                url += $"&observation_start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime:yyyy-MM-dd}";
+                url += $"&observation_start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
             if (request.Until.HasValue)
-                url += $"&observation_end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime:yyyy-MM-dd}";
+                url += $"&observation_end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
 
             try
             {
@@ -155,7 +155,7 @@ namespace AccessibleTrader.Plugins.Fred
                         .Where(o => o["value"]?.ToString() != ".")  // FRED uses "." for missing data
                         .Select(o =>
                         {
-                            double.TryParse(o["value"]?.ToString(), out var val);
+                            double.TryParse(o["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var val);
                             return new Ohlcv(
                                 DateTime.SpecifyKind(DateTime.ParseExact(o["date"]?.ToString() ?? "0001-01-01", "yyyy-MM-dd", CultureInfo.InvariantCulture), DateTimeKind.Utc),
                                 val, val, val, val, 0);

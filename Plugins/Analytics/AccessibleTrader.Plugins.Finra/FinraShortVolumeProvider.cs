@@ -266,7 +266,7 @@ namespace AccessibleTrader.Plugins.Finra
                 // days); surface anything else so a broken endpoint isn't silent.
                 if (ex is not System.Net.Http.HttpRequestException hre
                     || hre.StatusCode != System.Net.HttpStatusCode.NotFound)
-                    _errorStream.OnNext($"FINRA short-volume fetch failed for {day:yyyy-MM-dd} ({ex.GetType().Name}).");
+                    _errorStream.OnNext($"FINRA short-volume fetch failed for {day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} ({ex.GetType().Name}).");
             }
             finally
             {
@@ -276,7 +276,7 @@ namespace AccessibleTrader.Plugins.Finra
 
         private async Task<Dictionary<string, double>?> FetchDayAsync(DateTime day)
         {
-            string url = $"{BaseUrl}/CNMSshvol{day:yyyyMMdd}.txt";
+            string url = $"{BaseUrl}/CNMSshvol{day.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.txt";
             using var resp = await _http.GetAsync(url);
             if (resp.StatusCode == HttpStatusCode.NotFound)
                 return null; // market holiday (or not yet published) — cache the miss

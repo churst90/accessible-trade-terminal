@@ -155,18 +155,38 @@ namespace AccessibleTrader.Tests
                 @"(signal\.(Price|StopLoss|TakeProfit|TriggerPrice|Quantity)(\.Value)?)\.ToString\(([^)]*)\)",
                 RegexOptions.Compiled);
 
+            // The 2026-08-23 culture scoping found this guard's reach was narrower than its
+            // name: it only matched `signal.X.ToString(...)` receivers, so interpolating the
+            // field bare (`{signal.Price}` — CurrentCulture) or with a hole format
+            // (`{signal.Price:F8}` — a hole cannot carry a culture), or copying it to a local
+            // first, all walked around it. The two interpolated spellings are offenders unless
+            // the line carries an Invariant wrap; a bare direct copy of a money field is
+            // refused outright because the scan cannot follow the local — use the field
+            // directly, or transform it through a named method the scan's rules cover.
+            var interpolated = new Regex(
+                @"\{signal\.(Price|StopLoss|TakeProfit|TriggerPrice|Quantity)(\.Value)?(:[^}]*)?\}",
+                RegexOptions.Compiled);
+            var bareCopy = new Regex(
+                @"\b(var|double|decimal)\s+\w+\s*=\s*signal\.(Price|StopLoss|TakeProfit|TriggerPrice|Quantity)(\.Value)?\s*;",
+                RegexOptions.Compiled);
+
             foreach (var file in SourceFiles().Where(f => f.Contains("Plugins", StringComparison.Ordinal)))
             {
                 var lines = File.ReadAllLines(file);
                 for (int i = 0; i < lines.Length; i++)
                 {
+                    bool offends = false;
                     foreach (Match m in suspicious.Matches(lines[i]))
-                    {
-                        string args = m.Groups[4].Value;
-                        if (args.Contains("InvariantCulture", StringComparison.Ordinal)) continue;
+                        if (!m.Groups[4].Value.Contains("InvariantCulture", StringComparison.Ordinal))
+                            offends = true;
+                    if (interpolated.IsMatch(lines[i])
+                        && !lines[i].Contains("Invariant", StringComparison.Ordinal))
+                        offends = true;
+                    if (bareCopy.IsMatch(lines[i]))
+                        offends = true;
+                    if (offends)
                         offenders.Add(
                             $"{Path.GetRelativePath(RepoRoot(), file).Replace('\\', '/')}:{i + 1}: {lines[i].Trim()}");
-                    }
                 }
             }
 

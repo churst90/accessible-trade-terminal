@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -165,7 +166,7 @@ namespace AccessibleTrader.Plugins.AlternativeMe
                     foreach (var entry in dataArr)
                     {
                         long ts = long.TryParse(entry["timestamp"]?.ToString(), out var t) ? t : 0;
-                        double val = double.TryParse(entry["value"]?.ToString(), out var v) ? v : double.NaN;
+                        double val = double.TryParse(entry["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : double.NaN;
                         if (double.IsNaN(val)) continue;
                         var date = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
                         bars.Add(new Ohlcv(date, val, val, val, val, 0));

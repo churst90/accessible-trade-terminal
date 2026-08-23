@@ -401,8 +401,8 @@ namespace AccessibleTrader.Plugins.Oanda
             // range alone when both bounds are set; otherwise count plus the single
             // bound (if any). The old code always appended count → range fetches 400'd.
             bool hasFrom = request.Since.HasValue, hasTo = request.Until.HasValue;
-            string from = hasFrom ? $"{DateTimeOffset.FromUnixTimeMilliseconds(request.Since!.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}" : "";
-            string to   = hasTo   ? $"{DateTimeOffset.FromUnixTimeMilliseconds(request.Until!.Value).UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}" : "";
+            string from = hasFrom ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since!.Value).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : "";
+            string to   = hasTo   ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until!.Value).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : "";
 
             string url = $"{_restUrl}/instruments/{instrument}/candles?granularity={granularity}&price=M";
             if (hasFrom && hasTo)
@@ -439,7 +439,7 @@ namespace AccessibleTrader.Plugins.Oanda
                             if (double.TryParse(tsStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double unixTs))
                                 date = DateTimeOffset.FromUnixTimeSeconds((long)unixTs).UtcDateTime;
                             else
-                                DateTime.TryParse(tsStr, null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out date);
+                                DateTime.TryParse(tsStr, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out date);
 
                             return new Ohlcv(
                                 date,

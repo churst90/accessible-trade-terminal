@@ -256,12 +256,12 @@ namespace AccessibleTrader.Plugins.Fmp
 
             if (request.Since.HasValue)
             {
-                var from = DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-dd");
+                var from = DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 url += $"&from={from}";
             }
             if (request.Until.HasValue)
             {
-                var to = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-dd");
+                var to = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 url += $"&to={to}";
             }
 
@@ -288,12 +288,12 @@ namespace AccessibleTrader.Plugins.Fmp
 
             if (request.Since.HasValue)
             {
-                var from = DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-dd");
+                var from = DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 url += $"&from={from}";
             }
             if (request.Until.HasValue)
             {
-                var to = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-dd");
+                var to = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 url += $"&to={to}";
             }
 

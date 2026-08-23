@@ -236,7 +236,7 @@ namespace AccessibleTrader.Plugins.WikipediaPageviews
                 var (from, to) = ResolveWindow(request, monthly);
                 if (from > to) return empty;
 
-                string url = $"{Base}/{Uri.EscapeDataString(article)}/{granularity}/{from:yyyyMMdd}/{to:yyyyMMdd}";
+                string url = $"{Base}/{Uri.EscapeDataString(article)}/{granularity}/{from.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/{to.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}";
 
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {

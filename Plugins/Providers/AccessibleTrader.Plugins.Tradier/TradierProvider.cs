@@ -488,11 +488,11 @@ namespace AccessibleTrader.Plugins.Tradier
             };
 
             string start = request.Since.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd")
-                : DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd");
+                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                : DateTime.UtcNow.AddYears(-2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             string end = request.Until.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd")
-                : DateTime.UtcNow.ToString("yyyy-MM-dd");
+                ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                : DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
             string url = $"{_baseUrl}/markets/history?symbol={Uri.EscapeDataString(request.Symbol)}&interval={interval}&start={start}&end={end}";
             var response = await _httpClient.GetStringAsync(url);
@@ -505,7 +505,7 @@ namespace AccessibleTrader.Plugins.Tradier
 
             var ohlcvList = items.Select(item =>
             {
-                DateTime.TryParse(item["date"]?.ToString(), null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date);
+                DateTime.TryParse(item["date"]?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date);
                 return new Ohlcv(
                     date,
                     item["open"]?.Value<double>() ?? 0,

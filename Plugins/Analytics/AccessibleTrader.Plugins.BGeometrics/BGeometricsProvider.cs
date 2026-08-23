@@ -257,13 +257,13 @@ namespace AccessibleTrader.Plugins.BGeometrics
                     if (request.Since.HasValue)
                     {
                         var sinceDate = DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime;
-                        url += $"{separator}startday={sinceDate:yyyy-MM-dd}";
+                        url += $"{separator}startday={sinceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
                         separator = '&';
                     }
                     if (request.Until.HasValue)
                     {
                         var untilDate = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime;
-                        url += $"{separator}endday={untilDate:yyyy-MM-dd}";
+                        url += $"{separator}endday={untilDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
                     }
 
                     var json = await _http.GetStringAsync(url).ConfigureAwait(false);

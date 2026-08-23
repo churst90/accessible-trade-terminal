@@ -201,7 +201,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     var ticker = events?.FirstOrDefault()?["tickers"]?.FirstOrDefault();
                     if (ticker != null)
                     {
-                        double price = double.Parse(ticker["price"]?.ToString() ?? "0");
+                        double price = double.Parse(ticker["price"]?.ToString() ?? "0", CultureInfo.InvariantCulture);
                         if (price <= 0) return;
 
                         if (_lastCandle.HasValue && _lastCandleStart.HasValue)
@@ -240,8 +240,8 @@ namespace AccessibleTrader.Plugins.Coinbase
                             foreach (var u in updates)
                             {
                                 var side = u["side"]?.ToString();
-                                double px = double.TryParse(u["price_level"]?.ToString(), out double p) ? p : 0;
-                                double qty = double.TryParse(u["new_quantity"]?.ToString(), out double q) ? q : 0;
+                                double px = double.TryParse(u["price_level"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double p) ? p : 0;
+                                double qty = double.TryParse(u["new_quantity"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double q) ? q : 0;
                                 if (side == "bid") bids.Add(new OrderBookEntry(px, qty));
                                 else if (side == "offer") asks.Add(new OrderBookEntry(px, qty));
                             }
@@ -267,9 +267,9 @@ namespace AccessibleTrader.Plugins.Coinbase
                                 o["order_id"]?.ToString() ?? "",
                                 o["product_id"]?.ToString() ?? "",
                                 sideStr == "BUY" ? OrderSide.Buy : OrderSide.Sell,
-                                double.TryParse(o["filled_size"]?.ToString(), out double fs) ? fs : 0,
-                                double.TryParse(o["avg_price"]?.ToString(), out double ap) ? ap : 0,
-                                double.TryParse(o["leaves_quantity"]?.ToString(), out double lq) ? lq : 0,
+                                double.TryParse(o["filled_size"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fs) ? fs : 0,
+                                double.TryParse(o["avg_price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double ap) ? ap : 0,
+                                double.TryParse(o["leaves_quantity"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double lq) ? lq : 0,
                                 MapToOrderStatus(statusStr),
                                 false, false, DateTime.UtcNow));
                         }
@@ -350,12 +350,12 @@ namespace AccessibleTrader.Plugins.Coinbase
                     if (candles == null) return (new List<Ohlcv>(), new List<(long, double)>());
 
                     var ohlcvList = candles.Select(c => new Ohlcv(
-                        DateTimeOffset.FromUnixTimeSeconds(long.Parse(c["start"]?.ToString() ?? "0")).UtcDateTime,
-                        double.Parse(c["open"]?.ToString()   ?? "0"),
-                        double.Parse(c["high"]?.ToString()   ?? "0"),
-                        double.Parse(c["low"]?.ToString()    ?? "0"),
-                        double.Parse(c["close"]?.ToString()  ?? "0"),
-                        double.Parse(c["volume"]?.ToString() ?? "0")))
+                        DateTimeOffset.FromUnixTimeSeconds(long.Parse(c["start"]?.ToString() ?? "0", CultureInfo.InvariantCulture)).UtcDateTime,
+                        double.Parse(c["open"]?.ToString()   ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(c["high"]?.ToString()   ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(c["low"]?.ToString()    ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(c["close"]?.ToString()  ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(c["volume"]?.ToString() ?? "0", CultureInfo.InvariantCulture)))
                         .OrderBy(x => x.Date).ToList();
 
                     if (ohlcvList.Any())
@@ -417,11 +417,11 @@ namespace AccessibleTrader.Plugins.Coinbase
                     var response = await GetSignedStringAsync($"https://api.coinbase.com{path}?product_id={cleanSymbol}&limit={limit}", path).ConfigureAwait(false);
                     var book = JObject.Parse(response)["pricebook"];
                     var bids = (book?["bids"] as JArray)?.Select(b => new OrderBookEntry(
-                        double.Parse(b["price"]?.ToString() ?? "0"),
-                        double.Parse(b["size"]?.ToString()  ?? "0"))).ToList() ?? new();
+                        double.Parse(b["price"]?.ToString() ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(b["size"]?.ToString()  ?? "0", CultureInfo.InvariantCulture))).ToList() ?? new();
                     var asks = (book?["asks"] as JArray)?.Select(a => new OrderBookEntry(
-                        double.Parse(a["price"]?.ToString() ?? "0"),
-                        double.Parse(a["size"]?.ToString()  ?? "0"))).ToList() ?? new();
+                        double.Parse(a["price"]?.ToString() ?? "0", CultureInfo.InvariantCulture),
+                        double.Parse(a["size"]?.ToString()  ?? "0", CultureInfo.InvariantCulture))).ToList() ?? new();
                     return (bids, asks);
                 });
             }
@@ -454,12 +454,12 @@ namespace AccessibleTrader.Plugins.Coinbase
                     if (accounts == null) return new List<Balance>();
                     return accounts
                         .Where(a =>
-                            double.TryParse(a["available_balance"]?["value"]?.ToString(), out double av) && av > 0
-                            || double.TryParse(a["hold"]?["value"]?.ToString(), out double hold) && hold > 0)
+                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double av) && av > 0
+                            || double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hold) && hold > 0)
                         .Select(a => new Balance(
                             a["currency"]?.ToString() ?? "",
-                            double.TryParse(a["available_balance"]?["value"]?.ToString(), out double avf) ? avf : 0,
-                            double.TryParse(a["hold"]?["value"]?.ToString(), out double hf) ? hf : 0))
+                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double avf) ? avf : 0,
+                            double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0))
                         .ToList();
                 });
             }
@@ -537,10 +537,10 @@ namespace AccessibleTrader.Plugins.Coinbase
                         double.TryParse(
                             o["order_configuration"]?["limit_limit_gtc"]?["base_size"]?.ToString()
                             ?? o["order_configuration"]?["market_market_ioc"]?["base_size"]?.ToString()
-                            ?? o["filled_size"]?.ToString() ?? "0", out double qty) ? qty : 0,
+                            ?? o["filled_size"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double qty) ? qty : 0,
                         double.TryParse(
                             o["order_configuration"]?["limit_limit_gtc"]?["limit_price"]?.ToString()
-                            ?? o["average_filled_price"]?.ToString() ?? "0", out double avgPx) ? avgPx : 0,
+                            ?? o["average_filled_price"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double avgPx) ? avgPx : 0,
                         o["status"]?.ToString() ?? ""
                     )).ToList();
                 });

@@ -883,6 +883,12 @@ Still open from that sweep, and deliberately not done in it:
   every non-price component value (`SpeechFormatter:728`), exact volume (`:703`), percentages, and
   every date/month format. On a de-DE machine the app says "50.25" for the price and "50,25" for
   the RSI in one sentence. Zero tests run under a non-invariant culture.
+  **HALF DONE 2026-08-23** — all four hosts (WebHost, MauiProgram, ScriptWorker, StrategyLab) now
+  pin `DefaultThreadCurrentCulture`/`UICulture` to invariant before their first real action,
+  guarded by `CultureInvariantScanTests.EveryHostPinsInvariantCultureBeforeItsFirstRealAction`
+  (position-checked, not presence-checked). That covers bare `$"{value}"` interpolation, which no
+  per-site sweep can enumerate. Still open from this item: the per-site `InvariantCulture` passes
+  in the speech layer as defense in depth, and the de-DE test run below.
 
 ### Ship-blockers — UI and accessibility
 
@@ -1138,22 +1144,30 @@ guesses are invisible until money moves.
   channel sends `status: "OPEN"` with `filled_size: "0"` the instant an order rests.
   `GeneralOrderService:143` then publishes `OrderPartialFillEvent`. Place a limit order, immediately
   hear "partially filled".
-- [ ] **Coinbase parses every number with the ambient culture — 22 sites including fill quantity and
+- [x] **Coinbase parses every number with the ambient culture — 22 sites including fill quantity and
   fill price.** VERIFIED at `:269-271`: `double.TryParse(o["filled_size"]?.ToString(), out …)` with
   no `IFormatProvider`. On de-DE/fr-FR/pt-BR/ru-RU/tr-TR, `TryParse("0.5")` reads `.` as a group
   separator and returns **5.0**. A blind trader fills 0.5 BTC and hears "filled 5 BTC"; every
   Coinbase candle and balance is 10× or 100× wrong on roughly half the world's locales, silently.
-  Kraken already does this correctly — copy it. (`f["size"]?.Value<double>()` is safe; it is
-  specifically the `JToken → ToString() → double.Parse` pattern that breaks.)
-- [ ] **Three providers serialize order quantity and price with the machine's decimal separator.**
-  `BitstampProvider.cs:632-638`, `CoinbaseProvider.cs:565-589`, `AlpacaProvider.cs:716`. On any
-  comma-decimal locale the terminal cannot place a single order on those venues; a lenient parser
-  reads `0,50000000` as `50000000`. Kraken, Tradier, Oanda, KrakenFutures, Gemini and MEXC all pass
-  `InvariantCulture` at the equivalent sites — inconsistency, not ignorance, and no test pins it.
-  Add a `Wire.Num(double, int)` SDK helper plus a CI grep guard over `Plugins/Providers`.
-- [ ] **`BitstampProvider.cs:634,638` rounds every limit price to two decimals** regardless of
-  instrument. A limit on XRP/USD at 0.4567 goes out at `0.46`; on a sub-cent pair it becomes `0.00`.
-  A wrong order placed, silently, with a real order id returned.
+  **DONE 2026-08-23** — and the class was bigger than the audit's one provider: 49 sites across 10
+  files fixed in one pass (Coinbase 21, Bitstamp 13, Alpaca 7, BinanceDerivatives 2,
+  Fred/AlternativeMe 1 each, plus four `DateTime.TryParse(…, null, …)` sites in TimestampParser,
+  Oanda, Tradier and TwelveData). House idioms used throughout: `CultureInfo.InvariantCulture` on
+  `Parse`, `NumberStyles.Any, CultureInfo.InvariantCulture` on `TryParse`. Guarded by
+  `CultureInvariantScanTests.CultureSensitiveParsingOnlyShrinks` with an EMPTY baseline — any
+  future unpinned parse in `Plugins/`/`Sdk/` fails the suite outright.
+- [x] **Three providers serialize order quantity and price with the machine's decimal separator.**
+  ~~`BitstampProvider.cs:632-638`, `CoinbaseProvider.cs:565-589`, `AlpacaProvider.cs:716`.~~
+  **DONE 2026-08-21** in the fixed-precision-price sweep (audit batch 4) — all three now pass
+  `InvariantCulture` at every order-serialization site, with in-code comments dating the fix.
+  Guard: `PriceFormatScanTests.OrderPricesGoOnTheWireAtFullPrecisionAndInvariantCulture`. Note
+  the guard's reach: it only matches `signal.<field>.ToString(...)` receivers, so a provider that
+  copies the value to a local first (or interpolates `{signal.Price}` bare) walks around it —
+  the culture pass should widen this scan.
+- [x] **`BitstampProvider.cs:634,638` rounds every limit price to two decimals** ~~regardless of
+  instrument. A limit on XRP/USD at 0.4567 goes out at `0.46`; on a sub-cent pair it becomes
+  `0.00`.~~ **DONE 2026-08-21**, same sweep — full precision + `InvariantCulture` now at
+  `:660-666`, with the incident written up in a comment at the site.
 - [ ] **`InteractiveBrokersProvider.cs:589` can place an order against the wrong instrument.**
   `_currentConId ?? await ResolveConIdAsync(signal.Symbol, …)` — `_currentConId` is the *currently
   charted* symbol and is never compared against `signal.Symbol`. Chart AAPL, order MSFT from the
@@ -1260,12 +1274,21 @@ guesses are invisible until money moves.
   best-effort and its own catch block reports *"order execution updates won't be delivered"* — while
   the flag still says `true`, so the order service does not poll. The provider knows the stream is
   dead and the contract cannot express it. The flag appears in **none** of the three authoring docs.
-- [ ] **20 sites across 5 providers format dates into request URLs with the ambient culture** —
+- [x] **20 sites across 5 providers format dates into request URLs with the ambient culture** —
   including the **calendar**. Under th-TH, 2026 renders as 2569; every range request is nonsense,
   the venue returns nothing, and the chart is blank with no error. Tradier ×4, FMP ×12, Schwab ×2,
   Alpaca ×2, Oanda ×2, TwelveData ×2. Same root cause in `TimestampParser.cs:21`, the SDK's *shared*
   parser, which passes `null` (= `CurrentCulture`) and returns `DateTime.MinValue` on failure with
   no failure channel.
+  **DONE 2026-08-23** — the true count was 35 real sites (24 in the audit's six providers, the
+  interpolated `{dt:yyyy…}` spelling on Oanda/TwelveData included, plus 11 unlisted in analytics
+  providers: BinanceVision ×3, Fred ×2, Finra ×2, BGeometrics ×2, WikipediaPageviews ×1 — two of
+  them error-stream messages, fixed for consistency). All now `ToString("…",
+  CultureInfo.InvariantCulture)`; `TimestampParser:22`'s `null` is now InvariantCulture. Guarded by
+  `CultureInvariantScanTests.AmbientCultureDateFormattingOnlyShrinks` (matches BOTH spellings; the
+  hole regex deliberately stops at line ends — its first draft matched 4 multi-line code blocks).
+  **Still open from this item:** `TimestampParser` returning `DateTime.MinValue` on failure with
+  no failure channel — that is a contract change, not a culture fix.
 - [ ] **`TwelveDataProvider.cs:231` — the Tradier/FMP intraday timezone bug, unfixed.** No
   `&timezone=UTC`, so the venue returns exchange-local wall clock which `AssumeUniversal` then
   declares to be UTC. Every AAPL 5-minute bar sits 4–5 hours out of session, and the candles look
@@ -2244,6 +2267,13 @@ they belong to this section even though the audit filed them elsewhere:
   This is simultaneously a money path (provider JSON parsing, order input) and an accessibility path
   (spoken prices, which several tests pin as exact strings). See the systemic culture item in the
   audio section.
+  **PARTIAL 2026-08-23** — the shipped app no longer picks up the OS locale: every host pins
+  invariant at startup (see the audio-section item). `CultureInvariantScanTests` adds two ratchet
+  scans over `Plugins/` + `Sdk/`, and later the same day both baselines were burned to zero (49
+  parse sites in 10 files; 35 real date-format sites in 14 files), so any new unpinned
+  parse/format there fails the suite. Still open from this item: running the speech-formatting
+  and provider suites under `de-DE` (no test sets `DefaultThreadCurrentCulture` yet), and the
+  per-site invariant passes in the Core speech layer.
 - [ ] **`PluginHostServices.ApiKeys` is process-global mutable state with manual, unenforced
   serialization.** `FakeApiKeyCheckout.Install()` swaps a static; nine classes carry
   `[Collection("ProviderCredentialBridge")]`; enrollment is invisible and only discovered by
