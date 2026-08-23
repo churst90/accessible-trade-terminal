@@ -1596,14 +1596,27 @@ guesses are invisible until money moves.
 - [ ] **`ProviderResult<T>` has zero callers repo-wide**, and `ProviderErrors`/`SurfaceError` has
   zero subscribers — 3 of 16 providers emit through it, the other 13 use 164 raw
   `_errorStream.OnNext` calls, so severity and category never reach the feedback layer.
-- [ ] **Provider test coverage is thin exactly where money moves.** `ProviderConformanceTests` is a
-  smoke test (name non-empty, `MaxBarsPerRequest > 0`, timeframes parse) over a hardcoded 14 of 16.
-  `BrokerParityTests` is 13 tests: Tradier 5, Schwab 4, Kraken 2, Alpaca 1, Coinbase 1, and **zero**
-  for IB, Bitstamp, Binance, MEXC, Oanda, Gemini, KrakenFutures, Polygon. Only 5 of 16 providers
-  have a dedicated test file. There are **no known-answer HMAC vectors anywhere in the suite**, no
-  culture tests, no symbol round-trip tests, no signed-string-equals-sent-string assertion, and no
-  test that `PlaceOrderAsync`'s return value reaches the poller. Every critical in this section is
-  unguarded.
+- [x] **CLOSED 2026-08-23 — Provider test coverage is thin exactly where money moves.** The census
+  was mostly stale by close time (the recurring audit-recount lesson): the conformance roster now
+  enumerates `ProviderRoster` with an anti-vacuity floor (≥25 providers / ≥12 trading — the
+  hardcoded-14 hole is what let Gemini and KrakenFutures go missing), known-answer HMAC vectors
+  exist in `SdkHelperTests`/`GeminiTests`/`KrakenFuturesTests`, Kraken spot has a
+  signed-string-equals-sent-string test, culture is swept by `CultureInvariantScanTests`/
+  `DeDeCultureTests`, symbols by `ProviderSymbolNormalisationTests`, and the id-reaches-the-poller
+  test is `OrderContractShipBlockerTests.A_real_order_id_from_a_non_streaming_provider_starts_the_fill_poller`.
+  What was still genuinely missing — any placement-path test at all for Binance, Bitstamp, MEXC,
+  Oanda, Gemini (happy path), KrakenFutures — shipped as `BrokerPlacementParityTests` (16 tests):
+  a representative entry payload pinned field-by-field per broker, plus a sign-what-you-send
+  assertion per signing venue (Binance spot HMAC over the exact query, Bitstamp v0
+  nonce+customerId+key, MEXC spot query + futures header signatures, Gemini X-GEMINI-SIGNATURE
+  over the exact base64 payload header, KrakenFutures Authent over the exact body with the
+  /derivatives-less path). Proven red by sabotage: dropping Bitstamp's customerId from the signed
+  message and signing KrakenFutures' prefixed path each failed exactly its own guard. Side find:
+  `FakeHttpMessageHandler.Captured[i].Content` throws ObjectDisposedException for providers that
+  `using`-dispose their requests (Gemini, MEXC futures, KrakenFutures) — the fake now snapshots
+  `CapturedBodies` at capture time. Remaining coverage work folded into the two open siblings
+  above (SDK helper adoption, `ProviderResult` plumbing); Polygon is data-only and needs no
+  broker parity.
 
 ### Hosted / WebHost — production risks on the live site (section closed 2026-08-22)
 

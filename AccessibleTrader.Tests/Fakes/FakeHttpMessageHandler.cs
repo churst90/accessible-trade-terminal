@@ -24,6 +24,15 @@ namespace AccessibleTrader.Tests.Fakes
     {
         private readonly List<(HttpMethod Method, Regex UrlPattern, Func<HttpRequestMessage, HttpResponseMessage> Responder)> _rules = new();
         public List<HttpRequestMessage> Captured { get; } = new();
+
+        /// <summary>
+        /// Body snapshots parallel to <see cref="Captured"/>, taken before the
+        /// provider can dispose the request. Providers that build requests with
+        /// <c>using var req = …</c> (Gemini, MEXC futures, Kraken Futures)
+        /// dispose the content the moment the call returns, so reading
+        /// <c>Captured[i].Content</c> afterwards throws ObjectDisposedException.
+        /// </summary>
+        public List<string> CapturedBodies { get; } = new();
         public bool StrictMode { get; set; } = true;
 
         /// <summary>Register a rule that returns a fixed JSON body + status.</summary>
@@ -53,23 +62,26 @@ namespace AccessibleTrader.Tests.Fakes
         public FakeHttpMessageHandler Post(string urlRegex, string body, HttpStatusCode status = HttpStatusCode.OK)
             => Add(HttpMethod.Post, urlRegex, body, status);
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Captured.Add(request);
+            CapturedBodies.Add(request.Content == null
+                ? ""
+                : await request.Content.ReadAsStringAsync(cancellationToken));
             foreach (var (method, pattern, responder) in _rules)
             {
                 if (request.Method != method) continue;
                 if (!pattern.IsMatch(request.RequestUri?.ToString() ?? string.Empty)) continue;
-                return Task.FromResult(responder(request));
+                return responder(request);
             }
 
             if (StrictMode)
                 throw new InvalidOperationException($"FakeHttpMessageHandler: no rule matched {request.Method} {request.RequestUri}");
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+            return new HttpResponseMessage(HttpStatusCode.NotFound)
             {
                 Content = new StringContent("{\"error\":\"no rule matched\"}", Encoding.UTF8, "application/json"),
-            });
+            };
         }
     }
 }
