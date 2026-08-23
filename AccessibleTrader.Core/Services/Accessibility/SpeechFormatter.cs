@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Sdk.Models;
@@ -61,7 +62,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public string FormatViewportDescription(int count, DateTime start, DateTime end)
         {
             string fmt = "MMMM d yyyy";
-            return $"Viewing {count} bars from {start.ToLocalTime().ToString(fmt)} to {end.ToLocalTime().ToString(fmt)}";
+            return $"Viewing {count} bars from {start.ToLocalTime().ToString(fmt, CultureInfo.InvariantCulture)} to {end.ToLocalTime().ToString(fmt, CultureInfo.InvariantCulture)}";
         }
 
         public string FormatPointFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, Ohlcv pt, string prefixMessage)
@@ -87,7 +88,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 msg = $"{trend}{typeStr}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
                       $"High {SpeechPriceFormatter.FormatPrice(pt.High)}. Low {SpeechPriceFormatter.FormatPrice(pt.Low)}. Volume {FormatVolume(pt.Volume)}. " +
-                      $"Body {bodyPct:F0}%, Upper wick {upperPct:F0}%, Lower wick {lowerPct:F0}%.";
+                      $"Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.";
             }
             else if (summary && seriesId == "price")
             {
@@ -136,7 +137,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.SpeechOrder.Contains("TimeOnly")) timestampFormat = "HH:mm";
             else if (state.SpeechOrder.Contains("DateOnly")) timestampFormat = "MMMM dd";
 
-            string timestamp = shouldSpeakTimestamp ? pt.Date.ToLocalTime().ToString(timestampFormat) + ". " : "";
+            string timestamp = shouldSpeakTimestamp ? pt.Date.ToLocalTime().ToString(timestampFormat, CultureInfo.InvariantCulture) + ". " : "";
 
             return timestamp + prefixMessage + msg;
         }
@@ -167,7 +168,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string letters = string.Join(" ", bin.TpoLetters);
                     string labelPart = string.IsNullOrEmpty(nodeLabel) ? "" : $", {nodeLabel}";
                     dataMsg = $"Price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}, " +
-                              $"{bin.TpoPeriodCount:F0} {(bin.TpoPeriodCount == 1 ? "period" : "periods")}, " +
+                              $"{bin.TpoPeriodCount.ToString("F0", CultureInfo.InvariantCulture)} {(bin.TpoPeriodCount == 1 ? "period" : "periods")}, " +
                               $"letters {letters}{labelPart}.";
                 }
                 else
@@ -176,7 +177,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     dataMsg = $"Price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}, " +
                               $"{labelPart}" +
                               $"{FormatVolume(bin.TotalVolume)} contracts, " +
-                              $"{pct:F1} percent.";
+                              $"{pct.ToString("F1", CultureInfo.InvariantCulture)} percent.";
                 }
             }
 
@@ -184,7 +185,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool shouldSpeakTimestamp = state.SpeakTimestamps && isXMove
                 && state.Data != null && state.CurrentDataIndex >= 0 && state.CurrentDataIndex < state.Data.Count;
             string timestamp = shouldSpeakTimestamp
-                ? state.Data![state.CurrentDataIndex].Date.ToLocalTime().ToString("HH:mm") + ". "
+                ? state.Data![state.CurrentDataIndex].Date.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + ". "
                 : "";
 
             return timestamp + prefixMessage + dataMsg;
@@ -202,7 +203,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Time label for the bar — always relevant for heatmaps (both axes navigable).
             string timeLabel = "";
             if (state.Data != null && dataIndex >= 0 && dataIndex < state.Data.Count)
-                timeLabel = state.Data[dataIndex].Date.ToLocalTime().ToString("HH:mm") + ", ";
+                timeLabel = state.Data[dataIndex].Date.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + ", ";
 
             string dataMsg;
             if (binIndex < 0 || binIndex >= bar.Count)
@@ -241,7 +242,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 dataMsg = $"price {SpeechPriceFormatter.FormatPrice(bin.PriceLow)} to {SpeechPriceFormatter.FormatPrice(bin.PriceHigh)}" +
                           $"{labelPart}, " +
                           $"{FormatVolume(bin.TotalVolume)} contracts, " +
-                          $"{pct:F1} percent.";
+                          $"{pct.ToString("F1", CultureInfo.InvariantCulture)} percent.";
             }
 
             // Timestamp first, then prefix, then data — consistent with FormatPointFeedback ordering.
@@ -321,9 +322,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>Formats large volume numbers for natural speech (e.g., 24350 → "24,350").</summary>
         private static string FormatVolume(double vol)
-            => vol >= 1_000_000 ? $"{vol / 1_000_000:F2}M"
-             : vol >= 1_000     ? $"{vol:N0}"
-             : vol.ToString("F0");
+            => vol >= 1_000_000 ? $"{(vol / 1_000_000).ToString("F2", CultureInfo.InvariantCulture)}M"
+             : vol >= 1_000     ? $"{vol.ToString("N0", CultureInfo.InvariantCulture)}"
+             : vol.ToString("F0", CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Builds a temporary ProfileBin list for classification from heatmap bar data.
@@ -703,7 +704,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Exact, not compact: whole-number volumes read without a fake ".00";
         // fractional volumes (crypto) keep their decimals.
         private static string FormatExactVolume(double vol)
-            => vol == Math.Floor(vol) ? vol.ToString("N0") : vol.ToString("N2");
+            => vol == Math.Floor(vol) ? vol.ToString("N0", CultureInfo.InvariantCulture) : vol.ToString("N2", CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -728,7 +729,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool isPriceSeries = sId == "price" || sId == "candles";
             string valF2 = double.IsNaN(val)
                 ? "no data"
-                : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2"));
+                : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2", CultureInfo.InvariantCulture));
 
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
                 return double.IsNaN(val) ? "no data" : valF2;
@@ -761,7 +762,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (double.IsNaN(val)) return "no data";
                     if (isPriceSeries) return SpeechPriceFormatter.FormatPrice(val);
                     int digits = int.Parse(m.Groups[1].Value);
-                    return val.ToString("F" + digits);
+                    return val.ToString("F" + digits, CultureInfo.InvariantCulture);
                 });
 
             // {value:price} is the magnitude-aware format token for price-space values
@@ -811,7 +812,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                              : oscillatorVal >= -20.0 ? "neutral momentum"
                              : oscillatorVal >= -60.0 ? "moderate bearish momentum"
                              :                          "strong bearish momentum";
-            return $"{intensity}, {oscillatorVal:F1}";
+            return $"{intensity}, {oscillatorVal.ToString("F1", CultureInfo.InvariantCulture)}";
         }
     }
 }

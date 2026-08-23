@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO.Ports;
 using System.Linq;
 using System.Threading;
@@ -169,12 +170,12 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
                 return;
             }
 
-            DotPadDiagnostics.Log($"Trying {ports.Count} candidate port(s): {string.Join(", ", ports)} (timeout {PerPortConnectTimeout.TotalSeconds:F0}s each)");
+            DotPadDiagnostics.Log($"Trying {ports.Count} candidate port(s): {string.Join(", ", ports)} (timeout {PerPortConnectTimeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)}s each)");
 
             // ── Phase 2: try each port until one acknowledges with CONNECTED.
             foreach (var port in ports)
             {
-                DotPadDiagnostics.Log($"Attempting ConnectSerial on '{port}' (timeout {PerPortConnectTimeout.TotalSeconds:F0}s)…");
+                DotPadDiagnostics.Log($"Attempting ConnectSerial on '{port}' (timeout {PerPortConnectTimeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)}s)…");
                 lock (_connectionLock) { _connectTcs = new TaskCompletionSource<bool>(); }
                 _native.ConnectSerial(port);
 

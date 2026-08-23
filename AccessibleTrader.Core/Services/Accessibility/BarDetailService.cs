@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using AccessibleTrader.Core.Models;
@@ -150,7 +151,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)
         {
             var sb = new StringBuilder();
-            sb.Append($"{bar.Date:HH:mm}: ");
+            sb.Append($"{bar.Date.ToString("HH:mm", CultureInfo.InvariantCulture)}: ");
 
             // If it's the primary candle series, add candle pattern details
             // Pattern/type details only apply to true OHLCV series. Price-line primary
@@ -168,7 +169,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                sb.Append($"{trend} {type}. Body {bodyPct:F0}%, Upper wick {upperPct:F0}%, Lower wick {lowerPct:F0}%. ");
+                sb.Append($"{trend} {type}. Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%. ");
                 return sb.ToString().TrimEnd();
             }
 

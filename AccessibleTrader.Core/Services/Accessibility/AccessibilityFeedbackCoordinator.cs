@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Disposables;
@@ -184,7 +185,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : baseMsg;
         }
 
-        private static string FormatQty(double qty) => qty.ToString("0.########");
+        private static string FormatQty(double qty) => qty.ToString("0.########", CultureInfo.InvariantCulture);
 
         private static string Capitalize(string s) =>
             s.Length > 0 ? char.ToUpperInvariant(s[0]) + s.Substring(1) : s;
@@ -291,7 +292,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             if (state.PlaybackSpeed != _previousState.PlaybackSpeed)
             {
-                _speechRouter.Speak($"Playback speed: {state.PlaybackSpeed:F1}x");
+                _speechRouter.Speak($"Playback speed: {state.PlaybackSpeed.ToString("F1", CultureInfo.InvariantCulture)}x");
             }
 
             // VIEWPORT ANNOUNCEMENT POLICY:

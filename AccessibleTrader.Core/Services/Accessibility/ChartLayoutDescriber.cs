@@ -53,8 +53,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var first = bars[start];
             var last = bars[end];
-            parts.Add($"X axis, time: {length} bars in view of {bars.Count:N0} loaded, " +
-                      $"{first.Date:MMMM d yyyy} to {last.Date:MMMM d yyyy}.");
+            parts.Add($"X axis, time: {length} bars in view of {bars.Count.ToString("N0", CultureInfo.InvariantCulture)} loaded, " +
+                      $"{first.Date.ToString("MMMM d yyyy", CultureInfo.InvariantCulture)} to {last.Date.ToString("MMMM d yyyy", CultureInfo.InvariantCulture)}.");
 
             // ── Y axis: the range, and the step between gridlines ─────────
             var (min, max) = state.ViewportRange;
@@ -165,7 +165,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             double abs = Math.Abs(v);
             string format = abs >= 1000 ? "N0" : abs >= 1 ? "N2" : "N6";
-            return v.ToString(format, CultureInfo.CurrentCulture);
+            return v.ToString(format, CultureInfo.InvariantCulture);
         }
     }
 }

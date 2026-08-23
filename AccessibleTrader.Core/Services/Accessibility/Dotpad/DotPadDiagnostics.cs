@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -42,7 +43,7 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
             {
                 EnsureInitialized();
                 if (_path is null) return;
-                string line = $"[{DateTime.Now:HH:mm:ss.fff}] [tid {Thread.CurrentThread.ManagedThreadId,3}] {message}{Environment.NewLine}";
+                string line = $"[{DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}] [tid {Thread.CurrentThread.ManagedThreadId,3}] {message}{Environment.NewLine}";
                 lock (_lock)
                 {
                     int bytes = Encoding.UTF8.GetByteCount(line);
@@ -67,7 +68,7 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
                 _path = Path.Combine(dir, "dotpad.log");
                 _size = File.Exists(_path) ? new FileInfo(_path).Length : 0;
 
-                string header = $"{Environment.NewLine}=== Dot Pad log opened {DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={Environment.NewLine}";
+                string header = $"{Environment.NewLine}=== Dot Pad log opened {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} ==={Environment.NewLine}";
                 lock (_lock)
                 {
                     RollIfTooLarge(Encoding.UTF8.GetByteCount(header));

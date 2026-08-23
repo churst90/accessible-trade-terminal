@@ -173,6 +173,93 @@ namespace AccessibleTrader.Tests
         }
 
         // ------------------------------------------------------------------
+        // Layer 2c: fixed-format sites in the Core speech layer.
+        // ------------------------------------------------------------------
+
+        // The speech layer is what the user actually hears, and its fixed-format sites were
+        // pinned per-site on 2026-08-23 (~30 sites: FormatQty, FormatExactVolume, the
+        // {value:Fn} template handler, wick percentages, every spoken date). This scan is a
+        // zero-baseline wall, not a ratchet: any new unpinned fixed-format call or
+        // format-specifier hole under Core/Services/Accessibility fails, with file:line.
+        //
+        // What it deliberately does NOT match: bare $"{value}" holes (unenumerable — that is
+        // what the host pin covers), {x:X} hex (culture-insensitive), SpeechTemplate string
+        // literals (template DATA, rendered through the pinned handler at
+        // SpeechFormatter.FormatComponentValue), and holes containing \ ? or * (regex
+        // literals, ternaries, comments — real format specifiers never contain them).
+
+        private const string SpeechRoot = "AccessibleTrader.Core/Services/Accessibility";
+
+        // .ToString("F1") / ("N0") / ("P2") / ("0.##") / ("F" + digits) — numeric formats.
+        private static readonly Regex SpeechNumToString = new(
+            @"\.ToString\(\s*(""((F|N|P|E|G)\d*|[0#][0#.,]*)""|""F""\s*\+)",
+            RegexOptions.Compiled);
+
+        // .ToString("t") / any date-component format / an identifier format variable as the
+        // first argument (the FormatViewportDescription shape, ToString(fmt) — and the
+        // ChartLayoutDescriber.Money shape, ToString(format, culture), which is why the
+        // identifier branch accepts a comma as well as a close paren: the de-DE rerun
+        // caught Money live while a close-paren-only branch walked past it).
+        private static readonly Regex SpeechDateToString = new(
+            @"\.ToString\(\s*(""[^""]*(yyyy|MMM|dd|HH:mm)[^""]*""|""t""\s*\)|[a-z_][A-Za-z0-9_]*\s*[,)])",
+            RegexOptions.Compiled);
+
+        // An interpolation hole carrying a numeric or date format specifier.
+        private static readonly Regex SpeechFormatHole = new(
+            @"\{[^{}""?*\\\r\n]+:((F|N|P|E|G)\d*|[0#][0#.,]*|[^{}""?*\\\r\n]*(yyyy|MMM|dd|HH:mm)[^{}""?*\\\r\n]*)\}",
+            RegexOptions.Compiled);
+
+        [Fact]
+        public void SpeechLayerFixedFormatSitesAreInvariant()
+        {
+            string root = RepoRoot();
+            string dir = Path.Combine(root, SpeechRoot.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(Directory.Exists(dir), $"Speech layer moved: {SpeechRoot}");
+
+            var offenders = new List<string>();
+            foreach (var file in Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories))
+            {
+                string text = File.ReadAllText(file);
+                string rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+
+                void Scan(Regex pattern, bool holePattern)
+                {
+                    foreach (Match m in pattern.Matches(text))
+                    {
+                        string line = LineContaining(text, m.Index);
+                        string trimmed = line.TrimStart();
+                        if (trimmed.StartsWith("//", StringComparison.Ordinal)) continue;
+                        // Template DATA, not a format call — rendered by the pinned handler.
+                        if (line.Contains("SpeechTemplate", StringComparison.Ordinal)) continue;
+
+                        string span = holePattern ? line : BalancedSpan(text, m.Index);
+                        if (span.Length == 0) span = line;
+                        // "Invariant" only — NOT any "CultureInfo". The de-DE rerun's first
+                        // catch was ChartLayoutDescriber.Money passing an explicit
+                        // CultureInfo.CurrentCulture, which a CultureInfo-presence check
+                        // waves through while the app speaks "20.000" for 20,000.
+                        if (span.Contains("Invariant", StringComparison.Ordinal)) continue;
+
+                        int lineNo = text.AsSpan(0, m.Index).Count('\n') + 1;
+                        offenders.Add($"{rel}:{lineNo}: {trimmed.Trim()}");
+                    }
+                }
+
+                Scan(SpeechNumToString, holePattern: false);
+                Scan(SpeechDateToString, holePattern: false);
+                Scan(SpeechFormatHole, holePattern: true);
+            }
+
+            Assert.True(offenders.Count == 0,
+                "The speech layer gained a fixed-format site without InvariantCulture. On a "
+                + "comma-decimal locale the app speaks \"50,25\" for the RSI in the same "
+                + "sentence as \"50.25\" for the price; on a non-Gregorian one the spoken date "
+                + "is in the wrong calendar. Pass CultureInfo.InvariantCulture — for an "
+                + "interpolated hole, call ToString(\"fmt\", CultureInfo.InvariantCulture) "
+                + "inside the hole.\n  " + string.Join("\n  ", offenders.Distinct()));
+        }
+
+        // ------------------------------------------------------------------
         // Shared machinery.
         // ------------------------------------------------------------------
 

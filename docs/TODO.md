@@ -876,7 +876,7 @@ Still open from that sweep, and deliberately not done in it:
   `StopAll` exists to provide. The comment above it — *"Master gain is written only from the main
   thread and read only in `Read()`"* — is false on both counts (`Read()` writes it at four sites)
   and answers a different question than the one that matters.
-- [ ] **Systemic: no invariant-culture pinning for spoken numbers.** No
+- [x] **Systemic: no invariant-culture pinning for spoken numbers.** No
   `InvariantGlobalization`, no `CultureInfo.DefaultThreadCurrentCulture` anywhere.
   `SpeechPriceFormatter` and `QuantityFormatter` pass `InvariantCulture` correctly; nothing else
   does — including **order fill/stop/TP quantities** (`AccessibilityFeedbackCoordinator:182`),
@@ -887,8 +887,15 @@ Still open from that sweep, and deliberately not done in it:
   pin `DefaultThreadCurrentCulture`/`UICulture` to invariant before their first real action,
   guarded by `CultureInvariantScanTests.EveryHostPinsInvariantCultureBeforeItsFirstRealAction`
   (position-checked, not presence-checked). That covers bare `$"{value}"` interpolation, which no
-  per-site sweep can enumerate. Still open from this item: the per-site `InvariantCulture` passes
-  in the speech layer as defense in depth, and the de-DE test run below.
+  per-site sweep can enumerate.
+  **DONE 2026-08-23 (round 3)** — the defense-in-depth half: every fixed-format site in
+  `Core/Services/Accessibility` now pins `InvariantCulture` per-site (~30 sites, including the
+  named ones: `AccessibilityFeedbackCoordinator.FormatQty`, `SpeechFormatter` `:703`/`:728`, the
+  percentages, and every date/month format), a zero-baseline scan
+  (`SpeechLayerFixedFormatSitesAreInvariant`) walls it, and the whole speech-formatting suite
+  reruns under `de-DE` (see the tests section). The de-DE rerun's first catch was the one shape
+  neither sweep nor scan saw: `ChartLayoutDescriber.Money` passing an explicit
+  `CultureInfo.CurrentCulture`.
 
 ### Ship-blockers — UI and accessibility
 
@@ -2261,7 +2268,7 @@ they belong to this section even though the audit filed them elsewhere:
   every dialog moves focus to its `h2[tabindex="-1"]` on open; an `aria-*` value scan over each
   component's compiled render tree; and a dispose-leak test that renders a component, disposes it,
   publishes every event it subscribes to, and asserts no handler ran.
-- [ ] **No culture coverage anywhere.** One `CultureInfo` reference in 57,500 test lines, no test
+- [x] **No culture coverage anywhere.** One `CultureInfo` reference in 57,500 test lines, no test
   sets `DefaultThreadCurrentCulture`, and no `InvariantGlobalization` property in any csproj — so
   the shipped app picks up the OS locale. Under `de-DE`, `double.Parse("50000.5")` yields 500005.
   This is simultaneously a money path (provider JSON parsing, order input) and an accessibility path
@@ -2271,9 +2278,19 @@ they belong to this section even though the audit filed them elsewhere:
   invariant at startup (see the audio-section item). `CultureInvariantScanTests` adds two ratchet
   scans over `Plugins/` + `Sdk/`, and later the same day both baselines were burned to zero (49
   parse sites in 10 files; 35 real date-format sites in 14 files), so any new unpinned
-  parse/format there fails the suite. Still open from this item: running the speech-formatting
-  and provider suites under `de-DE` (no test sets `DefaultThreadCurrentCulture` yet), and the
-  per-site invariant passes in the Core speech layer.
+  parse/format there fails the suite.
+  **DONE 2026-08-23 (round 3)** — the two remaining halves closed. Per-site invariant pass over
+  `Core/Services/Accessibility`: ~30 fixed-format sites pinned (`FormatQty`,
+  `FormatExactVolume`/`FormatVolume`, the `{value:Fn}` template handler, wick/body percentages,
+  every spoken date/time including the two `ToString("t")` twins, TactileCanvas axis labels, the
+  Dotpad diagnostic timestamps), guarded by a new zero-baseline scan
+  (`SpeechLayerFixedFormatSitesAreInvariant`) proven red on all three of its match classes. And
+  the de-DE reruns — see the "Run the speech-formatting suite under de-DE" item in the tests
+  section for what they are and what their first run caught. Deliberately NOT set:
+  `InvariantGlobalization` in the csprojs — it would strip ICU from the whole app while the user's
+  broker statements, OS dialogs and screen reader stay locale-aware; the contract here is
+  "everything *this app emits* is invariant", which the host pins + per-site passes + scans now
+  hold from both ends.
 - [ ] **`PluginHostServices.ApiKeys` is process-global mutable state with manual, unenforced
   serialization.** `FakeApiKeyCheckout.Install()` swaps a static; nine classes carry
   `[Collection("ProviderCredentialBridge")]`; enrollment is invisible and only discovered by
@@ -2354,7 +2371,20 @@ Ordered by value. Every one of these would have caught something above.
   that drives a real `DataOrchestrator`. It currently pins a transcript of the production code and
   passes while `LiveStreaming` is unreachable and the breakers never fire.
   `KeyedFeedsTests.FakeOrchestrator` shows the mock farm is affordable.
-- [ ] **Run the speech-formatting suite under `de-DE`.** Zero tests use a non-invariant culture.
+- [x] **Run the speech-formatting suite under `de-DE`.** Zero tests use a non-invariant culture.
+  **DONE 2026-08-23** — `DeDeCultureTests.cs`: eight speech-formatting suites plus the
+  Bitstamp/Coinbase/Alpaca `ProviderFetchOhlcvTests` parse suites rerun verbatim under `de-DE`
+  by subclassing with `[UseCulture("de-DE")]` (a `BeforeAfterTestAttribute` that sets the
+  *thread* culture and restores it — never `DefaultThreadCurrentCulture`, which is
+  process-global and would poison parallel collections). 150 reruns + a two-fact vacuity
+  canary proving the attribute reaches inherited facts and flows across awaits — needed
+  because this box's ambient culture is en-US, whose number formatting happens to match
+  invariant, so a silently-inert attribute would leave every rerun green. **First run caught
+  one live:** `ChartLayoutDescriber.Money` formatted the spoken Y-axis range/grid step with an
+  *explicit* `CultureInfo.CurrentCulture` — "20.000" for 20,000 on de-DE — which the source
+  scan waved through because its predicate accepted any span containing "CultureInfo". Both
+  fixed: the site pins invariant, and the scan now requires "Invariant" specifically and
+  matches the `ToString(formatVariable, culture)` shape.
 - [x] **Sweep every price-formatting call site** for `:F0`/`:F1`/`:F2` on price-space values. Three
   commits have each fixed some and missed others. **DONE 2026-08-21** — `PriceFormatScanTests`.
   Note what it can and cannot do: it matches a fixed format sitting next to a quote-currency word,

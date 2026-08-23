@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Models;
@@ -597,9 +598,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int bars = hi - lo + 1;
             string dir = change >= 0 ? "up" : "down";
             _eventBus.Publish(new AnnouncementEvent(
-                $"Range: {bars} bars, {state.Data[lo].Date:MMM d HH:mm} to {state.Data[hi].Date:MMM d HH:mm}. " +
+                $"Range: {bars} bars, {state.Data[lo].Date.ToString("MMM d HH:mm", CultureInfo.InvariantCulture)} to {state.Data[hi].Date.ToString("MMM d HH:mm", CultureInfo.InvariantCulture)}. " +
                 $"High {SpeechPriceFormatter.FormatPrice(high)}, low {SpeechPriceFormatter.FormatPrice(low)}. " +
-                $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct):0.##} percent."));
+                $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct).ToString("0.##", CultureInfo.InvariantCulture)} percent."));
         }
 
         /// <summary>
@@ -887,7 +888,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
-                    string ts = date.ToString("t");
+                    string ts = date.ToString("t", CultureInfo.InvariantCulture);
                     _eventBus.Publish(new AnnouncementEvent(
                         $"{label}: anchor 1 set at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to next point and press the shortcut again."));
                 }
@@ -918,7 +919,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
-                    string ts = date.ToString("t");
+                    string ts = date.ToString("t", CultureInfo.InvariantCulture);
                     string msg = _pendingDrawingType switch {
                         DrawingType.RiskReward       => $"Risk/reward: entry at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to stop loss and press the shortcut again.",
                         DrawingType.AndrewsPitchfork => $"Pitchfork: median line at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to swing point and press the shortcut again.",
@@ -1018,7 +1019,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (dType == DrawingType.VerticalLine)
             {
                 CreateDrawingSeries("Vertical", new DrawingData { Type = DrawingType.VerticalLine, AnchorDate1 = pt.Date }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {pt.Date:MMMM dd, HH:mm}"));
+                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {pt.Date.ToString("MMMM dd, HH:mm", CultureInfo.InvariantCulture)}"));
             }
             else if (dType == DrawingType.TextLabel)
             {

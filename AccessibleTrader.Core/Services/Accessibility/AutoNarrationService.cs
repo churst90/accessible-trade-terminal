@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
@@ -540,7 +541,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string price = (state.Data != null && barIndex < state.Data.Count)
                 ? SpeechPriceFormatter.FormatPrice(state.Data[barIndex].Close)
                 : SpeechPriceFormatter.FormatPrice(val);
-            string valueStr = val.ToString("F1");
+            string valueStr = val.ToString("F1", CultureInfo.InvariantCulture);
 
             if (!string.IsNullOrEmpty(comp.SignalSpeechTemplate))
             {

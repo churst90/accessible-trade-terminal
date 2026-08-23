@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
@@ -110,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // ── Coordinate Entry mode: always speak price + timestamp regardless of other settings ──
             if (state.IsCoordinateEntryMode)
             {
-                string ts = pt.Date.ToString("t");
+                string ts = pt.Date.ToString("t", CultureInfo.InvariantCulture);
                 string ceMsg = $"{SpeechPriceFormatter.FormatPrice(pt.Close)}, {ts}";
 
                 // When anchor 1 is already confirmed, also speak the change from that anchor.

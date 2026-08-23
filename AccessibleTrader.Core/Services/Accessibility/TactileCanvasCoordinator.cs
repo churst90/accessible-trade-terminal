@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO.Ports;
 using System.Linq;
 using System.Reactive.Linq;
@@ -1013,10 +1014,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) return "-";
             double abs = Math.Abs(value);
-            if (abs >= 10_000) return value.ToString("0");
-            if (abs >= 100)    return value.ToString("0.#");
-            if (abs >= 1)      return value.ToString("0.##");
-            return value.ToString("0.###");
+            if (abs >= 10_000) return value.ToString("0", CultureInfo.InvariantCulture);
+            if (abs >= 100)    return value.ToString("0.#", CultureInfo.InvariantCulture);
+            if (abs >= 1)      return value.ToString("0.##", CultureInfo.InvariantCulture);
+            return value.ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         public void Dispose()
