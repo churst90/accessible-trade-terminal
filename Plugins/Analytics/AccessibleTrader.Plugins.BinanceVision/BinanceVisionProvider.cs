@@ -76,6 +76,12 @@ namespace AccessibleTrader.Plugins.BinanceVision
             maxResponseBytes: MaxArchiveBytes,
             userAgent: "AccessibleTrader-BinanceVision/1.0");
 
+        // data.binance.vision is a public CDN with no documented request quota,
+        // but the funding walk fetches one archive per MONTH per symbol and the
+        // OI walk one per DAY across 8 parallel workers — an unmetered loop that
+        // was the last REST path in the repo with no rate limiter at all.
+        private readonly RateLimiter _limiter = new(20, TimeSpan.FromSeconds(1));
+
         // Per-symbol in-memory cache. Key = symbol (e.g. "BTCUSDT_FUNDING"), value = sorted
         // list of (ts, percent). Populated synchronously on first fetch, immutable afterwards.
         private readonly ConcurrentDictionary<string, IReadOnlyList<Ohlcv>> _cache = new();
@@ -278,6 +284,7 @@ namespace AccessibleTrader.Plugins.BinanceVision
                 var url = $"{FundingBase}/{underlying}/{underlying}-fundingRate-{month.ToString("yyyy-MM", CultureInfo.InvariantCulture)}.zip";
                 try
                 {
+                    await _limiter.WaitAsync().ConfigureAwait(false);
                     using var response = await _http.GetAsync(url).ConfigureAwait(false);
                     if (!response.IsSuccessStatusCode) continue;
                     var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
@@ -361,6 +368,7 @@ namespace AccessibleTrader.Plugins.BinanceVision
                     try
                     {
                         var url = $"{OiBase}/{underlying}/{underlying}-metrics-{date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.zip";
+                        await _limiter.WaitAsync().ConfigureAwait(false);
                         using var resp = await _http.GetAsync(url).ConfigureAwait(false);
                         if (!resp.IsSuccessStatusCode) return;
                         var bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);

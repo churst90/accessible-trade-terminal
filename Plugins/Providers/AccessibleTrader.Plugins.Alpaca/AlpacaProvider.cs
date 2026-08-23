@@ -495,12 +495,13 @@ namespace AccessibleTrader.Plugins.Alpaca
         /// CleanSymbol strip. Stocks never use this.</summary>
         internal static string ToAlpacaCryptoSymbol(string symbol)
         {
+            // SymbolFormat's 18-quote list replaces the private 5-entry one this
+            // method carried (no TUSD/FDUSD/EUR…), and its base-length tie-break
+            // prevents the XBTUSD -> XB/TUSD class of missplit the short list
+            // reproduced.
             var s = symbol.Replace("-", "/").ToUpperInvariant();
             if (s.Contains('/')) return s;                       // already BASE/QUOTE
-            foreach (var q in new[] { "USDT", "USDC", "USD", "BTC", "ETH" })
-                if (s.EndsWith(q) && s.Length > q.Length)
-                    return string.Concat(s.AsSpan(0, s.Length - q.Length), "/", q);
-            return s;
+            return SymbolFormat.Slashed(s);
         }
 
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")

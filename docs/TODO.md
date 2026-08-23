@@ -2,7 +2,7 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 275 open of 1317 tracked items (1042 done). Suite green at 4435 tests.
+**Status 2026-08-23:** 269 open of 1318 tracked items (1049 done). Suite green at 4488 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
@@ -1586,13 +1586,47 @@ guesses are invisible until money moves.
   half of the item at ~line 1500 about `PROVIDER_AUTHORING.md:114`; the code-side design question
   there stays open). Guard: `ProviderAuthoring_covers_the_trading_surface_the_audit_found_absent`
   turns the audit's absent-token list into a required-present list.
-- [ ] **SDK helper adoption is near zero where it matters.** `RestSigning`: 1 of 16 (MEXC).
-  `SymbolFormat`: 1. `TimestampParser`: 1 (Tradier). `ExchangeTime`: 1 (FMP).
-  `ReconnectingWebSocket`: 9 (Binance hand-rolls). `RateLimiter`: 14 (Gemini and KrakenFutures have
-  none — Gemini's second-resolution nonce can also outrun the venue's 30-second acceptance window
-  under a burst, and the failure is reported to the user as a *credential* problem). The TODO entry
-  naming Kraken/Bitstamp/Binance/Coinbase is **confirmed for all four and incomplete** — it omits
-  Binance's hand-rolled WebSocket, which is the highest-risk duplication of the set.
+- [x] **CLOSED 2026-08-23 — SDK helper adoption is near zero where it matters.** The recount
+  (three parallel sweeps, per the standing recount-first rule) found the census part right, part
+  stale: `RateLimiter` was indeed 14/16 (Gemini + KrakenFutures none), `RestSigning` indeed 1
+  (MEXC) — but `ReconnectingWebSocket` was already everywhere except ONE loop (Binance's
+  market-data `RunSocketAsync`; the user-data streams moved in d4d8bdc5), and `ExchangeTime`
+  adoption was already complete. What shipped:
+  **Signing** — `RestSigning` gained `HmacSha512Base64`, `Sha256`, `HmacSha384Hex` (known-answer
+  vectors in `SdkHelperTests`, independently computed); Binance, Bitstamp (REST + the private-WS
+  channel auth — the one signing site with no recomputation guard), Kraken spot, KrakenFuturesAuth
+  and GeminiAuth all sign through the SDK now, recipes staying put; every hand-rolled `new HMACSHA`
+  in the tier is gone, byte-identical output proven by the existing sign-what-you-send guards
+  (137 green).
+  **Rate limiting** — Gemini gained a public lane (120/min, the documented cap) and a private lane
+  deliberately shaped as 30 per rolling 30s: the SECOND-resolution monotonic nonce drifts forward
+  one second per same-second call, so ≤30-per-30s is what keeps worst-case drift inside the venue's
+  30-second acceptance window — the limiter is nonce-validity, not politeness. `InvalidNonce` was
+  also split OUT of the credentials branch (it told users to go check their keys for a timing
+  fault). KrakenFutures gained public/private lanes plus a `GetPublicJsonAsync` chokepoint — its
+  two public GETs (instruments, charts API) bypassed every helper. Both lanes wait BEFORE the nonce
+  is stamped, so queued requests cannot age out. **Live find while proving the guard red:** the
+  roster-wide guard immediately caught `BinanceVisionProvider` — an unmetered month-by-month /
+  day-by-day CDN archive walk (8 parallel workers) the audit never listed; it has a limiter now.
+  **WebSocket** — Binance market data (klines, keyed feeds, depth; spot AND futures) moved onto
+  `ReconnectingWebSocket`: gains the 10s connect timeout (a black-holed handshake used to wedge
+  the subscription forever) and exponential backoff over the fixed 2s hammer; heartbeat stays off
+  (Binance pings at protocol level) and reconnects are unbounded, preserving the old
+  never-give-up semantics. Zero raw `ClientWebSocket` remain in `Plugins/Providers/`.
+  **Symbols/timestamps** — `TimestampParser` gained fractional-unix-seconds (OANDA's UNIX format,
+  which `long.TryParse` could never read); Oanda's two inline timestamp branches (one hard-assumed
+  seconds, one silently kept `UtcNow` on RFC3339) and TwelveData's duplicate magnitude heuristic
+  (with a DIFFERENT threshold than the SDK's) now call it. Oanda `FormatInstrument` and Alpaca
+  `ToAlpacaCryptoSymbol` use `SymbolFormat` (Alpaca's private 5-quote list reproduced the
+  XBTUSD→XB/TUSD missplit class; Oanda keeps its 3/3 fallback for the exotic pairs — USD_SEK,
+  EUR_TRY — no quote list can know). Kraken's REST symbol clean is `SymbolFormat.Concatenated`.
+  **Guards:** `SdkHelperAdoptionScanTests` — no `new ClientWebSocket(`, no `new HMACSHA` under
+  `Plugins/Providers/` (empty baselines, vacuity floors), and every roster provider owning an
+  `HttpClient` must own a `RateLimiter` (≥14 floor). Scan pair sabotage-proven red; the limiter
+  guard proved itself red on BinanceVision. Suite 4488. **Left open deliberately:** per-call-site
+  `ExecuteAsync` retry adoption (the limiters meter; retry semantics per venue are a separate
+  decision), and Bitstamp's private-WS auth still has no signature-recomputation test (the shared
+  helper now makes REST and WS signing one code path, which is most of that risk).
 - [ ] **`ProviderResult<T>` has zero callers repo-wide**, and `ProviderErrors`/`SurfaceError` has
   zero subscribers — 3 of 16 providers emit through it, the other 13 use 164 raw
   `_errorStream.OnNext` calls, so severity and category never reach the feedback layer.

@@ -40,8 +40,17 @@ jobs:
       - name: Restore test project (for --list-tests)
         run: dotnet restore AccessibleTrader.Tests/AccessibleTrader.Tests.csproj
 
+      # Release, not Debug: with the Razor source generator disabled
+      # (dotnet/razor#13184 workaround in the two Razor csprojs), the classic
+      # `rzc generate` path crashes nondeterministically on Debug builds of
+      # WebHost ("This writer does not support components", a race in its
+      # parallel codegen). Release builds of the same tree — tests.yml and the
+      # MAUI head job — have never tripped it. Same SDK either way, so this is
+      # a config-flag interaction, not a version issue.
       - name: Build test project
-        run: dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj --configuration Debug --no-restore
+        run: dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj --configuration Release --no-restore
 
       - name: Run doc-drift guard
         run: python scripts/check_doc_drift.py
+        env:
+          DOC_DRIFT_CONFIG: Release

@@ -233,9 +233,16 @@ def check_test_count(errors: list[str]) -> None:
         print(f"TEST GUARD: skipped (DOC_DRIFT_SKIP_TESTS=1). README claims {claim}.")
         return
 
+    # Configuration must match whatever the caller pre-built, or `dotnet test`
+    # triggers its own build. CI passes Release: the classic rzc pipeline
+    # (UseRazorSourceGenerator=false, dotnet/razor#13184) crashes
+    # nondeterministically on Debug WebHost builds ("This writer does not
+    # support components") while Release has never tripped it.
+    config = os.environ.get("DOC_DRIFT_CONFIG", "Debug")
     try:
         res = subprocess.run(
-            ["dotnet", "test", str(TESTS_PROJ), "--list-tests", "--nologo"],
+            ["dotnet", "test", str(TESTS_PROJ), "--list-tests", "--nologo",
+             "--configuration", config],
             capture_output=True, text=True, timeout=600, cwd=REPO,
         )
     except FileNotFoundError:

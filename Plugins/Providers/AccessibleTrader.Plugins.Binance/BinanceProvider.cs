@@ -1160,16 +1160,10 @@ namespace AccessibleTrader.Plugins.Binance
         {
             var (key, secret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
 
-            var sb = new StringBuilder();
-            foreach (var kv in p)
-            {
-                if (sb.Length > 0) sb.Append('&');
-                sb.Append(kv.Key).Append('=').Append(Uri.EscapeDataString(kv.Value));
-            }
-            if (sb.Length > 0) sb.Append('&');
-            sb.Append("recvWindow=5000&timestamp=").Append(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            string query = sb.ToString();
-            string signature = Sign(query, secret);
+            string query = RestSigning.BuildQuery(p);
+            if (query.Length > 0) query += "&";
+            query += "recvWindow=5000&timestamp=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string signature = RestSigning.HmacSha256Hex(secret, query);
 
             using var req = new HttpRequestMessage(method, $"{baseUrl}{path}?{query}&signature={signature}");
             req.Headers.Add("X-MBX-APIKEY", key);
@@ -1192,13 +1186,6 @@ namespace AccessibleTrader.Plugins.Binance
             return body;
         }
 
-        private static string Sign(string query, string secret)
-        {
-            using var h = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-            byte[] hash = h.ComputeHash(Encoding.UTF8.GetBytes(query));
-            return Convert.ToHexStringLower(hash);
-        }
-
         // ── WebSocket runner with reconnect ───────────────────────────────────
 
         // Market-data sockets only (klines, keyed feeds, depth). The user-data
@@ -1208,48 +1195,51 @@ namespace AccessibleTrader.Plugins.Binance
         // 60-minute credential for order and balance events).
         private async Task RunSocketAsync(Uri uri, string label, Action<JsonElement> onMessage, CancellationToken ct)
         {
-            var buffer = new byte[64 * 1024];
+            // ReconnectingWebSocket owns the transport, replacing the last
+            // hand-rolled ClientWebSocket loop in the provider tier. What that
+            // loop lacked and this gains: a 10-second connect timeout (a
+            // black-holed handshake used to wedge the subscription forever) and
+            // exponential reconnect backoff instead of a fixed 2s hammer.
+            // Heartbeat is disabled: Binance market streams are URL-addressed,
+            // ping at the WebSocket protocol level (auto-ponged by .NET), and a
+            // text "ping" frame is not a valid stream message. maxReconnectAttempts
+            // is unbounded because market data must never give up while the
+            // subscription lives — the semantics of the loop this replaces.
+            await using var ws = new ReconnectingWebSocket(
+                    uri.ToString(),
+                    heartbeatInterval: Timeout.InfiniteTimeSpan,
+                    reconnectBaseDelay: TimeSpan.FromSeconds(2),
+                    maxReconnectAttempts: int.MaxValue)
+                .OnMessage(msg =>
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(msg);
+                        onMessage(doc.RootElement);
+                    }
+                    catch { /* malformed market-data frame — the next one supersedes it */ }
+                })
+                .OnError(e => _errorStream.OnNext($"Binance {label} socket: {e}"));
+
+            // The initial connect retries here (the SDK socket only self-heals
+            // once it has connected at least once); after that, its receive loop
+            // owns reconnection and this task just holds the subscription open.
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    using var ws = new ClientWebSocket();
-                    await ws.ConnectAsync(uri, ct).ConfigureAwait(false);
-                    var sb = new StringBuilder();
-                    while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
-                    {
-                        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
-                        if (result.MessageType == WebSocketMessageType.Close) break;
-                        sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
-                        if (sb.Length > ReconnectingWebSocket.MaxMessageBytes)
-                        {
-                            // Same cap the shared socket enforces: an unbounded
-                            // continuation sequence must not accumulate to OOM.
-                            sb.Clear();
-                            _errorStream.OnNext($"Binance {label} socket dropped an oversized frame; reconnecting.");
-                            break;
-                        }
-                        if (!result.EndOfMessage) continue;
-                        string msg = sb.ToString();
-                        sb.Clear();
-                        try
-                        {
-                            using var doc = JsonDocument.Parse(msg);
-                            onMessage(doc.RootElement);
-                        }
-                        catch { /* malformed market-data frame — the next one supersedes it */ }
-                    }
+                    await ws.ConnectAsync(ct).ConfigureAwait(false);
+                    break;
                 }
-                catch (OperationCanceledException) { break; }
+                catch (OperationCanceledException) { return; }
                 catch (Exception ex)
                 {
-                    _errorStream.OnNext($"Binance {label} socket error ({ex.GetType().Name}); reconnecting.");
-                }
-                if (!ct.IsCancellationRequested)
-                {
-                    try { await Task.Delay(2000, ct).ConfigureAwait(false); } catch { break; }
+                    _errorStream.OnNext($"Binance {label} socket connect failed ({ex.GetType().Name}); retrying.");
+                    try { await Task.Delay(2000, ct).ConfigureAwait(false); } catch { return; }
                 }
             }
+            try { await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { /* subscription ended */ }
         }
 
         /// <summary>

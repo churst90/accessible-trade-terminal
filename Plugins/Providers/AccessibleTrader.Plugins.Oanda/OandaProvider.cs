@@ -270,10 +270,17 @@ namespace AccessibleTrader.Plugins.Oanda
                                 double mid = (bid + ask) / 2.0;
                                 var now = DateTime.UtcNow;
 
-                                // Try parse timestamp from OANDA
+                                // Try parse timestamp from OANDA. TimestampParser
+                                // handles both spellings the API can send: fractional
+                                // unix seconds (AcceptDatetimeFormat: UNIX) and
+                                // RFC3339 — the inline version this replaces silently
+                                // kept UtcNow for the RFC3339 case.
                                 var tsStr = json["time"]?.ToString();
-                                if (!string.IsNullOrEmpty(tsStr) && double.TryParse(tsStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double unixTs))
-                                    now = DateTimeOffset.FromUnixTimeSeconds((long)unixTs).UtcDateTime;
+                                if (!string.IsNullOrEmpty(tsStr))
+                                {
+                                    var parsed = TimestampParser.Parse(tsStr);
+                                    if (parsed > DateTime.MinValue.ToUniversalTime()) now = parsed;
+                                }
 
                                 var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
 
@@ -543,12 +550,10 @@ namespace AccessibleTrader.Plugins.Oanda
                         .Select(c =>
                         {
                             var mid = c["mid"];
-                            var tsStr = c["time"]?.ToString() ?? "0";
-                            DateTime date;
-                            if (double.TryParse(tsStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double unixTs))
-                                date = DateTimeOffset.FromUnixTimeSeconds((long)unixTs).UtcDateTime;
-                            else
-                                DateTime.TryParse(tsStr, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out date);
+                            // Fractional unix seconds or RFC3339 — TimestampParser
+                            // handles both; the inline version this replaces
+                            // hard-assumed SECONDS for any numeric value.
+                            var date = TimestampParser.Parse(c["time"]?.ToString() ?? "0");
 
                             return new Ohlcv(
                                 date,
@@ -935,11 +940,17 @@ namespace AccessibleTrader.Plugins.Oanda
         /// <summary>Convert symbol formats to OANDA's underscore format (EUR_USD).</summary>
         private static string FormatInstrument(string symbol)
         {
-            // "EUR/USD" -> "EUR_USD", "EURUSD" -> "EUR_USD", "EUR-USD" -> "EUR_USD"
-            symbol = symbol.Replace("/", "_").Replace("-", "_").ToUpper();
-            if (!symbol.Contains('_') && symbol.Length == 6)
-                symbol = symbol[..3] + "_" + symbol[3..];
-            return symbol;
+            // "EUR/USD" -> "EUR_USD", "EURUSD" -> "EUR_USD", "EUR-USD" -> "EUR_USD".
+            // SymbolFormat knows the major quotes (its list was extended with
+            // JPY/AUD/CAD/CHF/NZD specifically for this site); the 3/3 fallback
+            // stays for the exotic six-char pairs it cannot know (USD_SEK,
+            // EUR_TRY, USD_MXN …) — dropping it would send those to OANDA
+            // without a separator. The old inline version was ALSO culture-
+            // sensitive (.ToUpper) and did nothing for 7-char pairs.
+            var s = SymbolFormat.Underscored(symbol);
+            if (!s.Contains('_') && s.Length == 6)
+                s = s[..3] + "_" + s[3..];
+            return s;
         }
 
         private static string MapGranularity(string tf) => tf switch

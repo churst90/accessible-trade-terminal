@@ -1193,9 +1193,8 @@ namespace AccessibleTrader.Plugins.Kraken
             string nonce = next.ToString(CultureInfo.InvariantCulture);
             data["nonce"] = nonce;
 
-            string postData = string.Join("&", data.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
-            byte[] noncePost = Encoding.UTF8.GetBytes(nonce + postData);
-            byte[] sha256Hash = SHA256.HashData(noncePost);
+            string postData = RestSigning.BuildQuery(data);
+            byte[] sha256Hash = RestSigning.Sha256(nonce + postData);
             byte[] pathBytes = Encoding.UTF8.GetBytes(path);
 
             byte[] combined = new byte[pathBytes.Length + sha256Hash.Length];
@@ -1203,8 +1202,7 @@ namespace AccessibleTrader.Plugins.Kraken
             Buffer.BlockCopy(sha256Hash, 0, combined, pathBytes.Length, sha256Hash.Length);
 
             byte[] secretBytes = Convert.FromBase64String(apiSecret);
-            using var hmac = new HMACSHA512(secretBytes);
-            byte[] signature = hmac.ComputeHash(combined);
+            string apiSign = RestSigning.HmacSha512Base64(secretBytes, combined);
             // Best-effort scrub of the base64-decoded secret bytes before they
             // leave scope. The managed strings above the HMAC (apiSecret) stay
             // until GC — we can't reach into the string backing — but we can
@@ -1222,7 +1220,7 @@ namespace AccessibleTrader.Plugins.Kraken
                 Content = new StringContent(postData, Encoding.UTF8, "application/x-www-form-urlencoded")
             };
             request.Headers.Add("API-Key", apiKey);
-            request.Headers.Add("API-Sign", Convert.ToBase64String(signature));
+            request.Headers.Add("API-Sign", apiSign);
 
             var response = await _httpClient.SendAsync(request);
             return await response.Content.ReadAsStringAsync();
@@ -1249,7 +1247,7 @@ namespace AccessibleTrader.Plugins.Kraken
         private static string FormatRestPair(string symbol)
         {
             // REST API wants no separator: "XBTUSD" or "BTCUSD"
-            return symbol.Replace("/", "").Replace("-", "").ToUpper();
+            return SymbolFormat.Concatenated(symbol);
         }
 
         private static string MapToKrakenOrderType(OrderType type) => type switch

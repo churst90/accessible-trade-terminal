@@ -26,6 +26,15 @@ namespace AccessibleTrader.Sdk.Models
                 }
             }
 
+            // Fractional unix SECONDS ("1622505600.000000000" — OANDA's UNIX
+            // datetime format). Must run before the integer branch, which
+            // cannot parse the fraction at all.
+            if (tsStr.Contains('.') &&
+                double.TryParse(tsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double fractional))
+            {
+                return DateTimeOffset.FromUnixTimeMilliseconds((long)(fractional * 1000)).UtcDateTime;
+            }
+
             // Fallback to Unix timestamp heuristic
             if (long.TryParse(tsStr, out long ts))
             {

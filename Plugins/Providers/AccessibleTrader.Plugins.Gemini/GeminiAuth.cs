@@ -1,6 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using AccessibleTrader.Sdk.Services;
 
 namespace AccessibleTrader.Plugins.Gemini
 {
@@ -31,11 +32,8 @@ namespace AccessibleTrader.Plugins.Gemini
         /// HMAC-SHA384 over the base64 payload string, keyed with the UTF-8 bytes
         /// of the API secret.
         /// </summary>
-        public static string Sign(string payloadBase64, string apiSecret)
-        {
-            using var hmac = new HMACSHA384(Encoding.UTF8.GetBytes(apiSecret));
-            return Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadBase64)));
-        }
+        public static string Sign(string payloadBase64, string apiSecret) =>
+            RestSigning.HmacSha384Hex(apiSecret, payloadBase64);
 
         /// <summary>
         /// **SECONDS** since the epoch, not milliseconds — found live against the

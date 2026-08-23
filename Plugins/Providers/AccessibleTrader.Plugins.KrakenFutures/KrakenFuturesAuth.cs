@@ -1,6 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using AccessibleTrader.Sdk.Services;
 
 namespace AccessibleTrader.Plugins.KrakenFutures
 {
@@ -39,11 +40,12 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         public static string Sign(string postData, string nonce, string endpointPath, string apiSecretBase64)
         {
             // 1. SHA-256 over the concatenation, in this exact order.
-            byte[] sha = SHA256.HashData(Encoding.UTF8.GetBytes(postData + nonce + endpointPath));
+            byte[] sha = RestSigning.Sha256(postData + nonce + endpointPath);
 
             // 2. HMAC-SHA-512 of that digest, keyed with the base64-DECODED secret.
-            using var hmac = new HMACSHA512(Convert.FromBase64String(apiSecretBase64));
-            return Convert.ToBase64String(hmac.ComputeHash(sha));
+            byte[] key = Convert.FromBase64String(apiSecretBase64);
+            try { return RestSigning.HmacSha512Base64(key, sha); }
+            finally { Array.Clear(key, 0, key.Length); }
         }
 
         /// <summary>

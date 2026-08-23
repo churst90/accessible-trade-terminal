@@ -272,7 +272,9 @@ fetch rather than returning an empty result silently, so a blind trader hears it
 report connection changes through `_connectionStateStream`.
 
 **Shared plumbing (use these instead of hand-rolling).** `RestSigning` provides
-`HmacSha256Hex`, `BuildQuery`, and `QueryPrefixed`; `SymbolFormat` provides
+`HmacSha256Hex`, `HmacSha384Hex`, `HmacSha512Base64`, `Sha256`, `BuildQuery`, and
+`QueryPrefixed` (scan guards fail the suite on any `new HMACSHA` or raw
+`ClientWebSocket` in provider code); `SymbolFormat` provides
 `SplitBaseQuote` / `Concatenated` / `Slashed` / `Underscored` for exchange-specific
 pair shapes; `ReconnectingWebSocket` handles reconnection, heartbeat (`WithHeartbeatMessage`
 for a custom keepalive), text (`OnMessage`) and binary (`OnBinary`) frames. Prefer a

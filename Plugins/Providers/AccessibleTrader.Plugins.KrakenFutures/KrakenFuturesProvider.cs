@@ -60,6 +60,15 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         private readonly HttpClient _http;
         private readonly Subject<OrderUpdate> _orderUpdates = new();
 
+        // Kraken Futures meters private endpoints in cost units — 500 per 10s at
+        // the lowest published tier, with order placement the most expensive call
+        // (~10 units). 50 sends per 10s is the conservative floor under that
+        // tier; public market data gets its own, tighter lane (mirroring the
+        // spot provider's public/private split) because the venue meters the
+        // lanes separately and one flooding the other helps nobody.
+        private readonly RateLimiter _publicLimiter = new(25, TimeSpan.FromSeconds(10));
+        private readonly RateLimiter _privateLimiter = new(50, TimeSpan.FromSeconds(10));
+
         private string _apiKey = "";
         private string _apiSecret = "";
         private bool _useDemo;
@@ -167,7 +176,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         {
             try
             {
-                var json = JObject.Parse(await _http.GetStringAsync($"{Host}{ApiRoot}/instruments").ConfigureAwait(false));
+                var json = await GetPublicJsonAsync($"{Host}{ApiRoot}/instruments").ConfigureAwait(false);
                 return (json["instruments"] as JArray ?? new JArray())
                     // Delisted contracts still appear; offering one would produce a
                     // chart that can never load and an order that can never fill.
@@ -197,7 +206,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 string res = MapResolution(request.Timeframe);
                 string url = $"{Host}/api/charts/v1/trade/{request.Symbol.ToLowerInvariant()}/{res}";
 
-                var json = JObject.Parse(await _http.GetStringAsync(url).ConfigureAwait(false));
+                var json = await GetPublicJsonAsync(url).ConfigureAwait(false);
                 foreach (var c in json["candles"] as JArray ?? new JArray())
                 {
                     // Times arrive in milliseconds here, unlike the spot API's seconds.
@@ -453,8 +462,23 @@ namespace AccessibleTrader.Plugins.KrakenFutures
 
         // ── Signed transport ──────────────────────────────────────────────────
 
+        /// <summary>
+        /// Public GET through the public rate-limit lane. Every unsigned REST
+        /// read must route through here — instruments and the charts API used
+        /// to call <c>_http.GetStringAsync</c> directly, which left them the
+        /// only two call sites in the plugin with no rate limiting at all.
+        /// </summary>
+        private async Task<JObject> GetPublicJsonAsync(string url)
+        {
+            await _publicLimiter.WaitAsync().ConfigureAwait(false);
+            return JObject.Parse(await _http.GetStringAsync(url).ConfigureAwait(false));
+        }
+
         private async Task<JObject> GetPrivateAsync(string path)
         {
+            // Limiter before Signed(): the nonce is stamped inside Signed, and a
+            // request that queued with a pre-stamped nonce ages while it waits.
+            await _privateLimiter.WaitAsync().ConfigureAwait(false);
             using var req = Signed(HttpMethod.Get, path, "");
             var res = await _http.SendAsync(req).ConfigureAwait(false);
             return JObject.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
@@ -468,6 +492,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             string body = string.Join("&", args.Select(a =>
                 $"{Uri.EscapeDataString(a.Key)}={Uri.EscapeDataString(a.Value)}"));
 
+            await _privateLimiter.WaitAsync().ConfigureAwait(false);
             using var req = Signed(HttpMethod.Post, path, body);
             req.Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded");
             var res = await _http.SendAsync(req).ConfigureAwait(false);

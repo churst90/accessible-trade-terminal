@@ -56,6 +56,17 @@ namespace AccessibleTrader.Plugins.Gemini
         private readonly HttpClient _http;
         private readonly Subject<OrderUpdate> _orderUpdates = new();
 
+        // Gemini's documented public REST limit (120 requests/minute).
+        private readonly RateLimiter _publicLimiter = new(120, TimeSpan.FromMinutes(1));
+        // Deliberately far below Gemini's 600/min private cap: the nonce is
+        // SECOND-resolution with a monotonic bump (GeminiAuth.Nonce), so every
+        // same-second call pushes the nonce one second into the future, and the
+        // venue rejects anything more than ~30s ahead as InvalidNonce — which
+        // reads to the user as a credentials failure. At ≤30 calls per rolling
+        // 30s the worst-case forward drift stays under the 30s window, so the
+        // limiter is what keeps the nonce valid, not just politeness.
+        private readonly RateLimiter _privateLimiter = new(30, TimeSpan.FromSeconds(30));
+
         private string _apiKey = "";
         private string _apiSecret = "";
         private bool _useSandbox;
@@ -512,6 +523,7 @@ namespace AccessibleTrader.Plugins.Gemini
         /// </summary>
         private async Task<JToken> GetPublicAsync(string pathAndQuery)
         {
+            await _publicLimiter.WaitAsync().ConfigureAwait(false);
             using var req = new HttpRequestMessage(HttpMethod.Get, $"{Host}{pathAndQuery}");
             using var res = await _http.SendAsync(req).ConfigureAwait(false);
             var json = JToken.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
@@ -548,6 +560,10 @@ namespace AccessibleTrader.Plugins.Gemini
 
         private async Task<JToken> PostPrivateOnceAsync(string path, JObject? args, bool withAccount)
         {
+            // The limiter must run BEFORE the nonce is stamped: a request that
+            // queued behind WaitAsync with a pre-stamped nonce could leave the
+            // venue's 30-second acceptance window while it waited.
+            await _privateLimiter.WaitAsync().ConfigureAwait(false);
             var payload = args is null ? new JObject() : (JObject)args.DeepClone();
             payload["request"] = path;
             payload["nonce"]   = GeminiAuth.Nonce();
@@ -591,8 +607,19 @@ namespace AccessibleTrader.Plugins.Gemini
             if (reason is "MissingRole")
                 throw new UnauthorizedAccessException($"Gemini refused the request ({reason}): {message}");
 
+            // InvalidNonce is a TIMING fault, not a key problem: the identical
+            // request retried a second later succeeds. It used to sit in the
+            // credentials branch below, which told the user to go check their
+            // keys — the wrong place to debug it. The private-lane rate limiter
+            // is what prevents it; if it still fires, say what it actually is.
+            if (reason is "InvalidNonce")
+                throw new HttpRequestException(
+                    $"Gemini rejected the request nonce ({reason}): {message}. This is a transient "
+                  + "timing fault (requests arriving too fast or the clock drifting), not a "
+                  + "credentials problem — retry the operation; the key itself is fine.");
+
             if (reason is "InvalidApiKey" or "InvalidSignature" or "MissingSecurityHeaders"
-                       or "InvalidNonce" or "NotAuthorized")
+                       or "NotAuthorized")
                 throw new UnauthorizedAccessException(
                     $"Gemini refused the credentials ({reason}): {message}. Sandbox and live keys are "
                   + $"separate — this profile targets {(_useSandbox ? "the SANDBOX (exchange.sandbox.gemini.com)" : "the LIVE venue (exchange.gemini.com)")}, "

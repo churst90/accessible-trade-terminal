@@ -682,8 +682,11 @@ ship-blockers.
 The SDK ships helpers for the code every provider gets subtly wrong when
 hand-rolled. Prefer them:
 
-- **`RestSigning`** — `HmacSha256Hex`, `BuildQuery`, `QueryPrefixed`. The
-  invariant that matters: **the string you sign must be byte-identical to the
+- **`RestSigning`** — `HmacSha256Hex`, `HmacSha384Hex` (Gemini's shape),
+  `HmacSha512Base64` + `Sha256` (both Kraken shapes), `BuildQuery`,
+  `QueryPrefixed`. Your venue keeps its signature RECIPE (what gets hashed,
+  which header carries it) in its own small auth class; the primitives live
+  here, once. The invariant that matters: **the string you sign must be byte-identical to the
   string you send.** Building the signature from one encoding and the body with
   another (`Uri.EscapeDataString` vs `FormUrlEncodedContent`) produces
   "invalid signature" errors only on symbols/values containing spaces or

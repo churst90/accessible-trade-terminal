@@ -31,9 +31,14 @@ public class ModalAccessibilityContractTests
         // focus assertions below would pass against a closed modal.
         Assert.NotEmpty(cut.FindAll("[role='dialog']"));
 
-        Assert.True(h.FocusedElementIds.Count > 0,
-            $"{name} opened without calling accessibleTrader.focusElement — a screen reader " +
-            "user is left wherever they were, with no announcement of the new dialog.");
+        // focusElement fires from a post-render hook, which can lag the open
+        // render on starved CI runners; poll instead of asserting a single
+        // frame (this exact assertion flaked two CI runs in a row, always
+        // green in isolation).
+        cut.WaitForAssertion(() =>
+            Assert.True(h.FocusedElementIds.Count > 0,
+                $"{name} opened without calling accessibleTrader.focusElement — a screen reader " +
+                "user is left wherever they were, with no announcement of the new dialog."));
 
         var target = h.FocusedElementIds[^1];
         var el = cut.FindAll($"[id='{target}']").SingleOrDefault();

@@ -419,12 +419,8 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
                 long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 string nonce   = Guid.NewGuid().ToString("N");
-                string message = nonce + timestamp.ToString() + apiKey;
-                byte[] secretBytes = Encoding.UTF8.GetBytes(apiSecret);
-                using var hmac = new System.Security.Cryptography.HMACSHA256(secretBytes);
-                byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
-                string sig  = BitConverter.ToString(hash).Replace("-", "").ToUpper();
-                Array.Clear(secretBytes, 0, secretBytes.Length);
+                string message = nonce + timestamp.ToString(CultureInfo.InvariantCulture) + apiKey;
+                string sig     = RestSigning.HmacSha256Hex(apiSecret, message, upperCase: true);
 
                 var authMsg = new JObject
                 {
@@ -698,13 +694,9 @@ namespace AccessibleTrader.Plugins.Bitstamp
         {
             var (apiKey, apiSecret, customerId) = await CheckoutBitstampCredentialsAsync().ConfigureAwait(false);
 
-            string nonce   = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+            string nonce   = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
             string message = nonce + customerId + apiKey;
-            byte[] secretBytes = Encoding.UTF8.GetBytes(apiSecret);
-            using var hmac = new System.Security.Cryptography.HMACSHA256(secretBytes);
-            byte[] hash     = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
-            string signature = BitConverter.ToString(hash).Replace("-", "").ToUpper();
-            Array.Clear(secretBytes, 0, secretBytes.Length);
+            string signature = RestSigning.HmacSha256Hex(apiSecret, message, upperCase: true);
 
             var postParams = new Dictionary<string, string>(parameters) { ["key"] = apiKey, ["signature"] = signature, ["nonce"] = nonce };
             var content  = new FormUrlEncodedContent(postParams);
