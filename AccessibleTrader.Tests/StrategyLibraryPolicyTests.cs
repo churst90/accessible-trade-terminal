@@ -29,7 +29,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class StrategyLibraryPolicyTests
     {
-        private static string RepoRoot() => ProviderRoster.RepoRoot();
+        private static string RepoRoot() => RepoPaths.RepoRoot();
 
         /// <summary>
         /// Projects that are NOT shipping code. <c>StrategyLab</c> is the research lab and is

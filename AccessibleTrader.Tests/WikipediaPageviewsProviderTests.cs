@@ -24,6 +24,7 @@ namespace AccessibleTrader.Tests;
 /// must map to something real.
 /// </para>
 /// </summary>
+[Collection("ProviderCredentialBridge")]
 public class WikipediaPageviewsProviderTests
 {
     private static WikipediaPageviewsProvider NewProvider(FakeHttpMessageHandler h)

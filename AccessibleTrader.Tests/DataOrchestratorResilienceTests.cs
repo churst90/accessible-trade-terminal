@@ -338,7 +338,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Stalled_is_unreachable_because_nothing_fires_NetworkLagged()
         {
-            var core = Path.Combine(ProviderRoster.RepoRoot(), "AccessibleTrader.Core");
+            var core = Path.Combine(RepoPaths.RepoRoot(), "AccessibleTrader.Core");
             var producers = Directory.EnumerateFiles(core, "*.cs", SearchOption.AllDirectories)
                 .Select(path => (path, text: File.ReadAllText(path)))
                 .Where(f => f.text.Contains("Fire(DataTrigger.NetworkLagged"))

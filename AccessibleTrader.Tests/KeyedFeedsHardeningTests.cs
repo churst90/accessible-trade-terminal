@@ -22,6 +22,7 @@ namespace AccessibleTrader.Tests
     /// eviction racing an in-flight subscribe, background reconcile interleaving,
     /// lease leaks on failure, consolidator poisoning, and Binance socket teardown.
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class KeyedFeedsHardeningTests
     {
         private static Ohlcv Bar(int hours, double close = 100) =>

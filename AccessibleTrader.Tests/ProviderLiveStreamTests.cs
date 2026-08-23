@@ -64,6 +64,7 @@ namespace AccessibleTrader.Tests
         // {"event":"trade","data":{"price":..,"amount":..,"timestamp":"unix_seconds"}}
         // throttled at 250ms — first frame after construction goes through.
 
+        [Collection("ProviderCredentialBridge")]
         public class Bitstamp
         {
             [Fact]
@@ -249,6 +250,7 @@ namespace AccessibleTrader.Tests
         // the candle-aggregation logic (which depends on _lastCandle state set
         // by an earlier FetchOhlcv call).
 
+        [Collection("ProviderCredentialBridge")]
         public class Coinbase
         {
             [Fact]
@@ -335,6 +337,7 @@ namespace AccessibleTrader.Tests
         // the same JSON-array stream. Each bar has o/h/l/c/v + e (end-time ms).
         // All-zero bars dropped.
 
+        [Collection("ProviderCredentialBridge")]
         public class Polygon
         {
             [Fact]
@@ -403,6 +406,7 @@ namespace AccessibleTrader.Tests
         // Public channel "book" → SubscribeOrderBook with bid/ask round-trip.
         // Reflection target for these tests is HandlePublicMessage.
 
+        [Collection("ProviderCredentialBridge")]
         public class Kraken
         {
             // Override DispatchFrame because Kraken doesn't have a method named
@@ -524,6 +528,7 @@ namespace AccessibleTrader.Tests
         // ── Finnhub — single channel, candle-aggregation depends on lastCandle ─
         // Tests focus on the trade-frame routing + price-zero discard.
 
+        [Collection("ProviderCredentialBridge")]
         public class Finnhub
         {
             [Fact]

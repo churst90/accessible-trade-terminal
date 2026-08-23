@@ -9,6 +9,7 @@ namespace AccessibleTrader.Tests;
 /// silent parse regression (Deribit's classic {result:{data:[[...]]}} vs the flat
 /// {result:[[...]]}) can't ship a provider that quietly returns nothing.
 /// </summary>
+[Collection("ProviderCredentialBridge")]
 public class DeribitProviderTests
 {
     [Fact]

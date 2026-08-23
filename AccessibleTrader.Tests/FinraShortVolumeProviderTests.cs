@@ -16,6 +16,7 @@ namespace AccessibleTrader.Tests
     /// short-% math, weekend/holiday handling (404 = no bar, no throw), symbol
     /// suffix convention, and the standard error contract.
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class FinraShortVolumeProviderTests
     {
         private static FinraShortVolumeProvider NewProvider(FakeHttpMessageHandler handler)

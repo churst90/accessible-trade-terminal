@@ -68,6 +68,7 @@ namespace AccessibleTrader.Tests
         // Kline frame: {"e":"kline","k":{"t":ms,"o":"","h":"","l":"","c":"","v":""}}
         // User-data:   {"e":"executionReport","s":,"S":,"X":,"q":,"z":,"L":,"p":,"i":,"o":}
 
+        [Collection("ProviderCredentialBridge")]
         public class Binance
         {
             [Fact]
@@ -164,6 +165,7 @@ namespace AccessibleTrader.Tests
 
         // ── InteractiveBrokers — smd (market data) + sor (order status) topics ─
 
+        [Collection("ProviderCredentialBridge")]
         public class InteractiveBrokers
         {
             [Fact]
@@ -235,6 +237,7 @@ namespace AccessibleTrader.Tests
 
         // ── TwelveData — single "price" event feeding a candle aggregator ────
 
+        [Collection("ProviderCredentialBridge")]
         public class TwelveData
         {
             [Fact]
@@ -279,6 +282,7 @@ namespace AccessibleTrader.Tests
 
         // ── Finnhub — happy path missing from the original suite ─────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class Finnhub
         {
             [Fact]

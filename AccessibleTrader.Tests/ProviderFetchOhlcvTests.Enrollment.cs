@@ -60,6 +60,7 @@ namespace AccessibleTrader.Tests
         // GET /fapi/v1/klines (futures)
         // Response: [[openTimeMs,"o","h","l","c","v",...],...] — stringified legs.
 
+        [Collection("ProviderCredentialBridge")]
         public class Binance
         {
             private static AccessibleTrader.Plugins.Binance.BinanceProvider NewProvider(FakeHttpMessageHandler h)
@@ -165,6 +166,7 @@ namespace AccessibleTrader.Tests
         // GET /api/v1/stock/candle?symbol=&resolution=&from=&to=&token=
         // Response: {"s":"ok","t":[..],"o":[..],"h":[..],"l":[..],"c":[..],"v":[..]}
 
+        [Collection("ProviderCredentialBridge")]
         public class Finnhub
         {
             private static AccessibleTrader.Plugins.Finnhub.FinnhubProvider NewConfigured(FakeHttpMessageHandler h)
@@ -291,6 +293,7 @@ namespace AccessibleTrader.Tests
         // Response: {"values":[{"datetime":"yyyy-MM-dd HH:mm:ss","open":"","high":"",...}]}
         // — values are stringified, newest-first; provider sorts ascending.
 
+        [Collection("ProviderCredentialBridge")]
         public class TwelveData
         {
             private static AccessibleTrader.Plugins.TwelveData.TwelveDataProvider NewConfigured(FakeHttpMessageHandler h)
@@ -404,6 +407,7 @@ namespace AccessibleTrader.Tests
         // Daily (1d):    GET /historical-price-full/{sym} → {"historical":[{...}]}
         // Intraday:      GET /historical-chart/{interval}/{sym} → top-level [...]
 
+        [Collection("ProviderCredentialBridge")]
         public class Fmp
         {
             private static AccessibleTrader.Plugins.Fmp.FmpProvider NewConfigured(FakeHttpMessageHandler h)
@@ -564,6 +568,7 @@ namespace AccessibleTrader.Tests
         // The gateway session / TLS-pinning concerns live in the transport, not
         // the parse path, so the swap-HttpClient pattern applies cleanly.
 
+        [Collection("ProviderCredentialBridge")]
         public class InteractiveBrokers
         {
             private static AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider NewProvider(FakeHttpMessageHandler h)
@@ -663,6 +668,7 @@ namespace AccessibleTrader.Tests
         // token via Configure(Passphrase=...) — SendWithAuthAsync then runs the
         // refresh-token grant against the canned /v1/oauth/token rule.
 
+        [Collection("ProviderCredentialBridge")]
         public class Schwab
         {
             private const string TokenBody = """
@@ -821,6 +827,7 @@ namespace AccessibleTrader.Tests
         // both private statics reached via reflection. CleanSymbol coverage for
         // MEXC already lives in ProviderSymbolNormalisationTests.
 
+        [Collection("ProviderCredentialBridge")]
         public class Mexc
         {
             private static T InvokeStatic<T>(string method, params object[] args)

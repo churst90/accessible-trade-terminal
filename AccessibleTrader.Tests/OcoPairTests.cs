@@ -26,6 +26,7 @@ namespace AccessibleTrader.Tests
     /// a pair) and BINANCE's native request shape against the current
     /// /api/v3/orderList/oco endpoint (above/below leg vocabulary per side).
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class OcoPairTests
     {
         // ── Order-service routing ────────────────────────────────────────────

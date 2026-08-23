@@ -26,6 +26,7 @@ namespace AccessibleTrader.Tests;
 /// entirely reasonable either way. Only a test can hold the line.
 /// </para>
 /// </summary>
+[Collection("ProviderCredentialBridge")]
 public class SecEdgarProviderTests
 {
     private static SecEdgarProvider NewProvider(FakeHttpMessageHandler h)

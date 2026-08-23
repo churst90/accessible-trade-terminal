@@ -425,7 +425,7 @@ public class SurrogateTestTests
     [Fact]
     public void NoLabCommandDerivesASeedFromGetHashCode()
     {
-        var lab = Path.Combine(ProviderRoster.RepoRoot(), "AccessibleTrader.StrategyLab");
+        var lab = Path.Combine(RepoPaths.RepoRoot(), "AccessibleTrader.StrategyLab");
         Assert.True(Directory.Exists(lab), $"StrategyLab not found at {lab}");
 
         var offenders = new List<string>();

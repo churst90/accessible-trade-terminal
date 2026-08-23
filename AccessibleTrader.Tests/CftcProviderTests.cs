@@ -18,6 +18,7 @@ namespace AccessibleTrader.Tests
     /// selection per contract, and the standard provider error contract (malformed /
     /// HTTP-error / unknown-symbol → empty, never throw).
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class CftcProviderTests
     {
         private static CftcProvider NewProvider(FakeHttpMessageHandler handler)

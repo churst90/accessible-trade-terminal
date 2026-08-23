@@ -24,7 +24,10 @@ namespace AccessibleTrader.Tests
     /// Each test is shaped: ARRANGE handler → SWAP _httpClient → ACT
     /// FetchOhlcvAsync → ASSERT shape + values + side-effect on error stream.
     /// </summary>
-    [Collection("ProviderCredentialBridge")] // shares the global ApiKeys bridge — see BrokerParityTests
+    // NOTE: this attribute covers only facts declared directly on the outer class. xUnit gives each
+// NESTED class its own collection, so every nested suite below carries the attribute itself —
+// enforced by ProviderCredentialBridgeEnrollmentTests.
+[Collection("ProviderCredentialBridge")] // shares the global ApiKeys bridge — see BrokerParityTests
 public class ProviderFetchOhlcvTests
     {
         // ── Helpers ───────────────────────────────────────────────────────────
@@ -58,6 +61,7 @@ public class ProviderFetchOhlcvTests
         // Fields: timestamp / open / high / low / close / volume — all stringified.
         // Filters bars where any OHLC leg ≤ 0; sorts by Date ascending.
 
+        [Collection("ProviderCredentialBridge")]
         public class Bitstamp
         {
             private static AccessibleTrader.Plugins.Bitstamp.BitstampProvider NewProvider(FakeHttpMessageHandler h)
@@ -191,6 +195,7 @@ public class ProviderFetchOhlcvTests
         // Response: {"results":[{"t":ms, "o":, "h":, "l":, "c":, "v":}]}
         // IsConfigured gate: needs Configure(ApiKey=...).
 
+        [Collection("ProviderCredentialBridge")]
         public class Polygon
         {
             private static AccessibleTrader.Plugins.Polygon.PolygonProvider NewProvider(FakeHttpMessageHandler h)
@@ -288,6 +293,7 @@ public class ProviderFetchOhlcvTests
         // Endpoint: /v1/markets/history?symbol=...&interval=daily&start=...&end=...
         // Response: {"history":{"day":[{"date":"...","open":..,...}]}}
 
+        [Collection("ProviderCredentialBridge")]
         public class Tradier
         {
             // Swap HttpClient FIRST then Configure — Tradier writes Authorization to
@@ -337,6 +343,7 @@ public class ProviderFetchOhlcvTests
         // Response: {"candles":[{"start":"unixsec","open":"","high":"","low":"","close":"","volume":""}]}
         // IsConfigured gate: needs Configure() with API key + secret.
 
+        [Collection("ProviderCredentialBridge")]
         public class Coinbase
         {
             private static AccessibleTrader.Plugins.Coinbase.CoinbaseProvider NewProvider(FakeHttpMessageHandler h)
@@ -371,6 +378,7 @@ public class ProviderFetchOhlcvTests
         // Reverses to chronological order, drops NaN values, broadcasts each as
         // a flat-OHLCV bar with value==O==H==L==C and Volume==0.
 
+        [Collection("ProviderCredentialBridge")]
         public class AlternativeMe
         {
             private static AccessibleTrader.Plugins.AlternativeMe.AlternativeMeProvider NewProvider(FakeHttpMessageHandler h)
@@ -447,6 +455,7 @@ public class ProviderFetchOhlcvTests
         // ── Mempool — BTC mining metrics ─────────────────────────────────────
         // mempool.space/api/v1/mining/...
 
+        [Collection("ProviderCredentialBridge")]
         public class Mempool
         {
             private static AccessibleTrader.Plugins.Mempool.MempoolProvider NewProvider(FakeHttpMessageHandler h)
@@ -471,6 +480,7 @@ public class ProviderFetchOhlcvTests
 
         // ── DefiLlama — TVL / stablecoin supply ──────────────────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class DefiLlama
         {
             private static AccessibleTrader.Plugins.DefiLlama.DefiLlamaProvider NewProvider(FakeHttpMessageHandler h)
@@ -498,6 +508,7 @@ public class ProviderFetchOhlcvTests
         // Funding response: {"data":[{"fundingTime":"ms","fundingRate":"0.0001"},...]}
         // — newest-first, value × 100 = percent. Sorted ascending after parse.
 
+        [Collection("ProviderCredentialBridge")]
         public class OkxDerivatives
         {
             private static AccessibleTrader.Plugins.OkxDerivatives.OkxDerivativesProvider NewProvider(FakeHttpMessageHandler h)
@@ -554,6 +565,7 @@ public class ProviderFetchOhlcvTests
 
         // ── Mempool — already had 1 unknown-symbol test; adding parse coverage.
 
+        [Collection("ProviderCredentialBridge")]
         public class MempoolDeeper
         {
             private static AccessibleTrader.Plugins.Mempool.MempoolProvider NewProvider(FakeHttpMessageHandler h)
@@ -614,6 +626,7 @@ public class ProviderFetchOhlcvTests
 
         // ── Glassnode — auth-gated (api_key= query string) ───────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class Glassnode
         {
             private static AccessibleTrader.Plugins.Glassnode.GlassnodeProvider NewConfigured(FakeHttpMessageHandler h)
@@ -680,6 +693,7 @@ public class ProviderFetchOhlcvTests
 
         // ── Etherscan — auth-gated; ETH stats ────────────────────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class Etherscan
         {
             private static AccessibleTrader.Plugins.Etherscan.EtherscanProvider NewConfigured(FakeHttpMessageHandler h)
@@ -717,6 +731,7 @@ public class ProviderFetchOhlcvTests
 
         // ── Fred — FRED economic series, auth-gated ──────────────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class Fred
         {
             private static AccessibleTrader.Plugins.Fred.FredProvider NewConfigured(FakeHttpMessageHandler h)
@@ -744,6 +759,7 @@ public class ProviderFetchOhlcvTests
         // ── BinanceDerivatives — public, no auth ─────────────────────────────
         // Symbol: "{BASE}_FUNDING" / "{BASE}_OI" (e.g. "BTC_FUNDING").
 
+        [Collection("ProviderCredentialBridge")]
         public class BinanceDerivatives
         {
             private static AccessibleTrader.Plugins.BinanceDerivatives.BinanceDerivativesProvider NewProvider(FakeHttpMessageHandler h)
@@ -768,6 +784,7 @@ public class ProviderFetchOhlcvTests
 
         // ── BGeometrics — public, no auth ────────────────────────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class BGeometrics
         {
             private static AccessibleTrader.Plugins.BGeometrics.BGeometricsProvider NewProvider(FakeHttpMessageHandler h)
@@ -792,6 +809,7 @@ public class ProviderFetchOhlcvTests
 
         // ── CoinMetrics — public free tier, no auth ──────────────────────────
 
+        [Collection("ProviderCredentialBridge")]
         public class CoinMetrics
         {
             private static AccessibleTrader.Plugins.CoinMetrics.CoinMetricsProvider NewProvider(FakeHttpMessageHandler h)
@@ -819,6 +837,7 @@ public class ProviderFetchOhlcvTests
         // Result key is the Kraken-asset-pair format ("XXBTZUSD" for BTC/USD); the
         // provider walks all properties skipping "last" to find the array.
 
+        [Collection("ProviderCredentialBridge")]
         public class Kraken
         {
             private static AccessibleTrader.Plugins.Kraken.KrakenProvider NewProvider(FakeHttpMessageHandler h)
@@ -923,6 +942,7 @@ public class ProviderFetchOhlcvTests
         // ── Oanda — auth-gated forex; Bearer + Accept-Datetime-Format=UNIX ───
         // Response: {"candles":[{"time":"unix_seconds_string","mid":{"o","h","l","c"},"volume":..,"complete":true}]}
 
+        [Collection("ProviderCredentialBridge")]
         public class Oanda
         {
             // Oanda writes auth headers in Configure → swap-before-Configure.

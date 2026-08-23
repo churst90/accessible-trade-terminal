@@ -24,6 +24,7 @@ namespace AccessibleTrader.Tests
     /// a future refactor that re-opens one of these holes will fail fast here
     /// instead of only surfacing in production.
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class PostAuditRegressionTests
     {
         // ── Week 1: IPC decoder bounds (AccessibleTrader.ScriptSandbox/Messages.cs) ──

@@ -85,30 +85,10 @@ namespace AccessibleTrader.Tests
             return found.DistinctBy(t => t.FullName).OrderBy(t => t.Name, StringComparer.Ordinal).ToList();
         }
 
-        /// <summary>Walks up from the test binaries to the directory holding the solution file.</summary>
-        public static string RepoRoot()
-        {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
-                dir = dir.Parent;
-            if (dir == null)
-                throw new InvalidOperationException("Could not locate AccessibleTrader.slnx above " + AppContext.BaseDirectory);
-            return dir.FullName;
-        }
-
-        /// <summary>The plugin project directories on disk that are expected to ship a provider —
-        /// <c>Plugins/Providers</c> and <c>Plugins/Analytics</c>. Indicators and Strategies are
-        /// deliberately excluded: they ship no <see cref="BaseMarketDataProvider"/>.</summary>
-        public static IEnumerable<string> ProviderPluginProjectsOnDisk()
-        {
-            foreach (var group in new[] { "Providers", "Analytics" })
-            {
-                var root = Path.Combine(RepoRoot(), "Plugins", group);
-                if (!Directory.Exists(root)) continue;
-                foreach (var d in Directory.GetDirectories(root))
-                    yield return Path.GetFileName(d);
-            }
-        }
+        // RepoRoot() and ProviderPluginProjectsOnDisk() moved to RepoPaths: they are pure path
+        // arithmetic, and keeping them here meant a test class could "use ProviderRoster" without
+        // constructing a provider — which made the enrollment rule this class's doc states
+        // unenforceable. Everything that REMAINS on this class constructs providers.
     }
 
     /// <summary>
@@ -130,7 +110,7 @@ namespace AccessibleTrader.Tests
                 .Select(t => t.Namespace ?? "")
                 .ToHashSet(StringComparer.Ordinal);
 
-            var missing = ProviderRoster.ProviderPluginProjectsOnDisk()
+            var missing = RepoPaths.ProviderPluginProjectsOnDisk()
                 .Where(project => !namespaces.Any(ns => ns == project || ns.StartsWith(project + ".", StringComparison.Ordinal)))
                 .OrderBy(p => p, StringComparer.Ordinal)
                 .ToList();

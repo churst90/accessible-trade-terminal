@@ -19,6 +19,7 @@ namespace AccessibleTrader.Tests
     /// consolidation — including the cumulative-kline volume-inflation fix — the
     /// hub's independent per-feed subscriptions, and Binance's implementation.
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class KeyedFeedsPhaseBTests
     {
         private static ChartIdentity Id(string provider = "MultiProv", string symbol = "BTC/USD", string tf = "1h") =>

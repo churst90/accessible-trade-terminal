@@ -42,7 +42,7 @@ namespace AccessibleTrader.Tests
         public void AllTradingProvidersAreEnumeratedHere()
         {
             var onDisk = AccessibleTrader.StrategyLab.ProviderCapabilityAudit
-                .Run(ProviderRoster.RepoRoot()).Select(a => a.Name).ToHashSet();
+                .Run(RepoPaths.RepoRoot()).Select(a => a.Name).ToHashSet();
             var enumerated = TradingProviders().Select(p => p.GetType().Name).ToHashSet();
 
             Assert.NotEmpty(onDisk);

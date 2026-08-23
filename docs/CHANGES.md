@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The credential-bridge collection is now enforced, and 43 test classes were racing it (2026-08-23)
+
+`PluginHostServices.ApiKeys` (and its `HttpClientFactory`/`SecureStorage` siblings) is a
+process-global static that tests swap fakes into; the `ProviderCredentialBridge` xUnit collection
+exists to serialize those tests, but membership was manual, and twice already a missed enrollment
+surfaced only as an order-dependent flake. New `ProviderCredentialBridgeEnrollmentTests` closes
+the loop in both directions:
+
+- **Forward:** every test class that constructs a real provider (names taken from
+  `ProviderRoster.Types`, so a new plugin extends the pattern automatically), uses
+  `ProviderRoster`, touches `PluginHostServices`, or inherits its facts from a class that does,
+  must declare `[Collection("ProviderCredentialBridge")]` on that exact class — declared, because
+  xUnit gives a nested class its own collection regardless of the outer class's attribute.
+- **Reverse:** every enrolled class must still touch the bridge. Needless enrollment costs
+  parallelism — and this direction doubles as the scan's blindness alarm: if the source scan ever
+  goes blind, every current enrollment turns "unjustified" and the suite goes loudly red instead
+  of the forward check passing over an empty offender set.
+- A helper ratchet (`KnownBridgeHelpers`) keeps the indirect route honest: a file that touches
+  the bridge but declares no test class must be a known helper, or the guard demands it be added.
+
+First run found **43** unenrolled classes against the audit's five — and three of the audit's
+five were wrong (`AlpacaBracketTests`, `MexcProtobufDecodeTests`, `ProviderCapabilityAuditTests`
+only call static helpers). The real hole: `[Collection]` sat on the OUTER classes of
+`ProviderFetchOhlcvTests` and `ProviderLiveStreamTests` while their ~33 nested per-provider
+suites — the very classes that install `FakeApiKeyCheckout` into the global bridge — each ran in
+their own collection, racing everything. All are now individually enrolled. `RepoRoot()` and
+`ProviderPluginProjectsOnDisk()` moved from `ProviderRoster` to a new `RepoPaths` class so that
+"uses ProviderRoster" reliably means "constructs providers": three scan-only suites used the
+roster purely to find the repo root and would otherwise have been over-enrolled.
+
+All four assert branches proven by reintroducing each defect (stripped enrollment, unjustified
+enrollment, unknown bridge-touching helper, bogus anchor). Test count 4290 → 4294.
+
 ### Every dialog now renders under bUnit, and the focus contract caught a modal that opened silently (2026-08-23)
 
 Two tracked audit items closed together, because one is the infrastructure the other needed:

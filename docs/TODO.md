@@ -2,6 +2,8 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-23:** 300 open of 1317 tracked items (1017 done). Suite green at 4294 tests.
+
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
 ---
@@ -2321,7 +2323,7 @@ they belong to this section even though the audit filed them elsewhere:
   broker statements, OS dialogs and screen reader stay locale-aware; the contract here is
   "everything *this app emits* is invariant", which the host pins + per-site passes + scans now
   hold from both ends.
-- [ ] **`PluginHostServices.ApiKeys` is process-global mutable state with manual, unenforced
+- [x] **`PluginHostServices.ApiKeys` is process-global mutable state with manual, unenforced
   serialization.** `FakeApiKeyCheckout.Install()` swaps a static; nine classes carry
   `[Collection("ProviderCredentialBridge")]`; enrollment is invisible and only discovered by
   flaking — which the collection file's own comment records happening once and
@@ -2329,6 +2331,24 @@ they belong to this section even though the audit filed them elsewhere:
   and are *not* enrolled include `ProviderLiveStreamTests`, `AlpacaBracketTests`,
   `ProviderCapabilityAuditTests`, `MexcProtobufDecodeTests`, `DeribitProviderTests`. Add a
   reflection guard in the shape of `AllTradingProvidersAreEnumeratedHere`.
+
+  **DONE 2026-08-23** — `ProviderCredentialBridgeEnrollmentTests`: source scan (comments/strings
+  stripped, provider names taken from `ProviderRoster.Types` so the pattern list cannot fall
+  behind the repo) cross-checked against reflection over the test assembly, plus a base-type walk
+  so the `DeDeCultureTests` subclass-rerun shape is caught from a clean file. Both directions
+  enforced: every bridge-toucher must DECLARE the attribute on its exact class, and every
+  enrolled class must still touch the bridge (which doubles as the scan's blindness alarm — a
+  broken scan flags all current enrollments as unjustified instead of passing quietly). All four
+  assert branches proven red. The audit's own enumeration was three-fifths wrong:
+  `AlpacaBracketTests`, `MexcProtobufDecodeTests` and `ProviderCapabilityAuditTests` only call
+  static helpers and never touch the bridge, while the guard's first run found **43** unenrolled
+  classes — the big hole being that `[Collection]` on the OUTER class of
+  `ProviderFetchOhlcvTests`/`ProviderLiveStreamTests` covers none of their ~33 nested suites
+  (xUnit gives each nested class its own collection — the same semantics the de-DE pass proved),
+  so every nested fetch/stream suite that installs `FakeApiKeyCheckout` had been racing the
+  bridge since the collection was introduced. Also: `RepoRoot()` moved off `ProviderRoster` to a
+  new `RepoPaths` so "uses ProviderRoster ⇒ must enroll" is exactly true — three scan-only test
+  classes used the roster purely as a path helper.
 
 ### Flake risk
 
