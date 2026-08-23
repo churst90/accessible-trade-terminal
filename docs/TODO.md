@@ -2183,12 +2183,25 @@ they belong to this section even though the audit filed them elsewhere:
   New `SchwabOAuthTokenPersistenceTests` (5 cases) pin bridge round-trip, per-client-id keying,
   non-persist without a bridge, scrub-on-rejected-refresh, and rotated-token persistence; the
   scan was re-proven to fail by temporarily reintroducing `GetFolderPath`.
-- [ ] **Zero tests for:** `Services/AI/` (all four files — network calls carrying user API keys),
-  `EmailAlertChannel` and `TelegramAlertChannel` (the two delivery channels without tests;
-  `WebhookAlertChannel` has 264 lines), all five level providers plus `LevelService` (they feed
-  `ProtectiveLevelValidator` and stop placement), `InputRouter` and `KeyNormalizationService` (the
-  keyboard entry point of an audio-first app, with `ShortcutConflictTests` sitting above them),
-  `RiskRewardCalculator` and `MeasureToolCalculator` (geometry a user reads a position size off),
+- [ ] **Zero tests for** (MOSTLY CLOSED 2026-08-22 — five clusters tested, two remain):
+  ~~`Services/AI/` (all four files — network calls carrying user API keys)~~ — `AIAnalystServiceTests`
+  (16: fallback walk, the two "nothing worked" messages, prompt sanitization/quoting of
+  plugin-controlled indicator names, the 50-row viewport window, the sub-dollar OHLC fence) and
+  `LLMProviderTransportTests` (11: request/parse shape for Claude + OpenAI through a capturing
+  `IPluginHttpClientFactory`, which also pins each provider's outbound-host allow-list; Ollama
+  endpoint hardening). ~~`EmailAlertChannel` and `TelegramAlertChannel`~~ — `TelegramAlertChannelTests`
+  (17); Email's SSRF path was already covered in `OutboundNetworkGuardTests`. **Both channels had
+  live bugs found by writing the tests:** user-authored alert names went into `parse_mode=Markdown`
+  unescaped, so any name with `_`/`*`/`` ` ``/`[` (e.g. "BTC_USD breakout") made the Bot API reject
+  the message with 400 — the alert simply never arrived (fixed: `EscapeMarkdown`); and both channels
+  formatted the triggering value `:F6` — the same collapse class as the audit's `:F2` price findings
+  — so a sub-penny trigger read "0.000000", now `SpeechPriceFormatter`. ~~all five level providers
+  plus `LevelService`~~ — `LevelProviderTests` (40), the load-bearing ones being the causality
+  fences: CipherSr's confirmation lag, Ichimoku's history-truncation clip, SwingPivot's
+  edge-window exclusion, and VolumeProfile's backtest-cache preference. ~~`InputRouter` and
+  `KeyNormalizationService`~~ — `InputRoutingTests` (36), including the static-vs-instance
+  normalize parity that keeps bindings reachable. ~~`RiskRewardCalculator` and
+  `MeasureToolCalculator`~~ — `DrawingCalculatorTests` (11). **Still open:**
   `SkenderCalculationCore` (backs many shipped indicators), and the rendering layer classes.
 - [ ] **Every money modal is string-scanned, none is rendered.** `ApiKeysModal`, `WalletModal`,
   `WithdrawModal`, `TradingDashboardModal`, `Toolbar` are source-text-scanned only; 18 further

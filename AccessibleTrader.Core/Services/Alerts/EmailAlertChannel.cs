@@ -90,8 +90,10 @@ public sealed class EmailAlertChannel : IAlertChannel
         using var msg = new MailMessage(cfg.FromAddress!, cfg.ToAddress!)
         {
             Subject = $"[AccessibleTrader] {alert.Definition.Name}",
-            Body    = $"{alert.SpeechText}\n\nTriggering value: {alert.TriggeringValue:F6}" +
-                      (alert.PreviousValue.HasValue ? $"\nPrevious value: {alert.PreviousValue:F6}" : string.Empty),
+            // SpeechPriceFormatter, not :F6 — the fixed form collapsed sub-penny values
+            // to "0.000000" and followed the OS locale.
+            Body    = $"{alert.SpeechText}\n\nTriggering value: {Accessibility.SpeechPriceFormatter.FormatPrice(alert.TriggeringValue)}" +
+                      (alert.PreviousValue.HasValue ? $"\nPrevious value: {Accessibility.SpeechPriceFormatter.FormatPrice(alert.PreviousValue.Value)}" : string.Empty),
             IsBodyHtml = false,
         };
 

@@ -1,8 +1,10 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Alerts;
 
 namespace AccessibleTrader.Core.Services.Alerts;
@@ -54,10 +56,17 @@ public sealed class TelegramAlertChannel : IAlertChannel
         var cfg = _configProvider();
         if (cfg == null || !IsConfigured) return;
 
+        // Alert name and speech text are user-authored. With parse_mode=Markdown an
+        // unbalanced entity character in either ("BTC_USD breakout") makes the Bot API
+        // reject the whole message with 400 "can't parse entities" — the alert simply
+        // never arrives. Escape them so any name is deliverable. The value goes through
+        // SpeechPriceFormatter, not a fixed :F6 which read "0.000000" for sub-penny
+        // assets and follows the OS locale.
         var payload = new
         {
             chat_id = cfg.ChatId!,
-            text    = $"🔔 *{alert.Definition.Name}*\n{alert.SpeechText}\nValue: {alert.TriggeringValue:F6}",
+            text    = $"🔔 *{EscapeMarkdown(alert.Definition.Name)}*\n{EscapeMarkdown(alert.SpeechText)}\n" +
+                      $"Value: {SpeechPriceFormatter.FormatPrice(alert.TriggeringValue)}",
             parse_mode = "Markdown",
         };
 
@@ -65,5 +74,21 @@ public sealed class TelegramAlertChannel : IAlertChannel
             $"https://api.telegram.org/bot{cfg.BotToken}/sendMessage",
             payload, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Backslash-escapes the four characters legacy Telegram Markdown treats as entity
+    /// openers (<c>_ * ` [</c>).
+    /// </summary>
+    internal static string EscapeMarkdown(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        var sb = new StringBuilder(text.Length);
+        foreach (var ch in text)
+        {
+            if (ch is '_' or '*' or '`' or '[') sb.Append('\\');
+            sb.Append(ch);
+        }
+        return sb.ToString();
     }
 }
