@@ -598,54 +598,46 @@ namespace AccessibleTrader.Plugins.Alpaca
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
+                var json = JObject.Parse(response);
+                double equity      = json["equity"]?.Value<double>() ?? 0;
+                double cash        = json["cash"]?.Value<double>() ?? 0;
+                double buyingPower = json["buying_power"]?.Value<double>() ?? 0;
+                return new List<Balance>
                 {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
-                    var json = JObject.Parse(response);
-                    double equity      = json["equity"]?.Value<double>() ?? 0;
-                    double cash        = json["cash"]?.Value<double>() ?? 0;
-                    double buyingPower = json["buying_power"]?.Value<double>() ?? 0;
-                    return new List<Balance>
-                    {
-                        new("USD", cash, equity - cash),
-                        new("Buying Power", buyingPower, 0)
-                    };
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Alpaca GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    new("USD", cash, equity - cash),
+                    new("Buying Power", buyingPower, 0)
+                };
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
-                    var arr = JArray.Parse(response);
-                    return arr.Select(p => new Position(
-                        p["symbol"]?.ToString() ?? "",
-                        p["qty"]?.Value<double>() ?? 0,
-                        p["avg_entry_price"]?.Value<double>() ?? 0,
-                        p["market_value"]?.Value<double>() ?? 0,
-                        p["unrealized_pl"]?.Value<double>() ?? 0
-                    )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Alpaca GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
+                var arr = JArray.Parse(response);
+                return arr.Select(p => new Position(
+                    p["symbol"]?.ToString() ?? "",
+                    p["qty"]?.Value<double>() ?? 0,
+                    p["avg_entry_price"]?.Value<double>() ?? 0,
+                    p["market_value"]?.Value<double>() ?? 0,
+                    p["unrealized_pl"]?.Value<double>() ?? 0
+                )).ToList();
+            });
         }
 
         /// <summary>Fill history via /account/activities?activity_types=FILL
@@ -653,74 +645,66 @@ namespace AccessibleTrader.Plugins.Alpaca
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            // Must go through the rate limiter AND set auth headers (both mutate the
+            // shared HttpClient) — the old direct GetStringAsync had no credentials
+            // on a fresh provider and 401'd, and raced other signed calls.
+            var response = await _rateLimiter.ExecuteAsync(async () =>
             {
-                // Must go through the rate limiter AND set auth headers (both mutate the
-                // shared HttpClient) — the old direct GetStringAsync had no credentials
-                // on a fresh provider and 401'd, and raced other signed calls.
-                var response = await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    return await _httpClient.GetStringAsync(
-                        $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
-                }).ConfigureAwait(false);
-                var arr = JArray.Parse(response);
-                var fills = new List<TradeFill>();
-                foreach (var a in arr)
-                {
-                    string sym = a["symbol"]?.ToString() ?? "";
-                    if (symbol != null && !sym.Equals(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase)
-                        && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
-                    fills.Add(new TradeFill(
-                        a["id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
-                        sym,
-                        (a["side"]?.ToString() ?? "buy").StartsWith("sell", StringComparison.OrdinalIgnoreCase)
-                            ? OrderSide.Sell : OrderSide.Buy,
-                        a["qty"]?.Value<double>() ?? 0,
-                        a["price"]?.Value<double>() ?? 0,
-                        a["transaction_time"]?.Value<DateTime>() ?? DateTime.MinValue,
-                        0,
-                        a["order_id"]?.ToString()));
-                }
-                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-            }
-            catch (Exception ex)
+                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                return await _httpClient.GetStringAsync(
+                    $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
+            }).ConfigureAwait(false);
+            var arr = JArray.Parse(response);
+            var fills = new List<TradeFill>();
+            foreach (var a in arr)
             {
-                _errorStream.OnNext($"Alpaca GetFillsAsync failed ({ex.GetType().Name})");
-                return new();
+                string sym = a["symbol"]?.ToString() ?? "";
+                if (symbol != null && !sym.Equals(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase)
+                    && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                fills.Add(new TradeFill(
+                    a["id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                    sym,
+                    (a["side"]?.ToString() ?? "buy").StartsWith("sell", StringComparison.OrdinalIgnoreCase)
+                        ? OrderSide.Sell : OrderSide.Buy,
+                    a["qty"]?.Value<double>() ?? 0,
+                    a["price"]?.Value<double>() ?? 0,
+                    a["transaction_time"]?.Value<DateTime>() ?? DateTime.MinValue,
+                    0,
+                    a["order_id"]?.ToString()));
             }
+            return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string url = $"{_tradingBaseUrl}/orders?status=open";
-                    if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    var response = await _httpClient.GetStringAsync(url);
-                    var arr = JArray.Parse(response);
-                    return arr.Select(o => new OpenOrder(
-                        o["id"]?.ToString() ?? "",
-                        o["symbol"]?.ToString() ?? "",
-                        o["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                        MapAlpacaOrderType(o["type"]?.ToString() ?? "market"),
-                        o["qty"]?.Value<double>() ?? 0,
-                        o["limit_price"]?.Value<double>() ?? 0,
-                        o["status"]?.ToString() ?? "",
-                        o["stop_price"]?.Value<double>(),
-                        null
-                    )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Alpaca GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                string url = $"{_tradingBaseUrl}/orders?status=open";
+                if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
+                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
+                var response = await _httpClient.GetStringAsync(url);
+                var arr = JArray.Parse(response);
+                return arr.Select(o => new OpenOrder(
+                    o["id"]?.ToString() ?? "",
+                    o["symbol"]?.ToString() ?? "",
+                    o["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                    MapAlpacaOrderType(o["type"]?.ToString() ?? "market"),
+                    o["qty"]?.Value<double>() ?? 0,
+                    o["limit_price"]?.Value<double>() ?? 0,
+                    o["status"]?.ToString() ?? "",
+                    o["stop_price"]?.Value<double>(),
+                    null
+                )).ToList();
+            });
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)

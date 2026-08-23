@@ -554,97 +554,97 @@ namespace AccessibleTrader.Plugins.Oanda
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/summary");
+                var json = JObject.Parse(response);
+                var acct = json["account"];
+                if (acct == null) return new List<Balance>();
+
+                double balance = double.TryParse(acct["balance"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double b) ? b : 0;
+                double unrealizedPL = double.TryParse(acct["unrealizedPL"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double u) ? u : 0;
+                double marginUsed = double.TryParse(acct["marginUsed"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double m) ? m : 0;
+                double marginAvail = double.TryParse(acct["marginAvailable"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double ma) ? ma : 0;
+                double nav = double.TryParse(acct["NAV"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double n) ? n : 0;
+
+                return new List<Balance>
                 {
-                    var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/summary");
-                    var json = JObject.Parse(response);
-                    var acct = json["account"];
-                    if (acct == null) return new List<Balance>();
-
-                    double balance = double.TryParse(acct["balance"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double b) ? b : 0;
-                    double unrealizedPL = double.TryParse(acct["unrealizedPL"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double u) ? u : 0;
-                    double marginUsed = double.TryParse(acct["marginUsed"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double m) ? m : 0;
-                    double marginAvail = double.TryParse(acct["marginAvailable"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double ma) ? ma : 0;
-                    double nav = double.TryParse(acct["NAV"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double n) ? n : 0;
-
-                    return new List<Balance>
-                    {
-                        new("Balance", balance, 0),
-                        new("NAV", nav, 0),
-                        new("Unrealized P&L", unrealizedPL, 0),
-                        new("Margin Available", marginAvail, marginUsed)
-                    };
-                });
-            }
-            catch { return new(); }
+                    new("Balance", balance, 0),
+                    new("NAV", nav, 0),
+                    new("Unrealized P&L", unrealizedPL, 0),
+                    new("Margin Available", marginAvail, marginUsed)
+                };
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/openPositions");
+                var json = JObject.Parse(response);
+                var positions = json["positions"] as JArray;
+                if (positions == null) return new List<Position>();
+
+                return positions.Select(p =>
                 {
-                    var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/openPositions");
-                    var json = JObject.Parse(response);
-                    var positions = json["positions"] as JArray;
-                    if (positions == null) return new List<Position>();
+                    var longUnits = p["long"]?["units"]?.Value<double>() ?? 0;
+                    var shortUnits = Math.Abs(p["short"]?["units"]?.Value<double>() ?? 0);
+                    double units = longUnits > 0 ? longUnits : shortUnits;
+                    double avgPrice = longUnits > 0
+                        ? (p["long"]?["averagePrice"]?.Value<double>() ?? 0)
+                        : (p["short"]?["averagePrice"]?.Value<double>() ?? 0);
+                    double unrealizedPL = (p["long"]?["unrealizedPL"]?.Value<double>() ?? 0)
+                        + (p["short"]?["unrealizedPL"]?.Value<double>() ?? 0);
 
-                    return positions.Select(p =>
-                    {
-                        var longUnits = p["long"]?["units"]?.Value<double>() ?? 0;
-                        var shortUnits = Math.Abs(p["short"]?["units"]?.Value<double>() ?? 0);
-                        double units = longUnits > 0 ? longUnits : shortUnits;
-                        double avgPrice = longUnits > 0
-                            ? (p["long"]?["averagePrice"]?.Value<double>() ?? 0)
-                            : (p["short"]?["averagePrice"]?.Value<double>() ?? 0);
-                        double unrealizedPL = (p["long"]?["unrealizedPL"]?.Value<double>() ?? 0)
-                            + (p["short"]?["unrealizedPL"]?.Value<double>() ?? 0);
-
-                        return new Position(
-                            p["instrument"]?.ToString() ?? "",
-                            units,
-                            avgPrice,
-                            units * avgPrice, // approximate market value
-                            unrealizedPL);
-                    }).ToList();
-                });
-            }
-            catch { return new(); }
+                    return new Position(
+                        p["instrument"]?.ToString() ?? "",
+                        units,
+                        avgPrice,
+                        units * avgPrice, // approximate market value
+                        unrealizedPL);
+                }).ToList();
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/pendingOrders");
-                    var json = JObject.Parse(response);
-                    var orders = json["orders"] as JArray;
-                    if (orders == null) return new List<OpenOrder>();
+                var response = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/pendingOrders");
+                var json = JObject.Parse(response);
+                var orders = json["orders"] as JArray;
+                if (orders == null) return new List<OpenOrder>();
 
-                    return orders
-                        .Where(o => symbol == null || (o["instrument"]?.ToString() ?? "").Contains(FormatInstrument(symbol), StringComparison.OrdinalIgnoreCase))
-                        .Select(o =>
-                        {
-                            double units = o["units"]?.Value<double>() ?? 0;
-                            return new OpenOrder(
-                                o["id"]?.ToString() ?? "",
-                                o["instrument"]?.ToString() ?? "",
-                                units >= 0 ? OrderSide.Buy : OrderSide.Sell,
-                                MapOandaOrderType(o["type"]?.ToString() ?? "MARKET"),
-                                Math.Abs(units),
-                                double.TryParse(o["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
-                                o["state"]?.ToString() ?? "PENDING");
-                        }).ToList();
-                });
-            }
-            catch { return new(); }
+                return orders
+                    .Where(o => symbol == null || (o["instrument"]?.ToString() ?? "").Contains(FormatInstrument(symbol), StringComparison.OrdinalIgnoreCase))
+                    .Select(o =>
+                    {
+                        double units = o["units"]?.Value<double>() ?? 0;
+                        return new OpenOrder(
+                            o["id"]?.ToString() ?? "",
+                            o["instrument"]?.ToString() ?? "",
+                            units >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                            MapOandaOrderType(o["type"]?.ToString() ?? "MARKET"),
+                            Math.Abs(units),
+                            double.TryParse(o["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
+                            o["state"]?.ToString() ?? "PENDING");
+                    }).ToList();
+            });
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)

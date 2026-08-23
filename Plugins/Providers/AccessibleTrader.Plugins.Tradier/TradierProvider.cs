@@ -596,118 +596,106 @@ namespace AccessibleTrader.Plugins.Tradier
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/balances");
+                var json = JObject.Parse(response);
+                var bal = json["balances"];
+                if (bal == null) return new List<Balance>();
+
+                double equity = bal["equity"]?.Value<double>() ?? bal["total_equity"]?.Value<double>() ?? 0;
+                double cash = bal["cash"]?["cash_available"]?.Value<double>() ?? bal["total_cash"]?.Value<double>() ?? 0;
+                double marketValue = bal["market_value"]?.Value<double>() ?? 0;
+
+                return new List<Balance>
                 {
-                    var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/balances");
-                    var json = JObject.Parse(response);
-                    var bal = json["balances"];
-                    if (bal == null) return new List<Balance>();
-
-                    double equity = bal["equity"]?.Value<double>() ?? bal["total_equity"]?.Value<double>() ?? 0;
-                    double cash = bal["cash"]?["cash_available"]?.Value<double>() ?? bal["total_cash"]?.Value<double>() ?? 0;
-                    double marketValue = bal["market_value"]?.Value<double>() ?? 0;
-
-                    return new List<Balance>
-                    {
-                        new("Cash", cash, 0),
-                        new("Equity", equity, 0),
-                        new("Market Value", marketValue, 0)
-                    };
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Tradier GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    new("Cash", cash, 0),
+                    new("Equity", equity, 0),
+                    new("Market Value", marketValue, 0)
+                };
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/positions");
-                    var json = JObject.Parse(response);
-                    var positions = json["positions"]?["position"];
-                    if (positions == null) return new List<Position>();
+                var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/positions");
+                var json = JObject.Parse(response);
+                var positions = json["positions"]?["position"];
+                if (positions == null) return new List<Position>();
 
-                    JArray items = positions is JArray arr ? arr : new JArray { positions };
-                    return items.Select(p => new Position(
-                        p["symbol"]?.ToString() ?? "",
-                        Math.Abs(p["quantity"]?.Value<double>() ?? 0),
-                        p["cost_basis"]?.Value<double>() ?? 0,
-                        (p["quantity"]?.Value<double>() ?? 0) * (p["last_price"]?.Value<double>() ?? 0),
-                        0 // Tradier doesn't provide unrealized P&L directly in positions
-                    )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Tradier GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                JArray items = positions is JArray arr ? arr : new JArray { positions };
+                return items.Select(p => new Position(
+                    p["symbol"]?.ToString() ?? "",
+                    Math.Abs(p["quantity"]?.Value<double>() ?? 0),
+                    p["cost_basis"]?.Value<double>() ?? 0,
+                    (p["quantity"]?.Value<double>() ?? 0) * (p["last_price"]?.Value<double>() ?? 0),
+                    0 // Tradier doesn't provide unrealized P&L directly in positions
+                )).ToList();
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/orders");
+                var json = JObject.Parse(response);
+                var orders = json["orders"]?["order"];
+                if (orders == null) return new List<OpenOrder>();
+
+                JArray items = orders is JArray arr ? arr : new JArray { orders };
+                var result = new List<OpenOrder>();
+
+                static bool IsOpenStatus(string? st) => st is "open" or "pending" or "partially_filled";
+                void AddIfOpen(JToken node)
                 {
-                    var response = await _httpClient.GetStringAsync($"{_baseUrl}/accounts/{_accountId}/orders");
-                    var json = JObject.Parse(response);
-                    var orders = json["orders"]?["order"];
-                    if (orders == null) return new List<OpenOrder>();
+                    var status = node["status"]?.ToString() ?? "";
+                    if (!IsOpenStatus(status)) return;
+                    var sym = node["symbol"]?.ToString() ?? "";
+                    if (symbol != null && sym != symbol) return;
+                    // Stop orders carry stop_price, not price — without the
+                    // fallback every resting stop displayed (and spoke) as 0.
+                    double price = node["price"]?.Value<double>()
+                                   ?? node["stop_price"]?.Value<double>() ?? 0;
+                    result.Add(new OpenOrder(
+                        node["id"]?.ToString() ?? "",
+                        sym,
+                        node["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                        MapTradierOrderType(node["type"]?.ToString() ?? "market"),
+                        node["quantity"]?.Value<double>() ?? 0,
+                        price,
+                        status));
+                }
 
-                    JArray items = orders is JArray arr ? arr : new JArray { orders };
-                    var result = new List<OpenOrder>();
-
-                    static bool IsOpenStatus(string? st) => st is "open" or "pending" or "partially_filled";
-                    void AddIfOpen(JToken node)
-                    {
-                        var status = node["status"]?.ToString() ?? "";
-                        if (!IsOpenStatus(status)) return;
-                        var sym = node["symbol"]?.ToString() ?? "";
-                        if (symbol != null && sym != symbol) return;
-                        // Stop orders carry stop_price, not price — without the
-                        // fallback every resting stop displayed (and spoke) as 0.
-                        double price = node["price"]?.Value<double>()
-                                       ?? node["stop_price"]?.Value<double>() ?? 0;
-                        result.Add(new OpenOrder(
-                            node["id"]?.ToString() ?? "",
-                            sym,
-                            node["side"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                            MapTradierOrderType(node["type"]?.ToString() ?? "market"),
-                            node["quantity"]?.Value<double>() ?? 0,
-                            price,
-                            status));
-                    }
-
-                    foreach (var o in items)
-                    {
-                        AddIfOpen(o);
-                        // Advanced-class (oto/otoco) orders nest their protective
-                        // legs in "leg" — surface them so resting SL/TP are audible
-                        // in the Orders tab instead of invisibly attached.
-                        if (o["leg"] is JArray legArr)
-                            foreach (var leg in legArr) AddIfOpen(leg);
-                        else if (o["leg"] is JObject legObj)
-                            AddIfOpen(legObj); // Tradier collapses single-element arrays
-                    }
-                    return result;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Tradier GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                foreach (var o in items)
+                {
+                    AddIfOpen(o);
+                    // Advanced-class (oto/otoco) orders nest their protective
+                    // legs in "leg" — surface them so resting SL/TP are audible
+                    // in the Orders tab instead of invisibly attached.
+                    if (o["leg"] is JArray legArr)
+                        foreach (var leg in legArr) AddIfOpen(leg);
+                    else if (o["leg"] is JObject legObj)
+                        AddIfOpen(legObj); // Tradier collapses single-element arrays
+                }
+                return result;
+            });
         }
 
         /// <summary>Fill history via /accounts/{id}/history?type=trade (History tab
@@ -716,38 +704,34 @@ namespace AccessibleTrader.Plugins.Tradier
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConnected) return new();
-            try
-            {
-                var response = await _httpClient.GetStringAsync(
-                    $"{_baseUrl}/accounts/{_accountId}/history?type=trade&limit={limit}");
-                var json = JObject.Parse(response);
-                var raw = json["history"]?["event"];
-                if (raw == null || raw.Type == JTokenType.Null) return new();
-                var events = raw is JArray arr ? arr : new JArray(raw);
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            var response = await _httpClient.GetStringAsync(
+                $"{_baseUrl}/accounts/{_accountId}/history?type=trade&limit={limit}");
+            var json = JObject.Parse(response);
+            var raw = json["history"]?["event"];
+            if (raw == null || raw.Type == JTokenType.Null) return new();
+            var events = raw is JArray arr ? arr : new JArray(raw);
 
-                var fills = new List<TradeFill>();
-                foreach (var ev in events)
-                {
-                    var trade = ev["trade"];
-                    if (trade == null) continue;
-                    string sym = trade["symbol"]?.ToString() ?? "";
-                    if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
-                    double qty = trade["quantity"]?.Value<double>() ?? 0;
-                    fills.Add(new TradeFill(
-                        Guid.NewGuid().ToString("N").Substring(0, 12), sym,
-                        qty >= 0 ? OrderSide.Buy : OrderSide.Sell,
-                        Math.Abs(qty),
-                        trade["price"]?.Value<double>() ?? 0,
-                        ev["date"]?.Value<DateTime>() ?? DateTime.MinValue,
-                        Math.Abs(trade["commission"]?.Value<double>() ?? 0)));
-                }
-                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-            }
-            catch (Exception ex)
+            var fills = new List<TradeFill>();
+            foreach (var ev in events)
             {
-                _errorStream.OnNext($"Tradier GetFillsAsync failed ({ex.GetType().Name})");
-                return new();
+                var trade = ev["trade"];
+                if (trade == null) continue;
+                string sym = trade["symbol"]?.ToString() ?? "";
+                if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                double qty = trade["quantity"]?.Value<double>() ?? 0;
+                fills.Add(new TradeFill(
+                    Guid.NewGuid().ToString("N").Substring(0, 12), sym,
+                    qty >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                    Math.Abs(qty),
+                    trade["price"]?.Value<double>() ?? 0,
+                    ev["date"]?.Value<DateTime>() ?? DateTime.MinValue,
+                    Math.Abs(trade["commission"]?.Value<double>() ?? 0)));
             }
+            return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
         }
 
         /// <summary>Authoritative single-order status via GET /accounts/{id}/orders/{id}.
@@ -755,19 +739,14 @@ namespace AccessibleTrader.Plugins.Tradier
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
             if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;
-            try
-            {
-                var response = await _httpClient.GetStringAsync(
-                    $"{_baseUrl}/accounts/{_accountId}/orders/{orderId}");
-                var order = JObject.Parse(response)["order"] as JObject;
-                if (order == null) return null;
-                return MapOrderToSnapshot(order);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Tradier GetOrderStatusAsync failed for {orderId} ({ex.GetType().Name})");
-                return null;
-            }
+            // No catch: the order poller counts consecutive failures and gives up
+            // with a spoken warning. Returning null here read as "still resolving"
+            // and turned a dead endpoint into a silent infinite retry.
+            var response = await _httpClient.GetStringAsync(
+                $"{_baseUrl}/accounts/{_accountId}/orders/{orderId}");
+            var order = JObject.Parse(response)["order"] as JObject;
+            if (order == null) return null;
+            return MapOrderToSnapshot(order);
         }
 
         /// <summary>Maps a Tradier order object (account event OR /orders/{id}) to a
@@ -803,9 +782,23 @@ namespace AccessibleTrader.Plugins.Tradier
                     && type.Contains("stop", StringComparison.OrdinalIgnoreCase));
         }
 
+        // Tradier equities and options trade whole units only. The old
+        // `((int)signal.Quantity)` truncated silently: a risk sizer emitting 9.7
+        // shares placed 9, and 0.6 became 0 — which upstream validation had
+        // already passed, because 0.6 IS finite-positive. Whole-share venues get
+        // a refusal, never a silent resize.
+        internal static string? WholeShareQuantityOrNull(double quantity) =>
+            quantity >= 1 && Math.Abs(quantity - Math.Round(quantity)) < 1e-9
+                ? ((long)Math.Round(quantity)).ToString(CultureInfo.InvariantCulture)
+                : null;
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
+            if (WholeShareQuantityOrNull(signal.Quantity) is null)
+                return $"ORDER_FAILED:Tradier trades whole shares only; "
+                     + $"{signal.Quantity.ToString(CultureInfo.InvariantCulture)} is not a whole number of shares. "
+                     + "Round the quantity and place the order again";
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
@@ -845,7 +838,7 @@ namespace AccessibleTrader.Plugins.Tradier
                         // don't expire at the session close.
                         ["duration"] = signal.Type == OrderType.Market ? "day" : "gtc",
                         ["side"] = signal.Side == OrderSide.Buy ? "buy" : "sell",
-                        ["quantity"] = ((int)signal.Quantity).ToString()
+                        ["quantity"] = WholeShareQuantityOrNull(signal.Quantity)!
                     };
 
                     if (isOption)
@@ -910,7 +903,8 @@ namespace AccessibleTrader.Plugins.Tradier
         {
             string entrySide = signal.Side == OrderSide.Buy ? "buy" : "sell";
             string exitSide = signal.Side == OrderSide.Buy ? "sell" : "buy";
-            string qty = ((int)signal.Quantity).ToString();
+            // PlaceOrderAsync has already refused fractional quantities.
+            string qty = WholeShareQuantityOrNull(signal.Quantity)!;
             bool both = signal.StopLoss is > 0 && signal.TakeProfit is > 0;
 
             var p = new Dictionary<string, string>

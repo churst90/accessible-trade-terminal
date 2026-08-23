@@ -455,27 +455,27 @@ namespace AccessibleTrader.Plugins.Coinbase
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string path = "/api/v3/brokerage/accounts";
-                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
-                    var json     = JObject.Parse(response);
-                    var accounts = json["accounts"] as JArray;
-                    if (accounts == null) return new List<Balance>();
-                    return accounts
-                        .Where(a =>
-                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double av) && av > 0
-                            || double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hold) && hold > 0)
-                        .Select(a => new Balance(
-                            a["currency"]?.ToString() ?? "",
-                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double avf) ? avf : 0,
-                            double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0))
-                        .ToList();
-                });
-            }
-            catch { return new(); }
+                string path = "/api/v3/brokerage/accounts";
+                var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
+                var json     = JObject.Parse(response);
+                var accounts = json["accounts"] as JArray;
+                if (accounts == null) return new List<Balance>();
+                return accounts
+                    .Where(a =>
+                        double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double av) && av > 0
+                        || double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hold) && hold > 0)
+                    .Select(a => new Balance(
+                        a["currency"]?.ToString() ?? "",
+                        double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double avf) ? avf : 0,
+                        double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0))
+                    .ToList();
+            });
         }
 
         public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
@@ -487,77 +487,73 @@ namespace AccessibleTrader.Plugins.Coinbase
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string path = "/api/v3/brokerage/orders/historical/fills";
-                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
-                    var json = JObject.Parse(response);
-                    var arr = json["fills"] as JArray;
-                    if (arr == null) return new List<TradeFill>();
+                string path = "/api/v3/brokerage/orders/historical/fills";
+                var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
+                var json = JObject.Parse(response);
+                var arr = json["fills"] as JArray;
+                if (arr == null) return new List<TradeFill>();
 
-                    var fills = new List<TradeFill>();
-                    foreach (var f in arr)
-                    {
-                        string sym = f["product_id"]?.ToString() ?? "";
-                        if (symbol != null && !sym.Replace("-", "/").Equals(symbol, StringComparison.OrdinalIgnoreCase)
-                            && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
-                        fills.Add(new TradeFill(
-                            f["trade_id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
-                            sym,
-                            (f["side"]?.ToString() ?? "BUY").Equals("SELL", StringComparison.OrdinalIgnoreCase)
-                                ? OrderSide.Sell : OrderSide.Buy,
-                            f["size"]?.Value<double>() ?? 0,
-                            f["price"]?.Value<double>() ?? 0,
-                            f["trade_time"]?.Value<DateTime>() ?? DateTime.MinValue,
-                            f["commission"]?.Value<double>() ?? 0,
-                            f["order_id"]?.ToString()));
-                    }
-                    return fills.OrderByDescending(x => x.FilledAt).Take(limit).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Coinbase GetFillsAsync failed ({ex.GetType().Name})");
-                return new();
-            }
+                var fills = new List<TradeFill>();
+                foreach (var f in arr)
+                {
+                    string sym = f["product_id"]?.ToString() ?? "";
+                    if (symbol != null && !sym.Replace("-", "/").Equals(symbol, StringComparison.OrdinalIgnoreCase)
+                        && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                    fills.Add(new TradeFill(
+                        f["trade_id"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                        sym,
+                        (f["side"]?.ToString() ?? "BUY").Equals("SELL", StringComparison.OrdinalIgnoreCase)
+                            ? OrderSide.Sell : OrderSide.Buy,
+                        f["size"]?.Value<double>() ?? 0,
+                        f["price"]?.Value<double>() ?? 0,
+                        f["trade_time"]?.Value<DateTime>() ?? DateTime.MinValue,
+                        f["commission"]?.Value<double>() ?? 0,
+                        f["order_id"]?.ToString()));
+                }
+                return fills.OrderByDescending(x => x.FilledAt).Take(limit).ToList();
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string path = "/api/v3/brokerage/orders/historical/batch";
-                    string query = "?order_status=OPEN";
-                    if (!string.IsNullOrEmpty(symbol))
-                        query += $"&product_id={ToProductId(symbol)}";
+                string path = "/api/v3/brokerage/orders/historical/batch";
+                string query = "?order_status=OPEN";
+                if (!string.IsNullOrEmpty(symbol))
+                    query += $"&product_id={ToProductId(symbol)}";
 
-                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}{query}", path).ConfigureAwait(false);
-                    var json     = JObject.Parse(response);
-                    var orders   = json["orders"] as JArray;
-                    if (orders == null) return new List<OpenOrder>();
+                var response = await GetSignedStringAsync($"https://api.coinbase.com{path}{query}", path).ConfigureAwait(false);
+                var json     = JObject.Parse(response);
+                var orders   = json["orders"] as JArray;
+                if (orders == null) return new List<OpenOrder>();
 
-                    return orders.Select(o => new OpenOrder(
-                        o["order_id"]?.ToString() ?? "",
-                        o["product_id"]?.ToString() ?? "",
-                        o["side"]?.ToString() == "BUY" ? OrderSide.Buy : OrderSide.Sell,
-                        MapCoinbaseOrderType(o["order_configuration"]),
-                        double.TryParse(
-                            o["order_configuration"]?["limit_limit_gtc"]?["base_size"]?.ToString()
-                            ?? o["order_configuration"]?["market_market_ioc"]?["base_size"]?.ToString()
-                            ?? o["filled_size"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double qty) ? qty : 0,
-                        double.TryParse(
-                            o["order_configuration"]?["limit_limit_gtc"]?["limit_price"]?.ToString()
-                            ?? o["average_filled_price"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double avgPx) ? avgPx : 0,
-                        o["status"]?.ToString() ?? ""
-                    )).ToList();
-                });
-            }
-            catch { return new(); }
+                return orders.Select(o => new OpenOrder(
+                    o["order_id"]?.ToString() ?? "",
+                    o["product_id"]?.ToString() ?? "",
+                    o["side"]?.ToString() == "BUY" ? OrderSide.Buy : OrderSide.Sell,
+                    MapCoinbaseOrderType(o["order_configuration"]),
+                    double.TryParse(
+                        o["order_configuration"]?["limit_limit_gtc"]?["base_size"]?.ToString()
+                        ?? o["order_configuration"]?["market_market_ioc"]?["base_size"]?.ToString()
+                        ?? o["filled_size"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double qty) ? qty : 0,
+                    double.TryParse(
+                        o["order_configuration"]?["limit_limit_gtc"]?["limit_price"]?.ToString()
+                        ?? o["average_filled_price"]?.ToString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out double avgPx) ? avgPx : 0,
+                    o["status"]?.ToString() ?? ""
+                )).ToList();
+            });
         }
 
         private static OrderType MapCoinbaseOrderType(JToken? config)

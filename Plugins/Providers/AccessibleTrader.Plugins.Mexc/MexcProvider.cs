@@ -72,12 +72,15 @@ namespace AccessibleTrader.Plugins.Mexc
         /// That combination reads like a contradiction and is not one, which an
         /// earlier draft of the audit got wrong before the probe corrected it.
         /// <c>IsolatedMargin</c> is added on evidence: the futures order body sets
-        /// <c>openType</c> from <c>signal.MarginType</c>.
+        /// <c>openType</c> from <c>signal.MarginType</c>. <c>ReduceOnly</c>
+        /// likewise: <see cref="MapFuturesSide"/> reads <c>signal.ReduceOnly</c>
+        /// to pick the close-side wire codes (2/4) instead of opening the
+        /// opposite position.
         /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
             ProviderCapabilities.Leverage | ProviderCapabilities.FuturesTrading |
-            ProviderCapabilities.IsolatedMargin;
+            ProviderCapabilities.IsolatedMargin | ProviderCapabilities.ReduceOnly;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
@@ -529,46 +532,46 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                    var body = await _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/account", key, secret).ConfigureAwait(false);
-                    var balances = JObject.Parse(body)["balances"] as JArray;
-                    if (balances == null) return new List<Balance>();
-                    return balances.Select(b => new Balance(
-                            b["asset"]?.ToString() ?? "", ParseD(b["free"]?.ToString()), ParseD(b["locked"]?.ToString())))
-                        .Where(b => b.Free > 0 || b.Locked > 0).ToList();
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex) { SurfaceError($"MEXC GetBalancesAsync failed ({ex.GetType().Name})."); return new(); }
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/account", key, secret).ConfigureAwait(false);
+                var balances = JObject.Parse(body)["balances"] as JArray;
+                if (balances == null) return new List<Balance>();
+                return balances.Select(b => new Balance(
+                        b["asset"]?.ToString() ?? "", ParseD(b["free"]?.ToString()), ParseD(b["locked"]?.ToString())))
+                    .Where(b => b.Free > 0 || b.Locked > 0).ToList();
+            }).ConfigureAwait(false);
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rest.FuturesSignedAsync(HttpMethod.Get, "/api/v1/private/position/open_positions", key, secret).ConfigureAwait(false);
+                var arr = JObject.Parse(body)["data"] as JArray;
+                if (arr == null) return new List<Position>();
+                return arr.Where(p => (p["holdVol"]?.Value<double>() ?? 0) != 0).Select(p =>
                 {
-                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                    var body = await _rest.FuturesSignedAsync(HttpMethod.Get, "/api/v1/private/position/open_positions", key, secret).ConfigureAwait(false);
-                    var arr = JObject.Parse(body)["data"] as JArray;
-                    if (arr == null) return new List<Position>();
-                    return arr.Where(p => (p["holdVol"]?.Value<double>() ?? 0) != 0).Select(p =>
-                    {
-                        // positionType: 1 long, 2 short.
-                        double qty = (p["holdVol"]?.Value<double>() ?? 0) * ((p["positionType"]?.Value<int>() ?? 1) == 2 ? -1 : 1);
-                        double avg = p["holdAvgPrice"]?.Value<double>() ?? 0;
-                        double pnl = p["unrealised"]?.Value<double>() ?? p["realised"]?.Value<double>() ?? 0;
-                        double liq = p["liquidatePrice"]?.Value<double>() ?? 0;
-                        double lev = p["leverage"]?.Value<double>() ?? 1;
-                        return new Position(p["symbol"]?.ToString() ?? "", qty, avg, Math.Abs(qty) * avg, pnl, lev, liq);
-                    }).ToList();
-                }).ConfigureAwait(false);
-            }
-            catch { return new(); }
+                    // positionType: 1 long, 2 short.
+                    double qty = (p["holdVol"]?.Value<double>() ?? 0) * ((p["positionType"]?.Value<int>() ?? 1) == 2 ? -1 : 1);
+                    double avg = p["holdAvgPrice"]?.Value<double>() ?? 0;
+                    double pnl = p["unrealised"]?.Value<double>() ?? p["realised"]?.Value<double>() ?? 0;
+                    double liq = p["liquidatePrice"]?.Value<double>() ?? 0;
+                    double lev = p["leverage"]?.Value<double>() ?? 1;
+                    return new Position(p["symbol"]?.ToString() ?? "", qty, avg, Math.Abs(qty) * avg, pnl, lev, liq);
+                }).ToList();
+            }).ConfigureAwait(false);
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -576,41 +579,41 @@ namespace AccessibleTrader.Plugins.Mexc
             if (!IsConnected) return new();
             var orders = new List<OpenOrder>();
 
+            // No catch on either leg: a failed read must throw so the order service
+            // can classify it (ProviderResult.FromException). Swallowing here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents.
             if (!string.IsNullOrEmpty(symbol) && !symbol.Contains('_'))
             {
-                try
-                {
-                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                    var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/openOrders", key, secret,
-                        new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol) })).ConfigureAwait(false);
-                    if (JToken.Parse(body) is JArray arr)
-                        orders.AddRange(arr.Select(o => new OpenOrder(
-                            o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
-                            (o["side"]?.ToString() ?? "BUY").Equals("BUY", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
-                            MapSpotType(o["type"]?.ToString()),
-                            ParseD(o["origQty"]?.ToString()), ParseD(o["price"]?.ToString()), o["status"]?.ToString() ?? "")));
-                    else if (JObject.Parse(body)["code"]?.Value<int>() is int c && c != 0)
-                        SurfaceError($"MEXC open orders unavailable for {symbol}: {JObject.Parse(body)["msg"]}");
-                }
-                catch (Exception ex) { SurfaceError($"MEXC GetOpenOrdersAsync (spot) failed for {symbol} ({ex.GetType().Name})."); }
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/openOrders", key, secret,
+                    new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol) })).ConfigureAwait(false);
+                if (JToken.Parse(body) is JArray arr)
+                    orders.AddRange(arr.Select(o => new OpenOrder(
+                        o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
+                        (o["side"]?.ToString() ?? "BUY").Equals("BUY", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
+                        MapSpotType(o["type"]?.ToString()),
+                        ParseD(o["origQty"]?.ToString()), ParseD(o["price"]?.ToString()), o["status"]?.ToString() ?? "")));
+                else if (JObject.Parse(body)["code"]?.Value<int>() is int c && c != 0)
+                    throw new InvalidOperationException($"MEXC open orders unavailable for {symbol}: {JObject.Parse(body)["msg"]}");
             }
 
             if (string.IsNullOrEmpty(symbol) || symbol.Contains('_'))
             {
-                try
-                {
-                    var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                    string want = string.IsNullOrEmpty(symbol) ? "" : ToFuturesSymbol(CleanSymbol(symbol));
-                    var path = string.IsNullOrEmpty(want) ? "/api/v1/private/order/list/open_orders" : $"/api/v1/private/order/list/open_orders/{want}";
-                    var body = await _rateLimiter.ExecuteAsync(() => _rest.FuturesSignedAsync(HttpMethod.Get, path, key, secret)).ConfigureAwait(false);
-                    if (JObject.Parse(body)["data"] is JArray arr)
-                        orders.AddRange(arr.Select(o => new OpenOrder(
-                            o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
-                            (o["side"]?.Value<int>() ?? 1) is 1 or 4 ? OrderSide.Buy : OrderSide.Sell, // 1 openLong/4 closeShort
-                            (o["orderType"]?.Value<int>() ?? 5) == 5 ? OrderType.Market : OrderType.Limit,
-                            o["vol"]?.Value<double>() ?? 0, o["price"]?.Value<double>() ?? 0, o["state"]?.ToString() ?? "")));
-                }
-                catch { /* spot-only key: no futures access — silent */ }
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                string want = string.IsNullOrEmpty(symbol) ? "" : ToFuturesSymbol(CleanSymbol(symbol));
+                var path = string.IsNullOrEmpty(want) ? "/api/v1/private/order/list/open_orders" : $"/api/v1/private/order/list/open_orders/{want}";
+                var body = await _rateLimiter.ExecuteAsync(() => _rest.FuturesSignedAsync(HttpMethod.Get, path, key, secret)).ConfigureAwait(false);
+                // A spot-only key gets an error BODY here (success=false), not an
+                // exception — FuturesSignedAsync never throws on HTTP status. That
+                // legitimate no-futures-access case stays quiet by body shape;
+                // transport failures and garbage bodies now propagate instead of
+                // being swallowed into "no futures orders".
+                if (JObject.Parse(body)["data"] is JArray arr)
+                    orders.AddRange(arr.Select(o => new OpenOrder(
+                        o["orderId"]?.ToString() ?? "", o["symbol"]?.ToString() ?? "",
+                        MapFuturesSideToOrderSide(o["side"]?.Value<int>() ?? 1),
+                        (o["orderType"]?.Value<int>() ?? 5) == 5 ? OrderType.Market : OrderType.Limit,
+                        o["vol"]?.Value<double>() ?? 0, o["price"]?.Value<double>() ?? 0, o["state"]?.ToString() ?? "")));
             }
             return orders;
         }
@@ -628,10 +631,31 @@ namespace AccessibleTrader.Plugins.Mexc
             catch (Exception ex) { SurfaceError($"MEXC order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
         }
 
+        // Only these two reach the wire mapping below (1 limit / 5 market). The
+        // stop and take-profit families need MEXC's plan-order endpoint, which
+        // this provider does not call — sending them as type 5 executed the
+        // "protective" stop immediately at market.
+        internal static bool IsSupportedFuturesEntryType(OrderType type) =>
+            type is OrderType.Market or OrderType.Limit;
+
+        // MEXC futures order sides. `Buy ? 1 : 3` ignored ReduceOnly, so a
+        // sell-to-close OPENED an opposing short in hedge mode instead of closing
+        // the long. A reduce-only buy closes a short (2); a reduce-only sell
+        // closes a long (4).
+        internal static int MapFuturesSide(OrderSide side, bool reduceOnly) =>
+            side == OrderSide.Buy ? (reduceOnly ? 2 : 1) : (reduceOnly ? 4 : 3);
+
+        // The read direction of the same table: sides 1 (open long) and 2 (close
+        // short) are buys; 3 (open short) and 4 (close long) are sells. The old
+        // read mapped {1,4} to Buy, so a resting close-long showed as a buy.
+        internal static OrderSide MapFuturesSideToOrderSide(int side) =>
+            side is 1 or 2 ? OrderSide.Buy : OrderSide.Sell;
+
         private async Task<string> PlaceSpotOrderAsync(TradeSignal signal)
         {
             if (signal.Type is not (OrderType.Market or OrderType.Limit))
-                return "ORDER_FAILED:MEXC spot only supports Market/Limit (use Futures for stop/TP).";
+                return "ORDER_FAILED:MEXC spot only supports Market/Limit entries. Stop and take-profit "
+                     + "levels attach to a Futures entry as protective legs.";
             if (signal.Type == OrderType.Limit && !signal.Price.HasValue)
                 return "ORDER_FAILED:Limit order requires Price.";
 
@@ -654,13 +678,27 @@ namespace AccessibleTrader.Plugins.Mexc
 
         private async Task<string> PlaceFuturesOrderAsync(TradeSignal signal)
         {
+            // A stop or take-profit order type needs MEXC's separate plan-order
+            // (trigger) endpoint, which this provider does not call. The old code
+            // sent StopMarket as type 5 — a plain market order, executed NOW: a
+            // protective stop at 90,000 with the mark at 100,000 flattened the
+            // position at 100,000 and reported success. Refusing is the honest
+            // failure; the trigger levels DO work as protective legs attached to
+            // a Market/Limit entry (stopLossPrice/takeProfitPrice below).
+            if (!IsSupportedFuturesEntryType(signal.Type))
+                return "ORDER_FAILED:MEXC futures does not support stop or take-profit order types yet. "
+                     + "Place a Market or Limit entry and set Stop Loss / Take Profit on it — those attach "
+                     + "as protective levels.";
+            if (signal.Type == OrderType.Limit && !signal.Price.HasValue)
+                return "ORDER_FAILED:Limit order requires Price.";
+
             var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-            // side: 1 open long, 3 open short. type: 1 limit, 5 market. openType: 1 iso, 2 cross.
+            // side: 1 open long, 2 close short, 3 open short, 4 close long. type: 1 limit, 5 market. openType: 1 iso, 2 cross.
             var order = new JObject
             {
                 ["symbol"] = ToFuturesSymbol(CleanSymbol(signal.Symbol)),
-                ["side"]   = signal.Side == OrderSide.Buy ? 1 : 3,
-                ["type"]   = signal.Type == OrderType.Limit || signal.Type == OrderType.StopLimit || signal.Type == OrderType.TakeProfitLimit ? 1 : 5,
+                ["side"]   = MapFuturesSide(signal.Side, signal.ReduceOnly),
+                ["type"]   = signal.Type == OrderType.Limit ? 1 : 5,
                 ["vol"]    = signal.Quantity,
                 ["openType"] = string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase) ? 2 : 1,
             };
@@ -700,21 +738,21 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConnected || string.IsNullOrEmpty(symbol)) return new();
-            try
-            {
-                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/myTrades", key, secret,
-                    new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["limit"] = Math.Clamp(limit, 1, 1000).ToString(CultureInfo.InvariantCulture) })).ConfigureAwait(false);
-                if (JToken.Parse(body) is not JArray arr) return new();
-                return arr.Select(t => new TradeFill(
-                        t["id"]?.ToString() ?? "", t["symbol"]?.ToString() ?? "",
-                        (t["isBuyer"]?.Value<bool>() ?? true) ? OrderSide.Buy : OrderSide.Sell,
-                        ParseD(t["qty"]?.ToString()), ParseD(t["price"]?.ToString()),
-                        DateTimeOffset.FromUnixTimeMilliseconds(t["time"]?.Value<long>() ?? 0).UtcDateTime,
-                        ParseD(t["commission"]?.ToString()), t["orderId"]?.ToString()))
-                    .OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-            }
-            catch (Exception ex) { SurfaceError($"MEXC GetFillsAsync failed ({ex.GetType().Name})."); return new(); }
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+            var body = await _rateLimiter.ExecuteAsync(() => _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/myTrades", key, secret,
+                new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["limit"] = Math.Clamp(limit, 1, 1000).ToString(CultureInfo.InvariantCulture) })).ConfigureAwait(false);
+            if (JToken.Parse(body) is not JArray arr) return new();
+            return arr.Select(t => new TradeFill(
+                    t["id"]?.ToString() ?? "", t["symbol"]?.ToString() ?? "",
+                    (t["isBuyer"]?.Value<bool>() ?? true) ? OrderSide.Buy : OrderSide.Sell,
+                    ParseD(t["qty"]?.ToString()), ParseD(t["price"]?.ToString()),
+                    DateTimeOffset.FromUnixTimeMilliseconds(t["time"]?.Value<long>() ?? 0).UtcDateTime,
+                    ParseD(t["commission"]?.ToString()), t["orderId"]?.ToString()))
+                .OrderByDescending(f => f.FilledAt).Take(limit).ToList();
         }
 
         public async Task<double> SetLeverageAsync(string symbol, double leverage)

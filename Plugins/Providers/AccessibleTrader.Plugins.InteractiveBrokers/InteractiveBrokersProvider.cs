@@ -49,6 +49,22 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         private string? _currentSymbol;
         private string? _currentTimeframe;
 
+        // _currentConId is the contract of the CURRENTLY CHARTED symbol. Reusing it
+        // for any other symbol places an order against the wrong instrument — chart
+        // AAPL, order MSFT from the panel, buy AAPL, real order id comes back. Every
+        // reuse must go through this check; the raw field is never a valid shortcut.
+        internal string? CachedConIdFor(string symbol) =>
+            _currentConId != null
+            && string.Equals(_currentSymbol, symbol, StringComparison.OrdinalIgnoreCase)
+                ? _currentConId
+                : null;
+
+        internal void SeedConIdCacheForTest(string? chartedSymbol, string? conId)
+        {
+            _currentSymbol = chartedSymbol;
+            _currentConId = conId;
+        }
+
         // Streams
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
@@ -436,7 +452,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
 
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
-            var conId = _currentConId ?? await ResolveConIdAsync(request.Symbol, request.Market);
+            var conId = CachedConIdFor(request.Symbol) ?? await ResolveConIdAsync(request.Symbol, request.Market);
             if (string.IsNullOrEmpty(conId))
                 return (new List<Ohlcv>(), new List<(long, double)>());
 
@@ -482,7 +498,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10)
         {
             // IBKR provides snapshot quotes via /iserver/marketdata/snapshot
-            var conId = _currentConId ?? await ResolveConIdAsync(symbol, "Stock");
+            var conId = CachedConIdFor(symbol) ?? await ResolveConIdAsync(symbol, "Stock");
             if (string.IsNullOrEmpty(conId)) return (new(), new());
 
             try
@@ -513,93 +529,81 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/portfolio/{_accountId}/summary");
-                    var json = JObject.Parse(response);
+                var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/portfolio/{_accountId}/summary");
+                var json = JObject.Parse(response);
 
-                    var result = new List<Balance>();
-                    foreach (var prop in json.Properties())
-                    {
-                        var val = prop.Value?["amount"]?.Value<double>() ?? 0;
-                        if (Math.Abs(val) > 0.01)
-                            result.Add(new Balance(prop.Name, val, 0));
-                    }
-                    return result;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"IBKR GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                var result = new List<Balance>();
+                foreach (var prop in json.Properties())
+                {
+                    var val = prop.Value?["amount"]?.Value<double>() ?? 0;
+                    if (Math.Abs(val) > 0.01)
+                        result.Add(new Balance(prop.Name, val, 0));
+                }
+                return result;
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/portfolio/{_accountId}/positions/0");
-                    var arr = JArray.Parse(response);
-                    return arr.Select(p => new Position(
-                        p["ticker"]?.ToString() ?? p["contractDesc"]?.ToString() ?? "",
-                        Math.Abs(p["position"]?.Value<double>() ?? 0),
-                        p["avgCost"]?.Value<double>() ?? 0,
-                        p["mktValue"]?.Value<double>() ?? 0,
-                        p["unrealizedPnl"]?.Value<double>() ?? 0
-                    )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"IBKR GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/portfolio/{_accountId}/positions/0");
+                var arr = JArray.Parse(response);
+                return arr.Select(p => new Position(
+                    p["ticker"]?.ToString() ?? p["contractDesc"]?.ToString() ?? "",
+                    Math.Abs(p["position"]?.Value<double>() ?? 0),
+                    p["avgCost"]?.Value<double>() ?? 0,
+                    p["mktValue"]?.Value<double>() ?? 0,
+                    p["unrealizedPnl"]?.Value<double>() ?? 0
+                )).ToList();
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/iserver/account/orders");
-                    var json = JObject.Parse(response);
-                    var orders = json["orders"] as JArray;
-                    if (orders == null) return new List<OpenOrder>();
+                var response = await _httpClient.GetStringAsync($"{_gatewayUrl}/iserver/account/orders");
+                var json = JObject.Parse(response);
+                var orders = json["orders"] as JArray;
+                if (orders == null) return new List<OpenOrder>();
 
-                    return orders
-                        .Where(o => symbol == null || (o["ticker"]?.ToString() ?? "").Contains(symbol, StringComparison.OrdinalIgnoreCase))
-                        .Where(o => o["status"]?.ToString() != "Filled" && o["status"]?.ToString() != "Cancelled")
-                        .Select(o => new OpenOrder(
-                            o["orderId"]?.ToString() ?? "",
-                            o["ticker"]?.ToString() ?? "",
-                            o["side"]?.ToString()?.StartsWith("B", StringComparison.OrdinalIgnoreCase) == true ? OrderSide.Buy : OrderSide.Sell,
-                            MapIbkrOrderType(o["orderType"]?.ToString() ?? "MKT"),
-                            o["totalSize"]?.Value<double>() ?? 0,
-                            o["price"]?.Value<double>() ?? 0,
-                            o["status"]?.ToString() ?? ""
-                        )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"IBKR GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                return orders
+                    .Where(o => symbol == null || (o["ticker"]?.ToString() ?? "").Contains(symbol, StringComparison.OrdinalIgnoreCase))
+                    .Where(o => o["status"]?.ToString() != "Filled" && o["status"]?.ToString() != "Cancelled")
+                    .Select(o => new OpenOrder(
+                        o["orderId"]?.ToString() ?? "",
+                        o["ticker"]?.ToString() ?? "",
+                        o["side"]?.ToString()?.StartsWith("B", StringComparison.OrdinalIgnoreCase) == true ? OrderSide.Buy : OrderSide.Sell,
+                        MapIbkrOrderType(o["orderType"]?.ToString() ?? "MKT"),
+                        o["totalSize"]?.Value<double>() ?? 0,
+                        o["price"]?.Value<double>() ?? 0,
+                        o["status"]?.ToString() ?? ""
+                    )).ToList();
+            });
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
 
-            var conId = _currentConId ?? await ResolveConIdAsync(signal.Symbol, signal.SubType ?? "STK");
+            var conId = CachedConIdFor(signal.Symbol) ?? await ResolveConIdAsync(signal.Symbol, signal.SubType ?? "STK");
             if (string.IsNullOrEmpty(conId)) return "ORDER_FAILED:Could not resolve contract ID";
 
             try

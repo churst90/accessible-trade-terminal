@@ -531,136 +531,120 @@ namespace AccessibleTrader.Plugins.Binance
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/account", new Dictionary<string, string>());
+                using var doc = JsonDocument.Parse(body);
+                var list = new List<Balance>();
+                foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
                 {
-                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/account", new Dictionary<string, string>());
-                    using var doc = JsonDocument.Parse(body);
-                    var list = new List<Balance>();
-                    foreach (var b in doc.RootElement.GetProperty("balances").EnumerateArray())
-                    {
-                        double free = Dbl(b, "free");
-                        double locked = Dbl(b, "locked");
-                        if (free > 0 || locked > 0)
-                            list.Add(new Balance(b.GetProperty("asset").GetString() ?? "", free, locked));
-                    }
-                    return list;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Binance GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    double free = Dbl(b, "free");
+                    double locked = Dbl(b, "locked");
+                    if (free > 0 || locked > 0)
+                        list.Add(new Balance(b.GetProperty("asset").GetString() ?? "", free, locked));
+                }
+                return list;
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                string body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v2/positionRisk", new Dictionary<string, string>());
+                using var doc = JsonDocument.Parse(body);
+                var list = new List<Position>();
+                foreach (var p in doc.RootElement.EnumerateArray())
                 {
-                    string body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v2/positionRisk", new Dictionary<string, string>());
-                    using var doc = JsonDocument.Parse(body);
-                    var list = new List<Position>();
-                    foreach (var p in doc.RootElement.EnumerateArray())
-                    {
-                        double qty = Dbl(p, "positionAmt");
-                        if (qty == 0) continue;
-                        double mark = Dbl(p, "markPrice");
-                        list.Add(new Position(
-                            p.GetProperty("symbol").GetString() ?? "",
-                            Math.Abs(qty),
-                            Dbl(p, "entryPrice"),
-                            Math.Abs(qty) * mark,
-                            Dbl(p, "unRealizedProfit"),
-                            Dbl(p, "leverage"),
-                            Dbl(p, "liquidationPrice")));
-                    }
-                    return list;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Binance GetPositionsAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    double qty = Dbl(p, "positionAmt");
+                    if (qty == 0) continue;
+                    double mark = Dbl(p, "markPrice");
+                    list.Add(new Position(
+                        p.GetProperty("symbol").GetString() ?? "",
+                        Math.Abs(qty),
+                        Dbl(p, "entryPrice"),
+                        Math.Abs(qty) * mark,
+                        Dbl(p, "unRealizedProfit"),
+                        Dbl(p, "leverage"),
+                        Dbl(p, "liquidationPrice")));
+                }
+                return list;
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var p = new Dictionary<string, string>();
+                if (symbol != null) p["symbol"] = CleanSymbol(symbol);
+                string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/openOrders", p);
+                using var doc = JsonDocument.Parse(body);
+                var list = new List<OpenOrder>();
+                foreach (var o in doc.RootElement.EnumerateArray())
                 {
-                    var p = new Dictionary<string, string>();
-                    if (symbol != null) p["symbol"] = CleanSymbol(symbol);
-                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/openOrders", p);
-                    using var doc = JsonDocument.Parse(body);
-                    var list = new List<OpenOrder>();
-                    foreach (var o in doc.RootElement.EnumerateArray())
-                    {
-                        list.Add(new OpenOrder(
-                            o.GetProperty("orderId").GetRawText(),
-                            o.GetProperty("symbol").GetString() ?? "",
-                            (o.GetProperty("side").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy,
-                            MapOrderType(o.GetProperty("type").GetString() ?? ""),
-                            Dbl(o, "origQty"),
-                            Dbl(o, "price"),
-                            o.GetProperty("status").GetString() ?? ""));
-                    }
-                    return list;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Binance GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    list.Add(new OpenOrder(
+                        o.GetProperty("orderId").GetRawText(),
+                        o.GetProperty("symbol").GetString() ?? "",
+                        (o.GetProperty("side").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy,
+                        MapOrderType(o.GetProperty("type").GetString() ?? ""),
+                        Dbl(o, "origQty"),
+                        Dbl(o, "price"),
+                        o.GetProperty("status").GetString() ?? ""));
+                }
+                return list;
+            });
         }
 
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             // Binance spot /myTrades requires a symbol; without one, return empty.
             if (!IsConnected || string.IsNullOrEmpty(symbol)) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var p = new Dictionary<string, string>
                 {
-                    var p = new Dictionary<string, string>
-                    {
-                        ["symbol"] = CleanSymbol(symbol),
-                        ["limit"] = Math.Clamp(limit, 1, 1000).ToString()
-                    };
-                    string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/myTrades", p);
-                    using var doc = JsonDocument.Parse(body);
-                    var list = new List<TradeFill>();
-                    foreach (var t in doc.RootElement.EnumerateArray())
-                    {
-                        bool isBuyer = t.TryGetProperty("isBuyer", out var ib) && ib.GetBoolean();
-                        long time = t.TryGetProperty("time", out var tm) ? tm.GetInt64() : 0;
-                        list.Add(new TradeFill(
-                            t.TryGetProperty("id", out var id) ? id.GetRawText() : "",
-                            t.GetProperty("symbol").GetString() ?? symbol!,
-                            isBuyer ? OrderSide.Buy : OrderSide.Sell,
-                            Dbl(t, "qty"),
-                            Dbl(t, "price"),
-                            DateTimeOffset.FromUnixTimeMilliseconds(time).UtcDateTime,
-                            Dbl(t, "commission"),
-                            t.TryGetProperty("orderId", out var oid) ? oid.GetRawText() : null));
-                    }
-                    list.Reverse();   // Binance returns oldest-first; we want newest first
-                    return list;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Binance GetFillsAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                    ["symbol"] = CleanSymbol(symbol),
+                    ["limit"] = Math.Clamp(limit, 1, 1000).ToString()
+                };
+                string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/myTrades", p);
+                using var doc = JsonDocument.Parse(body);
+                var list = new List<TradeFill>();
+                foreach (var t in doc.RootElement.EnumerateArray())
+                {
+                    bool isBuyer = t.TryGetProperty("isBuyer", out var ib) && ib.GetBoolean();
+                    long time = t.TryGetProperty("time", out var tm) ? tm.GetInt64() : 0;
+                    list.Add(new TradeFill(
+                        t.TryGetProperty("id", out var id) ? id.GetRawText() : "",
+                        t.GetProperty("symbol").GetString() ?? symbol!,
+                        isBuyer ? OrderSide.Buy : OrderSide.Sell,
+                        Dbl(t, "qty"),
+                        Dbl(t, "price"),
+                        DateTimeOffset.FromUnixTimeMilliseconds(time).UtcDateTime,
+                        Dbl(t, "commission"),
+                        t.TryGetProperty("orderId", out var oid) ? oid.GetRawText() : null));
+                }
+                list.Reverse();   // Binance returns oldest-first; we want newest first
+                return list;
+            });
         }
 
         /// <summary>

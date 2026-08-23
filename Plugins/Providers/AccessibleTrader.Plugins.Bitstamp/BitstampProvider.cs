@@ -578,29 +578,25 @@ namespace AccessibleTrader.Plugins.Bitstamp
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsTradeConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var response = await PostAuthenticatedAsync("/api/v2/balance/", new Dictionary<string, string>());
-                    var json     = JObject.Parse(response);
-                    var result   = new List<Balance>();
-                    var currencies = json.Properties().Where(p => p.Name.EndsWith("_available")).Select(p => p.Name.Replace("_available", "")).ToList();
+                var response = await PostAuthenticatedAsync("/api/v2/balance/", new Dictionary<string, string>());
+                var json     = JObject.Parse(response);
+                var result   = new List<Balance>();
+                var currencies = json.Properties().Where(p => p.Name.EndsWith("_available")).Select(p => p.Name.Replace("_available", "")).ToList();
 
-                    foreach (var cur in currencies)
-                    {
-                        double avail = json[$"{cur}_available"]?.Value<double>() ?? 0;
-                        double res   = json[$"{cur}_reserved"]?.Value<double>() ?? 0;
-                        if (avail > 0 || res > 0) result.Add(new Balance(cur.ToUpper(), avail, res));
-                    }
-                    return result;
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Bitstamp GetBalancesAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                foreach (var cur in currencies)
+                {
+                    double avail = json[$"{cur}_available"]?.Value<double>() ?? 0;
+                    double res   = json[$"{cur}_reserved"]?.Value<double>() ?? 0;
+                    if (avail > 0 || res > 0) result.Add(new Balance(cur.ToUpper(), avail, res));
+                }
+                return result;
+            });
         }
 
         public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
@@ -608,29 +604,25 @@ namespace AccessibleTrader.Plugins.Bitstamp
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsTradeConfigured) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string endpoint = !string.IsNullOrEmpty(symbol) ? $"/api/v2/open_orders/{symbol.Replace("/", "").ToLower()}/" : "/api/v2/open_orders/all/";
-                    var response = await PostAuthenticatedAsync(endpoint, new Dictionary<string, string>());
-                    var arr = JArray.Parse(response);
-                    return arr.Select(o => new OpenOrder(
-                        o["id"]?.ToString() ?? "",
-                        o["currency_pair"]?.ToString() ?? symbol ?? "",
-                        o["type"]?.ToString() == "0" ? OrderSide.Buy : OrderSide.Sell,
-                        OrderType.Limit,
-                        o["amount"]?.Value<double>() ?? 0,
-                        o["price"]?.Value<double>() ?? 0,
-                        "Open"
-                    )).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Bitstamp GetOpenOrdersAsync failed ({ex.GetType().Name}): {ex.Message}");
-                return new();
-            }
+                string endpoint = !string.IsNullOrEmpty(symbol) ? $"/api/v2/open_orders/{symbol.Replace("/", "").ToLower()}/" : "/api/v2/open_orders/all/";
+                var response = await PostAuthenticatedAsync(endpoint, new Dictionary<string, string>());
+                var arr = JArray.Parse(response);
+                return arr.Select(o => new OpenOrder(
+                    o["id"]?.ToString() ?? "",
+                    o["currency_pair"]?.ToString() ?? symbol ?? "",
+                    o["type"]?.ToString() == "0" ? OrderSide.Buy : OrderSide.Sell,
+                    OrderType.Limit,
+                    o["amount"]?.Value<double>() ?? 0,
+                    o["price"]?.Value<double>() ?? 0,
+                    "Open"
+                )).ToList();
+            });
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)

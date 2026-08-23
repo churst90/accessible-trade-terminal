@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The order-contract ship-blockers: five ways money moved wrong, closed (2026-08-23)
+
+Second slice of the audit's provider-tier ship-blockers — the placement-path cluster. Each of
+these was a real-money defect on the desktop build that reported success.
+
+- **IBKR can no longer order the wrong instrument.** `_currentConId` is the conId of the
+  *currently charted* symbol, and three call sites reused it for whatever symbol they were handed —
+  chart AAPL, order MSFT from the panel, buy AAPL, real order id returned. Every reuse now goes
+  through `CachedConIdFor(symbol)`, which yields the cache only when the symbols match.
+- **MEXC futures no longer turns a protective stop into an immediate market order.** The futures
+  branch mapped every non-limit type to wire type 5 — a plain market order, executed NOW: a stop
+  at 90,000 with the mark at 100,000 flattened the position at 100,000 and reported success. The
+  stop/TP families are now refused with spoken guidance (SL/TP still attach to entries as
+  protective legs, which always worked); the plan-order endpoint remains unimplemented while
+  MEXC's futures order API stays in "maintenance". Sides now honour `ReduceOnly` (a sell-to-close
+  used to OPEN an opposing short in hedge mode), the open-orders read no longer calls a resting
+  close-long a Buy, and the capability is declared so the dashboard can render the control.
+- **Tradier refuses fractional shares instead of silently resizing the order.**
+  `((int)signal.Quantity)` placed 9 when the risk sizer said 9.7, and 0 when it said 0.6 — both
+  validated fine upstream because 9.7 and 0.6 are finite-positive. Whole numbers go on the wire
+  invariantly; anything else is `ORDER_FAILED` with the refused number spoken.
+- **Schwab fills finally announce.** The order id exists only in the `Location` response header,
+  which the HTTP plumbing discarded — so placement returned the literal `ORDER_SUBMITTED`, which
+  prefix-matches the error sentinel, so the fill poller and the protective-order verification
+  never started. The header is now surfaced and parsed (`OrderIdFromLocation`, digits-only so the
+  poller is never handed garbage). And the nine-provider `?? "ORDER_SUBMITTED"` fallback class got
+  its honest half: when a no-streaming provider accepts an order without an id, the service now
+  says the fill cannot be announced instead of letting "placed" imply it will be.
+- **Trading reads throw again — 33 `catch`-and-return-empty sites removed across 11 providers.**
+  `GeneralOrderService` classifies a THROWN read failure into `ProviderResult` and reconciliation
+  guards on `IsOk`; a provider-side swallow routes around all of it, re-arming the recorded
+  incident ("announced every position as closed while you were away, then overwrote the
+  snapshot") on any transient 502. The audit's census was wrong in both directions again: its
+  TwelveData/FMP/IB counts were data-path helpers, and it missed Alpaca, Schwab and Tradier
+  entirely — including three `GetOrderStatusAsync` catches returning null, which the poller reads
+  as "still resolving, retry quietly forever", defeating its own give-up-and-warn counter. An
+  empty-baseline scan (`Trading_reads_have_no_catch_that_swallows`, vacuity-floored) keeps the
+  class extinct.
+
+All guards proven red in a 7-way sabotage run (15 reds, all matching) — which also caught the
+scan's first draft missing a same-line `try { } catch { }`. Test count 4363 → 4401.
+
 ### The order-status contract: no venue status is ever silently discarded again (2026-08-23)
 
 First slice of the audit's provider-tier ship-blockers — the order-status mapping cluster, four

@@ -396,34 +396,28 @@ namespace AccessibleTrader.Plugins.Gemini
 
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
-            try
-            {
-                var json = await PostPrivateAsync("/v1/order/status",
-                    new JObject { ["order_id"] = long.TryParse(orderId, out long id) ? id : orderId })
-                    .ConfigureAwait(false);
+            // No catch: the order poller counts consecutive failures and gives up
+            // with a spoken warning. Returning null here read as "still resolving"
+            // and turned a dead endpoint into a silent infinite retry.
+            var json = await PostPrivateAsync("/v1/order/status",
+                new JObject { ["order_id"] = long.TryParse(orderId, out long id) ? id : orderId })
+                .ConfigureAwait(false);
 
-                bool live      = json["is_live"]?.Value<bool>() == true;
-                bool cancelled = json["is_cancelled"]?.Value<bool>() == true;
-                double executed  = D(json["executed_amount"]);
-                double remaining = D(json["remaining_amount"]);
+            bool live      = json["is_live"]?.Value<bool>() == true;
+            bool cancelled = json["is_cancelled"]?.Value<bool>() == true;
+            double executed  = D(json["executed_amount"]);
+            double remaining = D(json["remaining_amount"]);
 
-                var state = MapOrderState(live, cancelled, executed, remaining);
+            var state = MapOrderState(live, cancelled, executed, remaining);
 
-                return new OrderStatusSnapshot(
-                    state,
-                    string.Equals(json["side"]?.ToString(), "sell", StringComparison.OrdinalIgnoreCase)
-                        ? OrderSide.Sell : OrderSide.Buy,
-                    json["symbol"]?.ToString().ToUpperInvariant() ?? symbol ?? "",
-                    executed,
-                    D(json["avg_execution_price"]),
-                    remaining);
-            }
-            catch (Exception ex)
-            {
-                // Null means "could not resolve right now" — the poller retries.
-                SurfaceError($"Gemini order status failed for {orderId}: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
-                return null;
-            }
+            return new OrderStatusSnapshot(
+                state,
+                string.Equals(json["side"]?.ToString(), "sell", StringComparison.OrdinalIgnoreCase)
+                    ? OrderSide.Sell : OrderSide.Buy,
+                json["symbol"]?.ToString().ToUpperInvariant() ?? symbol ?? "",
+                executed,
+                D(json["avg_execution_price"]),
+                remaining);
         }
 
         /// <summary>

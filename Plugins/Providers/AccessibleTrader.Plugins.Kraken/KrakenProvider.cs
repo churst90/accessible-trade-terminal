@@ -659,54 +659,54 @@ namespace AccessibleTrader.Plugins.Kraken
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _privateRateLimiter.ExecuteAsync(async () =>
             {
-                return await _privateRateLimiter.ExecuteAsync(async () =>
-                {
-                    var result = await PostPrivateAsync("/0/private/Balance", new Dictionary<string, string>());
-                    var json = JObject.Parse(result);
-                    var balances = json["result"] as JObject;
-                    if (balances == null) return new List<Balance>();
+                var result = await PostPrivateAsync("/0/private/Balance", new Dictionary<string, string>());
+                var json = JObject.Parse(result);
+                var balances = json["result"] as JObject;
+                if (balances == null) return new List<Balance>();
 
-                    return balances.Properties()
-                        .Select(p =>
-                        {
-                            double.TryParse(p.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double val);
-                            return new Balance(p.Name, val, 0);
-                        })
-                        .Where(b => b.Free > 0)
-                        .ToList();
-                });
-            }
-            catch { return new(); }
+                return balances.Properties()
+                    .Select(p =>
+                    {
+                        double.TryParse(p.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double val);
+                        return new Balance(p.Name, val, 0);
+                    })
+                    .Where(b => b.Free > 0)
+                    .ToList();
+            });
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _privateRateLimiter.ExecuteAsync(async () =>
             {
-                return await _privateRateLimiter.ExecuteAsync(async () =>
-                {
-                    var result = await PostPrivateAsync("/0/private/OpenPositions", new Dictionary<string, string>());
-                    var json = JObject.Parse(result);
-                    var positions = json["result"] as JObject;
-                    if (positions == null) return new List<Position>();
+                var result = await PostPrivateAsync("/0/private/OpenPositions", new Dictionary<string, string>());
+                var json = JObject.Parse(result);
+                var positions = json["result"] as JObject;
+                if (positions == null) return new List<Position>();
 
-                    return positions.Properties().Select(p =>
-                    {
-                        var pos = p.Value as JObject;
-                        return new Position(
-                            pos?["pair"]?.ToString() ?? p.Name,
-                            Math.Abs(pos?["vol"]?.Value<double>() ?? 0),
-                            pos?["cost"]?.Value<double>() ?? 0,
-                            pos?["value"]?.Value<double>() ?? 0,
-                            pos?["net"]?.Value<double>() ?? 0,
-                            pos?["margin"]?.Value<double>() > 0 ? (pos?["cost"]?.Value<double>() ?? 0) / (pos?["margin"]?.Value<double>() ?? 1) : 1.0);
-                    }).ToList();
-                });
-            }
-            catch { return new(); }
+                return positions.Properties().Select(p =>
+                {
+                    var pos = p.Value as JObject;
+                    return new Position(
+                        pos?["pair"]?.ToString() ?? p.Name,
+                        Math.Abs(pos?["vol"]?.Value<double>() ?? 0),
+                        pos?["cost"]?.Value<double>() ?? 0,
+                        pos?["value"]?.Value<double>() ?? 0,
+                        pos?["net"]?.Value<double>() ?? 0,
+                        pos?["margin"]?.Value<double>() > 0 ? (pos?["cost"]?.Value<double>() ?? 0) / (pos?["margin"]?.Value<double>() ?? 1) : 1.0);
+                }).ToList();
+            });
         }
 
         /// <summary>Account fill history via TradesHistory (dashboard History tab
@@ -714,73 +714,69 @@ namespace AccessibleTrader.Plugins.Kraken
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            // Signed history call — must share the private rate limiter with
+            // Balances/Positions/OpenOrders or a History-tab refresh can burst
+            // past Kraken's private nonce/rate window and get rejected.
+            return await _privateRateLimiter.ExecuteAsync(async () =>
             {
-                // Signed history call — must share the private rate limiter with
-                // Balances/Positions/OpenOrders or a History-tab refresh can burst
-                // past Kraken's private nonce/rate window and get rejected.
-                return await _privateRateLimiter.ExecuteAsync(async () =>
-                {
-                    var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
-                    var json = JObject.Parse(result);
-                    var trades = json["result"]?["trades"] as JObject;
-                    if (trades == null) return new List<TradeFill>();
+                var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
+                var json = JObject.Parse(result);
+                var trades = json["result"]?["trades"] as JObject;
+                if (trades == null) return new List<TradeFill>();
 
-                    string? want = symbol == null ? null : CleanSymbol(symbol);
-                    var fills = new List<TradeFill>();
-                    foreach (var kv in trades.Properties())
-                    {
-                        var t = kv.Value;
-                        string pair = t["pair"]?.ToString() ?? "";
-                        if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
-                        fills.Add(new TradeFill(
-                            kv.Name, pair,
-                            (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
-                            t["vol"]?.Value<double>() ?? 0,
-                            t["price"]?.Value<double>() ?? 0,
-                            DateTimeOffset.FromUnixTimeSeconds((long)(t["time"]?.Value<double>() ?? 0)).UtcDateTime,
-                            t["fee"]?.Value<double>() ?? 0,
-                            t["ordertxid"]?.ToString()));
-                    }
-                    return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Kraken GetFillsAsync failed ({ex.GetType().Name})");
-                return new();
-            }
+                string? want = symbol == null ? null : CleanSymbol(symbol);
+                var fills = new List<TradeFill>();
+                foreach (var kv in trades.Properties())
+                {
+                    var t = kv.Value;
+                    string pair = t["pair"]?.ToString() ?? "";
+                    if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
+                    fills.Add(new TradeFill(
+                        kv.Name, pair,
+                        (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
+                        t["vol"]?.Value<double>() ?? 0,
+                        t["price"]?.Value<double>() ?? 0,
+                        DateTimeOffset.FromUnixTimeSeconds((long)(t["time"]?.Value<double>() ?? 0)).UtcDateTime,
+                        t["fee"]?.Value<double>() ?? 0,
+                        t["ordertxid"]?.ToString()));
+                }
+                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            });
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _privateRateLimiter.ExecuteAsync(async () =>
             {
-                return await _privateRateLimiter.ExecuteAsync(async () =>
-                {
-                    var result = await PostPrivateAsync("/0/private/OpenOrders", new Dictionary<string, string>());
-                    var json = JObject.Parse(result);
-                    var open = json["result"]?["open"] as JObject;
-                    if (open == null) return new List<OpenOrder>();
+                var result = await PostPrivateAsync("/0/private/OpenOrders", new Dictionary<string, string>());
+                var json = JObject.Parse(result);
+                var open = json["result"]?["open"] as JObject;
+                if (open == null) return new List<OpenOrder>();
 
-                    return open.Properties().Select(p =>
-                    {
-                        var o = p.Value?["descr"];
-                        return new OpenOrder(
-                            p.Name,
-                            o?["pair"]?.ToString() ?? "",
-                            o?["type"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
-                            MapKrakenOrderType(o?["ordertype"]?.ToString() ?? "market"),
-                            p.Value?["vol"]?.Value<double>() ?? 0,
-                            double.TryParse(o?["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
-                            p.Value?["status"]?.ToString() ?? "open");
-                    })
-                    .Where(o => symbol == null || o.Symbol.Contains(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                });
-            }
-            catch { return new(); }
+                return open.Properties().Select(p =>
+                {
+                    var o = p.Value?["descr"];
+                    return new OpenOrder(
+                        p.Name,
+                        o?["pair"]?.ToString() ?? "",
+                        o?["type"]?.ToString() == "buy" ? OrderSide.Buy : OrderSide.Sell,
+                        MapKrakenOrderType(o?["ordertype"]?.ToString() ?? "market"),
+                        p.Value?["vol"]?.Value<double>() ?? 0,
+                        double.TryParse(o?["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
+                        p.Value?["status"]?.ToString() ?? "open");
+                })
+                .Where(o => symbol == null || o.Symbol.Contains(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            });
         }
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)

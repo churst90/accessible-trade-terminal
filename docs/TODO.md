@@ -2,7 +2,7 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 291 open of 1317 tracked items (1026 done). Suite green at 4363 tests.
+**Status 2026-08-23:** 286 open of 1317 tracked items (1031 done). Suite green at 4401 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
@@ -1206,27 +1206,56 @@ guesses are invisible until money moves.
   instrument. A limit on XRP/USD at 0.4567 goes out at `0.46`; on a sub-cent pair it becomes
   `0.00`.~~ **DONE 2026-08-21**, same sweep — full precision + `InvariantCulture` now at
   `:660-666`, with the incident written up in a comment at the site.
-- [ ] **`InteractiveBrokersProvider.cs:589` can place an order against the wrong instrument.**
+- [x] **`InteractiveBrokersProvider.cs:589` can place an order against the wrong instrument.**
   `_currentConId ?? await ResolveConIdAsync(signal.Symbol, …)` — `_currentConId` is the *currently
   charted* symbol and is never compared against `signal.Symbol`. Chart AAPL, order MSFT from the
   panel, buy AAPL. No error; a real order id comes back.
-- [ ] **`MexcProvider.cs:657` turns a protective stop into an immediate market order.** The futures
+  **DONE 2026-08-23** — every reuse of the cached conId now goes through
+  `CachedConIdFor(symbol)`, which returns it only when the requested symbol IS the charted one
+  (case-insensitive); all three call sites (order placement, OHLCV fetch, order book) rewired.
+  Guards: the symbol-check theory in `OrderContractShipBlockerTests` plus a source pin that the
+  `_currentConId ??` fallback shape never returns.
+- [x] **`MexcProvider.cs:657` turns a protective stop into an immediate market order.** The futures
   branch is `type = isLimitFamily ? 1 : 5`, and `grep TriggerPrice` across the MEXC plugin returns
   nothing. The spot path guards and refuses; the futures path does not. A stop placed at 90,000 with
   spot at 100,000 sells **now at 100,000** — the trader is flattened instead of protected and the
   terminal reports success. And `:656` maps side as `Buy ? 1 : 3` (open long / **open short**)
   without reading `ReduceOnly`, so a sell-to-close opens an opposing short in hedge mode.
-- [ ] **`TradierProvider.cs:815,880` truncates quantity to an int.** `((int)signal.Quantity)` — a
+  **DONE 2026-08-23** — the futures path now refuses the stop/TP order-type families the same way
+  spot does (`IsSupportedFuturesEntryType`), with spoken guidance that SL/TP DO work as protective
+  legs attached to a Market/Limit entry (`stopLossPrice`/`takeProfitPrice`, which were already
+  sent). The real fix — MEXC's plan-order trigger endpoint — is deliberately not attempted while
+  MEXC keeps its futures order API in "maintenance". Sides now go through
+  `MapFuturesSide(side, reduceOnly)` (1 open long / 2 close short / 3 open short / 4 close long),
+  and the twin sweep found the READ direction wrong too: open-orders mapped side 4 (close long, a
+  sell) to Buy — now `MapFuturesSideToOrderSide`. `ReduceOnly` added to declared capabilities
+  (the audit's own capability test demanded it). Guards: three theories in
+  `OrderContractShipBlockerTests`.
+- [x] **`TradierProvider.cs:815,880` truncates quantity to an int.** `((int)signal.Quantity)` — a
   risk sizer emitting 9.7 shares places 9; a fractional 0.6 becomes **0**, which
   `GeneralOrderService`'s `IsFinitePositive` validation passes. Tradier equities are whole-share
   only, so silent truncation is never the right answer — refuse instead.
-- [ ] **Every Schwab order is announced as placed and its fill is never announced.** VERIFIED —
+  **DONE 2026-08-23** — `WholeShareQuantityOrNull` gates the top of `PlaceOrderAsync` (covering
+  the bracket path too): whole numbers (with float-noise tolerance) format invariantly, anything
+  else returns `ORDER_FAILED:Tradier trades whole shares only; 9.7 is not a whole number…` with
+  the refused number spoken. Guards: format/refusal theories plus a behavioural test that walks
+  the refusal through the real `PlaceOrderAsync` before any HTTP.
+- [x] **Every Schwab order is announced as placed and its fill is never announced.** VERIFIED —
   `SchwabProvider.cs:687` returns the literal `"ORDER_SUBMITTED"` (the real id is in the `Location`
   header, which `SendWithAuthAsync` discards), and `IsErrorSentinel` is a **prefix** test on
   `"ORDER_"`. Schwab declares `SupportsOrderEventStreaming => false` and
   `SupportsOrderStatusQuery => true` precisely so the poller resolves fills — and the poller is
   gated on `!IsErrorSentinel(result)`, so it never starts. The protective-order verification net is
   skipped for the same reason. Nine other providers use the same `?? "ORDER_SUBMITTED"` fallback.
+  **DONE 2026-08-23** — `SendWithAuthCoreAsync` now surfaces the `Location` header alongside the
+  body (the old wrapper delegates to it), and `OrderIdFromLocation` takes the last path segment,
+  digits-only so the poller is never handed a non-id. With a real id, the poller and the
+  protective-order net start (pinned by a service-level test: real id + no streaming ⇒
+  `OrderWatchesStarted == 1`). The nine-provider fallback class got the honest half: when any
+  no-streaming provider returns `ORDER_SUBMITTED`, `GeneralOrderService` now SAYS the fill cannot
+  be announced ("accepted the order but did not return an order id… check your open orders")
+  instead of letting "placed" imply the outcome will speak. Guards in
+  `OrderContractShipBlockerTests`.
 - [x] **`GeminiProvider.cs:410-415` announces a partially-filled-then-cancelled order as
   "cancelled".** The ternary ladder tests `cancelled` **before** `executed > 0`. Gemini has no native
   market order, so `OrderType.Market` is emulated as an IOC limit — the default order type on this
@@ -1238,7 +1267,7 @@ guesses are invisible until money moves.
   in the snapshot**, which is the half that actually reaches the ear: the Cancelled/Expired
   announcement now speaks the partial fill on every venue (see the enum item above). Guards:
   `Gemini_order_state_ladder` theory + `CancelledAfterPartialFill_SpeaksTheExecutedPart`.
-- [ ] **`catch { return new(); }` on trading reads re-arms the reconciliation incident
+- [x] **`catch { return new(); }` on trading reads re-arms the reconciliation incident
   `ProviderResult.cs:8-16` documents as fixed.** `GeneralOrderService:720` classifies failure purely
   by whether the provider *threw*, and `TradingReconciliationCoordinator:155` guards on
   `!positions.IsOk`. Swallowers found in Kraken (4), Coinbase (4), Oanda (5), Binance (4), Bitstamp
@@ -1246,6 +1275,21 @@ guesses are invisible until money moves.
   recorded incident verbatim — "announced every position as 'closed while you were away', and then
   overwrote the snapshot with the empty result" — and the guard never fires because nothing threw.
   Gemini and KrakenFutures let exceptions propagate and are the model.
+  **DONE 2026-08-23** — the real census differed from the audit's again: the TwelveData/FMP/IB
+  sites it counted are symbol-search and parse helpers (data paths, not trading reads), while it
+  missed Alpaca (4), Schwab (5) and Tradier (5) entirely, including the worst variant: Schwab,
+  Tradier and Gemini `GetOrderStatusAsync` caught and returned **null**, which the poller reads as
+  "still resolving, retry silently" — converting a dead endpoint into an infinite quiet loop and
+  defeating the poller's own give-up-and-warn error counting. 33 catch sites removed across 11
+  providers (every `GetBalances/GetPositions/GetOpenOrders/GetFills/GetOrderStatus`); the
+  log-then-return-empty variants went too — a spoken error doesn't stop reconciliation from
+  reading empty-as-flat. MEXC's futures legs kept their spot-only-key tolerance by BODY shape
+  (`FuturesSignedAsync` never throws on HTTP status; an error body parses to no rows), with
+  transport failures and garbage bodies now propagating. Guard:
+  `Trading_reads_have_no_catch_that_swallows` — an EMPTY-baseline scan requiring any catch in
+  those methods to rethrow, with a `found >= 30` vacuity floor; the sabotage run caught the scan's
+  own first draft missing a same-line `try { } catch { }` and it now matches the keyword anywhere
+  in the line.
 - [ ] **`BinanceProvider.cs:1023` writes the user-data listenKey into the spoken error stream.**
   `$"Binance socket {uri.AbsolutePath} error…"` where `AbsolutePath` is `/ws/<listenKey>`. Any socket
   hiccup publishes a credential granting 60 minutes of read access to order and balance events, and

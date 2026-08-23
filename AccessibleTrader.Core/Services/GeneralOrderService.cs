@@ -357,6 +357,18 @@ namespace AccessibleTrader.Core.Services
                         () => PollOrderUntilResolvedAsync(tp, providerName, capturedSignal, orderId),
                         _logger, "PollOrderStatus");
                 }
+                else if (result == "ORDER_SUBMITTED" && !tp.SupportsOrderEventStreaming)
+                {
+                    // "ORDER_SUBMITTED" is a provider's venue-accepted-but-no-id
+                    // fallback. It prefix-matches the error sentinel, so the poll
+                    // above never starts — without an id there is nothing to poll.
+                    // The order is live and its fill will be silent: say so, instead
+                    // of letting "placed" imply the outcome will be announced.
+                    _errorCoordinator.ReportError(
+                        $"{providerName} accepted the order but did not return an order id, so its fill "
+                        + "cannot be announced. Check your open orders to follow it.",
+                        ErrorSeverity.Medium);
+                }
                 return result;
             }
             catch (Exception ex)

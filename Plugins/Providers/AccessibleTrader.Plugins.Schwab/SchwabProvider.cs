@@ -404,86 +404,78 @@ namespace AccessibleTrader.Plugins.Schwab
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var url  = $"{TraderV1}/accounts?fields=positions";
+                var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                var arr  = JArray.Parse(body);
+
+                var results = new List<Balance>();
+                foreach (var account in arr)
                 {
-                    var url  = $"{TraderV1}/accounts?fields=positions";
-                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    var arr  = JArray.Parse(body);
+                    var sec = account["securitiesAccount"];
+                    if (sec == null) continue;
 
-                    var results = new List<Balance>();
-                    foreach (var account in arr)
-                    {
-                        var sec = account["securitiesAccount"];
-                        if (sec == null) continue;
+                    double equity      = sec["currentBalances"]?["equity"]?.Value<double>()              ?? 0;
+                    double cash        = sec["currentBalances"]?["cashBalance"]?.Value<double>()         ?? 0;
+                    double buyingPower = sec["currentBalances"]?["buyingPower"]?.Value<double>()         ?? 0;
 
-                        double equity      = sec["currentBalances"]?["equity"]?.Value<double>()              ?? 0;
-                        double cash        = sec["currentBalances"]?["cashBalance"]?.Value<double>()         ?? 0;
-                        double buyingPower = sec["currentBalances"]?["buyingPower"]?.Value<double>()         ?? 0;
-
-                        results.Add(new("Cash",         cash,        0));
-                        results.Add(new("Equity",       equity,      0));
-                        results.Add(new("Buying Power", buyingPower, 0));
-                    }
-                    return results;
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Schwab balances error: {ex.Message}");
-                return new();
-            }
+                    results.Add(new("Cash",         cash,        0));
+                    results.Add(new("Equity",       equity,      0));
+                    results.Add(new("Buying Power", buyingPower, 0));
+                }
+                return results;
+            }).ConfigureAwait(false);
         }
 
         public async Task<List<Position>> GetPositionsAsync()
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                var url  = $"{TraderV1}/accounts?fields=positions";
+                var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                var arr  = JArray.Parse(body);
+
+                var positions = new List<Position>();
+                foreach (var account in arr)
                 {
-                    var url  = $"{TraderV1}/accounts?fields=positions";
-                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    var arr  = JArray.Parse(body);
+                    var posArr = account["securitiesAccount"]?["positions"] as JArray;
+                    if (posArr == null) continue;
 
-                    var positions = new List<Position>();
-                    foreach (var account in arr)
+                    foreach (var p in posArr)
                     {
-                        var posArr = account["securitiesAccount"]?["positions"] as JArray;
-                        if (posArr == null) continue;
+                        var symbol   = p["instrument"]?["symbol"]?.ToString() ?? "";
+                        double longQ = p["longQuantity"]?.Value<double>()  ?? 0;
+                        double shortQ= p["shortQuantity"]?.Value<double>() ?? 0;
+                        double qty   = longQ - shortQ;
+                        if (Math.Abs(qty) < 1e-9) continue;
 
-                        foreach (var p in posArr)
-                        {
-                            var symbol   = p["instrument"]?["symbol"]?.ToString() ?? "";
-                            double longQ = p["longQuantity"]?.Value<double>()  ?? 0;
-                            double shortQ= p["shortQuantity"]?.Value<double>() ?? 0;
-                            double qty   = longQ - shortQ;
-                            if (Math.Abs(qty) < 1e-9) continue;
+                        double avgPrice   = p["averagePrice"]?.Value<double>() ?? 0;
+                        double marketVal  = p["marketValue"]?.Value<double>()  ?? 0;
+                        // Unrealized P&L is the OPEN P&L for the held position, not
+                        // the day P&L — a position held >1 day would otherwise report
+                        // the wrong number. Long/short open P&L are mutually exclusive
+                        // per position; fall back to day P&L only if neither is present.
+                        double openPnl = (p["longOpenProfitLoss"]?.Value<double>() ?? 0)
+                                       + (p["shortOpenProfitLoss"]?.Value<double>() ?? 0);
+                        double unrealized = openPnl != 0
+                            ? openPnl
+                            : (p["currentDayProfitLoss"]?.Value<double>() ?? 0);
 
-                            double avgPrice   = p["averagePrice"]?.Value<double>() ?? 0;
-                            double marketVal  = p["marketValue"]?.Value<double>()  ?? 0;
-                            // Unrealized P&L is the OPEN P&L for the held position, not
-                            // the day P&L — a position held >1 day would otherwise report
-                            // the wrong number. Long/short open P&L are mutually exclusive
-                            // per position; fall back to day P&L only if neither is present.
-                            double openPnl = (p["longOpenProfitLoss"]?.Value<double>() ?? 0)
-                                           + (p["shortOpenProfitLoss"]?.Value<double>() ?? 0);
-                            double unrealized = openPnl != 0
-                                ? openPnl
-                                : (p["currentDayProfitLoss"]?.Value<double>() ?? 0);
-
-                            positions.Add(new Position(symbol, Math.Abs(qty), avgPrice, marketVal, unrealized));
-                        }
+                        positions.Add(new Position(symbol, Math.Abs(qty), avgPrice, marketVal, unrealized));
                     }
-                    return positions;
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Schwab positions error: {ex.Message}");
-                return new();
-            }
+                }
+                return positions;
+            }).ConfigureAwait(false);
         }
 
         /// <summary>Fill history via /transactions?types=TRADE, last 30 days
@@ -493,44 +485,40 @@ namespace AccessibleTrader.Plugins.Schwab
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    string start = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
-                    string end = Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
-                    var url = $"{TraderV1}/accounts/{_primaryAccountHash}/transactions?startDate={start}&endDate={end}&types=TRADE";
-                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    var arr = JArray.Parse(body);
+                string start = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
+                string end = Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture));
+                var url = $"{TraderV1}/accounts/{_primaryAccountHash}/transactions?startDate={start}&endDate={end}&types=TRADE";
+                var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                var arr = JArray.Parse(body);
 
-                    var fills = new List<TradeFill>();
-                    foreach (var txn in arr)
-                    {
-                        var item = (txn["transferItems"] as JArray)?
-                            .FirstOrDefault(i => (i["price"]?.Value<double>() ?? 0) > 0);
-                        if (item == null) continue;
-                        string sym = item["instrument"]?["symbol"]?.ToString() ?? "";
-                        if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
-                        double amount = item["amount"]?.Value<double>() ?? 0;
-                        fills.Add(new TradeFill(
-                            txn["activityId"]?.ToString() ?? Guid.NewGuid().ToString("N"),
-                            sym,
-                            amount >= 0 ? OrderSide.Buy : OrderSide.Sell,
-                            Math.Abs(amount),
-                            item["price"]?.Value<double>() ?? 0,
-                            txn["tradeDate"]?.Value<DateTime>() ?? DateTime.MinValue,
-                            Math.Abs((txn["transferItems"] as JArray)?
-                                .Where(i => (i["feeType"]?.ToString() ?? "").Length > 0)
-                                .Sum(i => i["cost"]?.Value<double>() ?? 0) ?? 0)));
-                    }
-                    return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-                });
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Schwab GetFillsAsync failed ({ex.GetType().Name})");
-                return new();
-            }
+                var fills = new List<TradeFill>();
+                foreach (var txn in arr)
+                {
+                    var item = (txn["transferItems"] as JArray)?
+                        .FirstOrDefault(i => (i["price"]?.Value<double>() ?? 0) > 0);
+                    if (item == null) continue;
+                    string sym = item["instrument"]?["symbol"]?.ToString() ?? "";
+                    if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                    double amount = item["amount"]?.Value<double>() ?? 0;
+                    fills.Add(new TradeFill(
+                        txn["activityId"]?.ToString() ?? Guid.NewGuid().ToString("N"),
+                        sym,
+                        amount >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                        Math.Abs(amount),
+                        item["price"]?.Value<double>() ?? 0,
+                        txn["tradeDate"]?.Value<DateTime>() ?? DateTime.MinValue,
+                        Math.Abs((txn["transferItems"] as JArray)?
+                            .Where(i => (i["feeType"]?.ToString() ?? "").Length > 0)
+                            .Sum(i => i["cost"]?.Value<double>() ?? 0) ?? 0)));
+                }
+                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
+            });
         }
 
         /// <summary>Authoritative single-order status via GET /accounts/{hash}/orders/{id}.
@@ -538,20 +526,15 @@ namespace AccessibleTrader.Plugins.Schwab
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
             if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;
-            try
+            // No catch: the order poller counts consecutive failures and gives up
+            // with a spoken warning. Returning null here read as "still resolving"
+            // and turned a dead endpoint into a silent infinite retry.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders/{orderId}";
-                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    return MapOrderToSnapshot(JObject.Parse(body));
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Schwab GetOrderStatusAsync failed for {orderId} ({ex.GetType().Name})");
-                return null;
-            }
+                var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders/{orderId}";
+                var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                return MapOrderToSnapshot(JObject.Parse(body));
+            }).ConfigureAwait(false);
         }
 
         /// <summary>Maps a Schwab order object to a status snapshot. A WORKING order
@@ -604,20 +587,16 @@ namespace AccessibleTrader.Plugins.Schwab
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
             if (!IsConnected) return new();
-            try
+            // No catch: a failed read must throw so the order service can classify
+            // it (ProviderResult.FromException). Returning an empty result here is
+            // what re-armed the reconciliation incident ProviderResult.cs documents —
+            // a transient 502 read as "account flat" and overwrote the snapshot.
+            return await _rateLimiter.ExecuteAsync(async () =>
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
-                {
-                    var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders?status=WORKING";
-                    var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
-                    return ParseOpenOrders(JArray.Parse(body), symbol);
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _errorStream.OnNext($"Schwab orders error: {ex.Message}");
-                return new();
-            }
+                var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/orders?status=WORKING";
+                var body = await SendWithAuthAsync(HttpMethod.Get, url, null).ConfigureAwait(false);
+                return ParseOpenOrders(JArray.Parse(body), symbol);
+            }).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -663,6 +642,17 @@ namespace AccessibleTrader.Plugins.Schwab
             return list;
         }
 
+        /// <summary>The order id is the last path segment of the Location header
+        /// (…/accounts/{hash}/orders/{orderId}). Schwab ids are numeric; anything
+        /// else (an unexpected header shape, the literal "orders") is rejected so
+        /// the poller is never handed a non-id to query with.</summary>
+        internal static string? OrderIdFromLocation(string? location)
+        {
+            if (string.IsNullOrWhiteSpace(location)) return null;
+            var last = location.TrimEnd('/').Split('/')[^1];
+            return last.Length > 0 && last.All(char.IsDigit) ? last : null;
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -678,12 +668,12 @@ namespace AccessibleTrader.Plugins.Schwab
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                     // Ownership of 'content' transfers to the HttpRequestMessage
-                    // inside SendWithAuthAsync, which disposes it along with the request.
-                    var body = await SendWithAuthAsync(HttpMethod.Post, url, content).ConfigureAwait(false);
+                    // inside SendWithAuthCoreAsync, which disposes it along with the request.
+                    var (body, location) = await SendWithAuthCoreAsync(HttpMethod.Post, url, content).ConfigureAwait(false);
 
-                    // Schwab returns the new order id in the Location header,
-                    // but SendWithAuthAsync surfaces the body. Fall back to a
-                    // synthetic id if we can't parse one.
+                    // The normal success shape is 201 + empty body + the order id as
+                    // the last segment of the Location header. A JSON body with an
+                    // orderId is accepted too, but the header is the documented home.
                     if (!string.IsNullOrEmpty(body))
                     {
                         try
@@ -695,10 +685,10 @@ namespace AccessibleTrader.Plugins.Schwab
                         catch (JsonException)
                         {
                             // Schwab returned non-JSON body on success -- rare but seen
-                            // with empty 200s. Fall through to the synthetic id.
+                            // with empty 200s. Fall through to the Location header.
                         }
                     }
-                    return "ORDER_SUBMITTED";
+                    return OrderIdFromLocation(location) ?? "ORDER_SUBMITTED";
                 }).ConfigureAwait(false);
             }
             catch (SchwabReauthRequiredException ex)
@@ -748,6 +738,9 @@ namespace AccessibleTrader.Plugins.Schwab
         /// attempt.
         /// </summary>
         private async Task<string> SendWithAuthAsync(HttpMethod method, string url, HttpContent? content, CancellationToken ct = default)
+            => (await SendWithAuthCoreAsync(method, url, content, ct).ConfigureAwait(false)).Body;
+
+        private async Task<(string Body, string? Location)> SendWithAuthCoreAsync(HttpMethod method, string url, HttpContent? content, CancellationToken ct = default)
         {
             // Buffer the content into memory so we can rebuild it on retry.
             byte[]? bodyBytes      = null;
@@ -791,7 +784,12 @@ namespace AccessibleTrader.Plugins.Schwab
                 if (!resp.IsSuccessStatusCode)
                     throw new HttpRequestException($"Schwab {method} {url} → {(int)resp.StatusCode}: {body}");
 
-                return body;
+                // Order placement returns 201 with an EMPTY body; the new order id
+                // exists ONLY in the Location header. Discarding it here is what
+                // left every Schwab order id-less: the "ORDER_SUBMITTED" fallback
+                // prefix-matches the error sentinel, so the fill poller and the
+                // protective-order verification never started.
+                return (body, resp.Headers.Location?.ToString());
             }
 
             throw new SchwabReauthRequiredException("Schwab request failed repeatedly with 401 after token refresh.");
