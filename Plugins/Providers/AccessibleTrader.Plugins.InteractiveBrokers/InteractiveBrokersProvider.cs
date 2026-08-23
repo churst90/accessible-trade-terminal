@@ -69,6 +69,11 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // Order updates arrive on the same gateway socket as market data (the
+        // "sor" subscription made on connect). If it is down, fills must resolve
+        // by polling — the default-true flag used to claim streaming regardless.
+        public bool SupportsOrderEventStreaming => _ws?.IsConnected ?? false;
+
         // Session keepalive timer
         private System.Timers.Timer? _tickleTimer;
 
@@ -562,7 +567,9 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                 var arr = JArray.Parse(response);
                 return arr.Select(p => new Position(
                     p["ticker"]?.ToString() ?? p["contractDesc"]?.ToString() ?? "",
-                    Math.Abs(p["position"]?.Value<double>() ?? 0),
+                    // Signed as the gateway reports it: consumers derive
+                    // long/short from the sign; Abs made a short read as a long.
+                    p["position"]?.Value<double>() ?? 0,
                     p["avgCost"]?.Value<double>() ?? 0,
                     p["mktValue"]?.Value<double>() ?? 0,
                     p["unrealizedPnl"]?.Value<double>() ?? 0

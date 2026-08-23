@@ -2,7 +2,7 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 286 open of 1317 tracked items (1031 done). Suite green at 4401 tests.
+**Status 2026-08-23:** 275 open of 1317 tracked items (1042 done). Suite green at 4435 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
@@ -1290,24 +1290,44 @@ guesses are invisible until money moves.
   those methods to rethrow, with a `found >= 30` vacuity floor; the sabotage run caught the scan's
   own first draft missing a same-line `try { } catch { }` and it now matches the keyword anywhere
   in the line.
-- [ ] **`BinanceProvider.cs:1023` writes the user-data listenKey into the spoken error stream.**
+- [x] **`BinanceProvider.cs:1023` writes the user-data listenKey into the spoken error stream.**
   `$"Binance socket {uri.AbsolutePath} error…"` where `AbsolutePath` is `/ws/<listenKey>`. Any socket
   hiccup publishes a credential granting 60 minutes of read access to order and balance events, and
   `LiveStreamManager` routes it to the error coordinator, which speaks and logs it.
-- [ ] **`BinanceProvider.cs:127` — `_isTestnet = tn == "true"` is a case-sensitive compare.** A config
+  **DONE 2026-08-23** — `RunSocketAsync` takes a caller-supplied label ("kline"/"order book") and
+  never speaks the path; the user-data streams moved off it entirely (next item), and the loop's
+  comment forbids a listen-key URL from ever riding it again.
+- [x] **`BinanceProvider.cs:127` — `_isTestnet = tn == "true"` is a case-sensitive compare.** A config
   emitting `"True"` (the .NET `bool.ToString()` default) leaves testnet off, so orders the user
   believes are paper go to the real book. Oanda has the mirror-image defect: `:127-132` has no
   `else`, so once switched to live, a later practice config leaves the live URLs in place.
-- [ ] **`BinanceProvider.cs:190-202` never recreates an expired listenKey**, and `:104` keeps
+  **DONE 2026-08-23** — Binance parses with `bool.TryParse` (case-insensitive, trims); Oanda's
+  Environment config sets BOTH branches so live→practice actually returns to the practice hosts.
+  Guards: `Binance_testnet_config_is_case_insensitive` + `Oanda_environment_switch_is_reversible`.
+- [x] **`BinanceProvider.cs:190-202` never recreates an expired listenKey**, and `:104` keeps
   reporting `SupportsOrderEventStreaming => true` because `_listenKey` is non-empty — so fills stop
   announcing permanently, polling never starts, and nothing says so. Binance is also the only one of
   16 not using `ReconnectingWebSocket`: its hand-rolled 37-line replacement (`:994-1030`) has no
   staleness watchdog, no frame cap, and a bare `catch` that swallows a `KeyNotFoundException` from
   an unexpected `executionReport` variant — dropping a fill with zero trace.
-- [ ] **`BinanceProvider` hardcodes the SPOT base URL for cancel, open-orders, fills and depth**
+  **DONE 2026-08-23** — user-data moved onto `ReconnectingWebSocket` via a `UserDataStream` class
+  that owns the LISTEN KEY: keep-alive at 25 min, and on keep-alive failure it creates a NEW key
+  and rebuilds the socket (reconnecting to an expired key "succeeds" and delivers nothing).
+  `SupportsOrderEventStreaming` reads the live socket state. `executionReport` parsing is
+  TryGetProperty throughout, and a frame that still fails is SPOKEN as lost, never swallowed.
+  The market-data `RunSocketAsync` kept its role but gained the 16 MB frame cap. Guards:
+  `Binance_futures_order_update_reaches_the_order_stream` + the variant-frame no-throw test +
+  the at-rest streaming-honesty theory.
+- [x] **`BinanceProvider` hardcodes the SPOT base URL for cancel, open-orders, fills and depth**
   while `Capabilities` declares `FuturesTrading`. **A futures order placed through this terminal
   cannot be cancelled through this terminal** (`-2011 Unknown order sent` → `return false`), the
   futures open-orders list is always empty, and the futures user-data stream is never opened.
+  **DONE 2026-08-23** — cancel tries the spot book then the futures book (the contract carries no
+  market); open orders and fills merge both books, tolerating exactly one futures-leg failure
+  shape (the -2015 no-futures-permission refusal — everything else propagates); depth REST + WS
+  follow the charted market. The futures user-data stream (`ORDER_TRADE_UPDATE`, payload under
+  "o", original type in "ot") opens on the first futures placement and participates in
+  `SupportsOrderEventStreaming` from then on, so a dead futures stream means polling, not silence.
 - [x] **PARTLY FIXED 2026-08-21 — Binance and Oanda attach a stop loss only to MARKET entries** and
   silently drop it on limit entries, while both venues accept it. Limit entry with both legs: the
   target attaches, the stop does not, no message, position live and naked. Binance's loud "POSITION
@@ -1330,38 +1350,76 @@ guesses are invisible until money moves.
   order rather than dropping the legs silently. Real fix: build the IBKR parent/child OCA bracket,
   and extend `PlaceBracketAsync` to emit OTOCO with option legs. Until then the declared capability
   is honest only because the refusal is audible.
-- [ ] **`OandaProvider.cs:330-348` fabricates a symbol and a side on cancel** — a cancelled *sell* on
+- [x] **`OandaProvider.cs:330-348` fabricates a symbol and a side on cancel** — a cancelled *sell* on
   EUR/USD is announced as a cancelled *buy* on an empty symbol — never reports rejections at all,
   and hardcodes `RemainingQuantity: 0` so partial fills announce as complete. `:590-607` also reports
   short positions with a **positive** quantity, so a 10,000-unit short reads identically to a
   10,000-unit long in every risk calculation and every spoken summary.
-- [ ] **`KrakenProvider.cs:1170 vs :1190` — the signed string is not the string sent.** The signature
+  **DONE 2026-08-23** — the transaction stream now REMEMBERS creation transactions (id →
+  instrument + signed units) and tracks cumulative fills, so cancels speak the true side/symbol
+  and the partial-fill amount, partial fills report a real remainder, and `*_ORDER_REJECT`
+  transactions finally publish Rejected with the venue's rejectReason. An order created before the
+  stream connected is LOOKED UP by id; if even that fails, the spoken message says "details
+  unavailable" instead of announcing a fabricated ticket. And the positive-shorts half turned out
+  to be a SIX-provider class (see the Position-sign item below).
+- [x] **`KrakenProvider.cs:1170 vs :1190` — the signed string is not the string sent.** The signature
   is built with `Uri.EscapeDataString` on values only; the body is `FormUrlEncodedContent`, which
   escapes keys too and renders space as `+`. So every bracketed market order (`close[ordertype]`) and
   every multi-word-network deposit lookup (`"Tether USD (TRC20)"`) fails with `EAPI:Invalid
   signature`. `KrakenFuturesAuth` gets this right and says why: *"The SAME encoded string must be
   signed and sent."* **And the test that should catch it normalizes it away** —
   `BrokerParityTests:246` calls `Uri.UnescapeDataString` on the captured body before asserting.
-- [ ] **`KrakenProvider.cs:1201-1212` hardcodes a 3-character quote**, so `"BTCUSDT"` becomes
+  **DONE 2026-08-23** — the signed `postData` string now goes on the wire verbatim
+  (`StringContent`, form-urlencoded media type), with the rule stated at the site. The parity test
+  asserts on the RAW body, and a new guard recomputes the API-Sign header from the captured bytes
+  (`Kraken_signature_verifies_over_the_exact_bytes_sent`) — the property itself, so any future
+  encode drift on either side fails loudly.
+- [x] **`KrakenProvider.cs:1201-1212` hardcodes a 3-character quote**, so `"BTCUSDT"` becomes
   `"BTCU/SDT"`. The WS accepts the subscribe and never sends data — no error, chart just empty.
   `SymbolFormat.Slashed` exists and is not used. Related: `SymbolFormat.KnownQuotes` is only 8
   entries and returns the whole symbol on a miss, which is why MEXC produces `BTCTUSD` and why Oanda
   cannot use the helper at all (no JPY/AUD/CAD/CHF).
-- [ ] **`CryptoAddressValidator.cs:71-84` refuses valid Tron and Lightning deposit addresses.**
+  **DONE 2026-08-23** — `FormatPair` goes through `SymbolFormat.Slashed` (3-char split only as a
+  last-resort fallback for unknown quotes); `KnownQuotes` widened to 18 entries (stable-coin quotes
+  + the fiat majors), with a tie-break the widening itself forced: a split leaving a base under 3
+  characters loses to one that doesn't, because "XBTUSD" ends with "TUSD" but is XBT/USD. MEXC's
+  `BTC_TUSD` fixed transitively (it already used `SymbolFormat.Underscored`). A stale pin in
+  `ProviderSymbolNormalisationTests` had been asserting `ETHUSDT → "ETHU/SDT"` — the bug, pinned
+  as spec — now flipped.
+- [x] **`CryptoAddressValidator.cs:71-84` refuses valid Tron and Lightning deposit addresses.**
   Network matching is `net.Contains(name)`, and **`"TETHER USD (TRC20)"` contains `"ETH"`** — so a
   TRC20 address is sent to the EVM hex validator, fails, and the wallet refuses to display a
   correct address. `"BTC Lightning"` contains `"BTC"`, so `lnbc1…` invoices fail the `1`/`3`/`bc1`
   check. Kraken explicitly issues both.
-- [ ] **`CoinbaseProvider.cs:145,685-694` builds the WebSocket JWT from a host string**, producing
+  **DONE 2026-08-23** — `Looks` matches whole TOKENS of the network name (split on punctuation),
+  dispatch is most-specific-first (Lightning and Tron before the Bitcoin/EVM families, Bitcoin
+  Cash caught before Bitcoin and honestly Unknown), and a real `Lightning` branch verifies the
+  BOLT11 bech32 checksum over its variable HRP. Guards use a live Tron address and the BOLT11
+  spec vector, both checksum-Verified.
+- [x] **`CoinbaseProvider.cs:145,685-694` builds the WebSocket JWT from a host string**, producing
   `uri = "GET api.coinbase.com/advanced-trade-ws.coinbase.com"` and no `nonce` claim. The `user`
   channel subscription is rejected server-side — and Coinbase does not override
   `SupportsOrderEventStreaming`, so it defaults `true` and the poller never runs. **Coinbase fills
   are announced by no path at all.**
-- [ ] **Six providers leave `SupportsOrderEventStreaming` at its `true` default while their push
+  **DONE 2026-08-23** — `GenerateWsJwt` emits the CDP WebSocket shape: NO uri claim (there is no
+  request to bind) and a random nonce header; the REST JWT's bytes are deliberately unchanged and
+  pinned by test. `SupportsOrderEventStreaming` is now true only after the venue ACKNOWLEDGES the
+  user-channel subscription on a connected socket — a rejected subscription on a healthy socket is
+  exactly the silent state the flag existed to hide, so it now reads as "poll".
+- [x] **Six providers leave `SupportsOrderEventStreaming` at its `true` default while their push
   channel can be dead** — Coinbase, Kraken, IB, Bitstamp, Oanda, Alpaca. Kraken's auth socket is
   best-effort and its own catch block reports *"order execution updates won't be delivered"* — while
   the flag still says `true`, so the order service does not poll. The provider knows the stream is
   dead and the contract cannot express it. The flag appears in **none** of the three authoring docs.
+  **DONE 2026-08-23, five of six** — Coinbase (user-channel ack), Kraken (auth socket + token),
+  IB (gateway socket), Oanda (transaction stream liveness), Alpaca (trade socket + listen sent)
+  all report the live channel state. **Bitstamp deliberately stays static-true**: it has no
+  `GetFillsAsync` and no order-status query, so the poller's open-list heuristic would announce a
+  FILLED order as "cancelled" — a quiet stream is the smaller lie until that surface exists (the
+  provider comment and the later honesty item carry this). Guard:
+  `No_provider_claims_order_event_streaming_before_its_push_channel_is_up` (fresh provider ⇒
+  flag false, Bitstamp documented-absent). The flag now has its own section in
+  PROVIDER_AUTHORING.md §9; PROVIDER_EXPANSION already carried the one-line rule.
 - [x] **20 sites across 5 providers format dates into request URLs with the ambient culture** —
   including the **calendar**. Under th-TH, 2026 renders as 2569; every range request is nonsense,
   the venue returns nothing, and the chart is blank with no error. Tradier ×4, FMP ×12, Schwab ×2,
@@ -2807,11 +2865,14 @@ Read-only audit of all providers turned into fixes; then the direct-API/SDK work
   `RestSigning`/`SymbolFormat`; Kraken/Bitstamp/Binance/Coinbase still hand-roll
   their signing + symbol shaping. Migrate opportunistically (each is
   live-verified, so don't retrofit blindly).
-- [ ] **`SupportsOrderEventStreaming` honesty for Coinbase.** MEXC/Binance now flip
+- [x] **`SupportsOrderEventStreaming` honesty for Coinbase.** MEXC/Binance now flip
   it on real private-stream state; Bitstamp deliberately stays `true` (no
   `GetFillsAsync`, so polling would mis-resolve). Coinbase needs the user-channel
   subscription ack tracked (its single socket multiplexes) — plus a Bitstamp
   `GetFillsAsync` if we ever flip it.
+  **DONE 2026-08-23 (Coinbase half)** — the subscriptions-channel ack is tracked and the flag
+  reads ack + socket state (see the ship-blocker item above). The Bitstamp `GetFillsAsync` remains
+  future work; its flag stays static-true with the rationale in a comment at the site.
 
 ---
 

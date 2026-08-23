@@ -637,7 +637,9 @@ namespace AccessibleTrader.Plugins.Tradier
                 JArray items = positions is JArray arr ? arr : new JArray { positions };
                 return items.Select(p => new Position(
                     p["symbol"]?.ToString() ?? "",
-                    Math.Abs(p["quantity"]?.Value<double>() ?? 0),
+                    // Signed as the venue reports it (shorts are negative):
+                    // consumers derive long/short from the sign.
+                    p["quantity"]?.Value<double>() ?? 0,
                     p["cost_basis"]?.Value<double>() ?? 0,
                     (p["quantity"]?.Value<double>() ?? 0) * (p["last_price"]?.Value<double>() ?? 0),
                     0 // Tradier doesn't provide unrealized P&L directly in positions

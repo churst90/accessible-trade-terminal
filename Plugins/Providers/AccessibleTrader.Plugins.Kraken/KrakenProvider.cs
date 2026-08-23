@@ -50,6 +50,14 @@ namespace AccessibleTrader.Plugins.Kraken
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // Honest, read at order-placement time: the auth socket is best-effort
+        // (its own failure path says "order execution updates won't be
+        // delivered"), and the default-true flag used to keep saying the stream
+        // was up anyway, so the order service never polled. A connected socket
+        // with no token has no executions subscription and counts as down.
+        public bool SupportsOrderEventStreaming =>
+            (_authWs?.IsConnected ?? false) && !string.IsNullOrEmpty(_wsToken);
+
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
         private string? _orderBookSymbol;
 
@@ -698,9 +706,14 @@ namespace AccessibleTrader.Plugins.Kraken
                 return positions.Properties().Select(p =>
                 {
                     var pos = p.Value as JObject;
+                    // vol is unsigned; the direction lives in "type" ("sell" =
+                    // short). Quantity is SIGNED — consumers derive long/short
+                    // from the sign, and Abs made a short read as a long.
+                    double vol = Math.Abs(pos?["vol"]?.Value<double>() ?? 0);
+                    bool isShort = string.Equals(pos?["type"]?.ToString(), "sell", StringComparison.OrdinalIgnoreCase);
                     return new Position(
                         pos?["pair"]?.ToString() ?? p.Name,
-                        Math.Abs(pos?["vol"]?.Value<double>() ?? 0),
+                        isShort ? -vol : vol,
                         pos?["cost"]?.Value<double>() ?? 0,
                         pos?["value"]?.Value<double>() ?? 0,
                         pos?["net"]?.Value<double>() ?? 0,
@@ -1198,9 +1211,15 @@ namespace AccessibleTrader.Plugins.Kraken
             // zero this byte[] without dodging the framework.
             Array.Clear(secretBytes, 0, secretBytes.Length);
 
+            // THE SAME encoded string must be signed and sent (KrakenFuturesAuth
+            // states the rule; this class used to break it). FormUrlEncodedContent
+            // re-encodes keys AND values with its own rules — brackets in
+            // close[ordertype] became %5B, spaces in "Tether USD (TRC20)" became
+            // '+' — so every bracketed order and multi-word-network lookup failed
+            // with EAPI:Invalid signature. Send the exact bytes that were signed.
             var request = new HttpRequestMessage(HttpMethod.Post, $"{RestUrl}{path}")
             {
-                Content = new FormUrlEncodedContent(data)
+                Content = new StringContent(postData, Encoding.UTF8, "application/x-www-form-urlencoded")
             };
             request.Headers.Add("API-Key", apiKey);
             request.Headers.Add("API-Sign", Convert.ToBase64String(signature));
@@ -1211,17 +1230,20 @@ namespace AccessibleTrader.Plugins.Kraken
 
         // ── Helpers ─────────────────────────────────────────────────────────
 
-        private static string FormatPair(string symbol)
+        internal static string FormatPair(string symbol)
         {
-            // Convert "BTC/USD" or "BTCUSD" to "BTC/USD" for WS v2
-            if (symbol.Contains('/')) return symbol.ToUpper();
-            if (symbol.Length >= 6)
-            {
-                var basePart = symbol[..^3].ToUpper();
-                var quotePart = symbol[^3..].ToUpper();
-                return $"{basePart}/{quotePart}";
-            }
-            return symbol.ToUpper();
+            // Convert "BTC/USD" or "BTCUSDT" to slashed form for WS v2. The old
+            // code split a hardcoded 3 characters from the end, so "BTCUSDT"
+            // became "BTCU/SDT" — the WS accepted the subscribe and never sent
+            // data: no error, chart just empty. SymbolFormat owns the quote list.
+            if (symbol.Contains('/')) return symbol.ToUpperInvariant();
+            var slashed = AccessibleTrader.Sdk.Models.SymbolFormat.Slashed(symbol);
+            if (slashed.Contains('/')) return slashed;
+            // Unknown quote: the old 3-char heuristic beats sending no separator
+            // at all — the WS wants slashed pairs.
+            return symbol.Length >= 6
+                ? $"{symbol[..^3].ToUpperInvariant()}/{symbol[^3..].ToUpperInvariant()}"
+                : symbol.ToUpperInvariant();
         }
 
         private static string FormatRestPair(string symbol)

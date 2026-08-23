@@ -46,6 +46,15 @@ namespace AccessibleTrader.Plugins.Bitstamp
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // DELIBERATELY the static default (true) — the one provider of the six
+        // audit-flagged ones where flipping on socket state would be WORSE:
+        // Bitstamp implements no GetFillsAsync and no order-status query, so the
+        // poller's open-list heuristic would announce a FILLED order as
+        // "cancelled" (left the open list, no fill record). Until a
+        // GetFillsAsync exists, a quiet stream is a smaller lie than a wrong
+        // terminal state. See TODO's SupportsOrderEventStreaming-honesty item.
+        public bool SupportsOrderEventStreaming => true;
+
         // Last-known remaining amount per live order id, captured from the
         // private-my_orders_ stream's order_created / order_changed events so we
         // can report the incremental fill quantity (Bitstamp only sends the

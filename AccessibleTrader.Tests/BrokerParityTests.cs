@@ -254,8 +254,13 @@ namespace AccessibleTrader.Tests
             await p.PlaceOrderAsync(new TradeSignal("BTC/USD", OrderSide.Buy, 0.5,
                 OrderType.Market, StopLoss: 90000, TakeProfit: 120000));
 
-            string form = Uri.UnescapeDataString(await Form(h.Captured.Single(r =>
-                r.RequestUri!.ToString().Contains("AddOrder"))));
+            // RAW body, deliberately not unescaped: the unescape here used to
+            // normalize away the signed-string-vs-sent-string mismatch (the body
+            // carried %5B where the signature was computed over '[', and every
+            // bracketed order died with EAPI:Invalid signature in production
+            // while this test stayed green).
+            string form = await Form(h.Captured.Single(r =>
+                r.RequestUri!.ToString().Contains("AddOrder")));
             Assert.Contains("close[ordertype]=stop-loss", form); // safety over profit
             Assert.DoesNotContain("take-profit", form);
         }

@@ -45,6 +45,22 @@ namespace AccessibleTrader.Plugins.Oanda
 
         // Streams
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
+
+        // True only while the transactions HTTP stream is actually delivering.
+        // The default-true flag used to claim streaming through every retry gap
+        // (and before the stream ever connected), so the order service never
+        // polled while fills were going nowhere.
+        private volatile bool _txStreamUp;
+        public bool SupportsOrderEventStreaming => _txStreamUp;
+
+        // Orders seen on the transaction stream: id → (instrument, SIGNED units),
+        // plus cumulative fill (qty, last price) per order — so cancels, rejects
+        // and partial fills can be reported truthfully. The ORDER_CANCEL
+        // transaction itself carries neither instrument nor side, which is how a
+        // cancelled sell on EUR/USD used to announce as a cancelled BUY on an
+        // empty symbol.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Instrument, double Units)> _streamOrders = new();
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (double Cum, double LastPx)> _streamFills = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
         // Transaction stream for order updates
@@ -124,11 +140,16 @@ namespace AccessibleTrader.Plugins.Oanda
             if (config.TryGetValue("ApiKey", out var key)) _accessToken ??= key;
             if (config.TryGetValue("AccountId", out var acct)) _accountId = acct;
 
-            if (config.TryGetValue("Environment", out var env) && env.Equals("live", StringComparison.OrdinalIgnoreCase))
+            if (config.TryGetValue("Environment", out var env))
             {
-                _isPractice = false;
-                _restUrl = "https://api-fxtrade.oanda.com/v3";
-                _streamUrl = "https://stream-fxtrade.oanda.com/v3";
+                // BOTH branches, not just live: the else half was missing, so once
+                // switched to live a later practice config silently kept the LIVE
+                // urls — the mirror image of Binance's case-sensitive testnet
+                // compare, in the direction that trades real money by accident.
+                bool live = env.Equals("live", StringComparison.OrdinalIgnoreCase);
+                _isPractice = !live;
+                _restUrl    = live ? "https://api-fxtrade.oanda.com/v3"    : "https://api-fxpractice.oanda.com/v3";
+                _streamUrl  = live ? "https://stream-fxtrade.oanda.com/v3" : "https://stream-fxpractice.oanda.com/v3";
             }
 
             if (!string.IsNullOrEmpty(_accessToken))
@@ -302,6 +323,7 @@ namespace AccessibleTrader.Plugins.Oanda
             int retryCount = 0;
             while (!ct.IsCancellationRequested)
             {
+                _txStreamUp = false; // not delivering until (re)connected below
                 try
                 {
                     string url = $"{_streamUrl}/accounts/{_accountId}/transactions/stream";
@@ -313,6 +335,7 @@ namespace AccessibleTrader.Plugins.Oanda
                     using var reader = new StreamReader(stream);
 
                     retryCount = 0;
+                    _txStreamUp = true;
 
                     while (!ct.IsCancellationRequested)
                     {
@@ -323,9 +346,19 @@ namespace AccessibleTrader.Plugins.Oanda
                         try
                         {
                             var json = JObject.Parse(line);
-                            var type = json["type"]?.ToString();
+                            var type = json["type"]?.ToString() ?? "";
 
-                            if (type == "ORDER_FILL")
+                            if (type.EndsWith("_ORDER", StringComparison.Ordinal)
+                                && json["units"] != null && json["instrument"] != null)
+                            {
+                                // Creation transactions carry instrument + signed
+                                // units + the order's id; remember them so later
+                                // cancels and partial fills can speak the truth.
+                                var oid = json["id"]?.ToString();
+                                if (!string.IsNullOrEmpty(oid))
+                                    _streamOrders[oid!] = (json["instrument"]!.ToString(), json["units"]!.Value<double>());
+                            }
+                            else if (type == "ORDER_FILL")
                             {
                                 var tradeId = json["tradeOpened"]?["tradeID"]?.ToString()
                                     ?? json["tradesClosed"]?.FirstOrDefault()?["tradeID"]?.ToString()
@@ -334,18 +367,49 @@ namespace AccessibleTrader.Plugins.Oanda
                                 double units = json["units"]?.Value<double>() ?? 0;
                                 double price = json["price"]?.Value<double>() ?? 0;
 
+                                // RemainingQuantity was hardcoded 0, so a partial
+                                // fill announced as complete. The fill transaction
+                                // doesn't carry the remainder — derive it from the
+                                // creation transaction seen on this stream.
+                                var orderId = json["orderID"]?.ToString() ?? "";
+                                double filledNow = Math.Abs(units);
+                                double remaining = 0;
+                                if (orderId.Length > 0 && _streamOrders.TryGetValue(orderId, out var known))
+                                {
+                                    var cum = _streamFills.AddOrUpdate(orderId,
+                                        (filledNow, price), (_, prev) => (prev.Cum + filledNow, price));
+                                    remaining = Math.Max(0, Math.Abs(known.Units) - cum.Cum);
+                                    if (remaining <= 1e-9)
+                                    {
+                                        _streamOrders.TryRemove(orderId, out _);
+                                        _streamFills.TryRemove(orderId, out _);
+                                    }
+                                }
+
                                 _orderUpdateSubject.OnNext(new OrderUpdate(
                                     tradeId, instrument,
                                     units >= 0 ? OrderSide.Buy : OrderSide.Sell,
-                                    Math.Abs(units), price, 0,
-                                    OrderStatus.Filled, false, false, DateTime.UtcNow));
+                                    filledNow, price, remaining,
+                                    remaining > 1e-9 ? OrderStatus.PartialFill : OrderStatus.Filled,
+                                    false, false, DateTime.UtcNow));
                             }
                             else if (type == "ORDER_CANCEL")
                             {
-                                var orderId = json["orderID"]?.ToString() ?? "";
+                                await EmitCancelAsync(json).ConfigureAwait(false);
+                            }
+                            else if (type.EndsWith("_ORDER_REJECT", StringComparison.Ordinal))
+                            {
+                                // Reject transactions echo the requested instrument
+                                // and signed units. Before this, rejections were
+                                // not reported at all — the trader heard nothing.
+                                double u = json["units"]?.Value<double>() ?? 0;
                                 _orderUpdateSubject.OnNext(new OrderUpdate(
-                                    orderId, "", OrderSide.Buy, 0, 0, 0,
-                                    OrderStatus.Cancelled, false, false, DateTime.UtcNow));
+                                    json["id"]?.ToString() ?? "",
+                                    json["instrument"]?.ToString() ?? "",
+                                    u >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                                    0, 0, Math.Abs(u),
+                                    OrderStatus.Rejected, false, false, DateTime.UtcNow,
+                                    Reason: json["rejectReason"]?.ToString()));
                             }
                         }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[OANDA] Malformed transaction line skipped: {ex.GetType().Name}"); }
@@ -354,6 +418,7 @@ namespace AccessibleTrader.Plugins.Oanda
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
+                    _txStreamUp = false;
                     if (!ct.IsCancellationRequested)
                     {
                         retryCount++;
@@ -363,6 +428,50 @@ namespace AccessibleTrader.Plugins.Oanda
                     }
                 }
             }
+        }
+
+        /// <summary>Truthful ORDER_CANCEL reporting. The cancel transaction
+        /// carries neither instrument nor side, so an order created before this
+        /// stream connected is LOOKED UP, not guessed — fabricating "buy on an
+        /// empty symbol" is the recorded defect. If the lookup fails, say the
+        /// details are unavailable rather than announce a fabricated ticket.</summary>
+        private async Task EmitCancelAsync(JObject cancelTxn)
+        {
+            var orderId = cancelTxn["orderID"]?.ToString() ?? "";
+            string instrument;
+            double units;
+            if (_streamOrders.TryRemove(orderId, out var known))
+            {
+                (instrument, units) = known;
+            }
+            else
+            {
+                try
+                {
+                    var resp = await _httpClient.GetStringAsync($"{_restUrl}/accounts/{_accountId}/orders/{orderId}").ConfigureAwait(false);
+                    var order = JObject.Parse(resp)["order"];
+                    instrument = order?["instrument"]?.ToString() ?? "";
+                    units = order?["units"]?.Value<double>() ?? 0;
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"OANDA order {orderId} was cancelled; details unavailable ({ex.GetType().Name}) — check your open orders.");
+                    return;
+                }
+                if (instrument.Length == 0)
+                {
+                    _errorStream.OnNext($"OANDA order {orderId} was cancelled; details unavailable — check your open orders.");
+                    return;
+                }
+            }
+
+            _streamFills.TryRemove(orderId, out var fills);
+            _orderUpdateSubject.OnNext(new OrderUpdate(
+                orderId, instrument,
+                units >= 0 ? OrderSide.Buy : OrderSide.Sell,
+                fills.Cum, fills.LastPx, Math.Max(0, Math.Abs(units) - fills.Cum),
+                OrderStatus.Cancelled, false, false, DateTime.UtcNow,
+                Reason: cancelTxn["reason"]?.ToString()));
         }
 
         public override async Task DisconnectAsync()
@@ -597,10 +706,14 @@ namespace AccessibleTrader.Plugins.Oanda
 
                 return positions.Select(p =>
                 {
+                    // Short units arrive negative and STAY negative: consumers
+                    // derive long/short from the sign, and the old Abs made a
+                    // 10,000-unit short read identically to a 10,000-unit long
+                    // in every risk calculation and every spoken summary.
                     var longUnits = p["long"]?["units"]?.Value<double>() ?? 0;
-                    var shortUnits = Math.Abs(p["short"]?["units"]?.Value<double>() ?? 0);
-                    double units = longUnits > 0 ? longUnits : shortUnits;
-                    double avgPrice = longUnits > 0
+                    var shortUnits = p["short"]?["units"]?.Value<double>() ?? 0;
+                    double units = longUnits != 0 ? longUnits : shortUnits;
+                    double avgPrice = longUnits != 0
                         ? (p["long"]?["averagePrice"]?.Value<double>() ?? 0)
                         : (p["short"]?["averagePrice"]?.Value<double>() ?? 0);
                     double unrealizedPL = (p["long"]?["unrealizedPL"]?.Value<double>() ?? 0)

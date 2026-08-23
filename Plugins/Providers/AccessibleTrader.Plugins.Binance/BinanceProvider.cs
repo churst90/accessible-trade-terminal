@@ -62,9 +62,16 @@ namespace AccessibleTrader.Plugins.Binance
         private CancellationTokenSource? _orderBookCts;
         private string? _orderBookSymbol;
 
-        // User-data stream lifecycle.
-        private CancellationTokenSource? _userDataCts;
-        private string? _listenKey;
+        // User-data stream lifecycle: one listen-key socket per book. The spot
+        // stream starts at connect; the futures one on the first futures order.
+        private UserDataStream? _spotUserData;
+        private UserDataStream? _futuresUserData;
+        // Latched by the first futures placement: from then on the futures stream
+        // is part of the SupportsOrderEventStreaming contract below.
+        private volatile bool _futuresStreamRequired;
+        // The charted market, so symbol-only surfaces (depth REST + WS) can follow
+        // the book the user is actually looking at.
+        private volatile bool _currentIsFutures;
 
         public override string Name => "Binance";
         public override string Description => "Live Binance Exchange Data (Spot & Futures)";
@@ -99,9 +106,14 @@ namespace AccessibleTrader.Plugins.Binance
         // host credential-checkout bridge to pull an active key at sign time.
         public bool IsConnected => !string.IsNullOrEmpty(_apiKey) || PluginHostServices.ApiKeys != null;
 
-        // Order events only stream while the user-data listen-key socket is running;
-        // otherwise the order service polls (GetFillsAsync) so fills still announce.
-        public bool SupportsOrderEventStreaming => _userDataCts != null && !string.IsNullOrEmpty(_listenKey);
+        // Honest, and read at order-placement time: true only while the SPOT
+        // user-data socket is actually connected — and, once any futures order has
+        // been placed, the futures one too. The old check (listen key string
+        // non-empty) stayed true after the key expired, so fills stopped announcing
+        // permanently, polling never started, and nothing said so.
+        public bool SupportsOrderEventStreaming =>
+            (_spotUserData?.IsUp ?? false)
+            && (!_futuresStreamRequired || (_futuresUserData?.IsUp ?? false));
 
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
@@ -124,7 +136,11 @@ namespace AccessibleTrader.Plugins.Binance
         {
             if (config.TryGetValue("ApiKey",    out var key))    _apiKey    = key;
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
-            if (config.TryGetValue("Testnet",   out var tn))     _isTestnet = tn == "true";
+            // bool.TryParse, not == "true": a config value round-tripped through
+            // .NET's bool.ToString() arrives as "True", and the old case-sensitive
+            // compare silently left testnet OFF — orders the user believed were
+            // paper went to the real book.
+            if (config.TryGetValue("Testnet",   out var tn))     _isTestnet = bool.TryParse(tn, out var b) && b;
         }
 
         // Sign-time credential checkout. Prefers the PluginHostServices.ApiKeys
@@ -166,7 +182,7 @@ namespace AccessibleTrader.Plugins.Binance
 
             // Start the authenticated user-data stream only when a credential
             // source exists. Trade ops sign per-request regardless.
-            if (IsConnected && _userDataCts == null)
+            if (IsConnected && _spotUserData == null)
             {
                 try { await StartUserDataStreamAsync(); }
                 catch { /* public-data-only mode */ }
@@ -177,33 +193,63 @@ namespace AccessibleTrader.Plugins.Binance
         {
             try
             {
-                _listenKey = await CreateListenKeyAsync();
-                if (string.IsNullOrEmpty(_listenKey)) return;
-
-                _userDataCts = new CancellationTokenSource();
-                var ct = _userDataCts.Token;
-                var uri = new Uri($"{SpotWs}{_listenKey}");
-
-                _ = Task.Run(() => RunSocketAsync(uri, OnUserDataMessage, ct));
-
-                // Keep-alive every 25 min so the listen key doesn't expire (60 min TTL).
-                _ = Task.Run(async () =>
-                {
-                    while (!ct.IsCancellationRequested)
-                    {
-                        try { await Task.Delay(TimeSpan.FromMinutes(25), ct); }
-                        catch { break; }
-                        try { await KeepAliveListenKeyAsync(_listenKey!); }
-                        catch (Exception ex)
-                        {
-                            _errorStream.OnNext($"Binance user-data keep-alive failed: {ex.GetType().Name}");
-                        }
-                    }
-                });
+                _spotUserData = new UserDataStream(
+                    "spot",
+                    createKey:   CreateListenKeyAsync,
+                    keepAlive:   KeepAliveListenKeyAsync,
+                    closeKey:    CloseListenKeyAsync,
+                    wsUrlForKey: key => $"{SpotWs}{key}",
+                    onFrame:     msg => HandleUserDataFrame(msg, futures: false),
+                    onError:     e => _errorStream.OnNext(e));
+                await _spotUserData.StartAsync();
             }
             catch (Exception ex)
             {
+                _spotUserData = null;
                 _errorStream.OnNext($"Binance user-data stream unavailable ({ex.GetType().Name}): order-fill updates won't be delivered.");
+            }
+        }
+
+        /// <summary>Started by the first futures order. From then on the futures
+        /// stream participates in <see cref="SupportsOrderEventStreaming"/>, so if
+        /// it is down the order service polls instead of assuming the spot stream
+        /// covers a futures fill — before this the futures user-data stream was
+        /// never opened at all, and no path announced a futures fill.</summary>
+        private async Task EnsureFuturesUserDataStreamAsync()
+        {
+            _futuresStreamRequired = true;
+            if (_futuresUserData != null) return;
+            try
+            {
+                _futuresUserData = new UserDataStream(
+                    "futures",
+                    createKey:   CreateFuturesListenKeyAsync,
+                    keepAlive:   _ => KeepAliveFuturesListenKeyAsync(),
+                    closeKey:    _ => CloseFuturesListenKeyAsync(),
+                    wsUrlForKey: key => $"{FutWs}{key}",
+                    onFrame:     msg => HandleUserDataFrame(msg, futures: true),
+                    onError:     e => _errorStream.OnNext(e));
+                await _futuresUserData.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                _futuresUserData = null;
+                _errorStream.OnNext($"Binance futures user-data stream unavailable ({ex.GetType().Name}): futures fills resolve by polling.");
+            }
+        }
+
+        private void HandleUserDataFrame(string msg, bool futures)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(msg);
+                if (futures) OnFuturesUserDataMessage(doc.RootElement);
+                else OnUserDataMessage(doc.RootElement);
+            }
+            catch (Exception ex)
+            {
+                // Never a bare swallow: the frame this path drops may be a FILL.
+                _errorStream.OnNext($"Binance {(futures ? "futures " : "")}user-data frame could not be processed ({ex.GetType().Name}) — check your open orders.");
             }
         }
 
@@ -211,21 +257,57 @@ namespace AccessibleTrader.Plugins.Binance
         {
             if (!root.TryGetProperty("e", out var ev) || ev.GetString() != "executionReport") return;
 
-            string statusStr = root.GetProperty("X").GetString() ?? "";
+            // TryGetProperty throughout: a report variant missing a field must not
+            // throw — the frame handler would count the whole frame LOST. The old
+            // GetProperty calls threw KeyNotFoundException into a bare catch,
+            // dropping the fill with zero trace.
+            string statusStr = root.TryGetProperty("X", out var x) ? x.GetString() ?? "" : "";
             var status = MapExecutionStatus(statusStr);
 
-            string symbol   = root.GetProperty("s").GetString() ?? "";
-            var side        = (root.GetProperty("S").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy;
+            string symbol   = root.TryGetProperty("s", out var sym) ? sym.GetString() ?? "" : "";
+            var side        = root.TryGetProperty("S", out var sd) && sd.GetString() == "SELL" ? OrderSide.Sell : OrderSide.Buy;
             double origQty  = Dbl(root, "q");
             double filled   = Dbl(root, "z");                 // cumulative filled qty
             double lastPx   = Dbl(root, "L");                 // last filled price
             double orderPx  = Dbl(root, "p");
             double fillPx   = lastPx > 0 ? lastPx : orderPx;
             string orderId  = root.TryGetProperty("i", out var idEl) ? idEl.GetRawText() : "";
-            string oType    = root.GetProperty("o").GetString() ?? "";
+            string oType    = root.TryGetProperty("o", out var ot) ? ot.GetString() ?? "" : "";
 
             bool stopTrig = oType is "STOP_LOSS" or "STOP_LOSS_LIMIT";
             bool tpTrig   = oType is "TAKE_PROFIT" or "TAKE_PROFIT_LIMIT";
+
+            _orderUpdateSubject.OnNext(new OrderUpdate(
+                orderId, symbol, side,
+                filled, fillPx, Math.Max(0, origQty - filled),
+                status, stopTrig, tpTrig, DateTime.UtcNow,
+                Reason: status == OrderStatus.Unknown ? $"Binance status '{statusStr}'" : null));
+        }
+
+        /// <summary>Futures user-data: the order event is ORDER_TRADE_UPDATE with
+        /// the payload nested under "o", keys mostly mirroring the spot
+        /// executionReport (X status, s, S, q, z, L, p, i) — but the ORIGINAL
+        /// order type lives in "ot" ("o" there is the current type).</summary>
+        internal void OnFuturesUserDataMessage(JsonElement root)
+        {
+            if (!root.TryGetProperty("e", out var ev) || ev.GetString() != "ORDER_TRADE_UPDATE") return;
+            if (!root.TryGetProperty("o", out var o)) return;
+
+            string statusStr = o.TryGetProperty("X", out var x) ? x.GetString() ?? "" : "";
+            var status = MapExecutionStatus(statusStr);
+
+            string symbol   = o.TryGetProperty("s", out var sym) ? sym.GetString() ?? "" : "";
+            var side        = o.TryGetProperty("S", out var sd) && sd.GetString() == "SELL" ? OrderSide.Sell : OrderSide.Buy;
+            double origQty  = Dbl(o, "q");
+            double filled   = Dbl(o, "z");
+            double lastPx   = Dbl(o, "L");
+            double orderPx  = Dbl(o, "p");
+            double fillPx   = lastPx > 0 ? lastPx : orderPx;
+            string orderId  = o.TryGetProperty("i", out var idEl) ? idEl.GetRawText() : "";
+            string oType    = o.TryGetProperty("ot", out var ot) ? ot.GetString() ?? "" : "";
+
+            bool stopTrig = oType is "STOP" or "STOP_MARKET";
+            bool tpTrig   = oType is "TAKE_PROFIT" or "TAKE_PROFIT_MARKET";
 
             _orderUpdateSubject.OnNext(new OrderUpdate(
                 orderId, symbol, side,
@@ -265,10 +347,11 @@ namespace AccessibleTrader.Plugins.Binance
 
             _currentSymbol = cleanSymbol;
             _currentTimeframe = timeframe;
+            _currentIsFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
 
             var uri = BuildKlineStreamUri(market, symbol, timeframe);
 
-            _ = Task.Run(() => RunSocketAsync(uri, OnKlineMessage, ct));
+            _ = Task.Run(() => RunSocketAsync(uri, "kline", OnKlineMessage, ct));
         }
 
         internal Uri BuildKlineStreamUri(string market, string symbol, string timeframe)
@@ -324,7 +407,7 @@ namespace AccessibleTrader.Plugins.Binance
             _keyedSubscriptions[id] = cts;
             var consolidator = new BarBucketConsolidator(timeframe, LiveTickStyle);
 
-            _ = Task.Run(() => RunSocketAsync(uri, root =>
+            _ = Task.Run(() => RunSocketAsync(uri, "kline", root =>
             {
                 if (!TryParseKline(root, out var raw)) return;
                 var bar = consolidator.Apply(raw);
@@ -375,14 +458,9 @@ namespace AccessibleTrader.Plugins.Binance
             _orderBookCts?.Cancel();  _orderBookCts?.Dispose();  _orderBookCts = null;
             _orderBookSymbol = null;
 
-            _userDataCts?.Cancel();   _userDataCts?.Dispose();   _userDataCts = null;
-
-            if (!string.IsNullOrEmpty(_listenKey))
-            {
-                try { await CloseListenKeyAsync(_listenKey); }
-                catch (Exception ex) { _errorStream.OnNext($"Binance StopUserStream failed: {ex.GetType().Name}"); }
-                _listenKey = null;
-            }
+            if (_spotUserData != null)    { await _spotUserData.DisposeAsync();    _spotUserData = null; }
+            if (_futuresUserData != null) { await _futuresUserData.DisposeAsync(); _futuresUserData = null; }
+            _futuresStreamRequired = false;
 
             _currentSymbol = null;
             _currentTimeframe = null;
@@ -481,7 +559,12 @@ namespace AccessibleTrader.Plugins.Binance
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string body = await GetPublicAsync(SpotRest, "/api/v3/depth",
+                    // The depth contract carries no market, so follow the book the
+                    // user is charting — the spot book's depth for a futures chart
+                    // is a different market's liquidity presented as this one's.
+                    bool fut = _currentIsFutures && cleanSymbol == _currentSymbol;
+                    string body = await GetPublicAsync(fut ? FutRest : SpotRest,
+                        fut ? "/fapi/v1/depth" : "/api/v3/depth",
                         $"symbol={cleanSymbol}&limit={SnapDepth(limit)}");
                     using var doc = JsonDocument.Parse(body);
                     return (ParseLevels(doc.RootElement.GetProperty("bids")),
@@ -515,8 +598,11 @@ namespace AccessibleTrader.Plugins.Binance
             var ct = _orderBookCts.Token;
             _orderBookSymbol = cleanSymbol;
 
-            var uri = new Uri($"{SpotWs}{cleanSymbol.ToLowerInvariant()}@depth20@1000ms");
-            _ = Task.Run(() => RunSocketAsync(uri, root =>
+            bool fut = _currentIsFutures && cleanSymbol == _currentSymbol;
+            var uri = new Uri(fut
+                ? $"{FutWs}{cleanSymbol.ToLowerInvariant()}@depth20@500ms"
+                : $"{SpotWs}{cleanSymbol.ToLowerInvariant()}@depth20@1000ms");
+            _ = Task.Run(() => RunSocketAsync(uri, "order book", root =>
             {
                 if (!root.TryGetProperty("bids", out var bids) || !root.TryGetProperty("asks", out var asks)) return;
                 _orderBookSubject.OnNext(new OrderBookUpdate(
@@ -570,7 +656,9 @@ namespace AccessibleTrader.Plugins.Binance
                     double mark = Dbl(p, "markPrice");
                     list.Add(new Position(
                         p.GetProperty("symbol").GetString() ?? "",
-                        Math.Abs(qty),
+                        // Signed as positionAmt reports it: consumers derive
+                        // long/short from the sign; Abs made a short read long.
+                        qty,
                         Dbl(p, "entryPrice"),
                         Math.Abs(qty) * mark,
                         Dbl(p, "unRealizedProfit"),
@@ -593,22 +681,54 @@ namespace AccessibleTrader.Plugins.Binance
                 var p = new Dictionary<string, string>();
                 if (symbol != null) p["symbol"] = CleanSymbol(symbol);
                 string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/openOrders", p);
-                using var doc = JsonDocument.Parse(body);
-                var list = new List<OpenOrder>();
-                foreach (var o in doc.RootElement.EnumerateArray())
-                {
-                    list.Add(new OpenOrder(
-                        o.GetProperty("orderId").GetRawText(),
-                        o.GetProperty("symbol").GetString() ?? "",
-                        (o.GetProperty("side").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy,
-                        MapOrderType(o.GetProperty("type").GetString() ?? ""),
-                        Dbl(o, "origQty"),
-                        Dbl(o, "price"),
-                        o.GetProperty("status").GetString() ?? ""));
-                }
+                var list = ParseOpenOrders(body);
+                // Futures book too — Capabilities declares FuturesTrading, and a
+                // futures order missing from this list can be neither watched nor
+                // cancelled from the dashboard.
+                list.AddRange(await GetFuturesOpenOrdersAsync(symbol));
                 return list;
             });
         }
+
+        private static List<OpenOrder> ParseOpenOrders(string body)
+        {
+            // Spot /api/v3/openOrders and futures /fapi/v1/openOrders share these
+            // field names exactly.
+            using var doc = JsonDocument.Parse(body);
+            var list = new List<OpenOrder>();
+            foreach (var o in doc.RootElement.EnumerateArray())
+            {
+                list.Add(new OpenOrder(
+                    o.GetProperty("orderId").GetRawText(),
+                    o.GetProperty("symbol").GetString() ?? "",
+                    (o.GetProperty("side").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy,
+                    MapOrderType(o.GetProperty("type").GetString() ?? ""),
+                    Dbl(o, "origQty"),
+                    Dbl(o, "price"),
+                    o.GetProperty("status").GetString() ?? ""));
+            }
+            return list;
+        }
+
+        /// <summary>Futures open orders, tolerating exactly one failure shape: the
+        /// venue refusing because the key has no futures permission — that is a
+        /// NotSupported answer, not a transport failure. Everything else
+        /// propagates so the order service classifies it (see ProviderResult).</summary>
+        private async Task<List<OpenOrder>> GetFuturesOpenOrdersAsync(string? symbol)
+        {
+            var p = new Dictionary<string, string>();
+            if (symbol != null) p["symbol"] = CleanSymbol(symbol);
+            string body;
+            try { body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v1/openOrders", p); }
+            catch (HttpRequestException ex) when (IsFuturesPermissionRefusal(ex)) { return new(); }
+            return ParseOpenOrders(body);
+        }
+
+        // Binance -2015: "Invalid API-key, IP, or permissions for action" — the
+        // shape a spot-only key gets from every /fapi endpoint. Deliberately
+        // narrow: transport failures and every other venue error propagate.
+        private static bool IsFuturesPermissionRefusal(HttpRequestException ex) =>
+            ex.Message.Contains("-2015");
 
         public async Task<List<TradeFill>> GetFillsAsync(string? symbol = null, int limit = 50)
         {
@@ -642,9 +762,45 @@ namespace AccessibleTrader.Plugins.Binance
                         Dbl(t, "commission"),
                         t.TryGetProperty("orderId", out var oid) ? oid.GetRawText() : null));
                 }
-                list.Reverse();   // Binance returns oldest-first; we want newest first
-                return list;
+                // Futures fills too — the poller resolves futures orders from this
+                // list, and futures trades never appear in spot /myTrades.
+                list.AddRange(await GetFuturesFillsAsync(symbol!, limit));
+                return list.OrderByDescending(f => f.FilledAt).ToList();  // newest first, both books
             });
+        }
+
+        /// <summary>Futures fill history (/fapi/v1/userTrades). Same single
+        /// tolerated failure shape as the open-orders leg: a spot-only key's
+        /// permission refusal reads as "no futures fills"; everything else
+        /// propagates. Futures trades carry an explicit "side" (spot has
+        /// "isBuyer") and "buyer" — side is authoritative.</summary>
+        private async Task<List<TradeFill>> GetFuturesFillsAsync(string symbol, int limit)
+        {
+            var p = new Dictionary<string, string>
+            {
+                ["symbol"] = CleanSymbol(symbol),
+                ["limit"] = Math.Clamp(limit, 1, 1000).ToString(CultureInfo.InvariantCulture)
+            };
+            string body;
+            try { body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v1/userTrades", p); }
+            catch (HttpRequestException ex) when (IsFuturesPermissionRefusal(ex)) { return new(); }
+            using var doc = JsonDocument.Parse(body);
+            var list = new List<TradeFill>();
+            foreach (var t in doc.RootElement.EnumerateArray())
+            {
+                var side = t.TryGetProperty("side", out var sd) && sd.GetString() == "SELL" ? OrderSide.Sell : OrderSide.Buy;
+                long time = t.TryGetProperty("time", out var tm) ? tm.GetInt64() : 0;
+                list.Add(new TradeFill(
+                    t.TryGetProperty("id", out var id) ? id.GetRawText() : "",
+                    t.GetProperty("symbol").GetString() ?? symbol,
+                    side,
+                    Dbl(t, "qty"),
+                    Dbl(t, "price"),
+                    DateTimeOffset.FromUnixTimeMilliseconds(time).UtcDateTime,
+                    Dbl(t, "commission"),
+                    t.TryGetProperty("orderId", out var oid) ? oid.GetRawText() : null));
+            }
+            return list;
         }
 
         /// <summary>
@@ -711,6 +867,12 @@ namespace AccessibleTrader.Plugins.Binance
 
                     if (isFutures)
                     {
+                        // The stream is part of the placement contract: the order
+                        // service reads SupportsOrderEventStreaming right after
+                        // this returns, and a futures fill arrives ONLY on the
+                        // futures user-data stream (or by polling if it is down).
+                        await EnsureFuturesUserDataStreamAsync();
+
                         if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
                             await SetLeverageAsync(symbol, signal.Leverage.Value);
 
@@ -909,8 +1071,21 @@ namespace AccessibleTrader.Plugins.Binance
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     var p = new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["orderId"] = orderId };
-                    await SignedRequestAsync(HttpMethod.Delete, SpotRest, "/api/v3/order", p);
-                    return true;
+                    // The cancel contract carries no market and Capabilities
+                    // declares FuturesTrading, so try both books: an id the spot
+                    // book doesn't know (-2011) may be a futures order. Before
+                    // this, a futures order placed through this terminal could
+                    // not be cancelled through this terminal.
+                    try
+                    {
+                        await SignedRequestAsync(HttpMethod.Delete, SpotRest, "/api/v3/order", p);
+                        return true;
+                    }
+                    catch (HttpRequestException)
+                    {
+                        await SignedRequestAsync(HttpMethod.Delete, FutRest, "/fapi/v1/order", p);
+                        return true;
+                    }
                 });
             }
             catch (Exception ex)
@@ -953,6 +1128,21 @@ namespace AccessibleTrader.Plugins.Binance
         private Task CloseListenKeyAsync(string listenKey)
             => KeyOnlyRequestAsync(HttpMethod.Delete, "/api/v3/userDataStream", listenKey);
 
+        // Futures listen-key lifecycle (fapi): keep-alive and close act on the
+        // account's current key, so no key parameter goes on the wire.
+        private async Task<string?> CreateFuturesListenKeyAsync()
+        {
+            string body = await KeyOnlyRequestAsync(HttpMethod.Post, "/fapi/v1/listenKey", null, FutRest);
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("listenKey", out var lk) ? lk.GetString() : null;
+        }
+
+        private Task KeepAliveFuturesListenKeyAsync()
+            => KeyOnlyRequestAsync(HttpMethod.Put, "/fapi/v1/listenKey", null, FutRest);
+
+        private Task CloseFuturesListenKeyAsync()
+            => KeyOnlyRequestAsync(HttpMethod.Delete, "/fapi/v1/listenKey", null, FutRest);
+
         // ── HTTP plumbing ─────────────────────────────────────────────────────
 
         private async Task<string> GetPublicAsync(string baseUrl, string path, string? query)
@@ -990,10 +1180,10 @@ namespace AccessibleTrader.Plugins.Binance
         }
 
         // Key-only request (user-data stream lifecycle): API-key header, no signature.
-        private async Task<string> KeyOnlyRequestAsync(HttpMethod method, string path, string? listenKey)
+        private async Task<string> KeyOnlyRequestAsync(HttpMethod method, string path, string? listenKey, string? baseUrl = null)
         {
             var (key, _) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
-            string url = $"{SpotRest}{path}" + (listenKey != null ? $"?listenKey={listenKey}" : "");
+            string url = $"{baseUrl ?? SpotRest}{path}" + (listenKey != null ? $"?listenKey={listenKey}" : "");
             using var req = new HttpRequestMessage(method, url);
             req.Headers.Add("X-MBX-APIKEY", key);
             using var resp = await Http.SendAsync(req).ConfigureAwait(false);
@@ -1011,7 +1201,12 @@ namespace AccessibleTrader.Plugins.Binance
 
         // ── WebSocket runner with reconnect ───────────────────────────────────
 
-        private async Task RunSocketAsync(Uri uri, Action<JsonElement> onMessage, CancellationToken ct)
+        // Market-data sockets only (klines, keyed feeds, depth). The user-data
+        // streams live on ReconnectingWebSocket via UserDataStream — this loop
+        // must never carry a listen-key URL again, because its error path is
+        // SPOKEN, and speaking the path once published the listen key (a live
+        // 60-minute credential for order and balance events).
+        private async Task RunSocketAsync(Uri uri, string label, Action<JsonElement> onMessage, CancellationToken ct)
         {
             var buffer = new byte[64 * 1024];
             while (!ct.IsCancellationRequested)
@@ -1026,6 +1221,14 @@ namespace AccessibleTrader.Plugins.Binance
                         var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct).ConfigureAwait(false);
                         if (result.MessageType == WebSocketMessageType.Close) break;
                         sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                        if (sb.Length > ReconnectingWebSocket.MaxMessageBytes)
+                        {
+                            // Same cap the shared socket enforces: an unbounded
+                            // continuation sequence must not accumulate to OOM.
+                            sb.Clear();
+                            _errorStream.OnNext($"Binance {label} socket dropped an oversized frame; reconnecting.");
+                            break;
+                        }
                         if (!result.EndOfMessage) continue;
                         string msg = sb.ToString();
                         sb.Clear();
@@ -1034,18 +1237,112 @@ namespace AccessibleTrader.Plugins.Binance
                             using var doc = JsonDocument.Parse(msg);
                             onMessage(doc.RootElement);
                         }
-                        catch { /* ignore malformed frame */ }
+                        catch { /* malformed market-data frame — the next one supersedes it */ }
                     }
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
-                    _errorStream.OnNext($"Binance socket {uri.AbsolutePath} error ({ex.GetType().Name}); reconnecting.");
+                    _errorStream.OnNext($"Binance {label} socket error ({ex.GetType().Name}); reconnecting.");
                 }
                 if (!ct.IsCancellationRequested)
                 {
                     try { await Task.Delay(2000, ct).ConfigureAwait(false); } catch { break; }
                 }
+            }
+        }
+
+        /// <summary>
+        /// One listen-key user-data socket. <see cref="ReconnectingWebSocket"/>
+        /// owns the transport (backoff reconnect, heartbeat staleness watchdog,
+        /// 16 MB frame cap); this class owns the LISTEN KEY: keep-alive every
+        /// 25 minutes against the 60-minute TTL, and when the keep-alive fails it
+        /// creates a NEW key and rebuilds the socket on the new URL — the half the
+        /// old hand-rolled loop was missing. Reconnecting to an expired key
+        /// "succeeds" and delivers nothing, which is how fills stopped announcing
+        /// permanently with the flag still claiming the stream was up.
+        /// </summary>
+        private sealed class UserDataStream : IAsyncDisposable
+        {
+            private readonly string _label;
+            private readonly Func<Task<string?>> _createKey;
+            private readonly Func<string, Task> _keepAlive;
+            private readonly Func<string, Task> _closeKey;
+            private readonly Func<string, string> _wsUrlForKey;
+            private readonly Action<string> _onFrame;
+            private readonly Action<string> _onError;
+            private readonly CancellationTokenSource _cts = new();
+            private ReconnectingWebSocket? _ws;
+            private string? _listenKey;
+            private volatile bool _keyHealthy;
+
+            public bool IsUp => _keyHealthy && (_ws?.IsConnected ?? false);
+
+            public UserDataStream(string label,
+                Func<Task<string?>> createKey, Func<string, Task> keepAlive, Func<string, Task> closeKey,
+                Func<string, string> wsUrlForKey, Action<string> onFrame, Action<string> onError)
+            {
+                _label = label; _createKey = createKey; _keepAlive = keepAlive; _closeKey = closeKey;
+                _wsUrlForKey = wsUrlForKey; _onFrame = onFrame; _onError = onError;
+            }
+
+            public async Task StartAsync()
+            {
+                _listenKey = await _createKey().ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Binance returned no listenKey.");
+                await ConnectSocketAsync().ConfigureAwait(false);
+                _ = Task.Run(KeepAliveLoopAsync);
+            }
+
+            private async Task ConnectSocketAsync()
+            {
+                var old = _ws;
+                _ws = new ReconnectingWebSocket(_wsUrlForKey(_listenKey!), heartbeatInterval: TimeSpan.FromSeconds(30))
+                    .OnMessage(_onFrame)
+                    .OnError(e => _onError($"Binance {_label} user-data socket: {e}"));
+                if (old != null) await old.DisposeAsync().ConfigureAwait(false);
+                await _ws.ConnectAsync(_cts.Token).ConfigureAwait(false);
+                _keyHealthy = true;
+            }
+
+            private async Task KeepAliveLoopAsync()
+            {
+                while (!_cts.IsCancellationRequested)
+                {
+                    try { await Task.Delay(TimeSpan.FromMinutes(25), _cts.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                    try { await _keepAlive(_listenKey!).ConfigureAwait(false); }
+                    catch
+                    {
+                        // Key presumed dead: recreate, don't log-and-hope.
+                        _keyHealthy = false;
+                        try
+                        {
+                            _listenKey = await _createKey().ConfigureAwait(false)
+                                ?? throw new InvalidOperationException("Binance returned no listenKey.");
+                            await ConnectSocketAsync().ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            // IsUp is now false, so SupportsOrderEventStreaming is
+                            // false and new orders fall back to the fill poller.
+                            _onError($"Binance {_label} user-data listen key could not be renewed ({ex.GetType().Name}); fills for new orders resolve by polling.");
+                        }
+                    }
+                }
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                _cts.Cancel();
+                _keyHealthy = false;
+                if (_ws != null) await _ws.DisposeAsync().ConfigureAwait(false);
+                if (_listenKey != null)
+                {
+                    try { await _closeKey(_listenKey).ConfigureAwait(false); }
+                    catch { /* venue-side key expires on its own TTL */ }
+                }
+                _cts.Dispose();
             }
         }
 

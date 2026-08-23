@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Provider-tier batch two: the streams that lied, the strings that didn't match, and the shorts that read as longs (2026-08-23)
+
+- **Binance grew up.** The user-data stream moved onto `ReconnectingWebSocket` via a
+  `UserDataStream` class that owns the listen key — keep-alive every 25 minutes, and on failure it
+  creates a NEW key and rebuilds the socket, because reconnecting to an expired key "succeeds" and
+  delivers nothing (which is how fills stopped announcing permanently while the flag still said
+  streaming). The futures user-data stream now exists at all (`ORDER_TRADE_UPDATE` parsed, opened
+  on first futures placement); cancel/open-orders/fills reach the futures book (a futures order
+  used to be uncancellable through the terminal); depth follows the charted market; the spoken
+  socket-error path can no longer publish the listen key (a live 60-minute credential); a frame
+  variant that fails to parse is spoken as LOST, not swallowed bare; and `Testnet: "True"` no
+  longer silently trades the real book (case-sensitive compare — Oanda's mirror-image missing
+  `else` on live→practice fixed in the same pass).
+- **Kraken signs the exact bytes it sends.** The signature was computed over one encoding and
+  `FormUrlEncodedContent` sent another — every bracketed order (`close[ordertype]`) and multi-word
+  deposit-network lookup died with `EAPI:Invalid signature`, and the parity test unescaped the
+  body before asserting, normalizing the bug away. The raw signed string now goes on the wire, the
+  test asserts raw, and a new guard recomputes API-Sign from the captured bytes. The WS pair split
+  ("BTCUSDT" → "BTCU/SDT", silently empty chart) now uses `SymbolFormat`, whose quote list grew
+  from 8 to 18 entries (fixing MEXC's `BTCTUSD` transitively) with a base-length tie-break the
+  widening forced ("XBTUSD" ends with "TUSD" but is XBT/USD). A stale test had pinned the broken
+  split as spec.
+- **Oanda tells the truth on the order stream.** Cancels used to fabricate "buy on an empty
+  symbol"; rejections were never reported; partial fills announced as complete. The stream now
+  remembers creation transactions, tracks cumulative fills, looks up pre-stream orders by id, and
+  publishes `*_ORDER_REJECT` with the venue's reason — and when details truly cannot be had, it
+  says so instead of inventing a ticket.
+- **Position.Quantity is signed everywhere.** Every consumer derives long/short from the sign
+  (reconciliation's liquidation warning, the dashboard's close ticket) — and six providers
+  (Binance, Kraken, IB, Tradier, Schwab, Oanda) were flattening it with `Math.Abs`, so a
+  10,000-unit short read identically to a long in every risk calculation and every spoken summary.
+  The audit had flagged only Oanda. A scan guard pins the class.
+- **Deposit addresses route by network TOKEN, not substring.** "TETHER USD (TRC20)" contains the
+  letters "ETH", so a correct Tron address went to the EVM validator and was refused; "BTC
+  Lightning" contains "BTC", so `lnbc1…` invoices failed the on-chain shape check. Dispatch is
+  now token-based and most-specific-first, with a real BOLT11 branch that verifies the bech32
+  checksum, and Bitcoin Cash honestly Unknown instead of misjudged.
+- **Coinbase fills can finally announce.** The WS JWT was built through the REST path builder
+  (`uri = "GET api.coinbase.com/advanced-trade-ws.coinbase.com"`, no nonce) so the user channel
+  was rejected server-side — and with `SupportsOrderEventStreaming` defaulting true, the poller
+  never ran either. The WS JWT now has the CDP shape (no uri claim, nonce header; REST bytes
+  pinned unchanged), and the flag is true only after the venue acknowledges the subscription.
+- **`SupportsOrderEventStreaming` is honest on five more providers** (Kraken, IB, Oanda, Alpaca +
+  Coinbase above) — each reports its actual channel state, so a dead stream means polling, not
+  silence. Bitstamp deliberately stays static-true: with no `GetFillsAsync`, the poller would
+  announce a filled order as "cancelled"; the smaller lie is documented at the site. The flag got
+  its own section in PROVIDER_AUTHORING.md.
+
+All guards proven red in a 16-way sabotage run — including re-proving the dispatch-order half of
+the validator fix separately after the first sabotage left it green. Test count 4401 → 4435.
+
+
 ### The order-contract ship-blockers: five ways money moved wrong, closed (2026-08-23)
 
 Second slice of the audit's provider-tier ship-blockers — the placement-path cluster. Each of

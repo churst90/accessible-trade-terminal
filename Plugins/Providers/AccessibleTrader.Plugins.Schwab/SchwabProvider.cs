@@ -471,7 +471,9 @@ namespace AccessibleTrader.Plugins.Schwab
                             ? openPnl
                             : (p["currentDayProfitLoss"]?.Value<double>() ?? 0);
 
-                        positions.Add(new Position(symbol, Math.Abs(qty), avgPrice, marketVal, unrealized));
+                        // Signed: consumers derive long/short from the sign; Abs
+                        // made a short read as a long in risk math and speech.
+                        positions.Add(new Position(symbol, qty, avgPrice, marketVal, unrealized));
                     }
                 }
                 return positions;

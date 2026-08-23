@@ -64,8 +64,11 @@ namespace AccessibleTrader.Tests
         [Theory]
         [InlineData("BTC/USD",   "BTC/USD")]   // already in slash form — just uppercased
         [InlineData("btc/usd",   "BTC/USD")]
-        [InlineData("BTCUSD",    "BTC/USD")]   // 6-char no-separator gets split at [-3]
-        [InlineData("ETHUSDT",   "ETHU/SDT")]  // 7-char: split is still at [-3]; Kraken WS rarely sees this
+        [InlineData("BTCUSD",    "BTC/USD")]   // known 3-char quote
+        // This case used to PIN the bug ("ETHU/SDT" — the hardcoded [-3] split):
+        // the WS accepted that subscribe and never sent data, chart silently
+        // empty. The split now goes through SymbolFormat's quote list.
+        [InlineData("ETHUSDT",   "ETH/USDT")]
         public void Kraken_FormatPair_ReturnsSlashForm(string input, string expected)
         {
             string actual = InvokeKrakenStatic<string>("FormatPair", input);

@@ -10,18 +10,35 @@ namespace AccessibleTrader.Sdk.Models
     /// </summary>
     public static class SymbolFormat
     {
-        // Longest-first so "USDT" wins over "USD".
-        private static readonly string[] KnownQuotes = { "USDT", "USDC", "USD", "EUR", "GBP", "BTC", "ETH", "BNB" };
+        // Longest-first so "FDUSD"/"USDT" win over "USD". The original 8-entry
+        // list is why MEXC produced "BTCTUSD" (TUSD missing) and why Oanda could
+        // not use this helper at all (no JPY/AUD/CAD/CHF/NZD).
+        private static readonly string[] KnownQuotes =
+        {
+            "FDUSD",
+            "USDT", "USDC", "TUSD", "BUSD",
+            "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD",
+            "DAI", "BTC", "XBT", "ETH", "BNB",
+        };
 
         /// <summary>Splits into (base, quote) using the known quote suffixes. Falls back
         /// to (whole, "") when no known quote matches.</summary>
         public static (string Base, string Quote) SplitBaseQuote(string symbol)
         {
             var s = Concatenated(symbol);
+            // Longest quote first, but a split that leaves a base shorter than
+            // 3 characters loses to one that doesn't: "XBTUSD" ends with "TUSD"
+            // yet is XBT/USD, not XB/TUSD — no real base asset is 2 letters,
+            // while overlapping quote suffixes are common.
+            (string Base, string Quote)? shortBase = null;
             foreach (var q in KnownQuotes)
-                if (s.EndsWith(q, StringComparison.OrdinalIgnoreCase) && s.Length > q.Length)
-                    return (s[..^q.Length], q);
-            return (s, string.Empty);
+            {
+                if (!s.EndsWith(q, StringComparison.OrdinalIgnoreCase) || s.Length <= q.Length) continue;
+                var b = s[..^q.Length];
+                if (b.Length >= 3) return (b, q);
+                shortBase ??= (b, q);
+            }
+            return shortBase ?? (s, string.Empty);
         }
 
         /// <summary>Separator-free upper-case pair (BTCUSDT).</summary>

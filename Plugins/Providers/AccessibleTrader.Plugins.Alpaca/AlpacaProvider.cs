@@ -51,6 +51,13 @@ namespace AccessibleTrader.Plugins.Alpaca
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // True only when the trade socket is connected AND the trade_updates
+        // listen request went out (an auth failure aborts before it). The
+        // default-true flag used to claim streaming even with no socket at all.
+        private volatile bool _tradeStreamListening;
+        public bool SupportsOrderEventStreaming =>
+            _tradeStreamListening && (_tradeWs?.IsConnected ?? false);
+
         // Order book streaming
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
 
@@ -279,6 +286,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             _tradeWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
+                    _tradeStreamListening = false;
                     try
                     {
                         var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
@@ -301,9 +309,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                         ["data"]   = new JObject { ["streams"] = new JArray { "trade_updates" } }
                     };
                     await ws.SendAsync(listen.ToString());
+                    _tradeStreamListening = true;
                 })
                 .OnMessage(HandleTradeMessage)
-                .OnError(err => _errorStream.OnNext($"Alpaca trade stream: {err}"));
+                .OnError(err => _errorStream.OnNext($"Alpaca trade stream: {err}"))
+                .OnDisconnected(() => _tradeStreamListening = false);
 
             await _tradeWs.ConnectAsync();
         }

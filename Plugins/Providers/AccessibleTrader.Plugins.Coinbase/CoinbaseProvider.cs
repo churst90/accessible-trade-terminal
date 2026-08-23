@@ -42,6 +42,13 @@ namespace AccessibleTrader.Plugins.Coinbase
             => string.IsNullOrEmpty(symbol) ? string.Empty : symbol.Replace("/", "-").ToUpperInvariant();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
+        // True only after the venue ACKNOWLEDGED the user-channel subscription on
+        // a currently-connected socket. Coinbase used to inherit the default-true
+        // flag while its WS JWT was malformed, so the subscription was rejected,
+        // the poller never ran, and fills were announced by no path at all.
+        private volatile bool _userChannelUp;
+        public bool SupportsOrderEventStreaming => _userChannelUp && (_ws?.IsConnected ?? false);
+
         // Order book streaming
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
 
@@ -139,11 +146,12 @@ namespace AccessibleTrader.Plugins.Coinbase
                 reconnectBaseDelay: TimeSpan.FromSeconds(3))
                 .OnConnected(async ws =>
                 {
+                    _userChannelUp = false; // until the new subscription is acknowledged
                     string jwt;
                     try
                     {
                         var (apiKey, apiSecret) = await CheckoutCoinbaseCredentialsAsync().ConfigureAwait(false);
-                        jwt = GenerateJwt(apiKey, apiSecret, "GET", "advanced-trade-ws.coinbase.com");
+                        jwt = GenerateWsJwt(apiKey, apiSecret);
                     }
                     catch
                     {
@@ -182,6 +190,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                     await ws.SendAsync(userMsg.ToString());
                 })
                 .OnMessage(HandleWebSocketMessage)
+                .OnDisconnected(() => _userChannelUp = false)
                 .OnError(err => _errorStream.OnNext($"Coinbase WS: {err}"))
                 .OnDisconnected(() => _connectionStateStream.OnNext(ConnectionState.Disconnected));
 
@@ -253,8 +262,18 @@ namespace AccessibleTrader.Plugins.Coinbase
                         }
                     }
                 }
+                else if (channel == "subscriptions")
+                {
+                    // The venue's acknowledgment of what we are ACTUALLY subscribed
+                    // to. Only here does the user channel count as up — a rejected
+                    // subscription (bad JWT) leaves the socket healthy and silent,
+                    // which is exactly the state the old default-true flag hid.
+                    if (msg.ToString().Contains("\"user\"", StringComparison.Ordinal))
+                        _userChannelUp = true;
+                }
                 else if (channel == "user")
                 {
+                    _userChannelUp = true;
                     var events = msg["events"] as JArray;
                     var orders = events?.FirstOrDefault()?["orders"] as JArray;
                     if (orders != null)
@@ -701,14 +720,28 @@ namespace AccessibleTrader.Plugins.Coinbase
             return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
 
-        private string GenerateJwt(string apiKey, string apiSecret, string method, string requestPath)
+        /// <summary>WebSocket JWT. Same key and ES256 signing as the REST one,
+        /// but the CDP WebSocket contract has NO uri claim — there is no
+        /// method/path to bind — and requires a nonce header. The old code pushed
+        /// the WS HOST through the REST path builder, producing
+        /// uri = "GET api.coinbase.com/advanced-trade-ws.coinbase.com" and no
+        /// nonce: the user-channel subscription was rejected server-side, and
+        /// with SupportsOrderEventStreaming defaulting true the poller never ran,
+        /// so Coinbase fills were announced by no path at all.</summary>
+        internal string GenerateWsJwt(string apiKey, string apiSecret)
+            => GenerateJwtCore(apiKey, apiSecret, uri: null, withNonce: true);
+
+        internal string GenerateJwt(string apiKey, string apiSecret, string method, string requestPath)
         {
             var cleanPath = requestPath.StartsWith("/") ? requestPath : "/" + requestPath;
             if (!cleanPath.Contains("api.coinbase.com"))
                 cleanPath = "api.coinbase.com" + cleanPath;
 
-            var uri = $"{method} {cleanPath}";
+            return GenerateJwtCore(apiKey, apiSecret, $"{method} {cleanPath}", withNonce: false);
+        }
 
+        private string GenerateJwtCore(string apiKey, string apiSecret, string? uri, bool withNonce)
+        {
             var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
 
             using var ecdsa = System.Security.Cryptography.ECDsa.Create();
@@ -726,20 +759,26 @@ namespace AccessibleTrader.Plugins.Coinbase
             var credentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha256);
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var claims = new List<System.Security.Claims.Claim>
+            {
+                new("sub", apiKey),
+                new("iss", "cdp"),
+                new("nbf", now.ToString(CultureInfo.InvariantCulture)),
+                new("exp", (now + 120).ToString(CultureInfo.InvariantCulture)),
+            };
+            // REST binds the token to "METHOD host/path"; the WS token has no
+            // request to bind and must omit the claim entirely.
+            if (uri != null) claims.Add(new System.Security.Claims.Claim("uri", uri));
+
             var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
                 issuer: "cdp",
                 audience: "cdp_service",
-                claims: new[]
-                {
-                    new System.Security.Claims.Claim("sub", apiKey),
-                    new System.Security.Claims.Claim("iss", "cdp"),
-                    new System.Security.Claims.Claim("nbf", now.ToString()),
-                    new System.Security.Claims.Claim("exp", (now + 120).ToString()),
-                    new System.Security.Claims.Claim("uri", uri),
-                },
+                claims: claims,
                 signingCredentials: credentials);
 
             jwt.Header["kid"] = apiKey;
+            if (withNonce)
+                jwt.Header["nonce"] = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
             jwt.Header.Remove("typ");
 
             return handler.WriteToken(jwt);

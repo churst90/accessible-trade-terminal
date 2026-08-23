@@ -65,6 +65,19 @@ namespace AccessibleTrader.Sdk.Trading
             if (address.Any(char.IsWhiteSpace))
                 return new(AddressCheck.Malformed, "the address contains a space");
 
+            // Most-specific first, and Looks() matches whole TOKENS of the
+            // venue's network name, never raw substrings: "TETHER USD (TRC20)"
+            // contains the letters "ETH" and used to be routed to the EVM hex
+            // validator, which refused a correct Tron deposit address; "BTC
+            // Lightning" contains "BTC" and sent lnbc1… invoices to the 1/3/bc1
+            // check. Kraken explicitly issues both.
+            if (Looks(net, "LIGHTNING", "LNBC"))     return Lightning(address);
+            if (Looks(net, "TRON", "TRC20"))         return Base58Check(address, "a Tron address", expectPrefix: "T");
+            // Bitcoin Cash tokenizes to {BITCOIN, CASH, BCH} — caught before the
+            // BITCOIN family so a CashAddr is not misjudged by the wrong rules.
+            if (Looks(net, "BCH"))
+                return new(AddressCheck.Unknown,
+                    "no local format check exists for Bitcoin Cash — verify the address against the venue itself");
             if (Looks(net, "BITCOIN", "BTC", "XBT")) return Bitcoin(address);
             if (Looks(net, "LITECOIN", "LTC"))       return Bech32Or58(address, "ltc", "the Litecoin network");
 
@@ -72,7 +85,6 @@ namespace AccessibleTrader.Sdk.Trading
                            "POLYGON", "MATIC", "BSC", "BEP20", "AVAX", "AVALANCHE"))
                 return EvmHex(address, net);
 
-            if (Looks(net, "TRON", "TRC20"))         return Base58Check(address, "a Tron address", expectPrefix: "T");
             if (Looks(net, "SOL", "SOLANA"))         return Solana(address);
 
             return new(AddressCheck.Unknown,
@@ -80,8 +92,16 @@ namespace AccessibleTrader.Sdk.Trading
               + "verify the address against the venue itself");
         }
 
-        private static bool Looks(string net, params string[] names) =>
-            names.Any(n => net == n || net.Contains(n, StringComparison.Ordinal));
+        private static readonly char[] TokenSeparators = " ()[]{}-_/.,:;".ToCharArray();
+
+        // Whole tokens only — raw Contains is how "TETHER" matched "ETH". A name
+        // still matches the whole string exactly (covers one-word networks).
+        private static bool Looks(string net, params string[] names)
+        {
+            if (names.Any(n => net == n)) return true;
+            var tokens = net.Split(TokenSeparators, StringSplitOptions.RemoveEmptyEntries);
+            return names.Any(n => tokens.Contains(n, StringComparer.Ordinal));
+        }
 
         // ── Per-network ──────────────────────────────────────────────────────
 
@@ -132,6 +152,35 @@ namespace AccessibleTrader.Sdk.Trading
             return new(AddressCheck.StructureOnly,
                 "length and alphabet are correct; Solana addresses carry no checksum, so compare "
               + "character by character including capitals");
+        }
+
+        /// <summary>A BOLT11 Lightning invoice: bech32 with a VARIABLE human-readable
+        /// part ("lnbc" + amount, "lntb" on testnet) and far longer than an on-chain
+        /// address — which is why it can never go through the 1/3/bc1 shape check.
+        /// The bech32 checksum (constant 1) still applies and is verified.</summary>
+        private static AddressValidation Lightning(string a)
+        {
+            string lower = a.ToLowerInvariant();
+            if (!lower.StartsWith("ln", StringComparison.Ordinal))
+                return new(AddressCheck.Malformed, "a Lightning invoice starts with ln (for example lnbc…)");
+            if (a.Any(char.IsUpper) && a.Any(char.IsLower))
+                return new(AddressCheck.Malformed, "bech32 addresses must not mix upper and lower case");
+
+            int split = lower.LastIndexOf('1');
+            if (split < 1 || split + 7 > lower.Length)
+                return new(AddressCheck.Malformed, "bech32 separator is missing or misplaced");
+
+            var data = new List<int>();
+            foreach (char c in lower[(split + 1)..])
+            {
+                int v = Bech32Charset.IndexOf(c);
+                if (v < 0) return new(AddressCheck.Malformed, $"'{c}' is not a bech32 character");
+                data.Add(v);
+            }
+
+            return Polymod(Expand(lower[..split]).Concat(data).ToArray()) == 1
+                ? new(AddressCheck.Verified, "bech32 checksum verified for this Lightning invoice")
+                : new(AddressCheck.Malformed, "the bech32 checksum does not match — this invoice is corrupt");
         }
 
         // ── bech32 / bech32m ─────────────────────────────────────────────────

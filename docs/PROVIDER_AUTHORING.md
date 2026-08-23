@@ -358,6 +358,28 @@ public override async Task SetSubscriptionAsync(string market, string symbol, st
 The `LiveStreamManager` subscribes to `LiveStream`, aggregates ticks into timeframe
 buckets, and pushes them to the chart.
 
+### Trading providers: `SupportsOrderEventStreaming` must be honest
+
+`ITradingProvider.SupportsOrderEventStreaming` **defaults to `true`**, and the order
+service reads it **at order-placement time** to decide whether to start the fill
+poller. That makes the default a trap: a provider whose push channel is dead — never
+opened, auth rejected, listen key expired, socket down — but whose flag still says
+`true` gets *neither* stream events *nor* polling, and fills are announced by no path
+at all. This shipped, more than once.
+
+Report the flag from the **live state of the actual push channel**, not from
+configuration or intent:
+
+```csharp
+// Pattern (see MEXC, Tradier, Coinbase, Binance for real examples):
+public bool SupportsOrderEventStreaming => _privateWs?.IsConnected ?? false;
+```
+
+Count the channel as up only once the venue has *accepted* it (subscription
+acknowledged, auth succeeded, listen key alive) — a connected socket with a rejected
+subscription is exactly the silent state this flag exists to expose. If your provider
+has no push channel, declare `=> false` statically (Schwab) so the poller always runs.
+
 ---
 
 ## 10. API Key Integration
