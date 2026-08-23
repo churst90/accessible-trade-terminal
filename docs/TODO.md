@@ -2201,8 +2201,25 @@ they belong to this section even though the audit filed them elsewhere:
   edge-window exclusion, and VolumeProfile's backtest-cache preference. ~~`InputRouter` and
   `KeyNormalizationService`~~ — `InputRoutingTests` (36), including the static-vs-instance
   normalize parity that keeps bindings reachable. ~~`RiskRewardCalculator` and
-  `MeasureToolCalculator`~~ — `DrawingCalculatorTests` (11). **Still open:**
-  `SkenderCalculationCore` (backs many shipped indicators), and the rendering layer classes.
+  `MeasureToolCalculator`~~ — `DrawingCalculatorTests` (11). ~~`SkenderCalculationCore`~~ —
+  `SkenderCalculationCoreTests` (18, closing the whole item 2026-08-22): calculation semantics
+  on top of `IndicatorsThatRenderNothingTests`' resolution guards — hand-checked values, the
+  Nullable-parameter conversion fence, the derived `__SQUEEZE`/`__CROSSOVER` components no
+  catalog declares, `UpdateLast`, the quote pool. **Found a live bug on day one:** `UpdateLast`
+  sized its temp buffer to the stability window, so on a chart with fewer bars than the window
+  (any period ≥ barCount/2.5 — a 200-period SMA on a 300-bar chart, or any indicator on a
+  newly-listed asset) `[^1]` read an unwritten `ArrayPool` slot — DIRTY memory, i.e. another
+  indicator's stale value or zero — and wrote it to the last bar on every live tick, where it
+  was spoken as real. Buffer now sized to the calculated slice. ~~the rendering layer
+  classes~~ — `RenderLayerTests` (23): BackgroundLayer (opaque fill, gradient opt-in,
+  degenerate-range no-throw), DataLayer (pane routing, sub-pane passes, levels, heatmap
+  dispatch), OverlayLayer (crosshair gating, the once-dead text-label draw), HeatmapRenderer,
+  ProfileRenderLayer (right-aligned strip, POC line, zero-volume no-divide), SKPaintPool
+  (reuse + reset). Same real-SKBitmap behavioural approach as StandardRenderersSmokeTests.
+  Also fixed while here: `LLMProviderTransportTests`' capturing factory originally intercepted
+  EVERY provider's `CreateHttpClient` call — a Schwab test racing through the process-global
+  bridge landed its policy in the assertion (1-in-4 flake) and got a strict fake handler back;
+  the factory now intercepts only its own provider id and hands everyone else the fallback.
 - [ ] **Every money modal is string-scanned, none is rendered.** `ApiKeysModal`, `WalletModal`,
   `WithdrawModal`, `TradingDashboardModal`, `Toolbar` are source-text-scanned only; 18 further
   components are zero-referenced entirely (`JournalModal`, `MyDataModal`, `CustomScriptsModal`,

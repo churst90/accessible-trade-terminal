@@ -177,7 +177,11 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             int windowSize = GetStabilityWindow(code, parameters);
             var slicedData = data.Length > windowSize ? data.Slice(data.Length - windowSize) : data;
-            using var tempBuffer = new InternalResultBuffer(windowSize);
+            // The buffer must be sized to the data actually calculated, not the window.
+            // When the chart holds fewer bars than the stability window, a window-sized
+            // buffer left its tail slots unwritten — and ArrayPool arrays arrive dirty,
+            // so [^1] below read another indicator's stale value into the last bar.
+            using var tempBuffer = new InternalResultBuffer(slicedData.Length);
             Calculate(code, slicedData, parameters, tempBuffer);
             foreach (var componentName in tempBuffer.ComponentNames)
             {

@@ -27,11 +27,33 @@ namespace AccessibleTrader.Tests
     {
         private sealed class CapturingFactory : IPluginHttpClientFactory
         {
+            private readonly string _providerId;
             private readonly FakeHttpMessageHandler _handler;
+            private readonly IPluginHttpClientFactory? _fallback;
             public HttpClientPolicy? LastPolicy;
-            public CapturingFactory(FakeHttpMessageHandler handler) => _handler = handler;
+
+            public CapturingFactory(string providerId, FakeHttpMessageHandler handler, IPluginHttpClientFactory? fallback)
+            {
+                _providerId = providerId;
+                _handler = handler;
+                _fallback = fallback;
+            }
+
             public HttpClient Create(HttpClientPolicy policy)
             {
+                // The bridge is process-global, so a provider test in ANOTHER collection can
+                // race through here mid-test (observed: a Schwab policy landing in LastPolicy).
+                // Intercept only this test's own provider; give everyone else what they would
+                // have had if this test were not running.
+                if (!policy.ProviderId.Equals(_providerId, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (_fallback != null) return _fallback.Create(policy);
+                    return new HttpClient
+                    {
+                        MaxResponseContentBufferSize = policy.MaxResponseContentBytes,
+                        Timeout = policy.Timeout ?? TimeSpan.FromSeconds(60),
+                    };
+                }
                 LastPolicy = policy;
                 return new HttpClient(_handler, disposeHandler: false);
             }
@@ -41,9 +63,9 @@ namespace AccessibleTrader.Tests
         public LLMProviderTransportTests() => _priorFactory = PluginHostServices.HttpClientFactory;
         public void Dispose() => PluginHostServices.HttpClientFactory = _priorFactory;
 
-        private static CapturingFactory Install(FakeHttpMessageHandler handler)
+        private CapturingFactory Install(string providerId, FakeHttpMessageHandler handler)
         {
-            var factory = new CapturingFactory(handler);
+            var factory = new CapturingFactory(providerId, handler, _priorFactory);
             PluginHostServices.HttpClientFactory = factory;
             return factory;
         }
@@ -64,7 +86,7 @@ namespace AccessibleTrader.Tests
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 { Content = new StringContent(ClaudeOk) };
             });
-            var factory = Install(handler);
+            var factory = Install("Claude", handler);
 
             var result = await new ClaudeProvider().CompleteAsync("sys", "user msg", null, "sk-ant-123");
 
@@ -94,7 +116,7 @@ namespace AccessibleTrader.Tests
                 body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ClaudeOk) };
             });
-            Install(handler);
+            Install("Claude", handler);
 
             await new ClaudeProvider().CompleteAsync("sys", "user", "BASE64PNG", "k");
 
@@ -113,7 +135,7 @@ namespace AccessibleTrader.Tests
         {
             var handler = new FakeHttpMessageHandler()
                 .Post(@"api\.anthropic\.com", """{"error":"overloaded"}""", HttpStatusCode.TooManyRequests);
-            Install(handler);
+            Install("Claude", handler);
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => new ClaudeProvider().CompleteAsync("s", "u", null, "k"));
@@ -137,7 +159,7 @@ namespace AccessibleTrader.Tests
                 body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(OpenAIOk) };
             });
-            var factory = Install(handler);
+            var factory = Install("OpenAI", handler);
 
             var result = await new OpenAIProvider().CompleteAsync("sys", "user msg", null, "sk-oai");
 
@@ -163,7 +185,7 @@ namespace AccessibleTrader.Tests
                 body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(OpenAIOk) };
             });
-            Install(handler);
+            Install("OpenAI", handler);
 
             await new OpenAIProvider().CompleteAsync("sys", "user", "BASE64PNG", "k");
 
@@ -179,7 +201,7 @@ namespace AccessibleTrader.Tests
         {
             var handler = new FakeHttpMessageHandler()
                 .Post(@"api\.openai\.com", """{"error":"quota"}""", HttpStatusCode.Unauthorized);
-            Install(handler);
+            Install("OpenAI", handler);
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => new OpenAIProvider().CompleteAsync("s", "u", null, "k"));
