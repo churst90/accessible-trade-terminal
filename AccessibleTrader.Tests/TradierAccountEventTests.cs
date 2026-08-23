@@ -83,8 +83,11 @@ namespace AccessibleTrader.Tests
 
         [Theory]
         [InlineData("canceled", OrderStatus.Cancelled)]
-        [InlineData("expired", OrderStatus.Cancelled)]
+        // Expired is its own terminal state: nobody asked for it, the venue did
+        // accept it. It was squashed into Cancelled until 2026-08-23.
+        [InlineData("expired", OrderStatus.Expired)]
         [InlineData("rejected", OrderStatus.Rejected)]
+        [InlineData("error", OrderStatus.Rejected)]
         public void Terminal_statuses_map_to_their_order_status(string wire, OrderStatus expected)
         {
             var (provider, seen) = Build();
@@ -115,17 +118,30 @@ namespace AccessibleTrader.Tests
         }
 
         [Theory]
-        [InlineData("""{"event":"order","id":6,"symbol":"AAPL","side":"buy","type":"limit","status":"open"}""")]
-        [InlineData("""{"event":"order","id":7,"symbol":"AAPL","side":"buy","type":"limit","status":"pending"}""")]
         [InlineData("""{"event":"heartbeat"}""")]
         [InlineData("""not json at all""")]
-        public void NonAnnounceable_and_malformed_payloads_stay_silent(string wire)
+        public void NonOrder_and_malformed_payloads_stay_silent(string wire)
         {
             var (provider, seen) = Build();
 
             provider.HandleAccountEvent(wire);
 
             Assert.Empty(seen);
+        }
+
+        [Theory]
+        [InlineData("""{"event":"order","id":6,"symbol":"AAPL","side":"buy","type":"limit","status":"open"}""")]
+        [InlineData("""{"event":"order","id":7,"symbol":"AAPL","side":"buy","type":"limit","status":"pending"}""")]
+        public void Working_statuses_map_to_New_not_dropped(string wire)
+        {
+            // "open"/"pending" used to be dropped with no trace. They are the
+            // venue saying "accepted and working" — the order service logs New
+            // (and announces nothing), so the update must exist.
+            var (provider, seen) = Build();
+
+            provider.HandleAccountEvent(wire);
+
+            Assert.Equal(OrderStatus.New, Assert.Single(seen).Status);
         }
 
         [Fact]

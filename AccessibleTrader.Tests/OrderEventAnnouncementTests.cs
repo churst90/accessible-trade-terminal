@@ -159,6 +159,71 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void CancelledAfterPartialFill_SpeaksTheExecutedPart()
+        {
+            // A cancelled order that partially filled first left the trader with
+            // a position. On venues that emulate market orders as IOC limits
+            // (Gemini) the DEFAULT order type is the one most likely to partially
+            // fill and cancel; MEXC's "partially filled then canceled" status is
+            // one terminal message. A bare "cancelled" says "you are flat" — the
+            // opposite of the truth.
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderCancelledEvent(
+                Update(qty: 0.4, price: 99.5, remaining: 0.6, status: OrderStatus.Cancelled)));
+
+            Assert.Contains("Order cancelled", speech.LastSpokenText);
+            Assert.Contains("partial fill", speech.LastSpokenText);
+            Assert.Contains("bought 0.4", speech.LastSpokenText);
+            Assert.Contains("99.5", speech.LastSpokenText);
+        }
+
+        [Fact]
+        public void OrderExpired_IsSpokenAsExpiredNotCancelled()
+        {
+            // Expired is not a cancel (nobody asked) and not a rejection (the
+            // venue accepted the order). Binance mapped EXPIRED→Rejected and four
+            // providers squashed it into Cancelled — the trader heard the wrong
+            // reason their order left the book.
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderExpiredEvent(
+                Update(qty: 0, price: 0, status: OrderStatus.Expired)));
+
+            Assert.Contains("Order expired", speech.LastSpokenText);
+            Assert.Contains("BTCUSD", speech.LastSpokenText);
+            Assert.DoesNotContain("cancelled", speech.LastSpokenText);
+            Assert.DoesNotContain("rejected", speech.LastSpokenText);
+        }
+
+        [Fact]
+        public void OrderReplaced_SaysStillWorking_NeverCancelled()
+        {
+            // A replaced order is STILL LIVE under a new id. Saying "cancelled"
+            // tells the trader they are flat; they re-enter and are double-sized
+            // with the original still resting — the audit's Schwab REPLACED bug.
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderReplacedEvent(
+                Update(qty: 0, price: 0, status: OrderStatus.Replaced)));
+
+            Assert.Contains("Order replaced", speech.LastSpokenText);
+            Assert.Contains("still working", speech.LastSpokenText);
+            Assert.DoesNotContain("cancelled", speech.LastSpokenText);
+        }
+
+        [Fact]
+        public void TerminatedFormat_ThreadsTheProviderReason()
+        {
+            string msg = AccessibilityFeedbackCoordinator.FormatTerminated(
+                "expired", Update(qty: 0, price: 0, status: OrderStatus.Expired)
+                    with { Reason = "day order reached the close" });
+
+            Assert.Contains("Order expired for BTCUSD.", msg);
+            Assert.Contains("day order reached the close", msg);
+        }
+
+        [Fact]
         public void RejectedStopLeg_IsNotAnnouncedAsAStopHit()
         {
             // The stop/take-profit flags say which LEG an update belongs to, not

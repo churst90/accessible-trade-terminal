@@ -94,10 +94,38 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void PrivateOrder_new_status_is_not_announced()
+        public void PrivateOrder_new_status_maps_to_New()
         {
+            // Status 1 (new) used to be dropped with no trace; the order service
+            // now logs New, so the mapper reports it instead of returning null.
             var order = new PrivateOrdersV3Api { Id = "OID-2", Status = 1, TradeType = 1, Price = "100" };
-            Assert.Null(MexcProtobuf.MapPrivateOrder(order, "BTCUSDT")); // status 1 (new) → silent
+            Assert.Equal(OrderStatus.New, MexcProtobuf.MapPrivateOrder(order, "BTCUSDT").Status);
+        }
+
+        [Fact]
+        public void PrivateOrder_unrecognised_status_maps_to_Unknown_naming_the_code()
+        {
+            var order = new PrivateOrdersV3Api { Id = "OID-3", Status = 9, TradeType = 1, Price = "100" };
+            var u = MexcProtobuf.MapPrivateOrder(order, "BTCUSDT");
+            Assert.Equal(OrderStatus.Unknown, u.Status);
+            Assert.Contains("9", u.Reason);
+        }
+
+        [Fact]
+        public void PrivateOrder_partial_fill_then_cancel_carries_the_executed_part()
+        {
+            // Status 5 (PARTIALLY_FILLED_CANCELED) is terminal-cancelled, but the
+            // fill that happened first opened a live position — the update must
+            // carry it so the announcement can speak it.
+            var order = new PrivateOrdersV3Api
+            {
+                Id = "OID-4", Status = 5, TradeType = 1,
+                Price = "100", AvgPrice = "99.5", CumulativeQuantity = "0.4", RemainQuantity = "0.6",
+            };
+            var u = MexcProtobuf.MapPrivateOrder(order, "BTCUSDT");
+            Assert.Equal(OrderStatus.Cancelled, u.Status);
+            Assert.Equal(0.4, u.FilledQuantity);
+            Assert.Equal(99.5, u.FilledPrice);
         }
 
         // Mirrors OrderStatus values so the theory reads clearly without exposing the

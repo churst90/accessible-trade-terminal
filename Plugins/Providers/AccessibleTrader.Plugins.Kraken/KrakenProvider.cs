@@ -289,14 +289,7 @@ namespace AccessibleTrader.Plugins.Kraken
                         var sideStr = exec["side"]?.ToString() ?? "";
                         var statusStr = exec["order_status"]?.ToString() ?? "";
 
-                        var status = statusStr switch
-                        {
-                            "filled"           => OrderStatus.Filled,
-                            "partially_filled" => OrderStatus.PartialFill,
-                            "canceled"         => OrderStatus.Cancelled,
-                            "expired"          => OrderStatus.Cancelled,
-                            _                  => OrderStatus.Triggered
-                        };
+                        var status = MapExecutionStatus(statusStr);
 
                         _orderUpdateSubject.OnNext(new OrderUpdate(
                             orderId, symbol,
@@ -304,7 +297,8 @@ namespace AccessibleTrader.Plugins.Kraken
                             exec["cum_qty"]?.Value<double>() ?? 0,
                             exec["avg_price"]?.Value<double>() ?? 0,
                             exec["leaves_qty"]?.Value<double>() ?? 0,
-                            status, false, false, DateTime.UtcNow));
+                            status, false, false, DateTime.UtcNow,
+                            Reason: status == OrderStatus.Unknown ? $"Kraken order_status '{statusStr}'" : null));
                     }
                 }
             }
@@ -313,6 +307,23 @@ namespace AccessibleTrader.Plugins.Kraken
                 _errorStream.OnNext($"Kraken message parse failed: {ex.GetType().Name}");
             }
         }
+
+        /// <summary>Maps a v2 executions <c>order_status</c> to an order status.
+        /// The old fallback was <c>Triggered</c> — silently discarded by the order
+        /// service — so "new" and "pending_new" (order accepted and working)
+        /// vanished without a log line. A stop that fires reports "triggered": it
+        /// just became a working order, which is <c>New</c> — the execution, when
+        /// it comes, carries the trigger fact on its own update. Internal for
+        /// direct testing.</summary>
+        internal static OrderStatus MapExecutionStatus(string statusStr) => statusStr switch
+        {
+            "filled"           => OrderStatus.Filled,
+            "partially_filled" => OrderStatus.PartialFill,
+            "canceled"         => OrderStatus.Cancelled,
+            "expired"          => OrderStatus.Expired,
+            "new" or "pending_new" or "triggered" => OrderStatus.New,
+            _                  => OrderStatus.Unknown,
+        };
 
         /// <summary>Parses one v2 ohlc channel candle. The channel re-sends the
         /// current candle with CUMULATIVE volume-so-far — see LiveTickStyle.

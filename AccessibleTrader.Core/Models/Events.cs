@@ -260,6 +260,15 @@ namespace AccessibleTrader.Core.Models
     /// expired, or (on polled brokers, where the two are indistinguishable)
     /// rejected upstream. Announced so no order ever disappears silently.</summary>
     public record OrderCancelledEvent(OrderUpdate Order);
+    /// <summary>The order's time-in-force ran out (IOC/FOK remainder, day order
+    /// at the close). Not a cancel — nobody asked — and not a rejection — the
+    /// venue accepted it. Announced distinctly so the trader knows their intent
+    /// lapsed rather than was refused.</summary>
+    public record OrderExpiredEvent(OrderUpdate Order);
+    /// <summary>The order was modified and is STILL LIVE under a new id. Must
+    /// never be announced as cancelled: a trader who hears "cancelled" believes
+    /// they are flat, re-enters, and is double-sized with the original resting.</summary>
+    public record OrderReplacedEvent(OrderUpdate Order);
     public record MarginWarningEvent(string Symbol, double MarginLevel, string Message);
 
     /// <summary>

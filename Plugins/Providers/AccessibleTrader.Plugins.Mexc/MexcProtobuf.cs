@@ -44,19 +44,24 @@ namespace AccessibleTrader.Plugins.Mexc
             return true;
         }
 
-        /// <summary>Projects a private-order push into an <see cref="OrderUpdate"/>, or
-        /// null for non-announceable states. MEXC spot order status: 1 new, 2 filled,
-        /// 3 partially filled, 4 canceled, 5 partially canceled; tradeType 1 buy, 2 sell.</summary>
-        public static OrderUpdate? MapPrivateOrder(global::PrivateOrdersV3Api o, string symbol)
+        /// <summary>Projects a private-order push into an <see cref="OrderUpdate"/>.
+        /// MEXC spot order status: 1 new, 2 filled, 3 partially filled, 4 canceled,
+        /// 5 partially filled then canceled; tradeType 1 buy, 2 sell. Status 5 used
+        /// to be squashed into a bare Cancelled — hiding the live position the
+        /// partial fill opened before the cancel; it still maps to Cancelled (the
+        /// order IS terminal) but the cumulative fill quantity rides along and the
+        /// announcement speaks it. Unrecognised codes used to be dropped with no
+        /// trace; they now map to Unknown, which the order service logs.</summary>
+        public static OrderUpdate MapPrivateOrder(global::PrivateOrdersV3Api o, string symbol)
         {
-            OrderStatus? status = o.Status switch
+            OrderStatus status = o.Status switch
             {
+                1 => OrderStatus.New,
                 2 => OrderStatus.Filled,
                 3 => OrderStatus.PartialFill,
                 4 or 5 => OrderStatus.Cancelled,
-                _ => null,
+                _ => OrderStatus.Unknown,
             };
-            if (status == null) return null;
 
             double filled = ParseD(o.CumulativeQuantity);
             double avg    = ParseD(o.AvgPrice);
@@ -64,8 +69,9 @@ namespace AccessibleTrader.Plugins.Mexc
             return new OrderUpdate(
                 o.Id ?? string.Empty, symbol,
                 o.TradeType == 1 ? OrderSide.Buy : OrderSide.Sell,
-                filled, price, ParseD(o.RemainQuantity), status.Value,
-                false, false, DateTime.UtcNow);
+                filled, price, ParseD(o.RemainQuantity), status,
+                false, false, DateTime.UtcNow,
+                Reason: status == OrderStatus.Unknown ? $"MEXC status code {o.Status}" : null);
         }
 
         private static double ParseD(string? s) =>

@@ -136,9 +136,11 @@ namespace AccessibleTrader.Tests
             }
 
             [Fact]
-            public void ExecutionReport_NewStatus_NotAnnounced()
+            public void ExecutionReport_NewStatus_EmitsNew()
             {
-                // NEW orders are placement acks, not fill events — no emission.
+                // NEW used to be dropped with no trace; it now flows through as
+                // OrderStatus.New, which the order service logs (and does not
+                // announce — placement was already announced).
                 var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
                 var frame = """
                     {"e":"executionReport","s":"BTCUSDT","S":"BUY","X":"NEW",
@@ -148,7 +150,7 @@ namespace AccessibleTrader.Tests
                 var emitted = Capture(p.OrderUpdateStream,
                     () => DispatchJsonElement(p, "OnUserDataMessage", frame));
 
-                Assert.Empty(emitted);
+                Assert.Equal(AccessibleTrader.Sdk.Trading.OrderStatus.New, Assert.Single(emitted).Status);
             }
 
             [Fact]

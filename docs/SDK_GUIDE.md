@@ -313,7 +313,20 @@ rest. Critically, **push every order event onto `OrderUpdateStream`** — fills,
 partials, cancels, stop/TP triggers — because that stream is what drives the spoken
 "Order filled… / Stop loss hit… / Trailing take profit hit…" announcements. Set
 `StopTriggered` / `TakeProfitTriggered`, `Trailing`, and `RealizedPnL` on the
-`OrderUpdate` so the speech layer can say the right thing. Advertise your capabilities
+`OrderUpdate` so the speech layer can say the right thing.
+
+Map your venue's status vocabulary onto `OrderStatus` **without a guessing fallback**:
+`New` for accepted-and-working (logged, not announced), `Expired` when time-in-force
+ran out (not `Cancelled` — nobody asked; not `Rejected` — the venue accepted it),
+`Replaced` when the order was modified and is still live under a new id (never
+`Cancelled`, which tells the trader they are flat while the order rests), and
+`Unknown` for anything you don't recognise, with the raw venue word in
+`OrderUpdate.Reason` so the log names it. A partially-filled-then-terminated order
+reports its terminal state with `FilledQuantity` carrying the executed part — the
+announcement speaks the fill. The full rules live on the `OrderStatus` enum doc
+comment, and `OrderStatusContractTests` enforces that every member is consumed.
+
+Advertise your capabilities
 (`ProviderCapabilities.Leverage | TrailingStop | Brackets | ...`) so the order panel
 shows only the controls you support.
 

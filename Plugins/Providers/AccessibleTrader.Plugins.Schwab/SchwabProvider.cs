@@ -563,10 +563,18 @@ namespace AccessibleTrader.Plugins.Schwab
             string status = order["status"]?.ToString() ?? "";
             var state = status switch
             {
-                "FILLED"                                          => PolledOrderState.Filled,
-                "CANCELED" or "CANCELLED" or "EXPIRED" or "REPLACED" => PolledOrderState.Cancelled,
-                "REJECTED"                                        => PolledOrderState.Rejected,
-                _                                                 => PolledOrderState.Working,
+                "FILLED"                  => PolledOrderState.Filled,
+                "CANCELED" or "CANCELLED" => PolledOrderState.Cancelled,
+                // EXPIRED is not a cancel — nobody asked; the order timed out.
+                "EXPIRED"                 => PolledOrderState.Expired,
+                // REPLACED means the order is STILL LIVE under a new id. The old
+                // REPLACED→Cancelled squash told the trader they were flat; they
+                // re-entered and were double-sized with the original resting.
+                "REPLACED"                => PolledOrderState.Replaced,
+                "REJECTED"                => PolledOrderState.Rejected,
+                // Schwab's remaining vocabulary (WORKING, QUEUED, ACCEPTED,
+                // PENDING_*, AWAITING_*) is all working-family — keep polling.
+                _                         => PolledOrderState.Working,
             };
 
             var leg   = (order["orderLegCollection"] as JArray)?.FirstOrDefault();

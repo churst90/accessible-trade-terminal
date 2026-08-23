@@ -407,12 +407,7 @@ namespace AccessibleTrader.Plugins.Gemini
                 double executed  = D(json["executed_amount"]);
                 double remaining = D(json["remaining_amount"]);
 
-                var state =
-                    live && executed > 0  ? PolledOrderState.PartiallyFilled :
-                    live                  ? PolledOrderState.Working :
-                    cancelled             ? PolledOrderState.Cancelled :
-                    executed > 0          ? PolledOrderState.Filled :
-                                            PolledOrderState.Cancelled;
+                var state = MapOrderState(live, cancelled, executed, remaining);
 
                 return new OrderStatusSnapshot(
                     state,
@@ -430,6 +425,25 @@ namespace AccessibleTrader.Plugins.Gemini
                 return null;
             }
         }
+
+        /// <summary>
+        /// Order of the tests matters. Gemini has no native market order —
+        /// OrderType.Market is emulated as an IOC limit, so the DEFAULT order
+        /// type on this venue is the one most likely to partially fill and then
+        /// cancel. The old ladder tested is_cancelled before executed, so that
+        /// case reported a bare "cancelled" while the trader owned coins. Now:
+        /// everything-executed is Filled no matter what the cancel flag says
+        /// about the zero remainder, and a cancel-after-partial reports
+        /// Cancelled WITH the executed amount in the snapshot — the
+        /// announcement speaks the fill. Internal for direct testing.
+        /// </summary>
+        internal static PolledOrderState MapOrderState(bool live, bool cancelled, double executed, double remaining) =>
+            live && executed > 0           ? PolledOrderState.PartiallyFilled :
+            live                           ? PolledOrderState.Working :
+            executed > 0 && remaining <= 0 ? PolledOrderState.Filled :
+            cancelled                      ? PolledOrderState.Cancelled :
+            executed > 0                   ? PolledOrderState.Filled :
+                                             PolledOrderState.Cancelled;
 
         /// <summary>
         /// Recent fills via <c>/v1/mytrades</c>. Sandbox caveat, verified live

@@ -232,15 +232,7 @@ namespace AccessibleTrader.Plugins.Tradier
                 if (json["event"]?.ToString() != "order") return;
 
                 string status = json["status"]?.ToString() ?? "";
-                OrderStatus? mapped = status switch
-                {
-                    "filled" => OrderStatus.Filled,
-                    "partially_filled" => OrderStatus.PartialFill,
-                    "canceled" or "cancelled" or "expired" => OrderStatus.Cancelled,
-                    "rejected" => OrderStatus.Rejected,
-                    _ => null, // open / pending etc — not announceable events
-                };
-                if (mapped == null) return;
+                OrderStatus mapped = MapAccountEventStatus(status);
 
                 string type = json["type"]?.ToString() ?? "";
                 string side = json["side"]?.ToString() ?? "";
@@ -258,18 +250,35 @@ namespace AccessibleTrader.Plugins.Tradier
                     FilledQuantity: mapped == OrderStatus.PartialFill && lastQty > 0 ? lastQty : execQty,
                     FilledPrice: avgFill,
                     RemainingQuantity: remaining,
-                    Status: mapped.Value,
+                    Status: mapped,
                     // No trigger flags on the wire; the ORDER TYPE says what a fill means.
                     StopTriggered: mapped == OrderStatus.Filled
                         && type.Contains("stop", StringComparison.OrdinalIgnoreCase),
                     TakeProfitTriggered: false,
-                    Timestamp: DateTime.UtcNow));
+                    Timestamp: DateTime.UtcNow,
+                    Reason: mapped == OrderStatus.Unknown ? $"Tradier status '{status}'" : null));
             }
             catch (Exception ex)
             {
                 _errorStream.OnNext($"Tradier account event parse error: {ex.Message}");
             }
         }
+
+        /// <summary>Maps an account-stream order status word to an order status.
+        /// "expired" was squashed into Cancelled (wrong reason spoken); "open" and
+        /// "pending" were dropped entirely — they are the venue saying "accepted
+        /// and working", which the order service now logs. Internal for direct
+        /// testing.</summary>
+        internal static OrderStatus MapAccountEventStatus(string status) => status switch
+        {
+            "filled"                  => OrderStatus.Filled,
+            "partially_filled"        => OrderStatus.PartialFill,
+            "canceled" or "cancelled" => OrderStatus.Cancelled,
+            "expired"                 => OrderStatus.Expired,
+            "rejected" or "error"     => OrderStatus.Rejected,
+            "open" or "pending"       => OrderStatus.New,
+            _                         => OrderStatus.Unknown,
+        };
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
@@ -769,11 +778,15 @@ namespace AccessibleTrader.Plugins.Tradier
             string status = order["status"]?.ToString() ?? "";
             var state = status switch
             {
-                "filled"                                => PolledOrderState.Filled,
-                "partially_filled"                      => PolledOrderState.PartiallyFilled,
-                "canceled" or "cancelled" or "expired"  => PolledOrderState.Cancelled,
-                "rejected"                              => PolledOrderState.Rejected,
-                _                                       => PolledOrderState.Working,
+                "filled"                     => PolledOrderState.Filled,
+                "partially_filled"           => PolledOrderState.PartiallyFilled,
+                "canceled" or "cancelled"    => PolledOrderState.Cancelled,
+                // Expired is not a cancel: nobody asked for it — a day order hit
+                // the close. It was squashed into Cancelled here, so the trader
+                // heard the wrong reason their order left the book.
+                "expired"                    => PolledOrderState.Expired,
+                "rejected" or "error"        => PolledOrderState.Rejected,
+                _                            => PolledOrderState.Working,
             };
             string type = order["type"]?.ToString() ?? "";
             string side = order["side"]?.ToString() ?? "";

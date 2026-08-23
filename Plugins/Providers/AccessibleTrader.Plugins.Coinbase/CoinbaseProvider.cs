@@ -263,15 +263,18 @@ namespace AccessibleTrader.Plugins.Coinbase
                         {
                             var statusStr = o["status"]?.ToString() ?? "";
                             var sideStr = o["side"]?.ToString() ?? "";
+                            double fs = double.TryParse(o["filled_size"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fsv) ? fsv : 0;
+                            var status = MapToOrderStatus(statusStr, fs);
                             _orderUpdateSubject.OnNext(new OrderUpdate(
                                 o["order_id"]?.ToString() ?? "",
                                 o["product_id"]?.ToString() ?? "",
                                 sideStr == "BUY" ? OrderSide.Buy : OrderSide.Sell,
-                                double.TryParse(o["filled_size"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fs) ? fs : 0,
+                                fs,
                                 double.TryParse(o["avg_price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double ap) ? ap : 0,
                                 double.TryParse(o["leaves_quantity"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double lq) ? lq : 0,
-                                MapToOrderStatus(statusStr),
-                                false, false, DateTime.UtcNow));
+                                status,
+                                false, false, DateTime.UtcNow,
+                                Reason: status == OrderStatus.Unknown ? $"Coinbase status '{statusStr}'" : null));
                         }
                     }
                 }
@@ -285,14 +288,23 @@ namespace AccessibleTrader.Plugins.Coinbase
             }
         }
 
-        private OrderStatus MapToOrderStatus(string status) => status.ToUpper() switch
+        /// <summary>Maps a user-channel order status to an order status. The
+        /// <c>user</c> channel sends <c>status: "OPEN"</c> with
+        /// <c>filled_size: "0"</c> the instant an order rests — the old
+        /// unconditional OPEN→PartialFill mapping announced "partially filled"
+        /// for every freshly-accepted limit order. OPEN is a partial fill only
+        /// when something actually filled. The old fallback was <c>Triggered</c>
+        /// (silently discarded), which swallowed FAILED — a refusal the trader
+        /// never heard. Internal for direct testing.</summary>
+        internal static OrderStatus MapToOrderStatus(string status, double filledSize) => status.ToUpperInvariant() switch
         {
             "FILLED"    => OrderStatus.Filled,
             "CANCELLED" => OrderStatus.Cancelled,
-            "EXPIRED"   => OrderStatus.Cancelled,
-            "REJECTED"  => OrderStatus.Rejected,
-            "OPEN"      => OrderStatus.PartialFill,
-            _           => OrderStatus.Triggered
+            "EXPIRED"   => OrderStatus.Expired,
+            "REJECTED" or "FAILED" => OrderStatus.Rejected,
+            "OPEN"      => filledSize > 0 ? OrderStatus.PartialFill : OrderStatus.New,
+            "PENDING" or "QUEUED" => OrderStatus.New,
+            _           => OrderStatus.Unknown,
         };
 
         private TimeSpan MapTimeframeToTimeSpan(string tf) => tf.ToLower() switch

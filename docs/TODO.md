@@ -2,7 +2,7 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 295 open of 1317 tracked items (1022 done). Suite green at 4295 tests.
+**Status 2026-08-23:** 291 open of 1317 tracked items (1026 done). Suite green at 4363 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
 
@@ -1133,7 +1133,7 @@ of this block: **the order contract was never documented where a provider author
 never enforced by a type, and never checked by a test** — so sixteen providers each guessed, and the
 guesses are invisible until money moves.
 
-- [ ] **`OrderStatus.Triggered` is produced by four providers and consumed by nobody.** VERIFIED —
+- [x] **`OrderStatus.Triggered` is produced by four providers and consumed by nobody.** VERIFIED —
   the enum is `{ PartialFill, Filled, Cancelled, Rejected, Triggered }` and
   `GeneralOrderService.PublishOrderEvent` has cases for Filled / PartialFill / Rejected / Cancelled
   and **no `Triggered` case and no `default`**. Kraken, Coinbase, Alpaca and InteractiveBrokers all
@@ -1143,16 +1143,45 @@ guesses are invisible until money moves.
   cannot distinguish "still working" from "refused". Fix: delete `Triggered` (the trigger fact
   already lives in `StopTriggered`/`TakeProfitTriggered`), add `New`/`Expired`/`Replaced`/`Unknown`,
   and make the switch exhaustive with a logged default.
-- [ ] **Neither order enum has `Expired` or `Replaced`, and the squashes are dangerous.** Schwab maps
+  **DONE 2026-08-23** — exactly the prescribed fix. `Triggered` deleted; enum is now
+  `{ PartialFill, Filled, Cancelled, Rejected, New, Expired, Replaced, Unknown }`, with the mapping
+  rules documented ON the enum (where a provider author will read them).
+  `PublishOrderEvent` is exhaustive: Expired/Replaced publish new `OrderExpiredEvent`/
+  `OrderReplacedEvent` (spoken: "Order expired…" / "Order replaced… still working under a new
+  order id"); New and Unknown are deliberately log-only (placement was already announced; Unknown
+  logs the raw venue word via `OrderUpdate.Reason`, which every provider now stamps on its fallback
+  arm). All six fallback arms rewritten as internal static mappers (Alpaca `MapTradeEvent`, Kraken
+  + Binance `MapExecutionStatus`, IB `MapIbStatus`, Coinbase `MapToOrderStatus`, Tradier
+  `MapAccountEventStatus`). Guard: `OrderStatusContractTests.Every_OrderStatus_member_is_consumed_
+  published_or_pinned_log_only` — enumerates the enum through the real service and fails on any
+  member that is neither published nor pinned log-only, so this defect class cannot re-enter.
+  All guards proven red in a 7-way sabotage run (9 failures, all matching).
+- [x] **Neither order enum has `Expired` or `Replaced`, and the squashes are dangerous.** Schwab maps
   `"REPLACED"` to `Cancelled` — but replaced means the order is **still live under a new id**, so the
   trader hears "cancelled", believes they are flat, re-enters, and is now double-sized with the
   original still resting. MEXC maps protobuf status 5 (`PARTIALLY_FILLED_CANCELED`) to `Cancelled`,
   hiding a live position that was opened before the cancel. Binance maps `EXPIRED` to `Rejected`.
-- [ ] **Coinbase announces a freshly-accepted resting limit order as a partial fill of zero.**
+  **DONE 2026-08-23** — both enums gained `Expired`/`Replaced` (`PolledOrderState` too), and the
+  twin sweep found the squash in more providers than the audit listed: expired→Cancelled also lived
+  in Tradier (both the stream and the polled mapper), Kraken and Coinbase. Schwab REPLACED →
+  Replaced; the poller ends that watch (the new id is unknowable) and the announcement says the
+  order is STILL WORKING. Binance EXPIRED/EXPIRED_IN_MATCH → Expired. MEXC status 5 stays
+  terminal-Cancelled **but the cumulative fill rides on the update and the announcement speaks
+  it** — `FormatTerminated` says "Order cancelled for X after a partial fill: bought 0.4 at 99.5"
+  whenever `FilledQuantity > 0`, for cancels AND expiries, on every provider at once (the class
+  fix). Guards: the per-provider vocabulary theories in `OrderStatusContractTests`, the flipped
+  pins in `BrokerOrderStatusMappingTests`/`TradierAccountEventTests`, and
+  `CancelledAfterPartialFill_SpeaksTheExecutedPart` in `OrderEventAnnouncementTests`.
+- [x] **Coinbase announces a freshly-accepted resting limit order as a partial fill of zero.**
   VERIFIED — `CoinbaseProvider.cs:293` is `"OPEN" => OrderStatus.PartialFill`, and Coinbase's `user`
   channel sends `status: "OPEN"` with `filled_size: "0"` the instant an order rests.
   `GeneralOrderService:143` then publishes `OrderPartialFillEvent`. Place a limit order, immediately
   hear "partially filled".
+  **DONE 2026-08-23** — `MapToOrderStatus` now takes the filled size: OPEN with nothing filled is
+  `New` (logged, not announced — placement already announced), OPEN with a fill is a real
+  PartialFill. Same pass: `FAILED` → Rejected (it used to fall into the discarded `Triggered`
+  arm — a refusal the trader never heard), `EXPIRED` → Expired, PENDING/QUEUED → New. Guard:
+  `Coinbase_OPEN_with_nothing_filled_is_New_not_PartialFill` + the Coinbase vocabulary theory.
 - [x] **Coinbase parses every number with the ambient culture — 22 sites including fill quantity and
   fill price.** VERIFIED at `:269-271`: `double.TryParse(o["filled_size"]?.ToString(), out …)` with
   no `IFormatProvider`. On de-DE/fr-FR/pt-BR/ru-RU/tr-TR, `TryParse("0.5")` reads `.` as a group
@@ -1198,11 +1227,17 @@ guesses are invisible until money moves.
   `SupportsOrderStatusQuery => true` precisely so the poller resolves fills — and the poller is
   gated on `!IsErrorSentinel(result)`, so it never starts. The protective-order verification net is
   skipped for the same reason. Nine other providers use the same `?? "ORDER_SUBMITTED"` fallback.
-- [ ] **`GeminiProvider.cs:410-415` announces a partially-filled-then-cancelled order as
+- [x] **`GeminiProvider.cs:410-415` announces a partially-filled-then-cancelled order as
   "cancelled".** The ternary ladder tests `cancelled` **before** `executed > 0`. Gemini has no native
   market order, so `OrderType.Market` is emulated as an IOC limit — the default order type on this
   venue is the one most likely to partially fill and cancel. The trader owns coins and hears
   "cancelled". This is the exact bug class that shipped once already on Tradier/Schwab.
+  **DONE 2026-08-23**, two halves. The ladder (now `internal static MapOrderState`) reports
+  fully-executed as Filled even when the venue flags the zero remainder cancelled, and a
+  cancel-after-partial stays Cancelled — the truthful terminal state — **with the executed amount
+  in the snapshot**, which is the half that actually reaches the ear: the Cancelled/Expired
+  announcement now speaks the partial fill on every venue (see the enum item above). Guards:
+  `Gemini_order_state_ladder` theory + `CancelledAfterPartialFill_SpeaksTheExecutedPart`.
 - [ ] **`catch { return new(); }` on trading reads re-arms the reconciliation incident
   `ProviderResult.cs:8-16` documents as fixed.** `GeneralOrderService:720` classifies failure purely
   by whether the provider *threw*, and `TradingReconciliationCoordinator:155` guards on

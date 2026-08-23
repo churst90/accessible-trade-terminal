@@ -334,21 +334,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                             double filledQty    = order["filledQuantity"]?.Value<double>() ?? 0;
                             double remainingQty = order["remainingQuantity"]?.Value<double>() ?? 0;
 
-                            // Map ONLY announceable states; unknown / still-pending
-                            // statuses (PendingSubmit, PendingCancel, ApiPending, …)
-                            // must stay silent rather than default to a spurious
-                            // "partial fill". A working order with a partial fill IS
-                            // a partial fill; a working order with none is "triggered".
-                            OrderStatus? status = statusStr switch
-                            {
-                                "Filled"                       => OrderStatus.Filled,
-                                "Cancelled" or "ApiCancelled"  => OrderStatus.Cancelled,
-                                "Inactive"  or "Rejected"      => OrderStatus.Rejected,
-                                "Submitted" or "PreSubmitted"  => filledQty > 0 && remainingQty > 0
-                                    ? OrderStatus.PartialFill : OrderStatus.Triggered,
-                                _                              => null,
-                            };
-                            if (status == null) continue;
+                            var status = MapIbStatus(statusStr, filledQty, remainingQty);
 
                             _orderUpdateSubject.OnNext(new OrderUpdate(
                                 orderId, symbol,
@@ -356,13 +342,34 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                                 filledQty,
                                 order["avgPrice"]?.Value<double>() ?? 0,
                                 remainingQty,
-                                status.Value, false, false, DateTime.UtcNow));
+                                status, false, false, DateTime.UtcNow,
+                                Reason: status == OrderStatus.Unknown ? $"IBKR status '{statusStr}'" : null));
                         }
                     }
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[IB] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
+
+        /// <summary>Maps an IBKR order-status word to an order status. A working
+        /// order with a partial fill IS a partial fill; a working order with none
+        /// is <c>New</c> (accepted, resting). The old fallback was
+        /// <c>Triggered</c> — silently discarded by the order service — so the
+        /// pending states and anything unrecognised vanished without a log line.
+        /// Internal for direct testing.</summary>
+        internal static OrderStatus MapIbStatus(string statusStr, double filledQty, double remainingQty) => statusStr switch
+        {
+            "Filled"                       => OrderStatus.Filled,
+            "Cancelled" or "ApiCancelled"  => OrderStatus.Cancelled,
+            "Inactive"  or "Rejected"      => OrderStatus.Rejected,
+            "Submitted" or "PreSubmitted"  => filledQty > 0 && remainingQty > 0
+                ? OrderStatus.PartialFill : OrderStatus.New,
+            // In-flight transitions: not yet accepted / cancel requested but not
+            // confirmed. The venue will follow with a real state; meanwhile the
+            // order is best described as accepted-and-working.
+            "PendingSubmit" or "PendingCancel" or "ApiPending" => OrderStatus.New,
+            _                              => OrderStatus.Unknown,
+        };
 
         public override async Task DisconnectAsync()
         {

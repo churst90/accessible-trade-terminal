@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The order-status contract: no venue status is ever silently discarded again (2026-08-23)
+
+First slice of the audit's provider-tier ship-blockers — the order-status mapping cluster, four
+findings that were one defect: the status vocabulary was never a contract, so sixteen providers
+each guessed.
+
+- **`OrderStatus.Triggered` deleted.** Four providers (Kraken, Coinbase, Alpaca, IB) used it as
+  their fallback arm and `GeneralOrderService.PublishOrderEvent` had no case for it — every venue
+  status they didn't recognise (Coinbase `FAILED`, Alpaca `expired`/`replaced`, Kraken
+  `new`/`pending_new`) vanished: no event, no log, no announcement. The enum is now
+  `{ PartialFill, Filled, Cancelled, Rejected, New, Expired, Replaced, Unknown }` with the mapping
+  rules documented on the enum itself, and the switch is exhaustive: Expired/Replaced publish new
+  spoken events, New/Unknown are deliberately log-only (Unknown logs the raw venue word, which
+  every provider now stamps into `OrderUpdate.Reason` on its fallback arm).
+- **The dangerous squashes unsquashed, in more places than the audit listed.** Schwab `REPLACED`
+  → Cancelled told the trader they were flat while the order rested live under a new id — it now
+  announces "Order replaced… still working under a new order id". Binance `EXPIRED` → Rejected;
+  expired→Cancelled also lived in Tradier (stream AND polled mapper), Kraken, and Coinbase — all
+  now `Expired`, spoken as expired ("nobody asked, the venue accepted, time ran out").
+- **Coinbase no longer announces a freshly-rested limit order as a partial fill of zero.** The
+  `user` channel sends `OPEN` + `filled_size: "0"` the instant an order rests; `OPEN` now maps on
+  the filled size (`New` when nothing filled), and `FAILED` finally reaches the ear as a rejection.
+- **A cancelled or expired order that partially filled first now says so, on every venue.**
+  "Order cancelled for BTC/USD after a partial fill: bought 0.4 at 99.5" — the class fix for
+  Gemini's IOC-emulated market orders (its ladder also reports fully-executed as Filled even when
+  the venue flags the zero remainder cancelled) and for MEXC's terminal
+  `PARTIALLY_FILLED_CANCELED` status, whose cumulative fill now rides the update.
+
+Every provider fallback arm became a named internal mapper with a vocabulary test. The keystone
+guard, `OrderStatusContractTests.Every_OrderStatus_member_is_consumed_published_or_pinned_log_only`,
+enumerates the enum through the real order service — an enum member that is neither published nor
+deliberately log-only fails the suite, so "produced but consumed by nobody" cannot re-enter. All
+guards proven red in a 7-way sabotage run (9 reds, all matching). Test count 4295 → 4363.
+
 ### The flake-risk pass: every timing-gated negative assertion now proves "never", not "not yet" (2026-08-23)
 
 The audit's flake-risk section warned that none of it made the suite untrustworthy on a quiet

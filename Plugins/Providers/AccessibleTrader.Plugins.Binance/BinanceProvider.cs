@@ -212,16 +212,7 @@ namespace AccessibleTrader.Plugins.Binance
             if (!root.TryGetProperty("e", out var ev) || ev.GetString() != "executionReport") return;
 
             string statusStr = root.GetProperty("X").GetString() ?? "";
-            OrderStatus? status = statusStr switch
-            {
-                "PARTIALLY_FILLED" => OrderStatus.PartialFill,
-                "FILLED"           => OrderStatus.Filled,
-                "CANCELED"         => OrderStatus.Cancelled,
-                "REJECTED"         => OrderStatus.Rejected,
-                "EXPIRED"          => OrderStatus.Rejected,
-                _                  => (OrderStatus?)null  // NEW / others: nothing to announce
-            };
-            if (status == null) return;
+            var status = MapExecutionStatus(statusStr);
 
             string symbol   = root.GetProperty("s").GetString() ?? "";
             var side        = (root.GetProperty("S").GetString() == "SELL") ? OrderSide.Sell : OrderSide.Buy;
@@ -239,8 +230,26 @@ namespace AccessibleTrader.Plugins.Binance
             _orderUpdateSubject.OnNext(new OrderUpdate(
                 orderId, symbol, side,
                 filled, fillPx, Math.Max(0, origQty - filled),
-                status.Value, stopTrig, tpTrig, DateTime.UtcNow));
+                status, stopTrig, tpTrig, DateTime.UtcNow,
+                Reason: status == OrderStatus.Unknown ? $"Binance status '{statusStr}'" : null));
         }
+
+        /// <summary>Maps an executionReport <c>X</c> status to an order status.
+        /// EXPIRED used to map to Rejected — but an expired order was ACCEPTED by
+        /// the venue and timed out (an IOC remainder, an unfilled post-only), which
+        /// is a different fact with a different fix than a refusal. NEW used to be
+        /// dropped entirely; it is now logged by the order service. Internal for
+        /// direct testing.</summary>
+        internal static OrderStatus MapExecutionStatus(string statusStr) => statusStr switch
+        {
+            "PARTIALLY_FILLED"  => OrderStatus.PartialFill,
+            "FILLED"            => OrderStatus.Filled,
+            "CANCELED"          => OrderStatus.Cancelled,
+            "REJECTED"          => OrderStatus.Rejected,
+            "EXPIRED" or "EXPIRED_IN_MATCH" => OrderStatus.Expired,
+            "NEW" or "PENDING_NEW"          => OrderStatus.New,
+            _                   => OrderStatus.Unknown,
+        };
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {

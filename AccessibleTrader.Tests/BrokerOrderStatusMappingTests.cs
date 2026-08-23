@@ -22,8 +22,11 @@ namespace AccessibleTrader.Tests
         [InlineData("partially_filled", PolledOrderState.PartiallyFilled)]
         [InlineData("canceled",         PolledOrderState.Cancelled)]
         [InlineData("cancelled",        PolledOrderState.Cancelled)]
-        [InlineData("expired",          PolledOrderState.Cancelled)]
+        // Expired is its own terminal state — a day order at the close is not a
+        // cancel (nobody asked) and not a rejection (the venue accepted it).
+        [InlineData("expired",          PolledOrderState.Expired)]
         [InlineData("rejected",         PolledOrderState.Rejected)]
+        [InlineData("error",            PolledOrderState.Rejected)]
         [InlineData("open",             PolledOrderState.Working)]
         [InlineData("pending",          PolledOrderState.Working)]
         public void Tradier_status_maps_to_state(string wire, PolledOrderState expected)
@@ -75,7 +78,11 @@ namespace AccessibleTrader.Tests
         [Theory]
         [InlineData("FILLED",   PolledOrderState.Filled)]
         [InlineData("CANCELED", PolledOrderState.Cancelled)]
-        [InlineData("EXPIRED",  PolledOrderState.Cancelled)]
+        [InlineData("EXPIRED",  PolledOrderState.Expired)]
+        // REPLACED means the order is STILL LIVE under a new id. The old
+        // REPLACED→Cancelled squash told the trader they were flat; they
+        // re-entered and were double-sized with the original still resting.
+        [InlineData("REPLACED", PolledOrderState.Replaced)]
         [InlineData("REJECTED", PolledOrderState.Rejected)]
         [InlineData("WORKING",  PolledOrderState.Working)]
         [InlineData("QUEUED",   PolledOrderState.Working)]

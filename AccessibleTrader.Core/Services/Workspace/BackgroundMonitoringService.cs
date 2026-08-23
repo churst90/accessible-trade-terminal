@@ -98,6 +98,9 @@ namespace AccessibleTrader.Core.Services.Workspace
             // go unwatched the moment the user switched tabs.
             _subs.Add(eventBus.Subscribe<OrderFilledEvent>(_ => Reconcile()));
             _subs.Add(eventBus.Subscribe<OrderCancelledEvent>(_ => Reconcile()));
+            // An expired order can have partially filled first — exposure may
+            // have changed just like a cancel-after-partial.
+            _subs.Add(eventBus.Subscribe<OrderExpiredEvent>(_ => Reconcile()));
 
             // Tab switches change which tab is "background"; snapshot-list changes
             // (add/close tab) change what exists to monitor.

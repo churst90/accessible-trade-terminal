@@ -148,7 +148,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _subscriptions.Add(_eventBus.Subscribe<OrderCancelledEvent>(e =>
             {
                 _audioRouter.PlayEarcon(FeedbackType.StateChange, ErrorSeverity.Low);
-                _speechRouter.Speak($"Order cancelled for {e.Order.Symbol}.", interrupt: false, channel: SpeechChannel.OrderEvent);
+                _speechRouter.Speak(FormatTerminated("cancelled", e.Order), interrupt: false, channel: SpeechChannel.OrderEvent);
+            }));
+            // Expired is not a cancel (nobody asked) and not a rejection (the venue
+            // accepted the order) — a day order at the close, an IOC remainder. The
+            // trader's intent lapsed; say so in those words.
+            _subscriptions.Add(_eventBus.Subscribe<OrderExpiredEvent>(e =>
+            {
+                _audioRouter.PlayEarcon(FeedbackType.StateChange, ErrorSeverity.Low);
+                _speechRouter.Speak(FormatTerminated("expired", e.Order), interrupt: false, channel: SpeechChannel.OrderEvent);
+            }));
+            // A replaced order is STILL LIVE under a new id. Saying "cancelled"
+            // here tells the trader they are flat while the order rests — they
+            // re-enter and are double-sized with the original still working.
+            _subscriptions.Add(_eventBus.Subscribe<OrderReplacedEvent>(e =>
+            {
+                _audioRouter.PlayEarcon(FeedbackType.StateChange, ErrorSeverity.Low);
+                _speechRouter.Speak(
+                    $"Order replaced for {e.Order.Symbol}. It is still working under a new order id.",
+                    interrupt: false, channel: SpeechChannel.OrderEvent);
             }));
             // Margin/liquidation proximity — a leveraged position drifting toward its
             // liquidation price is a High-severity safety event: error earcon plus an
@@ -183,6 +201,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return o.RemainingQuantity > 0
                 ? $"{baseMsg} {FormatQty(o.RemainingQuantity)} remaining."
                 : baseMsg;
+        }
+
+        /// <summary>
+        /// A cancelled/expired order that partially filled first left the trader
+        /// with a position. Announcing it as a bare "cancelled" hides that — on
+        /// venues that emulate market orders as IOC limits (Gemini) the DEFAULT
+        /// order type is the one most likely to partially fill and then cancel,
+        /// and MEXC's "partially filled then canceled" status is one terminal
+        /// message. So a terminal announcement always speaks the executed part.
+        /// </summary>
+        internal static string FormatTerminated(string what, Sdk.Trading.OrderUpdate o)
+        {
+            string why = string.IsNullOrWhiteSpace(o.Reason) ? "" : " " + o.Reason.TrimEnd('.') + ".";
+            if (o.FilledQuantity > 0)
+            {
+                string side = o.Side == Sdk.Plugins.OrderSide.Buy ? "bought" : "sold";
+                string at = o.FilledPrice > 0 ? $" at {SpeechPriceFormatter.FormatPrice(o.FilledPrice)}" : "";
+                return $"Order {what} for {o.Symbol} after a partial fill: {side} {FormatQty(o.FilledQuantity)}{at}.{why}";
+            }
+            return $"Order {what} for {o.Symbol}.{why}";
         }
 
         private static string FormatQty(double qty) => qty.ToString("0.########", CultureInfo.InvariantCulture);

@@ -81,8 +81,15 @@ namespace AccessibleTrader.Sdk.Plugins
     );
 
     /// <summary>Resolution state of a single order, from an authoritative
-    /// per-order status lookup (see <see cref="ITradingProvider.GetOrderStatusAsync"/>).</summary>
-    public enum PolledOrderState { Working, Filled, PartiallyFilled, Cancelled, Rejected }
+    /// per-order status lookup (see <see cref="ITradingProvider.GetOrderStatusAsync"/>).
+    /// <c>Expired</c> and <c>Replaced</c> are distinct terminal states, not
+    /// flavours of <c>Cancelled</c>: an expired order timed out (nobody asked),
+    /// and a replaced order is STILL LIVE under a new id — mapping it to
+    /// <c>Cancelled</c> tells the trader they are flat while the order rests.
+    /// A partially-filled-then-terminated order reports its terminal state with
+    /// <see cref="OrderStatusSnapshot.FilledQuantity"/> carrying the executed
+    /// part; the announcement speaks the fill.</summary>
+    public enum PolledOrderState { Working, Filled, PartiallyFilled, Cancelled, Rejected, Expired, Replaced }
 
     /// <summary>
     /// Authoritative snapshot of one order's status, used by the order-service

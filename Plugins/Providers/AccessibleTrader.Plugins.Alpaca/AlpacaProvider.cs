@@ -321,14 +321,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                     var order = data["order"];
                     if (order == null) return;
 
-                    var status = evt switch
-                    {
-                        "fill"         => OrderStatus.Filled,
-                        "partial_fill" => OrderStatus.PartialFill,
-                        "canceled"     => OrderStatus.Cancelled,
-                        "rejected"     => OrderStatus.Rejected,
-                        _              => OrderStatus.Triggered
-                    };
+                    var status = MapTradeEvent(evt);
 
                     _orderUpdateSubject.OnNext(new OrderUpdate(
                         order["id"]?.ToString() ?? "",
@@ -337,11 +330,31 @@ namespace AccessibleTrader.Plugins.Alpaca
                         double.TryParse(order["filled_qty"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fq) ? fq : 0,
                         double.TryParse(order["filled_avg_price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double fp) ? fp : 0,
                         double.TryParse(order["qty"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double tq) ? tq - fq : 0,
-                        status, false, false, DateTime.UtcNow));
+                        status, false, false, DateTime.UtcNow,
+                        Reason: status == OrderStatus.Unknown ? $"Alpaca event '{evt}'" : null));
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Alpaca] Malformed feed frame skipped: {ex.GetType().Name}"); }
         }
+
+        /// <summary>Maps a trade_updates event name to an order status. The old
+        /// fallback was <c>Triggered</c> — a member the order service silently
+        /// discarded, so "expired", "replaced" and "stopped" all vanished: an
+        /// expired order was never announced, and a replaced order (still live
+        /// under a new id) gave no hint it existed. Internal for direct testing.</summary>
+        internal static OrderStatus MapTradeEvent(string? evt) => evt switch
+        {
+            "fill"          => OrderStatus.Filled,
+            "partial_fill"  => OrderStatus.PartialFill,
+            "canceled"      => OrderStatus.Cancelled,
+            "rejected"      => OrderStatus.Rejected,
+            "expired"       => OrderStatus.Expired,
+            "replaced"      => OrderStatus.Replaced,
+            "new" or "accepted" or "pending_new" => OrderStatus.New,
+            // done_for_day, stopped, calculated, suspended, order_replace_rejected,
+            // order_cancel_rejected, … — logged with the raw word, never guessed.
+            _               => OrderStatus.Unknown,
+        };
 
         public override async Task DisconnectAsync()
         {

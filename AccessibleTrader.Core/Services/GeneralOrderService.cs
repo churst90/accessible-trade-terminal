@@ -161,6 +161,30 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogInformation("Order {OrderId} cancelled", update.OrderId);
                     _eventBus.Publish(new OrderCancelledEvent(update));
                     break;
+                case OrderStatus.Expired:
+                    _logger.LogInformation("Order {OrderId} expired: {Reason}", update.OrderId, update.Reason ?? "(no reason given)");
+                    _eventBus.Publish(new OrderExpiredEvent(update));
+                    break;
+                case OrderStatus.Replaced:
+                    _logger.LogInformation("Order {OrderId} replaced — still live under a new id", update.OrderId);
+                    _eventBus.Publish(new OrderReplacedEvent(update));
+                    break;
+                case OrderStatus.New:
+                    // Accepted and working. Logged, not announced: placement was
+                    // already announced when PlaceOrderAsync returned.
+                    _logger.LogInformation("Order {OrderId} accepted by the venue and working", update.OrderId);
+                    break;
+                case OrderStatus.Unknown:
+                default:
+                    // Exhaustive on purpose. The old enum had a Triggered member
+                    // with no case here — four providers used it as their fallback
+                    // arm, so every unrecognised venue status vanished silently and
+                    // the trader could not distinguish "still working" from
+                    // "refused". An unrecognised status is at minimum a log line.
+                    _logger.LogWarning(
+                        "Order {OrderId} on {Symbol} reported an unrecognised status ({Reason}) — treating as still working; check your open orders.",
+                        update.OrderId, update.Symbol, update.Reason ?? "no detail from provider");
+                    break;
             }
         }
 
@@ -516,7 +540,15 @@ namespace AccessibleTrader.Core.Services
                     {
                         PolledOrderState.Filled    => OrderStatus.Filled,
                         PolledOrderState.Cancelled => OrderStatus.Cancelled,
-                        _                          => OrderStatus.Rejected,
+                        PolledOrderState.Rejected  => OrderStatus.Rejected,
+                        PolledOrderState.Expired   => OrderStatus.Expired,
+                        // Replaced ends this watch: the order lives on under a new
+                        // id we never learned, so it cannot be polled further. The
+                        // announcement tells the trader the order is still working.
+                        PolledOrderState.Replaced  => OrderStatus.Replaced,
+                        // Working/PartiallyFilled continue above; anything new is a
+                        // contract change and must not be guessed into a rejection.
+                        _                          => OrderStatus.Unknown,
                     };
                     PublishOrderEvent(new OrderUpdate(
                         orderId, snap.Symbol, snap.Side,

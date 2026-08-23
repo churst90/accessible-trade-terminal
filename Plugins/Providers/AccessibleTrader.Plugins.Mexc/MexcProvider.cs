@@ -217,7 +217,7 @@ namespace AccessibleTrader.Plugins.Mexc
             var wrapper = MexcProtobuf.TryParse(data);
             if (wrapper == null || wrapper.BodyCase != global::PushDataV3ApiWrapper.BodyOneofCase.PrivateOrders) return;
             var update = MexcProtobuf.MapPrivateOrder(wrapper.PrivateOrders, wrapper.Symbol ?? _currentSymbol ?? string.Empty);
-            if (update != null) _orderUpdateSubject.OnNext(update);
+            _orderUpdateSubject.OnNext(update);
         }
 
         // ── Keyed-feed subscriptions (multi-live) ────────────────────────────
