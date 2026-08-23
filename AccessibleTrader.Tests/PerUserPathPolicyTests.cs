@@ -59,18 +59,15 @@ namespace AccessibleTrader.Tests
         /// Real instances of the defect that are tracked but not yet fixed. **This list may only
         /// ever shrink.** Adding a file here is not a fix, and the test below fails if an entry
         /// stops being an offender, so a fix cannot leave a stale exemption behind.
+        ///
+        /// <para>
+        /// Empty since 2026-08-22, when the last entry — <c>SchwabOAuthService.cs</c>, the third
+        /// instance, found by this scan — was fixed: the refresh token now persists only through
+        /// <c>PluginHostServices.SecureStorage</c>, and the legacy DPAPI file is located via the
+        /// Windows-only <c>%APPDATA%</c> environment variable purely to migrate and delete it.
+        /// </para>
         /// </summary>
-        private static readonly Dictionary<string, string> KnownOffenders = new()
-        {
-            ["SchwabOAuthService.cs"] =
-                "The third instance, found by this scan. It builds %AppData%/AccessibleTrader by "
-                + "hand in its constructor and writes the Schwab OAuth REFRESH TOKEN there. Two "
-                + "problems: on Unix the empty-string case makes that a relative path, and in the "
-                + "hosted head it is not user-scoped at all, so every signed-in user shares one "
-                + "token file. Not fixed here because the fix is to move the token into "
-                + "PluginHostServices.SecureStorage, which strands the tokens of anyone already "
-                + "authenticated unless a migration comes with it. See docs/TODO.md.",
-        };
+        private static readonly Dictionary<string, string> KnownOffenders = new();
 
         private static string[] Sources() =>
             StrategyLibraryPolicyTests.ShippingProjectDirectories()
@@ -151,10 +148,11 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TheKnownOffenderListHasNotGrown()
         {
-            Assert.True(KnownOffenders.Count <= 1,
+            Assert.True(KnownOffenders.Count == 0,
                 "A file was added to KnownOffenders. That is not a fix — it is a record that the "
                 + "defect shipped again. Fix it, or raise this number deliberately and say why in "
-                + "docs/TODO.md. Current list: " + string.Join(", ", KnownOffenders.Keys));
+                + "docs/TODO.md. The list reached zero on 2026-08-22 and must stay there. "
+                + "Current list: " + string.Join(", ", KnownOffenders.Keys));
         }
     }
 }

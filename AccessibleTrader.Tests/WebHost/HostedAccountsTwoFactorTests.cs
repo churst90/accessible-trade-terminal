@@ -240,9 +240,28 @@ public class HostedAccountsTwoFactorTests : IDisposable
         Assert.Equal((byte)'P', png[1]);
     }
 
+    [Fact]
+    public void NormalizeRecoveryCode_preserves_the_hyphen_identity_compares_verbatim()
+    {
+        // Identity stores recovery codes as "XXXXX-XXXXX" and redeems by exact
+        // comparison. Tolerate how people type them, but keep the hyphen.
+        Assert.Equal("DD9PX-WMDX6", TwoFactorSupport.NormalizeRecoveryCode(" dd9px-wmdx6 "));
+        Assert.Equal("DD9PX-WMDX6", TwoFactorSupport.NormalizeRecoveryCode("DD9PXWMDX6"));
+        Assert.Equal("DD9PX-WMDX6", TwoFactorSupport.NormalizeRecoveryCode("DD9PX WMDX6"));
+
+        // The authenticator-code normalizer strips the hyphen — routing
+        // recovery codes through it is the bug that made every recovery code
+        // unredeemable from the sign-in page until 2026-08-22.
+        Assert.NotEqual(
+            TwoFactorSupport.NormalizeCode("DD9PX-WMDX6"),
+            TwoFactorSupport.NormalizeRecoveryCode("DD9PX-WMDX6"));
+    }
+
     // ── Minimal RFC 6238 (30s step, 6 digits, HMAC-SHA1) ─────────────────────
 
-    private static string ComputeTotp(string base32Key, DateTimeOffset now)
+    // Shared with the WebHost HTTP integration tests (WebHostHostedAccountsIntegrationTests),
+    // which drive the same enrollment through real page handlers.
+    internal static string ComputeTotp(string base32Key, DateTimeOffset now)
     {
         byte[] key = Base32Decode(base32Key);
         long step = now.ToUnixTimeSeconds() / 30;
@@ -258,7 +277,7 @@ public class HostedAccountsTwoFactorTests : IDisposable
         return (binary % 1_000_000).ToString("D6");
     }
 
-    private static byte[] Base32Decode(string input)
+    internal static byte[] Base32Decode(string input)
     {
         const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         input = input.TrimEnd('=').ToUpperInvariant();

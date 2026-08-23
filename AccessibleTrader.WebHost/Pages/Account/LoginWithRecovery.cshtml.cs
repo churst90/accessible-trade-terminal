@@ -52,7 +52,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
             if (!ModelState.IsValid) return Page();
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            string code = TwoFactorSupport.NormalizeCode(Input.RecoveryCode);
+            string code = TwoFactorSupport.NormalizeRecoveryCode(Input.RecoveryCode);
 
             var result = await _signIn.TwoFactorRecoveryCodeSignInAsync(code);
 

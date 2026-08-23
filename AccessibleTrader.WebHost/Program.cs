@@ -36,9 +36,12 @@ builder.WebHost.UseStaticWebAssets();
 // --demo  → public website chart demo mode (read-only, no API keys, no orders).
 //           Wired in phase L7. Recognised at L1 only as a flag we don't crash on.
 // --no-launch → skip the browser auto-launch (useful when running headless or
-//               attaching from VS Code).
+//               attaching from VS Code). Also settable as config Launch:Disabled=true,
+//               because WebApplicationFactory-based integration tests can pass settings
+//               but not command-line args.
 bool demoMode = args.Contains("--demo");
-bool autoLaunch = !args.Contains("--no-launch");
+bool autoLaunch = !args.Contains("--no-launch")
+    && !builder.Configuration.GetValue<bool>("Launch:Disabled");
 
 // --accounts (or Accounts:Enabled=true) → hosted multi-user mode: ASP.NET Core Identity
 // login + per-user persistence. OFF by default, so the local single-user and --demo modes
@@ -162,6 +165,19 @@ if (accountsEnabled)
 
 var app = builder.Build();
 
+// Plugin host-services bridge: hand plugins the host's secure storage (today the only
+// consumer is Schwab's OAuth refresh token). Full mode ONLY — the bridge is a process-wide
+// static, and the hosted head's secret store is deliberately shared across users
+// (AccountsServiceExtensions), so installing it there would persist one Schwab token that
+// every signed-in user reads. Hosted/demo leave the bridge null: the plugin's non-persist
+// tier applies (token lives in memory per circuit), and Schwab is not in the hosted
+// provider list anyway.
+if (hostMode == HostMode.Full)
+{
+    AccessibleTrader.Sdk.Services.PluginHostServices.SecureStorage =
+        app.Services.GetRequiredService<AccessibleTrader.WebHost.Services.WebHostSecureStorageService>();
+}
+
 // Create the accounts (Identity) schema on first run.
 if (accountsEnabled)
 {
@@ -277,6 +293,18 @@ app.Use(async (ctx, next) =>
     SecurityHeadersPolicy.Apply(ctx);
     await next();
 });
+
+// Route AFTER UsePathBase, explicitly. Without this, WebApplication auto-inserts
+// endpoint routing at the very START of the pipeline, which matches against the
+// still-prefixed path (/terminal/..., /app/...). GETs survive that by accident —
+// the first pass finds nothing and the post-PathBase re-route matches — but a
+// POST whose prefixed path grazes the static-assets fallback ({**path:file},
+// GET/HEAD-only, present whenever the dev asset manifest is loaded) gets a
+// STICKY "405 Method Not Supported" endpoint pinned on the first pass, and the
+// re-route skips an already-set endpoint. Net effect: every login/register POST
+// under a path prefix returned 405 on dev-manifest runs. Found by the WebHost
+// integration tests, 2026-08-22.
+app.UseRouting();
 
 // MapStaticAssets (not UseStaticFiles) serves the manifest-based asset endpoints —
 // including _framework/blazor.web.js and the RCL's content-fingerprinted scoped-CSS

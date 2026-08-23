@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The token moved into the bridge, and the first integration tests caught two shipped bugs (2026-08-22)
+
+Two tracked items, closed together because they meet in `Program.cs`: the Schwab refresh-token
+path defect, and "WebHost has no integration test of any kind."
+
+**The Schwab OAuth refresh token now persists ONLY through `PluginHostServices.SecureStorage`.**
+The hand-built `%AppData%/AccessibleTrader` path is gone from the constructor; with no host
+bridge the token is memory-only for the session, so no host can ever produce a shared token file
+again. Existing Windows desktop users stay signed in: the legacy DPAPI file is located via the
+Windows-only `%APPDATA%` environment variable (no `Environment.GetFolderPath`, nothing built on
+Unix, no directory creation), read once, moved into the bridge, and deleted — or left in place
+for a later bridged run if no bridge is wired. Closing the loop exposed a host gap: the WebHost
+never installed the bridge at all, so "SecureStorage on every platform" was true only on MAUI. It
+now installs it — but only in `HostMode.Full`, deliberately: the hosted head's secret store is
+process-wide, so a static bridge there would recreate the shared-token bug one layer up.
+Hosted/demo leave it null, proven by an integration test. `PerUserPathPolicyTests` lost its last
+`KnownOffenders` entry and the cap test now pins the list at zero; new
+`SchwabOAuthTokenPersistenceTests` (5 cases) pin the bridge round-trip, per-client-id keying,
+non-persist-without-a-bridge, scrub-on-rejected-refresh, and rotated-token persistence. The scan
+was re-proven to fail by temporarily reintroducing `GetFolderPath`. (A side benefit: the old
+tier-2 write path meant the test suite itself wrote a real DPAPI token blob into `%AppData%` on
+Windows runs. It no longer can.)
+
+**The WebHost got its first integration tests — real `Program.cs`, full middleware order, real
+cookies — and the first run found two shipped bugs.** Five new files boot the app through
+`WebApplicationFactory` and cover: register/login/logout/honeypot/duplicate-email/antiforgery
+rejection and security headers; the complete 2FA journey (TOTP enrollment off the real page with
+independently computed RFC 6238 codes, wrong-code handling, recovery-code redeem and single-use
+replay); the admin-mediated password-reset round trip; the push endpoints including the
+cross-user proof (user B "unsubscribing" user A's endpoint leaves A's subscription intact); the
+auth rate limiter observed from outside (11th POST → 429, GETs uncharged); and Full-mode
+`/alerts/recent` lifecycle plus `/diag/journal` environment gating.
+
+The two bugs, both real in production shapes:
+
+1. **Every login/register POST under a path prefix returned a sticky 405 on dev-manifest runs.**
+   `Program.cs` never called `UseRouting()`, so the framework auto-inserted routing at the START
+   of the pipeline — before `UsePathBase` strips `/terminal` (hosted) or `/app` (demo). GETs
+   survived by accident (first pass matched nothing; the post-PathBase re-route matched), but a
+   POST grazed the GET/HEAD-only static-assets fallback and had a "405 Method Not Supported"
+   endpoint pinned that the re-route then skipped. Fixed with an explicit `UseRouting()` after
+   `UsePathBase`, which is also the canonical order for the rate limiter and auth middleware
+   behind it.
+
+2. **No recovery code pasted exactly as issued could ever redeem.** `LoginWithRecovery` ran
+   recovery codes through the authenticator-code normalizer, which strips hyphens — but Identity
+   stores recovery codes as `XXXXX-XXXXX` and compares verbatim. A user who lost their
+   authenticator device was locked out permanently, with the generic "didn't work" message. New
+   `TwoFactorSupport.NormalizeRecoveryCode` preserves the hyphen and re-inserts a missing one;
+   the integration test redeems a code scraped from the enrollment page and then proves the
+   replay fails.
+
+Test count 3738 → 3771. New config knob: `Launch:Disabled=true` suppresses the WebHost browser
+auto-launch (the config twin of `--no-launch`, needed because a test factory cannot pass args).
+
 ### A third copy of a bug that had shipped twice, found by finally writing the guard (2026-08-22)
 
 Small-items pass. Five tracked chores, one of which stopped being a chore.

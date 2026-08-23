@@ -41,11 +41,30 @@ namespace AccessibleTrader.WebHost.Account
             + $"?secret={unformattedKey}&issuer={Uri.EscapeDataString(Issuer)}&digits=6";
 
         /// <summary>
-        /// Accepts a verification code the way people type it: "123 456",
-        /// "123-456", or "123456" all normalize to "123456".
+        /// Accepts an AUTHENTICATOR code the way people type it: "123 456",
+        /// "123-456", or "123456" all normalize to "123456". Not for recovery
+        /// codes — see <see cref="NormalizeRecoveryCode"/>.
         /// </summary>
         public static string NormalizeCode(string? code) =>
             (code ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty).Trim();
+
+        /// <summary>
+        /// Recovery codes are stored hyphenated ("XXXXX-XXXXX") and Identity
+        /// redeems them by exact string comparison, so — unlike authenticator
+        /// codes — the hyphen must be PRESERVED. Running them through
+        /// <see cref="NormalizeCode"/> stripped it and made every recovery
+        /// code unredeemable through the sign-in page (found by the WebHost
+        /// integration tests, 2026-08-22). Accept the code the way people
+        /// type it: strip spaces, uppercase, and re-insert a missing hyphen
+        /// in the canonical 5-5 position.
+        /// </summary>
+        public static string NormalizeRecoveryCode(string? code)
+        {
+            var c = (code ?? string.Empty).Replace(" ", string.Empty).Trim().ToUpperInvariant();
+            if (!c.Contains('-') && c.Length == 10)
+                c = c.Insert(5, "-");
+            return c;
+        }
 
         /// <summary>
         /// Renders <paramref name="text"/> as a QR PNG data: URI for an inline

@@ -2071,7 +2071,7 @@ they belong to this section even though the audit filed them elsewhere:
   bootstrap and the textbook fix is the circular variant (wrap the block past the end). Left
   alone deliberately: it is a small bias on a long series, and changing it reseeds every control
   in the lab. Worth doing as a deliberate, announced change rather than a quiet one.
-- [ ] **WebHost has no integration test of any kind.** No `WebApplicationFactory`, no `TestServer`,
+- [x] **DONE 2026-08-22 — WebHost has no integration test of any kind.** No `WebApplicationFactory`, no `TestServer`,
   no PageModel handler ever invoked. `Login`, `Register`, `ForgotPassword`, `ResetPassword`,
   `LoginWith2fa`, `LoginWithRecovery`, `Logout` and `EnableAuthenticator` are all zero-referenced,
   so the code that calls `SignInManager` and decides lockout/2FA routing never runs in a test.
@@ -2079,6 +2079,33 @@ they belong to this section even though the audit filed them elsewhere:
   unreachable. `HostedAccountsAuthPolicyTests` asserts the *options objects* — correct and worth
   having, but it proves configuration, not that any request is ever authorized. Nothing proves
   `/alerts/recent` requires a login or that user A cannot dismiss user B's alert.
+
+  Five new files under `AccessibleTrader.Tests/WebHost/` boot the REAL `Program.cs` (full DI
+  graph, middleware order, routing) via `WebApplicationFactory` — `WebHostIntegrationHarness`
+  (factory + antiforgery/cookie/form plumbing; hosted mode enabled through `Accounts:Enabled` /
+  `Accounts:DataRoot` config; new `Launch:Disabled` setting suppresses the browser auto-launch a
+  factory can't pass `--no-launch` to), plus hosted-accounts flows (register/login/logout/
+  honeypot/duplicate-email/antiforgery-reject/headers), the complete 2FA journey (TOTP enrollment
+  off the real page with independently computed RFC 6238 codes, wrong-code, recovery-code redeem
+  + single-use replay), the admin-mediated password-reset round trip, the push endpoints
+  (anonymous refusal, body validation, and the cross-user proof: user B "unsubscribing" user A's
+  endpoint leaves A's subscription intact), the auth rate limiter observed from outside (11th
+  POST → 429; GETs uncharged), and Full-mode `/alerts/recent` lifecycle + `/diag/journal` gating
+  + the hosted-head-leaves-the-plugin-bridge-null proof.
+
+  **The point of the item was that untested code is where bugs live, and it was right — the first
+  run found two shipped bugs.** (1) `Program.cs` never called `UseRouting()`, so the auto-inserted
+  routing pass ran BEFORE `UsePathBase` and matched the still-prefixed path; on any run with the
+  dev asset manifest loaded, a POST under `/terminal/`/`/app/` grazed the GET/HEAD-only static
+  fallback and got a sticky 405 — every login/register POST failed. Explicit `UseRouting()` after
+  `UsePathBase` fixes the order. (2) `LoginWithRecovery` normalized recovery codes with the
+  authenticator-code normalizer, which strips hyphens — but Identity stores codes as
+  `XXXXX-XXXXX` and redeems verbatim, so no recovery code pasted exactly as issued could ever
+  work: a user who lost their authenticator was locked out permanently. New
+  `TwoFactorSupport.NormalizeRecoveryCode` preserves the hyphen (and re-inserts a missing one).
+  Not yet covered, still worth having: an HTTP lockout test (needs 10 failed logins, which the
+  rate limiter window makes awkward — drive `SignInManager` clock or partition by forwarded IP),
+  and `/alerts/recent` HTML assertions under a screen reader-oriented harness.
 - [x] **GUARDED 2026-08-22 — The `Environment.GetFolderPath` per-user path bug has shipped twice and there is no guard.**
   `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` are both excellent and
   both docstrings describe the *same* defect — a service building its own path from
@@ -2104,11 +2131,27 @@ they belong to this section even though the audit filed them elsewhere:
   move the token into `PluginHostServices.SecureStorage`, which strands the tokens of anyone
   already authenticated unless a migration comes with it — that is a decision, not a cleanup.
 
-- [ ] **`SchwabOAuthService` writes an OAuth refresh token to a hand-built, non-user-scoped path.**
-  Split out from the item above so it is not mistaken for closed. Needs: the token moved to
+- [x] **FIXED 2026-08-22 — `SchwabOAuthService` writes an OAuth refresh token to a hand-built, non-user-scoped path.**
+  Split out from the item above so it is not mistaken for closed. Needed: the token moved to
   `PluginHostServices.SecureStorage`, a migration for existing desktop users (or an explicit
   decision that they re-authenticate), and the `KnownOffenders` entry in `PerUserPathPolicyTests`
   deleted as part of the fix — the test fails if it is left behind.
+
+  All three delivered. The bridge is now the ONLY write path; with no bridge the token is
+  memory-only for the session (non-persist), so no host can ever produce a shared token file
+  again. The migration keeps existing Windows desktop users authenticated: the legacy DPAPI file
+  is located via the `%APPDATA%` environment variable (Windows-only by construction — no
+  `Environment.GetFolderPath`, no path built on Unix, no directory created in the constructor),
+  read once, moved into the bridge, and deleted; if no bridge is wired it is left in place for a
+  later bridged run rather than destroyed. Two host gaps closed along the way: the WebHost never
+  installed `PluginHostServices.SecureStorage` at all (so the "SecureStorage on every platform"
+  claim was MAUI-only), and it now does — but only in `HostMode.Full`, deliberately: the hosted
+  head's secret store is process-wide, so installing the static bridge there would recreate the
+  shared-token bug one layer up. Hosted/demo leave it null and Schwab is not in the hosted
+  provider list anyway. `KnownOffenders` is deleted and the cap test now pins the list at zero.
+  New `SchwabOAuthTokenPersistenceTests` (5 cases) pin bridge round-trip, per-client-id keying,
+  non-persist without a bridge, scrub-on-rejected-refresh, and rotated-token persistence; the
+  scan was re-proven to fail by temporarily reintroducing `GetFolderPath`.
 - [ ] **Zero tests for:** `Services/AI/` (all four files — network calls carrying user API keys),
   `EmailAlertChannel` and `TelegramAlertChannel` (the two delivery channels without tests;
   `WebhookAlertChannel` has 264 lines), all five level providers plus `LevelService` (they feed
