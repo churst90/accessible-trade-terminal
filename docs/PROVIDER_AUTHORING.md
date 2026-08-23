@@ -21,6 +21,8 @@ on-chain metrics, etc.) for Accessible Trader. For indicator plugins, see
 11. [Rate Limiting](#11-rate-limiting)
 12. [Disposal](#12-disposal)
 13. [Quick-Start Example](#13-quick-start-example)
+14. [Trading Providers (ITradingProvider)](#14-trading-providers-itradingprovider)
+15. [Shared Plumbing and House Rules](#15-shared-plumbing-and-house-rules)
 
 ---
 
@@ -111,7 +113,11 @@ and `IProviderPlugin`. It manages:
 
 - Rx subjects for `LiveStream`, `ErrorStream`, `ConnectionStateStream`
 - `IDisposable` with a virtual `Dispose(bool)` pattern
-- Default `GetCapability<T>()` returning `this`
+- `GetCapability<T>()` returning `this` for `IMarketDataProvider` **only** — every
+  other capability (trading, order book, wallet) returns `null` until you override
+  it. Implementing `ITradingProvider` on your class does nothing until
+  `GetCapability<ITradingProvider>()` returns `this`; see
+  [Section 14](#14-trading-providers-itradingprovider).
 
 ```csharp
 using AccessibleTrader.Sdk.Plugins;
@@ -215,8 +221,11 @@ public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volu
         ));
     }
 
+    // TimeSpan.Zero pins the conversion: bare new DateTimeOffset(dt) reads the
+    // machine's local zone when dt.Kind is Unspecified, so the volume pane shifts
+    // against the candles on any non-UTC box while passing on a UTC dev machine.
     var volumes = bars
-        .Select(b => (new DateTimeOffset(b.Date).ToUnixTimeMilliseconds(), b.Volume))
+        .Select(b => (new DateTimeOffset(b.Date, TimeSpan.Zero).ToUnixTimeMilliseconds(), b.Volume))
         .ToList();
 
     return (bars, volumes);
@@ -358,6 +367,24 @@ public override async Task SetSubscriptionAsync(string market, string symbol, st
 The `LiveStreamManager` subscribes to `LiveStream`, aggregates ticks into timeframe
 buckets, and pushes them to the chart.
 
+### Declare your tick semantics: `LiveTickStyle`
+
+The consolidator needs to know what your pushes *mean*, and the two meanings are
+irreconcilable if guessed wrong:
+
+```csharp
+// Default: each push is an independent trade/tick — volumes ADD into the bucket.
+public override LiveTickStyle LiveTickStyle => LiveTickStyle.TradeDeltas;
+
+// Kline-style feeds (Binance, MEXC, …): each push is the RUNNING state of the
+// current bar — volume is a running total and must REPLACE, not add.
+public override LiveTickStyle LiveTickStyle => LiveTickStyle.CumulativeBars;
+```
+
+A kline-style feed left on the `TradeDeltas` default double-counts its running
+volume total on every push — and volume is sonified, so the error is audible
+before it is visible. If your venue pushes candle snapshots, override this.
+
 ### Trading providers: `SupportsOrderEventStreaming` must be honest
 
 `ITradingProvider.SupportsOrderEventStreaming` **defaults to `true`**, and the order
@@ -422,7 +449,7 @@ using AccessibleTrader.Sdk.Services;
 
 private readonly RateLimiter _rateLimiter = new(10, TimeSpan.FromMinutes(1));
 
-public override async Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(MarketDataRequest request)
+public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
 {
     return await _rateLimiter.ExecuteAsync(async () =>
     {
@@ -510,11 +537,13 @@ namespace AccessibleTrader.Plugins.MyMetric
         public override Task<List<string>> GetSupportedTimeframesAsync()
             => Task.FromResult(NativelySupportedTimeframes);
 
-        public override Task<(List<OrderBookEntry>, List<OrderBookEntry>)>
+        // The tuple element names are part of both override signatures — dropping
+        // them is CS8139 ("cannot change tuple element names when overriding").
+        public override Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)>
             GetOrderBookAsync(string s, int l = 10)
             => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
 
-        public override async Task<(List<Ohlcv>, List<(long, double)>)>
+        public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)>
             FetchOhlcvAsync(MarketDataRequest request)
         {
             var json = await _http.GetStringAsync("https://api.example.com/metric")
@@ -524,13 +553,17 @@ namespace AccessibleTrader.Plugins.MyMetric
 
             foreach (var pt in arr)
             {
-                var date = pt["date"]!.Value<DateTime>();
+                // Pin the kind: Newtonsoft's DateTime conversion keeps whatever the
+                // string implied, and an Unspecified kind is read as LOCAL time by
+                // the epoch conversion below — correct on a UTC box, shifted
+                // everywhere else.
+                var date = DateTime.SpecifyKind(pt["date"]!.Value<DateTime>(), DateTimeKind.Utc);
                 var val  = pt["value"]!.Value<double>();
                 bars.Add(new Ohlcv(date, val, val, val, val, 0));
             }
 
             var vols = bars.Select(b =>
-                (new DateTimeOffset(b.Date).ToUnixTimeMilliseconds(), b.Volume)).ToList();
+                (new DateTimeOffset(b.Date, TimeSpan.Zero).ToUnixTimeMilliseconds(), b.Volume)).ToList();
             return (bars, vols);
         }
 
@@ -546,3 +579,142 @@ namespace AccessibleTrader.Plugins.MyMetric
 Build this project, copy the output DLL (and any dependencies) to
 `%LOCALAPPDATA%\AccessibleTrader\Plugins\`, and restart the app.
 The provider will appear automatically in the appropriate market dropdown.
+
+---
+
+## 14. Trading Providers (ITradingProvider)
+
+Implement `ITradingProvider` on the same class as the data provider and wire it up:
+
+```csharp
+public override T? GetCapability<T>() where T : class
+{
+    if (typeof(T) == typeof(IMarketDataProvider)) return this as T;
+    if (typeof(T) == typeof(ITradingProvider))    return this as T;
+    return null;
+}
+```
+
+Without the `GetCapability` branch the interface is invisible to the app —
+implementing it is not enough.
+
+### Capability flags are promises
+
+`ProviderCapabilities` gates which controls the order panel renders, so **a flag is
+a promise to a user**: declare `TrailingStop` and the trailing fields appear; if
+`PlaceOrderAsync` then ignores `TrailStopValue`, the user typed a protective level
+that does not exist, heard nothing, and holds an unprotected position. Declare only
+what `PlaceOrderAsync` actually sends. Two suites police this and both must stay
+green when you add a provider:
+
+- `ProviderCapabilityHonestyTests` — cross-provider invariants (OCO requires
+  `IOcoTradingProvider`, `Leverage` requires a margin/futures product and
+  `MaxLeverage > 1`, `Brackets` requires a protective leg, the flag-derived bools
+  cannot disagree with the flags).
+- `ProviderCapabilityAudit` (StrategyLab) — a source scan that checks each flag
+  against evidence in your code (reading `TrailStopValue`, implementing
+  `IOcoTradingProvider`, …). Do not read a `TradeSignal` field *purely to refuse
+  it* — the audit reads any use of the field as evidence the capability exists.
+
+`SupportsStopLoss` / `SupportsTakeProfit` render the SL/TP fields. If your venue
+needs a bracket structure you have not built yet, **refuse the order with spoken
+text** rather than placing the entry and dropping the legs — a naked position sized
+for a stop that does not exist is the worst silent failure in this codebase's
+history, and it has shipped on four venues at once.
+
+### The PlaceOrderAsync return protocol
+
+`PlaceOrderAsync` returns a `string` (a typed result record is tracked in
+docs/TODO.md; until it lands, this string protocol is the contract):
+
+- **Success:** the venue's order id, verbatim. The order service hands it to the
+  status poller and the fill announcements depend on it being real.
+- **Failure:** `"ORDER_FAILED:<reason>"` — everything after the colon is **spoken
+  to the user** by `OrderResult.DescribeFailure`, so write the reason as a
+  sentence a trader can act on ("Tradier trades whole shares only; round the
+  quantity and place the order again"), not an error code.
+- **Not configured:** `"PROVIDER_NOT_CONFIGURED"` (optionally
+  `"PROVIDER_NOT_CONFIGURED:<reason>"`).
+- Never invent other `ORDER_`/`PROVIDER_`-prefixed return values:
+  `GeneralOrderService.IsErrorSentinel` treats both prefixes as failure, so an
+  `ORDER_`-prefixed "success" code silently disables bracket verification and
+  fill polling for that order.
+
+Validation rule: **refuse, never resize.** If the venue trades whole shares and
+the signal says 9.7, return `ORDER_FAILED` naming the rule — silently truncating
+to 9 ships a position the risk sizer did not choose.
+
+### Order status, fills, and the poller
+
+- Map venue status words onto `OrderStatus` **without a guessing fallback** —
+  `Expired` is not `Cancelled`, `Replaced` is not `Cancelled`, unknown words map
+  to `Unknown` with the raw word in `OrderUpdate.Reason`. The full rules live on
+  the `OrderStatus` enum; `OrderStatusContractTests` enforces every member is
+  consumed.
+- `SupportsOrderEventStreaming` must report the **live push channel state** (see
+  [Section 9](#9-live-streaming)); if you also implement `GetOrderStatusAsync`,
+  set `SupportsOrderStatusQuery => true` so the poller uses the authoritative
+  endpoint.
+- `GetPositionsAsync` reports quantities **signed** — a short is negative. Six
+  providers once reported shorts positive; every risk calculation and spoken
+  summary read them as longs.
+- Trading reads (`GetPositionsAsync`, `GetOpenOrdersAsync`, `GetFillsAsync`,
+  `GetOrderStatusAsync`) must **throw on failure**, not return empty — an empty
+  result reads as "account flat" and has overwritten a live reconciliation
+  snapshot before. Let the order service classify the exception.
+- `GetFillsAsync` feeds the History tab; without it the fill poller falls back to
+  open-list heuristics that can announce a filled order as "cancelled".
+
+Wallet-side capabilities (`IWalletProvider` for read-only deposit addresses and
+balances, `IWithdrawalProvider` for moving funds — deliberately separate
+interfaces, since a read-only credential must never imply withdrawal ability) are
+specified in `docs/WALLET_AND_PORTFOLIO_DESIGN.md`.
+
+When you add a broker, add its wire-payload tests to `BrokerParityTests` (payload
+pinned through a captured `FakeHttpMessageHandler`, proven red by sabotage) — the
+providers with zero coverage there are exactly where the audit found the
+ship-blockers.
+
+---
+
+## 15. Shared Plumbing and House Rules
+
+The SDK ships helpers for the code every provider gets subtly wrong when
+hand-rolled. Prefer them:
+
+- **`RestSigning`** — `HmacSha256Hex`, `BuildQuery`, `QueryPrefixed`. The
+  invariant that matters: **the string you sign must be byte-identical to the
+  string you send.** Building the signature from one encoding and the body with
+  another (`Uri.EscapeDataString` vs `FormUrlEncodedContent`) produces
+  "invalid signature" errors only on symbols/values containing spaces or
+  brackets — Kraken shipped that for months.
+- **`SymbolFormat`** — `SplitBaseQuote` / `Concatenated` / `Slashed` /
+  `Underscored` with an 18-quote table. Do not hand-slice pairs: a hardcoded
+  3-char quote split turns `BTCUSDT` into `BTCU/SDT` and the venue answers with
+  silence, not an error.
+- **`ReconnectingWebSocket`** — reconnection with backoff, heartbeat
+  (`WithHeartbeatMessage`), text/binary handlers, and an `IsConnected` your
+  `SupportsOrderEventStreaming` can read. Hand-rolled sockets have shipped every
+  failure mode this class exists to prevent.
+- **`RateLimiter`** — token bucket + retry with backoff (see
+  [Section 11](#11-rate-limiting)). Nested `ExecuteAsync` calls are safe — the
+  semaphore is released before your action runs.
+- **`TimestampParser`** — epoch parsing that is culture-safe and
+  magnitude-tolerant (seconds vs milliseconds). **`ExchangeTime`** — US-Eastern
+  wall-clock conversion for vendors that send naive Eastern strings (FMP stock
+  intraday, Tradier timesales windows). Ask the venue for UTC where it lets you
+  (TwelveData `&timezone=UTC`) instead of converting at all.
+- **`SurfaceError(message, severity, category, symbol)`** — feeds both the typed
+  `ProviderErrors` stream and the legacy string `ErrorStream`. Surface every
+  failed read; for a blind trader a silent empty chart and a healthy empty chart
+  are indistinguishable. Never put credentials in an error message — exception
+  messages can carry full request URLs, and TwelveData/FRED keys ride in the
+  query string, so log `ex.GetType().Name`, not `ex.Message`, on those paths.
+
+**Culture invariance is a wire-protocol rule.** Every number and date that goes
+into a URL, request body, or signature, and every one parsed out of a response,
+uses `CultureInfo.InvariantCulture`. Under a Thai locale the year renders as 2569;
+under `de-DE`, `double.Parse("50000.5")` yields 500005 — both have shipped as
+silently-wrong data. `CultureInvariantScanTests` scans provider sources and fails
+the build on ambient-culture parse/format calls, so the guard will find you if
+you forget.

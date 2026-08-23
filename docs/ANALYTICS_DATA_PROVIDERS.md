@@ -192,9 +192,12 @@ public class FundingRateIndicator : IIndicatorProvider
             provider:  "BinanceDerivatives",
             symbol:    "BTCUSDT_FUNDING",
             timeframe: "1d",
-            since:     new DateTimeOffset(bars[0].Date).ToUnixTimeMilliseconds(),
+            // TimeSpan.Zero pins the epoch conversion — the bare one-argument
+            // DateTimeOffset constructor reads the machine's LOCAL zone when the
+            // DateTime's Kind is Unspecified, shifting the window on non-UTC boxes.
+            since:     new DateTimeOffset(bars[0].Date, TimeSpan.Zero).ToUnixTimeMilliseconds(),
             limit:     bars.Length,
-            until:     new DateTimeOffset(bars[^1].Date).ToUnixTimeMilliseconds());
+            until:     new DateTimeOffset(bars[^1].Date, TimeSpan.Zero).ToUnixTimeMilliseconds());
         var funding = fundingTask.GetAwaiter().GetResult(); // Calculate is sync
 
         // Align funding values to the active chart bars by timestamp.

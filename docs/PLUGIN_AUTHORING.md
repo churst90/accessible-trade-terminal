@@ -104,8 +104,7 @@ public interface IIndicatorProvider
         IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         => null;
 
-    List<(string Name, double Value, string ColorHex, DashStyle Dash)>
-        GetDefaultLevels(string code)
+    List<LevelDescriptor> GetDefaultLevels(string code)
         => new();
 }
 ```
@@ -243,11 +242,18 @@ you need runtime context. See [Section 7](#7-getcomponentspeech) for full detail
 
 ---
 
-### `List<(string Name, double Value, string ColorHex, DashStyle Dash)> GetDefaultLevels(string code)`
+### `List<LevelDescriptor> GetDefaultLevels(string code)`
 
 Returns the reference level lines to inject when the indicator is first added.
 This is also a **default interface method** that returns an empty list.
 See [Section 6](#6-getdefaultlevels) for full details.
+
+> **Signature warning:** the return type is `List<LevelDescriptor>`
+> (`AccessibleTrader.Sdk.Models`), **not** a list of name/value/color tuples as
+> older revisions of this document showed. Because this is a default interface
+> method, a tuple-returning method with the same name still *compiles* — it just
+> declares an unrelated method, the empty-list default wins, and your levels
+> silently never draw and never sound.
 
 ---
 
@@ -831,17 +837,36 @@ immediately when the indicator is added. The user sees these as dashed or dotted
 threshold lines on the chart.
 
 ```csharp
-List<(string Name, double Value, string ColorHex, DashStyle Dash)>
-    GetDefaultLevels(string code)
+List<LevelDescriptor> GetDefaultLevels(string code)
 ```
+
+`LevelDescriptor` (in `AccessibleTrader.Sdk.Models`) is a record:
+
+```csharp
+public record LevelDescriptor(
+    string Name,
+    double Value,
+    string ColorHex,
+    DashStyle Dash,
+    bool PlayEarcon       = false,   // earcon when the series crosses this level
+    float EarconVolume    = 0.7f,
+    float ZoneNoiseAmount = 0f,      // background noise while inside the zone
+    string ZoneNoiseType  = "pink"
+);
+```
+
+The audio fields default to off, so declare only what you use — but remember that
+for a blind user the earcons and zone noise are the levels: a line that only draws
+conveys nothing.
 
 Return an empty list if your indicator has no meaningful threshold levels.
 
-`SeriesManagementService.InjectDefaultLevels()` calls this method first. If it
-returns an empty list, the engine falls back to `IndicatorReferenceLevels.GetLevels()`
-— a static lookup table for common Skender library indicators (RSI, MFI, MACD, etc.).
-Custom providers should always declare their own levels rather than relying on the
-fallback.
+`SeriesManagementService.InjectDefaultLevels()` calls this method when the series
+is created; there is **no static fallback table** — if you return an empty list,
+the indicator simply has no reference levels. User-supplied `Overbought` /
+`Oversold` parameter values override the `Value` of descriptors with those exact
+names, so name your threshold levels `"Overbought"` and `"Oversold"` if you want
+them user-tunable.
 
 ### DashStyle options
 
@@ -855,17 +880,16 @@ fallback.
 ### CipherB reference levels (actual values from source)
 
 ```csharp
-public List<(string Name, double Value, string ColorHex, DashStyle Dash)>
-    GetDefaultLevels(string code)
+public List<LevelDescriptor> GetDefaultLevels(string code)
 {
     if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase)) return new();
     return new()
     {
-        ("Extreme OB",  60.0, "#FF2222", DashStyle.Dot),
-        ("Overbought",  53.0, "#FF6666", DashStyle.Dash),
-        ("Zero",         0.0, "#666666", DashStyle.Dash),
-        ("Oversold",   -53.0, "#66BB66", DashStyle.Dash),
-        ("Extreme OS", -60.0, "#22FF22", DashStyle.Dot),
+        new("Extreme OB",  60.0, "#FF2222", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+        new("Overbought",  53.0, "#FF6666", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
+        new("Zero",         0.0, "#666666", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
+        new("Oversold",   -53.0, "#66BB66", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
+        new("Extreme OS", -60.0, "#22FF22", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
     };
 }
 ```
@@ -875,17 +899,16 @@ public List<(string Name, double Value, string ColorHex, DashStyle Dash)>
 If your provider exposes multiple indicators with different levels, switch on `code`:
 
 ```csharp
-public List<(string Name, double Value, string ColorHex, DashStyle Dash)>
-    GetDefaultLevels(string code) => code.ToUpperInvariant() switch
+public List<LevelDescriptor> GetDefaultLevels(string code) => code.ToUpperInvariant() switch
 {
     "MY_RSI" => new()
     {
-        ("Overbought", 70.0, "#FF6666", DashStyle.Dash),
-        ("Oversold",   30.0, "#66BB66", DashStyle.Dash),
+        new("Overbought", 70.0, "#FF6666", DashStyle.Dash, PlayEarcon: true),
+        new("Oversold",   30.0, "#66BB66", DashStyle.Dash, PlayEarcon: true),
     },
     "MY_MACD" => new()
     {
-        ("Zero", 0.0, "#666666", DashStyle.Dash),
+        new("Zero", 0.0, "#666666", DashStyle.Dash),
     },
     _ => new()
 };
@@ -1282,8 +1305,7 @@ namespace MyCompany.AccessibleTrader.Plugins.Momentum
             //   "Momentum. Oscillator. {value:F1}."
         }
 
-        public List<(string Name, double Value, string ColorHex, DashStyle Dash)>
-            GetDefaultLevels(string code)
+        public List<LevelDescriptor> GetDefaultLevels(string code)
         {
             if (!code.Equals("SIMPLE_MOMENTUM", StringComparison.OrdinalIgnoreCase))
                 return new();
@@ -1291,11 +1313,11 @@ namespace MyCompany.AccessibleTrader.Plugins.Momentum
             return new()
             {
                 // Overbought threshold — red dashed, matches the signal dot trigger level.
-                ("Overbought",  70.0, "#EF5350", DashStyle.Dash),
+                new("Overbought",  70.0, "#EF5350", DashStyle.Dash, PlayEarcon: true),
                 // Zero line — gray dashed, standard zero-crossing reference.
-                ("Zero",         0.0, "#757575", DashStyle.Dash),
+                new("Zero",         0.0, "#757575", DashStyle.Dash),
                 // Oversold threshold — green dashed.
-                ("Oversold",   -70.0, "#66BB6A", DashStyle.Dash),
+                new("Oversold",   -70.0, "#66BB6A", DashStyle.Dash, PlayEarcon: true),
             };
         }
 

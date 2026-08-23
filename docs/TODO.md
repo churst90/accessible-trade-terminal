@@ -1517,6 +1517,13 @@ guesses are invisible until money moves.
   returns null — "it went" — so `QuickTradeExecutor` and the dashboard announce success for an order
   that was never sent, on nine providers that return that sentinel. Fix: return a typed
   `OrderPlacement` record.
+  **Recount 2026-08-23:** partially stale — `DescribeFailure` now handles the whole `PROVIDER_NOT*`
+  family (bare and `CODE:reason` shapes), so that specific announce-success path is closed. Still
+  real: the protocol lives on a bare string, and the two recognisers still disagree on
+  `ORDER_SUBMITTED` (providers return it as a no-id success; `IsErrorSentinel`'s `ORDER_` prefix
+  reads it as failure — skipping bracket verification and fill polling — while `DescribeFailure`
+  reads it as success). The string protocol is now at least DOCUMENTED (PROVIDER_AUTHORING §14,
+  2026-08-23) with both prefixes reserved for failure; the typed record remains the real fix.
 - [ ] **No `CancellationToken` on `IMarketDataProvider` or `ITradingProvider`**, while
   `IWalletProvider` and `IWithdrawalProvider` take one on every method. A 5000-bar backfill cannot be
   cancelled on symbol switch and its bars race the new symbol's into the same buffer. Adding
@@ -1525,7 +1532,7 @@ guesses are invisible until money moves.
   negative funding-rate series freeze at the last positive print with no error — while
   `MarketType.Derivatives` is documented as "funding rates, open interest, basis" and
   `SymbolRenderHints.cs:65` says "funding can be negative".
-- [ ] **`docs/PLUGIN_AUTHORING.md` documents `GetDefaultLevels` with the wrong return type in six
+- [x] **`docs/PLUGIN_AUTHORING.md` documents `GetDefaultLevels` with the wrong return type in six
   places, and the mismatch compiles.** The doc shows a tuple list; the SDK returns
   `List<LevelDescriptor>`. Because it is a *default interface method*, the tuple version adds an
   unrelated method and the DIM silently wins — so the quick-start ships an indicator whose
@@ -1533,12 +1540,31 @@ guesses are invisible until money moves.
   lookup so a custom indicator inherits *RSI's* levels. For a blind user those levels are the
   earcons that convey position in range. The doc's own line 5 claims "All APIs described here are
   taken directly from the current source code."
-- [ ] **Four documented provider samples do not compile** (CS8139 — overriding a named tuple with an
+  **DONE 2026-08-23** — all six sites now show `List<LevelDescriptor>`, the record's audio fields
+  (`PlayEarcon`/`EarconVolume`/`ZoneNoiseAmount`/`ZoneNoiseType`) are documented, the CipherB
+  sample carries the REAL values from `CipherBProvider` (a test constructs the provider and
+  compares), and a signature-warning callout explains the DIM trap. Recount along the way: the
+  "falls through to the Skender lookup" half was itself stale — `InjectDefaultLevels` has NO
+  static fallback anymore (`IndicatorReferenceLevels` doesn't exist in the repo), so the doc's
+  fallback paragraph was replaced with the real two-tier behaviour (provider levels + user
+  Overbought/Oversold parameter overrides). Guards: `AuthoringDocParityTests` (tuple spelling
+  banned with a vacuity floor, fallback claim banned, CipherB values pinned to source),
+  sabotage-proven.
+- [x] **Four documented provider samples do not compile** (CS8139 — overriding a named tuple with an
   unnamed one), `SDK_GUIDE.md` §5.2 teaches the member-hiding anti-pattern the SDK deliberately
   removed (`SupportsMarginTrading` and friends are non-virtual and flag-derived by design), and the
   sample epoch conversion `new DateTimeOffset(b.Date).ToUnixTimeMilliseconds()` is timezone-dependent
   — it passes on a UTC dev box and shifts the volume pane against the candles for everyone else.
-- [ ] **The three authoring docs cover indicators and data providers only.** Verified absent from
+  **DONE 2026-08-23** — the four override samples (FetchOhlcvAsync ×3, GetOrderBookAsync ×1, across
+  PROVIDER_AUTHORING + SDK_GUIDE) carry the SDK's tuple element names with a CS8139 note at the
+  site; §5.2 now declares margin/futures via the `Capabilities` flags with a comment explaining WHY
+  the bools are non-virtual (and gained the missing `SupportsOrderEventStreaming` paragraph); every
+  bare one-arg `new DateTimeOffset(...).ToUnixTime…` in the four authoring docs (incl. two in
+  ANALYTICS_DATA_PROVIDERS the audit didn't list) is now the pinned `TimeSpan.Zero` form, and the
+  analytics quick-start also pins `DateTimeKind.Utc` on its parsed dates. Guards in
+  `AuthoringDocParityTests`: named-tuple spellings, the epoch regex (with a pinned-form vacuity
+  floor), and the member-hiding declaration ban — sabotage-proven.
+- [x] **The three authoring docs cover indicators and data providers only.** Verified absent from
   `PROVIDER_AUTHORING.md`: `ITradingProvider`, `PlaceOrderAsync`, `ORDER_FAILED`, `OrderStatus`,
   `ProviderCapabilities`, `IWalletProvider`, `IWithdrawalProvider`, `RestSigning`, `SymbolFormat`,
   `ReconnectingWebSocket`, `SurfaceError`, `SupportsOrderEventStreaming`, `InvariantCulture`.
@@ -1547,6 +1573,19 @@ guesses are invisible until money moves.
   that decides whether the app polls — which is exactly why six providers left it defaulted with a
   broken push channel. `LiveTickStyle` appears in no authoring doc despite the SDK saying providers
   "MUST override" it.
+  **DONE 2026-08-23** — PROVIDER_AUTHORING gained §14 (Trading Providers: GetCapability wiring,
+  the flags-are-promises contract with both policing suites named, the PlaceOrderAsync string
+  protocol incl. the reserved `ORDER_`/`PROVIDER_` prefixes and the refuse-never-resize rule,
+  OrderStatus mapping, signed positions, throw-don't-return-empty reads, wallet-interface
+  pointers, and "add your broker to BrokerParityTests") and §15 (Shared Plumbing and House Rules:
+  RestSigning sign-what-you-send, SymbolFormat, ReconnectingWebSocket, RateLimiter reentrancy,
+  TimestampParser/ExchangeTime, SurfaceError + key-redaction, culture invariance as a
+  wire-protocol rule); §9 gained the LiveTickStyle section (TradeDeltas vs CumulativeBars and the
+  audible double-count failure); the §4 GetCapability description was corrected (it returns
+  `this` for `IMarketDataProvider` ONLY — the doc claimed it for everything, which is the other
+  half of the item at ~line 1500 about `PROVIDER_AUTHORING.md:114`; the code-side design question
+  there stays open). Guard: `ProviderAuthoring_covers_the_trading_surface_the_audit_found_absent`
+  turns the audit's absent-token list into a required-present list.
 - [ ] **SDK helper adoption is near zero where it matters.** `RestSigning`: 1 of 16 (MEXC).
   `SymbolFormat`: 1. `TimestampParser`: 1 (Tradier). `ExchangeTime`: 1 (FMP).
   `ReconnectingWebSocket`: 9 (Binance hand-rolls). `RateLimiter`: 14 (Gemini and KrakenFutures have

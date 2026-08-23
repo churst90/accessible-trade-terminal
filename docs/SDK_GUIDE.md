@@ -260,7 +260,8 @@ public override Task DisconnectAsync() { /* close + ScrubCredentials(...) */ }
 public override Task<List<string>> GetSupportedSubTypesAsync(MarketType m) => Task.FromResult(new List<string> { "Spot" });
 public override Task<List<string>> GetAvailableSymbolsAsync(MarketType m, string subType = "Spot") { /* ... */ }
 public override Task<List<string>> GetSupportedTimeframesAsync() { /* ... */ }
-public override Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(MarketDataRequest request) { /* ... */ }
+// The tuple element names are part of the override signature (CS8139 if dropped).
+public override Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request) { /* ... */ }
 public override Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10) { /* ... */ }
 ```
 
@@ -290,9 +291,16 @@ return `this` from `GetCapability<ITradingProvider>()`.
 
 ```csharp
 public bool IsConnected => /* authenticated */;
-public bool SupportsMarginTrading => true;
-public bool SupportsFuturesTrading => true;
-public double MaxLeverage => 100;
+// Margin/futures support is declared through the Capabilities FLAGS — the
+// SupportsMarginTrading / SupportsFuturesTrading bools are NON-virtual on the
+// base and derived from those flags by design (one source of truth). Declaring
+// either bool fresh on your class HIDES the base member: it compiles, the app
+// still reads the flag-derived value, and your declaration is dead code.
+// ProviderCapabilityHonestyTests pins the fold.
+public override ProviderCapabilities Capabilities =>
+    ProviderCapabilities.MarginTrading | ProviderCapabilities.FuturesTrading |
+    ProviderCapabilities.Leverage;
+public override double MaxLeverage => 100;
 public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates;   // a Subject<OrderUpdate>
 
 public Task<List<Balance>> GetBalancesAsync() { /* ... */ }
@@ -314,6 +322,17 @@ partials, cancels, stop/TP triggers — because that stream is what drives the s
 "Order filled… / Stop loss hit… / Trailing take profit hit…" announcements. Set
 `StopTriggered` / `TakeProfitTriggered`, `Trailing`, and `RealizedPnL` on the
 `OrderUpdate` so the speech layer can say the right thing.
+
+**And override `SupportsOrderEventStreaming` honestly** — it defaults to `true`,
+and the order service reads it at placement time to decide between trusting your
+push channel and polling for fills. A provider with no live push channel (or a
+dead one) that leaves the default in place produces the worst outcome this SDK
+knows: an order fills and nothing is ever spoken. Make it dynamic
+(`_ws?.IsConnected ?? false`-shaped) so a dropped socket degrades to polling
+instead of silence, and if you implement authoritative per-order lookup, expose
+it via `GetOrderStatusAsync` and set `SupportsOrderStatusQuery => true` so the
+poller uses the real endpoint instead of heuristics. See
+`PROVIDER_AUTHORING.md` §9 for the full rules.
 
 Map your venue's status vocabulary onto `OrderStatus` **without a guessing fallback**:
 `New` for accepted-and-working (logged, not announced), `Expired` when time-in-force
