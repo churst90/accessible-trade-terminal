@@ -350,8 +350,9 @@ namespace AccessibleTrader.Core.Services.Audio
             // The zero written here is OURS, not the user's — flag it so the next voice command
             // restores _userMasterGain rather than treating a deliberate mute as a stale fade.
             _stopAllFaded = true;
+            // Only the TARGET goes to zero — Read()'s ramp walks _masterGain down over the
+            // fade window. Snapping _masterGain itself here is an audible click.
             _targetMasterGain = 0;
-            _masterGain = 0;
         }
 
         public void StopAll()

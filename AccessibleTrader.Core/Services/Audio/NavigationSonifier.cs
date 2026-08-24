@@ -430,8 +430,17 @@ namespace AccessibleTrader.Core.Services.Audio
 
         public void PlayNote(double freq, double dur, string wave, float vol, float pan, double delay = 0)
         {
+            // The slot is claimed immediately so round-robin order matches call order even
+            // when later notes in a phrase carry longer delays.
             int slot = SLOT_UI_START + (Interlocked.Increment(ref _uiSlotCounter) & 15);
-            _audioDriver.SetVoice(slot, freq, vol, pan, wave, false, dur);
+            if (delay <= 0)
+            {
+                _audioDriver.SetVoice(slot, freq, vol, pan, wave, false, dur);
+                return;
+            }
+            _ = Task.Delay(TimeSpan.FromMilliseconds(delay)).ContinueWith(
+                _ => _audioDriver.SetVoice(slot, freq, vol, pan, wave, false, dur),
+                TaskScheduler.Default);
         }
 
         public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f)

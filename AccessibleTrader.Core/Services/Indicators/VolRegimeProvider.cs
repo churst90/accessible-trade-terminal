@@ -105,6 +105,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
             int n = data.Length;
+            if (n == 0) return;
             int shortW = GetInt(parameters, "ShortWindow", 30);
             int longW  = GetInt(parameters, "LongWindow", 365);
             int rankW  = GetInt(parameters, "RankWindow", 500);

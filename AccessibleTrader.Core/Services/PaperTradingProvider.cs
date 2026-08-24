@@ -1256,7 +1256,10 @@ namespace AccessibleTrader.Core.Services
                 {
                     Cash = _cash,
                     Positions = _positions.Select(kv => new PosDto { Symbol = kv.Key, Qty = kv.Value.Qty, Avg = kv.Value.Avg }).ToList(),
-                    Leverage = _leverage.Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
+                    // 1.0 is the default; persisting it would re-record the withdrawn
+                    // leverage feature as state. Only meaningful values survive a save.
+                    Leverage = _leverage.Where(kv => kv.Value > 1.0)
+                        .Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
                     Open = _open.Select(o => new OrderDto
                     {
                         Id = o.Id, Symbol = o.Symbol, Side = o.Side.ToString(), Type = o.Type.ToString(),
@@ -1295,7 +1298,10 @@ namespace AccessibleTrader.Core.Services
                 if (dto == null) return;
                 _cash = dto.Cash;
                 foreach (var p in dto.Positions) _positions[p.Symbol] = (p.Qty, p.Avg);
-                foreach (var l in dto.Leverage) _leverage[l.Symbol] = l.Value;
+                // Accounts written before leverage was withdrawn can carry entries above
+                // MaxLeverage (e.g. a stale 3.0) that would be reported on positions as if
+                // the feature still existed. Clamp on load; Persist() then drops the no-ops.
+                foreach (var l in dto.Leverage) _leverage[l.Symbol] = Math.Clamp(l.Value, 1, MaxLeverage);
                 foreach (var o in dto.Open)
                     _open.Add(new PaperOrder(o.Id, o.Symbol,
                         Enum.TryParse<OrderSide>(o.Side, out var s) ? s : OrderSide.Buy,

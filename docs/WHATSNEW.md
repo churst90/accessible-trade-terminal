@@ -36,6 +36,14 @@
   a test, which is its own lesson.
 - **An empty list stops meaning five different things.** "Nothing here" and "we could not
   reach the venue" and "your key cannot read this" now read as what they are.
+- **Some strategy conditions are gone from the builder, and old strategies that used them
+  will deliberately stop firing.** A handful of indicator signals turned out to peek at
+  bars that had not happened yet. They looked brilliant in a backtest for exactly that
+  reason, and they are not something you can trade. Those signals are now refused as
+  strategy conditions: they no longer appear in the builder, and a saved strategy that
+  leans on one keeps running but that condition evaluates false at every bar — silence,
+  not a false signal. If a strategy of yours has gone quiet since updating, this is
+  probably why; rebuild the condition from the causal signals that remain.
 
 **Not in this release, deliberately: moving funds off a venue.** The withdrawal path is
 built and tested, but no one has yet run a real withdrawal with it, and that is the one

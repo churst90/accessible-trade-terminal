@@ -312,6 +312,28 @@ namespace AccessibleTrader.Tests
             Assert.All(driver.SetVoiceCalls, c => Assert.InRange(c.Slot, 16, 31));
         }
 
+        [Fact]
+        public async Task PlayNote_WithADelay_DefersTheVoice_InsteadOfDiscardingIt()
+        {
+            // Regression: the delay parameter was accepted and silently dropped, so every
+            // multi-note earcon phrase collapsed into a simultaneous chord. A delayed note
+            // must not sound synchronously, must still sound, and must stay in the UI slot
+            // range (the slot is claimed at call time so phrase order matches call order).
+            var driver = new SpyAudioDriver();
+            var sonifier = BuildSonifier(driver);
+
+            sonifier.PlayNote(freq: 440, dur: 0.05, wave: "sine", vol: 0.1f, pan: 0f, delay: 120);
+
+            Assert.Empty(driver.SetVoiceCalls);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (driver.SetVoiceCalls.Count == 0 && sw.ElapsedMilliseconds < 5000)
+                await Task.Delay(20);
+
+            var call = Assert.Single(driver.SetVoiceCalls);
+            Assert.InRange(call.Slot, 16, 31);
+        }
+
         // ── Fixtures ─────────────────────────────────────────────────────────
 
         private static NavigationSonifier BuildSonifier(SpyAudioDriver driver)

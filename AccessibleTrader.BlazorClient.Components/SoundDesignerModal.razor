@@ -2,16 +2,14 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @using Microsoft.AspNetCore.Components.Forms
-@inject IEventBus EventBus
+@inherits ModalBase
 @inject ISoundPatchLibrary PatchLibrary
 @inject ISonificationManager SonificationManager
 @inject AccessibleTrader.Core.Services.Audio.IWavetableLibrary Wavetables
-@inject IJSRuntime JSRuntime
-@implements IDisposable
 
 @if (_isVisible)
 {
-    <div class="modal-overlay" role="none" @onclick="Close">
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
         <div class="modal-content"
              role="dialog"
              aria-modal="true"
@@ -312,16 +310,16 @@
             </details>
 
             <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
-                <button @onclick="Close" aria-label="Close sound designer">Close</button>
+                <button @onclick="CloseModal" aria-label="Close sound designer">Close</button>
             </div>
         </div>
     </div>
 }
 
 @code {
-    private bool _isVisible;
-    private IDisposable? _sub;
-    private IDisposable? _closeSub;
+    // CommandDispatcher's Escape handling and MainLayout's canvas hiding both key on
+    // this exact name, which predates the ModalBase default ("SoundDesigner").
+    protected override string ModalName => "Sound designer";
 
     private List<SoundPatch> _patches = new();
     private string? _selectedId;
@@ -398,22 +396,16 @@
 
     protected override void OnInitialized()
     {
-        _sub = EventBus.AsObservable<OpenSoundDesignerEvent>()
+        base.OnInitialized();
+        _eventSub = EventBus.AsObservable<OpenSoundDesignerEvent>()
             .Subscribe(_ => InvokeAsync(ShowAsync));
-        _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
-        {
-            if (_isVisible && e.ModalName == "Sound designer") InvokeAsync(Close);
-        });
     }
 
     private async Task ShowAsync()
     {
         _patches = PatchLibrary.GetPatches().ToList();
         if (_patches.Any() && _selectedId == null) SelectPatch(_patches[0].Id);
-        _isVisible = true;
-        EventBus.Publish(new ModalStateChangedEvent(true, "Sound designer"));
-        StateHasChanged();
-        await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "sound-designer-title");
+        await ShowModalAsync("sound-designer-title");
     }
 
     private void OnPatchKeyDown(KeyboardEventArgs e, string id)
@@ -551,11 +543,4 @@
         PatchLibrary.SaveEarconOverrides();
     }
 
-    private void Close()
-    {
-        _isVisible = false;
-        EventBus.Publish(new ModalStateChangedEvent(false, "Sound designer"));
-    }
-
-    public void Dispose() { _sub?.Dispose(); _closeSub?.Dispose(); }
 }

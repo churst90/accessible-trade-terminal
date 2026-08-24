@@ -110,6 +110,16 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void EmptySeries_IsANoOp_NotAnIndexOutOfRange()
+        {
+            // Regression: r[0] = NaN ran before any length check, so an empty bar
+            // series (a chart that failed to load, a symbol with no history yet)
+            // threw IndexOutOfRangeException where every peer provider returns.
+            var results = Run(new List<Ohlcv>());
+            Assert.All(results.Values, arr => Assert.Empty(arr));
+        }
+
+        [Fact]
         public void StabilityWindow_TracksLongWindowParameter()
         {
             var p = new VolRegimeProvider();

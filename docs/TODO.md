@@ -2,9 +2,65 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-**Status 2026-08-23:** 269 open of 1318 tracked items (1049 done). Suite green at 4488 tests.
+**Status 2026-08-23 (small-fixes batch):** 267 open of 1325 tracked items (1058 done — nine
+closed this pass: VolRegime empty guard, the F3 format literal, PlayNote's discarded delay,
+AudioEngine.Reset's click, Object Tree labels, Sound Designer Escape, TabBar's nested button,
+the WHATSNEW withdrawn-leaves line, the stale leverage entry; seven added: the six
+trading-dashboard roadmap items and the split-out LastDegradation surfacing). Suite green at
+4495 tests.
 
 **The 2.0 plan (tiers, audit grades, what's left) lives in [ROADMAP_2.0.md](ROADMAP_2.0.md).**
+
+---
+
+## Trading dashboard decoupling (roadmap adopted 2026-08-23)
+
+Full design: `patches/trading-dashboard-decoupling-spec.md` (written 2026-08-22 against
+`12937dd3` — line numbers there will have drifted; trust the searchable anchors). The goal: the
+dashboard stops asking *"what chart am I looking at?"* and starts asking *"what accounts do I
+have?"* — so a user on any chart (or none) can open it and see positions, orders, and balances
+across every connected venue. Read the spec's §2 constraints before touching anything; they are
+load-bearing (hosted/demo stay paper-only, `RefreshTradingEnvironment()` on every new load path,
+never merge or re-key ledger positions, keep the per-tab "why it is empty" notes, keep the four
+named guard suites green).
+
+**Venue selection decision (2026-08-23):** no venue dropdown for actions on existing rows — each
+order/position row carries its owning provider (Phase 3.4) and Cancel/Close route through it
+automatically. The order ticket stays chart-bound (spec §5.3: you place an order on the symbol
+you are looking at). If the ticket is ever decoupled from the chart, *then* it gets a labeled
+account `<select>` defaulting to the focused chart's venue, populated from the Phase 3
+`TradingAccount` enumeration — which degrades to a single "Paper account" entry on hosted.
+
+- [ ] **Phase 1 — the unblock (small, ship first, own commit).** Stop filtering the orders/fills
+  tabs by the focused chart's symbol (`GetOpenOrdersAsync(provider, null)`; symbol param already
+  optional). Add the Symbol column the orders table never had (colspan 6 → 7). Ungate `CancelOrder`
+  — paper mode discards the provider name, so an empty chart identity is not a reason to refuse —
+  and make **every** early return in the seven chart-coupled sites publish a
+  `FeedbackRequestEvent`; a silent return is the defect. Explicit button labels: `✕` →
+  `Cancel order`, `Close` → `Close position`, verb-first aria-labels naming the symbol.
+- [ ] **Phase 2 — per-provider sections.** Group Balances/Positions/Orders under one
+  `<section aria-labelledby>` + `<h3>` per account (H-key navigation between venues); keep the
+  existing `sr-only` captions and `scope="col"` headers as-is. Per-account empty/error notes.
+  With exactly one account, still render the heading so hosted and desktop stay structurally
+  identical.
+- [ ] **Phase 3 — the real decoupling.** `TradingAccount` record (paper → one venue-less account;
+  live → distinct active providers from `IApiKeyService.GetAllKeysAsync()` filtered by
+  `SupportsTradingAsync`, **never** a key with `AllowsWithdrawal`). `LoadAccountDataAsync` loops
+  accounts concurrently with per-account failure isolation. Rows carry their provider (wrapper
+  record, not an SDK contract change), then the Phase 1 chart fallback is deleted. The ticket
+  sites (spec lists them) keep reading `Store.State.Identity`.
+- [ ] **Phase 4 — close semantics.** `Close position` stays market; add `Close at limit…`
+  revealing a price field. Both keep `ReduceOnly: true`; never make one button's order type
+  depend on hidden state.
+- [ ] **Tests (spec §7).** Six named tests — cancel-without-chart, unfiltered orders tab,
+  every-refusal-speaks scan (with vacuity floor, reuse `StripCommentsAndStrings`), per-account
+  headings via bUnit, withdrawal keys never enumerated, verb-and-subject button names — each
+  proven red before the fix. Extend `DashboardCapabilityGatingTests` to assert gating per
+  account, not globally.
+- [ ] **Spec Appendix B follow-ups (separate from the decoupling):** duplicate protective legs
+  (`AttachProtectiveLegs` reachable twice for one entry — replace, not add, at the same trigger);
+  the pre-`ResolveLedgerKeyAsync` `BTC/USD` vs `BTCUSDT` opposing pair needs a user-facing offer
+  to net at a stated price — never a silent re-key of stored state.
 
 ---
 
@@ -139,8 +195,11 @@ author's claim. Suite 3538 green.
   `MarketOrchestrator.LoadRestoredActiveTabAsync` assigns both straight from the saved identity,
   which is how `BTCUSDT` came to be recorded against Bitstamp (a venue that lists `BTC/USD`).
   `ResolvePriceAsync` now survives it by trying and dropping the pairing, but the source is unfixed.
-- [ ] **The stale `Leverage: BTC/USD = 3.0`** entry in the live paper account predates leverage
+- [x] **The stale `Leverage: BTC/USD = 3.0`** entry in the live paper account predates leverage
   being withdrawn. Harmless, but it is recorded state describing a feature that no longer exists.
+  **FIXED 2026-08-23** as a load-time migration, not a hand-edit of server state: `Load()` clamps
+  legacy entries to `MaxLeverage` (positions no longer report 3x) and `Persist()` drops 1.0
+  no-ops, so the live file self-heals on its next save. `PaperLegacyStateTests`.
 
 ---
 
@@ -413,7 +472,10 @@ Two things this does NOT cover, both deliberate, both still open:
   filter the column list to `catalog.All` (which would silently drop existing saved screeners) or
   keep the column and label it. The same question applies to any future surface that resolves a
   descriptor and reads its data — `ConditionEvaluator.RefusedForCausality` is the pattern to copy.
-- [ ] **The next release's `WHATSNEW.md` needs a line about withdrawn leaves.** Some strategies
+- [x] **DONE 2026-08-23 (release-notes half).** A 2.3.0 bullet now explains that non-causal
+  signals were withdrawn from the builder and that affected strategies deliberately go quiet.
+  Surfacing `LastDegradation` in the UI is still open — tracked by the line below.
+- [ ] **Surface `ConditionEvaluator.LastDegradation` in the UI.** Some strategies
   built before this change will stop firing, deliberately, and the reason is now reported through
   `ConditionEvaluator.LastDegradation` — but no UI surface reads that property yet, so today the
   user's only clue is the leaf's absence from the builder. Either surface `LastDegradation` or say
@@ -647,7 +709,8 @@ prevents the next one.
   `Oscillator`/`Signal`, doubling the sonification voices for no information; same for
   `RocP`→`Roc` and `Adl3`→`Adl`. `SkenderTrendProvider.cs:152`'s KAMA "Lookback Periods" control is
   inert (the real parameter is `erPeriods`), so dragging it 10→50 redraws an identical line.
-- [ ] **`SkenderDetailFactProvider.cs:174` announces the literal string "F3".**
+- [x] **FIXED 2026-08-23** — format is now `{slopePct:+0.000;-0.000}` (digit placeholders, not
+  the literal `F3`). **`SkenderDetailFactProvider.cs:174` announced the literal string "F3".**
   `$" Slope {slopePct:+F3;-F3}% per bar."` — `"+F3;-F3"` parses as a custom format with
   positive/negative sections where only `0` and `#` are digit placeholders, so it is spoken as
   "Slope plus F three percent per bar" on every MA.
@@ -672,8 +735,10 @@ prevents the next one.
   (`window.Count >= 5` with a population divisor, where max attainable |z| is 1.789 against a ±1.5
   threshold) while `:309` tells the user *"The series needs about six months of weekly reports
   before the z-score is defined."*
-- [ ] **`VolRegimeProvider.cs:121` throws `IndexOutOfRangeException` on an empty bar series** —
+- [x] **`VolRegimeProvider.cs:121` throws `IndexOutOfRangeException` on an empty bar series** —
   `r[0] = double.NaN` with no `n == 0` guard, where every peer provider has one.
+  **FIXED 2026-08-23**, same guard as the peers; `EmptySeries_IsANoOp_NotAnIndexOutOfRange`
+  proven red against the unguarded code.
 - [ ] **Chart-pattern geometry defects.** `ChartPatternDetector.cs:388-391` — the H&S neckline
   comment says "conservative" and `Math.Max` picks the *least* conservative trough, disagreeing with
   the DoubleTop convention 80 lines above. `:432-436` — the triangle detector pairs highs with lows
@@ -816,7 +881,12 @@ Still open from that sweep, and deliberately not done in it:
   `!series.IsVisible` with no `IsMuted` check, unlike every other per-series scan in the layer. The
   tones also bypass `ChartVolume`, series and component volume entirely. Mute a noisy RSI and its
   approach chimes and sustained-zone tones continue at fixed volume.
-- [ ] **`PlayNote`'s `delay` parameter is accepted and silently discarded**, so every multi-note
+- [x] **FIXED 2026-08-23** — `NavigationSonifier.PlayNote` now defers delayed notes via the
+  `CrossEarcon.Fire` shape (slot claimed at call time, `Task.Delay` continuation fires the
+  voice), and the four sequence earcons (fill, stop, take-profit, setup-armed) pass staggered
+  delays. Deliberate chords (setup bell, new-bar partials, Error's beating pair) untouched.
+  `Sequence_earcons_stagger…` + `PlayNote_WithADelay_Defers…`, both proven red.
+  **`PlayNote`'s `delay` parameter was accepted and silently discarded**, so every multi-note
   earcon is a simultaneous chord rather than the sequence its comment describes.
   `NavigationSonifier:419-423` never reads `delay`. `PlayStopHit`'s "low minor-third descent" is a
   simultaneous cluster; `PlayTakeProfitHit`'s "bright major arpeggio up" is a chord;
@@ -874,7 +944,10 @@ Still open from that sweep, and deliberately not done in it:
   hardest to diagnose by ear. Fix: `ConcurrentDictionary` (as `SoundPatchRegistry` already uses),
   plus a try/catch around the `SyncNavigationSlots` call that reports through
   `IGlobalErrorCoordinator`.
-- [ ] **`AudioEngine.Reset` snaps `_masterGain` to 0, producing a click**, discarding the 20 ms fade
+- [x] **FIXED 2026-08-23** — `Reset()` now writes only `_targetMasterGain`; `Read()`'s existing
+  ramp walks `_masterGain` down over the fade window. (The false "written only from the main
+  thread" comment the audit cited had already been rewritten by the gain-split work.)
+  **`AudioEngine.Reset` snapped `_masterGain` to 0, producing a click**, discarding the 20 ms fade
   `StopAll` exists to provide. The comment above it — *"Master gain is written only from the main
   thread and read only in `Read()`"* — is false on both counts (`Read()` writes it at four sites)
   and answers a different question than the one that matters.
@@ -991,14 +1064,21 @@ impossible for any test to notice a focus bug.
     button in every dialog unreadable. Fixed properly rather than exempted: `ThemeCssBridge` now
     emits `--text-on-accent`, chosen by luminance exactly as `FocusRingFor` already does, with a
     per-theme test asserting the separation. The default theme renders identically.
-- [ ] **The Object Tree labels its buttons with the state they are leaving.**
+- [x] **FIXED 2026-08-23** — labels now state the action (Hide/Show, Mute/Unmute, matching
+  IndicatorBar), with series-naming aria-labels replacing the contradictory `aria-pressed`,
+  and the orphan `U+FE0F` selectors stripped. `ObjectTreeModalTests`.
+  **The Object Tree labelled its buttons with the state they are leaving.**
   `ObjectTreeModal.razor:76,109` render `@(series.IsVisible ? "Show" : "Hide")` — so a *visible*
   series shows a button reading "Show" — and `:83,115` render `@(series.IsMuted ? "Mute" : "Sound")`.
   `aria-pressed` is separately inverted, so a user cross-checking gets a contradictory second signal.
   The buttons have no `aria-label`, so the visible text *is* the accessible name. `IndicatorBar.razor:28`
   gets it right. Also strip the orphan `U+FE0F` variation selectors left inside `"Show️"` and
   `"Delete️"`.
-- [ ] **Escape leaves the Sound Designer on screen.** `SoundDesignerModal.razor:554-558` — `Close()`
+- [x] **FIXED 2026-08-23** — converted to `@inherits ModalBase` (with `ModalName => "Sound
+  designer"` preserving the dispatcher's name), exactly as prescribed below; the bespoke
+  Close/Dispose/subscription code is deleted. `Escape_removes_the_dialog_from_the_dom` proven
+  red against a render-less CloseModal. **Escape left the Sound Designer on screen.**
+  `SoundDesignerModal.razor:554-558` — `Close()`
   sets `_isVisible = false` and publishes, but omits `StateHasChanged()`, and it is reached via
   `InvokeAsync(Close)` which marshals but does not schedule a render. It is the only
   self-implementing modal missing the call. The user hears "Sound designer dialog closed" and the
@@ -1046,7 +1126,10 @@ impossible for any test to notice a focus bug.
   the row being read and focus falls to `<body>`. On a liquid pair that is several times a second —
   reading the depth ladder, the modal's entire purpose for a blind trader, is impossible on any
   active market. Key on index and move to a `role="grid"` with arrow-key cell navigation.
-- [ ] **`TabBar` nests a `<button class="tab-close">` inside a `<button role="tab">`.** Invalid HTML;
+- [x] **FIXED 2026-08-23** — the close affordance is now a mouse-only `aria-hidden` span; the
+  keyboard route is Delete on the tablist (selection follows focus, so any tab is reachable
+  then closable). The tablist's owned elements are tabs only. `TabBarTests`.
+  **`TabBar` nested a `<button class="tab-close">` inside a `<button role="tab">`.** Invalid HTML;
   the parser hoists the inner button out, so the tablist's owned elements become
   `tab, close-button, tab, close-button…` and the close buttons are neither `tab` nor
   `presentation`. Every close button is `tabindex="-1"` with no `aria-activedescendant`, so **there

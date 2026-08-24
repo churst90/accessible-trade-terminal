@@ -69,24 +69,28 @@
                                                      @onclick="() => FocusSeries(series.Id)">
                                                 <span class="series-name">@series.FriendlyName</span>
                                                 <div class="series-actions">
-                                                    <button title="Toggle Visibility (H)" 
+                                                    @* Label states the ACTION the button performs (like IndicatorBar), with no
+                                                       aria-pressed — a verb label plus a pressed state is two signals that can
+                                                       contradict each other. *@
+                                                    <button title="Toggle Visibility (H)"
                                                             @onclick:stopPropagation="true"
                                                             @onclick="() => ToggleHide(series.Id)"
-                                                            aria-pressed="@(!series.IsVisible ? "true" : "false")">
-                                                        @(series.IsVisible ? "Show️" : "Hide")
+                                                            aria-label="@($"{(series.IsVisible ? "Hide" : "Show")} {series.FriendlyName}")">
+                                                        @(series.IsVisible ? "Hide" : "Show")
                                                     </button>
-                                                    <button title="Toggle Audio (M)" 
+                                                    <button title="Toggle Audio (M)"
                                                             @onclick:stopPropagation="true"
                                                             @onclick="() => ToggleMute(series.Id)"
-                                                            aria-pressed="@(series.IsMuted ? "true" : "false")">
-                                                        @(series.IsMuted ? "Mute" : "Sound")
+                                                            aria-label="@($"{(series.IsMuted ? "Unmute" : "Mute")} {series.FriendlyName}")">
+                                                        @(series.IsMuted ? "Unmute" : "Mute")
                                                     </button>
                                                     @if (series.Id != CoreSeriesIds.Candles && series.Id != CoreSeriesIds.Price)
                                                     {
                                                         <button title="Remove" class="danger-btn"
                                                                 @onclick:stopPropagation="true"
-                                                                @onclick="() => RemoveSeries(series.Id)">
-                                                            Delete️
+                                                                @onclick="() => RemoveSeries(series.Id)"
+                                                                aria-label="@($"Delete {series.FriendlyName}")">
+                                                            Delete
                                                         </button>
                                                     }
                                                 </div>
@@ -106,13 +110,13 @@
                                                                     class="mini-btn"
                                                                     @onclick:stopPropagation="true"
                                                                     @onclick="() => ToggleCompHide(series.Id, comp.Name)">
-                                                                @(comp.IsVisible ? "Show️" : "Hide")
+                                                                @(comp.IsVisible ? "Hide" : "Show")
                                                             </button>
-                                                            <button title="Toggle Component Audio" 
+                                                            <button title="Toggle Component Audio"
                                                                     class="mini-btn"
                                                                     @onclick:stopPropagation="true"
                                                                     @onclick="() => ToggleCompMute(series.Id, comp.Name)">
-                                                                @(comp.IsMuted ? "Mute" : "Sound")
+                                                                @(comp.IsMuted ? "Unmute" : "Mute")
                                                             </button>
                                                         </div>
                                                     </div>

@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Enums;
@@ -128,5 +130,42 @@ public class EarconServiceTests
         sonify.Received().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
             Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
         sonify.DidNotReceive().PlayPatch(Arg.Any<SoundPatch>(), Arg.Any<float>(), Arg.Any<float>(), Arg.Any<bool>());
+    }
+
+    /// <summary>
+    /// Regression: PlayNote's delay parameter was silently discarded downstream, so the
+    /// earcons documented as SEQUENCES — the fill's "two staccato pickups then a sustained
+    /// resolve", the stop's "minor-third descent", the take-profit's "arpeggio up", the
+    /// armed setup's "rising fifth" — all collapsed into simultaneous chords. Fill and stop
+    /// are meant to be distinguishable by shape, not just pitch content, so each note in
+    /// these phrases must start strictly after the one before it.
+    /// </summary>
+    [Fact]
+    public void Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord()
+    {
+        var (sonify, lib) = Deps(new EarconSettings());
+        var svc = new EarconService(sonify, lib);
+
+        AssertStaggered(sonify, () => svc.PlayOrderFill(OrderSide.Buy), notes: 3);
+        AssertStaggered(sonify, () => svc.PlayOrderFill(OrderSide.Sell), notes: 3);
+        AssertStaggered(sonify, () => svc.PlayStopHit(), notes: 3);
+        AssertStaggered(sonify, () => svc.PlayTakeProfitHit(), notes: 4);
+        AssertStaggered(sonify, () => svc.PlaySetupArmed(OrderSide.Buy), notes: 2);
+    }
+
+    private static void AssertStaggered(ISonificationManager sonify, Action play, int notes)
+    {
+        sonify.ClearReceivedCalls();
+        play();
+
+        var delays = sonify.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ISonificationManager.PlayNote))
+            .Select(c => (double)c.GetArguments()[5]!)
+            .ToList();
+
+        Assert.Equal(notes, delays.Count);
+        for (int i = 1; i < delays.Count; i++)
+            Assert.True(delays[i] > delays[i - 1],
+                $"note {i + 1} must start after note {i} (delays: {string.Join(", ", delays)})");
     }
 }

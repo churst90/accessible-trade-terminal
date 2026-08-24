@@ -171,7 +171,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             if (!double.IsNaN(prev1) && prev1 > 0)
                             {
                                 double slopePct = ((val - prev1) / prev1) * 100.0;
-                                slopePart = $" Slope {slopePct:+F3;-F3}% per bar.";
+                                slopePart = $" Slope {slopePct:+0.000;-0.000}% per bar.";
                             }
 
                             string trend     = rising ? "Strong uptrend." : (falling ? "Strong downtrend." : string.Empty);

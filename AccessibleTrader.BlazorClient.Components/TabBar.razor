@@ -46,13 +46,17 @@
             Tab @(captured.Index + 1): @captured.Label
             @if (canClose)
             {
-                <button class="tab-close"
-                        tabindex="-1"
-                        aria-label="Close tab @(captured.Index + 1)"
-                        @onclick:stopPropagation="true"
-                        @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
+                @* Mouse-only affordance: a button here would nest inside the role="tab"
+                   button — invalid HTML that the parser hoists out, corrupting the
+                   tablist's owned elements. Keyboard users close via Delete on the
+                   tablist (arrows move selection first), per the ARIA tabs pattern. *@
+                <span class="tab-close"
+                      aria-hidden="true"
+                      title="Close tab @(captured.Index + 1)"
+                      @onclick:stopPropagation="true"
+                      @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
                     ×
-                </button>
+                </span>
             }
         </button>
     }

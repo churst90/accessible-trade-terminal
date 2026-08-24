@@ -311,12 +311,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (side == OrderSide.Buy)
             {
                 _sonificationManager.PlayNote(660, 0.40, "sine", 0.10f, 0f, force: true);
-                _sonificationManager.PlayNote(990, 0.40, "sine", 0.08f, 0f, force: true);
+                _sonificationManager.PlayNote(990, 0.40, "sine", 0.08f, 0f, 180, force: true);
             }
             else
             {
                 _sonificationManager.PlayNote(330, 0.40, "triangle", 0.10f, 0f, force: true);
-                _sonificationManager.PlayNote(220, 0.40, "triangle", 0.08f, 0f, force: true);
+                _sonificationManager.PlayNote(220, 0.40, "triangle", 0.08f, 0f, 180, force: true);
             }
         }
 
@@ -353,15 +353,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (side == OrderSide.Buy)
             {
                 // Two staccato pickups then a sustained resolve a fourth up.
-                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f, force: true);   // D5
-                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f, force: true);   // D5
-                _sonificationManager.PlayNote(784, 0.45, "sine", 0.13f, 0f, force: true);   // G5 sustained
+                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f, force: true);        // D5
+                _sonificationManager.PlayNote(587, 0.08, "sine", 0.12f, 0f, 100, force: true);   // D5
+                _sonificationManager.PlayNote(784, 0.45, "sine", 0.13f, 0f, 200, force: true);   // G5 sustained
             }
             else
             {
-                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f, force: true); // D4
-                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f, force: true); // D4
-                _sonificationManager.PlayNote(196, 0.45, "triangle", 0.13f, 0f, force: true); // G3 sustained
+                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f, force: true);      // D4
+                _sonificationManager.PlayNote(294, 0.08, "triangle", 0.12f, 0f, 100, force: true); // D4
+                _sonificationManager.PlayNote(196, 0.45, "triangle", 0.13f, 0f, 200, force: true); // G3 sustained
             }
         }
 
@@ -372,9 +372,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             SignalVisual("Stop loss hit", "alert");
             // Urgent but orderly: low minor-third descent, square for bite — deliberately
             // shorter and cleaner than PlayError's dissonant beating pair.
-            _sonificationManager.PlayNote(220, 0.18, "square", 0.16f, 0f, force: true); // A3
-            _sonificationManager.PlayNote(185, 0.18, "square", 0.16f, 0f, force: true); // F#3
-            _sonificationManager.PlayNote(147, 0.40, "square", 0.14f, 0f, force: true); // D3 sustained
+            _sonificationManager.PlayNote(220, 0.18, "square", 0.16f, 0f, force: true);      // A3
+            _sonificationManager.PlayNote(185, 0.18, "square", 0.16f, 0f, 190, force: true); // F#3
+            _sonificationManager.PlayNote(147, 0.40, "square", 0.14f, 0f, 380, force: true); // D3 sustained
         }
 
         public void PlayTakeProfitHit()
@@ -383,10 +383,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!CanPlay("tp_hit")) return;
             SignalVisual("Take profit hit", "positive");
             // Bright major arpeggio up — the "win" sound.
-            _sonificationManager.PlayNote(523,  0.10, "sine", 0.12f, 0f, force: true); // C5
-            _sonificationManager.PlayNote(659,  0.10, "sine", 0.12f, 0f, force: true); // E5
-            _sonificationManager.PlayNote(784,  0.10, "sine", 0.12f, 0f, force: true); // G5
-            _sonificationManager.PlayNote(1046, 0.40, "sine", 0.13f, 0f, force: true); // C6 sustained
+            _sonificationManager.PlayNote(523,  0.10, "sine", 0.12f, 0f, force: true);      // C5
+            _sonificationManager.PlayNote(659,  0.10, "sine", 0.12f, 0f, 110, force: true); // E5
+            _sonificationManager.PlayNote(784,  0.10, "sine", 0.12f, 0f, 220, force: true); // G5
+            _sonificationManager.PlayNote(1046, 0.40, "sine", 0.13f, 0f, 330, force: true); // C6 sustained
         }
 
         public void PlayConnectionState(ConnectionState state)

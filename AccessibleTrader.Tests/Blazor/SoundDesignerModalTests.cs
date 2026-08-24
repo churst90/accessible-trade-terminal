@@ -45,4 +45,22 @@ public class SoundDesignerModalTests
 
         Assert.Equal(before + 1, cut.FindAll("select[id^='sd-wave-']").Count);
     }
+
+    [Fact]
+    public void Escape_removes_the_dialog_from_the_dom()
+    {
+        // Regression: Close() set _isVisible = false but never triggered a render, so
+        // the user heard "dialog closed" while the dialog stayed in the DOM and the Tab
+        // order — and single-letter chart commands fired into the patch editor because
+        // the keyboard-scope gate believed no modal was open. Converted to ModalBase,
+        // whose CloseModal() renders; this pins the visible half of that contract.
+        using var h = new BlazorTestHarness();
+        var cut = Open(h);
+        Assert.NotEmpty(cut.FindAll("[role='dialog']"));
+
+        // CommandDispatcher publishes this on Escape, naming the topmost modal.
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Sound designer")));
+
+        Assert.Empty(cut.FindAll("[role='dialog']"));
+    }
 }
