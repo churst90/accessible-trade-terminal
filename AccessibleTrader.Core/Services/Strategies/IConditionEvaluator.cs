@@ -22,5 +22,17 @@ namespace AccessibleTrader.Core.Services.Strategies
             ConditionNode root,
             IReadOnlyList<Ohlcv> history,
             WorkspaceState state);
+
+        /// <summary>
+        /// Why the most recent <see cref="Evaluate"/> could not honestly answer a leaf —
+        /// an HTF leaf with no pre-warmed data, or a component the causality contract
+        /// refuses — or null when it answered every leaf it was asked about.
+        ///
+        /// On the interface rather than only on the concrete class because a false tree
+        /// and an *unanswerable* tree are the same silence to the user, and the layer that
+        /// has to tell them apart (the alerts path) holds this type, not the concrete one.
+        /// Cleared at the start of every Evaluate, so it describes the last call only.
+        /// </summary>
+        string? LastDegradation { get; }
     }
 }

@@ -54,6 +54,19 @@ namespace AccessibleTrader.Core.Services
                         $"Alert '{alert.Name}' can't be evaluated and will stay silent: {ex.Message}. Edit or delete it in the Alerts dialog.",
                         true));
                 };
+
+                // A tree alert that cannot answer one of its leaves stays false forever and
+                // is indistinguishable from a market that never met it. Same treatment as an
+                // outright failure — said once, then quiet — because "your alert is not
+                // actually watching" is information the user has to have to act on.
+                concrete.EvaluationDegraded += (alert, reason) =>
+                {
+                    _logger.LogWarning("Alert '{Name}' ({Id}) is degraded: {Reason}", alert.Name, alert.Id, reason);
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                        $"Alert '{alert.Name}' can't be fully evaluated and may stay silent: {reason}. " +
+                        "Check the indicator it references is on this chart.",
+                        true));
+                };
             }
         }
 
@@ -90,7 +103,11 @@ namespace AccessibleTrader.Core.Services
 
         public void AddAlert(AlertDefinition alert)
         {
-            _announcedFailures.Remove(alert.Id); // edited alert gets a fresh failure announcement
+            // An edited alert gets a fresh announcement for BOTH gates — otherwise a user
+            // who fixes the reason an alert was degraded is never told it is still degraded
+            // for a different reason.
+            _announcedFailures.Remove(alert.Id);
+            (_evaluator as AlertEvaluator)?.ResetDegradationGate(alert.Id);
 
             _alerts.Add(alert);
             _library.SaveAlerts(_alerts);
@@ -99,6 +116,7 @@ namespace AccessibleTrader.Core.Services
         public void RemoveAlert(string id)
         {
             _announcedFailures.Remove(id);
+            (_evaluator as AlertEvaluator)?.ResetDegradationGate(id);
 
             _alerts.RemoveAll(a => a.Id == id);
             _library.SaveAlerts(_alerts);

@@ -210,39 +210,12 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        /// <summary>
-        /// Inversely maps a physical Y-coordinate back to a data value.
-        /// </summary>
-        public static double InverseMapY(float y, float top, float bottom, double min, double max, bool isLogScale)
-        {
-            float height = bottom - top;
-            if (height <= 0) return min;
-
-            if (isLogScale)
-            {
-                if (min <= 0) min = 0.00001;
-                if (max <= 0) max = 0.00001;
-                double logMin = Math.Log(min);
-                double logMax = Math.Log(max);
-                double logVal = logMin + (double)(bottom - y) / height * (logMax - logMin);
-                return Math.Exp(logVal);
-            }
-            else
-            {
-                double range = max - min;
-                return min + (double)(bottom - y) / height * range;
-            }
-        }
-
-        /// <summary>
-        /// Maps a physical X-coordinate back to a data index within the viewport.
-        /// </summary>
-        public static int GetIndexFromX(float x, float width, int viewportStart, int viewportLength)
-        {
-            if (width <= 0 || viewportLength <= 0) return -1;
-            float barWidth = width / viewportLength;
-            int offset = (int)Math.Floor(x / barWidth);
-            return viewportStart + offset;
-        }
+        // Deleted 2026-08-24: InverseMapY and GetIndexFromX. Both were public, both had
+        // ZERO callers anywhere in the solution (including plugins), and both were second
+        // implementations of arithmetic that already exists here — MapYToPrice and
+        // MapXToIndex. They also disagreed with the live pair on degenerate input, so the
+        // real hazard was not the dead weight but a future caller reaching for the wrong
+        // one and getting a different answer on a collapsed range or an empty viewport.
+        // Use MapYToPrice / MapXToIndex.
     }
 }

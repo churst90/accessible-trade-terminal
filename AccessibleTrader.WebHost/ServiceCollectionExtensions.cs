@@ -230,7 +230,6 @@ namespace AccessibleTrader.WebHost
             services.AddSingleton<IDataCacheService, DataCacheService>();
             services.AddSingleton<ICacheService, FileCacheService>();
             services.AddSingleton<IResamplerService, ResamplerService>();
-            services.AddScoped<IConnectionManager, ConnectionManager>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
             services.AddScoped<IAnalyticsDataResolver, AnalyticsDataResolver>();
 

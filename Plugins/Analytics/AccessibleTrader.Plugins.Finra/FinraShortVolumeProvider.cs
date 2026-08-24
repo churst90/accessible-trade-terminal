@@ -408,16 +408,10 @@ namespace AccessibleTrader.Plugins.Finra
             return (s, kind);
         }
 
-        private static string? TickerOf(string? symbol)
-        {
-            if (string.IsNullOrWhiteSpace(symbol)) return null;
-            string s = symbol.Trim().ToUpperInvariant();
-            if (s.EndsWith(Suffix, StringComparison.Ordinal)) s = s[..^Suffix.Length];
-            // NMS tickers: 1-5 letters plus optional class suffix like BRK.B
-            if (s.Length is < 1 or > 7) return null;
-            foreach (char c in s)
-                if (!char.IsLetter(c) && c != '.') return null;
-            return s;
-        }
+        // Deleted 2026-08-24: TickerOf. Zero callers — superseded by ParseSymbol above,
+        // which returns the series kind alongside the ticker. Worth naming because the two
+        // were not equivalent: TickerOf only knew about the plain short-volume suffix and
+        // would have mis-parsed a _SHORTINT or _DTC symbol, so leaving it was an invitation
+        // to call the wrong one.
     }
 }

@@ -20,6 +20,14 @@ allow-list installed on the WebHost, the dead "Audio mode:" message filter and t
 `SpeechTemplateService` deleted. Suite **4505 green** (+10 guards). Every guard proven red by
 reverting its fix. The `ActionRoutingReachabilityTests` guard closes an entire recurring bug class.
 
+**Status 2026-08-24 (last-mile pass, batch two):** **548 open.** Three more closed:
+`ConditionEvaluator.LastDegradation` is on the interface and a degraded tree alert now SPEAKS
+instead of staying silently false; `ConnectionManager` deleted (wiring it would have fired real
+side effects, not just speech — see the item for why that matters to whoever rebuilds it); and
+four dead members removed (`RenderBars`, `ChartMath.InverseMapY`, `ChartMath.GetIndexFromX`,
+`FinraShortVolumeProvider.TickerOf`). Suite **4509 green** (+14 guards over the assessment
+baseline). All guards proven red.
+
 **Status 2026-08-24 (codebase health assessment):** **555 open items** (counted by grep of `- [ ]`)
 — **283 added** by the 13-area health assessment below. That section is a bulk import of
 **unverified** agent findings and is quarantined under its own heading with its own trust rules:
@@ -737,7 +745,7 @@ Two of these are "the feature does not work", not "the feature has a bug".
   Service_NeverMonitors_OnServerHostedBuilds`). Net effect on the hosted terminal: **closing your
   browser makes more of your alerts work than leaving it open.** Fix: narrow the hosted suppression to
   the symbols the user's circuits actually have on screen. CONFIRMED. HIGH.
-- [ ] **Tree alerts discard `ConditionEvaluator.LastDegradation`, so a leaf that cannot be evaluated is
+- [x] **Tree alerts discard `ConditionEvaluator.LastDegradation`, so a leaf that cannot be evaluated is
   indistinguishable from a market that did not trigger — `AlertEvaluator.cs:98` vs
   `ConditionEvaluator.cs:41`.** `LastDegradation` is set when an HTF leaf has no pre-warmed data
   (`:244`) or the causality contract refuses a component (`:178`); its own doc says "UI layers read
@@ -747,6 +755,15 @@ Two of these are "the feature does not work", not "the feature has a bug".
   referencing an indicator not on the chart; the tree evaluates false forever, silently. Fix: put
   `LastDegradation` on the interface and publish a once-per-alert `FeedbackRequestEvent(Error, …)` the
   way `EvaluationFailed` does at `AlertOrchestrator.cs:49-56`. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-24:** `LastDegradation` is now on `IConditionEvaluator` (the two test fakes already
+  implemented it, which is a fair hint it was always meant to be there). `AlertEvaluator`
+  raises a new `EvaluationDegraded` event when a tree evaluates false WITH a degradation
+  set; `AlertOrchestrator` speaks it once per alert and re-arms the gate on edit, mirroring
+  the existing `EvaluationFailed` treatment. Guard: `AlertDegradationSurfacedTests` — 4 tests
+  covering the announcement, the once-per-alert gate, the re-arm on edit, and the other half
+  of the contract (a healthy tree that simply does not trigger stays SILENT, so the channel
+  that carries real failures does not become nagging). Proven red. Also fixed the stale
+  comment at `AlertEvaluator.cs:22-25` that claimed the null-evaluator case logs.
 - [ ] **`AlertOrchestrator` is scoped per circuit in WebHost, so two browser tabs silently delete each
   other's alerts — `WebHost/ServiceCollectionExtensions.cs:527`.** Each instance loads its own
   `_alerts` list in the constructor (`AlertOrchestrator.cs:42`) and `AddAlert`/`RemoveAlert` (`:75-89`)
@@ -901,7 +918,7 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   (`:585`) — which silently resets a Futures tab's sub-type to Spot — but between `:250` and that reset
   the field holds a value not in `_availableSubTypes` at all, and the toolbar's sub-type `<select>` is
   bound to it. CONFIRMED. MEDIUM.
-- [ ] **`ConnectionManager` is dead: `TrackProvider` has zero call sites in the entire solution
+- [x] **`ConnectionManager` is dead: `TrackProvider` has zero call sites in the entire solution
   (`ConnectionManager.cs:33`).** Registered as a singleton in `BlazorClient` (`:230`) and scoped in
   `WebHost` (`:225`), but a repo-wide grep for `TrackProvider(` returns only the interface declaration
   and the implementation. Nothing ever subscribes a provider, so `_states` is always empty, `GetState`
@@ -910,6 +927,17 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   announce "link disconnected" per provider, so its deadness is part of why a degraded feed is hard to
   hear. Fix: wire it from `DataService.InitializeAsync`/`LiveStreamManager.SubscribeToProvider`, or
   delete it alongside `DataCacheService` and `BackfillManager` (TODO:2158, TODO:2993). CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-24:** Deleted (96 lines) along with both DI registrations, and the stale claim in
+  `TradingReconciliationCoordinator.cs:50` that it 'already suppresses most' reconnect
+  blips was corrected.
+  **Deleted rather than wired, deliberately, and the reason matters for whoever rebuilds
+  it:** `ConnectionStatusEvent` is NOT a free announcement channel. It has two *functional*
+  subscribers — `GeneralOrderService:86` wires the live order stream on Connected, and
+  `TradingReconciliationCoordinator:98` does first-connect exposure announcements — so
+  calling `TrackProvider` would have injected real side effects (duplicate order-stream
+  subscriptions, spurious exposure announcements) on every provider connect, not just
+  speech. Per-provider link announcements are still wanted; they need their own event or an
+  explicit announce-only path, and that is a design task rather than a wiring one.
 - [ ] **`MarketFeedHub.TryStartFeedLiveAsync` reports `Started` when it lost the race and threw its
   subscription away, and leaks a watchdog entry when subscribe throws (`MarketFeedHub.cs:232`,
   `:238-249`).** At `:238` a lost `TryAdd` disposes the new subscription — correct — but the method
@@ -2447,11 +2475,18 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   an infinite screen Y feeds the anchor hit-test at `DrawingInteractionManager.cs:309,641`; `MapY` guards
   this at `:192`. `InverseMapY` and `GetIndexFromX` (`ChartMath.cs:216,240`) have **no callers at all**
   outside `ChartMath.cs` — dead code. CONFIRMED (recounted by grep). LOW.
-- [ ] **`RenderBars` is dead code — `StandardRenderers.cs:299-321`.** `grep -rn "RenderBars\b"
+- [x] **`RenderBars` is dead code — `StandardRenderers.cs:299-321`.** `grep -rn "RenderBars\b"
   --include=*.cs .` returns only the definition; `DataLayer.cs:121-127` routes both `Bar` and `Histogram`
   to `RenderDirectionalBars`. Also `ProfileRenderLayer` injects `IProfileService` and `IAppLogger`
   (`:13,15`) and uses neither; `RenderStepLine`'s `prevX` (`:715,734`) is assigned and never read.
   CONFIRMED. LOW.
+  **CLOSED 2026-08-24:** Deleted, along with the two dead `ChartMath` methods named in the same item
+  (`InverseMapY`, `GetIndexFromX` — both public, both zero callers, both second
+  implementations that disagreed with `MapYToPrice`/`MapXToIndex` on degenerate input) and
+  `FinraShortVolumeProvider.TickerOf`. Each deletion leaves a comment saying what to use
+  instead, because in all four cases the hazard was a future caller picking the wrong one,
+  not the dead weight. `ProfileRenderLayer`'s two unused injected services and
+  `RenderStepLine`'s unread `prevX` remain open.
 - [ ] **A formation whose trigger is off-screen also loses its floor and its target —
   `ChartFormationLayer.cs:120`.** `if (!IsOnScreen(ctx, p.TriggerLevel)) return;` returns from `Draw`
   entirely, so the `SecondaryLevel` check at `:134` and the `MeasuredTarget` check at `:146` never run even

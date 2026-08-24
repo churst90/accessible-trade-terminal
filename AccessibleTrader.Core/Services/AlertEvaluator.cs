@@ -20,9 +20,16 @@ namespace AccessibleTrader.Core.Services
             new(StringComparer.OrdinalIgnoreCase);
 
         // Part D: strategy condition evaluator for advanced (tree) alerts.
-        // Optional so minimal test constructions keep working; when null,
-        // tree alerts simply never fire (and log once via the try/catch above).
+        // Optional so minimal test constructions keep working; when null, tree alerts
+        // simply never fire. (An earlier version of this comment said the null case
+        // "logs once via the try/catch above" — it does not: TryEvaluateTree returns
+        // null without throwing, so nothing was logged and nothing was announced.)
         private readonly Strategies.IConditionEvaluator? _conditionEvaluator;
+
+        // Tree alerts whose degradation has already been reported once, so a leaf that
+        // cannot be evaluated is announced on the bar it first goes quiet rather than on
+        // every tick for the rest of the session.
+        private readonly HashSet<string> _reportedDegradations = new(StringComparer.OrdinalIgnoreCase);
 
         // Edge-trigger memory per tree alert: was the tree true on the last
         // evaluation, and when did it last fire? Concurrent because the focused
@@ -47,6 +54,19 @@ namespace AccessibleTrader.Core.Services
         /// consumer decides how loudly to surface it (the orchestrator speaks the
         /// first failure per alert and journals it).</summary>
         public event Action<AlertDefinition, Exception>? EvaluationFailed;
+
+        /// <summary>Raised the first time a tree alert evaluates false because a leaf could
+        /// not be answered — an HTF leaf with no pre-warmed data, or a component the
+        /// causality contract refuses — rather than because the market did not meet it.
+        /// Those two outcomes are identical silence otherwise, which is the worst shape a
+        /// failure can take in this product: the user believes the alert is watching.
+        /// Once per alert id; re-armed when the alert is edited (Add/Remove clears it).</summary>
+        public event Action<AlertDefinition, string>? EvaluationDegraded;
+
+        /// <summary>Lets the orchestrator re-arm the once-per-alert gates when an alert is
+        /// edited, so a fixed alert can report a NEW problem instead of staying quiet
+        /// because its old one was already announced.</summary>
+        public void ResetDegradationGate(string alertId) => _reportedDegradations.Remove(alertId);
 
         public IEnumerable<AlertFired> EvaluateAlerts(
             IReadOnlyList<AlertDefinition> alerts,
@@ -96,6 +116,14 @@ namespace AccessibleTrader.Core.Services
                 return null;
 
             var eval = _conditionEvaluator.Evaluate(alert.ConditionTree!, state.Data, state);
+
+            // A leaf the evaluator could not answer is not the same as a market that did
+            // not trigger, and until this was surfaced the two were indistinguishable:
+            // the tree just stayed false forever while the user believed it was armed.
+            // Reported once per alert; the gate re-arms when the alert is edited.
+            string? degraded = _conditionEvaluator.LastDegradation;
+            if (degraded != null && !eval.OverallTrue && _reportedDegradations.Add(alert.Id))
+                EvaluationDegraded?.Invoke(alert, degraded);
 
             var prev = _treeState.TryGetValue(alert.Id, out var st)
                 ? st : (WasTrue: false, LastFiredUtc: DateTime.MinValue);

@@ -296,29 +296,10 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
-        public static void RenderBars(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
-        {
-            var barData = series.GetComponentData(comp.Name);
-            if (barData == null || barData.Length == 0) return;
-
-            float barWidth = ctx.Width / ctx.ViewportLength;
-            float spacing = barWidth * 0.1f;
-
-            for (int i = 0; i < ctx.ViewportLength; i++)
-            {
-                int dataIdx = ctx.ViewportStart + i;
-                if (dataIdx >= barData.Length) break;
-
-                double val = barData[dataIdx];
-                if (double.IsNaN(val)) continue;
-
-                float x = i * barWidth;
-                float yVal = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float yZero = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-
-                ctx.Canvas.DrawRect(x + spacing, Math.Min(yVal, yZero), barWidth - (2 * spacing), Math.Abs(yVal - yZero), paint);
-            }
-        }
+        // Deleted 2026-08-24: RenderBars. Zero callers — DataLayer routes BOTH Bar and
+        // Histogram to RenderDirectionalBars below, which is the one that colours by
+        // direction and clamps its marker extents. RenderBars drew flat single-colour bars
+        // and had none of that, so reviving it would have been a silent visual regression.
 
         /// <summary>
         /// Renders any bar or histogram component with directional coloring (green = up/positive,

@@ -96,6 +96,10 @@ namespace AccessibleTrader.Tests
             private readonly Func<IReadOnlyList<Ohlcv>, bool> _predicate;
             public FakeEvaluator(Func<IReadOnlyList<Ohlcv>, bool> predicate) => _predicate = predicate;
 
+            /// <summary>Always answers cleanly — this fake decides by predicate, so there is
+            /// never a leaf it could not evaluate.</summary>
+            public string? LastDegradation => null;
+
             public ConditionEvaluation Evaluate(ConditionNode root, IReadOnlyList<Ohlcv> history, WorkspaceState state)
             {
                 bool ok = _predicate(history);

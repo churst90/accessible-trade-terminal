@@ -227,7 +227,6 @@ namespace AccessibleTrader.BlazorClient
             // Historical OHLCV store (see OhlcvStore): shared public market data, one writer.
             services.AddSingleton<IOhlcvStore, OhlcvStore>();
             services.AddSingleton<IResamplerService, ResamplerService>();
-            services.AddSingleton<IConnectionManager, ConnectionManager>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
             services.AddSingleton<IAnalyticsDataResolver, AnalyticsDataResolver>();
 

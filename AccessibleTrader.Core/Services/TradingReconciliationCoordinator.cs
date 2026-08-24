@@ -47,7 +47,10 @@ namespace AccessibleTrader.Core.Services
         private readonly string _snapshotPath;
 
         // Providers already reconciled this session — announce once, not on every
-        // reconnect blip (ConnectionManager already suppresses most of those).
+        // reconnect blip. This set is the ONLY suppression: an earlier version of this
+        // comment credited ConnectionManager with filtering most of them, but that class
+        // never had a caller and was deleted 2026-08-24, so every ConnectionStatusEvent
+        // this sees comes straight from DataOrchestrator's breaker.
         private readonly HashSet<string> _reconciled = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _reconciledLock = new();
         private readonly IDisposable _connectionSub;
