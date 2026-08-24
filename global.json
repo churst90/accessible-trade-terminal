@@ -1,0 +1,14 @@
+{
+  // SDK 10.0.400's `rzc generate` (the classic Razor path this repo is forced
+  // onto by dotnet/razor#13184) crashes nondeterministically on WebHost —
+  // "This writer does not support components", a race in its parallel codegen.
+  // setup-dotnet installing 10.0.301 is not enough on CI: the runner image
+  // pre-installs 10.0.400 and SDK resolution picks the newest unless this file
+  // says otherwise. latestPatch pins the 10.0.3xx feature band (rzc ships per
+  // band) while tolerating patch bumps. Lift the pin only after verifying rzc
+  // against WebHost on the newer band.
+  "sdk": {
+    "version": "10.0.301",
+    "rollForward": "latestPatch"
+  }
+}
