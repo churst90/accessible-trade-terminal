@@ -289,12 +289,20 @@ public class StrategyModalTests
         cut.Find("#strategy-import-paste").Change(json);
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Import").Click();
 
-        var saved = Assert.Single(lib.All);
-        Assert.Equal("Imported spec", saved.Name);
-        Assert.Equal(StrategyEvidenceLevel.WalkForward, saved.Provenance!.Evidence);
+        // WaitForAssertion: Import runs an async handler, so both the library write and
+        // the status re-render settle after Click() returns. Asserting synchronously
+        // passed on a fast box and failed on a starved CI runner (observed 2026-08-24 —
+        // "Assert.Single() Failure: The collection was empty", i.e. the handler had not
+        // run at all yet). Same treatment AlertsModalTests already applies.
+        cut.WaitForAssertion(() =>
+        {
+            var saved = Assert.Single(lib.All);
+            Assert.Equal("Imported spec", saved.Name);
+            Assert.Equal(StrategyEvidenceLevel.WalkForward, saved.Provenance!.Evidence);
 
-        var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
-        Assert.Contains(status, s => s.Contains("1 strategy imported"));
+            var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
+            Assert.Contains(status, s => s.Contains("1 strategy imported"));
+        });
     }
 
     /// <summary>
@@ -310,9 +318,15 @@ public class StrategyModalTests
         cut.Find("#strategy-import-paste").Change("this is not a strategy file");
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Import").Click();
 
-        Assert.Single(lib.All);
-        var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
-        Assert.Contains(status, s => s.Contains("Import failed"));
+        // Same async-settle reason as the successful-import test above: the refusal is
+        // announced from an async handler, so the [role=status] region is empty at the
+        // instant Click() returns on a slow runner.
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(lib.All);
+            var status = cut.FindAll("[role=status]").Select(e => e.TextContent).ToList();
+            Assert.Contains(status, s => s.Contains("Import failed"));
+        });
     }
 
     /// <summary>

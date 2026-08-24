@@ -20,6 +20,17 @@ allow-list installed on the WebHost, the dead "Audio mode:" message filter and t
 `SpeechTemplateService` deleted. Suite **4505 green** (+10 guards). Every guard proven red by
 reverting its fix. The `ActionRoutingReachabilityTests` guard closes an entire recurring bug class.
 
+**CI note 2026-08-24:** `main` was RED on `xunit` and `doc-drift` before this session's work
+(at `760c49be`). `doc-drift` was a stale test-count claim in `docs/README.md` (4488 vs 4509) —
+fixed. `xunit` is bUnit async-render flake, not a regression: five tests failed on `760c49be`,
+a different two on `f35df7fe`, and all pass locally every time. The pattern in all five is an
+assertion made synchronously right after `.Click()` / `.Change()` / `.KeyDown()` / an un-awaited
+`InvokeAsync`, where the handler is async — fine on a fast box, empty collection on a starved
+runner. All five now use `cut.WaitForAssertion`, matching `AlertsModalTests`, which already
+documents this exact reasoning. **Still open:** nothing prevents the sixth instance. A scan guard
+for "synchronous assert immediately after a bUnit interaction" is the obvious ratchet but is
+easy to write badly; worth doing deliberately rather than quickly.
+
 **Status 2026-08-24 (last-mile pass, batch two):** **548 open.** Three more closed:
 `ConditionEvaluator.LastDegradation` is on the interface and a degraded tree alert now SPEAKS
 instead of staying silently false; `ConnectionManager` deleted (wiring it would have fired real

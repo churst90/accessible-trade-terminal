@@ -36,7 +36,11 @@ public class SaveWorkspaceEnterKeyTests
         input.Change("BTC Scalping Setup");
         input.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
 
-        h.WorkspaceLibrary.Received(1).SaveWorkspaceProfile("BTC Scalping Setup", Arg.Any<AccessibleTrader.Core.Services.IWorkspaceStore>());
+        // WaitForAssertion: the Enter handler is async, so the save lands after KeyDown
+        // returns. Asserting synchronously passed locally and failed on CI (2026-08-24).
+        cut.WaitForAssertion(() =>
+            h.WorkspaceLibrary.Received(1).SaveWorkspaceProfile(
+                "BTC Scalping Setup", Arg.Any<AccessibleTrader.Core.Services.IWorkspaceStore>()));
     }
 
     [Fact]

@@ -43,7 +43,9 @@ public class SoundDesignerModalTests
 
         cut.FindAll("button").First(b => b.TextContent.Contains("Add Oscillator")).Click();
 
-        Assert.Equal(before + 1, cut.FindAll("select[id^='sd-wave-']").Count);
+        // WaitForAssertion: the added layer renders after Click() returns on a slow runner.
+        cut.WaitForAssertion(() =>
+            Assert.Equal(before + 1, cut.FindAll("select[id^='sd-wave-']").Count));
     }
 
     [Fact]
@@ -61,6 +63,9 @@ public class SoundDesignerModalTests
         // CommandDispatcher publishes this on Escape, naming the topmost modal.
         cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Sound designer")));
 
-        Assert.Empty(cut.FindAll("[role='dialog']"));
+        // WaitForAssertion: InvokeAsync returns a Task that this test does not await, so
+        // the close render settles after the call returns. Asserting synchronously passed
+        // locally and failed on a starved CI runner (2026-08-24).
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='dialog']")));
     }
 }
