@@ -18,9 +18,10 @@ namespace AccessibleTrader.Core.Services
     /// could corrupt user state on crash: <c>ConfigService</c>,
     /// <c>WorkspaceLibraryService</c>, <c>StrategyLibraryFacade</c>,
     /// <c>SoundPatchLibrary</c>, <c>SettingsManager</c>, <c>ShortcutManager</c>,
-    /// <c>JsonStrategyLibrary</c>, <c>SpeechTemplateService</c>,
-    /// <c>IndicatorPreferencesService</c>, <c>ApiKeyService</c>. Each of those
-    /// sites was migrated to call into here.
+    /// <c>JsonStrategyLibrary</c>, <c>IndicatorPreferencesService</c>,
+    /// <c>ApiKeyService</c>. Each of those sites was migrated to call into here.
+    /// (<c>SpeechTemplateService</c> was on that list and was deleted 2026-08-24 —
+    /// it was never registered in any container and had no callers.)
     /// </para>
     /// </summary>
     public static class AtomicFile

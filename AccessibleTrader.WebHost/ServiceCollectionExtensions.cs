@@ -123,7 +123,15 @@ namespace AccessibleTrader.WebHost
 
             services.AddScoped<AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker>();
             services.AddScoped<AccessibleTrader.Sdk.Services.IApiKeyCheckout, WebHostApiKeyCheckoutAdapter>();
-            services.AddScoped<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
+
+            // Singleton, unlike its per-user siblings above: WebHostPluginHttpClientFactory
+            // is stateless (no ctor, no fields — it builds a fresh HttpClient per policy),
+            // and PluginHostServices.HttpClientFactory is a process-wide static. Registering
+            // it Scoped meant it could never be resolved from the root provider to fill that
+            // static, so the bridge in Program.cs was impossible and the allow-list was never
+            // installed on this head at all — every plugin fell through to a bare HttpClient
+            // with no host check, on the one head that faces the public internet.
+            services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
 
             // Security audit log + optional file sink. Identical environment-variable
             // contract as the MAUI head so operators can ignore the host they're on.

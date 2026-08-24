@@ -59,8 +59,20 @@ namespace AccessibleTrader.Core.Services
 
         private readonly HashSet<string> _announcedFailures = new();
 
+        /// <summary>
+        /// Arms in-session alert evaluation. Called once per composition root by
+        /// <c>AppStartupService</c> — singleton on the MAUI head, per-circuit on the
+        /// WebHost, matching this service's own DI lifetime in each.
+        ///
+        /// Idempotent on purpose. AppStartupService is itself reachable twice on the
+        /// MAUI head (MainPage at launch and MainLayout on first render), and while it
+        /// guards the body behind a shared Task, a second Start() here would leak the
+        /// first subscription and evaluate — and therefore FIRE — every alert twice.
+        /// </summary>
         public void Start()
         {
+            if (_sub != null) return;
+
             _sub = _store.StateStream
                 .Select(s => new { s.Data, s.ActiveSeries, s.InitStatus })
                 .DistinctUntilChanged()
@@ -70,7 +82,11 @@ namespace AccessibleTrader.Core.Services
                 });
         }
 
-        public void Stop() => _sub?.Dispose();
+        public void Stop()
+        {
+            _sub?.Dispose();
+            _sub = null;
+        }
 
         public void AddAlert(AlertDefinition alert)
         {

@@ -187,6 +187,27 @@ if (hostMode == HostMode.Full)
         app.Services.GetRequiredService<AccessibleTrader.WebHost.Services.WebHostSecureStorageService>();
 }
 
+// Outbound-host allow-list for plugins — ALL modes, unlike SecureStorage above.
+// This one carries no user state (the factory is stateless and every HttpClient it
+// builds is scoped to the calling plugin's own declared policy), so the process-wide
+// static is the right home for it and there is nothing to leak between users.
+//
+// It was previously never installed on this head: MauiProgram assigns five bridges,
+// Program.cs assigned one, so PluginHostServices.HttpClientFactory was null here and
+// CreateHttpClient fell through to `new HttpClient()` with a size cap and NO host
+// check — on demo, hosted and local Full alike. The SDK doc on PluginHostServices
+// says a request to any other host "is rejected at the handler level before bytes
+// leave the process"; that was true only on the desktop head.
+//
+// Deliberately NOT bridged here: ApiKeys (IApiKeyCheckout) and SecurityEvents
+// (ISecurityEventLog). Both are Scoped on this head — per user — while the bridge is a
+// process-wide static, so assigning them would pin one user's credential checkout and
+// one user's audit sink for the whole process. That is the same hazard the SecureStorage
+// comment above describes, and it needs a per-scope accessor rather than a static;
+// tracked in docs/TODO.md under the 2026-08-24 health assessment.
+AccessibleTrader.Sdk.Services.PluginHostServices.HttpClientFactory =
+    app.Services.GetRequiredService<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory>();
+
 // Create the accounts (Identity) schema on first run.
 if (accountsEnabled)
 {

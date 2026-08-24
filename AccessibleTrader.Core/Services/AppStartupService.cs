@@ -96,6 +96,22 @@ namespace AccessibleTrader.Core.Services
             _services.GetRequiredService<IHistoryBufferCoordinator>();
             _services.GetRequiredService<IAccessibilityFeedbackCoordinator>();
 
+            // 4b. In-session alerts. Start() is what creates the StateStream subscription
+            //     that evaluates alerts as the chart ticks — without it the alert pipeline
+            //     is fully built, fully tested, and never armed: a price alert set while
+            //     watching a chart could never fire, and only the opt-in background
+            //     monitors (which run only while NO browser/session is attached) delivered
+            //     anything at all. Resolved here because AppStartupService's lifetime
+            //     matches IAlertOrchestrator's on both heads — singleton on MAUI,
+            //     per-circuit on the WebHost.
+            //
+            //     Placed after step 4 so IAccessibilityFeedbackCoordinator is already
+            //     subscribed to AlertFiredEvent (an alert that fires into no subscriber is
+            //     the same silence one layer down), and before the session resume in step
+            //     10 so a restored chart's first Ready tick is the orchestrator's warm-up
+            //     tick rather than a missed one.
+            _services.GetService<IAlertOrchestrator>()?.Start();
+
             // Bar replay listens for its transport keys on the EventBus, so it must be
             // constructed at startup — nothing else resolves it until the user presses a key,
             // and by then the subscription would not exist to handle that very key.

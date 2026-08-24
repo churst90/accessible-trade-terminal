@@ -529,9 +529,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private void OnFeedbackRequest(FeedbackRequestEvent e)
         {
-            // Filter out Meta-Speech (e.g., "Audio mode: Idle")
-            if (e.Message != null && (e.Message.Contains("Audio mode:") || e.Message.Contains("Playback mode:"))) return;
-
+            // Deliberately no message-content filter here. There used to be one —
+            // `if (e.Message.Contains("Audio mode:") || e.Message.Contains("Playback mode:")) return;`
+            // — which suppressed some long-deleted meta-speech. By 2026-08-24 nothing in
+            // the repo published either string (grepped: the filter and its own comment were
+            // the only hits), so it silenced nothing real. What it still did was run BEFORE
+            // the type switch, which made it the one `return` in this method that neither
+            // speaks nor logs: any future Error or Alert whose text happened to contain
+            // those words would have been dropped on the floor. That is precisely the
+            // silent-failure shape the comments at the bottom of this switch exist to
+            // prevent, so the filter is gone rather than narrowed.
             switch (e.Type)
             {
                 case FeedbackType.StateChange:
