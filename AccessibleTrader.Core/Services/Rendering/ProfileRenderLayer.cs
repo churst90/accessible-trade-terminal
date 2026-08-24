@@ -8,19 +8,19 @@ using AccessibleTrader.Core.Models;
 
 namespace AccessibleTrader.Core.Services.Rendering
 {
+    /// <summary>
+    /// Draws volume-profile bins for any profile series assigned to this pane.
+    ///
+    /// Deliberately dependency-free (2026-08-24): it previously took an
+    /// <c>IProfileService</c>, a <c>ThemeService</c> and an <c>IAppLogger</c>, assigned all
+    /// three to fields, and used none of them — the theme it draws with comes from
+    /// <c>ctx.Theme</c> on the render context, and the bins are already on the series by the
+    /// time this runs. Carrying them made the layer look like it computed profiles and
+    /// logged failures; it does neither. Removing them also let <c>ChartRenderer</c> stop
+    /// taking an <c>IProfileService</c> it only ever forwarded here.
+    /// </summary>
     public class ProfileRenderLayer : IRenderLayer
     {
-        private readonly IProfileService _profileService;
-        private readonly ThemeService _theme;
-        private readonly IAppLogger _logger;
-
-        public ProfileRenderLayer(IProfileService profileService, ThemeService theme, IAppLogger logger)
-        {
-            _profileService = profileService;
-            _theme = theme;
-            _logger = logger;
-        }
-
         public void Render(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
             foreach (var s in series)

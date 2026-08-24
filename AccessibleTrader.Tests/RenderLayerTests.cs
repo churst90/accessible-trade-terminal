@@ -307,8 +307,10 @@ namespace AccessibleTrader.Tests
 
         // ── ProfileRenderLayer ─────────────────────────────────────────────────
 
-        private static ProfileRenderLayer NewProfileLayer(ThemeService theme)
-            => new(Substitute.For<IProfileService>(), theme, new MockAppLogger());
+        // ProfileRenderLayer takes no dependencies: it draws from ctx.Theme and the bins
+        // already on the series. The theme parameter stays so callers read naturally, but
+        // it reaches the layer through the RenderContext, not the constructor.
+        private static ProfileRenderLayer NewProfileLayer(ThemeService theme) => new();
 
         private static ChartSeries ProfileSeries(params ProfileBin[] bins)
         {

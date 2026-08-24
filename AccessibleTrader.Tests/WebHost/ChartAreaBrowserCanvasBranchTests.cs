@@ -132,7 +132,6 @@ public class ChartAreaBrowserCanvasBranchTests
         var renderer = new ChartRenderer(
             concreteTheme,
             Substitute.For<IStylingService>(),
-            Substitute.For<IProfileService>(),
             pane,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ChartRenderer>.Instance,
             Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>());

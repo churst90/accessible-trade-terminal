@@ -693,7 +693,11 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             using var path = new SKPath();
             bool first = true;
-            float prevX = 0, prevY = 0;
+            // prevY only: a step line's horizontal leg is drawn at the NEW x and the OLD y,
+            // so the previous x is never needed. It used to be tracked alongside and never
+            // read, which reads like a half-finished edge case rather than the shape of the
+            // algorithm.
+            float prevY = 0;
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -712,7 +716,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     path.LineTo(x, prevY);
                     path.LineTo(x, y);
                 }
-                prevX = x; prevY = y;
+                prevY = y;
             }
             ctx.Canvas.DrawPath(path, paint);
         }

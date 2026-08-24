@@ -27,9 +27,24 @@ a different two on `f35df7fe`, and all pass locally every time. The pattern in a
 assertion made synchronously right after `.Click()` / `.Change()` / `.KeyDown()` / an un-awaited
 `InvokeAsync`, where the handler is async — fine on a fast box, empty collection on a starved
 runner. All five now use `cut.WaitForAssertion`, matching `AlertsModalTests`, which already
-documents this exact reasoning. **Still open:** nothing prevents the sixth instance. A scan guard
-for "synchronous assert immediately after a bUnit interaction" is the obvious ratchet but is
-easy to write badly; worth doing deliberately rather than quickly.
+documents this exact reasoning. **RATCHET SHIPPED 2026-08-24:** `BunitAsyncSettleGuardTests` — every component
+`InvokeAsync` whose Task is discarded must be followed by a `WaitFor*`, or be awaited or
+blocked on. Deliberately narrow: the broad rule ("no synchronous assert after any
+Click/Change/KeyDown") would be WRONG, because a synchronous handler renders inline and
+those assertions are correct — and a guard that cries wolf gets suppressed. It is a PATH
+check (what is the next statement?) not a presence check. **It found two more instances
+the moment it ran** (`ModalEscapeCloseTests.cs:58`, `TabBarTests.cs:61`), both fixed —
+the ModalEscapeClose one with `.GetAwaiter().GetResult()` rather than a wait, because it
+is a NEGATIVE assertion and a wait would pass instantly and prove nothing. Note for the
+next scan guard: the first draft floored the *violation* count, which shrinks as tests
+get fixed, so it went red for doing its job twice in one minute. Floor the population,
+never the violations.
+
+**Status 2026-08-24 (last-mile pass, batch four — table closed):** **544 open.** The quick-win
+table is exhausted: `ProfileRenderLayer` is dependency-free (all three injections were unused,
+which also freed `ChartRenderer` from an `IProfileService` it only forwarded), `RenderStepLine`'s
+unread `prevX` is gone, and the bUnit-race ratchet shipped as `BunitAsyncSettleGuardTests` — which
+found two more instances on its first run. Suite **4513 green**.
 
 **Status 2026-08-24 (last-mile pass, batch three):** **545 open.** Three more closed:
 WebHost audio failure is now SPOKEN (the `audioState()` probe `audio.js` exported and nobody
@@ -2512,7 +2527,7 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   use different colours and different clamping rules (`OverlayLayer` skips when
   `LocalCursorIndex >= Data.Count`; `RenderCrosshair` clamps to the last bar, `:612`). Fix: delete one.
   CONFIRMED. LOW.
-- [ ] **Three implementations of price→pixel and two of pixel→price — `ChartMath.MapY:184`,
+- [x] **Three implementations of price→pixel and two of pixel→price — `ChartMath.MapY:184`,
   `ChartMath.PriceToScreenY:166`, `ChartFormationLayer.YFor:249`; and `ChartMath.MapYToPrice:148`,
   `ChartMath.InverseMapY:216`.** They disagree on degenerate input: `MapY` returns the pane midpoint when
   the range collapses (`:196,208`), `PriceToScreenY` returns `0` (`:175`), `YFor` returns `Bottom`
@@ -2520,6 +2535,13 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   an infinite screen Y feeds the anchor hit-test at `DrawingInteractionManager.cs:309,641`; `MapY` guards
   this at `:192`. `InverseMapY` and `GetIndexFromX` (`ChartMath.cs:216,240`) have **no callers at all**
   outside `ChartMath.cs` — dead code. CONFIRMED (recounted by grep). LOW.
+  **CLOSED 2026-08-24:** The two leftovers named in this item are now done as well. `ProfileRenderLayer` took an
+  `IProfileService`, a `ThemeService` and an `IAppLogger`, assigned all three to fields and
+  used **none** — it draws from `ctx.Theme` and the bins are already on the series — so the
+  class is dependency-free now, which also let `ChartRenderer` stop taking an
+  `IProfileService` it only ever forwarded. `RenderStepLine`'s `prevX` is gone: a step
+  line's horizontal leg uses the NEW x with the OLD y, so the previous x is never needed
+  and tracking it read like an unfinished edge case.
 - [x] **`RenderBars` is dead code — `StandardRenderers.cs:299-321`.** `grep -rn "RenderBars\b"
   --include=*.cs .` returns only the definition; `DataLayer.cs:121-127` routes both `Bar` and `Histogram`
   to `RenderDirectionalBars`. Also `ProfileRenderLayer` injects `IProfileService` and `IAppLogger`

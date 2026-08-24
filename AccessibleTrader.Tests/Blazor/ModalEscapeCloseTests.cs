@@ -55,7 +55,11 @@ public class ModalEscapeCloseTests
         var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.SaveWorkspaceModal>(
             bus => bus.Publish(new OpenSaveWorkspaceEvent()));
 
-        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Help")));
+        // Blocking, not WaitForAssertion: this is a NEGATIVE assertion (a mismatched modal
+        // name must not close this dialog). A wait would pass instantly on the dialog that
+        // is still there and prove nothing about whether the close lands a moment later.
+        // Settling the dispatch first makes "still open" a real claim.
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Help"))).GetAwaiter().GetResult();
 
         Assert.NotEmpty(cut.FindAll("[role='dialog']"));
     }

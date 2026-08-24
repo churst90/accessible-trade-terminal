@@ -48,7 +48,7 @@ namespace AccessibleTrader.Core.Services
         private double[]? _crossPaneAnchorPolarity;
         private double[]? _crossPaneTbdDistribution;
 
-        public ChartRenderer(ThemeService theme, IStylingService styling, IProfileService profileService, IPaneLayoutService paneLayout, ILogger<ChartRenderer> logger, IAppLogger appLogger)
+        public ChartRenderer(ThemeService theme, IStylingService styling, IPaneLayoutService paneLayout, ILogger<ChartRenderer> logger, IAppLogger appLogger)
         {
             _theme = theme;
             _styling = styling;
@@ -66,7 +66,7 @@ namespace AccessibleTrader.Core.Services
                 new OverlayLayer(_theme)
             };
 
-            _profileLayer = new ProfileRenderLayer(profileService, _theme, appLogger);
+            _profileLayer = new ProfileRenderLayer();
         }
 
         public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)

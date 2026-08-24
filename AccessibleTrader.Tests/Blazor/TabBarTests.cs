@@ -37,8 +37,11 @@ public sealed class TabBarTests
         // Dispatch from outside the component — no DOM event on the bar.
         cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));
 
-        // The bar re-rendered on the state stream, so both tabs are present now.
-        Assert.Equal(2, cut.FindAll("button[role='tab']").Count);
+        // The bar re-renders on the state stream, so wait for it: InvokeAsync returns a
+        // Task this test does not await, and asserting synchronously is the race that took
+        // five other bUnit tests red on CI while passing locally every run (2026-08-24).
+        cut.WaitForAssertion(() =>
+            Assert.Equal(2, cut.FindAll("button[role='tab']").Count));
     }
 
     [Fact]
@@ -55,7 +58,10 @@ public sealed class TabBarTests
         ctx.Services.AddSingleton<IEventBus>(new EventBus());
 
         var cut = ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TabBar>();
-        cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));   // 2 tabs → closable
+        // Blocking so the "no nested button" assertion below is a real claim rather than a
+        // read of a DOM that has not re-rendered yet — the same race that took five bUnit
+        // tests red on CI while passing locally (2026-08-24).
+        cut.InvokeAsync(() => store.Dispatch(new AddTabAction())).GetAwaiter().GetResult();   // 2 tabs → closable
 
         Assert.Empty(cut.FindAll("button.tab-close"));
         var closes = cut.FindAll("span.tab-close");
