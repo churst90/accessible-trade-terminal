@@ -122,14 +122,16 @@ public class OutOfProcessScriptingTests
         }
     }
 
-#if DEBUG
-    // Release builds ignore ACCESSIBLETRADER_SCRIPT_IN_PROCESS entirely — that is
-    // the documented security policy, so the opt-in path only exists (and is only
-    // testable) in Debug. Compiling the test out in Release keeps CI honest instead
-    // of asserting behavior the build intentionally does not have. (This mismatch
-    // kept the Release CI suite red from 1.4.0 through 1.6.0.)
+    // ACCESSIBLETRADER_SCRIPT_IN_PROCESS is honoured only in DEBUG builds;
+    // Release ignores the env var entirely — that is the documented security
+    // policy, and this test asserts BOTH sides of it from one method. The
+    // previous shape (#if DEBUG around the whole Fact) compiled the test out of
+    // Release, which meant Release never verified its half of the policy AND
+    // the Debug and Release suites differed by one test — a difference the
+    // doc-drift count guard cannot represent (README says one number; the CI
+    // guard lists Release, a developer's machine lists Debug).
     [Fact]
-    public async Task InProcessOptIn_FallsBackToLegacyPath_WhenEnvVarSet()
+    public async Task InProcessOptIn_IsHonouredInDebug_AndIgnoredInRelease()
     {
         // The env var is read lazily by RoslynScriptingService so we can
         // set it for the scope of this test and unset after.
@@ -141,10 +143,13 @@ public class OutOfProcessScriptingTests
 
             var scripting = new RoslynScriptingService(
                 workerLauncher: new DefaultProcessLauncher(),
-                // Point at a non-existent path; if in-process opt-in works
-                // this path never resolves because we don't spawn the worker.
+                // A path that cannot exist. Debug never resolves it (the opt-in
+                // skips the worker); Release MUST resolve it — and fail — because
+                // honouring the opt-in there would run untrusted script code
+                // in-process with no OS sandbox.
                 workerPathResolver: () => "/__should_never_be_used__/AccessibleTrader.ScriptWorker.exe");
 
+#if DEBUG
             var result = await scripting.CompileIndicatorAsync(TrivialIndicatorSource);
 
             Assert.True(result.Success,
@@ -152,11 +157,28 @@ public class OutOfProcessScriptingTests
             Assert.NotNull(result.Indicator);
             Assert.Equal("ECHO_CLOSE", result.Indicator!.Id);
             scripting.UnloadScript(result.Indicator.Id);
+#else
+            // The env var must be ignored: the service goes to spawn the real
+            // worker, whose path here cannot exist, so the compile must NOT
+            // succeed. A throw is equally acceptable — only in-process success
+            // is the policy violation.
+            try
+            {
+                var result = await scripting.CompileIndicatorAsync(TrivialIndicatorSource);
+                Assert.False(result.Success,
+                    "Release honoured ACCESSIBLETRADER_SCRIPT_IN_PROCESS: the compile succeeded "
+                    + "without the worker, i.e. untrusted script code ran in-process.");
+            }
+            catch (Exception)
+            {
+                // The spawn attempt on the bogus path threw — the worker path
+                // was consulted, which is exactly what the policy requires.
+            }
+#endif
         }
         finally
         {
             Environment.SetEnvironmentVariable(key, prev);
         }
     }
-#endif
 }

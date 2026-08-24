@@ -67,6 +67,13 @@ public sealed class BlazorTestHarness : IDisposable
 
     public BlazorTestHarness()
     {
+        // bUnit's default WaitForAssertion/WaitForElement timeout is ONE second,
+        // and starved CI runners have now lost that race twice on two different
+        // modal focus tests (each green in isolation, each polling correctly).
+        // 10s changes nothing for a passing test — the wait returns the moment
+        // the assertion holds — it only stops a slow runner reading as a bug.
+        TestContext.DefaultWaitTimeout = TimeSpan.FromSeconds(10);
+
         // ── Core services with non-trivial state need the real impl seeded with
         //    safe defaults; everything else is a Substitute.For<>. The real
         //    WorkspaceStore can't be used (it depends on its own deep graph),
