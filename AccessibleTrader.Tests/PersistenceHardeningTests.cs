@@ -15,7 +15,7 @@ namespace AccessibleTrader.Tests
     ///
     ///  1. AtomicFile write semantics (roundtrip, overwrite, parent-dir creation,
     ///     no stray temp files).
-    ///  2. Graceful missing-file defaults across ConfigService / SettingsManager /
+    ///  2. Graceful missing-file defaults across SettingsManager /
     ///     JsonStrategyLibrary.
     ///  3. The corrupt-file quarantine: an unreadable store is moved aside to
     ///     *.corrupt-* (recoverable) instead of being silently overwritten by the
@@ -109,74 +109,13 @@ namespace AccessibleTrader.Tests
                 r => r.Contains("never-existed.json"));
         }
 
-        // ── ConfigService ───────────────────────────────────────────────────────
-
-        private sealed class TestSection
-        {
-            public string Name { get; set; } = "";
-            public int Value { get; set; }
-        }
-
-        [Fact]
-        public void ConfigService_MissingFile_ReturnsDefaults()
-        {
-            var svc = new ConfigService($"missing-{Guid.NewGuid():N}.json");
-
-            var section = svc.GetConfig<TestSection>("anything");
-
-            Assert.Equal("", section.Name);
-            Assert.Equal(0, section.Value);
-        }
-
-        [Fact]
-        public void ConfigService_RoundTripsSection()
-        {
-            string filename = $"roundtrip-{Guid.NewGuid():N}.json";
-            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename);
-            try
-            {
-                var svc = new ConfigService(filename);
-                svc.SaveConfig("test", new TestSection { Name = "hello", Value = 42 });
-
-                var reloaded = new ConfigService(filename).GetConfig<TestSection>("test");
-                Assert.Equal("hello", reloaded.Name);
-                Assert.Equal(42, reloaded.Value);
-            }
-            finally
-            {
-                try { File.Delete(fullPath); } catch { }
-            }
-        }
-
-        [Fact]
-        public void ConfigService_CorruptFile_QuarantinesInsteadOfDestroying()
-        {
-            string filename = $"corrupt-{Guid.NewGuid():N}.json";
-            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename);
-            try
-            {
-                File.WriteAllText(fullPath, "{ definitely not json");
-
-                var svc = new ConfigService(filename);
-
-                // Fresh defaults in use…
-                Assert.Equal(0, svc.GetConfig<TestSection>("test").Value);
-                // …the corrupt original is preserved, not awaiting destruction by the next save…
-                var quarantined = Directory.GetFiles(
-                    AppDomain.CurrentDomain.BaseDirectory, filename + ".corrupt-*");
-                Assert.Single(quarantined);
-                Assert.Equal("{ definitely not json", File.ReadAllText(quarantined[0]));
-
-                // …and a subsequent save starts a clean file without touching the backup.
-                svc.SaveConfig("test", new TestSection { Name = "recovered", Value = 1 });
-                Assert.True(File.Exists(quarantined[0]));
-                foreach (var q in quarantined) File.Delete(q);
-            }
-            finally
-            {
-                try { File.Delete(fullPath); } catch { }
-            }
-        }
+        // ConfigService and its three tests were deleted 2026-08-24 along with the class.
+        // It had zero production call sites and wrote to
+        // AppDomain.CurrentDomain.BaseDirectory/appsettings.json — the ASP.NET host's own
+        // config file in the deployment directory, shared by every hosted user and
+        // destroyed by the next redeploy. The quarantine and missing-file behaviours it
+        // covered are still guarded here for SettingsManager and in
+        // WorkspacePersistenceGapTests for profiles and alerts.
 
         // ── SettingsManager ─────────────────────────────────────────────────────
 

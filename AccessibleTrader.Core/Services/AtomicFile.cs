@@ -15,8 +15,7 @@ namespace AccessibleTrader.Core.Services
     ///
     /// <para>
     /// Audit (2026-04-27 e19) flagged 6+ <c>File.WriteAllText</c> sites that
-    /// could corrupt user state on crash: <c>ConfigService</c>,
-    /// <c>WorkspaceLibraryService</c>, <c>StrategyLibraryFacade</c>,
+    /// could corrupt user state on crash: <c>WorkspaceLibraryService</c>, <c>StrategyLibraryFacade</c>,
     /// <c>SoundPatchLibrary</c>, <c>SettingsManager</c>, <c>ShortcutManager</c>,
     /// <c>JsonStrategyLibrary</c>, <c>IndicatorPreferencesService</c>,
     /// <c>ApiKeyService</c>. Each of those sites was migrated to call into here.

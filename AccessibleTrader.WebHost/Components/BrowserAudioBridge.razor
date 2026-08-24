@@ -6,15 +6,36 @@
     When the server has a local PCM sink (pw-cat / pacat / aplay on Linux) the
     sink has no publisher and this bridge sits idle. On Windows / macOS / cloud
     deploys the WebHostAudioDriver flips into browser mode and starts pushing.
+
+    It also OWNS the "is sound actually coming out?" question. Sonification is a
+    primary data channel for this product's users, and every way it can fail here
+    used to fail quietly: a browser that has not had its user gesture yet drops
+    every chunk on the floor, a failed AudioContext construction makes audioPush
+    a permanent no-op, and this component's own interop catch could not tell a
+    closing circuit from a dead audio stack. audio.js has exported an audioState()
+    probe the whole time and nothing called it. Now something does.
 *@
 @using System.Reactive.Linq
 @using AccessibleTrader.WebHost.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Interfaces
 @inject WebHostBrowserAudioSink Sink
 @inject IJSRuntime JS
+@inject IEventBus Bus
 @implements IDisposable
 
 @code {
     private IDisposable? _sub;
+
+    // Probe cadence. Chunks arrive roughly every 23 ms, so probing per chunk would
+    // be ~43 interop round-trips a second for a question whose answer changes at
+    // human speed. Once the context is confirmed running we stop asking entirely.
+    private static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(2);
+
+    private bool _confirmedRunning;
+    private string? _announcedState;
+    private DateTime _lastProbeUtc = DateTime.MinValue;
+    private int _consecutivePushFailures;
 
     protected override void OnInitialized()
     {
@@ -30,12 +51,81 @@
         {
             // Blazor serializes byte[] as base64 in JSON automatically.
             await JS.InvokeVoidAsync("accessibleTrader.audioPush", Convert.ToBase64String(chunk));
+            _consecutivePushFailures = 0;
+            await ProbeIfDueAsync();
         }
         catch
         {
-            // Circuit closing, audio.js not loaded yet, or browser context
-            // gone — silently drop. Next chunk will arrive in ~23 ms.
+            // A closing circuit and a broken audio stack look identical from here,
+            // so a single failure stays silent — the next chunk is ~23 ms away and
+            // a transient drop is genuinely not worth speaking. A run of them is a
+            // different claim, and that one the user needs.
+            if (++_consecutivePushFailures == 200) // ~4.5 s of continuous failure
+                Announce("interop-down",
+                    "Chart audio is not reaching the browser. Speech still works; " +
+                    "reload the page to restore sound.");
         }
+    }
+
+    private async Task ProbeIfDueAsync()
+    {
+        if (_confirmedRunning) return;
+
+        var now = DateTime.UtcNow;
+        if (now - _lastProbeUtc < ProbeInterval) return;
+        _lastProbeUtc = now;
+
+        string state;
+        try
+        {
+            state = await JS.InvokeAsync<string>("accessibleTrader.audioState");
+        }
+        catch
+        {
+            return; // circuit teardown — the push catch above owns the sustained case
+        }
+
+        switch (state)
+        {
+            case "running":
+                // Latch: stop probing, and clear the gate so a LATER failure can
+                // still be announced rather than being suppressed by an old one.
+                _confirmedRunning = true;
+                _announcedState = null;
+                break;
+
+            case "suspended":
+                // The browser autoplay gate. Chunks are being produced and discarded,
+                // and audio.js resumes on the first keydown/click/pointerdown — so this
+                // is fixable by the user IF they are told, and invisible if they are not.
+                Announce("suspended",
+                    "Chart audio is waiting for a keypress before the browser will allow sound. " +
+                    "Press any key to enable it.");
+                break;
+
+            case "uninitialized":
+            case "closed":
+                Announce(state,
+                    "Chart audio could not start in this browser. Speech still works.");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Speaks a given audio-state problem once. Keyed by state so a context that goes
+    /// suspended, then running, then suspended again is announced both times, while a
+    /// context that simply stays suspended is announced once.
+    /// </summary>
+    private void Announce(string state, string message)
+    {
+        if (_announcedState == state) return;
+        _announcedState = state;
+
+        // Error, not StateChange: this is the channel that survives F2's speech mute
+        // being irrelevant to it — a user who cannot hear the chart must be told in the
+        // one modality that is still working.
+        Bus.Publish(new FeedbackRequestEvent(
+            FeedbackType.Error, message, Interrupt: false, IsUserInitiated: false));
     }
 
     public void Dispose() => _sub?.Dispose();

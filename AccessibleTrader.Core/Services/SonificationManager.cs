@@ -118,7 +118,34 @@ namespace AccessibleTrader.Core.Services
                     // sustained) on top. Fires at most a few quiet sines per bar — does
                     // not replace PlayEarcon on crossing, which still runs via the
                     // existing sonification strategy path.
-                    if (indexChanged) _levelCrossing?.OnBarNavigated(state);
+                    if (indexChanged)
+                    {
+                        _levelCrossing?.OnBarNavigated(state);
+
+                        // Cluster ticks: the OTHER markers on this bar, quietly, on slots
+                        // 3-7. Without them a bar carrying several simultaneous signals
+                        // sounds exactly like a bar carrying one — only the focused
+                        // component is voiced by SyncNavigationSlots above.
+                        //
+                        // RESTORED 2026-08-24. CHANGES.md:13057 documents this call as
+                        // shipped ("After SyncNavigationSlots on X-navigation events, calls
+                        // FireClusterTicksAsync when not in playback mode") and it had been
+                        // deleted at some point since, leaving 84 lines of provider code and
+                        // SignalTierClassifier serving nothing. Its 12 tests all invoke the
+                        // method directly, so removing the only caller could not turn any of
+                        // them red — see NavigationSonifierClusterTests for the shape, and
+                        // ClusterTicksFireOnNavigationTests for the guard on THIS call.
+                        //
+                        // crossSeriesMode: false — navigation scans only the focused series;
+                        // cross-indicator audio belongs to playback. Fire-and-forget by
+                        // design: navigation response must not wait on it.
+                        _ = _navigation.FireClusterTicksAsync(
+                            state,
+                            state.CurrentDataIndex,
+                            excludeSeriesId: state.FocusedSeriesId ?? string.Empty,
+                            excludeComponentIndex: state.FocusedComponentIndex,
+                            crossSeriesMode: false);
+                    }
                 }
             }));
 

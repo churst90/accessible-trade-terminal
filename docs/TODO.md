@@ -31,6 +31,13 @@ documents this exact reasoning. **Still open:** nothing prevents the sixth insta
 for "synchronous assert immediately after a bUnit interaction" is the obvious ratchet but is
 easy to write badly; worth doing deliberately rather than quickly.
 
+**Status 2026-08-24 (last-mile pass, batch three):** **545 open.** Three more closed:
+WebHost audio failure is now SPOKEN (the `audioState()` probe `audio.js` exported and nobody
+called), `ConfigService` deleted with its three tests, and the cluster-tick call site RESTORED —
+a documented-as-shipped accessibility feature whose only caller had been deleted, leaving 84
+lines plus `SignalTierClassifier` serving nothing while 12 tests stayed green by calling the
+method directly. Suite **4512 green**. All guards proven red.
+
 **Status 2026-08-24 (last-mile pass, batch two):** **548 open.** Three more closed:
 `ConditionEvaluator.LastDegradation` is on the interface and a degraded tree alert now SPEAKS
 instead of staying silently false; `ConnectionManager` deleted (wiring it would have fired real
@@ -2085,7 +2092,7 @@ layer is one rung down and is where these findings sit.
   with `(active + 1) % count` (`TabBar.razor:164`), which lands on the phantom index produced by the
   reindex bug and does nothing, with nothing spoken. The product's stated contract is that every refusal
   is audible. CONFIRMED. MEDIUM (accessibility contract).
-- [ ] **`ConfigService` is dead production code that writes into the deployment directory —
+- [x] **`ConfigService` is dead production code that writes into the deployment directory —
   `ConfigService.cs:22-26`, `:55-59`.** `_configPath` is
   `Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json")` — not `IPlatformPathService`,
   not per-user, and by default the *ASP.NET host's own configuration file*. A `SaveConfig` call would
@@ -2095,6 +2102,10 @@ layer is one rung down and is where these findings sit.
   or `BlazorClient` references `IConfigService` (recounted: 0 non-test call sites). Fix: delete it, or
   route through `IPlatformPathService` with a filename that is not `appsettings.json`.
   CONFIRMED. LOW (dead today; a landmine for whoever wires it up).
+  **CLOSED 2026-08-24:** Deleted, with its three tests in `PersistenceHardeningTests`. Recounted before removal:
+  zero non-test call sites. The missing-file / quarantine behaviours those tests covered are
+  still guarded for `SettingsManager` in the same file and for profiles and alerts in
+  `WorkspacePersistenceGapTests`, so this is dead-code removal rather than a coverage loss.
 - [ ] **`AtomicFile` never fsyncs the parent directory and never cleans stale temps —
   `AtomicFile.cs:100-111`, `:90-91`.** The file's contents are durable (`Flush(true)` at `:51` and `:79`),
   but on ext4/XFS the *rename* is only guaranteed durable after an fsync of the containing directory;
@@ -2191,7 +2202,7 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   `PlaybackReducer.cs:17`. Speed > 3.3× → step discontinuity on every marker ping; > 6.7× → hard
   truncation. Fix: make the release branch win when the two overlap, scale `ENVELOPE_SAMPLES` down for
   short notes, and route self-termination through `Releasing = true`. CONFIRMED (empirically). MEDIUM.
-- [ ] **`NavigationSonifier.FireClusterTicksAsync:579-662` has zero production callers — a shipped feature
+- [x] **`NavigationSonifier.FireClusterTicksAsync:579-662` has zero production callers — a shipped feature
   silently regressed and 12 tests kept it green.** The only non-test references in the tree are the
   interface declaration (`:41`), the implementation (`:579`), and mock implementations.
   `docs/CHANGES.md:13057` states "After `SyncNavigationSlots` on X-navigation events, calls
@@ -2203,6 +2214,16 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   memory. `SignalTierClassifier.cs` (44 lines) and `NavigationSonifier.IsPositiveSignal:568-577` exist
   solely to serve it, which also means **the filed TODO:2104 polarity item is currently describing dead
   code**. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-24:** **Call site RESTORED** rather than the feature deleted — `CHANGES.md:13057` documents it as
+  shipped, so the regression was the deletion, not the code. `SonificationManager` now fires
+  it after `SyncNavigationSlots` on an index change only (`crossSeriesMode: false`, focused
+  series, focused component excluded, fire-and-forget). Guard:
+  `ClusterTicksFireOnNavigationTests` asserts the sonifier is asked **from a navigation
+  event** — the twelve existing tests all call the method directly, which is exactly why
+  losing the only caller turned none of them red. It also pins that a focus-only change does
+  NOT re-fire, since cluster ticks describe the bar and re-firing them on every up/down key
+  is the behaviour that makes users switch sonification off. Proven red.
+  Knock-on: `TODO:2104`'s polarity item and `SignalTierClassifier` are live code again.
 - [ ] **The engine's `DataIndex` → `PointReached` plumbing is dead, and per-frame work in the render loop
   feeds it — `AudioEngine.cs:648-651`, `:381-387`.** No production code subscribes to
   `IAudioDriver.PointReached`; the only subscribers of the drivers' event are the drivers' own re-raise
@@ -2224,7 +2245,7 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   (`:354`) does clean up, but only when scoped disposal actually runs. SUSPECTED (registration and
   per-instance resource creation are CONFIRMED by reading; the multi-user mixing is inferred, not
   observed). MEDIUM.
-- [ ] **On the WebHost, "audio is not working" is completely silent to the user — three swallowed failure
+- [x] **On the WebHost, "audio is not working" is completely silent to the user — three swallowed failure
   points.** (1) `BrowserAudioBridge.razor:34-38` catches every interop failure with a bare `catch { }` and
   a comment saying the next chunk arrives in ~23 ms — true, and it also means a permanent failure is
   indistinguishable from a transient one. (2) `audio.js:20-27` `ensureContext()` returns `null` on any
@@ -2237,6 +2258,19 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   audio channel failing without saying so is the one failure mode that cannot be self-diagnosed by the
   target user. Fix: call `audioState()` on startup and after the first gesture, and route "audio
   unavailable / awaiting a keypress to start" through the speech router. CONFIRMED. MEDIUM (accessibility).
+  **CLOSED 2026-08-24:** `BrowserAudioBridge` now calls the `audioState()` probe that `audio.js` had exported
+  all along with no caller, and speaks what it finds: a **suspended** context (the browser
+  autoplay gate) says "waiting for a keypress before the browser will allow sound" — which
+  is a problem the user can actually fix, and previously could not even detect; an
+  **uninitialized/closed** context says audio could not start AND that speech still works,
+  because "audio is broken" plus silence reads as "the app is broken". A sustained run of
+  interop failures (~4.5 s) is reported too, while a single drop stays quiet — a closing
+  circuit and a dead audio stack look identical from there. Probe is throttled to 2 s and
+  latches off once the context is confirmed running. Guard:
+  `BrowserAudioBridgeTests` (4), including the other half of the contract — a **running**
+  context must announce NOTHING, or the terminal starts narrating its own plumbing.
+  Proven red. NOT fixed: `WebHostAudioDriver.cs:115-121`'s `StartPlayer()` throw still
+  leaves no pump and no browser fallback — that one is a driver-mode bug, filed separately.
 - [ ] **The audio callback runs on the general .NET ThreadPool on Windows, under a lock —
   `BlazorAudioDriver.cs:266-306`.** `WaveOutCallback` hands the refill to
   `ThreadPool.UnsafeQueueUserWorkItem`, and `RefillBufferOnWorker` takes `lock (_refillLock)` and calls
