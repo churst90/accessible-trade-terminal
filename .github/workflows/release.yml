@@ -91,7 +91,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Publish WebHost (${{ matrix.rid }})
         shell: bash
@@ -139,7 +139,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Install MAUI workload
         run: dotnet workload install maui

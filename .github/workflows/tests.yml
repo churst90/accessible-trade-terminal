@@ -32,10 +32,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pinned, not 10.0.x — SDK 10.0.400's rzc crashes nondeterministically
+      # on WebHost's Razor compile; see the comment in doc-drift.yml.
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Restore
         # Restoring only the Tests project pulls in the transitive refs we
@@ -109,7 +111,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Install MAUI workload
         run: dotnet workload install maui

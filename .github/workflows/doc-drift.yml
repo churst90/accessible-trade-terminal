@@ -27,10 +27,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pinned, not 10.0.x: SDK 10.0.400's `rzc generate` (the classic Razor
+      # path this repo is forced onto by dotnet/razor#13184) crashes
+      # NONDETERMINISTICALLY on WebHost ("This writer does not support
+      # components" out of its parallel codegen) — it took down this workflow
+      # 6 of 8 runs on 2026-08-23, in Debug and Release both. 10.0.301 has
+      # built this tree locally hundreds of times without one crash. Bump the
+      # pin only after verifying rzc against WebHost on the newer SDK.
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Setup Python
         uses: actions/setup-python@v5
