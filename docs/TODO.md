@@ -2,6 +2,19 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-25 (causality for scripts and for chart patterns):** **523 open.** The contract
+now reaches the two places it never has. **Scripted indicators**: `ICustomIndicator` gained a
+causality declaration, and because a script's self-declaration is worth even less than a provider's
+— no reviewer, often a Pine port where the distinction is not drawn at all — the proof is empirical
+and runs at registration, on the compiled instance. Measurement overrules declaration in one
+direction only: a probe can refute a claim of causality and must never refute a claim of
+look-ahead. **Chart patterns**: the detector was never reachable by either sweep because
+`ChartPattern.Key` is built from bar indices, so "is this the pattern I saw before the scroll-back?"
+could not be phrased; a date-based `Identity` is what made it askable. The detector then came back
+clean, which was not the expected answer — so the remaining half of the user's pattern report is
+the indicator components still pinned in `NotStableWhenHistoryIsPrepended`, which pattern detection
+reads. Suite **4765 green**; four sabotage runs, each proven red in its own direction only.
+
 **Status 2026-08-25 (the prepend causality gap):** **522 open.** The causality contract only ever
 asked "does bar i change when the FUTURE arrives?" It now also asks the question this app actually
 faces — "does bar i change when OLDER bars arrive?" — because a scroll-back prepends two hundred
@@ -3654,12 +3667,29 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
   `Stacking Score` that ranks them, `REGIME.AboveEma200`, `PULSE.AnchorMtf`/`AnchorSlope`/
   `AnchorSlow`). HIGH.
 
-- [ ] **Chart-pattern detection has no causality guard at all, in either direction.**
-  `ChartPatternCache`/the pattern analyzers are not enumerated by `IndicatorCausalityTests` — they
-  are not `IIndicatorProvider`s — so neither the prefix sweep nor the new suffix sweep touches
-  them, and the original user report was about pattern targets and triggers. Fix: the same two
-  comparisons over the detected pattern set (same bars in, same patterns with the same targets
-  out), which needs a stable identity for a detected pattern to compare on. HIGH.
+- [x] **Chart-pattern detection had no causality guard at all, in either direction.**
+  `ChartPatternDetector` is not an `IIndicatorProvider`, so neither sweep ever touched it — and the
+  original user report was about pattern targets and triggers.
+  **CLOSED 2026-08-25.** `ChartPatternCausalityTests` asks both questions over all four synthetic
+  series: a formation knowable at bar 300 must carry the same trigger, target, second level and
+  break side at 700 bars as at 1400, and must not appear retroactively; and prepending 23/91/140
+  older bars must not move, delete or invent one.
+  **The missing piece was an identity to compare on.** `ChartPattern.Key` is
+  `(Kind, StartBarIndex, EndBarIndex, KnownAtIndex)`, which is right inside one loaded range and
+  useless across two — prepend history and every index shifts, so the same shape on the same dates
+  is a different tuple and the question could not even be phrased. `ChartPattern.Identity`
+  (`Kind` + the two dates) is what made the prepend half expressible.
+  **The detector came back clean, which was not the expected answer.** Every discrepancy between a
+  full run and a prepend-shortened one involves a formation beginning within 22 bars of the shorter
+  run's left edge — nine bars of history and no swing structure under it, which is warmup. The
+  warmup bound was set to 200 (the detector's own `MaxPatternBars` is 160) after measuring that;
+  it was 400 first, and 400 was excluding a quarter of the series for no reason anyone could state.
+  Both halves proven red by sabotage, and each fires only in its own direction: scaling the
+  tolerance by `bars[0]` fails only the prepend theory, by `bars[^1]` only the append one. A
+  coverage floor fails the test if fewer than 30 formations per series were actually compared.
+  So the remaining half of the user's report is NOT the detector — it was the indicator smear
+  (closed above) plus the components still listed in `NotStableWhenHistoryIsPrepended`, which
+  pattern detection reads.
 
 ---
 
@@ -3677,6 +3707,51 @@ exactly what makes the hole.
 test process neither `Microsoft.CSharp` nor `System.Console` is present and two of the four escapes
 fail with an ordinary compile error that hides them. The probe had to force-load both to see the
 real answer. That is filed below as its own finding.
+
+### Causality for scripted indicators — closed 2026-08-25
+
+- [x] **A scripted indicator's causality was never established, by anyone, at any point.**
+  `ICustomIndicator` carried no declaration, and `SignalCatalog` enumerates `IIndicatorProvider`
+  only — so a script was refused as a strategy leaf by ABSENCE rather than by the gate, which is
+  the kind of safety that disappears the moment someone wires the missing path. Meanwhile a Pine
+  port would happily plot a lagging span or re-bucket itself on scroll-back with nothing noticing.
+  The scripted-indicator path (`CompileIndicatorAsync`, `PineTranspiler.Transpile`,
+  `SeriesManagementService.AddCustomIndicator`) has **no production consumer today** — only the
+  strategy-script path is wired — which is exactly why the gate wanted building before the door
+  opened rather than after.
+  **CLOSED.** Three parts:
+  - `ICustomIndicator.Causality`, a `ComponentCausality[]` parallel to `ComponentNames`, added as a
+    **default interface member** so existing indicators and every Pine port keep compiling. They
+    get `Undeclared`, which is the honest answer for code that has never said, and `Undeclared` is
+    refused rather than assumed. Carried across the sandbox process boundary by a new
+    `CausalityValues` field on the Ready frame, appended to the metadata layout.
+  - `CustomIndicatorCausalityProbe` runs BOTH sweeps against the compiled instance — prefix for
+    look-ahead, suffix for array-index anchoring — on 700 bars of flavours 0 and 3. **Measurement
+    first, declaration second:** a probe can refute a claim of causality and can never refute a
+    claim of look-ahead, so a declared lagging span is taken at its word while a component declared
+    `Causal` that moves has its declaration overruled and reported as an error. A component that
+    produces no value at all establishes nothing and is not published — the same position
+    `NotExercisedByTheseSeries` takes for the built-ins.
+  - The probe runs in `CustomIndicatorRegistry.Register`, which is the only door a scripted
+    indicator enters the app through, so no caller can forget it. `IsPublishable(id, component)`
+    is the gate; unknown ids and unknown components are refused.
+  `CausalityProbeSeries` was lifted out of the test project into Core so the build-time sweep and
+  the registration-time one share one generator — two would drift, and the one that drifted would
+  be the one nobody was watching.
+
+- [ ] **Nothing consults `ICustomIndicatorRegistry.IsPublishable` yet, because nothing publishes
+  scripted components.** The gate is built and proven; wiring it is part of whatever eventually
+  wires custom indicators into `SignalCatalog`. When that happens, the catalog must ask the
+  registry rather than growing its own rule. MEDIUM.
+
+- [ ] **Script STRATEGIES have no causality gate and cannot have this one.** `CompileStrategyAsync`
+  produces an `ITradingStrategy` that reads bars directly — it never goes through `SignalCatalog`,
+  so the refusal gate that stops `ICHIMOKU.Chikou Span` becoming a condition does not apply to it
+  at all, and a script strategy is free to index forward into the bar list it is handed. Unlike an
+  indicator it has no component arrays to compare, so the probe above does not transfer; the
+  comparison would have to be over the ORDERS it emits (same bars in, same orders on the same bars
+  out, under both prefix and suffix). Compounding: strategy scripts also never leave the host
+  process — see the sandbox finding below. HIGH.
 
 ### Fixed in this pass
 

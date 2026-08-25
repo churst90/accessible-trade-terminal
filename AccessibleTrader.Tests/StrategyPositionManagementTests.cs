@@ -814,7 +814,12 @@ namespace AccessibleTrader.Tests
             Assert.Empty(h.Orders.Placed);
         }
 
-        private static async Task WaitUntil(Func<bool> condition, int timeoutMs = 5000)
+        // The deadline bounds FAILURE, not success: the loop returns the moment the condition
+        // holds, so a generous timeout costs nothing when things work and only decides how long a
+        // genuine hang takes to report. Five seconds of wall clock was tight enough that this test
+        // failed once in a full parallel run and passed alone — the suite had simply got busier.
+        // A test that fails because the machine was loaded teaches nobody anything.
+        private static async Task WaitUntil(Func<bool> condition, int timeoutMs = 30_000)
         {
             var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
             while (DateTime.UtcNow < deadline)

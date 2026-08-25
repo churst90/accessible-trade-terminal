@@ -71,6 +71,19 @@ namespace AccessibleTrader.Sdk.Models
             Effective(indicator, component) == ComponentCausality.Causal;
 
         /// <summary>
+        /// The causality a scripted indicator declared for the component at
+        /// <paramref name="componentIndex"/>. Follows the same "shorter array repeats its last
+        /// entry" rule as <c>ICustomIndicator.DisplayTypes</c>, and an empty array means the script
+        /// has said nothing about any of them.
+        /// </summary>
+        public static ComponentCausality Declared(ComponentCausality[]? declared, int componentIndex)
+        {
+            if (declared == null || declared.Length == 0 || componentIndex < 0)
+                return ComponentCausality.Undeclared;
+            return declared[Math.Min(componentIndex, declared.Length - 1)];
+        }
+
+        /// <summary>
         /// Why a component was withheld from the catalog, phrased for a log line or a test failure.
         /// Returns null when it was published.
         /// </summary>

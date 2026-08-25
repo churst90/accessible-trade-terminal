@@ -160,7 +160,8 @@ public sealed class WorkerDispatcher
                 DisplayName:       _indicator.DisplayName ?? "",
                 ComponentNames:    _indicator.ComponentNames ?? Array.Empty<string>(),
                 DisplayTypeValues: (_indicator.DisplayTypes ?? Array.Empty<ComponentDisplayType>()).Select(d => (int)d).ToArray(),
-                DefaultParameters: _indicator.DefaultParameters ?? new());
+                DefaultParameters: _indicator.DefaultParameters ?? new(),
+                CausalityValues:   (_indicator.Causality ?? Array.Empty<ComponentCausality>()).Select(c => (int)c).ToArray());
             var encoded = MessageCodec.EncodeMetadata(meta);
             await FrameCodec.WriteFrameAsync(_out, Opcode.Ready, encoded, ct).ConfigureAwait(false);
         }

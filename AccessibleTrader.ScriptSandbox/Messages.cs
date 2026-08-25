@@ -18,7 +18,10 @@ public sealed record IndicatorMetadataMessage(
     int[] DisplayTypeValues,                 // ComponentDisplayType as int so the
                                              // wire format doesn't depend on the
                                              // SDK enum numbering.
-    Dictionary<string, double> DefaultParameters);
+    Dictionary<string, double> DefaultParameters,
+    int[] CausalityValues);                  // ComponentCausality as int, same reason.
+                                             // Appended last: host and worker ship in the
+                                             // same build, so there is no old frame to read.
 
 /// <summary>
 /// Payload for <see cref="Opcode.Calculate"/>. Carries the OHLCV span plus
@@ -46,6 +49,7 @@ public sealed record CalculateResponse(double[][] ComponentData);
 ///     [u32 N][str ComponentNames×N]
 ///     [u32 M][i32 DisplayTypeValues×M]
 ///     [u32 P][(str name)(f64 value)×P]
+///     [u32 C][i32 CausalityValues×C]
 ///
 ///   CalculateRequest:
 ///     [u32 N][Ohlcv×N]
@@ -88,6 +92,9 @@ public static class MessageCodec
             WriteString(ms, kv.Key);
             WriteF64(ms, kv.Value);
         }
+
+        WriteU32(ms, (uint)meta.CausalityValues.Length);
+        foreach (var v in meta.CausalityValues) WriteI32(ms, v);
         return ms.ToArray();
     }
 
@@ -113,7 +120,11 @@ public static class MessageCodec
             var v = r.ReadF64();
             parms[k] = v;
         }
-        return new IndicatorMetadataMessage(id, name, compNames, dispVals, parms);
+        int nCaus = CheckCount(r.ReadU32(), "CausalityValues");
+        var causVals = new int[nCaus];
+        for (int i = 0; i < nCaus; i++) causVals[i] = r.ReadI32();
+
+        return new IndicatorMetadataMessage(id, name, compNames, dispVals, parms, causVals);
     }
 
     // ── CalculateRequest ───────────────────────────────────────────────

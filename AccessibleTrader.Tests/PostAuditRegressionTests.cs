@@ -85,7 +85,8 @@ namespace AccessibleTrader.Tests
                 {
                     ["Period"] = 14,
                     ["Overbought"] = 70
-                });
+                },
+                CausalityValues: new[] { (int)ComponentCausality.Causal, (int)ComponentCausality.Lookahead });
             var bytes = MessageCodec.EncodeMetadata(meta);
             var decoded = MessageCodec.DecodeMetadata(bytes);
 
@@ -94,6 +95,9 @@ namespace AccessibleTrader.Tests
             Assert.Equal(meta.ComponentNames, decoded.ComponentNames);
             Assert.Equal(meta.DisplayTypeValues, decoded.DisplayTypeValues);
             Assert.Equal(meta.DefaultParameters, decoded.DefaultParameters);
+            // Appended to the frame after DefaultParameters — a decoder that stopped short would
+            // still pass every assertion above it.
+            Assert.Equal(meta.CausalityValues, decoded.CausalityValues);
         }
 
         private static void WriteU32(MemoryStream ms, uint v)

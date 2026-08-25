@@ -27,6 +27,7 @@ public sealed class OutOfProcessIndicator : ICustomIndicator, IAsyncDisposable
 {
     private readonly OutOfProcessScriptHost _host;
     private readonly ComponentDisplayType[] _displayTypes;
+    private readonly ComponentCausality[] _causality;
 
     public OutOfProcessIndicator(OutOfProcessScriptHost host)
     {
@@ -37,6 +38,7 @@ public sealed class OutOfProcessIndicator : ICustomIndicator, IAsyncDisposable
         ComponentNames    = meta.ComponentNames;
         DefaultParameters = meta.DefaultParameters;
         _displayTypes     = Array.ConvertAll(meta.DisplayTypeValues, v => (ComponentDisplayType)v);
+        _causality        = Array.ConvertAll(meta.CausalityValues, v => (ComponentCausality)v);
     }
 
     public string Id { get; }
@@ -44,6 +46,13 @@ public sealed class OutOfProcessIndicator : ICustomIndicator, IAsyncDisposable
     public string[] ComponentNames { get; }
     public ComponentDisplayType[] DisplayTypes => _displayTypes;
     public Dictionary<string, double> DefaultParameters { get; }
+
+    /// <summary>
+    /// What the script declared, carried across the process boundary in the Ready frame. It is
+    /// only a claim either way — the probe that runs at registration is what settles it, and it
+    /// runs against this proxy exactly as it would against an in-process instance.
+    /// </summary>
+    public ComponentCausality[] Causality => _causality;
 
     public double[][] Calculate(ReadOnlySpan<Ohlcv> data, Dictionary<string, double> parameters)
     {

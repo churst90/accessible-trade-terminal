@@ -171,6 +171,20 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// </para>
         /// </summary>
         public (ChartPatternKind, int, int, int) Key => (Kind, StartBarIndex, EndBarIndex, KnownAtIndex);
+
+        /// <summary>
+        /// The same formation, identified without reference to where the array starts.
+        ///
+        /// <para>
+        /// <see cref="Key"/> is built from bar indices, which is right for everything inside one
+        /// loaded range and useless across two. Scrolling back prepends older bars and every index
+        /// on the chart shifts; the formation the user is looking at is the same shape on the same
+        /// two dates, but its Key is now a different tuple. So "is this the pattern I found before
+        /// the scroll-back?" cannot be asked with Key, which is why the prepend half of the
+        /// causality contract had nothing to compare on and was never written.
+        /// </para>
+        /// </summary>
+        public (ChartPatternKind, DateTime, DateTime) Identity => (Kind, StartTime, EndTime);
     }
 
     /// <param name="Span">Bars either side a pivot must dominate. Passed through to the swing analyzer.</param>
