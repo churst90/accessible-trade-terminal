@@ -540,6 +540,23 @@ namespace AccessibleTrader.Core.Services.Strategies
                     bool resized = Math.Abs(brokerQty - remembered.RemainingQuantity) > ManagedExitRules.QuantityEpsilon;
                     Confirm(remembered, brokerQty);
 
+                    // ── Is anybody actually running this? ────────────────────────
+                    // A remembered position whose spec was never re-registered — deleted from the
+                    // library, or its auto-activate flag turned off while it was open — has no
+                    // engine instance behind it, so no bar-close walk ever reaches it. Saying
+                    // "resumed managing" there would be the exact lie this whole change exists to
+                    // stop telling: a stop the user believes is running and is not.
+                    bool adopted = remembered.InstanceId.Length > 0;
+                    if (!adopted)
+                    {
+                        Announce(FeedbackType.Alert,
+                            $"{remembered.Provider} still holds a {Word(remembered.Side)} position of "
+                            + $"{Qty(brokerQty)} {remembered.Symbol} that '{remembered.StrategyName}' opened, but "
+                            + "that strategy is not running, so its stop and targets are NOT being managed. "
+                            + "Re-activate the strategy or close the position yourself.");
+                        continue;
+                    }
+
                     Announce(FeedbackType.Info,
                         $"{remembered.StrategyName} resumed managing its {Word(remembered.Side)} position in "
                         + $"{remembered.Symbol}: {Qty(brokerQty)} at {remembered.Provider}"

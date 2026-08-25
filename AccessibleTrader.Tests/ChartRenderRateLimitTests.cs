@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -28,21 +29,32 @@ namespace AccessibleTrader.Tests
     public class ChartRenderRateLimitTests
     {
         [Fact]
-        public async Task UnderAContinuousStreamOfTicks_SampleEmitsAndThrottleNeverDoes()
+        public void UnderAContinuousStreamOfTicks_SampleEmitsAndThrottleNeverDoes()
         {
-            // Real time rather than a virtual scheduler (the test project does not reference
-            // Microsoft.Reactive.Testing), so the margins are deliberately wide: ticks four times
-            // faster than the window, and an assertion of "some" against "none" rather than a
-            // count. That is enough to state the difference the fix turns on.
+            // A VIRTUAL clock, not the wall clock.
+            //
+            // This test used to run in real time with ticks four times faster than the window and
+            // a comment calling the margin "deliberately wide". It was not wide: a GitHub runner
+            // stalls past 100 ms without difficulty, and one such gap in a 700 ms window is a
+            // quiet period, which is precisely what Throttle waits for. It emitted once, the
+            // assertion of exactly zero failed, and the red build said nothing about the code
+            // under test. A test whose subject is *timing semantics* must not be scheduled by
+            // something it does not control.
+            //
+            // HistoricalScheduler comes with System.Reactive itself — no Microsoft.Reactive.Testing
+            // reference needed, which is what the old comment gave as the reason for real time.
+            // Time now advances only when this test says so, so the result is identical on a
+            // starved runner and on an idle laptop, forever.
+            var scheduler = new HistoricalScheduler(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
             var window = TimeSpan.FromMilliseconds(100);
             int throttled = 0, sampled = 0;
 
-            var ticks = Observable.Interval(TimeSpan.FromMilliseconds(25)).Publish();
-            using (ticks.Throttle(window).Subscribe(_ => System.Threading.Interlocked.Increment(ref throttled)))
-            using (ticks.Sample(window).Subscribe(_ => System.Threading.Interlocked.Increment(ref sampled)))
+            var ticks = Observable.Interval(TimeSpan.FromMilliseconds(25), scheduler).Publish();
+            using (ticks.Throttle(window, scheduler).Subscribe(_ => throttled++))
+            using (ticks.Sample(window, scheduler).Subscribe(_ => sampled++))
             using (ticks.Connect())
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(700));
+                scheduler.AdvanceBy(TimeSpan.FromMilliseconds(700));
             }
 
             // Throttle is debounce: while ticks keep arriving inside the window it emits NOTHING.

@@ -644,6 +644,30 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task An_unadopted_position_is_announced_as_unmanaged_not_as_resumed()
+        {
+            var first = new Harness(_dir);
+            first.Manager.OpenPosition(Active("inst-1", "spec-1"), LadderSignal(), quantity: 3.0,
+                provider: "Kraken", symbol: "BTC/USD", referencePrice: 100, entryOrderId: "entry-1");
+
+            // The spec is never re-registered — deleted from the library, or its auto-activate
+            // flag turned off while the position was open. Nothing calls Adopt, so no engine
+            // instance drives the bar walk and the stop is not running.
+            var second = new Harness(_dir);
+            second.Orders.Positions = ProviderResult<List<Position>>.Ok(new List<Position>
+            {
+                new("BTC/USD", 3.0, 100, 300, 0),
+            });
+
+            await second.Manager.ReconcileAsync();
+
+            Assert.Contains(second.Spoken, m =>
+                m.Contains("NOT being managed", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(second.Spoken, m =>
+                m.Contains("resumed managing", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
         public void Symbol_matching_ignores_separators_and_case_but_not_identity()
         {
             Assert.True(StrategyPositionManager.SymbolsMatch("BTC/USD", "btc-usd"));
