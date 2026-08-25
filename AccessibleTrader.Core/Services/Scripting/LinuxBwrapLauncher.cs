@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace AccessibleTrader.Core.Services.Scripting;
@@ -20,11 +21,34 @@ namespace AccessibleTrader.Core.Services.Scripting;
 /// </para>
 /// <list type="bullet">
 ///   <item><description><c>--unshare-all</c> — new PID/IPC/UTS/cgroup and, crucially, <b>network</b> namespace, so a script can't open a socket to phone home.</description></item>
-///   <item><description><c>--ro-bind / /</c> — the whole filesystem is read-only, so a script can't write, persist, or tamper with host files. Read access is not an exfiltration vector here: with no network and no writable mount, a hostile indicator has no channel out beyond its numeric result frames.</description></item>
+///   <item><description><c>--ro-bind / /</c> — the whole filesystem is read-only, so a script can't write, persist, or tamper with host files.</description></item>
+///   <item><description><c>--tmpfs $HOME</c> — the user's home is replaced by an empty, private, ephemeral filesystem, so the API-key store (<c>~/.local/share/AccessibleTrader</c>), the workspaces, the browser profiles and the SSH keys are not merely unwritable but <b>not there</b>. See the remarks below for why the earlier "read access is not an exfiltration vector" reasoning was wrong.</description></item>
+///   <item><description><c>--clearenv</c> plus a named passthrough — the worker does not inherit the host's environment block, which on a machine that configures credentials that way IS the credentials.</description></item>
 ///   <item><description><c>--tmpfs /tmp</c> — a private writable scratch for the .NET runtime (R2R / shadow-copy), discarded on exit.</description></item>
 ///   <item><description><c>--proc /proc</c>, <c>--dev /dev</c> — minimal pseudo-filesystems the CLR needs.</description></item>
 ///   <item><description><c>--die-with-parent</c>, <c>--new-session</c> — the worker dies with the host and can't perform TIOCSTI terminal injection.</description></item>
 /// </list>
+///
+/// <para>
+/// <b>Why the home tmpfs, when the mount was already read-only.</b> This class used to argue that
+/// read access was harmless because "with no network and no writable mount, a hostile indicator
+/// has no channel out beyond its numeric result frames". The result frames ARE a channel: an
+/// indicator returns an arbitrary <c>double[]</c> that the host then renders, speaks and persists,
+/// and a strategy returns orders. A file the worker can read is a file the worker can encode into
+/// what it returns. So the fix is not to make the home unwritable, it is to make it absent.
+/// </para>
+///
+/// <para>
+/// <b>What has to survive the tmpfs.</b> On a machine where .NET was installed by the
+/// <c>dotnet-install</c> script — the default on Linux — the runtime lives in <c>~/.dotnet</c>,
+/// and an app installed per-user lives under the home too. A naive <c>--tmpfs $HOME</c> therefore
+/// hides the worker, or the runtime it needs, and scripting stops working for exactly the users
+/// who installed the ordinary way. <see cref="PathsToPreserve"/> resolves the worker's own
+/// directory and the .NET root, and each one that falls under the home is re-bound read-only
+/// AFTER the tmpfs (bwrap applies mounts in argv order). Nothing else is: an app installed to
+/// <c>/opt</c> or <c>/usr</c> is already covered by <c>--ro-bind / /</c>, which the tmpfs does not
+/// touch.
+/// </para>
 ///
 /// <para>
 /// stdin/stdout/stderr are inherited file descriptors, so the existing stdio
@@ -44,10 +68,9 @@ namespace AccessibleTrader.Core.Services.Scripting;
 /// </para>
 ///
 /// <para>
-/// Hardening follow-ups (not required by the threat model, tracked for later):
-/// overlay a <c>--tmpfs</c> on <c>$HOME</c> so scripts can't even read user
-/// files; <c>--clearenv</c> with a minimal passthrough; and a <c>--seccomp</c>
-/// BPF syscall whitelist as defence-in-depth.
+/// Hardening follow-up still outstanding: a <c>--seccomp</c> BPF syscall whitelist as
+/// defence-in-depth. It needs a compiled BPF program shipped alongside the worker and a
+/// per-architecture syscall set, which is a different size of job from the mount flags.
 /// </para>
 /// </summary>
 public sealed class LinuxBwrapLauncher : IScriptWorkerLauncher
@@ -133,22 +156,170 @@ public sealed class LinuxBwrapLauncher : IScriptWorkerLauncher
     }
 
     /// <summary>
-    /// Builds the bwrap argument vector (excluding the leading bwrap path).
-    /// Internal for unit testing the sandbox flags.
+    /// Builds the bwrap argument vector (excluding the leading bwrap path), resolving the home
+    /// directory and the paths that must survive the home tmpfs from the running environment.
     /// </summary>
-    internal static List<string> BuildBwrapArgs(string workerDir, string workerExecutablePath) => new()
+    internal static List<string> BuildBwrapArgs(string workerDir, string workerExecutablePath) =>
+        BuildBwrapArgs(workerDir, workerExecutablePath,
+            Environment.GetEnvironmentVariable("HOME"),
+            PathsToPreserve(workerDir),
+            DotNetRoot());
+
+    /// <summary>
+    /// Test seam over <see cref="BuildBwrapArgs(string, string)"/>: the home directory, the
+    /// must-survive paths and the .NET root are injected, so the argv shape is verifiable on a
+    /// machine whose home layout is nothing like the one under test.
+    /// </summary>
+    /// <param name="home">
+    /// The user's home. When null, empty, relative, <c>/</c>, or equal to the worker's own
+    /// directory, the home tmpfs is SKIPPED — hiding <c>/</c> would take the whole system with it,
+    /// and a worker that lives directly in the home cannot be both hidden and executable. Skipping
+    /// loudly beats shipping a flag combination that does not do what it claims.
+    /// </param>
+    /// <param name="preserve">Directories re-bound read-only after the tmpfs, if they fall under
+    /// <paramref name="home"/>. See <see cref="PathsToPreserve"/>.</param>
+    /// <param name="dotnetRoot">Value for the <c>DOTNET_ROOT</c> passthrough, or null to omit it.</param>
+    internal static List<string> BuildBwrapArgs(
+        string workerDir,
+        string workerExecutablePath,
+        string? home,
+        IReadOnlyList<string> preserve,
+        string? dotnetRoot)
     {
-        "--unshare-all",        // no network (and new pid/ipc/uts/cgroup ns)
-        "--die-with-parent",    // worker exits if the host dies
-        "--new-session",        // detach controlling terminal — blocks TIOCSTI injection
-        "--ro-bind", "/", "/",  // whole filesystem read-only
-        "--proc", "/proc",
-        "--dev", "/dev",
-        "--tmpfs", "/tmp",      // private writable scratch for the CLR
-        "--chdir", workerDir,
-        "--",
-        workerExecutablePath,
-    };
+        var args = new List<string>
+        {
+            "--unshare-all",        // no network (and new pid/ipc/uts/cgroup ns)
+            "--die-with-parent",    // worker exits if the host dies
+            "--new-session",        // detach controlling terminal — blocks TIOCSTI injection
+        };
+
+        // The host's environment block is not the worker's business, and on a machine that
+        // configures credentials that way it is the credentials. Everything the worker needs is
+        // named explicitly; anything a future need adds has to be added here, deliberately.
+        args.Add("--clearenv");
+        if (!string.IsNullOrEmpty(home))
+            args.AddRange(new[] { "--setenv", "HOME", home });
+        if (!string.IsNullOrEmpty(dotnetRoot))
+            // Load-bearing under --clearenv on the common per-user install: without it the
+            // apphost probes the system locations, does not find ~/.dotnet, and dies with
+            // "You must install .NET to run this application."
+            args.AddRange(new[] { "--setenv", "DOTNET_ROOT", dotnetRoot });
+
+        args.AddRange(new[] { "--ro-bind", "/", "/" });   // whole filesystem read-only
+
+        if (ShouldMaskHome(home, workerDir))
+        {
+            // Order matters: bwrap applies mounts as it reads them, so the tmpfs must land before
+            // the re-binds or they are the things that get hidden.
+            args.AddRange(new[] { "--tmpfs", home! });
+            foreach (var path in preserve)
+                if (IsUnder(path, home!))
+                    args.AddRange(new[] { "--ro-bind", path, path });
+        }
+
+        args.AddRange(new[] { "--proc", "/proc" });
+        args.AddRange(new[] { "--dev", "/dev" });
+        args.AddRange(new[] { "--tmpfs", "/tmp" });      // private writable scratch for the CLR
+        args.AddRange(new[] { "--chdir", workerDir });
+        args.Add("--");
+        args.Add(workerExecutablePath);
+        return args;
+    }
+
+    /// <summary>
+    /// Whether the home tmpfs can be applied at all. See the <paramref name="home"/> parameter of
+    /// <see cref="BuildBwrapArgs(string, string, string?, IReadOnlyList{string}, string?)"/>.
+    /// </summary>
+    internal static bool ShouldMaskHome(string? home, string workerDir)
+    {
+        if (string.IsNullOrWhiteSpace(home)) return false;
+        if (!Path.IsPathRooted(home)) return false;
+
+        var normalized = Normalize(home);
+        if (normalized == "/") return false;
+
+        // A worker sitting directly in the home would need the home re-bound to run, which undoes
+        // the tmpfs. Nothing ships that way, but silently emitting a self-cancelling pair of flags
+        // is worse than declining and saying so in the flags that ARE emitted.
+        return Normalize(workerDir) != normalized;
+    }
+
+    /// <summary>
+    /// The directories the worker cannot run without: its own, and wherever .NET lives. Each is
+    /// re-bound read-only if it falls under the home tmpfs. Paths that are already contained in
+    /// another entry are dropped, so the argv says each thing once.
+    /// </summary>
+    internal static IReadOnlyList<string> PathsToPreserve(string workerDir)
+    {
+        var candidates = new List<string>();
+
+        void Add(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path)) return;
+            var normalized = Normalize(path);
+            if (normalized.Length == 0 || normalized == "/") return;
+            if (!candidates.Contains(normalized, StringComparer.Ordinal)) candidates.Add(normalized);
+        }
+
+        Add(workerDir);
+        Add(DotNetRoot());
+        // The shared-framework directory itself, for layouts DotNetRoot() cannot decompose
+        // (a self-contained publish, or a distro that arranges things its own way).
+        try { Add(Path.GetDirectoryName(typeof(object).Assembly.Location)); } catch { /* single-file: no location */ }
+
+        // Drop anything already covered by a shorter entry — binding ~/.dotnet and then
+        // ~/.dotnet/shared/Microsoft.NETCore.App/10.0.x is a no-op that reads as two policies.
+        return candidates
+            .Where(p => !candidates.Any(other => !ReferenceEquals(other, p)
+                                                 && !string.Equals(other, p, StringComparison.Ordinal)
+                                                 && IsUnder(p, other)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Where the .NET root is, for the <c>DOTNET_ROOT</c> passthrough and the re-bind.
+    /// <c>DOTNET_ROOT</c> if the host has one; otherwise derived from the shared-framework layout
+    /// <c>&lt;root&gt;/shared/Microsoft.NETCore.App/&lt;version&gt;</c>. Null for a self-contained
+    /// deployment, which has no root to point at and does not need one — the runtime sits beside
+    /// the worker and is covered by the worker-directory bind.
+    /// </summary>
+    internal static string? DotNetRoot()
+    {
+        var fromEnv = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (!string.IsNullOrWhiteSpace(fromEnv) && Path.IsPathRooted(fromEnv) && Directory.Exists(fromEnv))
+            return Normalize(fromEnv);
+
+        string? runtimeDir;
+        try { runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location); }
+        catch { return null; }
+        if (string.IsNullOrEmpty(runtimeDir)) return null;
+
+        // <root>/shared/Microsoft.NETCore.App/<version>  →  up three.
+        var version   = Path.GetDirectoryName(runtimeDir);
+        var product   = Path.GetDirectoryName(version);
+        var candidate = Path.GetDirectoryName(product);
+        if (string.IsNullOrEmpty(candidate)) return null;
+        if (!string.Equals(Path.GetFileName(version), "Microsoft.NETCore.App", StringComparison.Ordinal)) return null;
+        if (!string.Equals(Path.GetFileName(product), "shared", StringComparison.Ordinal)) return null;
+        return Directory.Exists(candidate) ? Normalize(candidate) : null;
+    }
+
+    /// <summary>Whether <paramref name="path"/> is <paramref name="ancestor"/> or sits inside it.</summary>
+    private static bool IsUnder(string path, string ancestor)
+    {
+        var p = Normalize(path);
+        var a = Normalize(ancestor);
+        if (a.Length == 0) return false;
+        if (string.Equals(p, a, StringComparison.Ordinal)) return true;
+        return p.StartsWith(a.EndsWith('/') ? a : a + "/", StringComparison.Ordinal);
+    }
+
+    /// <summary>Absolute, with any trailing separator removed so prefix comparisons are honest.</summary>
+    private static string Normalize(string path)
+    {
+        var full = Path.GetFullPath(path);
+        return full.Length > 1 ? full.TrimEnd('/') : full;
+    }
 
     /// <summary>Resolves the bwrap binary from the common locations, then PATH.</summary>
     internal static string? FindBwrap()

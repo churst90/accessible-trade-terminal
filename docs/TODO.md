@@ -42,9 +42,18 @@ bar at a time over five new opcodes, with an incremental history and a reflectio
 start a proxy over (`Activator` on a proxy's type builds another empty proxy — hence
 `IRestartableStrategy`), and **no script strategy had ever been able to read `state.ActiveSeries`
 at all**, because `ChartSeries` derives from CommunityToolkit's `ObservableObject` and that
-assembly was in no reference set the compile ever used. See the item below for both. Suite
-**4817 green** (4812 by `--list-tests`, which is the number the doc-drift guard reads); seven
-sabotage runs, every guard proven red.
+assembly was in no reference set the compile ever used. See the item below for both.
+
+**And the Linux mount hardening finally landed**, because bubblewrap got installed on this machine
+— it had been blocked on that through two passes, correctly, since the naive version breaks Linux
+scripting outright: `--tmpfs $HOME` hides `~/.dotnet`, which is where `dotnet-install` puts the
+runtime. The home is now masked with a read-only re-bind of only what the worker cannot run
+without, `--clearenv` passes through `HOME` and `DOTNET_ROOT` and nothing else, and the proof is a
+hand-compiled indicator that tries to read a canary file and a canary environment variable — each
+run through the UNSANDBOXED launcher first, so a broken fixture cannot pass for a working sandbox.
+**With that, every scripting/sandbox audit finding is closed except the seccomp whitelist (LOW).**
+Suite **4831 green** (4826 by `--list-tests`, which is the number the doc-drift guard reads);
+thirteen sabotage runs, every guard proven red.
 
 **The gate got a wall-clock budget**, because it now runs once per armed script at app start and a
 strategy that is quadratic in the bars it was handed would have turned that into a startup hang —
@@ -4015,7 +4024,7 @@ real answer. That is filed below as its own finding.
   (a real `System.*` assembly in an allowed namespace) and proves a script still cannot see it.
   Three sabotage runs, red on the reintroduced AppDomain scan, on a dead list entry, and on the
   deleted name rule.
-- [ ] **The Linux sandbox mounts the whole filesystem readable, including the API-key store.**
+- [x] **The Linux sandbox mounts the whole filesystem readable, including the API-key store.**
   `LinuxBwrapLauncher.BuildBwrapArgs` uses `--ro-bind / /`, and the class doc argues read access is
   not an exfiltration vector because "with no network and no writable mount, a hostile indicator has
   no channel out beyond its numeric result frames" — but the result frames ARE a channel: an
@@ -4026,6 +4035,38 @@ real answer. That is filed below as its own finding.
   the "does the CLR still start under the tighter mount" half could not be verified, and shipping an
   unverified change to the launcher would break scripting for every Linux user. Needs a machine with
   bubblewrap. CONFIRMED. MEDIUM (HIGH on the WebHost, whose platform this is).
+  **CLOSED 2026-08-25, on a machine with bubblewrap 0.11.2 installed for the purpose.** Both flags
+  shipped, and the reason to wait was real — the naive version breaks Linux scripting outright.
+  - **`--tmpfs $HOME`, then a read-only re-bind of what the worker cannot run without.** On a
+    machine where .NET came from `dotnet-install` (the Linux default) the runtime lives in
+    `~/.dotnet`, and a per-user app install lives under the home too. Measured, not guessed: a
+    bare `--tmpfs $HOME` gives `bwrap: Can't chdir to …` when the worker is under the home, and
+    adding only the worker's own directory back gives **"You must install .NET to run this
+    application."** `PathsToPreserve` resolves the worker directory and the .NET root and re-binds
+    each one that falls under the home; anything outside it was never hidden, so nothing else is
+    re-bound. **Order is the whole correctness of it** — bwrap applies mounts as it reads them, so
+    a re-bind emitted before the tmpfs is a re-bind the tmpfs buries. A sabotage run that swapped
+    the two took down the "worker still starts" test, which is exactly the production symptom.
+  - **`--clearenv` with two named passthroughs, `HOME` and `DOTNET_ROOT`.** `DOTNET_ROOT` is
+    load-bearing rather than tidy: without it the apphost probes the system locations, does not
+    find `~/.dotnet`, and dies. Measured the same way. A self-contained deployment gets neither the
+    root nor a passthrough, because the runtime sits beside the worker.
+  - **Skips itself rather than lying** when `$HOME` is unset, relative, `/`, or IS the worker's own
+    directory. Emitting a tmpfs and then re-binding the same path would read in the argv as
+    protection that is not there.
+  - **Proof is empirical, with a vacuity check on each half.** A hand-compiled indicator (bypassing
+    the walker, because the question is what the KERNEL does when an assembly reaches the worker
+    anyway) reads a canary file from `$HOME`, and another reads a canary environment variable. Each
+    is run through `DefaultProcessLauncher` FIRST and must succeed there — "the script read
+    nothing" is equally what a broken fixture looks like — then through `LinuxBwrapLauncher` and
+    must fail. Verified by hand too: 5 environment variables visible inside the sandbox instead of
+    the host's block, and `cat ~/.at-canary-file` → No such file or directory.
+  - **The three empirical tests skip on a machine without `bwrap`**, which is how this sat open for
+    two passes. They were proven to actually run here by a vacuity probe (deliberately wrong
+    expectations → all three red). The argv tests run everywhere.
+  - Still outstanding and deliberately not attempted: a `--seccomp` BPF syscall whitelist. It needs
+    a compiled BPF program shipped beside the worker and a per-architecture syscall set, which is a
+    different size of job from the mount flags. LOW.
 - [x] **The memory quota is a 2-second poll, so a script can allocate multiple GB inside one
   interval.** `OutOfProcessScriptHost.MemoryPollInterval` is 2 s and the ceiling is a 256 MB working
   set; a `new double[500_000_000]` compiles fine (correctly — it is a runtime concern) and the host

@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Linux sandbox stops handing scripts the user's home (2026-08-25)
+
+- **`--tmpfs $HOME`: the user's home is now absent inside the sandbox, not merely unwritable.** The
+  launcher used to mount the whole filesystem read-only and argue that read access was not an
+  exfiltration vector, "with no network and no writable mount". That was wrong. The result frames
+  ARE a channel: an indicator returns an arbitrary `double[]` which the host renders, speaks and
+  persists, and a strategy returns orders — so a file the worker can read is a file the worker can
+  encode into what it returns. The API-key store lives at `~/.local/share/AccessibleTrader`, well
+  inside what was readable, along with the workspaces, the browser profiles and the SSH keys.
+- **The naive version of that fix breaks Linux scripting outright, which is why it waited.** On a
+  machine where .NET came from `dotnet-install` — the Linux default — the runtime lives in
+  `~/.dotnet`, and a per-user app install lives under the home too. A bare `--tmpfs $HOME` hides
+  the worker, or the runtime it needs, and the worker dies with "You must install .NET to run this
+  application". So the home tmpfs is followed by a read-only re-bind of exactly what the worker
+  cannot run without — its own directory and the .NET root — and only where those fall under the
+  home. Order carries the whole correctness: bwrap applies mounts as it reads them, so a re-bind
+  emitted before the tmpfs is one the tmpfs buries.
+- **`--clearenv`, with `HOME` and `DOTNET_ROOT` passed through by name.** The worker no longer
+  inherits the host's environment block, which on a machine that configures credentials that way
+  is the credentials. `DOTNET_ROOT` is load-bearing rather than tidy — without it the apphost
+  probes the system locations, does not find `~/.dotnet`, and refuses to start.
+- **It declines rather than pretending** when `$HOME` is unset, relative, `/`, or is itself the
+  worker's directory. Emitting a tmpfs and then re-binding the same path would read in the argv as
+  protection that is not there.
+- **Proved by measurement, both ways round.** A hand-compiled indicator — bypassing the Roslyn
+  walker, because the question is what the kernel does when an assembly reaches the worker anyway —
+  tries to read a canary file in `$HOME`, and a second one tries to read a canary environment
+  variable. Each is run through the unsandboxed launcher first and must succeed there, since "the
+  script read nothing" is equally what a broken fixture looks like, then through the real bwrap
+  launcher and must fail.
+
 ### Strategy scripts leave the trading host (2026-08-25)
 
 - **A user-written strategy now runs in the OS-sandboxed worker process, like an indicator has for

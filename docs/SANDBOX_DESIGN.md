@@ -229,9 +229,35 @@ iOS doesn't expose a general sandbox launcher equivalent to the desktop ones. Op
 Recommendation: gate `.atpkg` import behind platform detection; on iOS, refuse imports
 until one of the above ships.
 
-### Linux — seccomp-bpf
+### Linux — bubblewrap (shipped)
 
-Desktop Linux isn't an officially supported MAUI target but people build for it. Use
+`LinuxBwrapLauncher` spawns the worker under `bwrap`. `--unshare-all` (network included),
+`--ro-bind / /`, `--proc`, `--dev`, `--tmpfs /tmp`, `--die-with-parent`, `--new-session`,
+and — since 2026-08-25 — `--tmpfs $HOME` plus `--clearenv`.
+
+**The home tmpfs needs its re-binds, and the ORDER of them.** A read-only mount was not
+enough: an indicator returns an arbitrary `double[]` that the host renders and persists, so
+a readable `~/.local/share/AccessibleTrader` is a readable API-key store. But a bare
+`--tmpfs $HOME` also hides the worker and, on any machine where .NET came from
+`dotnet-install`, the runtime in `~/.dotnet` — the worker then dies with "You must install
+.NET to run this application". So the tmpfs is followed by a read-only re-bind of the
+worker's own directory and the .NET root, and only where those fall under the home. bwrap
+applies mounts as it reads them, so a re-bind emitted *before* the tmpfs is one the tmpfs
+buries; `LinuxBwrapSandboxTests` pins that ordering, and a sabotage run that swapped the two
+reproduced the production failure exactly.
+
+`--clearenv` passes through `HOME` and `DOTNET_ROOT` and nothing else. `DOTNET_ROOT` is
+load-bearing, not tidy: without it the apphost probes the system locations and never finds a
+per-user install. A self-contained deployment gets neither, since the runtime sits beside the
+worker.
+
+If `$HOME` is unset, relative, `/`, or is itself the worker's directory, the home tmpfs is
+skipped — the rest of the sandbox is unaffected. Emitting a tmpfs and then re-binding the
+same path would read in the argv as protection that is not there.
+
+### Linux — seccomp-bpf (not shipped)
+
+The remaining defence-in-depth layer. Use
 `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &filter)` with a whitelist of syscalls:
 `read`, `write`, `brk`, `mmap` (anonymous only), `mprotect`, `munmap`, `rt_sigreturn`,
 `exit`, `exit_group`, `sched_yield`, `futex` (for the CLR). Deny everything else including
