@@ -30,7 +30,6 @@ namespace AccessibleTrader.Core.PineScript
     {
         // ── Regex patterns ────────────────────────────────────────────────────
 
-        private static readonly Regex _versionRx  = new(@"//\s*@version\s*=\s*(\d+)", RegexOptions.IgnoreCase);
         private static readonly Regex _indicatorRx = new(@"indicator\s*\(([^)]*)\)", RegexOptions.IgnoreCase);
         private static readonly Regex _inputRx     = new(@"(\w+)\s*=\s*input(?:\.(?:int|float|bool|source|color))?\s*\(([^,)]+)(?:,\s*[""']([^""']+)[""'][^)]*)?", RegexOptions.IgnoreCase);
         private static readonly Regex _plotRx      = new(@"plot\s*\(([^,)]+)(?:,\s*[""']([^""']+)[""'][^)]*)?", RegexOptions.IgnoreCase);

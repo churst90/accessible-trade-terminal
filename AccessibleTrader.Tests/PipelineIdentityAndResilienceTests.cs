@@ -525,8 +525,7 @@ namespace AccessibleTrader.Tests
                 Substitute.For<IPluginLoaderService>(),
                 NullLogger<DataService>.Instance,
                 Substitute.For<ICacheService>(),
-                apiKeys,
-                Substitute.For<AccessibleTrader.Core.Services.Accessibility.IGlobalErrorCoordinator>());
+                apiKeys);
 
             // No injection point for providers — the real list is built by plugin
             // discovery. Reflection is how the existing suite reaches these internals
@@ -569,7 +568,7 @@ namespace AccessibleTrader.Tests
             private readonly Func<List<Ohlcv>> _behaviour;
             public int Calls;
 
-            public CountingFetcher(Func<List<Ohlcv>> behaviour) : base(null!, null!, null!, null!, null!)
+            public CountingFetcher(Func<List<Ohlcv>> behaviour) : base(null!, null!, null!, null!)
                 => _behaviour = behaviour;
 
             public override Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName,

@@ -45,8 +45,6 @@ public static class MicroRicochetCommand
 
     private const double TargetR = 2.0;
 
-    private const int PermutationRuns = 5000;
-
     private sealed record Event(InteractionKind Kind, bool Long, double R, string Level);
 
     public static Task<int> RunAsync(string csvDir, string levelTf, int permutations,

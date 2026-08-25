@@ -388,7 +388,7 @@ namespace AccessibleTrader.Tests
             var theme = Theme();
             var bars = Bars(10);
             using var bmp = Render(c =>
-                new OverlayLayer(theme).Render(Ctx(c, bars, theme.Current, cursor: 5), Array.Empty<ChartSeries>()));
+                new OverlayLayer().Render(Ctx(c, bars, theme.Current, cursor: 5), Array.Empty<ChartSeries>()));
 
             // Vertical dashed line at the centre of bar 5's slot: at least one painted
             // pixel in that column, none in a far-away column (bar 0's left edge has the
@@ -405,7 +405,7 @@ namespace AccessibleTrader.Tests
         {
             var theme = Theme();
             using var bmp = Render(c =>
-                new OverlayLayer(theme).Render(Ctx(c, Bars(10), theme.Current, cursor: -1), Array.Empty<ChartSeries>()));
+                new OverlayLayer().Render(Ctx(c, Bars(10), theme.Current, cursor: -1), Array.Empty<ChartSeries>()));
 
             Assert.Equal(0, NonSentinelCount(bmp));
         }
@@ -415,7 +415,7 @@ namespace AccessibleTrader.Tests
         {
             var theme = Theme();
             using var bmp = Render(c =>
-                new OverlayLayer(theme).Render(
+                new OverlayLayer().Render(
                     Ctx(c, Bars(10), theme.Current, pane: "Oscillator", cursor: 5), Array.Empty<ChartSeries>()));
 
             Assert.Equal(0, NonSentinelCount(bmp));
@@ -438,11 +438,11 @@ namespace AccessibleTrader.Tests
             };
 
             using var withText = Render(c =>
-                new OverlayLayer(theme).Render(Ctx(c, Bars(10), theme.Current), new[] { series }));
+                new OverlayLayer().Render(Ctx(c, Bars(10), theme.Current), new[] { series }));
 
             series.Drawing.Text = "";
             using var withoutText = Render(c =>
-                new OverlayLayer(theme).Render(Ctx(c, Bars(10), theme.Current), new[] { series }));
+                new OverlayLayer().Render(Ctx(c, Bars(10), theme.Current), new[] { series }));
 
             Assert.True(NonSentinelCount(withText) > 0);
             Assert.Equal(0, NonSentinelCount(withoutText));

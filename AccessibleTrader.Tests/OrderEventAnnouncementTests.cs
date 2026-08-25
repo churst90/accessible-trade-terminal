@@ -27,7 +27,7 @@ namespace AccessibleTrader.Tests
             var speechRouter = new SpeechFeedbackRouter(speech, formatter, store);
             var earcons = new MockEarconService();
             var audioRouter = new AudioFeedbackRouter(sonify, earcons);
-            var navMgr = new NavigationFeedbackManager(speechRouter, formatter, eventBus, sonify, new MockIndicatorEngine());
+            var navMgr = new NavigationFeedbackManager(speechRouter, formatter);
 
             var coordinator = new AccessibilityFeedbackCoordinator(
                 store, navMgr, speechRouter, audioRouter, formatter, eventBus,

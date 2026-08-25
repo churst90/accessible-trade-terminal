@@ -18,7 +18,6 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class AudioPerceptualTests
     {
-        private const int SampleRate = 44100;
         private const int SettleSamples = 8192;          // skip attack + declick (~93 ms)
         private const int MeasureSamples = 44100;        // ~0.5 s of stereo frames
 

@@ -77,7 +77,7 @@ namespace AccessibleTrader.Tests
             store.State.Returns(WorkspaceState.Initial with { Identity = Focused });
             var data = Substitute.For<IDataService>();
             data.FetchOhlcvAsync(Arg.Any<string>(), Arg.Any<MarketDataRequest>())
-                .Returns(((List<Ohlcv>?)null, new List<(long, double)>())!);
+                .Returns((null!, new List<(long, double)>()));
             var feeds = new MarketFeeds(store, data);
 
             var bars = await feeds.GetBarsAsync(Other, 100);

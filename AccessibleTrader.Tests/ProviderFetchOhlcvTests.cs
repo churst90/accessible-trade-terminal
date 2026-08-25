@@ -42,14 +42,6 @@ public class ProviderFetchOhlcvTests
             target.SetValue(provider, new HttpClient(handler));
         }
 
-        private static void SwapPrivateField(object obj, string fieldName, object value)
-        {
-            var field = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field == null)
-                throw new InvalidOperationException($"{obj.GetType().Name} has no private field {fieldName}.");
-            field.SetValue(obj, value);
-        }
-
         // ── Bitstamp ──────────────────────────────────────────────────────────
         // Endpoint: GET /api/v2/ohlc/{pair}/?step=&limit=  ⇒ {"data":{"ohlc":[{...}]}}
         // Fields: timestamp / open / high / low / close / volume — all stringified.
@@ -340,18 +332,6 @@ public class ProviderFetchOhlcvTests
         [Collection("ProviderCredentialBridge")]
         public class Coinbase
         {
-            private static AccessibleTrader.Plugins.Coinbase.CoinbaseProvider NewProvider(FakeHttpMessageHandler h)
-            {
-                var p = new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider();
-                p.Configure(new Dictionary<string, string>
-                {
-                    ["ApiKey"] = "test",
-                    ["ApiSecret"] = "test-secret",
-                });
-                SwapHttpClient(p, h);
-                return p;
-            }
-
             [Fact]
             public async Task NotConfigured_ReturnsEmpty()
             {
@@ -728,14 +708,6 @@ public class ProviderFetchOhlcvTests
         [Collection("ProviderCredentialBridge")]
         public class Fred
         {
-            private static AccessibleTrader.Plugins.Fred.FredProvider NewConfigured(FakeHttpMessageHandler h)
-            {
-                var p = new AccessibleTrader.Plugins.Fred.FredProvider();
-                p.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
-                SwapHttpClient(p, h);
-                return p;
-            }
-
             [Fact]
             public async Task NotConfigured_ReturnsEmpty_NoHttp()
             {

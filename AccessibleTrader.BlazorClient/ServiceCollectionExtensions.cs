@@ -647,7 +647,6 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
             services.AddSingleton<IAudioFeedbackRouter, AudioFeedbackRouter>();
             services.AddSingleton<INavigationFeedbackManager, NavigationFeedbackManager>();
-            services.AddSingleton<IStateFeedbackManager, StateFeedbackManager>();
             services.AddSingleton<IAutoNarrationService, AutoNarrationService>();
             services.AddSingleton<INotificationHub, NotificationHub>();
             services.AddSingleton<IGlobalErrorCoordinator, GlobalErrorCoordinator>();

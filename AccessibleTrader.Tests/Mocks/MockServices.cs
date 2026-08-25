@@ -199,12 +199,6 @@ namespace AccessibleTrader.Tests.Mocks
         public void NotifyInfo(string message, bool interrupt = true) { } 
     }
 
-    public class MockStateManager : IStateFeedbackManager 
-    { 
-        public void HandleStateChange(string message, bool interrupt = true) { } 
-        public void HandleVolumeChange(string message, float volume) { } 
-    }
-
     public class MockNavManager : INavigationFeedbackManager
     {
         public bool IsSpeechEnabled { get; set; } = true;

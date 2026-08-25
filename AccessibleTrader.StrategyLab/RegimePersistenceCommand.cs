@@ -77,8 +77,6 @@ namespace AccessibleTrader.StrategyLab;
 /// </summary>
 public static class RegimePersistenceCommand
 {
-    private const double DefaultRecentStartYear = 2020;
-
     /// <summary>One equal-length era of one instrument, measured every way the study needs.</summary>
     private sealed record Slice(
         int Index,               // 0 = most recent

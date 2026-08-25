@@ -23,9 +23,6 @@ namespace AccessibleTrader.Plugins.Bitstamp
         private DateTime _lastTickTime = DateTime.MinValue;
         private readonly TimeSpan _tickThrottle = TimeSpan.FromMilliseconds(250);
 
-        private string? _lastMarket;
-        private string? _lastSymbol;
-        private string? _lastTimeframe;
 
         private string? _apiKey;
         private string? _apiSecret;
@@ -387,7 +384,6 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
             _currentChannel = newChannel;
             _orderBookChannel = newBookChannel;
-            _lastMarket = market; _lastSymbol = symbol; _lastTimeframe = timeframe;
 
             if (_ws != null)
             {

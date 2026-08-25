@@ -4,8 +4,6 @@ using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Enums;
 using Microsoft.Extensions.Logging;
 
-using AccessibleTrader.Core.Services.Accessibility;
-
 namespace AccessibleTrader.Core.Services
 {
     public class DataService : IDataService
@@ -15,15 +13,13 @@ namespace AccessibleTrader.Core.Services
         private readonly ILogger<DataService> _logger;
         private readonly ICacheService _cacheService;
         private readonly IApiKeyService _apiKeyService;
-        private readonly IGlobalErrorCoordinator _errorCoordinator;
         private bool _isInitialized;
 
-        public DataService(IPluginLoaderService pluginLoader, ILogger<DataService> logger, ICacheService cacheService, IApiKeyService apiKeyService, IGlobalErrorCoordinator errorCoordinator)
+        public DataService(IPluginLoaderService pluginLoader, ILogger<DataService> logger, ICacheService cacheService, IApiKeyService apiKeyService)
         {
             _logger = logger;
             _cacheService = cacheService;
             _apiKeyService = apiKeyService;
-            _errorCoordinator = errorCoordinator;
         }
 
         public async Task InitializeAsync(IPluginLoaderService pluginLoader)

@@ -2,7 +2,6 @@ using System.Globalization;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Audio;
-using AccessibleTrader.Core.Services.Indicators;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {
@@ -19,11 +18,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
     public class NavigationFeedbackManager : INavigationFeedbackManager
     {
+        // Two dependencies, and that is the whole point of the class: it turns a
+        // WorkspaceState into a sentence and hands it to the router. It used to also take an
+        // IEventBus, an INavigationSonifier and an IIndicatorEngine, none of which it had read
+        // since sonification moved out to SonificationManager (see the note on
+        // HandleNavigationFeedback) — a constructor that claimed a reach this class no longer has.
         private readonly ISpeechFeedbackRouter _speechRouter;
         private readonly ISpeechFormatter _formatter;
-        private readonly IEventBus _eventBus;
-        private readonly INavigationSonifier _navigationSonifier;
-        private readonly IIndicatorEngine _indicatorEngine;
 
         // Proximity tolerance: zone is "active" if the bar's H/L range comes within 0.5% of the zone value.
         private const double ZoneProximityPct = 0.005;
@@ -35,16 +36,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public NavigationFeedbackManager(
             ISpeechFeedbackRouter speechRouter,
-            ISpeechFormatter formatter,
-            IEventBus eventBus,
-            INavigationSonifier navigationSonifier,
-            IIndicatorEngine indicatorEngine)
+            ISpeechFormatter formatter)
         {
             _speechRouter = speechRouter;
             _formatter = formatter;
-            _eventBus = eventBus;
-            _navigationSonifier = navigationSonifier;
-            _indicatorEngine = indicatorEngine;
         }
 
         /// <summary>

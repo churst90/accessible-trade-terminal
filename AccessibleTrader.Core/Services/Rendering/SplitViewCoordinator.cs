@@ -83,7 +83,6 @@ namespace AccessibleTrader.Core.Services.Rendering
         // Production DI always supplies one; a null renderer performs the layout and draws nothing.
         private readonly ChartRenderer? _renderer;
         private readonly IEventBus? _eventBus;
-        private readonly IWorkspaceStore? _store;
         private readonly IDisposable? _commandSub;
 
         public SplitViewCoordinator(ChartRenderer? renderer, IEventBus? eventBus = null, IWorkspaceStore? store = null,
@@ -93,8 +92,9 @@ namespace AccessibleTrader.Core.Services.Rendering
             _patternCache = patternCache;
             _settings = settings;
             _eventBus = eventBus;
-            _store = store;
 
+            // The store is not held: the only thing this class does with it is read State at
+            // the moment a split command arrives, and the closure below captures it for that.
             if (eventBus != null && store != null)
                 _commandSub = eventBus.Subscribe<SplitViewCommandEvent>(e =>
                 {

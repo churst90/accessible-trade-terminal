@@ -161,7 +161,6 @@ namespace AccessibleTrader.Tests
 
             using var manager = new LiveStreamManager(
                 data,
-                new MockHistoricalFetcher(),
                 Substitute.For<IGlobalErrorCoordinator>(),
                 NullLogger<LiveStreamManager>.Instance);
 
@@ -191,7 +190,7 @@ namespace AccessibleTrader.Tests
             data.GetProviderAsync("TickProv").Returns(Task.FromResult<IMarketDataProvider?>(provider));
 
             using var manager = new LiveStreamManager(
-                data, new MockHistoricalFetcher(), Substitute.For<IGlobalErrorCoordinator>(),
+                data, Substitute.For<IGlobalErrorCoordinator>(),
                 NullLogger<LiveStreamManager>.Instance);
 
             await manager.StartLiveStreamAsync("Crypto", "TickProv", "BTC/USD", "1h");

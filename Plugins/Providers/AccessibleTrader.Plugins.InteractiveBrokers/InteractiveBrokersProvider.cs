@@ -40,7 +40,6 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         private ReconnectingWebSocket? _ws;
         private string? _currentConId;
         private string? _currentSymbol;
-        private string? _currentTimeframe;
 
         // _currentConId is the contract of the CURRENTLY CHARTED symbol. Reusing it
         // for any other symbol places an order against the wrong instrument — chart
@@ -278,7 +277,6 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
             _currentSymbol = symbol;
-            _currentTimeframe = timeframe;
 
             // Resolve conId for the symbol
             var conId = await ResolveConIdAsync(symbol, market);
@@ -398,7 +396,6 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
 
             _currentConId = null;
             _currentSymbol = null;
-            _currentTimeframe = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 

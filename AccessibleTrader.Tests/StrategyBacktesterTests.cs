@@ -25,8 +25,6 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class StrategyBacktesterTests
     {
-        private const double FillSlippageEpsilon = 1e-3;
-
         private static List<Ohlcv> LinearBars(int count, double startPrice = 100, double step = 1.0, DateTime? start = null)
         {
             var s = start ?? new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

@@ -33,18 +33,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string Comp200 = "EMA 200";
         public const string CompStackingScore = "Stacking Score";
 
-        // Warm → cool gradient matching MC spider colors
-        private static readonly string[] Colors =
-        {
-            "#FF4D4D",  // EMA 8   — red
-            "#FF8C00",  // EMA 13  — orange
-            "#FFD700",  // EMA 21  — gold
-            "#66BB6A",  // EMA 34  — green
-            "#26C6DA",  // EMA 55  — teal/cyan
-            "#42A5F5",  // EMA 89  — blue
-            "#AB47BC",  // EMA 144 — purple
-            "#EC407A",  // EMA 200 — magenta/pink
-        };
 
         private static readonly (string Name, int Period)[] Lines =
         {
@@ -209,14 +197,5 @@ namespace AccessibleTrader.Core.Services.Indicators
         // Spider Lines are price overlays — no OB/OS reference level lines.
         public List<LevelDescriptor> GetDefaultLevels(string code)
             => new();
-
-        // Colors are declared directly in component metadata (DefaultColorHex).
-        // This method is used internally by GetDetailFact for display purposes.
-        private static string GetComponentColor(string componentName)
-        {
-            for (int i = 0; i < Lines.Length; i++)
-                if (Lines[i].Name == componentName) return Colors[i];
-            return "#FFFFFF";
-        }
     }
 }

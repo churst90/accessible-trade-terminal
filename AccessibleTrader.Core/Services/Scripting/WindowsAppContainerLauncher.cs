@@ -276,7 +276,7 @@ public sealed class WindowsAppContainerLauncher : IScriptWorkerLauncher
             var sfStderr = new SafeFileHandle(hHostStdErrRead,  ownsHandle: true); hHostStdErrRead = IntPtr.Zero;
 
             var proc = new AppContainerScriptWorkerProcess(
-                pi.hProcess, pi.hThread, pi.dwProcessId,
+                pi.hProcess, pi.hThread,
                 sfStdin, sfStdout, sfStderr);
 
             // Transfer ownership: clearing pi.hProcess/hThread so the

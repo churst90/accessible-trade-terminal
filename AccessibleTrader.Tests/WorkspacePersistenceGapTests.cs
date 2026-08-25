@@ -113,7 +113,6 @@ namespace AccessibleTrader.Tests
             var init = new WorkspaceInitializer(
                 Substitute.For<ISeriesManagementService>(),
                 StoreWith(WorkspaceState.Initial),
-                Substitute.For<IWorkspaceLibraryService>(),
                 SubstituteIndicatorService(),
                 engine, factory, library);
 

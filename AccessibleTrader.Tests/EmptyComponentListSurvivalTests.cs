@@ -124,9 +124,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void NavigationFeedback_SurvivesAnEmptySeries_OnBothAxes()
         {
-            var mgr = new NavigationFeedbackManager(
-                new SpySpeechRouter(), new SpeechFormatter(), new SpyEventBus(),
-                new MockNavigationSonifier(), new MockIndicatorEngine()) { IsSpeechEnabled = true };
+            var mgr = new NavigationFeedbackManager(new SpySpeechRouter(), new SpeechFormatter()) { IsSpeechEnabled = true };
 
             var state = StateFocusedOn(EmptySeries());
 

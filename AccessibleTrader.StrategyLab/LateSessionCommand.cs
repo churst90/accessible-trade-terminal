@@ -77,20 +77,6 @@ public static class LateSessionCommand
         int Hour, int N, double MeanAbsMovePct, double FollowThroughCorr,
         double MeanNextGivenUp, double MeanNextGivenDown, double ContinuationRate, double PContinuation);
 
-    /// <summary>
-    /// Mean absolute move of the FULL hour, kept separate from the follow-through measurement.
-    ///
-    /// <para>
-    /// These have to be measured on different windows and it matters. Follow-through at 15:00 needs
-    /// two NON-OVERLAPPING halves (15:00-15:30 predicting 15:30-16:00), but magnitude has to be the
-    /// whole 15:00-16:00 hour or it is being compared against other rows' full hours and will look
-    /// artificially small — roughly by a factor of root two, purely from the shorter window. The
-    /// first version of this table made exactly that mistake and would have supported a conclusion
-    /// ("the 3pm hour is the QUIETEST of the day") that the data does not actually say.
-    /// </para>
-    /// </summary>
-    private static readonly Dictionary<(string Sym, int Hour), double> FullHourMove = new();
-
     public static int Run(string snapshotDir, string? only, int permutations = 20000)
     {
         var files = Directory.GetFiles(snapshotDir, "*_5m.json")
@@ -155,6 +141,13 @@ public static class LateSessionCommand
         // half hour), then 10..15. Hour 15 is the 15:00-16:00 window the claim is about.
         var byHour = new Dictionary<int, List<(double Move, double Next)>>();
         for (int h = 9; h <= 15; h++) byHour[h] = new List<(double, double)>();
+        // Mean absolute move of the FULL hour, accumulated separately from the follow-through
+        // measurement above — and the separation matters. Follow-through at 15:00 needs two
+        // NON-OVERLAPPING halves (15:00-15:30 predicting 15:30-16:00), but magnitude has to be
+        // the whole 15:00-16:00 hour, or it is being compared against other rows' full hours and
+        // will look artificially small, roughly by a factor of root two, purely from the shorter
+        // window. The first version of this table made exactly that mistake and would have
+        // supported a conclusion ("the 3pm hour is the QUIETEST of the day") the data does not say.
         var fullHour = new Dictionary<(string, int), (double Sum, int Count)>();
 
         foreach (var (_, day) in sessions)

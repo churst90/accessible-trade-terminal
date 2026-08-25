@@ -17,11 +17,11 @@ namespace AccessibleTrader.WebHost.Services.Tray
     public sealed class WindowsTrayPlatform : ITrayPlatform
     {
         private const int WM_APP_TRAY = 0x0400 + 1;
-        private const int WM_RBUTTONUP = 0x0205, WM_LBUTTONUP = 0x0202, WM_CONTEXTMENU = 0x007B, WM_COMMAND = 0x0111;
+        private const int WM_RBUTTONUP = 0x0205, WM_LBUTTONUP = 0x0202, WM_CONTEXTMENU = 0x007B;
         private const int NIM_ADD = 0, NIM_MODIFY = 1, NIM_DELETE = 2;
         private const int NIF_MESSAGE = 0x01, NIF_ICON = 0x02, NIF_TIP = 0x04, NIF_INFO = 0x10;
         private const uint TPM_RETURNCMD = 0x0100, TPM_RIGHTBUTTON = 0x0002;
-        private const int WM_DESTROY = 0x0002, WM_QUIT = 0x0012;
+        private const int WM_QUIT = 0x0012;
 
         private readonly ILogger _logger;
         private TrayModel? _model;

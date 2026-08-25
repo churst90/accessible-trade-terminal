@@ -1,6 +1,5 @@
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Tests.Mocks;
 
 namespace AccessibleTrader.Tests;
 
@@ -27,8 +26,7 @@ namespace AccessibleTrader.Tests;
 public class NavigationUtteranceTests
 {
     private static NavigationFeedbackManager Manager(SpySpeechRouter spy)
-        => new(spy, new SpeechFormatter(), new SpyEventBus(),
-               new MockNavigationSonifier(), new MockIndicatorEngine()) { IsSpeechEnabled = true };
+        => new(spy, new SpeechFormatter()) { IsSpeechEnabled = true };
 
     private static ChartSeries CandleSeries()
     {

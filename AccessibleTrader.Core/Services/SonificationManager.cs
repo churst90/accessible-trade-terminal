@@ -47,7 +47,7 @@ namespace AccessibleTrader.Core.Services
             _eventBus = eventBus;
             _levelCrossing = levelCrossing;
             _currentState = store.State;
-            _stateMachine = new SonificationStateMachine(eventBus);
+            _stateMachine = new SonificationStateMachine();
 
             _playback.PlaybackFinished += () => {
                 _mainThreadService.InvokeOnMainThread(() => {
@@ -213,11 +213,7 @@ namespace AccessibleTrader.Core.Services
 
         private class SonificationStateMachine : AccessibleTrader.Sdk.Services.StateMachine<SonificationState, SonificationTrigger>
         {
-            private readonly IEventBus _eventBus;
-            public SonificationStateMachine(IEventBus eventBus) : base(SonificationState.Idle) 
-            {
-                _eventBus = eventBus;
-            }
+            public SonificationStateMachine() : base(SonificationState.Idle) { }
 
             protected override SonificationState Transition(SonificationState currentState, SonificationTrigger trigger)
             {

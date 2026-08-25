@@ -34,9 +34,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IChartPatternCache _patternCache;
         private readonly IChartPatternFocus _patternFocus;
         private readonly Trading.QuickTradeService? _quickTrade;
-        // Held purely to ensure AutoNarrationService is instantiated at startup.
-        // All work is done inside that service via its own subscriptions.
-        private readonly IAutoNarrationService _autoNarration;
         // Optional so existing construction (tests, manual composition) keeps working; DI
         // supplies it. Only consumer is the unhandled-FeedbackType arm in OnFeedbackRequest.
         private readonly ILogger<AccessibilityFeedbackCoordinator>? _logger;
@@ -61,6 +58,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ISdkCandlePatternAnalyzer patternAnalyzer,
             IChartPatternCache patternCache,
             IChartPatternFocus patternFocus,
+            // Not stored, and that is deliberate. AutoNarrationService does all of its work
+            // from its own subscriptions, so this coordinator never calls it — but nothing
+            // else asks the container for it either, and a service DI is never asked for is
+            // a service that never runs. Naming it here is what constructs it. Do not
+            // "clean up" the parameter: auto-narration goes silent if you do.
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null)
@@ -77,7 +79,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _patternCache = patternCache;
             _patternFocus = patternFocus;
             _quickTrade = quickTrade as Trading.QuickTradeService;
-            _autoNarration = autoNarration;
             _previousState = store.State;
 
             // OBSERVE THE STORE DIRECTLY

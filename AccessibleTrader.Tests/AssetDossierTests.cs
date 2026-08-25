@@ -34,9 +34,8 @@ public class AssetDossierTests
     private sealed class FakeCompany : ICompanyProfileSource
     {
         public CompanyProfile? Profile;
-        public Exception? Throw;
         public Task<CompanyProfile?> GetAsync(string ticker, CancellationToken ct = default)
-            => Throw != null ? Task.FromException<CompanyProfile?>(Throw) : Task.FromResult(Profile);
+            => Task.FromResult(Profile);
     }
 
     private static CryptoProfile Coin(

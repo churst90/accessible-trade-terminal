@@ -32,7 +32,7 @@ public static class WorkspaceFactory
         "CIPHER_SR",
         "CIPHER_C",
         "LOUKAS_CYCLES",
-        "REGIME",       // synthetic — see ProjectRegime
+        "REGIME",       // real indicator (RegimeProvider), not a pseudo-indicator
         "BNVISION_FUNDING",
         "BNVISION_OI",
         "CFTC_COT",
@@ -336,62 +336,6 @@ public static class WorkspaceFactory
         {
             ["BtcRatio"]         = ratio,
             ["BtcRatioMomentum"] = momentum,
-        };
-    }
-
-    /// <summary>
-    /// Synthetic regime indicator: emits two components, "AboveSma200" and "AboveEma200",
-    /// each containing (Close − MA(close, 200)). Positive = price above MA = bull regime.
-    /// Strategy leaves can then express the textbook 200-day MA filter with a single
-    /// "REGIME.AboveSma200 GreaterThan 0" leaf — the same shape Mebane Faber's 2007 paper
-    /// "A Quantitative Approach to Tactical Asset Allocation" uses, replicated across
-    /// equities, commodities, and crypto for two decades. SMA is the canonical version
-    /// (slower, fewer whipsaws); EMA is included for direct comparison since it reacts
-    /// ~30% faster but whips more in chop. The first 199 bars are NaN (warmup).
-    /// </summary>
-    private static Dictionary<string, double[]> ProjectRegime(IReadOnlyList<Ohlcv> bars)
-    {
-        const int Period = 200;
-        int n = bars.Count;
-        var aboveSma = new double[n];
-        var aboveEma = new double[n];
-
-        // SMA — rolling sum.
-        double sum = 0;
-        for (int i = 0; i < n; i++)
-        {
-            sum += bars[i].Close;
-            if (i >= Period) sum -= bars[i - Period].Close;
-            if (i < Period - 1) { aboveSma[i] = double.NaN; }
-            else { aboveSma[i] = bars[i].Close - sum / Period; }
-        }
-
-        // EMA — recursive, seeded with the SMA at index Period-1 to match the conventional
-        // warmup convention used by Skender.Stock.Indicators (the indicator engine the rest
-        // of the codebase uses). Using the SMA seed avoids the EMA's first-N bars being
-        // skewed by the leading bar value alone.
-        double k = 2.0 / (Period + 1);
-        double ema = 0;
-        for (int i = 0; i < n; i++)
-        {
-            if (i < Period - 1) { aboveEma[i] = double.NaN; continue; }
-            if (i == Period - 1)
-            {
-                double s = 0;
-                for (int j = 0; j < Period; j++) s += bars[j].Close;
-                ema = s / Period;
-            }
-            else
-            {
-                ema = bars[i].Close * k + ema * (1 - k);
-            }
-            aboveEma[i] = bars[i].Close - ema;
-        }
-
-        return new Dictionary<string, double[]>
-        {
-            ["AboveSma200"] = aboveSma,
-            ["AboveEma200"] = aboveEma,
         };
     }
 }

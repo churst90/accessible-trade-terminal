@@ -44,7 +44,6 @@ namespace AccessibleTrader.Plugins.KrakenFutures
     public class KrakenFuturesProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
     {
         private const string LiveHost = "https://futures.kraken.com";
-        private const string DemoHost = "https://demo-futures.kraken.com";
 
         // The signature covers the path WITHOUT this prefix even though the request
         // carries it. Kept as two constants so the difference is impossible to

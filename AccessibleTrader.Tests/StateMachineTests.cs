@@ -89,7 +89,7 @@ namespace AccessibleTrader.Tests
     {
         public Task<List<Ohlcv>>? FetchTask { get; set; }
 
-        public MockHistoricalFetcher() : base(null!, null!, null!, null!, null!) { }
+        public MockHistoricalFetcher() : base(null!, null!, null!, null!) { }
         public override Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)
         {
             return FetchTask ?? Task.FromResult(new List<Ohlcv>());
@@ -99,7 +99,7 @@ namespace AccessibleTrader.Tests
     public class MockLiveStreamManager : LiveStreamManager
     {
         private readonly Channel<LiveTick> _channel = Channel.CreateUnbounded<LiveTick>();
-        public MockLiveStreamManager() : base(null!, null!, null!, null!) { }
+        public MockLiveStreamManager() : base(null!, null!, null!) { }
         public override ChannelReader<LiveTick> LiveStream => _channel.Reader;
         public override Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe) => Task.CompletedTask;
         public override Task StopLiveStreamAsync() => Task.CompletedTask;

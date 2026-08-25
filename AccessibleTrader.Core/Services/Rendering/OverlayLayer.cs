@@ -3,15 +3,12 @@ using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Rendering
 {
+    // Dependency-free by design: every colour this layer draws with comes off the
+    // RenderContext's theme snapshot, not from ThemeService. It used to take the service in
+    // its constructor and never read it, which made it look like it could observe theme
+    // changes independently of a render pass. It cannot, and does not need to.
     public class OverlayLayer : IRenderLayer
     {
-        private readonly ThemeService _themeService;
-
-        public OverlayLayer(ThemeService themeService)
-        {
-            _themeService = themeService;
-        }
-
         public void Render(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
             if (ctx.PaneName != "Main") return;

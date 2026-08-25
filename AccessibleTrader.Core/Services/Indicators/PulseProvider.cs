@@ -925,17 +925,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             return false;
         }
 
-        private static bool MfiWithinBearV2(int i, int lookback, ReadOnlySpan<double> mfi, double max)
-        {
-            int start = Math.Max(0, i - lookback);
-            for (int k = start; k <= i; k++)
-            {
-                double m = mfi[k];
-                if (!double.IsNaN(m) && m <= max) return true;
-            }
-            return false;
-        }
-
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 

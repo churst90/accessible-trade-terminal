@@ -592,7 +592,6 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
             services.AddScoped<IAudioFeedbackRouter, AudioFeedbackRouter>();
             services.AddScoped<INavigationFeedbackManager, NavigationFeedbackManager>();
-            services.AddScoped<IStateFeedbackManager, StateFeedbackManager>();
             services.AddScoped<IAutoNarrationService, AutoNarrationService>();
             services.AddScoped<INotificationHub, NotificationHub>();
             services.AddScoped<IGlobalErrorCoordinator, GlobalErrorCoordinator>();

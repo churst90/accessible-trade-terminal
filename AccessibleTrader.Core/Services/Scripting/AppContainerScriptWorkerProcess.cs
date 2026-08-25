@@ -34,7 +34,6 @@ internal sealed class AppContainerScriptWorkerProcess : IScriptWorkerProcess
 {
     private IntPtr _hProcess;
     private IntPtr _hThread;
-    private readonly uint _processId;
     private readonly FileStream _stdin;
     private readonly FileStream _stdout;
     private readonly FileStream _stderr;
@@ -45,14 +44,12 @@ internal sealed class AppContainerScriptWorkerProcess : IScriptWorkerProcess
     public AppContainerScriptWorkerProcess(
         IntPtr hProcess,
         IntPtr hThread,
-        uint processId,
         SafeFileHandle hostStdinWrite,
         SafeFileHandle hostStdoutRead,
         SafeFileHandle hostStderrRead)
     {
         _hProcess = hProcess;
         _hThread  = hThread;
-        _processId = processId;
 
         // FileStream takes ownership of each SafeFileHandle — closing the
         // stream closes the underlying OS handle. Explicit buffer size

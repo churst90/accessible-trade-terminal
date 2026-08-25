@@ -1,5 +1,4 @@
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Core.Services.Accessibility;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
@@ -8,7 +7,6 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly IDataService _dataService;
         private readonly IResamplerService _resampler;
-        private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<HistoricalDataFetcher> _logger;
         private readonly IOhlcvStore? _store;
 
@@ -18,13 +16,11 @@ namespace AccessibleTrader.Core.Services
         public HistoricalDataFetcher(
             IDataService dataService,
             IResamplerService resampler,
-            IGlobalErrorCoordinator errorCoordinator,
             ILogger<HistoricalDataFetcher> logger,
             IOhlcvStore? store = null)
         {
             _dataService = dataService;
             _resampler = resampler;
-            _errorCoordinator = errorCoordinator;
             _logger = logger;
             _store = store;
         }

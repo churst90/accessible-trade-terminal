@@ -45,7 +45,7 @@ namespace AccessibleTrader.Tests
             public Func<string, Task<List<Ohlcv>>> Next = _ => Task.FromResult(new List<Ohlcv>());
             public readonly ConcurrentQueue<string> Calls = new();
 
-            public ScriptedFetcher() : base(null!, null!, null!, null!, null!) { }
+            public ScriptedFetcher() : base(null!, null!, null!, null!) { }
 
             public override Task<List<Ohlcv>> FetchOhlcvAsync(
                 string market, string provider, string symbol, string timeframe,

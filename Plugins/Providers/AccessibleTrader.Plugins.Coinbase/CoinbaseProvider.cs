@@ -16,7 +16,6 @@ namespace AccessibleTrader.Plugins.Coinbase
         private readonly HttpClient _httpClient;
         private string? _apiKey;
         private string? _apiSecret;
-        private const string BaseUrl = "https://api.coinbase.com/api/v3/brokerage";
 
         // Rate limiter: Coinbase Advanced Trade allows ~30 requests/second
         private readonly RateLimiter _rateLimiter = new(30, TimeSpan.FromSeconds(1));

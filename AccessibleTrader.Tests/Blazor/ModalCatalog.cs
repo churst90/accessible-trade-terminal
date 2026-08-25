@@ -10,6 +10,9 @@
 // so a modal that opens through a different mechanism still gets caught as long as
 // it subscribes to an Open* event — the convention every modal follows today.)
 
+// Razor components live in this namespace. An "unused using" sweep run before
+// BlazorClient.Components has generated its component types will not see them and
+// will offer to delete this line; it is used. See the same note in WebHost/Program.cs.
 using AccessibleTrader.BlazorClient.Components;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;

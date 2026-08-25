@@ -1,3 +1,6 @@
+// Razor components live in this namespace. An "unused using" sweep run before
+// BlazorClient.Components has generated its component types will not see them and
+// will offer to delete this line; it is used. See the same note in WebHost/Program.cs.
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Trading;

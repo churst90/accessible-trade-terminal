@@ -77,7 +77,7 @@ namespace AccessibleTrader.Tests
         /// Providers may throw on odd inputs — a missing companion array, an index they did not
         /// expect. That is not what this test is about, so a throw counts as "declined".
         /// </summary>
-        private static T? Safe<T>(Func<T> f) where T : class
+        private static T? Safe<T>(Func<T?> f) where T : class
         {
             try { return f(); } catch { return null; }
         }

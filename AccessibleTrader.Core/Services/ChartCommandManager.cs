@@ -17,7 +17,6 @@ namespace AccessibleTrader.Core.Services
         private readonly IEventBus _eventBus;
         private readonly IDataManager _dataManager;
         private readonly IDrawingInteractionManager _drawingManager;
-        private readonly ISpeechManager _speechManager;
         private readonly ISeriesManagementService _seriesManager;
         private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = new();
         private readonly IWorkspaceStore _store;
@@ -27,11 +26,6 @@ namespace AccessibleTrader.Core.Services
             IEventBus eventBus,
             IDataManager dataManager,
             IDrawingInteractionManager drawingManager,
-            ISpeechManager speechManager,
-            // Kept in the signature (DI resolves it) but no longer held: the only use was
-            // pushing ChartVolume into the engine's global master gain, which double-applied
-            // the factor and put earcons behind a chart-scope control. See the VOLUME handler.
-            ISonificationManager sonificationManager,
             ISeriesManagementService seriesManager,
             IWorkspaceStore store,
             ILogger<ChartCommandManager>? logger = null)
@@ -39,7 +33,6 @@ namespace AccessibleTrader.Core.Services
             _eventBus = eventBus;
             _dataManager = dataManager;
             _drawingManager = drawingManager;
-            _speechManager = speechManager;
             _seriesManager = seriesManager;
             _store = store;
             _logger = logger;
@@ -50,6 +43,10 @@ namespace AccessibleTrader.Core.Services
         private void InitializeSubscriptions()
         {
             // ── VOLUME ────────────────────────────────────────────────────────────────
+            // Chart-scope volume is a property of the series, and stops there. It used to also
+            // be pushed into the audio engine's global master gain, which applied the factor
+            // twice and put earcons — which are not chart audio — behind a chart-scope control.
+            // That is why this handler holds no ISonificationManager.
             _subscriptions.Add(_eventBus.Subscribe<VolumeChangeEvent>(ev => {
                 try
                 {

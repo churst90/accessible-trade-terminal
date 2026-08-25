@@ -252,7 +252,7 @@ namespace AccessibleTrader.Tests
             var audioRouter = new MockAudioRouter();
             var formatter = new SpeechFormatter();
             var eventBus = new SpyEventBus();
-            var mgr = new NavigationFeedbackManager(spy, formatter, eventBus, new MockNavigationSonifier(), new MockIndicatorEngine());
+            var mgr = new NavigationFeedbackManager(spy, formatter);
             mgr.IsSpeechEnabled = true;
 
             var series = MakeCandleSeries();
@@ -270,7 +270,7 @@ namespace AccessibleTrader.Tests
             var audioRouter = new MockAudioRouter();
             var formatter = new SpeechFormatter();
             var eventBus = new SpyEventBus();
-            var mgr = new NavigationFeedbackManager(spy, formatter, eventBus, new MockNavigationSonifier(), new MockIndicatorEngine()) { IsSpeechEnabled = false };
+            var mgr = new NavigationFeedbackManager(spy, formatter) { IsSpeechEnabled = false };
 
             var series = MakeCandleSeries();
             var state = BuildState(series, index: 0);

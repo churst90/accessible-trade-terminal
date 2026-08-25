@@ -67,7 +67,7 @@ public sealed class ChartPatternPinNarrationTests
 
         h.Coordinator = new AccessibilityFeedbackCoordinator(
             h.Store,
-            new NavigationFeedbackManager(speechRouter, formatter, h.Bus, sonify, new MockIndicatorEngine()),
+            new NavigationFeedbackManager(speechRouter, formatter),
             speechRouter,
             new AudioFeedbackRouter(sonify, new MockEarconService()),
             formatter,

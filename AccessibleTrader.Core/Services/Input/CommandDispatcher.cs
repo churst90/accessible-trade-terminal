@@ -856,18 +856,6 @@ namespace AccessibleTrader.Core.Services.Input
             return c >= SystemCommand.PlayChart && c <= SystemCommand.PlaySpeedDown;
         }
 
-        private bool IsDrawingCommand(SystemCommand c)
-        {
-            return c == SystemCommand.DrawTrend || c == SystemCommand.DrawHorizontal ||
-                   c == SystemCommand.DrawVertical || c == SystemCommand.DrawChannel ||
-                   c == SystemCommand.DrawFibonacci || c == SystemCommand.DrawLabel ||
-                   c == SystemCommand.DrawFibExtension || c == SystemCommand.DrawRectangle ||
-                   c == SystemCommand.DrawGannFan || c == SystemCommand.DrawRiskReward ||
-                   c == SystemCommand.DrawAnchoredVwap || c == SystemCommand.DrawMeasure ||
-                   c == SystemCommand.DrawGannBox || c == SystemCommand.DrawPitchfork ||
-                   c == SystemCommand.DrawAngleFib || c == SystemCommand.CancelDrawing;
-        }
-
         private static DrawingType MapDrawCommandToType(SystemCommand c) => c switch
         {
             SystemCommand.DrawTrend        => DrawingType.TrendLine,

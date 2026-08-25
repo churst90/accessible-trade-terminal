@@ -41,7 +41,6 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly ISeriesManagementService _seriesService;
         private readonly IWorkspaceStore _store;
-        private readonly IWorkspaceLibraryService _library;
         private readonly IIndicatorService _indicatorService;
 
         // Optional (null in lightweight tests): the strategy-restore collaborators.
@@ -60,7 +59,6 @@ namespace AccessibleTrader.Core.Services
         public WorkspaceInitializer(
             ISeriesManagementService seriesService,
             IWorkspaceStore store,
-            IWorkspaceLibraryService library,
             IIndicatorService indicatorService,
             Sdk.Strategies.IStrategyEngine? strategyEngine = null,
             Strategies.IConfigurableStrategyFactory? strategyFactory = null,
@@ -69,7 +67,6 @@ namespace AccessibleTrader.Core.Services
         {
             _seriesService = seriesService;
             _store = store;
-            _library = library;
             _indicatorService = indicatorService;
             _strategyEngine = strategyEngine;
             _strategyFactory = strategyFactory;

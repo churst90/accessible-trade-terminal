@@ -341,6 +341,14 @@ namespace AccessibleTrader.Plugins.Schwab
             // (which deletes the file) when one is available. If no bridge is
             // wired the file is left in place so a later, bridged run can
             // still migrate it.
+            //
+            // DPAPI is Windows-only. LegacyTokenFilePath() already returns null everywhere
+            // else, so this guard changes nothing at runtime — but the analyzer cannot follow
+            // that fact through the helper and reported the Unprotect call below as reachable
+            // on Linux and macOS. Stating it at the call site makes the guarantee local and
+            // checkable, rather than a warning someone has to know to ignore.
+            if (!OperatingSystem.IsWindows()) return;
+
             var legacyPath = LegacyTokenFilePath();
             if (legacyPath == null) return;
             try

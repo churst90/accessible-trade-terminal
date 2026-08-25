@@ -1,5 +1,4 @@
 using AccessibleTrader.Core.Services;
-using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.MyData;
 using AccessibleTrader.Sdk.Plugins;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,8 +30,7 @@ public sealed class MyDataMarketReachableTests
             loader,
             NullLogger<DataService>.Instance,
             Substitute.For<ICacheService>(),
-            Substitute.For<IApiKeyService>(),
-            Substitute.For<IGlobalErrorCoordinator>());
+            Substitute.For<IApiKeyService>());
 
         await data.InitializeAsync(loader);
 
@@ -95,8 +93,7 @@ public sealed class MyDataMarketReachableTests
         loader.LoadPlugins<IMarketDataProvider>(Arg.Any<string>()).Returns(_ => new List<IMarketDataProvider>());
         var data = new DataService(
             loader, NullLogger<DataService>.Instance,
-            Substitute.For<ICacheService>(), Substitute.For<IApiKeyService>(),
-            Substitute.For<IGlobalErrorCoordinator>());
+            Substitute.For<ICacheService>(), Substitute.For<IApiKeyService>());
         await data.InitializeAsync(loader);
         data.RegisterProvider(new MyDataProvider(store));
 

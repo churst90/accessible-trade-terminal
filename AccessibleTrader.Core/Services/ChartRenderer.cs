@@ -60,7 +60,7 @@ namespace AccessibleTrader.Core.Services
             {
                 new BackgroundLayer(_theme),
                 new DataLayer(_styling),
-                new OverlayLayer(_theme)
+                new OverlayLayer()
             };
 
             _profileLayer = new ProfileRenderLayer();

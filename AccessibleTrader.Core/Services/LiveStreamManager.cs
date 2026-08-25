@@ -10,7 +10,6 @@ namespace AccessibleTrader.Core.Services
     public class LiveStreamManager : IAsyncDisposable, IDisposable
     {
         private readonly IDataService _dataService;
-        private readonly HistoricalDataFetcher _historicalFetcher;
         private readonly IGlobalErrorCoordinator _errorCoordinator;
         private readonly ILogger<LiveStreamManager> _logger;
 
@@ -55,13 +54,11 @@ namespace AccessibleTrader.Core.Services
         private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(15);
 
         public LiveStreamManager(
-            IDataService dataService, 
-            HistoricalDataFetcher historicalFetcher,
+            IDataService dataService,
             IGlobalErrorCoordinator errorCoordinator,
             ILogger<LiveStreamManager> logger)
         {
             _dataService = dataService;
-            _historicalFetcher = historicalFetcher;
             _errorCoordinator = errorCoordinator;
             _logger = logger;
         }
