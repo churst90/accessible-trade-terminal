@@ -367,6 +367,12 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
+            // Holds the live half of the exit plan the backtester replays — the TP ladder,
+            // the move to breakeven and the ATR trail an order cannot carry — and remembers
+            // open positions across a restart. Registered BEFORE the engine so the engine's
+            // optional dependency resolves.
+            services.AddSingleton<AccessibleTrader.Core.Services.Strategies.IStrategyPositionManager,
+                                  AccessibleTrader.Core.Services.Strategies.StrategyPositionManager>();
             services.AddSingleton<IStrategyEngine, StrategyEngine>();
             services.AddSingleton<IStrategyBacktester, StrategyBacktester>();
 

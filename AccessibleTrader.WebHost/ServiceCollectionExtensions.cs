@@ -370,6 +370,11 @@ namespace AccessibleTrader.WebHost
                   .ForUser(sp.GetService<Account.ICurrentUser>()?.DataKey));
             services.AddScoped<IOrderExecutionService, GeneralOrderService>();
             services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
+            // Per-circuit, like the engine it serves: the positions file it persists is
+            // per-user, and its path resolves on first use so the hosted head reads it after
+            // ICurrentUser is set rather than under users/anon.
+            services.AddScoped<AccessibleTrader.Core.Services.Strategies.IStrategyPositionManager,
+                               AccessibleTrader.Core.Services.Strategies.StrategyPositionManager>();
             services.AddScoped<IStrategyEngine, StrategyEngine>();
             services.AddScoped<IStrategyBacktester, StrategyBacktester>();
 

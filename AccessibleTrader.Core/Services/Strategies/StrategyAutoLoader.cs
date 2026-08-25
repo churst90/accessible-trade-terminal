@@ -24,6 +24,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly IStrategyEngine _engine;
         private readonly IRoslynScriptingService? _roslyn;
         private readonly IAppLogger _logger;
+        private readonly IStrategyPositionManager? _positions;
         private bool _hasLoaded;
 
         public StrategyAutoLoader(
@@ -31,13 +32,15 @@ namespace AccessibleTrader.Core.Services.Strategies
             IConfigurableStrategyFactory factory,
             IStrategyEngine engine,
             IAppLogger logger,
-            IRoslynScriptingService? roslyn = null)
+            IRoslynScriptingService? roslyn = null,
+            IStrategyPositionManager? positions = null)
         {
             _library = library;
             _factory = factory;
             _engine  = engine;
             _roslyn  = roslyn;
             _logger  = logger;
+            _positions = positions;
         }
 
         /// <summary>
@@ -107,6 +110,28 @@ namespace AccessibleTrader.Core.Services.Strategies
                 _logger.LogInfo(
                     $"StrategyAutoLoader activated {count} strategy(ies) from the library.",
                     nameof(StrategyAutoLoader));
+            }
+
+            // ── Restart reconciliation ───────────────────────────────────────────
+            // Every strategy above was rebuilt FLAT: Initialize resets the state machine and a
+            // fresh BaseStrategy starts with no open side. The broker did not restart with us.
+            // AddStrategy has already re-attached each spec's remembered position (via
+            // IStrategyPositionManager.Adopt) so nothing can re-enter on top of one; this pass
+            // then asks each venue what it actually holds and says what it found. It runs AFTER
+            // the loop so one read per provider covers every strategy on it, and its failures
+            // are contained — a venue that cannot answer must not stop the app from starting.
+            if (_positions != null)
+            {
+                try
+                {
+                    await _positions.ReconcileAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        $"Strategy position reconciliation failed: {ex.Message}",
+                        nameof(StrategyAutoLoader));
+                }
             }
         }
     }

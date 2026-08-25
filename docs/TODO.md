@@ -712,7 +712,7 @@ closed the indicator-provider half and missed the paths below.
   end of the array — otherwise a NaN at the current bar would be "repaired" with a future value.
   Three guards: the stop lands on today's component value, a plan whose stop is on the wrong side
   of entry TODAY is refused (the one that costs money), and the NaN scan stays behind the cursor.
-- [ ] **`StrategyEngine.ExecuteSignalAsync:192-200` drops the TP ladder, close portions, `StopAdjust`
+- [x] **`StrategyEngine.ExecuteSignalAsync:192-200` drops the TP ladder, close portions, `StopAdjust`
   and the ATR trail, and has no position awareness — the live order bears no resemblance to what the
   backtester simulated.** The `TradeSignal` is built from six fields; `signal.TpLadder`,
   `TpClosePortions`, `StopAdjust`, `TrailAtrPeriod`, `TrailAtrMultiple` are all present on the
@@ -723,6 +723,19 @@ closed the indicator-provider half and missed the paths below.
   "Sell" while flat is a naked sell that gets rejected. TODO:6053 tracks the multi-rung bracket
   *plumbing*; it does not track `StopAdjust`/trail being dropped, nor the missing reverse/position
   logic. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25.** New `IStrategyPositionManager` runs the exit plan live: it holds the whole
+  ladder, closes each rung's portion with a REDUCE-ONLY market order as price reaches it, moves the
+  stop after rung one per `StopAdjust`, and ratchets the ATR trail. The decisions are NOT
+  re-implemented — `ManagedExitRules` is one shared, pure component that the backtester and the live
+  manager both drive, so a rule that changes changes in both or in neither; a contract test asserts
+  both call it for stop, target, ladder build, stop-adjust and trail. Position awareness: an
+  opposite-side signal closes the remainder before opening (a refused close refuses the entry), a
+  same-side signal re-arms the plan and places NOTHING. Exits also run from
+  `BackgroundWorkspaceMonitor` — entries stay focused-chart-only, exits deliberately do not, because
+  a stop that only runs while its tab is on screen is worse than no stop. **What this is NOT:** a
+  broker-side bracket. Levels are evaluated on BAR CLOSE, so the fill is the close of the bar that
+  reached the level, and the app has to be running; native multi-leg brackets stay filed per venue
+  (TODO:6053) and the setup speech now says which one is running. 15 sabotage runs, all red.
 - [ ] **`StrategyIndicatorCache.cs:49,58,66,77` keys entries as `TYPE|period[|extra]|count` — no
   symbol, no provider, no timeframe — and the instance is a DI singleton *also* published as a
   process-wide static.** `Invalidate(currentCount)` (`:32-45`) only evicts entries whose embedded
@@ -735,7 +748,7 @@ closed the indicator-provider half and missed the paths below.
   it today (recounted: the sole in-repo `GetSma` call site outside the class is
   `StrategyIndicatorCacheBacktestTests.cs:100`), which is the only reason this is not already
   producing wrong trades. CONFIRMED. CRITICAL (latent).
-- [ ] **A live strategy restarts flat while the broker still holds the position —
+- [x] **A live strategy restarts flat while the broker still holds the position —
   `StrategyAutoLoader.LoadAllAsync:50-103` recreates strategies with no position reconciliation.**
   `_factory.Create(spec)` builds a fresh `ConfigurableStrategy` whose `Initialize` resets `_state =
   Inactive`, `_armedPlan = null` (`ConfigurableStrategy.cs:173-177`), and a fresh `BaseStrategy` whose
@@ -744,6 +757,35 @@ closed the indicator-provider half and missed the paths below.
   long, the app restarts, the same conditions are still true on the next bar close → a second long on
   top of the first, and the stop/TP attached to the first order are the only protection either
   position has. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25.** Two halves, because either alone leaves the hole open. (1) The position is
+  PERSISTED (`strategy-positions.json`, per-user, path resolved on first use per the blocker-8 rule)
+  and keyed on the library **spec id** — instance ids are fresh GUIDs every run, so they cannot be
+  the identity. `StrategyEngine.AddStrategy` re-adopts before any bar can be evaluated, so the
+  still-true conditions on the next bar find a position already open and place nothing. (2)
+  `StrategyAutoLoader.LoadAllAsync` then calls `ReconcileAsync`, one `GetPositionsAsync` per
+  provider: gone at the broker → dropped and announced; side disagrees → dropped, announced, handed
+  back to the user (we will not fire reduce-only orders at a position we cannot explain); venue
+  cannot say (spot has no positions concept; a failed read has no answer) → KEPT, marked unverified
+  and announced, because that is not evidence the position closed. Symbol matching is
+  separator/case-insensitive — a reconciliation that missed on `BTC-USD` vs `BTC/USD` would report
+  every position closed and free every strategy to re-enter on top of one it still holds. A
+  strategy with no spec id logs at the moment the risk is taken, not at reconciliation.
+  Reconciliation runs even with zero auto-activate specs: a position can outlive the strategy that
+  opened it, and that is exactly the case where nobody would otherwise be told.
+- [ ] **Two deliberate live-vs-replay divergences left open by the 2026-08-25 parity work, both in
+  the SAFE direction, both worth closing rather than forgetting.** (1) **Same-side re-signal.**
+  `StrategyBacktester.cs` reverses on ANY signal while a position is open, including one on the same
+  side — it books a "Reversed by" trade at the same price, charges commission, and re-opens. The
+  live manager re-arms the plan in place and places nothing. Live is right and the replay is
+  modelling a round trip nobody would take; the replay is therefore PESSIMISTIC here, which is why
+  it was not changed in the same pass (changing it moves every historical backtest number). Decide
+  whether the replay's same-side branch should re-arm too. (2) **The entry bar is exit-checked in
+  the replay and not live.** The replay fills at `data[i+1].Open` and the top of iteration `i+1`
+  walks that bar's range against the fresh position, so a stop inside the entry bar fires. Live, the
+  order goes in at the close of bar N and the first exit check is bar N+1 — the entry bar is never
+  walked, correctly, because the position did not exist for most of it. The two disagree about a
+  position stopped out on its own entry bar; the replay is the pessimistic one. Both are documented
+  in `ManagedExitRules` / `StrategyPositionManager`; neither is a bug today. LOW.
 - [ ] **`BaseStrategy.OnOrderFilled:107-137` assumes strict open→close alternation, so any partial fill
   or ladder exit corrupts live metrics — which then feed `KellyPositionSizer`.** The branch is
   `if (_openSide.HasValue && _openPrice > 0)` → treat as close, `else` → treat as open; side and
@@ -785,7 +827,7 @@ closed the indicator-provider half and missed the paths below.
   timeframe the window suppresses *legitimate* consecutive-bar signals. `GeneralOrderService`'s
   ClientOid dedup does not help (the engine generates a fresh signal object each time). Fix: key the
   dedup on `(instanceId, bar.Date)`. CONFIRMED. HIGH.
-- [ ] **`SetupSonifier.cs:56-70` speaks the "only the first target fires live" warning on
+- [x] **`SetupSonifier.cs:56-70` speaks the "only the first target fires live" warning on
   `SetupArmedEvent` only — Immediate-trigger and pure-pulse setups never emit that event and never hear
   it.** `ConfigurableStrategy.cs:455-456` computes `effectiveImmediate = Entry.Kind == Immediate ||
   _isPurePulseTree`, and every pure-pulse tree is auto-promoted to Immediate (`:451-456`). Those specs
@@ -794,6 +836,14 @@ closed the indicator-provider half and missed the paths below.
   precisely the ones whose user is never told two thirds of their ladder does not exist. Nothing warns
   that `StopAdjust`/breakeven and the ATR trail never fire live at all. TODO:6053 records the warning
   as shipped; this gap in its coverage is not filed. CONFIRMED. HIGH (accessibility + money).
+  **CLOSED 2026-08-25**, alongside the two items above — closing them made the old sentence FALSE,
+  so leaving it would have shipped a lie rather than a gap. `LadderNote` is now one helper used by
+  BOTH `OnArmed` and `OnConfirmed`, so the Immediate-trigger and pure-pulse setups — the ones most
+  likely to be running in Auto mode, which reach Active through `SetupConfirmedEvent` and never
+  publish `SetupArmedEvent` — hear it too. The wording is the honest middle: the rungs DO all fire
+  now, but the terminal runs them on bar close, so the app has to be running. The old test
+  `SetupSonifier_MultiRungLadder_EmitsRungCountAndManualWarning` was PINNING the false claim and was
+  replaced with one asserting the count, the mechanism, and the absence of the old sentence.
 - [ ] **`StrategyBacktester.cs:472-492` omits the peak-equity and max-drawdown update on the
   end-of-data close, and drawdown is only ever sampled at trade events.** The final close does `equity
   += pnl` (`:481`) and never touches `peakEquity`/`maxDrawdown`, so a strategy whose worst loss is the

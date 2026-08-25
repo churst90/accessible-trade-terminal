@@ -236,9 +236,11 @@ public class StrategyBacktester : IStrategyBacktester
             // and are processed in order.
             if (openSide.HasValue && openStop.HasValue)
             {
-                bool stopHit = openSide.Value == OrderSide.Buy
-                    ? bar.Low  <= openStop.Value
-                    : bar.High >= openStop.Value;
+                // ManagedExitRules, not a local comparison: StrategyPositionManager walks live
+                // bars against the same open position and every one of these tests has to give
+                // the same answer there, or the ladder the user was shown is not the ladder the
+                // broker runs. See the note on that class.
+                bool stopHit = ManagedExitRules.StopHit(openSide.Value, openStop.Value, bar);
                 if (stopHit)
                 {
                     // Not openStop.Value. When the bar OPENS past the stop the market
@@ -282,14 +284,11 @@ public class StrategyBacktester : IStrategyBacktester
             while (openSide.HasValue && openTpPrices.Count > 0)
             {
                 double tpPrice = openTpPrices.Peek();
-                bool tpHit = openSide.Value == OrderSide.Buy
-                    ? bar.High >= tpPrice
-                    : bar.Low  <= tpPrice;
-                if (!tpHit) break;
+                if (!ManagedExitRules.TargetHit(openSide.Value, tpPrice, bar)) break;
 
                 openTpPrices.Dequeue();
                 double portion = openTpPortions.Count > 0 ? openTpPortions.Dequeue() : 1.0;
-                double closeQty = Math.Min(openRemainingQty, openInitialQty * portion);
+                double closeQty = ManagedExitRules.CloseQuantity(openRemainingQty, openInitialQty, portion);
                 if (closeQty <= 0) break;
 
                 // Same correction as the stop above, opposite sign: a bar that opened
@@ -323,23 +322,13 @@ public class StrategyBacktester : IStrategyBacktester
                 // Adjust stop after the first TP rung clears based on the signal's StopAdjust mode.
                 if (!stopMovedToBreakeven)
                 {
-                    switch (openStopAdjust)
-                    {
-                        case StopAdjustOnTp1.MoveToBreakeven:
-                            openStop = openEntryPrice;
-                            break;
-                        case StopAdjustOnTp1.TrailByAtr:
-                            // Initial trail: entry + ATR trail distance (will be updated each bar below).
-                            openStop = openEntryPrice;
-                            break;
-                        case StopAdjustOnTp1.None:
-                            // Leave stop where it is.
-                            break;
-                    }
+                    // Breakeven and TrailByAtr both anchor at the entry; the trail then ratchets
+                    // away from it below. Shared with the live manager.
+                    openStop = ManagedExitRules.StopAfterFirstTarget(openStopAdjust, openEntryPrice, openStop);
                     stopMovedToBreakeven = true;
                 }
 
-                if (openRemainingQty <= 0.000001)
+                if (openRemainingQty <= ManagedExitRules.QuantityEpsilon)
                 {
                     openSide = null;
                     openRemainingQty = 0;
@@ -354,32 +343,12 @@ public class StrategyBacktester : IStrategyBacktester
             // After TP1 fires with TrailByAtr mode, update the trailing stop each bar.
             // The stop ratchets forward (longs) / backward (shorts) but never retreats.
             if (openSide.HasValue && stopMovedToBreakeven && openStopAdjust == StopAdjustOnTp1.TrailByAtr
-                && openStop.HasValue && i >= openTrailAtrPeriod)
+                && openStop.HasValue)
             {
-                // Compute Wilder's ATR over the trailing period.
-                double atrSum = 0;
-                for (int a = i - openTrailAtrPeriod + 1; a <= i; a++)
-                {
-                    double tr = data[a].High - data[a].Low;
-                    if (a > 0)
-                    {
-                        tr = Math.Max(tr, Math.Abs(data[a].High - data[a - 1].Close));
-                        tr = Math.Max(tr, Math.Abs(data[a].Low  - data[a - 1].Close));
-                    }
-                    atrSum += tr;
-                }
-                double atr = atrSum / openTrailAtrPeriod;
-                double trailDistance = atr * openTrailAtrMultiple;
-
-                double newStop = openSide.Value == OrderSide.Buy
-                    ? bar.Close - trailDistance
-                    : bar.Close + trailDistance;
-
-                // Ratchet: only move the stop in the favorable direction.
-                if (openSide.Value == OrderSide.Buy && newStop > openStop.Value)
-                    openStop = newStop;
-                else if (openSide.Value == OrderSide.Sell && newStop < openStop.Value)
-                    openStop = newStop;
+                // The average, the ratchet and the "not before `period` bars" gate all live in
+                // ManagedExitRules so the live trail sits exactly where this one does.
+                openStop = ManagedExitRules.AtrTrailStop(
+                    data, i, openTrailAtrPeriod, openTrailAtrMultiple, openSide.Value, openStop.Value);
             }
 
             // ── STRATEGY EVALUATION ───────────────────────────────────────────
@@ -463,24 +432,9 @@ public class StrategyBacktester : IStrategyBacktester
                 // Capture the TP ladder so the exit check on subsequent bars can fire each rung.
                 // Falls back to the single TakeProfit field if no ladder was provided (e.g. by a
                 // strategy other than ConfigurableStrategy).
-                openTpPrices.Clear();
-                openTpPortions.Clear();
-                if (signal.TpLadder != null && signal.TpLadder.Count > 0)
-                {
-                    for (int t = 0; t < signal.TpLadder.Count; t++)
-                    {
-                        openTpPrices.Enqueue(signal.TpLadder[t]);
-                        double portion = signal.TpClosePortions != null && t < signal.TpClosePortions.Count
-                            ? signal.TpClosePortions[t]
-                            : (1.0 / signal.TpLadder.Count);
-                        openTpPortions.Enqueue(portion);
-                    }
-                }
-                else if (signal.TakeProfit.HasValue)
-                {
-                    openTpPrices.Enqueue(signal.TakeProfit.Value);
-                    openTpPortions.Enqueue(1.0);
-                }
+                var (ladderPrices, ladderPortions) = ManagedExitRules.BuildLadder(signal);
+                openTpPrices = ladderPrices;
+                openTpPortions = ladderPortions;
 
                 if (!openSide.HasValue || trades.Count == 0 ||
                     trades[trades.Count - 1].EntryTime != openTime)

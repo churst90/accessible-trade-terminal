@@ -27,6 +27,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
         private readonly Feeds.IMarketFeedHub? _feedHub;
+        private readonly Strategies.IStrategyPositionManager? _positions;
         // Serializes ALL strategy evaluation — live bar-closes AND the
         // DataUpdated-driven load/tab-switch/prepend path. Strategies are
         // stateful; concurrent OnBar on one instance (and the unlocked signal
@@ -49,8 +50,10 @@ namespace AccessibleTrader.Core.Services
             IDataManager dataManager,
             IWorkspaceStore store,
             IStrategyIndicatorCache indicatorCache,
-            Feeds.IMarketFeedHub? feedHub = null)
+            Feeds.IMarketFeedHub? feedHub = null,
+            Strategies.IStrategyPositionManager? positions = null)
         {
+            _positions = positions;
             _eventBus       = eventBus;
             _orderService   = orderService;
             _logger         = logger;
@@ -147,6 +150,13 @@ namespace AccessibleTrader.Core.Services
 
                 try
                 {
+                    // ── EXITS BEFORE ENTRIES ──────────────────────────────────
+                    // Same order the replay runs in (StrategyBacktester walks the bar's range
+                    // against the open position before it asks the strategy anything), and for
+                    // the same reason: a bar that reached the stop AND produced a fresh signal
+                    // is a bar you were stopped out on, not one you reversed on.
+                    RunManagedExits(active, newBar, history);
+
                     var signal = active.Strategy.OnBar(newBar, history, state);
                     if (signal == null) continue;
 
@@ -181,6 +191,28 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Walks the closed bar against whatever this strategy currently holds and dispatches
+        /// the reduce-only exits it earns — the stop, the ladder rungs, and the ATR trail the
+        /// backtester has always simulated and the live path used to discard.
+        ///
+        /// <para>The walk itself is synchronous and happens under <c>_evalGate</c>: the
+        /// bookkeeping has to be applied before the next bar can be evaluated, or a stop that
+        /// has already fired fires again. Only the placement is dispatched off the gate.</para>
+        /// </summary>
+        private void RunManagedExits(ActiveStrategy active, Sdk.Models.Ohlcv bar, IReadOnlyList<Sdk.Models.Ohlcv> history)
+        {
+            if (_positions == null) return;
+
+            var exits = _positions.OnBarClosed(active.InstanceId, bar, history);
+            if (exits.Count == 0) return;
+
+            SafeFireAndForget.Run(
+                () => _positions.PlaceExitsAsync(exits),
+                _msLogger,
+                $"ManagedExits_{active.Strategy.Name}");
+        }
+
         private async Task ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal)
         {
             try
@@ -208,13 +240,52 @@ namespace AccessibleTrader.Core.Services
                     return;
                 }
 
+                // ── What is already open ─────────────────────────────────────────
+                // This path used to place its order knowing nothing about the position the same
+                // strategy already held. On a futures venue that pyramids — two positions, one
+                // stop between them — and on a spot venue a Sell while flat is a naked sell the
+                // exchange refuses. The replay reverses on a counter-signal; so does this now.
+                string symbol = state.Identity.Symbol;
+                if (_positions != null)
+                {
+                    var plan = _positions.PlanEntry(active, signal, qty, providerName, symbol);
+
+                    if (plan.Message != null)
+                    {
+                        _logger.LogInfo(plan.Message, nameof(StrategyEngine));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, plan.Message, false));
+                    }
+
+                    if (plan.Disposition == Strategies.StrategyEntryDisposition.AlreadyOpen)
+                        return;
+
+                    if (plan.Disposition == Strategies.StrategyEntryDisposition.Reverse && plan.CloseFirst != null)
+                    {
+                        // Opening the reversed position while the old one is still on is exactly the
+                        // pyramid this is here to prevent, so a refused close refuses the entry too.
+                        bool closed = await _positions.PlaceExitsAsync(new[] { plan.CloseFirst })
+                            .ConfigureAwait(false);
+                        if (!closed)
+                        {
+                            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                                $"{active.Strategy.Name} did not open its {signal.Side} position because the "
+                                + "existing one could not be closed first.", true));
+                            return;
+                        }
+                    }
+                }
+
                 var tradeSignal = new Sdk.Plugins.TradeSignal(
-                    Symbol:     state.Identity.Symbol,
+                    Symbol:     symbol,
                     Side:       signal.Side,
                     Quantity:   qty,
                     Type:       signal.OrderType,
                     Price:      signal.LimitPrice,
                     StopLoss:   signal.StopLoss,
+                    // The FIRST rung only, and that has not changed: no broker takes a ladder on
+                    // one order. What changed is that rungs two and three are no longer dropped —
+                    // IStrategyPositionManager holds them and closes their portions as price
+                    // reaches them. See ManagedExitRules.
                     TakeProfit: signal.TakeProfit
                 );
 
@@ -237,6 +308,18 @@ namespace AccessibleTrader.Core.Services
                         nameof(StrategyEngine));
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
                         $"{active.Strategy.Name} could not place its {signal.Side} order. {failure}", true));
+                    return;
+                }
+
+                // The order went. Hand the position — and the whole exit plan the order could not
+                // carry — to the manager, which walks it against every subsequent bar close.
+                // The reference price is the close of the bar the signal was decided on; the real
+                // fill replaces it when the venue reports it (OrderFilledEvent), because a
+                // breakeven stop anchored on a price nobody traded at is not breakeven.
+                if (_positions != null)
+                {
+                    double reference = LastClose(state);
+                    _positions.OpenPosition(active, signal, qty, providerName, symbol, reference, result);
                 }
             }
             catch (Exception ex)
@@ -244,6 +327,16 @@ namespace AccessibleTrader.Core.Services
                 _logger.LogError($"Auto-execute failed for strategy '{active.Strategy.Name}': {ex.Message}",
                     nameof(StrategyEngine), ex);
             }
+        }
+
+        /// <summary>The most recent closed price on the workspace, or 0 when there is none.</summary>
+        private static double LastClose(WorkspaceState state)
+        {
+            var data = state.Data;
+            if (data == null || data.Count == 0) return 0;
+            int idx = state.CurrentDataIndex;
+            if (idx < 0 || idx >= data.Count) idx = data.Count - 1;
+            return data[idx].Close;
         }
 
         // ── IStrategyEngine ───────────────────────────────────────────────────
@@ -272,6 +365,13 @@ namespace AccessibleTrader.Core.Services
 
             var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol, specId);
             _activeStrategies = _activeStrategies.Add(active);
+
+            // A restart rebuilds every strategy flat. If this spec had a position open when the
+            // process died, the broker still holds it — re-attach it here, BEFORE the first bar
+            // can be evaluated, or the same conditions open a second one on top of the first with
+            // the original order's stop the only protection either has.
+            _positions?.Adopt(instanceId, specId);
+
             _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode}, symbol={boundSymbol ?? "any"})", nameof(StrategyEngine));
             return instanceId;
         }
@@ -291,6 +391,10 @@ namespace AccessibleTrader.Core.Services
                 _activeStrategies = _activeStrategies.RemoveAll(a => a.InstanceId == instanceId);
                 _pendingSignals.Remove(instanceId);
                 _lastSignalTimes.Remove(instanceId);
+                // Removing the strategy stops the managed exits, so the record must go too —
+                // otherwise it is persisted forever and re-adopted by the next instance of the
+                // same spec, which would run a stop against a position the user has since closed.
+                _positions?.Forget(instanceId);
             }
         }
 

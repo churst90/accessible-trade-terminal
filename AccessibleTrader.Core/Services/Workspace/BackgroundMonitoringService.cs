@@ -60,6 +60,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IStrategyEngine _strategyEngine;
         private readonly ILogger<BackgroundMonitoringService> _logger;
         private readonly IPaperTradingProvider? _paper;
+        private readonly Strategies.IStrategyPositionManager? _positions;
 
         private readonly object _gate = new();
         // Keyed by identity — two tabs on the same identity coalesce into one monitor.
@@ -78,8 +79,10 @@ namespace AccessibleTrader.Core.Services.Workspace
             IAlertEvaluator alertEvaluator,
             IStrategyEngine strategyEngine,
             ILogger<BackgroundMonitoringService> logger,
-            IPaperTradingProvider? paper = null)
+            IPaperTradingProvider? paper = null,
+            Strategies.IStrategyPositionManager? positions = null)
         {
+            _positions = positions;
             _store = store;
             _eventBus = eventBus;
             _settings = settings;
@@ -196,7 +199,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                         snap.Series,
                         _feeds, _indicators, _alerts, _alertEvaluator,
                         _strategyEngine, _eventBus, _logger,
-                        PollInterval);
+                        PollInterval, barsToFetch: 400, positions: _positions);
                     monitor.Start();
                     _monitors[identity] = monitor;
                     _logger.LogInformation("Background monitor started: {Symbol} ({Timeframe})",

@@ -50,19 +50,30 @@ namespace AccessibleTrader.Core.Services.Strategies
         private static string Prefix(string symbol) =>
             string.IsNullOrWhiteSpace(symbol) ? "" : symbol + ": ";
 
+        /// <summary>
+        /// How a multi-rung ladder actually executes, said out loud.
+        ///
+        /// <para>
+        /// This used to read "only the first target fires live until multi-rung bracket support
+        /// ships", which was true and is not any more: <c>IStrategyPositionManager</c> holds
+        /// every rung and closes its portion as price reaches it. But the replacement is not
+        /// "all targets fire live" either. The rungs are run by the TERMINAL, on bar close, with
+        /// reduce-only market orders — not by a resting order at the exchange. So the exit
+        /// happens at the close of the bar that reached the level, the app has to be running,
+        /// and a gap through a rung fills past it. The user is entitled to know which of those
+        /// two things is protecting their money.
+        /// </para>
+        /// </summary>
+        private static string LadderNote(AccessibleTrader.Sdk.Strategies.ResolvedRiskPlan plan) =>
+            plan.TpPrices.Count > 1
+                ? $" Ladder has {plan.TpPrices.Count} rungs; the terminal closes each one at the "
+                  + "close of the bar that reaches it, so the app has to be running."
+                : string.Empty;
+
         private void OnArmed(SetupArmedEvent e)
         {
             _earcon.PlaySetupArmed(e.Side);
-            // Multi-rung TP ladder warning: live trading currently attaches only a single
-            // TakeProfit price to each order, so rungs beyond the first are not placed
-            // live on any broker. A trader relying on a 3-rung ladder needs to know they
-            // have to place the 2nd and 3rd rungs manually until broker-side bracket
-            // plumbing ships per provider. This one-line warning is orders of magnitude
-            // cheaper than the multi-day per-broker implementation and prevents the
-            // silent-failure path where the user thinks all three rungs are live.
-            string rungCount = e.ResolvedPlan.TpPrices.Count > 1
-                ? $" Ladder has {e.ResolvedPlan.TpPrices.Count} rungs — only the first target fires live until multi-rung bracket support ships."
-                : string.Empty;
+            string rungCount = LadderNote(e.ResolvedPlan);
             _speech.Speak(
                 Prefix(e.Symbol) +
                 $"{(e.Side == AccessibleTrader.Sdk.Plugins.OrderSide.Buy ? "Long" : "Short")} setup armed. " +
@@ -84,7 +95,14 @@ namespace AccessibleTrader.Core.Services.Strategies
             _earcon.PlaySetupBell(e.Side, reconfirmation: false);
             // The rationale carries the side, score, entry, stop, targets, R:R, and stop
             // notes — exactly what the user asked the journal/speech entry to look like.
-            _speech.Speak(Prefix(e.Symbol) + e.Rationale, interrupt: false);
+            //
+            // The ladder note belongs here as well as on Armed, and this is the path that
+            // needed it more: an Immediate-trigger setup — and every pure-pulse tree, which is
+            // auto-promoted to Immediate — goes Inactive→Active through THIS event and never
+            // publishes SetupArmedEvent at all. Those are the setups most likely to be running
+            // in Auto mode, so they were precisely the ones whose user never heard how their
+            // targets execute.
+            _speech.Speak(Prefix(e.Symbol) + e.Rationale + LadderNote(e.ResolvedPlan), interrupt: false);
         }
 
         private void OnReconfirmed(SetupReconfirmedEvent e)

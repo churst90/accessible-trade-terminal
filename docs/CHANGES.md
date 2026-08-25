@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The live strategy runs the plan it was backtested on (2026-08-25)
+
+- **The take-profit ladder, the move to breakeven and the ATR trail now exist live.** An Auto-mode
+  strategy used to place a market order carrying a stop and the FIRST target, and drop everything
+  else the signal was holding — `TpLadder`, `TpClosePortions`, `StopAdjust`, `TrailAtrPeriod`,
+  `TrailAtrMultiple`. The backtest modelled all of it. So the numbers the strategy was accepted on
+  and the order it actually placed described two different strategies wearing one name, and the
+  difference was invisible, because the replay is the only place the ladder was ever seen working.
+  A new `IStrategyPositionManager` holds the whole plan and closes each rung's portion with a
+  reduce-only market order as price reaches it, moves the stop after rung one, and ratchets the
+  trail. **The decisions are shared, not copied:** `ManagedExitRules` is one pure component the
+  replay and the live walk both drive, and a contract test fails if either grows a private copy —
+  which is how the two would silently drift apart again with the backtest still saying it works.
+- **This is the terminal running the ladder, not the exchange.** Levels are evaluated on bar close
+  and exited at market, so an exit happens at the close of the bar that reached the level, and the
+  app has to be running. That is what the setup speech now says. It used to say "only the first
+  target fires live until multi-rung bracket support ships", which was true then and is not now —
+  and the sentence is spoken to the Immediate-trigger and pure-pulse setups too, which never heard
+  it at all and are the ones most likely to be running unattended. Broker-native brackets remain
+  the better answer per venue and remain on the list.
+- **A strategy knows what it is already holding.** A counter-signal closes the open position before
+  it opens the new one (and if the close is refused, the entry is refused too). Before, it simply
+  placed another order — which pyramids on a futures venue and is a naked sell on a spot one. A
+  repeat signal on the same side re-arms the stop and targets at the new levels and adds nothing.
+- **A restart no longer opens a second position on top of the first.** Positions are remembered
+  across the process, keyed on the library spec rather than on the instance id that changes every
+  run, and re-attached before any bar can be evaluated. Startup then asks each venue what it
+  actually holds: a position that is gone is dropped and announced, one whose side disagrees is
+  handed back to you rather than managed by a strategy that cannot explain it, and one the venue
+  cannot speak about — a spot venue has no positions concept — is kept and announced as
+  unconfirmed, because silence there is not evidence that anything closed.
+- **Managed exits run for charts that are not on screen.** Entries stay a focused-chart act by
+  design; exits deliberately do not. A stop that only runs while its tab happens to be visible is
+  worse than no stop, because it is believed.
+
 ### Provider-tier batch two: the streams that lied, the strings that didn't match, and the shorts that read as longs (2026-08-23)
 
 - **Binance grew up.** The user-data stream moved onto `ReconnectingWebSocket` via a

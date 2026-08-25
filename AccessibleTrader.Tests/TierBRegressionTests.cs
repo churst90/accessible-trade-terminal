@@ -99,14 +99,23 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void SetupSonifier_MultiRungLadder_EmitsRungCountAndManualWarning()
+        public void SetupSonifier_MultiRungLadder_SaysHowTheRungsActuallyRun()
         {
-            // 3-rung plan → warning that only the first rung fires live until broker-
-            // side bracket plumbing ships. Without this warning the trader thinks all
-            // three rungs are active — the silent-failure rule exactly.
+            // 3-rung plan → the rung count, and how those rungs execute.
+            //
+            // This test used to pin "only the first target fires live until multi-rung bracket
+            // support ships", which was the honest thing to say while the live path dropped
+            // rungs two and three. IStrategyPositionManager now holds the whole ladder and
+            // closes each rung's portion as price reaches it, so that sentence became false and
+            // the test that pinned it was pinning a lie. The replacement is not "all targets
+            // fire live" either: the rungs are run by the TERMINAL on bar close, which means the
+            // app has to be running. Both halves are asserted — the count, and the mechanism —
+            // because dropping either one is how the silent-failure path comes back.
             string msg = CaptureArmedSpeech(new[] { 50_100.0, 50_250.0, 50_500.0 });
             Assert.Contains("Ladder has 3 rungs", msg);
-            Assert.Contains("first target fires live", msg);
+            Assert.Contains("the terminal closes each one", msg);
+            Assert.Contains("app has to be running", msg);
+            Assert.DoesNotContain("only the first target", msg);
         }
 
         // ── Fixtures ──────────────────────────────────────────────────────────

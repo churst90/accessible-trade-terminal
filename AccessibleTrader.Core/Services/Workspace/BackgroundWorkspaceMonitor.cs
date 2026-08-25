@@ -54,6 +54,7 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly ILogger _logger;
         private readonly TimeSpan _pollInterval;
         private readonly int _barsToFetch;
+        private readonly Strategies.IStrategyPositionManager? _positions;
 
         private readonly CancellationTokenSource _cts = new();
         private Task? _loop;
@@ -84,8 +85,10 @@ namespace AccessibleTrader.Core.Services.Workspace
             IEventBus eventBus,
             ILogger logger,
             TimeSpan pollInterval,
-            int barsToFetch = 400)
+            int barsToFetch = 400,
+            Strategies.IStrategyPositionManager? positions = null)
         {
+            _positions = positions;
             _identity = identity;
             _symbolDisplayName = string.IsNullOrWhiteSpace(symbolDisplayName)
                 ? identity.Symbol : symbolDisplayName;
@@ -281,6 +284,17 @@ namespace AccessibleTrader.Core.Services.Workspace
 
                 try
                 {
+                    // ── Managed exits run here too, and that asymmetry is deliberate ──────
+                    // Entries below are announce-only from a background monitor: opening a
+                    // position for a chart the user is not looking at stays a focused-chart act.
+                    // Exits do NOT follow that rule. Declining to open a position is the
+                    // conservative choice; declining to close one is not — a stop that only
+                    // runs while its tab happens to be on screen is worse than no stop, because
+                    // the user believes it is there. So the stop, the ladder rungs and the ATR
+                    // trail are walked against this symbol's bars at the monitor's polling
+                    // cadence, exactly as the focused engine walks them at bar close.
+                    RunManagedExits(active, lastBar, history);
+
                     var signal = active.Strategy.OnBar(lastBar, history, state);
                     if (signal == null) continue;
 
@@ -300,6 +314,29 @@ namespace AccessibleTrader.Core.Services.Workspace
                         active.Strategy.Name, _symbolDisplayName);
                 }
             }
+        }
+
+        /// <summary>
+        /// Walks this monitor's latest bar against the strategy's open position and dispatches
+        /// any reduce-only exits it earns. The walk is synchronous so a second poll cannot fire
+        /// the same level twice; only the placement is dispatched.
+        /// </summary>
+        private void RunManagedExits(ActiveStrategy active, Ohlcv bar, IReadOnlyList<Ohlcv> history)
+        {
+            if (_positions == null) return;
+
+            var exits = _positions.OnBarClosed(active.InstanceId, bar, history);
+            if (exits.Count == 0) return;
+
+            _ = Task.Run(async () =>
+            {
+                try { await _positions.PlaceExitsAsync(exits).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background monitor: managed exits for {Name} on {Symbol} threw",
+                        active.Strategy.Name, _symbolDisplayName);
+                }
+            });
         }
 
         public void Dispose()
