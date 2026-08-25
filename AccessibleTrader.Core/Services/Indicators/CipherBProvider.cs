@@ -497,13 +497,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             int  intervalMin = 1440;
             if (tfAware && n >= 10)
             {
-                // Median interval over up to 100 consecutive bars. Robust to gaps.
-                int sampleN = Math.Min(100, n - 1);
-                var deltas = new double[sampleN];
-                for (int i = 0; i < sampleN; i++)
-                    deltas[i] = (data[i + 1].Date - data[i].Date).TotalMinutes;
-                Array.Sort(deltas);
-                intervalMin = (int)Math.Round(deltas[sampleN / 2]);
+                // Median interval over EVERY delta in the series. This used to sample the first
+                // hundred bars (Math.Min(100, n - 1) counted from index 0), so the timeframe the
+                // whole indicator tunes itself for was decided by where the array started — a
+                // scroll-back moved the sample and silently re-tuned bars already on the chart.
+                double median = IndicatorMath.MedianBarIntervalMinutes(data);
+                if (median > 0) intervalMin = (int)Math.Round(median);
                 if      (intervalMin <  60)   tfBucket = 0;
                 else if (intervalMin <  240)  tfBucket = 1;
                 else if (intervalMin <  720)  tfBucket = 2;

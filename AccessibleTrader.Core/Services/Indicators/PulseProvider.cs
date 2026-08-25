@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -700,8 +701,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // is the one whose last bar index ≤ i. The first bar of week W+1 carries
             // week W's value (the just-closed bar's RSI/regime). This is the same
             // pattern higher-timeframe indicators use in real charting platforms.
-            ComputeMtfRsi(closes, mtfBarsPerWeek, mtfAnchorPeriod, ancMtf);
-            ComputeMtfRegime(closes, mtfBarsPerWeek, mtfRegimeMa, mtfRegimeSlopeBars, mtfRegimeSlope, regMtf);
+            var mtfBuckets = MtfBuckets(data, mtfBarsPerWeek);
+            ComputeMtfRsi(closes, mtfBuckets, mtfAnchorPeriod, ancMtf);
+            ComputeMtfRegime(closes, mtfBuckets, mtfRegimeMa, mtfRegimeSlopeBars, mtfRegimeSlope, regMtf);
             ComputeCycleState(closes, regimeMaPeriod, regimeSlopeBars, cycleSlopeFlat, cycle);
             // Project the raw 1..4 stage onto the visible 20/40/60/80 band so the
             // chart shows the cycle as a stepped colored line in the middle of the pane.
@@ -1257,15 +1259,107 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
         }
 
-        // MTF RSI via no-lookahead sub-sampling. Builds a "weekly" close series by taking
-        // the close of every barsPerWeek-th bar (each represents that week's last bar),
-        // runs RSI on the subseries, then forward-fills the most recently completed weekly
-        // value to each daily bar. The "no lookahead" rule is critical: at daily bar i,
-        // the most recent weekly value is from week ⌊(i+1)/barsPerWeek⌋ - 1 (the week
-        // whose last bar index < i+1, i.e. ≤ i). On the LAST bar of any week (i % bpw == bpw-1)
-        // the bar's own close is the weekly close, which is fine because that close is known
-        // at the moment of the calculation.
-        private static void ComputeMtfRsi(double[] closes, int barsPerWeek, int rsiPeriod, Span<double> dst)
+        /// <summary>
+        /// The weekly sub-sampling grid, with its boundaries pinned to bar DATES rather than to
+        /// array positions.
+        ///
+        /// <para>
+        /// The grid used to be <c>i / barsPerWeek</c> — week 0 started at whatever bar happened to
+        /// be sitting at index 0. Scroll back on the chart, two hundred older bars arrive at the
+        /// front, and every week boundary in the whole series moves: bars that had been the last
+        /// bar of a week are now mid-week, the weekly closes are taken from different bars, and
+        /// every MTF value on the chart changes for bars the user was already looking at. Backtest
+        /// and live chart then disagree about the same bar, decided by how much history was
+        /// fetched. Anchoring the grid to absolute time removes the array from the question: a bar
+        /// belongs to the same bucket whichever slice of the series it is drawn in.
+        /// </para>
+        ///
+        /// <para>
+        /// The bucket a bar belongs to is <c>floor(minutes-since-epoch / (barsPerWeek × interval))</c>,
+        /// where interval is the median bar spacing. <see cref="Bucket.ClosesHere"/> marks the bar
+        /// whose own close completes its bucket, and it is decided from that bar's date plus one
+        /// interval — never by peeking at the next bar, which would be exactly the look-ahead this
+        /// sub-sampling exists to avoid. When no interval can be detected (a series with no
+        /// positive spacing at all) the old positional grid is used, because a wrong grid is still
+        /// better than no MTF component.
+        /// </para>
+        /// </summary>
+        private readonly struct Bucket
+        {
+            /// <summary>Index into the daily array of the last bar of this bucket that is present.</summary>
+            public int LastBar { get; init; }
+            /// <summary>False for a bucket the series only holds part of — the trailing one, or one
+            /// straddling a data gap. Its close is not yet known, so it is never forward-filled.</summary>
+            public bool Complete { get; init; }
+        }
+
+        private static (Bucket[] Buckets, int[] BucketOf) MtfBuckets(ReadOnlySpan<Ohlcv> data, int barsPerWeek)
+        {
+            int n = data.Length;
+            var bucketOf = new int[n];
+            if (n == 0 || barsPerWeek <= 0) return (Array.Empty<Bucket>(), bucketOf);
+
+            double intervalMin = IndicatorMath.MedianBarIntervalMinutes(data);
+            double spanMin = intervalMin * barsPerWeek;
+
+            var buckets = new List<Bucket>();
+            long lastKey = long.MinValue;
+
+            for (int i = 0; i < n; i++)
+            {
+                long key;
+                bool closesHere;
+                if (spanMin > 0)
+                {
+                    double mins = (data[i].Date - DateTime.UnixEpoch).TotalMinutes;
+                    key = (long)Math.Floor(mins / spanMin);
+                    // Does this bar's own close carry the series past the bucket boundary? Decided
+                    // from this bar alone: its date plus one interval is when it closes.
+                    closesHere = (long)Math.Floor((mins + intervalMin) / spanMin) > key;
+                }
+                else
+                {
+                    key = i / barsPerWeek;
+                    closesHere = i % barsPerWeek == barsPerWeek - 1;
+                }
+
+                if (key != lastKey)
+                {
+                    buckets.Add(new Bucket { LastBar = i, Complete = closesHere });
+                    lastKey = key;
+                }
+                else
+                {
+                    buckets[^1] = new Bucket { LastBar = i, Complete = closesHere };
+                }
+                bucketOf[i] = buckets.Count - 1;
+            }
+
+            return (buckets.ToArray(), bucketOf);
+        }
+
+        /// <summary>
+        /// At bar <paramref name="i"/>, the most recent bucket whose close is already known — its
+        /// own bucket if this bar completed it, otherwise the one before. Returns -1 when there is
+        /// no such bucket, or when the candidate is incomplete (a gap, or the running bucket).
+        /// </summary>
+        private static int CompletedBucketAt((Bucket[] Buckets, int[] BucketOf) grid, int i)
+        {
+            var (buckets, bucketOf) = grid;
+            int b = bucketOf[i];
+            if (b >= buckets.Length) return -1;
+            int use = (buckets[b].Complete && i >= buckets[b].LastBar) ? b : b - 1;
+            if (use < 0 || !buckets[use].Complete) return -1;
+            return use;
+        }
+
+        // MTF RSI via no-lookahead sub-sampling. Builds a "weekly" close series by taking the
+        // close of the last bar of each date-anchored bucket, runs RSI on the subseries, then
+        // forward-fills the most recently COMPLETED bucket's value to each daily bar. On the bar
+        // that closes a bucket, that bar's own close is the weekly close, which is fine because
+        // it is known at the moment of the calculation.
+        private static void ComputeMtfRsi(double[] closes, (Bucket[] Buckets, int[] BucketOf) grid,
+            int rsiPeriod, Span<double> dst)
         {
             int n = closes.Length;
             for (int i = 0; i < n; i++) dst[i] = double.NaN;
@@ -1276,16 +1370,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             // series, which is a disagreement about the past decided by how much data was fetched.
             // Insufficient history is already handled per bar: weeklyRsi stays NaN until enough
             // weeks have closed, and the forward-fill below only writes non-NaN weeks.
-            if (barsPerWeek <= 0 || rsiPeriod <= 0) return;
+            if (rsiPeriod <= 0) return;
 
-            // Build weekly close series: bar (k+1)*bpw - 1 is the last bar of week k.
-            int weekCount = (n + barsPerWeek - 1) / barsPerWeek;
+            int weekCount = grid.Buckets.Length;
             var weeklyCloses = new double[weekCount];
-            for (int k = 0; k < weekCount; k++)
-            {
-                int lastBar = Math.Min((k + 1) * barsPerWeek - 1, n - 1);
-                weeklyCloses[k] = closes[lastBar];
-            }
+            for (int k = 0; k < weekCount; k++) weeklyCloses[k] = closes[grid.Buckets[k].LastBar];
 
             // RSI on the subseries.
             var weeklyRsi = new double[weekCount];
@@ -1311,15 +1400,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 weeklyRsi[k] = avgLoss == 0 ? 100.0 : 100.0 - 100.0 / (1.0 + avgGain / avgLoss);
             }
 
-            // Forward-fill to daily, no lookahead. At daily bar i, the most recent weekly
-            // bucket whose last bar ≤ i is week ⌊i / bpw⌋ — that bucket's last bar is
-            // (⌊i/bpw⌋+1)*bpw - 1, which is ≥ i. So that week is NOT YET CLOSED until
-            // i = (⌊i/bpw⌋+1)*bpw - 1. Use the previous week until then.
+            // Forward-fill to daily, no lookahead — the most recently COMPLETED bucket.
             for (int i = 0; i < n; i++)
             {
-                int weekIdx = i / barsPerWeek;
-                int weekLastBar = (weekIdx + 1) * barsPerWeek - 1;
-                int useWeek = (i >= weekLastBar) ? weekIdx : weekIdx - 1;
+                int useWeek = CompletedBucketAt(grid, i);
                 if (useWeek >= 0 && useWeek < weekCount && !double.IsNaN(weeklyRsi[useWeek]))
                     dst[i] = weeklyRsi[useWeek];
             }
@@ -1328,22 +1412,19 @@ namespace AccessibleTrader.Core.Services.Indicators
         // MTF 3-state regime classifier on the same sub-sample. Same rule as ComputeRegime
         // but operating on weekly closes, then forward-filled. Slope threshold is per-weekly-bar
         // not per-daily-bar (default 0.30% per week ≈ 0.04%/day, comparable to daily 0.02%).
-        private static void ComputeMtfRegime(double[] closes, int barsPerWeek, int maPeriod, int slopeBars, double slopePctMin, Span<double> dst)
+        private static void ComputeMtfRegime(double[] closes, (Bucket[] Buckets, int[] BucketOf) grid,
+            int maPeriod, int slopeBars, double slopePctMin, Span<double> dst)
         {
             int n = closes.Length;
             for (int i = 0; i < n; i++) dst[i] = double.NaN;
             // Length-independent for the same reason as ComputeMtfRsi: the per-week arrays stay NaN
             // until enough weeks exist, so a whole-series bail only removes bars that were entitled
             // to a value.
-            if (barsPerWeek <= 0 || maPeriod <= 0) return;
+            if (maPeriod <= 0) return;
 
-            int weekCount = (n + barsPerWeek - 1) / barsPerWeek;
+            int weekCount = grid.Buckets.Length;
             var weeklyCloses = new double[weekCount];
-            for (int k = 0; k < weekCount; k++)
-            {
-                int lastBar = Math.Min((k + 1) * barsPerWeek - 1, n - 1);
-                weeklyCloses[k] = closes[lastBar];
-            }
+            for (int k = 0; k < weekCount; k++) weeklyCloses[k] = closes[grid.Buckets[k].LastBar];
 
             // Weekly SMA.
             var weeklySma = new double[weekCount];
@@ -1372,12 +1453,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 else weeklyRegime[k] = 0.0;
             }
 
-            // Forward-fill to daily, no lookahead.
+            // Forward-fill to daily, no lookahead — the most recently COMPLETED bucket.
             for (int i = 0; i < n; i++)
             {
-                int weekIdx = i / barsPerWeek;
-                int weekLastBar = (weekIdx + 1) * barsPerWeek - 1;
-                int useWeek = (i >= weekLastBar) ? weekIdx : weekIdx - 1;
+                int useWeek = CompletedBucketAt(grid, i);
                 if (useWeek >= 0 && useWeek < weekCount && !double.IsNaN(weeklyRegime[useWeek]))
                     dst[i] = weeklyRegime[useWeek];
             }

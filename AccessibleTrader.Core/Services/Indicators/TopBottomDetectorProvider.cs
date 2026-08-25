@@ -516,31 +516,13 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // ── Helpers ────────────────────────────────────────────────────────────────
 
-        // Median of the first N positive bar deltas (in minutes). Robust against the
-        // occasional gap (exchange downtime, snapshot stitching) and the very first
-        // bar pair if it spans an aggregation boundary. Returns 0 if data is too
-        // short or all-zero — caller treats that as "adaptation off."
-        internal static double DetectBarIntervalMinutes(ReadOnlySpan<Ohlcv> data)
-        {
-            const int sampleCount = 11;
-            if (data.Length < 2) return 0.0;
-            int probe = Math.Min(sampleCount, data.Length - 1);
-            Span<double> deltas = stackalloc double[probe];
-            int filled = 0;
-            for (int i = 1; i <= probe; i++)
-            {
-                var dt = data[i].Date - data[i - 1].Date;
-                double mins = dt.TotalMinutes;
-                if (mins > 0) deltas[filled++] = mins;
-            }
-            if (filled == 0) return 0.0;
-            // tiny array — bubble sort is fine
-            for (int i = 0; i < filled - 1; i++)
-                for (int j = 0; j < filled - 1 - i; j++)
-                    if (deltas[j] > deltas[j + 1])
-                        (deltas[j], deltas[j + 1]) = (deltas[j + 1], deltas[j]);
-            return deltas[filled / 2];
-        }
+        // Median positive bar delta, in minutes. This used to sample the first eleven deltas
+        // only, which made the detected timeframe a function of where the array started: a
+        // scroll-back slid the sample onto older bars and could re-tune the whole indicator for
+        // bars already on the chart. IndicatorMath medians the whole series instead — see the
+        // note there.
+        internal static double DetectBarIntervalMinutes(ReadOnlySpan<Ohlcv> data) =>
+            IndicatorMath.MedianBarIntervalMinutes(data);
 
         private static double[] ComputeAtrWilder(ReadOnlySpan<Ohlcv> data, int period)
         {

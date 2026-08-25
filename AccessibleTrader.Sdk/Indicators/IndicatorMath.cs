@@ -204,6 +204,47 @@ namespace AccessibleTrader.Sdk.Indicators
         }
 
         /// <summary>
+        /// Median spacing between consecutive bars, in minutes — an indicator's answer to "what
+        /// timeframe am I drawn on?" when nothing has told it. Returns 0 when the series is too
+        /// short or carries no positive spacing at all; callers treat that as "adaptation off".
+        ///
+        /// <para>
+        /// <b>Every delta in the series is sampled, deliberately.</b> The two detectors this
+        /// replaced each took a fixed sample from the FRONT of the array — the first 11 deltas in
+        /// one case, the first 100 in the other — which makes the answer a function of where the
+        /// array happens to start. Scrolling back prepends two hundred older bars, the sample
+        /// window slides onto different bars, and an indicator that had been tuned for "daily"
+        /// re-tunes itself for "4-hour" on bars the user was already looking at. A median over the
+        /// whole series has no such window: for a regularly spaced feed it is exactly the bar
+        /// interval no matter which slice of it you hold, and weekend gaps and halts are a
+        /// minority of the deltas, so they cannot move it.
+        /// </para>
+        ///
+        /// <para>
+        /// The remaining case it cannot be invariant for is a feed whose spacing genuinely changes
+        /// across the range — older history stored at a coarser resolution than recent bars. There
+        /// the median moves when enough of the coarse region is loaded, and it should: the series
+        /// really is two timeframes stitched together.
+        /// </para>
+        /// </summary>
+        public static double MedianBarIntervalMinutes(ReadOnlySpan<Ohlcv> data)
+        {
+            if (data.Length < 2) return 0.0;
+
+            var deltas = new double[data.Length - 1];
+            int filled = 0;
+            for (int i = 1; i < data.Length; i++)
+            {
+                double mins = (data[i].Date - data[i - 1].Date).TotalMinutes;
+                if (mins > 0) deltas[filled++] = mins;
+            }
+            if (filled == 0) return 0.0;
+
+            Array.Sort(deltas, 0, filled);
+            return deltas[filled / 2];
+        }
+
+        /// <summary>
         /// Returns (highest_high + lowest_low) / 2 over the <paramref name="period"/> bars ending at
         /// <paramref name="endIdx"/> (inclusive).  Used by Ichimoku and other midpoint-line indicators.
         /// </summary>

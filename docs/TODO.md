@@ -2,6 +2,18 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-25 (the prepend causality gap):** **522 open.** The causality contract only ever
+asked "does bar i change when the FUTURE arrives?" It now also asks the question this app actually
+faces — "does bar i change when OLDER bars arrive?" — because a scroll-back prepends two hundred
+bars in front of everything already drawn. The new sweep found **seventy** disagreeing components
+where the audit had named three, and one of the three named does not reproduce. The work was mostly
+in telling two populations apart: an EMA converging from a different seed (inherent, under 5e-7
+after 700 bars) versus a bucket or sample window pinned to array index 0 (does not converge at all).
+Three sites fixed — two bar-interval detectors that sampled the FRONT of the array and Pulse's MTF
+grid — and **the harness could not see the interval bug at all until a fourth synthetic series with
+irregular bar spacing existed**, because every sample of a perfectly hourly series gives the same
+answer. Suite **4745 green**; sabotage proven red.
+
 **Status 2026-08-25 (the scripting-sandbox audit + the three seam bugs):** Three indicator-seam
 items closed first, because the sandbox is what will read that seam at volume: the strategy cache
 computed a **Cutler** RSI while every chart draws Wilder's (they never converge — a strategy read a
@@ -2117,18 +2129,15 @@ charting products. Against it sits a large body of undisciplined provider code.
   every custom provider depends on is guarded by nothing.** Fix: a table of reference values per helper
   (Wilder's published ADX worked example is canonical), plus a NaN-input and short-series case each.
   CONFIRMED. MEDIUM.
-- [ ] **The causality guard has three structural blind spots its own doc does not name: `UpdateLast`,
-  non-default parameters, and prepended history.** `IndicatorCausalityTests.Run:144-150` calls
-  `provider.Calculate` only, so no incremental path is ever compared to its batch equivalent;
-  `Defaults(ind):137-142` means every run uses metadata defaults; and `full.Take(k)` (`:217`) only appends
-  future bars, so nothing tests what happens when older bars arrive — the normal case in this app
-  (scroll-back prepends history). Three confirmed defects live in exactly those gaps: the Cipher B
-  `Math.Min(100, n-1)` bucket above, `PulseProvider.ComputeMtfRsi:1282-1287` (weekly buckets aligned to
-  array index 0, so prepending history re-buckets every "weekly" value), and
-  `PivotLevelsProvider.cs:143-157` (the first pivot set is computed from a truncated session whose length
-  is set by where the array starts). Fix: add an `UpdateLast`-vs-`Calculate` parity theory, a small
-  non-default parameter sweep, and a suffix-stability check (`bars.Skip(k)` vs `bars`, comparing the
-  shared tail modulo a declared warmup). CONFIRMED. MEDIUM.
+- [ ] **The causality guard has two remaining structural blind spots its own doc does not name:
+  `UpdateLast` and non-default parameters.** `IndicatorCausalityTests.Run` calls `provider.Calculate`
+  only, so no incremental path is ever compared to its batch equivalent, and `Defaults(ind)` means
+  every run uses metadata defaults — a causality-affecting parameter is only ever tested at one
+  value. Fix: an `UpdateLast`-vs-`Calculate` parity theory and a small non-default parameter sweep.
+  **The third blind spot — prepended history — was closed 2026-08-25** by
+  `ComponentsDeclaredCausalGiveTheSameAnswerWhenOlderBarsArrive`; see the scrollback-smear section
+  for what it found, including that the `PivotLevelsProvider` defect named here does not reproduce.
+  CONFIRMED. MEDIUM.
 - [ ] **Comments that are actively wrong and load-bearing.** `RegimeProvider.cs:106-107` — "seeded with
   the SMA at index Period-1. Same convention as every other EMA in the codebase": there are three
   conventions (first-value at `IndicatorMath.Ema:33`, SMA-of-first-window at
@@ -3591,18 +3600,66 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
   either give the gate a heatmap-aware path into `RecalculateAllAsync`, or have the heatmap store
   its bins keyed by bar date rather than by position. MEDIUM.
 
-- [ ] **"Chart pattern targets and triggers change as more history loads" — same report, different
-  cause, still open.** Some of it was the smear above (pattern detection reads the component arrays
-  that were misaligned) and is fixed with it. The rest is the known causality blind spot filed
-  against `IndicatorCausalityTests`: the guard only ever APPENDS future bars (`full.Take(k)`), so
-  nothing tests what happens when OLDER bars arrive, which is the normal case in this app — and
-  three confirmed defects live in exactly that gap (`CipherBProvider`'s `Math.Min(100, n-1)`
-  bucket, `PulseProvider.ComputeMtfRsi`'s weekly buckets aligned to array index 0, and
-  `PivotLevelsProvider`'s first pivot set computed from a truncated session). Every one of those
-  changes an existing bar's answer when history is prepended, which is what the user is seeing.
-  The fix is the filed suffix-stability check (`bars.Skip(k)` vs `bars`, comparing the overlapping
-  tail) plus fixing whatever it finds; chart-pattern detection needs the same treatment and has no
-  causality guard of its own at all. HIGH.
+- [x] **"Chart pattern targets and triggers change as more history loads" — the prepend half of the
+  causality contract now exists.** Some of the report was the smear above (pattern detection reads
+  the component arrays that were misaligned) and was fixed with it. The rest was the blind spot:
+  `IndicatorCausalityTests` only ever APPENDED future bars (`full.Take(k)`), so nothing tested what
+  happens when OLDER bars arrive — the normal case in this app.
+  **CLOSED 2026-08-25.** `ComponentsDeclaredCausalGiveTheSameAnswerWhenOlderBarsArrive` runs every
+  provider over `bars` and over `bars.Skip(k)` for k ∈ {17, 40, 91, 140} and requires the two to
+  agree on every shared bar past a 700-bar warmup, on a 1400-bar series.
+  **The census the audit recorded was wrong in both directions.** It named three defects; the guard
+  found **seventy** components disagreeing, and one of the three named (`PivotLevelsProvider`'s
+  first pivot set) does not disagree at all — the walk-forward period detection re-derives the
+  first pivot from whatever session is present, and a truncated first session only affects bars
+  inside it. Of the seventy, most are one of two things that had to be told apart before any of it
+  meant anything:
+  - **A recursive filter forgetting its seed.** Every EMA and Wilder average here is seeded at the
+    first bar handed to it, so two runs starting 91 bars apart converge rather than matching. Over
+    700 bars of settling these all land under 5e-7 relative, which is why the guard's tolerance is
+    1e-6 and not the prefix test's 1e-9. Not a defect and not fixable short of not using EMAs.
+  - **Something pinned to array index 0**, which does not converge at all — it re-cuts, and the
+    disagreement stays the same size forever. These are the real ones, listed below.
+
+  Fixed in the same pass: `IndicatorMath.MedianBarIntervalMinutes` — a shared bar-interval detector
+  that medians EVERY delta in the series. `CipherBProvider` (first 100 deltas) and
+  `TopBottomDetectorProvider.DetectBarIntervalMinutes` (first 11) both took a fixed sample from the
+  FRONT of the array, so the timeframe an indicator tuned its whole parameter profile for was
+  decided by where the array started; and `PulseProvider`'s MTF grid (`i / barsPerWeek`) is now
+  anchored to bar dates, so a scroll-back no longer re-cuts every week boundary in the series.
+  **The harness could not see the interval bug until a fourth synthetic series existed.** Flavours
+  0–2 are exactly hourly, and every sample of a regular series gives the same answer — the guard
+  stayed green against a deliberately reintroduced version of the defect. Flavour 3 puts a
+  stitching artifact in the oldest ninety bars (two of every three four hours apart, hourly after
+  that); with it, sabotaging the detector turns `CIPHER_B.Money Flow Wave`,
+  `CIPHER_B.Hidden Bull Continuation` and `PULSE.RegimeMtf` red. `TopBottomDetectorProvider` shares
+  the fix but this harness does not prove it — its adaptation is coarse enough that 60 and 240
+  minutes land the same way.
+  Chart-pattern detection still has no causality guard of its own — see the item below.
+
+- [ ] **The components still anchored to array index 0, pinned in
+  `NotStableWhenHistoryIsPrepended`.** Each one is a bar on the user's chart that silently changes
+  its answer during a scroll-back. They are excused from the guard so it is green on everything
+  else, not because they are accepted; the guard fails if any of them is fixed and left on the list.
+  - `VALUE_DEVIATION.*` (twelve components: ValuePoc/ValueHigh/ValueLow, the six Support/Resistance
+    levels, DeviationTier) — the volume profile is built from a window anchored at the array start.
+  - `LOUKAS_CYCLES.IC DC Count` / `ICL Confirmed` — `lastDclBarIndex = 0` and a cycle counter that
+    counts from the start of the data, so prepending history adds cycles to every count on screen.
+    `LoukasCyclesProvider.cs:352-356` says so in a comment; it is a deliberate choice that is wrong
+    under prepend.
+  - `CIPHER_S.Candle Phase`, `TOP_BOTTOM_DETECTOR.Distribution Confidence`.
+  Separately excused and genuinely inherent: `Obv.Obv`, `Adl.Adl`/`AdlSma`, `Vwap.Vwap` (cumulative
+  from the first bar held — the only fix would be a session anchor, which is a different indicator),
+  and the long recursions that have not converged in 700 bars (`SPIDER_LINES.EMA 144`/`200` and the
+  `Stacking Score` that ranks them, `REGIME.AboveEma200`, `PULSE.AnchorMtf`/`AnchorSlope`/
+  `AnchorSlow`). HIGH.
+
+- [ ] **Chart-pattern detection has no causality guard at all, in either direction.**
+  `ChartPatternCache`/the pattern analyzers are not enumerated by `IndicatorCausalityTests` — they
+  are not `IIndicatorProvider`s — so neither the prefix sweep nor the new suffix sweep touches
+  them, and the original user report was about pattern targets and triggers. Fix: the same two
+  comparisons over the detected pattern set (same bars in, same patterns with the same targets
+  out), which needs a stable identity for a detected pattern to compare on. HIGH.
 
 ---
 

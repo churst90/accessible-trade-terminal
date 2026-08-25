@@ -76,9 +76,13 @@ namespace AccessibleTrader.Tests
         /// Shared with the provider-specific causality pins (see <c>DivergenceConfirmLagTests</c>)
         /// so both are talking about the same price action.
         /// </summary>
-        internal static List<Ohlcv> Bars(int flavour)
+        /// <param name="length">Bars to generate. The generator is sequential, so a longer series
+        /// is the same price path with more of it — the suffix test asks for a longer one so that
+        /// the trailing windows of the widest built-in defaults (a 500-bar percentile rank) are
+        /// full well before it starts comparing.</param>
+        internal static List<Ohlcv> Bars(int flavour, int length = SeriesLength)
         {
-            var bars = new List<Ohlcv>(SeriesLength);
+            var bars = new List<Ohlcv>(length);
             double price = 100;
             ulong s = flavour switch
             {
@@ -88,7 +92,7 @@ namespace AccessibleTrader.Tests
             };
             double Next() { s ^= s << 13; s ^= s >> 7; s ^= s << 17; return (s % 10000) / 10000.0; }
             var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            for (int i = 0; i < SeriesLength; i++)
+            for (int i = 0; i < length; i++)
             {
                 // Flavour 2: a steady rise whose swings alternate loud and quiet. WaveTrend
                 // normalises by its own trailing deviation, so a quiet stretch that follows a loud
@@ -110,9 +114,45 @@ namespace AccessibleTrader.Tests
                 // Volume rises with the size of the move so turning points carry the confluence
                 // volume that pivot detectors require before they will call a pivot.
                 double vol = 1000 + Math.Abs(drift + shock) * 900 + Next() * 3000;
-                bars.Add(new Ohlcv(start.AddHours(i), open, hi, lo, close, vol));
+                bars.Add(new Ohlcv(Stamp(flavour, start, i), open, hi, lo, close, vol));
             }
             return bars;
+        }
+
+        /// <summary>
+        /// Bar timestamps. Flavours 0–2 are exactly hourly, which is what every pinned list in this
+        /// file was measured against.
+        ///
+        /// <para>
+        /// <b>Flavour 3 is not hourly, and that is its entire reason for existing.</b> Several
+        /// indicators ask the data what timeframe they are drawn on and re-tune themselves from the
+        /// answer — Cipher B swaps its whole parameter profile, the top/bottom detector scales its
+        /// windows. Each of them used to answer that question from a fixed sample at the FRONT of
+        /// the array, which is a scroll-back bug: prepend older bars and the sample lands on
+        /// different bars. A perfectly regular series cannot see that bug, because every sample of
+        /// it gives the same answer — the guard was green against a deliberately reintroduced
+        /// version of the defect until this flavour existed.
+        /// </para>
+        ///
+        /// <para>
+        /// So flavour 3 puts a stitching artifact in the OLDEST ninety bars — the coarse, sparse
+        /// history a provider hands back for the far end of a range — and runs cleanly hourly after
+        /// it. A sample taken from the front reads four hours; the series is hourly. Drop the
+        /// oldest bars, as a scroll-back does in reverse, and a front sample changes its mind while
+        /// a whole-series median does not.
+        /// </para>
+        /// </summary>
+        private static DateTime Stamp(int flavour, DateTime start, int i)
+        {
+            if (flavour != 3) return start.AddHours(i);
+
+            const int artifact = 90;
+            int inArtifact = Math.Min(i, artifact);
+            int clean = i - inArtifact;
+            // Two of every three of the oldest bars sit four hours apart, so the median of any
+            // front-loaded sample is 240 minutes rather than the series' true 60.
+            int artifactMinutes = inArtifact * 60 + (inArtifact - inArtifact / 3) * 180;
+            return start.AddMinutes(artifactMinutes + clean * 60);
         }
 
         private static readonly int[] PrefixLengths = { 60, 80, 110, 140, 170, 200, 240, 280, 320, 360, 390 };
@@ -230,6 +270,286 @@ namespace AccessibleTrader.Tests
                 $"when later bars arrive. Either the maths reads ahead, or a parameter is derived " +
                 $"from data.Length, or the component should be declared Lookahead:\n  " +
                 string.Join("\n  ", offenders.Distinct()));
+        }
+
+        // ── The other half of the contract: older bars arriving ───────────────────────────────
+
+        /// <summary>
+        /// A longer series for the suffix test than for the prefix one. The widest trailing window
+        /// among the built-in defaults is a 500-bar percentile rank, and until that window is full
+        /// a short run is genuinely entitled to a different answer — so the comparison has to start
+        /// after it, and there has to be a useful stretch of series left afterwards to compare.
+        /// </summary>
+        private const int SuffixSeriesLength = 1400;
+
+        /// <summary>
+        /// How many bars of history the suffix run is allowed to spend warming up before its
+        /// answers have to agree with the full run's. Everything before this index in the SHORT
+        /// series is skipped: an indicator legitimately knows less at the left edge of its data
+        /// than it does in the middle of a longer series, and that is warmup, not a defect.
+        /// </summary>
+        private const int SuffixWarmup = 700;
+
+        /// <summary>How many bars are chopped off the FRONT — i.e. how much history a scroll-back
+        /// prepend brings in. Several sizes because a bucketing bug (weeks aligned to index 0)
+        /// disagrees for some offsets and agrees for others.</summary>
+        private static readonly int[] SuffixDrops = { 17, 40, 91, 140 };
+
+        /// <summary>The three hourly series plus the irregular one — see <see cref="Stamp"/> for
+        /// why a guard about array anchoring needs a series whose bars are not evenly spaced.</summary>
+        private static readonly int[] SuffixFlavours = { 0, 1, 2, 3 };
+
+        /// <summary>
+        /// Relative tolerance for the suffix comparison, four orders of magnitude looser than the
+        /// prefix test's 1e-9, and the looseness is the point.
+        ///
+        /// <para>
+        /// Every EMA and every Wilder average in this codebase is a recursive filter seeded at the
+        /// first bar it is handed. Start the same filter 91 bars earlier and it carries a different
+        /// seed, so the two runs never become bit-identical — they converge. That is not a defect
+        /// and there is no fix for it short of not using EMAs. What IS a defect is a bucket, a
+        /// sample window, or an accumulator pinned to array index 0, because that does not converge
+        /// at all: it re-cuts, and the disagreement stays the same size forever.
+        /// </para>
+        ///
+        /// <para>
+        /// Measured over 700 bars of settling, those two populations separate by five orders of
+        /// magnitude — every converging filter here lands under 5e-7 and every anchoring defect
+        /// above 1e-2 — so 1e-6 splits them cleanly with room on both sides. The long-period
+        /// exceptions (a 200-bar EMA has barely three time constants in 700 bars) are named in
+        /// <see cref="NotStableWhenHistoryIsPrepended"/> rather than papered over by loosening this
+        /// further.
+        /// </para>
+        /// </summary>
+        private const double SuffixTolerance = 1e-6;
+
+        private static bool SameWithinSuffixTolerance(double a, double b)
+        {
+            if (double.IsNaN(a) && double.IsNaN(b)) return true;
+            if (double.IsNaN(a) || double.IsNaN(b)) return false;
+            return Math.Abs(a - b) <= SuffixTolerance * Math.Max(1, Math.Max(Math.Abs(a), Math.Abs(b)));
+        }
+
+        /// <summary>
+        /// Components whose value at a bar changes when OLDER bars are prepended. Two populations,
+        /// and the difference between them matters more than the list does.
+        ///
+        /// <para>
+        /// <b>Inherent.</b> A cumulative sum has no start other than the start of the data, and a
+        /// long recursive filter has not finished forgetting its seed after 700 bars. Nothing to
+        /// fix; the entry records why.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>DEFECT.</b> Something is pinned to array index 0 and re-cuts when the array start
+        /// moves. Each of these is filed in docs/TODO.md under the prepend-causality section and
+        /// each is a bar on the user's chart silently changing its answer during a scroll-back.
+        /// They sit here so the guard is green on everything else — not because they are accepted.
+        /// </para>
+        /// </summary>
+        private static readonly string[] NotStableWhenHistoryIsPrepended =
+        {
+            // ── Inherent: cumulative from the start of the data ──────────────────────────────
+            "Adl.Adl",                  // running accumulation/distribution line, unanchored by definition
+            "Adl.AdlSma",               // an SMA of the above, so it inherits the offset
+            "Obv.Obv",                  // running on-balance volume, same
+            "Vwap.Vwap",                // volume-weighted mean from the first bar held
+
+            // ── Inherent: a long recursive filter still forgetting its seed at 700 bars ──────
+            // Everything shorter than these HAS converged inside the tolerance and is guarded.
+            "PULSE.AnchorMtf",          // Wilder RSI over weekly buckets — only ~100 weekly bars in 700
+            "PULSE.AnchorSlope",        // slope of an EMA-smoothed anchor, so twice removed from its seed
+            "PULSE.AnchorSlow",
+            "SPIDER_LINES.EMA 144",
+            "SPIDER_LINES.EMA 200",     // three time constants in 700 bars is not enough to reach 1e-6
+            "SPIDER_LINES.Stacking Score",   // ranks those EMAs; flips wherever two sit inside the residue
+            "REGIME.AboveEma200",            // boolean over a 200-EMA, same knife edge
+
+            // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
+            "CIPHER_S.Candle Phase",
+            "LOUKAS_CYCLES.IC DC Count",     // counts cycles since bar 0, so prepending adds cycles to every count
+            "LOUKAS_CYCLES.ICL Confirmed",
+            "TOP_BOTTOM_DETECTOR.Distribution Confidence",
+            "VALUE_DEVIATION.DeviationTier",
+            "VALUE_DEVIATION.ResistanceDeep",
+            "VALUE_DEVIATION.ResistanceMid",
+            "VALUE_DEVIATION.ResistanceShallow",
+            "VALUE_DEVIATION.SupportDeep",
+            "VALUE_DEVIATION.SupportMid",
+            "VALUE_DEVIATION.SupportShallow",
+            "VALUE_DEVIATION.ValueHigh",
+            "VALUE_DEVIATION.ValueLow",
+            "VALUE_DEVIATION.ValuePoc",
+        };
+
+        /// <summary>
+        /// The prefix test above only ever APPENDS bars: it asks whether bar i changes when the
+        /// future arrives. That is half the question, and in this app it is the rarer half — the
+        /// normal event here is a scroll-back, where the user pans left and two hundred OLDER bars
+        /// arrive in front of everything already on the chart. If bar i answers differently after
+        /// that, the chart rewrites its own past under the user, a backtest disagrees with the
+        /// live chart it was run from, and neither is detectably wrong from the inside.
+        ///
+        /// <para>
+        /// So: run the provider on all 400 bars, run it again on <c>bars.Skip(k)</c>, and require
+        /// the two to agree on every shared bar past <see cref="SuffixWarmup"/>. The short run is
+        /// the chart before the prepend; the long run is the same chart after it.
+        /// </para>
+        ///
+        /// <para>
+        /// This finds a class the prefix sweep structurally cannot: anything anchored to array
+        /// index 0. A bucket built as <c>i / barsPerWeek</c> re-cuts every week when the array
+        /// start moves; a sample window of <c>Math.Min(100, n - 1)</c> taken from the FRONT of the
+        /// array reads different bars; a session accumulator that starts at index 0 rather than at
+        /// a session boundary measures a truncated first session. All three are in this codebase,
+        /// all three pass the prefix test, and all three change an existing bar's answer.
+        /// </para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Providers))]
+        public void ComponentsDeclaredCausalGiveTheSameAnswerWhenOlderBarsArrive(Type providerType)
+        {
+            var provider = Create(providerType);
+            List<IndicatorMetadata> indicators;
+            try { indicators = provider.GetIndicators(); } catch { return; }
+
+            var exempt = NotStableWhenHistoryIsPrepended.ToHashSet(StringComparer.Ordinal);
+            var offenders = new List<string>();
+
+            foreach (var ind in indicators)
+            {
+                var causal = ind.Components
+                    .Where(c => CausalityContract.Effective(ind, c) == ComponentCausality.Causal)
+                    .Select(c => c.Name)
+                    .ToHashSet(StringComparer.Ordinal);
+                if (causal.Count == 0) continue;
+
+                var pars = Defaults(ind);
+
+                foreach (int flavour in SuffixFlavours)
+                {
+                    var full = Bars(flavour, SuffixSeriesLength);
+                    Dictionary<string, double[]> whole;
+                    try { whole = Run(provider, ind, pars, full); }
+                    catch { continue; }   // tracked by the prefix test and the blind-spot list
+
+                    foreach (int k in SuffixDrops)
+                    {
+                        Dictionary<string, double[]> suffix;
+                        try { suffix = Run(provider, ind, pars, full.Skip(k).ToList()); }
+                        catch (Exception ex)
+                        {
+                            offenders.Add($"{ind.Code}: threw on the last {SuffixSeriesLength - k} bars but not " +
+                                          $"on {SuffixSeriesLength} — {ex.GetType().Name}: {ex.Message}");
+                            continue;
+                        }
+
+                        foreach (var (name, shortRun) in suffix)
+                        {
+                            if (!causal.Contains(name)) continue;
+                            if (exempt.Contains($"{ind.Code}.{name}")) continue;
+                            if (!whole.TryGetValue(name, out var longRun)) continue;
+
+                            int len = Math.Min(shortRun.Length, longRun.Length - k);
+                            for (int j = SuffixWarmup; j < len; j++)
+                            {
+                                if (SameWithinSuffixTolerance(longRun[j + k], shortRun[j])) continue;
+                                offenders.Add(
+                                    $"{ind.Code}.{name} (series {flavour}): the bar at full-series index " +
+                                    $"{j + k} reads {shortRun[j]:G6} before {k} older bars are prepended and " +
+                                    $"{longRun[j + k]:G6} after. Prepending history cannot change a bar that " +
+                                    $"was already on the chart.");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Assert.True(offenders.Count == 0,
+                $"{providerType.Name} has components declared Causal whose value at a bar changes when " +
+                $"OLDER bars arrive — a scroll-back rewrites the chart's past. Usually something is " +
+                $"anchored to array index 0 (a bucket, a sample window, a session start) instead of to a " +
+                $"bar date. If it is inherent, add it to NotStableWhenHistoryIsPrepended with a reason:\n  " +
+                string.Join("\n  ", offenders.Distinct()));
+        }
+
+        /// <summary>
+        /// The suffix guard compares two runs bar by bar, and NaN equals NaN — so a version of it
+        /// that compared nothing but warmup padding would be just as green as this one. This says
+        /// out loud how many real numbers it actually looked at, and it fails if the exemption list
+        /// keeps naming a component that has since been fixed.
+        /// </summary>
+        [Fact]
+        public void TheSuffixGuardComparesRealNumbersAndItsExemptionsAreStillEarned()
+        {
+            int compared = 0;
+            var componentsSeen = new HashSet<string>(StringComparer.Ordinal);
+            var stillUnstable = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var type in ProviderTypes())
+            {
+                var provider = Create(type);
+                List<IndicatorMetadata> indicators;
+                try { indicators = provider.GetIndicators(); } catch { continue; }
+
+                foreach (var ind in indicators)
+                {
+                    var causal = ind.Components
+                        .Where(c => CausalityContract.Effective(ind, c) == ComponentCausality.Causal)
+                        .Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
+                    if (causal.Count == 0) continue;
+
+                    var pars = Defaults(ind);
+
+                    foreach (int flavour in SuffixFlavours)
+                    {
+                        var full = Bars(flavour, SuffixSeriesLength);
+                        Dictionary<string, double[]> whole;
+                        try { whole = Run(provider, ind, pars, full); } catch { continue; }
+
+                        foreach (int k in SuffixDrops)
+                        {
+                            Dictionary<string, double[]> suffix;
+                            try { suffix = Run(provider, ind, pars, full.Skip(k).ToList()); } catch { continue; }
+
+                            foreach (var (name, shortRun) in suffix)
+                            {
+                                if (!causal.Contains(name)) continue;
+                                if (!whole.TryGetValue(name, out var longRun)) continue;
+
+                                string id = $"{ind.Code}.{name}";
+                                int len = Math.Min(shortRun.Length, longRun.Length - k);
+                                for (int j = SuffixWarmup; j < len; j++)
+                                {
+                                    if (double.IsNaN(shortRun[j]) && double.IsNaN(longRun[j + k])) continue;
+                                    compared++;
+                                    componentsSeen.Add(id);
+                                    if (!SameWithinSuffixTolerance(longRun[j + k], shortRun[j]))
+                                        stillUnstable.Add(id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Floors, not exact counts: a new indicator should raise these, never trip them. The
+            // numbers are roughly half of what the sweep currently reaches, so ordinary additions
+            // and retirements do not churn this file.
+            Assert.True(compared > 500_000,
+                $"The suffix guard only compared {compared} non-NaN values. It is passing because it " +
+                $"is looking at warmup padding, not because the indicators are stable.");
+            Assert.True(componentsSeen.Count > 150,
+                $"Only {componentsSeen.Count} components produced a comparable value past bar " +
+                $"{SuffixWarmup}. Either the synthetic series got shorter or the warmup got longer.");
+
+            var stale = NotStableWhenHistoryIsPrepended.Except(stillUnstable).OrderBy(x => x, StringComparer.Ordinal).ToList();
+            Assert.True(stale.Count == 0,
+                "These are excused from the suffix guard but no longer need to be — whatever anchored " +
+                "them to array index 0 has been fixed. Delete them from " +
+                "NotStableWhenHistoryIsPrepended so the guard covers them again:\n  " +
+                string.Join("\n  ", stale));
         }
 
         // ── The gate ──────────────────────────────────────────────────────────────────────────
