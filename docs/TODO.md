@@ -533,6 +533,17 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   `IWithdrawalProvider`'s three methods (an SDK contract change; Kraken is the only implementor
   today, so it is cheap now and will not be later) or a dedicated provider instance for the
   withdrawal path. Worth doing BEFORE `WithdrawalService.Released` flips for 2.3.1.
+- [ ] **No guard stops the next `WaitForAssertion` over non-render state.** bUnit re-evaluates
+  `WaitForAssertion` on RENDER events only, so waiting that way for anything a render does not
+  produce — a JS-interop invocation record, a service call count, a file write — passes locally,
+  where the continuation lands first, and times out on a starved CI runner for something that did
+  in fact happen. Caught once (`SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOntoThe
+  TabItSelects`, CI run 32798886755) and fixed with `BlazorTestHarness.WaitForFocus`, a wall-clock
+  poll. Note the tempting alternative is worse: blocking on the dispatch
+  (`KeyDownAsync(...).GetAwaiter().GetResult()`) deadlocks bUnit outright when the handler awaits.
+  A scan guard would look for `WaitForAssertion` bodies that touch `JSInterop`, `Received(`, or a
+  captured local rather than `cut.Find`/`Markup`. Same ratchet class as
+  `BunitAsyncSettleGuardTests`.
 - [ ] **The shared paper account still holds its creating tab's scoped `IDataService`.**
   `IEventBus` moved onto `Attach` in the batch-two work; `IDataService` did not, because it is read
   from inside async methods (`ResolveLedgerKeyAsync`, `ResolvePriceAsync`) where swapping it per

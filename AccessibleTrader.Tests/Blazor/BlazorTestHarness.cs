@@ -239,6 +239,32 @@ public sealed class BlazorTestHarness : IDisposable
             .Select(i => i.Arguments.Count > 0 ? i.Arguments[0]?.ToString() ?? "" : "")
             .ToList();
 
+    /// <summary>
+    /// Waits for focus to be sent to <paramref name="elementId"/>, on the WALL CLOCK
+    /// rather than on renders.
+    ///
+    /// <para>
+    /// <b>Why not <c>cut.WaitForAssertion</c>.</b> bUnit re-evaluates that on RENDER events,
+    /// and a handler typically renders BEFORE it awaits and calls <c>focusElement</c> — so the
+    /// last render precedes the interop call and there is nothing left to wake the poll. It
+    /// passes locally, where the continuation lands first, and times out on a starved CI runner
+    /// for something that did in fact happen. An interop record is not component state and must
+    /// not be waited on as though it were.
+    /// </para>
+    ///
+    /// <para>
+    /// Blocking on the dispatch instead (<c>KeyDownAsync(...).GetAwaiter().GetResult()</c>) is
+    /// NOT the alternative: a handler that awaits needs the renderer dispatcher, and holding
+    /// the calling thread inside the dispatch deadlocks bUnit outright.
+    /// </para>
+    /// </summary>
+    public void WaitForFocus(string elementId, int timeoutSeconds = 10) =>
+        Xunit.Assert.True(
+            System.Threading.SpinWait.SpinUntil(
+                () => FocusedElementIds.Contains(elementId), TimeSpan.FromSeconds(timeoutSeconds)),
+            $"focusElement was never called for '{elementId}'. Sent: "
+            + string.Join(", ", FocusedElementIds));
+
     /// <summary>Registers an additional service that isn't included in the
     /// default harness (e.g. IAlertOrchestrator, indicator-pipeline services).
     /// Call before rendering the component under test.</summary>

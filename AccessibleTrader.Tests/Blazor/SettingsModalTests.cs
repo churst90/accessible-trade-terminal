@@ -74,6 +74,11 @@ public class SettingsModalTests
     private static void ArrowOnTabList(
         IRenderedComponent<AccessibleTrader.BlazorClient.Components.SettingsModal> cut, string key)
     {
+        // Deliberately the synchronous KeyDown, and deliberately NOT
+        // KeyDownAsync(...).GetAwaiter().GetResult(): OnTabListKeyDown awaits Task.Yield(),
+        // whose continuation needs the renderer dispatcher, and blocking the calling thread
+        // inside the dispatch deadlocks bUnit outright (verified — the run never returns).
+        // The waiting is done at the assertion instead; see BlazorTestHarness.WaitForFocus.
         cut.Find("[role='tablist']")
            .KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = key });
     }
@@ -150,9 +155,7 @@ public class SettingsModalTests
 
         ArrowOnTabList(cut, "ArrowRight");
 
-        cut.WaitForAssertion(() => Assert.Contains(
-            h.Ctx.JSInterop.Invocations["accessibleTrader.focusElement"],
-            i => i.Arguments.Count > 0 && (i.Arguments[0] as string) == "tab-appearance"));
+        h.WaitForFocus("tab-appearance");
     }
 
     [Fact]
