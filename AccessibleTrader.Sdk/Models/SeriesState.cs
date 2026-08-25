@@ -19,6 +19,26 @@ namespace AccessibleTrader.Sdk.Models
         public string Pane { get; set; } = "Main";
         public Dictionary<string, double> Parameters { get; set; } = new();
 
+        /// <summary>
+        /// Parameter values that are not numbers. Providers declare these with
+        /// <c>DataType = typeof(string)</c> — a comparison symbol, an MA type, a pivot
+        /// period, a threshold mode — and receive them through the same
+        /// <c>Dictionary&lt;string, object&gt;</c> that carries <see cref="Parameters"/>.
+        ///
+        /// <para>
+        /// Kept as a second dictionary rather than widening <see cref="Parameters"/> to
+        /// <c>object</c>: the numeric dictionary is read by name in a few hundred places and
+        /// persisted in every saved workspace, and boxing all of it to move four indicators
+        /// forward is the wrong trade. Before this existed, <c>IndicatorModelFactory</c> ran
+        /// every value through <c>double.TryParse</c> and dropped whatever failed on the
+        /// floor with no error — so <c>COMPARE</c> and <c>COMPARE_RATIO</c> rendered blank
+        /// forever, Cipher B's Percentile threshold mode and its four feeding parameters were
+        /// unreachable, MA Cloud's MA-type selector did nothing, and Pivot Levels ignored its
+        /// period. What the UI offered, the provider could never receive.
+        /// </para>
+        /// </summary>
+        public Dictionary<string, string> StringParameters { get; set; } = new();
+
         [ObservableProperty] private bool _isMuted;
         [ObservableProperty] private float _volume = 1.0f;
         [ObservableProperty] private bool _isVisible = true;

@@ -736,7 +736,7 @@ closed the indicator-provider half and missed the paths below.
   broker-side bracket. Levels are evaluated on BAR CLOSE, so the fill is the close of the bar that
   reached the level, and the app has to be running; native multi-leg brackets stay filed per venue
   (TODO:6053) and the setup speech now says which one is running. 15 sabotage runs, all red.
-- [ ] **`StrategyIndicatorCache.cs:49,58,66,77` keys entries as `TYPE|period[|extra]|count` — no
+- [x] **`StrategyIndicatorCache.cs:49,58,66,77` keys entries as `TYPE|period[|extra]|count` — no
   symbol, no provider, no timeframe — and the instance is a DI singleton *also* published as a
   process-wide static.** `Invalidate(currentCount)` (`:32-45`) only evicts entries whose embedded
   count differs, so two charts with the same bar count both match and neither is evicted. Two
@@ -748,6 +748,19 @@ closed the indicator-provider half and missed the paths below.
   it today (recounted: the sole in-repo `GetSma` call site outside the class is
   `StrategyIndicatorCacheBacktestTests.cs:100`), which is the only reason this is not already
   producing wrong trades. CONFIRMED. CRITICAL (latent).
+  **CLOSED 2026-08-25.** The key now carries the series: `IStrategyIndicatorCache.Invalidate(int)`
+  became `BeginSeries(ChartIdentity, int)`, which opens an ambient per-async-flow scope
+  (`market|provider|symbol|timeframe`) that every key is prefixed with. AsyncLocal rather than a
+  field because the live engine, `BackgroundWorkspaceMonitor` and a running backtest share the one
+  instance and interleave. The SDK signature was left alone — `GetSma(data, period)` cannot carry an
+  identity without breaking every compiled plugin DLL, so the host supplies it out of band. Two
+  further decisions: eviction is now per-scope (other series' entries can no longer collide, so
+  wiping them was just discarding valid work), and a `Get*` with NO scope open computes and returns
+  **without caching**, because an unattributable value is the same bug in miniature. The engine's
+  bar-close path also now scopes by `feed.Identity` rather than `_store.State`, which is the feed
+  actually being evaluated. Guard: `Two_series_at_the_same_bar_count_do_not_share_a_cached_value`
+  plus `An_unscoped_read_computes_correctly_and_caches_nothing`; proven red by restoring the old
+  key.
 - [x] **A live strategy restarts flat while the broker still holds the position —
   `StrategyAutoLoader.LoadAllAsync:50-103` recreates strategies with no position reconciliation.**
   `_factory.Create(spec)` builds a fresh `ConfigurableStrategy` whose `Initialize` resets `_state =
@@ -977,7 +990,7 @@ Two of these are "the feature does not work", not "the feature has a bug".
   two entry points cannot double-subscribe and double-fire. Guard: `AlertPipelineArmedTests`
   drives the real `AppStartupService` over a container and asserts an `AlertFiredEvent` reaches
   the bus WITHOUT ever calling `Start()` — proven red by removing the call (0 events).
-- [ ] **Both background monitors re-fire the same crossing on every poll — no per-bar dedupe exists
+- [x] **Both background monitors re-fire the same crossing on every poll — no per-bar dedupe exists
   anywhere on the simple-alert path (`AlertEvaluator.cs:176-205`, `HostedAlertMonitor.cs:176-181`,
   `LocalBackgroundMonitor.cs:149-166`).** Each poll fetches `Limit: 3` bars and evaluates `bars[^1]`
   against `bars[^2]`. `PollInterval` is 60 s (`HostedAlertMonitor.cs:33`,
@@ -993,6 +1006,20 @@ Two of these are "the feature does not work", not "the feature has a bug".
   that state does not exist for simple crossings. Fix: key a fired-set by `(alertId, bars[^1].Date)`,
   or evaluate only closed bars and track the last-evaluated bar timestamp per watch.
   CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25.** `AlertEvaluator` now keeps `_lastFiredBar` — the timestamp of the bar an
+  alert last fired for — and the primary crossing path is gated on it. Keyed on the bar's own
+  `Date`, not a wall clock, so a poll interval short relative to the timeframe cannot re-announce
+  the same crossing. This is the edge state the tree path has always had (`_treeState.WasTrue`) and
+  the simple path never did, despite `HostedAlertMonitor.cs:42-45` asserting otherwise.
+  `RepeatIfStillActive` is deliberately exempt: re-announcing a still-held level is what that flag
+  is for, and `Cooldown` paces it. Both monitors hold long-lived evaluators (hosted caches one per
+  user, local holds a field), so the in-memory set survives across polls — checked, because a
+  per-poll evaluator would have made the fix a no-op. Guards:
+  `ARepolledCrossingFiresOnceNotOncePerPoll` (60 polls of one bar → 1 fire),
+  `ALaterBarsCrossingStillFiresAfterAnEarlierOneWasDeduped`, and
+  `RepeatIfStillActiveStillReAnnouncesWithinTheSameBar`. Found on the way: the existing
+  `CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold` stamped all four of its "successive" bars
+  at the same instant — the `Bar()` helper now takes a bar index, and that fixture is honest.
 - [ ] **`LocalBackgroundMonitorTests.cs:156`
   `Persistent_evaluator_fires_a_cross_once_not_every_poll` is vacuous — it advances the bar pair on
   every "poll", which the monitor never does.** `:168-171` call `EvaluateAlerts(Bar(101), Bar(99))`,
@@ -1631,7 +1658,7 @@ publication vs observation date and are safe — `SecEdgar` (`filed` date, `:343
 `BinanceDerivatives`, `OkxDerivatives`, `BinanceVision`, `Deribit`, `CoinGecko _MCAP`. **Everything else
 stamps at observation date and is look-ahead-contaminated by construction.**
 
-- [ ] **`FredProvider.cs:160` stamps every macro observation at its OBSERVATION date, so every backtest
+- [x] **`FredProvider.cs:160` stamps every macro observation at its OBSERVATION date, so every backtest
   touching CPI, GDP, unemployment or payrolls is look-ahead-biased by weeks.** The parse reads
   `o["date"]` — FRED's `observations[].date` is the period the number describes, not the day it was
   published. CPIAUCSL for 2020-01 lands on 2020-01-01; it was first released 2020-02-13 and revised twice
@@ -1644,6 +1671,29 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   `realtime_start` and stamp each observation at its `realtime_start`, exactly as
   `SecEdgarProvider.ParseConcept` stamps at `filed`. CONFIRMED. CRITICAL (invalidates every
   macro-conditioned result in `docs/*_FINDINGS.md`).
+  **CLOSED 2026-08-25.** Both halves. The request now sends
+  `output_type=4&realtime_start=1776-07-04&realtime_end=9999-12-31` — initial releases across all
+  vintages — and `ParseObservations` stamps each bar at `realtime_start`, the day the number became
+  public, exactly as `SecEdgarProvider.ParseConcept` stamps at `filed`. Where several observations
+  share a release date (a backfill, or a print that revises the prior month alongside the current
+  one) the one covering the LATEST period wins, same rule as EDGAR. Results are sorted by release
+  date, because re-stamping can reorder a payload that arrived ordered by period. The URL build was
+  extracted to `BuildObservationsUrl` so a test can hold the request half: without `output_type=4`
+  there is no `realtime_start` to read, the parser falls back to the period date, and every parsing
+  test would still pass. New `FredProviderTests` (9). **Not done: the `docs/*_FINDINGS.md` results
+  produced under the old stamping are still on disk and still wrong** — re-running them is its own
+  task, filed below.
+
+- [ ] **Re-run every macro-conditioned StrategyLab result produced before 2026-08-25 — they were all
+  computed against look-ahead-biased FRED data.** The provider is fixed (item above); the
+  *conclusions on disk* are not. Any finding whose gate reads CPI, GDP, unemployment, payrolls or
+  any other FRED series saw the number weeks before it was published, and in the worst case saw a
+  revision that did not exist at all. Scope it by grepping `docs/*_FINDINGS.md` for the FRED series
+  ids in `FredProvider.PopularSeries` plus `FRED`/`macro` gates, then re-run those and diff the
+  verdicts — a finding that survives is worth more than it was, and one that does not was never
+  real. `docs/MACRO_EVENT_FINDINGS.md` is the obvious first file but is unlikely to be the only
+  one. Until this is done, treat every macro-gated verdict in this repo as unverified. HIGH
+  (research truth, not runtime).
 - [ ] **`AnalyticsDataResolver` is 378 lines of unreferenced code whose registry is ~30% wrong — twelve
   rows name symbols the target plugin rejects, and five metrics resolve to nothing at all.** The only
   references to `IAnalyticsDataResolver` outside its own two files are the two DI registrations
@@ -1816,7 +1866,7 @@ The causality contract (`ComponentCausality` + `CausalityContract` + `SignalCata
 `IndicatorCausalityTests`'s prefix sweep) is the best thing in this area and better than most commercial
 charting products. Against it sits a large body of undisciplined provider code.
 
-- [ ] **Every `typeof(string)` indicator parameter is structurally unreachable, because
+- [x] **Every `typeof(string)` indicator parameter is structurally unreachable, because
   `SeriesState.cs:20` stores parameters as `Dictionary<string, double>` — what the UI offers, the
   provider can never receive.** `IndicatorModelFactory.cs:131` does
   `if (TryParseParamValue(p.Value, out double val)) config.Parameters[p.Name] = val;` and
@@ -1836,6 +1886,23 @@ charting products. Against it sits a large body of undisciplined provider code.
   `SeriesState.Parameters` to `Dictionary<string, object>` (or add a parallel string map), or delete the
   string parameters and the features that read them. CONFIRMED. CRITICAL (a user configures a strategy
   input that silently has no effect).
+  **CLOSED 2026-08-25.** `SeriesConfig` gained `StringParameters` (a second dictionary rather than
+  widening `Parameters` to `object` — the numeric one is read by name in hundreds of places and sits
+  in every saved workspace, and boxing all of it to move four indicators forward is the wrong
+  trade). `IndicatorModelFactory.ApplyParameters` now routes each value to the dictionary that can
+  hold it; the missing `else` branch was the whole bug. The provider contract never needed changing
+  — it was always `Dictionary<string, object>` — so the merge happens in one new place,
+  `ChartSeries.BuildParameterMap()`, which replaced four hand-written copies of
+  `Parameters.ToDictionary(k => k.Key, v => (object)v.Value)` (three in `IndicatorOrchestrator`, one
+  in `BackgroundWorkspaceMonitor`); a string parameter added to only three of four is this same bug
+  in a new place. Also fixed on the way: `SeriesManagementService.RestoreSeriesFromSaved` rebuilt
+  its parameter list from the numeric dictionary alone, so a workspace reload would have reset every
+  string parameter to its metadata default; `IndicatorOrchestrator`'s adaptive-suggestion path ran
+  `Convert.ToDouble` over whatever a provider echoed back and now filters to numerics; and
+  `PropertiesModal` had no editor for string parameters at all (`AddIndicatorModal` already had
+  one), so they are now rendered as text inputs and seeded from metadata defaults when unset —
+  otherwise a knob only appears after it has already been changed, which for an existing series is
+  never. New `StringIndicatorParameterTests` (8), the sibling of `BoolIndicatorParameterTests`.
 - [ ] **`CipherSRProvider.cs:555-561`, `CipherSProvider.cs:586-592`, `SpiderLinesProvider.cs:142-148` —
   `GetBool` handles `bool` and `string` but not `double`, and `double` is the only type it can ever be
   given.** `IndicatorModelFactory.TryParseParamValue:114` deliberately converts `"true"` to `1.0`, and

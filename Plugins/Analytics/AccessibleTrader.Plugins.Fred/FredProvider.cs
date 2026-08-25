@@ -131,36 +131,14 @@ namespace AccessibleTrader.Plugins.Fred
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
-            var frequency = MapFrequency(request.Timeframe);
-            // Escape the user-supplied symbol so it cannot inject extra query params
-            // (e.g. "GDP&api_key=attackerKey") into the FRED request URL.
-            string seriesId = Uri.EscapeDataString(request.Symbol ?? "");
-            string apiKeyParam = Uri.EscapeDataString(_apiKey ?? "");
-            string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={apiKeyParam}&file_type=json";
-            if (!string.IsNullOrEmpty(frequency)) url += $"&frequency={frequency}";
-            if (request.Since.HasValue)
-                url += $"&observation_start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
-            if (request.Until.HasValue)
-                url += $"&observation_end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+            string url = BuildObservationsUrl(request, _apiKey, MapFrequency(request.Timeframe));
 
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     var response = await _httpClient.GetStringAsync(url);
-                    var observations = JObject.Parse(response)["observations"] as JArray;
-                    if (observations == null) return (new List<Ohlcv>(), new List<(long, double)>());
-
-                    var ohlcvList = observations
-                        .Where(o => o["value"]?.ToString() != ".")  // FRED uses "." for missing data
-                        .Select(o =>
-                        {
-                            double.TryParse(o["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var val);
-                            return new Ohlcv(
-                                DateTime.SpecifyKind(DateTime.ParseExact(o["date"]?.ToString() ?? "0001-01-01", "yyyy-MM-dd", CultureInfo.InvariantCulture), DateTimeKind.Utc),
-                                val, val, val, val, 0);
-                        }).ToList();
-
+                    var ohlcvList = ParseObservations(response);
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }
@@ -177,6 +155,106 @@ namespace AccessibleTrader.Plugins.Fred
                 if (TransportFailure.IsTransient(ex)) throw;
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
+        }
+
+        // FRED's documented "every vintage" window. 1776-07-04 is the API's own floor for
+        // realtime_start and 9999-12-31 its ceiling for realtime_end.
+        private const string RealtimeStart = "1776-07-04";
+        private const string RealtimeEnd = "9999-12-31";
+
+        /// <summary>
+        /// The observations request.
+        ///
+        /// <para>
+        /// <c>output_type=4</c> plus the full realtime window is the half of the point-in-time
+        /// fix that lives in the REQUEST: it asks FRED for the initial release of each
+        /// observation rather than the latest revision, and it is what makes
+        /// <c>realtime_start</c> present on every returned row for
+        /// <see cref="ParseObservations"/> to stamp with. Drop these parameters and the parser
+        /// falls back to the period date — silently, and with the look-ahead bias restored.
+        /// Extracted so a test can hold that, rather than leaving it to an HTTP fake.
+        /// </para>
+        /// </summary>
+        internal static string BuildObservationsUrl(MarketDataRequest request, string? apiKey, string? frequency)
+        {
+            // Escape the user-supplied symbol so it cannot inject extra query params
+            // (e.g. "GDP&api_key=attackerKey") into the FRED request URL.
+            string seriesId = Uri.EscapeDataString(request.Symbol ?? "");
+            string apiKeyParam = Uri.EscapeDataString(apiKey ?? "");
+
+            string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={apiKeyParam}&file_type=json";
+            url += $"&output_type=4&realtime_start={RealtimeStart}&realtime_end={RealtimeEnd}";
+            if (!string.IsNullOrEmpty(frequency)) url += $"&frequency={frequency}";
+            if (request.Since.HasValue)
+                url += $"&observation_start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+            if (request.Until.HasValue)
+                url += $"&observation_end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+            return url;
+        }
+
+        /// <summary>
+        /// FRED observations → a point-in-time series.
+        ///
+        /// <para>
+        /// ── THE POINT-IN-TIME DECISION ──
+        /// Every observation carries both <c>date</c> (the period the number describes) and
+        /// <c>realtime_start</c> (the day that value became public). <b>This provider stamps
+        /// every bar with <c>realtime_start</c>, not <c>date</c>.</b> Same rule, same reason as
+        /// <c>SecEdgarProvider.ParseConcept</c>, which stamps at <c>filed</c>.
+        /// </para>
+        ///
+        /// <para>
+        /// Using <c>date</c> was look-ahead bias of the most damaging kind, and it was what this
+        /// provider did. CPIAUCSL for 2020-01 lands on 2020-01-01; it was first released
+        /// 2020-02-13 and revised twice after. A strategy gated on "CPI rising" saw January's
+        /// CPI on January 1st, six weeks before anyone could. GDP is worse: the Q1 advance
+        /// estimate is published a month after quarter-end and revised twice more, and the
+        /// default request serves the LATEST vintage — a number that did not exist in any form
+        /// until long after the bar it sat on. Every macro-conditioned result in
+        /// <c>docs/*_FINDINGS.md</c> produced before 2026-08-25 inherited this.
+        /// </para>
+        ///
+        /// <para>
+        /// Revisions are handled by the same rule rather than a special case: the request asks
+        /// for initial releases (<c>output_type=4</c>), so what lands on the chart is what was
+        /// first printed, on the day it was first printed. Where several observations share a
+        /// release date — a backfill, or a monthly print that revises the prior month alongside
+        /// it — the one covering the LATEST period wins, because that is the current reading as
+        /// of that release.
+        /// </para>
+        /// </summary>
+        internal static List<Ohlcv> ParseObservations(string json)
+        {
+            var observations = JObject.Parse(json)["observations"] as JArray;
+            if (observations == null) return new List<Ohlcv>();
+
+            var best = new Dictionary<DateTime, (DateTime Period, double Val)>();
+            foreach (var o in observations)
+            {
+                string? raw = o["value"]?.ToString();
+                if (raw == null || raw == ".") continue;  // FRED uses "." for missing data
+                if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var val)) continue;
+
+                // realtime_start is the publication date. Fall back to the period date only if
+                // the field is absent — an older cached payload, or a FRED response shape
+                // change — which keeps the series rendering rather than going blank, at the
+                // cost of the old bias for those rows.
+                string? stamp = o["realtime_start"]?.ToString();
+                if (string.IsNullOrEmpty(stamp)) stamp = o["date"]?.ToString();
+                if (!DateTime.TryParseExact(stamp, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out var stampDt)) continue;
+                stampDt = DateTime.SpecifyKind(stampDt.Date, DateTimeKind.Utc);
+
+                DateTime.TryParseExact(o["date"]?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var periodDt);
+
+                if (!best.TryGetValue(stampDt, out var cur) || periodDt > cur.Period)
+                    best[stampDt] = (periodDt, val);
+            }
+
+            return best.OrderBy(kv => kv.Key)
+                       .Select(kv => new Ohlcv(kv.Key, kv.Value.Val, kv.Value.Val, kv.Value.Val, kv.Value.Val, 0))
+                       .ToList();
         }
 
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")

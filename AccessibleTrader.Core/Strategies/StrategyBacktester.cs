@@ -204,15 +204,17 @@ public class StrategyBacktester : IStrategyBacktester
             var bar = data[i];
 
             // Advance IStrategyIndicatorCache to this bar. The cache keys values by
-            // (indicator, period, current bar count) and the engine's live loop invalidates
-            // once per bar via OnDataUpdated. During backtest we grow historyBuffer a bar at
-            // a time and re-feed it into the strategy, so the cache must be invalidated at
-            // each step or a cached SMA/EMA/RSI/BB value from a prior bar leaks into the
-            // current evaluation. Without this the first OnBar populates the cache at
-            // historyBuffer.Count==1 and every subsequent bar reads stale values since the
-            // data-length key never advances. Optional dependency — tests that run the
-            // backtester without the cache still work.
-            _indicatorCache?.Invalidate(historyBuffer.Count);
+            // (series identity, indicator, period, current bar count) and the engine's live
+            // loop opens a scope once per bar via OnDataUpdated. During backtest we grow
+            // historyBuffer a bar at a time and re-feed it into the strategy, so the scope
+            // must be re-opened at each step or a cached SMA/EMA/RSI/BB value from a prior
+            // bar leaks into the current evaluation. Without this the first OnBar populates
+            // the cache at historyBuffer.Count==1 and every subsequent bar reads stale values
+            // since the data-length key never advances. Passing state.Identity is also what
+            // keeps this replay from reading — or poisoning — a live evaluation of a
+            // different symbol that happens to sit at the same bar count. Optional
+            // dependency — tests that run the backtester without the cache still work.
+            _indicatorCache?.BeginSeries(state.Identity, historyBuffer.Count);
 
             // Per-bar profile replay: recompute VPVR/TPO bins from history[0..i] so the level
             // provider reads bar-i snapshots instead of the workspace's final-state bins.

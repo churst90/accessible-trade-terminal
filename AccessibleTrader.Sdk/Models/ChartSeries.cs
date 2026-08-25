@@ -160,7 +160,31 @@ namespace AccessibleTrader.Sdk.Models
         public string IndicatorCode => Config.IndicatorCode;
         public string Pane => Config.Pane;
         public Dictionary<string, double> Parameters => Config.Parameters;
-        
+        /// <summary>Non-numeric parameter values. See <see cref="SeriesConfig.StringParameters"/>.</summary>
+        public Dictionary<string, string> StringParameters => Config.StringParameters;
+
+        /// <summary>
+        /// The parameter map handed to <c>IIndicatorProvider.Calculate</c>: the numeric and
+        /// string dictionaries merged into the single object-keyed dictionary the provider
+        /// contract has always expected. Callers stamp their own hidden <c>__</c>-prefixed
+        /// hints (<c>__symbol</c>, <c>__provider</c>, <c>__timeframe</c>) onto the result.
+        ///
+        /// <para>
+        /// Every call path that computes an indicator must build its map through here.
+        /// Four sites used to spell out <c>Parameters.ToDictionary(k =&gt; k.Key, v =&gt;
+        /// (object)v.Value)</c> by hand, and a string parameter added to only three of them
+        /// is the same silent-drop bug in a new place.
+        /// </para>
+        /// </summary>
+        public Dictionary<string, object> BuildParameterMap()
+        {
+            var map = new Dictionary<string, object>(Parameters.Count + StringParameters.Count);
+            foreach (var kv in Parameters) map[kv.Key] = kv.Value;
+            foreach (var kv in StringParameters) map[kv.Key] = kv.Value;
+            return map;
+        }
+
+
         public bool IsMuted { get => Config.IsMuted; set => Config.IsMuted = value; }
         public float Volume { get => Config.Volume; set => Config.Volume = value; }
         public bool IsVisible { get => Config.IsVisible; set => Config.IsVisible = value; }

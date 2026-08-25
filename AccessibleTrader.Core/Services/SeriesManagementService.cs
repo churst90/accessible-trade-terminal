@@ -294,9 +294,13 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
-            // Convert saved parameters dictionary to the factory's tuple list format.
+            // Convert saved parameters to the factory's tuple list format. Both dictionaries:
+            // restoring only the numeric half would silently reset every string parameter
+            // (comparison symbol, MA type, pivot period, threshold mode) to its metadata
+            // default on the next workspace load, which is the drop this fix exists to stop.
             var parameters = config.Parameters
                 .Select(kvp => (kvp.Key, kvp.Value.ToString("G")))
+                .Concat(config.StringParameters.Select(kvp => (kvp.Key, kvp.Value)))
                 .ToList();
 
             // Build fresh series through the factory (3-layer merge):

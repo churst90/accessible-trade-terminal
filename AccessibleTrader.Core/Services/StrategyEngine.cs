@@ -81,7 +81,7 @@ namespace AccessibleTrader.Core.Services
             if (_activeStrategies.IsEmpty) return;
 
             var state = _store.State;
-            _indicatorCache.Invalidate(state.Data.Count);
+            _indicatorCache.BeginSeries(state.Identity, state.Data.Count);
             int idx = state.CurrentDataIndex;
             if (idx < 1 || idx >= state.Data.Count) return;
 
@@ -110,7 +110,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     var closedBar = bars[bars.Count - 2];
                     var history = new PrefixView(bars, bars.Count - 1);
-                    _indicatorCache.Invalidate(history.Count);
+                    _indicatorCache.BeginSeries(feed.Identity, history.Count);
                     EvaluateBar(closedBar, history, _store.State);
                 }
                 return System.Threading.Tasks.Task.CompletedTask;

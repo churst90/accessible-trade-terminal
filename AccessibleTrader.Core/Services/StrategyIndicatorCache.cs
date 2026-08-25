@@ -16,37 +16,84 @@ namespace AccessibleTrader.Core.Services
     public interface IStrategyIndicatorCache : Sdk.Services.IPluginStrategyIndicatorCache
     {
         /// <summary>
-        /// Clears all cached entries whose bar-count key no longer matches the current data length.
-        /// Call once at the start of each StrategyEngine.OnBar cycle (and each bar advance
-        /// during backtest — see <c>StrategyBacktester</c>).
+        /// Opens the cache scope for one series and drops that series' entries from any other
+        /// bar count. Call once immediately before dispatching a strategy against
+        /// <paramref name="identity"/> — at the start of each StrategyEngine evaluation cycle,
+        /// and at each bar advance during backtest (see <c>StrategyBacktester</c>).
+        ///
+        /// <para>
+        /// The scope is what makes the cache safe to share. The plugin-facing methods
+        /// (<c>GetSma</c> and friends) receive only <c>(data, period)</c> — no symbol, no
+        /// provider, no timeframe — so before this existed the key was
+        /// <c>"SMA|50|500"</c> and BTC 1h and KAS 4h, both sitting at 500 bars, resolved to
+        /// the same entry: whichever ran first handed its moving average to the other with no
+        /// error. A backtest could poison a concurrent live evaluation the same way. The
+        /// signature cannot carry the identity without breaking every compiled plugin DLL, so
+        /// the host supplies it out of band here instead.
+        /// </para>
+        ///
+        /// <para>
+        /// The scope is ambient to the calling async flow, so concurrent evaluations — the
+        /// engine's live bar-close path, a backtest, and <c>BackgroundWorkspaceMonitor</c>'s
+        /// non-focused symbols — each carry their own without contending on the shared
+        /// instance. A <c>Get*</c> call with no scope open computes and returns WITHOUT
+        /// caching: an unattributable value is never worth storing under a key another series
+        /// might read.
+        /// </para>
         /// </summary>
-        void Invalidate(int currentCount);
+        void BeginSeries(Sdk.Models.ChartIdentity identity, int currentCount);
     }
 
     public class StrategyIndicatorCache : IStrategyIndicatorCache
     {
-        // Key format: "TYPE|period[|extra]|count" → result array or single double
+        // Key format: "market|provider|symbol|timeframe|TYPE|period[|extra]|count".
+        // The series prefix is mandatory — see IStrategyIndicatorCache.BeginSeries for why a
+        // key without it silently crossed two symbols' values over.
         private readonly ConcurrentDictionary<string, double> _scalars = new();
         private readonly ConcurrentDictionary<string, (double Middle, double Upper, double Lower)> _bands = new();
 
-        public void Invalidate(int currentCount)
+        // Ambient per-flow series scope. AsyncLocal rather than a plain field because one
+        // instance is shared by the live engine, background monitors and any running
+        // backtest, and those interleave.
+        private static readonly System.Threading.AsyncLocal<string?> _scope = new();
+
+        // Entries for a series that is never evaluated again would otherwise linger for the
+        // life of the process. Well under any real working set (a few dozen strategies ×
+        // a handful of indicator calls), so hitting it means something is churning scopes.
+        private const int MaxEntries = 4096;
+
+        public void BeginSeries(Sdk.Models.ChartIdentity identity, int currentCount)
         {
-            // Remove all entries whose embedded count no longer matches.
+            string scope = $"{identity.Market}|{identity.Provider}|{identity.Symbol}|{identity.Timeframe}";
+            _scope.Value = scope;
+
+            if (_scalars.Count + _bands.Count > MaxEntries)
+            {
+                _scalars.Clear();
+                _bands.Clear();
+                return;
+            }
+
+            // Drop only THIS series' stale bar counts. Other series' entries can no longer
+            // collide with it, so evicting them would just throw away valid work.
+            string prefix = scope + "|";
+            string suffix = $"|{currentCount}";
             foreach (var key in _scalars.Keys)
             {
-                if (!key.EndsWith($"|{currentCount}"))
+                if (key.StartsWith(prefix, StringComparison.Ordinal) && !key.EndsWith(suffix, StringComparison.Ordinal))
                     _scalars.TryRemove(key, out _);
             }
             foreach (var key in _bands.Keys)
             {
-                if (!key.EndsWith($"|{currentCount}"))
+                if (key.StartsWith(prefix, StringComparison.Ordinal) && !key.EndsWith(suffix, StringComparison.Ordinal))
                     _bands.TryRemove(key, out _);
             }
         }
 
         public double GetSma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
-            string key = $"SMA|{period}|{data.Count}";
+            if (_scope.Value is not string scope) return ComputeSma(data, period);
+            string key = $"{scope}|SMA|{period}|{data.Count}";
             if (_scalars.TryGetValue(key, out double cached)) return cached;
             double result = ComputeSma(data, period);
             _scalars[key] = result;
@@ -55,7 +102,8 @@ namespace AccessibleTrader.Core.Services
 
         public double GetEma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
-            string key = $"EMA|{period}|{data.Count}";
+            if (_scope.Value is not string scope) return ComputeEma(data, period);
+            string key = $"{scope}|EMA|{period}|{data.Count}";
             if (_scalars.TryGetValue(key, out double cached)) return cached;
             double result = ComputeEma(data, period);
             _scalars[key] = result;
@@ -64,7 +112,8 @@ namespace AccessibleTrader.Core.Services
 
         public double GetRsi(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
-            string key = $"RSI|{period}|{data.Count}";
+            if (_scope.Value is not string scope) return ComputeRsi(data, period);
+            string key = $"{scope}|RSI|{period}|{data.Count}";
             if (_scalars.TryGetValue(key, out double cached)) return cached;
             double result = ComputeRsi(data, period);
             _scalars[key] = result;
@@ -74,7 +123,8 @@ namespace AccessibleTrader.Core.Services
         public (double Middle, double Upper, double Lower) GetBollingerBands(
             IReadOnlyList<Sdk.Models.Ohlcv> data, int period, double deviations = 2.0)
         {
-            string key = $"BB|{period}|{deviations:F2}|{data.Count}";
+            if (_scope.Value is not string scope) return ComputeBollingerBands(data, period, deviations);
+            string key = $"{scope}|BB|{period}|{deviations:F2}|{data.Count}";
             if (_bands.TryGetValue(key, out var cached)) return cached;
             var result = ComputeBollingerBands(data, period, deviations);
             _bands[key] = result;

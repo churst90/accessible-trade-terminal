@@ -213,6 +213,27 @@ namespace AccessibleTrader.Core.Services
                 _                             => false
             };
 
+            // A crossing belongs to the bar it happened on, and must fire once for it.
+            //
+            // Both background monitors re-poll on a 60-second interval (HostedAlertMonitor:33,
+            // LocalBackgroundMonitor:42) and fetch the last three bars, evaluating bars[^1]
+            // against bars[^2]. The default timeframe is "1h". So for the whole hour the SAME
+            // pair was compared, `prevBar.Close < threshold && newBar.Close >= threshold`
+            // stayed true, and nothing recorded that the alert had already fired: up to 59
+            // duplicate emails / Telegram messages / Discord posts / Web Push notifications for
+            // one crossing, each an unbounded SmtpClient connect. Over a weekend on an equities
+            // symbol the two frozen Friday bars re-fired indefinitely.
+            //
+            // The tree path has carried this edge state all along (_treeState.WasTrue at :128);
+            // the simple path never did, despite HostedAlertMonitor:42-45's comment asserting
+            // that it must.
+            //
+            // RepeatIfStillActive is deliberately exempt — re-announcing a level that is still
+            // held is exactly what that flag is for, and alert.Cooldown paces it.
+            bool alreadyFiredThisBar =
+                _lastFiredBar.TryGetValue(alert.Id, out var firedFor) && firedFor == newBar.Date;
+            if (triggered && alreadyFiredThisBar) triggered = false;
+
             // RepeatIfStillActive parity with tree alerts, for LEVEL conditions
             // only (a crossing has a well-defined "still active" side; patterns
             // and direction changes are instantaneous events with nothing to
@@ -227,6 +248,7 @@ namespace AccessibleTrader.Core.Services
 
             if (!triggered) return null;
             _lastSimpleFire[alert.Id] = DateTime.UtcNow;
+            _lastFiredBar[alert.Id]   = newBar.Date;
 
             string speechText = $"{alert.Name}: {DescribeCondition(alert, currentValue)}. Current value {currentValue:F6}";
             return new AlertFired(alert, currentValue, double.IsNaN(prevValue) ? null : prevValue, speechText);
@@ -234,6 +256,12 @@ namespace AccessibleTrader.Core.Services
 
         // Last fire time per simple alert — powers RepeatIfStillActive/Cooldown.
         private readonly Dictionary<string, DateTime> _lastSimpleFire = new();
+
+        // Timestamp of the bar a simple alert last fired for. This is the crossing-edge state
+        // the simple path was missing; see the dedupe gate in TryEvaluate. Keyed on the bar's
+        // own Date rather than a wall clock so a poll interval that is short relative to the
+        // timeframe cannot re-announce the same crossing.
+        private readonly Dictionary<string, DateTime> _lastFiredBar = new(StringComparer.OrdinalIgnoreCase);
 
         private static bool IsLevelStillActive(AlertDefinition alert, double currentValue) =>
             alert.Condition switch

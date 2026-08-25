@@ -146,7 +146,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     try
                     {
-                        var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
+                        var parameters = s.BuildParameterMap();
 
                         // Stamp the active chart's symbol onto every Calculate call as a hidden
                         // (`__`-prefixed so the parameter UI ignores it) hint. Cross-series
@@ -181,9 +181,14 @@ namespace AccessibleTrader.Core.Services
                                     parameters[kv.Key] = kv.Value;
 
                                 // Persist to store so the parameter panel reflects the new values.
-                                var doubleUpdates = suggested.ToDictionary(
-                                    kv => kv.Key,
-                                    kv => kv.Value is double d ? d : Convert.ToDouble(kv.Value));
+                                // Numeric suggestions only: UpdateSeriesParametersAction writes
+                                // into the double dictionary, and a provider that echoes back a
+                                // string parameter it was handed would otherwise take
+                                // Convert.ToDouble through a FormatException and lose the whole
+                                // recalculation.
+                                var doubleUpdates = suggested
+                                    .Where(kv => kv.Value is double or float or int or long or decimal or short or byte)
+                                    .ToDictionary(kv => kv.Key, kv => Convert.ToDouble(kv.Value));
                                 _store.Dispatch(new UpdateSeriesParametersAction(s.Id, doubleUpdates));
 
                                 // Announce only when the provider flagged it as a significant change.
@@ -275,7 +280,7 @@ namespace AccessibleTrader.Core.Services
                 {
                     try
                     {
-                        var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
+                        var parameters = s.BuildParameterMap();
 
                         // Same symbol-hint stamping as the full-recalc branch — cross-series
                         // providers need the active asset on tick-updates too so live funding /
@@ -354,7 +359,7 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(s.IndicatorCode)) return;
             try
             {
-                var parameters = s.Parameters.ToDictionary(k => k.Key, v => (object)v.Value);
+                var parameters = s.BuildParameterMap();
                 var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                 var buffer = _mapper.MapResultsToBuffer(s, results, data.Count);
                 _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));

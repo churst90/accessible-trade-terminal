@@ -57,10 +57,32 @@
                 {
                     case "General":
                         <div class="scroll-area">
-                            @if (_params.Any())
+                            @if (_params.Any() || _stringParams.Any())
                             {
                                 <fieldset>
                                     <legend>Indicator Parameters</legend>
+                                    @* Text-valued knobs — comparison symbol, MA type, pivot
+                                       period, threshold mode. Same text input AddIndicatorModal
+                                       uses, so a parameter reads and edits the same way whether
+                                       the series is being created or adjusted. *@
+                                    @foreach (var key in _stringParams.Keys.ToList())
+                                    {
+                                        var spm = _paramMeta.FirstOrDefault(p =>
+                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+                                        var sDisplayName = spm != null && !string.IsNullOrEmpty(spm.DisplayName)
+                                            ? spm.DisplayName : key;
+
+                                        <div class="modal-row">
+                                            <label for="prop-@key">@sDisplayName</label>
+                                            <input id="prop-@key" type="text"
+                                                   value="@_stringParams[key]"
+                                                   @onchange="e => UpdateStringParam(key, e.Value?.ToString())" />
+                                        </div>
+                                        @if (spm != null && !string.IsNullOrEmpty(spm.Description))
+                                        {
+                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@spm.Description</p>
+                                        }
+                                    }
                                     @foreach (var key in _params.Keys.ToList())
                                     {
                                         var pm = _paramMeta.FirstOrDefault(p =>
@@ -717,6 +739,7 @@
     private string _selectedComponentName = "";  // "" = show all components
     private ChartSeries? _series;
     private Dictionary<string, double> _params = new();
+    private Dictionary<string, string> _stringParams = new();
     private List<IndicatorParameterMetadata> _paramMeta = new();
     private string? _error;
     private IDisposable? _eventSub;
@@ -743,6 +766,9 @@
         _params = _series.Parameters != null
             ? new Dictionary<string, double>(_series.Parameters)
             : new Dictionary<string, double>();
+        _stringParams = _series.StringParameters != null
+            ? new Dictionary<string, string>(_series.StringParameters)
+            : new Dictionary<string, string>();
 
         // Look up parameter metadata for display names, descriptions, and validation.
         _paramMeta = new();
@@ -753,6 +779,16 @@
                 m.Code.Equals(_series.Config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
             if (meta?.Parameters != null)
                 _paramMeta = meta.Parameters;
+        }
+
+        // Seed every declared string parameter the series has not set yet with its metadata
+        // default, so the knob is visible and editable the first time the dialog is opened.
+        // Without this a string parameter only appears after it has already been changed —
+        // which, for a series created before the parameter existed, is never.
+        foreach (var pm in _paramMeta)
+        {
+            if (pm.DataType == typeof(string) && !_stringParams.ContainsKey(pm.Name))
+                _stringParams[pm.Name] = pm.DefaultValue?.ToString() ?? string.Empty;
         }
 
         _error = null;
@@ -867,6 +903,8 @@
     private void UpdateBoolParam(string key, object? value) =>
         UpdateParam(key, (value is bool b && b) ? "1" : "0");
 
+    private void UpdateStringParam(string key, string? raw) => _stringParams[key] = raw ?? string.Empty;
+
     private void UpdateParam(string key, string? raw)
     {
         if (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
@@ -888,6 +926,8 @@
 
         _series.Parameters.Clear();
         foreach (var kvp in _params) _series.Parameters[kvp.Key] = kvp.Value;
+        _series.StringParameters.Clear();
+        foreach (var kvp in _stringParams) _series.StringParameters[kvp.Key] = kvp.Value;
 
         // Replace only the edited series in the full list — UpdateSeriesAction does a bulk
         // replace of ActiveSeries, so passing a single-element list wipes all other series.
@@ -928,6 +968,7 @@
         // Build parameter list from current series (preserves user-set periods etc.)
         var paramList = _series.Parameters
             .Select(kvp => (kvp.Key, kvp.Value.ToString()))
+            .Concat(_series.StringParameters.Select(kvp => (kvp.Key, kvp.Value)))
             .ToList();
 
         // CreateSeriesFromMetadata with no workspace overrides → Layer 1 only.

@@ -175,8 +175,7 @@ namespace AccessibleTrader.Core.Services.Workspace
 
                 try
                 {
-                    var parameters = series.Config.Parameters
-                        .ToDictionary(k => k.Key, v => (object)v.Value);
+                    var parameters = series.BuildParameterMap();
                     parameters["__symbol"] = _identity.Symbol;
 
                     var results = new Dictionary<string, double[]>();

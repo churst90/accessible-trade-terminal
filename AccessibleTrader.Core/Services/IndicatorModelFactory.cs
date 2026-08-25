@@ -116,6 +116,30 @@ namespace AccessibleTrader.Core.Services
                 System.Globalization.CultureInfo.InvariantCulture, out value);
         }
 
+        /// <summary>
+        /// Routes each formatted parameter to the dictionary that can hold it: numbers and
+        /// bools to <see cref="SeriesConfig.Parameters"/>, everything else to
+        /// <see cref="SeriesConfig.StringParameters"/>.
+        ///
+        /// <para>
+        /// The `else` branch is the fix: it used to not exist. Anything
+        /// <see cref="TryParseParamValue"/> rejected was silently discarded, which made every
+        /// <c>typeof(string)</c> parameter in the catalogue structurally unreachable — the UI
+        /// collected a value, the config dropped it, and the provider read its hardcoded
+        /// default with nothing anywhere reporting a problem.
+        /// </para>
+        /// </summary>
+        internal static void ApplyParameters(SeriesConfig config, List<(string Name, string Value)> parameters)
+        {
+            foreach (var p in parameters)
+            {
+                if (TryParseParamValue(p.Value, out double val))
+                    config.Parameters[p.Name] = val;
+                else if (!string.IsNullOrWhiteSpace(p.Value))
+                    config.StringParameters[p.Name] = p.Value;
+            }
+        }
+
         public ChartSeries CreateSeriesFromMetadata(IndicatorMetadata meta, string instanceName, string pane, List<(string Name, string Value)> parameters, List<ComponentConfig>? componentOverrides, string? restoreId = null)
         {
             string id = restoreId ?? Guid.NewGuid().ToString();
@@ -128,8 +152,8 @@ namespace AccessibleTrader.Core.Services
                 Pane = pane
             };
 
-            foreach (var p in parameters) if (TryParseParamValue(p.Value, out double val)) config.Parameters[p.Name] = val;
-            
+            ApplyParameters(config, parameters);
+
             // ── 3-layer component merge ─────────────────────────────────────────────
             // Layer 1: always generate fresh configs from provider metadata.
             //          This ensures new metadata defaults (colors, audio, shapes) are never
@@ -236,7 +260,8 @@ namespace AccessibleTrader.Core.Services
             config.FriendlyName = instanceName; 
             config.Pane = pane;
             config.Parameters.Clear();
-            foreach (var p in parameters) if (TryParseParamValue(p.Value, out double val)) config.Parameters[p.Name] = val;
+            config.StringParameters.Clear();
+            ApplyParameters(config, parameters);
 
             bool isProfileOrHeatmap = uiComponents.Any(c => c.DisplayType == ComponentDisplayType.Profile || c.DisplayType == ComponentDisplayType.Heatmap);
             series.IsProfile = isProfileOrHeatmap;
