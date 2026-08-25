@@ -18,7 +18,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// holders. The sign and magnitude tell you how positioned the derivatives crowd is:
     ///
     ///   Funding > 0  → longs pay shorts (longs are crowded, paying for the privilege)
-    ///   Funding < 0  → shorts pay longs (shorts are crowded — vulnerable to a squeeze)
+    ///   Funding &lt; 0  → shorts pay longs (shorts are crowded — vulnerable to a squeeze)
     ///
     /// Extreme positive funding tends to mark local tops; extreme negative funding tends to
     /// mark local bottoms. Not a precise timing tool, but as one input among several it adds

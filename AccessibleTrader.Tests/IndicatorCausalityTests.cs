@@ -212,7 +212,7 @@ namespace AccessibleTrader.Tests
         /// disagrees for some offsets and agrees for others.</summary>
         private static readonly int[] SuffixDrops = { 17, 40, 91, 140 };
 
-        /// <summary>The three hourly series plus the irregular one — see <see cref="Stamp"/> for
+        /// <summary>The three hourly series plus the irregular one — see <see cref="CausalityProbeSeries"/> for
         /// why a guard about array anchoring needs a series whose bars are not evenly spaced.</summary>
         private static readonly int[] SuffixFlavours = CausalityProbeSeries.AllFlavours;
 

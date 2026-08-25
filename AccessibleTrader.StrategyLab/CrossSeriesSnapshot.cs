@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
-/// On-disk file format for cross-series snapshots — funding rate, open interest, fear & greed.
+/// On-disk file format for cross-series snapshots — funding rate, open interest, fear &amp; greed.
 /// Each file is a list of (UnixMillis, Value) pairs identified by the same triple
 /// (Provider, Symbol, Timeframe) that <see cref="CrossSeriesRequest"/> uses as its cache key,
 /// so reloading the snapshot is a 1:1 fit for the live <see cref="ICrossSeriesCache"/> contract.

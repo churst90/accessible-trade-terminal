@@ -6,19 +6,15 @@ public record ActiveStrategy(
     IDictionary<string, object> Parameters,
     StrategyExecutionMode ExecutionMode,
     bool IsPaused,
-    /// <summary>
-    /// The chart symbol this strategy is bound to (stamped from the active chart
-    /// when the strategy is started). The foreground engine only evaluates it while
-    /// that symbol is on screen; a background workspace monitor evaluates it while
-    /// its symbol is NOT on screen — exactly one driver at a time. Null/empty =
-    /// legacy behaviour (always evaluates against whatever chart is focused).
-    /// </summary>
+    // The chart symbol this strategy is bound to (stamped from the active chart
+    // when the strategy is started). The foreground engine only evaluates it while
+    // that symbol is on screen; a background workspace monitor evaluates it while
+    // its symbol is NOT on screen — exactly one driver at a time. Null/empty =
+    // legacy behaviour (always evaluates against whatever chart is focused).
     string? Symbol = null,
-    /// <summary>
-    /// The StrategySpec this instance was built from, when it came from the
-    /// library (null for ad-hoc compiled scripts). Workspace saves persist
-    /// active strategies by this id and re-activate them on load.
-    /// </summary>
+    // The StrategySpec this instance was built from, when it came from the
+    // library (null for ad-hoc compiled scripts). Workspace saves persist
+    // active strategies by this id and re-activate them on load.
     string? SpecId = null
 );
 

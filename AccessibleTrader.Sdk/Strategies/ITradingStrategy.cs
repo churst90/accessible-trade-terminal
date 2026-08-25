@@ -27,27 +27,21 @@ public record StrategySignal(
     double? TakeProfit,
     string Rationale,
     double Confidence,
-    /// <summary>
-    /// Optional take-profit ladder beyond the single <see cref="TakeProfit"/> price. When set,
-    /// the backtester closes <see cref="TpClosePortions"/>[i] of the position when price reaches
-    /// each ladder rung in order, and (if configured) moves the stop to breakeven after TP1. The
-    /// single <see cref="TakeProfit"/> field is preserved for back-compat with the broker order
-    /// path which doesn't yet handle multi-leg bracket orders.
-    /// </summary>
+    // Optional take-profit ladder beyond the single TakeProfit price. When set,
+    // the backtester closes TpClosePortions[i] of the position when price reaches
+    // each ladder rung in order, and (if configured) moves the stop to breakeven after TP1. The
+    // single TakeProfit field is preserved for back-compat with the broker order
+    // path which doesn't yet handle multi-leg bracket orders.
     System.Collections.Generic.IReadOnlyList<double>? TpLadder = null,
-    /// <summary>
-    /// Per-rung close fractions matching <see cref="TpLadder"/>. Sum should be ≤ 1.0 — any
-    /// remainder rides past TP3 until end-of-data or stop.
-    /// </summary>
+    // Per-rung close fractions matching TpLadder. Sum should be ≤ 1.0 — any
+    // remainder rides past TP3 until end-of-data or stop.
     System.Collections.Generic.IReadOnlyList<double>? TpClosePortions = null,
-    /// <summary>
-    /// Stop adjustment mode after TP1 fires. MoveToBreakeven (default) moves stop to entry.
-    /// TrailByAtr trails the stop by ATR × <see cref="TrailAtrMultiple"/> each bar.
-    /// </summary>
+    // Stop adjustment mode after TP1 fires. MoveToBreakeven (default) moves stop to entry.
+    // TrailByAtr trails the stop by ATR × TrailAtrMultiple each bar.
     StopAdjustOnTp1 StopAdjust = StopAdjustOnTp1.MoveToBreakeven,
-    /// <summary>ATR period for TrailByAtr stop adjustment (default 14).</summary>
+    // ATR period for TrailByAtr stop adjustment (default 14).
     int TrailAtrPeriod = 14,
-    /// <summary>ATR multiplier for TrailByAtr stop adjustment (default 1.5).</summary>
+    // ATR multiplier for TrailByAtr stop adjustment (default 1.5).
     double TrailAtrMultiple = 1.5
 );
 
@@ -58,15 +52,13 @@ public record StrategyMetrics(
     double MaxDrawdown,
     double TotalPnL,
     double SharpeRatio,
-    /// <summary>
-    /// Sum of P&amp;L over winning trades only (≥ 0). Together with <see cref="GrossLoss"/>
-    /// this lets position sizers compute real average win/loss instead of approximating
-    /// from net <see cref="TotalPnL"/> — the net-PnL approximation forced
-    /// KellyPositionSizer to fabricate one side of the formula whenever the strategy
-    /// was net-profitable. Defaults keep the 6-arg constructor calls compiling.
-    /// </summary>
+    // Sum of P&amp;L over winning trades only (≥ 0). Together with GrossLoss
+    // this lets position sizers compute real average win/loss instead of approximating
+    // from net TotalPnL — the net-PnL approximation forced
+    // KellyPositionSizer to fabricate one side of the formula whenever the strategy
+    // was net-profitable. Defaults keep the 6-arg constructor calls compiling.
     double GrossProfit = 0.0,
-    /// <summary>Sum of |P&amp;L| over losing trades (≥ 0, stored as a positive magnitude).</summary>
+    // Sum of |P&amp;L| over losing trades (≥ 0, stored as a positive magnitude).
     double GrossLoss = 0.0
 );
 

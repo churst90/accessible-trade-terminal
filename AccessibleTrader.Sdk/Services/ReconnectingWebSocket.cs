@@ -13,7 +13,7 @@ namespace AccessibleTrader.Sdk.Services
         /// Maximum bytes we will accumulate for a single WebSocket message before
         /// closing the connection. Protects against a compromised or hostile endpoint
         /// OOM-ing the app with an unbounded frame. 16 MB is well above any legitimate
-        /// exchange payload (Binance depth snapshots are ~1 MB, most messages < 64 KB).
+        /// exchange payload (Binance depth snapshots are ~1 MB, most messages &lt; 64 KB).
         /// </summary>
         public const int MaxMessageBytes = 16 * 1024 * 1024;
 

@@ -39,9 +39,9 @@ namespace AccessibleTrader.Core.Models
     public record ChartFocusEvent();
 
     /// <summary>
-    /// Asks <see cref="BlazorClient.Components.ChartArea"/> to programmatically move
-    /// keyboard focus to the chart element. Published by <see cref="CommandDispatcher"/>
-    /// when the user presses Ctrl+Alt+Shift+C, and by <see cref="ModalBase.CloseModal"/>
+    /// Asks <c>ChartArea</c> to programmatically move
+    /// keyboard focus to the chart element. Published by <see cref="Services.Input.CommandDispatcher"/>
+    /// when the user presses Ctrl+Alt+Shift+C, and by <c>ModalBase.CloseModal</c>
     /// to return focus to the chart after every modal closes. ChartArea responds by
     /// invoking <c>accessibleTrader.focusElement("chart-interact-zone")</c> via JS;
     /// the resulting native focus event then fires <see cref="ChartFocusEvent"/> as a
@@ -115,8 +115,8 @@ namespace AccessibleTrader.Core.Models
     /// bar — lets a touch-only user complete a multi-point drawing without a keyboard.</summary>
     public record PlaceDrawingAnchorEvent();
     /// <summary>
-    /// Fired by <see cref="Accessibility.DrawingInteractionManager"/> when a right-click lands
-    /// on an existing drawing's anchor handle. <see cref="BlazorClient.Components.DrawingContextMenu"/>
+    /// Fired by <see cref="Services.Accessibility.DrawingInteractionManager"/> when a right-click lands
+    /// on an existing drawing's anchor handle. <c>DrawingContextMenu</c>
     /// subscribes and shows a floating menu anchored at <paramref name="ViewportX"/> /
     /// <paramref name="ViewportY"/> (CSS pixels, relative to the chart-interact-zone element).
     /// </summary>
@@ -134,10 +134,10 @@ namespace AccessibleTrader.Core.Models
         double ViewportX, double ViewportY, int BarIndex,
         string? HitSeriesId = null, int HitComponentIndex = -1);
     /// <summary>
-    /// Published by <see cref="Accessibility.EarconService"/> whenever an earcon
+    /// Published by <see cref="Services.Accessibility.EarconService"/> whenever an earcon
     /// actually plays (after the enable + throttle gates), so a visual channel can
     /// mirror the audio one for deaf/hard-of-hearing users.
-    /// <see cref="BlazorClient.Components.VisualEarconOverlay"/> subscribes and — only
+    /// <c>VisualEarconOverlay</c> subscribes and — only
     /// when the opt-in "visual earcons" setting is on — shows a brief, single-fade
     /// badge (no strobing; WCAG 2.3.1 stays satisfied by design).
     /// <paramref name="Label"/> is the human-readable event name ("Order filled");
@@ -226,7 +226,7 @@ namespace AccessibleTrader.Core.Models
     public record ModalStateChangedEvent(bool IsOpen, string? ModalName = null);
 
     /// <summary>
-    /// Published by <see cref="CommandDispatcher"/> when the user presses Escape with
+    /// Published by <see cref="Services.Input.CommandDispatcher"/> when the user presses Escape with
     /// at least one modal open. <see cref="ModalName"/> identifies the topmost open
     /// modal — the dispatcher maintains a stack of <see cref="ModalStateChangedEvent"/>
     /// names and peeks the top on Escape. Each modal subscribes once at OnInitialized

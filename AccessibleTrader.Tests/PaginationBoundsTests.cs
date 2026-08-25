@@ -5,7 +5,7 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Tier 3 coverage for <see cref="HistoricalDataFetcher.ApplyFinalFilters"/>.
+    /// Tier 3 coverage for <c>HistoricalDataFetcher.ApplyFinalFilters</c>.
     /// Every fetch path funnels through this private helper, which enforces
     /// three invariants that pagination callers rely on:
     ///
@@ -158,7 +158,7 @@ namespace AccessibleTrader.Tests
         // ── Helpers ───────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Reflects <see cref="HistoricalDataFetcher.ApplyFinalFilters"/> (private
+        /// Reflects <c>HistoricalDataFetcher.ApplyFinalFilters</c> (private
         /// instance method) and invokes it against a scratch instance. Constructor
         /// dependencies are passed as nulls — ApplyFinalFilters does not touch them.
         /// </summary>

@@ -6,7 +6,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <summary>
     /// Hurst exponent — rescaled-range (R/S) regime classifier. Estimates
     /// whether the recent log-return series is trending (H > 0.5),
-    /// mean-reverting (H < 0.5), or random walk (H ≈ 0.5). Computed over a
+    /// mean-reverting (H &lt; 0.5), or random walk (H ≈ 0.5). Computed over a
     /// rolling window using R/S analysis decomposed into multiple sub-period
     /// scales, then log-log regression of (avg R/S) on (sub-period length).
     /// The slope IS the Hurst exponent.

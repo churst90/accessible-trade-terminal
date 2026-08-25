@@ -7,7 +7,7 @@ namespace AccessibleTrader.Core.Services.Scripting;
 /// launcher-agnostic <see cref="IScriptWorkerProcess"/> contract. Used
 /// by <see cref="DefaultProcessLauncher"/> and
 /// <see cref="MacSandboxExecLauncher"/> — any launcher whose output is
-/// a standard <see cref="Process.Start"/>-produced process.
+/// a standard <see cref="Process.Start()"/>-produced process.
 ///
 /// <para>
 /// All properties delegate straight through. Disposal disposes the

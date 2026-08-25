@@ -7,7 +7,7 @@ namespace AccessibleTrader.Tests
     /// Pins the 2026-04-23 asset-aware routing in <see cref="FundingRateProvider"/>,
     /// <see cref="OpenInterestProvider"/>, and <see cref="CrowdingIndexProvider"/>.
     /// Each one now derives its cross-series symbol from the <c>__symbol</c> parameter
-    /// hint stamped by <see cref="IndicatorOrchestrator"/>; previous versions were
+    /// hint stamped by <c>IndicatorOrchestrator</c>; previous versions were
     /// hard-coded to "BTCUSDT_FUNDING" / "BTCUSDT_OI", meaning v18 running live on ETH
     /// or SOL silently fetched BTC data. The tests reach the private static
     /// <c>BuildRequest</c> / <c>BuildRequests</c> helpers via reflection.

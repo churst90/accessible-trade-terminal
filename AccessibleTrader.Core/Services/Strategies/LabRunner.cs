@@ -37,7 +37,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// Battery comparison: every provided spec backtested on the FIRST and
         /// SECOND half of the loaded data. SURVIVOR = the research harness's gate —
         /// the 95% bootstrap CI lower bound on trade R is positive in BOTH halves
-        /// with at least <see cref="MinTradesPerHalf"/> trades each. Rows come back
+        /// with at least <see cref="LabRunner.MinTradesPerHalf"/> trades each. Rows come back
         /// ranked by the weaker half's CI lower bound (era robustness first).
         /// </summary>
         Task<IReadOnlyList<LabComparisonRow>> CompareAsync(

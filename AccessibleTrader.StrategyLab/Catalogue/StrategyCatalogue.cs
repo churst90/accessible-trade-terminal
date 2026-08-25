@@ -20,7 +20,7 @@ namespace AccessibleTrader.StrategyLab.Catalogue
     /// IDs are hand-picked and stable (e.g. <c>builtin.long.v16-trilogy</c>) — they are how a
     /// lab run, a note, a memory file and an imported spec refer to the same thing. Do not renumber
     /// them; add a new id instead. Every spec here must have an entry in
-    /// <see cref="CatalogueProvenance"/> — <see cref="CatalogueProvenanceTests"/> fails the build
+    /// <see cref="CatalogueProvenance"/> — <c>CatalogueProvenanceTests</c> fails the build
     /// otherwise, because a spec with no recorded verdict is exactly the thing this split removed.
     /// </para>
     ///

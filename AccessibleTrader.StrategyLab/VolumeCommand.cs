@@ -302,7 +302,7 @@ public static class VolumeCommand
     private const int PermutationCap = 4_000;
 
     /// <summary>
-    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP(double[], int, int, double, int, int, int?, out int)"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.

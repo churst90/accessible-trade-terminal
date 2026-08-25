@@ -21,7 +21,7 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// is non-trivial — disable this flag for fast iteration on strategies that don't gate on
 /// POC / Value Area / HVN / LVN levels. Default true so correctness is the default.
 /// </param>
-/// <param name="PositionSizer">Override the default <see cref="FixedSizePositionSizer"/>.</param>
+/// <param name="PositionSizer">Override the default <c>FixedSizePositionSizer</c>.</param>
 /// <param name="StartDate">
 /// Optional inclusive lower bound on bar timestamps. Bars before this date are dropped from
 /// the run entirely (they don't even feed warmup). Used to walk-forward test a strategy by

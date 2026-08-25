@@ -159,7 +159,7 @@ public record ConditionGroup(
 /// Result of evaluating a condition tree against current market state.
 /// </summary>
 /// <param name="OverallTrue">True if the root group/leaf evaluated true.</param>
-/// <param name="LeafResults">Per-leaf bool map keyed by <see cref="ConditionLeaf.Id"/> — used by
+/// <param name="LeafResults">Per-leaf bool map keyed by <c>ConditionLeaf.Id</c> — used by
 /// <c>ConfigurableStrategy</c> to detect dropouts (leaves that flipped true→false since last bar).</param>
 /// <param name="Score">Sum of Score values from leaves that evaluated true (0..N).</param>
 /// <param name="MaxScore">Theoretical maximum if every leaf were true — divide for normalised score.</param>

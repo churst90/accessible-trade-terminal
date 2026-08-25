@@ -6,7 +6,7 @@ namespace AccessibleTrader.Core.Services.Audio
     /// Three-tier approach / crossing / sustained earcon layer. Per-bar tracker that
     /// runs alongside the existing navigation sonification and the zone-noise path.
     ///
-    /// Tier 1 (approach): value is within <see cref="ApproachBandFraction"/> of an
+    /// Tier 1 (approach): value is within <see cref="LevelCrossingMonitor.ApproachBandFraction"/> of an
     ///   OB/OS level but has not yet crossed. Quiet sine chime whose volume scales
     ///   with proximity (louder when closer to the line). Fires once per approach
     ///   episode — re-arms after the value leaves the approach band.
@@ -16,7 +16,7 @@ namespace AccessibleTrader.Core.Services.Audio
     ///   and the sonification strategy. Not re-implemented here.
     ///
     /// Tier 3 (sustained): once the value has been past the level for
-    ///   <see cref="SustainedBarsThreshold"/> + 1 consecutive bars, fire a single
+    ///   <see cref="LevelCrossingMonitor.SustainedBarsThreshold"/> + 1 consecutive bars, fire a single
     ///   low-frequency confirmation tone. Passive zone noise from
     ///   <see cref="AudioZoneHelper"/> still plays every bar, but the confirmation
     ///   tone cleanly marks "held beyond" to the user without a perpetual loop.

@@ -207,7 +207,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         ///
         /// <para>
         /// <c>internal</c> rather than private purely so the tests can assert THIS rule instead of
-        /// a copy of it. <see cref="ChartFormationLayerTests"/> used to reimplement these six lines
+        /// a copy of it. <c>ChartFormationLayerTests</c> used to reimplement these six lines
         /// in the test file and assert the reimplementation, on the reasoning that exposing the
         /// rule would invite a caller to depend on it — sound as far as it goes, but the result was
         /// two tests that could not fail no matter what the layer did. Internal keeps it off the

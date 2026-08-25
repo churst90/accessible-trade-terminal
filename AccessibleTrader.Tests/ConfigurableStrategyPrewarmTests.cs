@@ -16,7 +16,7 @@ namespace AccessibleTrader.Tests;
 ///         <see cref="IMultiTimeframeDataService.GetBarsAsync"/> call so the sync evaluator can
 ///         read bars on the hot path without awaiting.</item>
 ///   <item>Specs with no HTF leaves leave the prewarm gate <c>IsPrewarmComplete=true</c> from
-///         the first bar, so <see cref="ConfigurableStrategy.OnBar"/> never blocks.</item>
+///         the first bar, so <see cref="ITradingStrategy.OnBar"/> never blocks.</item>
 /// </list>
 /// Prior to this being wired, every HTF leaf on a freshly-added strategy silently read stale /
 /// missing data for the first several bars (the evaluator's degraded-HTF log warning) and the

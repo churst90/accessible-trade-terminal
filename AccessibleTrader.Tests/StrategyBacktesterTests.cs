@@ -39,7 +39,7 @@ namespace AccessibleTrader.Tests
 
         /// <summary>
         /// Strategy that emits exactly one configured signal on bar index
-        /// <paramref name="_emitIndex"/> (or on every bar matching a predicate) and returns null otherwise.
+        /// <c>emitIndex</c> (or on every bar matching a predicate) and returns null otherwise.
         /// </summary>
         private class DeterministicStrategy : ITradingStrategy
         {

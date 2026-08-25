@@ -36,7 +36,7 @@ public enum LevelKind
 }
 
 /// <summary>
-/// One price level surfaced by an <see cref="AccessibleTrader.Core.Services.Strategies.ILevelProvider"/>.
+/// One price level surfaced by an <c>ILevelProvider</c>.
 /// Used by:
 ///   - <c>RiskPlanResolver</c> for the Phase-4 stop/target sources (BelowSupport, BelowKijun,
 ///     BelowKumo, NextResistance, etc.).

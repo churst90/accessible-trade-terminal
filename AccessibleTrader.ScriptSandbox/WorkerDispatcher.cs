@@ -31,7 +31,7 @@ namespace AccessibleTrader.ScriptSandbox;
 /// so the Android <c>ScriptWorkerService</c> (running inside a bound
 /// <c>android.app.Service</c> with <c>isolatedProcess="true"</c>) can
 /// reuse the exact same protocol. Desktop hands in
-/// <see cref="Console.OpenStandardInput"/> / <see cref="Console.OpenStandardOutput"/>;
+/// <see cref="Console.OpenStandardInput()"/> / <see cref="Console.OpenStandardOutput()"/>;
 /// Android hands in streams built from a <c>ParcelFileDescriptor</c>
 /// pipe pair. The dispatcher is transport-agnostic.
 /// </para>

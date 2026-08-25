@@ -9,7 +9,7 @@ namespace AccessibleTrader.Core.Services.Rendering
     {
         /// <summary>
         /// Ordered list of dividers.  Each entry carries the pane that sits BELOW
-        /// the divider so that a drag dispatches <see cref="ResizePaneAction"/> for
+        /// the divider so that a drag dispatches <see cref="Sdk.Models.ResizePaneAction"/> for
         /// the correct pane name.
         /// </summary>
         IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers { get; }

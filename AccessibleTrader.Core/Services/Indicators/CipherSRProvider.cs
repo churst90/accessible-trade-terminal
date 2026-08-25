@@ -47,7 +47,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// Break/Invalidation:
     ///   Resistance is invalidated when Close > level × (1 + BreakThreshold).
-    ///   Support is invalidated when Close < level × (1 - BreakThreshold).
+    ///   Support is invalidated when Close &lt; level × (1 - BreakThreshold).
     ///   Invalidated zones emit NaN for all subsequent bars until a new pivot forms.
     ///
     /// Sonification (independent of visual display type):

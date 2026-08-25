@@ -17,7 +17,7 @@ namespace AccessibleTrader.Sdk.Models
     /// indicators where the fill is a cosmetic background for a band the user isn't
     /// expected to navigate individually (e.g. Bollinger Band fill).
     ///
-    /// Cloud voices fire only in <see cref="AudioSequencer.StartMultiSeriesPlaybackAsync"/> —
+    /// Cloud voices fire only in <c>AudioSequencer.StartMultiSeriesPlaybackAsync</c> —
     /// not during navigation and not during Series/Component scope playback.
     /// </summary>
     public record CloudSonificationConfig(

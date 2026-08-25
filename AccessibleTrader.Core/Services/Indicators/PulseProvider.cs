@@ -1263,8 +1263,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         ///
         /// <para>
         /// The bucket a bar belongs to is <c>floor(minutes-since-epoch / (barsPerWeek × interval))</c>,
-        /// where interval is the median bar spacing. <see cref="Bucket.ClosesHere"/> marks the bar
-        /// whose own close completes its bucket, and it is decided from that bar's date plus one
+        /// where interval is the median bar spacing. <see cref="Bucket.LastBar"/> of a <see cref="Bucket.Complete"/> bucket is the bar
+        /// whose own close completes it, and it is decided from that bar's date plus one
         /// interval — never by peeking at the next bar, which would be exactly the look-ahead this
         /// sub-sampling exists to avoid. When no interval can be detected (a series with no
         /// positive spacing at all) the old positional grid is used, because a wrong grid is still

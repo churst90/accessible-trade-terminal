@@ -432,7 +432,7 @@ public static class GateCommand
     }
 
     /// <summary>
-    /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
+    /// Two-sample permutation test — see <see cref="LabStats.PermutationP(double[], int, int, double, int, int, int?, out int)"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>

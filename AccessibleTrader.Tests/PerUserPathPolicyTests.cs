@@ -3,7 +3,7 @@ namespace AccessibleTrader.Tests
     /// <summary>
     /// One rule, scanned across every shipping project: **a service does not build its own
     /// per-user path.** It asks <c>IPlatformPathService</c>, and the two or three files that
-    /// implement that interface are the only places <see cref="Environment.GetFolderPath"/> may
+    /// implement that interface are the only places <see cref="Environment.GetFolderPath(Environment.SpecialFolder)"/> may
     /// appear.
     ///
     /// <para>
@@ -72,7 +72,7 @@ namespace AccessibleTrader.Tests
                 .ToArray();
 
         /// <summary>
-        /// Every file that calls <see cref="Environment.GetFolderPath"/> outside a comment, by
+        /// Every file that calls <see cref="Environment.GetFolderPath(Environment.SpecialFolder)"/> outside a comment, by
         /// file name. Comments are stripped first — <c>IndicatorPreferencesService</c> and
         /// <c>WorkspaceLibraryService</c> both *describe* this bug in their docstrings, having
         /// each been the victim of it once, and a scan that flagged them would be flagging the

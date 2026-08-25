@@ -11,31 +11,26 @@ namespace AccessibleTrader.Core.Services
         string ApiSecret,
         string Passphrase = "",
         string MarketType = "Spot",
-        /// <summary>"Paper" or "Live". Shown prominently in the API Keys modal.</summary>
+        // "Paper" or "Live". Shown prominently in the API Keys modal.
         string Environment = "Paper",
-        /// <summary>
-        /// True when this profile is the one currently used for trading sessions.
-        /// Only one profile per provider+environment combination should be active.
-        /// </summary>
+        // True when this profile is the one currently used for trading sessions.
+        // Only one profile per provider+environment combination should be active.
         bool IsActive = false,
 
-        /// <summary>
-        /// True only for a profile deliberately created to move funds OFF the venue.
-        ///
-        /// <para>
-        /// **Default false, and it must stay the exception.** Withdrawal permission
-        /// is the most dangerous scope an API key can carry: a trading key that can
-        /// also withdraw means one compromise empties the account. Keeping it on a
-        /// separate profile costs the user one extra setup step and buys the
-        /// difference between "my key leaked" and "my funds are gone".
-        /// </para>
-        ///
-        /// <para>
-        /// Nothing on the trading path ever selects a profile with this set, and
-        /// the withdrawal path selects ONLY profiles with it set. The two never
-        /// reach for the same credential.
-        /// </para>
-        /// </summary>
+        // True only for a profile deliberately created to move funds OFF the venue.
+        //
+        //
+        // **Default false, and it must stay the exception.** Withdrawal permission
+        // is the most dangerous scope an API key can carry: a trading key that can
+        // also withdraw means one compromise empties the account. Keeping it on a
+        // separate profile costs the user one extra setup step and buys the
+        // difference between "my key leaked" and "my funds are gone".
+        //
+        //
+        //
+        // Nothing on the trading path ever selects a profile with this set, and
+        // the withdrawal path selects ONLY profiles with it set. The two never
+        // reach for the same credential.
         bool AllowsWithdrawal = false
     );
 

@@ -12,7 +12,7 @@ namespace AccessibleTrader.StrategyLab;
 /// provider plugin (instantiated directly, no DI / no plugin loader) and serializes
 /// to JSON on disk so the research loop can replay deterministic data offline.
 ///
-/// Walks backward via <c>MarketDataRequest.Until</c> until either <paramref name="targetBars"/>
+/// Walks backward via <c>MarketDataRequest.Until</c> until either <c>targetBars</c>
 /// is reached or the provider returns an empty page (history exhausted). Page size
 /// is provider-determined (Bitstamp 1000, MEXC 500 per <c>MaxBarsPerRequest</c>).
 /// </summary>

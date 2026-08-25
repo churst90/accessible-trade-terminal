@@ -265,7 +265,7 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// <para>
         /// Capped at <paramref name="max"/> because a chart region can satisfy four definitions at
         /// once, and reading all of them is how a user learns to tune the feature out. Ordered by
-        /// <see cref="Dominance"/> so the one described in full is the one a sighted reader would
+        /// <see cref="ByDominance"/> so the one described in full is the one a sighted reader would
         /// name first.
         /// </para>
         /// </summary>

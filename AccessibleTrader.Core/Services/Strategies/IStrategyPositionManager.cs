@@ -90,10 +90,10 @@ namespace AccessibleTrader.Core.Services.Strategies
         string StrategyName,
         string Provider,
         string Symbol,
-        /// <summary>The side of the EXIT order — the opposite of the position's.</summary>
+        // The side of the EXIT order — the opposite of the position's.
         OrderSide Side,
         double Quantity,
-        /// <summary>Spoken-ready reason: "stop", "target 2 of 3", "reversed".</summary>
+        // Spoken-ready reason: "stop", "target 2 of 3", "reversed".
         string Reason);
 
     /// <summary>What the manager wants done with a fresh entry signal.</summary>

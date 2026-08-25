@@ -237,7 +237,7 @@ public class ConfigurableStrategy : BaseStrategy
     /// <summary>
     /// True once every HTF pre-warm task kicked off in <see cref="Initialize"/> has completed.
     /// Strategies with no HTF leaves (or no multi-timeframe service) report <c>true</c>
-    /// immediately. Used by <see cref="OnBar"/> to block condition evaluation while the HTF
+    /// immediately. Used by <see cref="ITradingStrategy.OnBar"/> to block condition evaluation while the HTF
     /// cache is still populating — without this gate, NaN reads on unwarmed HTF leaves silently
     /// flip condition results and produce phantom fires/non-fires in the first few bars after
     /// the strategy is loaded. Also exposed so hosts (<c>StrategyBacktester</c>, the strategy

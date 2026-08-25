@@ -22,7 +22,7 @@ public enum SecurityEventKind
     CredentialCheckoutFailed,
     /// <summary>On-disk credential file could not be removed during disconnect / logout.</summary>
     TokenCleanupFailed,
-    /// <summary>A plugin DLL was refused by <see cref="IPluginTrustPolicy"/> (hash mismatch, missing manifest).</summary>
+    /// <summary>A plugin DLL was refused by <c>IPluginTrustPolicy</c> (hash mismatch, missing manifest).</summary>
     PluginTrustRejected,
     /// <summary>Outbound HTTP request rejected by the per-provider allow-list handler.</summary>
     HttpClientHostRejected,
@@ -84,7 +84,7 @@ public sealed record SecurityEvent(
 /// <para>
 /// Default in-process implementation (see Core's
 /// <c>SecurityEventLog</c>) keeps a ring buffer of the last N events
-/// and optionally mirrors to <see cref="Microsoft.Extensions.Logging"/>
+/// and optionally mirrors to <c>Microsoft.Extensions.Logging</c>
 /// for live telemetry. Tests / headless CLI runs may leave
 /// <see cref="PluginHostServices.SecurityEvents"/> null — call sites
 /// null-check.

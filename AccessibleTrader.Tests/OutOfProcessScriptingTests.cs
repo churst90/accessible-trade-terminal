@@ -12,7 +12,7 @@ namespace AccessibleTrader.Tests;
 /// Only runs when the ScriptWorker executable is actually on disk next
 /// to the test assembly's build output. On a fresh clone before
 /// <c>dotnet build</c> the worker won't exist; the test fact skips
-/// itself with a clear <see cref="SkipException"/>-style check rather
+/// itself with a clear <c>SkipException</c>-style check rather
 /// than a hard fail.
 /// </summary>
 public class OutOfProcessScriptingTests

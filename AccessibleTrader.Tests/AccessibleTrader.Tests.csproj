@@ -14,22 +14,30 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <!--
-      bUnit modal-coverage spike (2026-04-27 evening 14).
+      bUnit, for the modal contract suites.
 
-      Architectural note: the MAUI BlazorClient project (UseMaui=true) cannot be
-      referenced from a plain net10.0 test project — it targets only mobile/
-      desktop TFMs. The spike validates the bUnit testing toolchain (JS interop
-      shim, DI mocks, click+verify pattern) using fixture components that live
-      inside the test project, with a documented rollout path:
-        1. Extract Components/ from BlazorClient into a Razor Class Library
-           targeting net10.0 (e.g. AccessibleTrader.BlazorClient.Components).
-        2. BlazorClient references the RCL; tests reference the RCL too.
-        3. Per-modal coverage rolls out file-by-file once the RCL exists.
+      The MAUI head (UseMaui=true) targets only mobile/desktop TFMs and cannot be
+      referenced from a plain net10.0 test project. That is why the dialogs live in
+      AccessibleTrader.BlazorClient.Components, a net10.0 Razor Class Library the head
+      and the tests both reference — see the ProjectReference below. This note used to
+      describe that extraction as a three-step plan; it has been done for a long time,
+      and the constraint is the only part still worth knowing.
 
-      bUnit 1.40+ requires Microsoft.AspNetCore.Components 9.x; we pin to the
-      latest 1.x line that supports net10.0.
+      Pinned to the latest 1.x line that supports net10.0: bUnit 1.40+ requires
+      Microsoft.AspNetCore.Components 9.x.
     -->
     <PackageReference Include="bunit" Version="1.40.0" />
+    <!-- NU1902 (AngleSharp 1.2.0, GHSA-pgww-w46g-26qg, moderate) is the one advisory in
+         this repo's restore graph, and it is deliberately left alone. AngleSharp arrives
+         transitively as bUnit's HTML parser; bUnit states a floor rather than an exact pin,
+         so a direct reference here does lift the resolved version. It was tried. 1.3.0 and
+         1.4.0 are still affected; 1.5.2 clears the advisory and breaks bUnit outright —
+         AngleSharp changed IHtmlCollection<T> binary-incompatibly and bUnit 1.40 was built
+         against the old shape, so every test that indexes a rendered element collection dies
+         with MissingMethodException (three of them did). The parser is test-only, reaches no
+         shipping assembly, and only ever parses markup this repo rendered itself, so there
+         is no exposure to trade for a broken harness. Revisit when bUnit ships against a
+         patched AngleSharp; do not re-attempt the direct pin before then. -->
     <!-- NSubstitute used to stub services with deep interface surfaces (ISeriesManagementService,
          IThemeService, etc.) without writing 50+ no-op methods per modal-test file. -->
     <PackageReference Include="NSubstitute" Version="5.3.0" />

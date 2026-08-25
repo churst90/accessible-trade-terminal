@@ -24,7 +24,7 @@ namespace AccessibleTrader.Plugins.Coinbase
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
 
         /// <summary>
-        /// Coinbase product-id normalisation. The base <see cref="CleanSymbol"/> strips
+        /// Coinbase product-id normalisation. The base <see cref="BaseMarketDataProvider.CleanSymbol"/> strips
         /// every separator; Coinbase wants a dash ("BTC-USD"), so this is the one
         /// provider that deviates from the shared normalisation. Consolidating the
         /// three inline <c>Replace("/", "-").ToUpper()</c> sites here means a future

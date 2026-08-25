@@ -117,7 +117,7 @@ namespace AccessibleTrader.Core.Services.Alerts
     /// </para>
     ///
     /// <para>
-    /// With <paramref name="blockPrivateNetworks"/> the guard runs inside
+    /// With <c>blockPrivateNetworks</c> the guard runs inside
     /// <see cref="SocketsHttpHandler.ConnectCallback"/>: the socket connects to an
     /// address this code resolved and validated itself, so a DNS record that flips
     /// between validation and connect (rebinding) has nothing to rebind.

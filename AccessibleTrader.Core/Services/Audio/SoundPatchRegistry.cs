@@ -9,19 +9,19 @@ namespace AccessibleTrader.Core.Services.Audio
     /// objects in <c>ISoundPatchLibrary</c>; registry patches are code-defined built-ins.
     /// </summary>
     public record SoundPatch(
-        /// <summary>"sine", "triangle", "sawtooth", or "square".</summary>
+        // "sine", "triangle", "sawtooth", or "square".
         string BaseWaveform,
-        /// <summary>0–1: blend of 2nd (or Nth) harmonic into the fundamental. 0 = pure fundamental.</summary>
+        // 0–1: blend of 2nd (or Nth) harmonic into the fundamental. 0 = pure fundamental.
         float HarmonicAmount,
-        /// <summary>Frequency multiplier for the blended harmonic. 2.0 = octave, 2.756 = bell minor-third.</summary>
+        // Frequency multiplier for the blended harmonic. 2.0 = octave, 2.756 = bell minor-third.
         float HarmonicFreqMultiplier,
-        /// <summary>Fallback decay in ms when ComponentConfig.DecayMs is null.</summary>
+        // Fallback decay in ms when ComponentConfig.DecayMs is null.
         int DefaultDecayMs,
-        /// <summary>When true the sequencer fires two voices: primary + a detuned copy offset by DetuneIntervalHz.</summary>
+        // When true the sequencer fires two voices: primary + a detuned copy offset by DetuneIntervalHz.
         bool IsDetuned,
-        /// <summary>Second-voice pitch offset in Hz above the primary voice (used only when IsDetuned = true).</summary>
+        // Second-voice pitch offset in Hz above the primary voice (used only when IsDetuned = true).
         float DetuneIntervalHz,
-        /// <summary>Delay in ms before the second detuned voice fires (0 = simultaneous, 40 = staggered).</summary>
+        // Delay in ms before the second detuned voice fires (0 = simultaneous, 40 = staggered).
         int DetunedOffsetMs
     );
 

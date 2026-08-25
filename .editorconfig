@@ -47,8 +47,20 @@ dotnet_diagnostic.IDE0005.severity = warning   # unnecessary using directive
 dotnet_diagnostic.CS1591.severity = none       # missing XML comment — by design
 dotnet_diagnostic.CS1570.severity = warning    # malformed XML in a doc comment
 dotnet_diagnostic.CS1572.severity = warning    # <param> for a parameter that does not exist
-dotnet_diagnostic.CS1573.severity = warning    # documented method with an undocumented parameter
 dotnet_diagnostic.CS1574.severity = warning    # cref that does not resolve
 dotnet_diagnostic.CS1587.severity = warning    # doc comment on something that cannot carry one
 dotnet_diagnostic.CS1734.severity = warning    # paramref naming a parameter that does not exist
 dotnet_diagnostic.CS0419.severity = warning    # ambiguous cref
+
+# CS1573 (a documented method with an undocumented parameter) is off, and it is the
+# one rule here that was tried and rejected rather than never considered. It fired 163
+# times, and the sample that decided it is IWithdrawalProvider: that file documents
+# `Key`, `Address` and `NetAmount` — the three parameters whose behaviour would surprise
+# a caller — and says nothing about `Asset`, `Amount`, `Fee`, `Network` or `Verified`,
+# which mean what they say. CS1573 treats that as an incomplete job. It is the opposite:
+# it is the same judgement CS1591 is disabled for, applied one level down. Satisfying the
+# rule would mean writing "the asset" 163 times and burying the paragraphs that matter.
+#
+# The distinction the rest of this block draws is between documentation that is WRONG and
+# documentation that is ABSENT. CS1573 is the only one of these that flags neither.
+dotnet_diagnostic.CS1573.severity = none       # partially documented parameters — by design

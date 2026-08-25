@@ -6,7 +6,7 @@ namespace AccessibleTrader.Sdk.Interfaces
     /// Optional interface for indicators that can auto-detect optimal parameter values
     /// from the loaded price history — e.g. cycle-length-adaptive window sizing.
     ///
-    /// <see cref="IndicatorOrchestrator"/> calls <see cref="SuggestParameters"/> on every full
+    /// <c>IndicatorOrchestrator</c> calls <see cref="SuggestParameters"/> on every full
     /// recalculation (historical load / backfill). It is NOT called on live-tick incremental
     /// updates — only when the historical dataset has materially changed.
     ///
@@ -17,7 +17,7 @@ namespace AccessibleTrader.Sdk.Interfaces
     /// Returns a parameter override dict when a better value is detected:
     ///   - The orchestrator applies the override to the local parameter dict (for this calculation).
     ///   - The orchestrator also persists the override to the store via UpdateSeriesParametersAction.
-    ///   - If <paramref name="notificationMessage"/> is non-null, the orchestrator announces it
+    ///   - If <c>notificationMessage</c> is non-null, the orchestrator announces it
     ///     via INotificationHub. Set to null for a silent update (minor refinements).
     /// </summary>
     public interface IAdaptiveIndicatorProvider

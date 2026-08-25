@@ -161,7 +161,7 @@ namespace AccessibleTrader.Sdk.Plugins
         /// <summary>
         /// Observable stream of order status updates (fills, cancels, stops, etc.).
         /// Emits <see cref="OrderUpdate"/> records whenever the broker pushes an update.
-        /// Implementations that do not support streaming should return <see cref="Observable.Empty{T}"/>.
+        /// Implementations that do not support streaming should return <c>Observable.Empty&lt;T&gt;()</c>.
         /// </summary>
         IObservable<OrderUpdate> OrderUpdateStream { get; }
 

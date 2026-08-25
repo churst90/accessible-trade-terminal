@@ -18,7 +18,7 @@ public interface ILLMProvider
     /// <param name="systemPrompt">System-level instructions (analyst persona, output format).</param>
     /// <param name="userMessage">User turn (chart data, indicator summary, question).</param>
     /// <param name="imageBase64">Optional base-64 PNG of the chart canvas. Null when vision is not available.</param>
-    /// <param name="apiKey">The API key retrieved from <see cref="IApiKeyService"/>.</param>
+    /// <param name="apiKey">The API key retrieved from <c>IApiKeyService</c>.</param>
     /// <param name="ct">Cancellation token.</param>
     Task<string> CompleteAsync(string systemPrompt, string userMessage, string? imageBase64, string apiKey, CancellationToken ct = default);
 }

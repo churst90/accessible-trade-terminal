@@ -8,7 +8,7 @@ namespace AccessibleTrader.WebHost.Services
     public enum SpeechBackend { OrcaDBus, SpdSay, BrowserTts }
 
     /// <summary>
-    /// Decorator over <see cref="BlazorSpeechManager"/> that adds a
+    /// Decorator over <c>BlazorSpeechManager</c> that adds a
     /// real-speech output channel. Inner manager still journals and writes
     /// to the ARIA live region; on top of that, this decorator picks the
     /// best out-of-band path at startup:

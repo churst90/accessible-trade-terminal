@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace AccessibleTrader.Core.Services.Diagnostics
 {
     /// <summary>
-    /// Per-provider latency histogram for <see cref="MauiApiKeyCheckoutAdapter"/>.
+    /// Per-provider latency histogram for <c>MauiApiKeyCheckoutAdapter</c>.
     /// Pure measurement — feeds the data-driven decision on whether the 60-second
     /// session cache discussed in <c>docs/TODO.md</c> ("Hot-path credential cache")
     /// is justified. Singleton; lock-free reads via ConcurrentDictionary, lock

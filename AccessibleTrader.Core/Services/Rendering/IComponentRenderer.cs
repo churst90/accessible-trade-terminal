@@ -22,21 +22,16 @@ namespace AccessibleTrader.Core.Services.Rendering
         string PaneName,
         int LocalCursorIndex,
         ChartTheme Theme,
-        /// <summary>
-        /// When null: render only main-area components (SubPaneName is null/empty).
-        /// When non-null: render only components whose SubPaneName matches this value.
-        /// </summary>
+        // When null: render only main-area components (SubPaneName is null/empty).
+        // When non-null: render only components whose SubPaneName matches this value.
         string? SubPaneFilter = null,
-        /// <summary>
-        /// The whole stacked-pane area (price + every indicator pane), or null to mean "this pane".
-        ///
-        /// <para>
-        /// Only the background gradient uses it. Anchoring the gradient to each PaneRect made every
-        /// pane repeat the full light-to-dark fade, so a chart with a volume pane showed a hard
-        /// seam where the volume pane restarted at the light end. The fade has to be computed
-        /// against the whole canvas and merely CLIPPED to each pane.
-        /// </para>
-        /// </summary>
+        // The whole stacked-pane area (price + every indicator pane), or null to mean "this pane".
+        //
+        //
+        // Only the background gradient uses it. Anchoring the gradient to each PaneRect made every
+        // pane repeat the full light-to-dark fade, so a chart with a volume pane showed a hard
+        // seam where the volume pane restarted at the light end. The fade has to be computed
+        // against the whole canvas and merely CLIPPED to each pane.
         SKRect? ChartRect = null
     ) {
         public float Width => PaneRect.Width;

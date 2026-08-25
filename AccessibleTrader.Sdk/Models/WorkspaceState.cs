@@ -74,11 +74,9 @@ namespace AccessibleTrader.Sdk.Models
         ImmutableDictionary<string, (double Min, double Max)> PaneRanges,
         float ChartVolume,
         float PlaybackSpeed,
-        /// <summary>
-        /// Panning step as a whole percentage of the viewport (5, 10, 15 … 100).
-        /// Example: 10 means each [ or ] press pans by 10% of the visible bars.
-        /// Shift+[ decreases this step; Shift+] increases it in 5% increments.
-        /// </summary>
+        // Panning step as a whole percentage of the viewport (5, 10, 15 … 100).
+        // Example: 10 means each [ or ] press pans by 10% of the visible bars.
+        // Shift+[ decreases this step; Shift+] increases it in 5% increments.
         int PanningGranularity,
         InteractionContext LastInteractionContext,
         bool IsHeikinAshi,
@@ -89,25 +87,20 @@ namespace AccessibleTrader.Sdk.Models
         bool ReadColumnHeaders,
         string SpeechOrder,
         bool AnnounceNewBars,
-        /// <summary>
-        /// Speak classical chart formations (double top, head and shoulders, triangles,
-        /// flags) when navigation lands inside one, both while they are still FORMING — with
-        /// the level that would confirm them — and once completed.
-        /// <para>
-        /// Default FALSE. It adds narration to an action the user performs constantly, and
-        /// the standing convention here is that continuous speech is opted into rather than
-        /// imposed. Mirrors <c>AppSettings.DescribeChartPatterns</c>.
-        /// </para>
-        /// </summary>
+        // Speak classical chart formations (double top, head and shoulders, triangles,
+        // flags) when navigation lands inside one, both while they are still FORMING — with
+        // the level that would confirm them — and once completed.
+        //
+        // Default FALSE. It adds narration to an action the user performs constantly, and
+        // the standing convention here is that continuous speech is opted into rather than
+        // imposed. Mirrors AppSettings.DescribeChartPatterns.
         bool DescribeChartPatterns,
-        /// <summary>
-        /// Number of empty future-space slots reserved on the right of the viewport.
-        /// The last real bar always lands at slot (ViewportLength - RightMarginBars - 1).
-        /// Allows trendlines and drawings to project into future space. Default: 10 bars
-        /// (was 20 before 2026-04-24; reduced after a screenshot review showed the 20-bar
-        /// margin was ~10% of viewport width on typical monitors, leaving most of the right
-        /// third of the chart blank).
-        /// </summary>
+        // Number of empty future-space slots reserved on the right of the viewport.
+        // The last real bar always lands at slot (ViewportLength - RightMarginBars - 1).
+        // Allows trendlines and drawings to project into future space. Default: 10 bars
+        // (was 20 before 2026-04-24; reduced after a screenshot review showed the 20-bar
+        // margin was ~10% of viewport width on typical monitors, leaving most of the right
+        // third of the chart blank).
         int RightMarginBars = 10,
         bool IsSpeechEnabled = true,
         bool IsSonificationEnabled = true,
@@ -125,76 +118,56 @@ namespace AccessibleTrader.Sdk.Models
         int WasapiLatency = 100,
         InitializationStatus InitStatus = InitializationStatus.Booting,
         DataStatus DataStatus = DataStatus.Idle,
-        /// <summary>
-        /// Per-pane height as a fraction of totalPaneHeight (canvas height minus x-axis).
-        /// Key = pane name (e.g. "Pane_RSI"). Absent key = use auto 30%-split layout.
-        /// Ratios are clamped to [0.05, 0.75] during dispatch.
-        /// </summary>
+        // Per-pane height as a fraction of totalPaneHeight (canvas height minus x-axis).
+        // Key = pane name (e.g. "Pane_RSI"). Absent key = use auto 30%-split layout.
+        // Ratios are clamped to [0.05, 0.75] during dispatch.
         ImmutableDictionary<string, float>? PaneHeightRatios = null,
-        /// <summary>
-        /// Number of indicator pane groups to skip from the top.
-        /// Alt+Down increments (scroll down), Alt+Up decrements. Clamped to [0, paneCount-1].
-        /// </summary>
+        // Number of indicator pane groups to skip from the top.
+        // Alt+Down increments (scroll down), Alt+Up decrements. Clamped to [0, paneCount-1].
         int IndicatorPaneScrollIndex = 0,
         // ── Coordinate Entry mode ──────────────────────────────────────────────
-        /// <summary>
-        /// True when a drawing shortcut has been pressed and the user is navigating to place anchors.
-        /// Arrow keys navigate normally; Enter sets each anchor; Escape cancels.
-        /// </summary>
+        // True when a drawing shortcut has been pressed and the user is navigating to place anchors.
+        // Arrow keys navigate normally; Enter sets each anchor; Escape cancels.
         bool IsCoordinateEntryMode = false,
-        /// <summary>The drawing type being placed during Coordinate Entry mode.</summary>
+        // The drawing type being placed during Coordinate Entry mode.
         DrawingType? PendingDrawingTool = null,
-        /// <summary>
-        /// Number of anchors confirmed so far (0 = no anchor set, 1 = first anchor set, waiting for second).
-        /// </summary>
+        // Number of anchors confirmed so far (0 = no anchor set, 1 = first anchor set, waiting for second).
         int CoordinateEntryAnchorCount = 0,
-        /// <summary>Data index of the first anchor point (-1 when not yet set).</summary>
+        // Data index of the first anchor point (-1 when not yet set).
         int CoordinateEntryAnchor1Index = -1,
         // ── Multi-tab support ──────────────────────────────────────────────────
-        /// <summary>
-        /// Frozen snapshots of inactive tabs. The active tab's state lives directly
-        /// in WorkspaceState fields; inactive tabs are stored here until re-activated.
-        /// </summary>
+        // Frozen snapshots of inactive tabs. The active tab's state lives directly
+        // in WorkspaceState fields; inactive tabs are stored here until re-activated.
         ImmutableList<TabSnapshot>? TabSnapshots = null,
-        /// <summary>Zero-based index of the currently active tab.</summary>
+        // Zero-based index of the currently active tab.
         int ActiveTabIndex = 0,
-        /// <summary>
-        /// True when this state is being passed through the offline backtester replay loop.
-        /// Strategies that publish setup/audio events to the live IEventBus check this flag
-        /// and skip publication during backtest — otherwise replaying 3,000+ bars floods
-        /// SetupSonifier with bell/speech events meant for live trading.
-        /// </summary>
+        // True when this state is being passed through the offline backtester replay loop.
+        // Strategies that publish setup/audio events to the live IEventBus check this flag
+        // and skip publication during backtest — otherwise replaying 3,000+ bars floods
+        // SetupSonifier with bell/speech events meant for live trading.
         bool IsBacktesting = false,
-        /// <summary>
-        /// The series id that keyboard nav, speech, sonification, and rendering treat
-        /// as "the main data" of this chart. Set by WorkspaceInitializer based on the
-        /// provider's data shape (OHLCV → candles; SingleValueLine → price). Consumers
-        /// should prefer this over hardcoding CoreSeriesIds.Candles.
-        /// </summary>
+        // The series id that keyboard nav, speech, sonification, and rendering treat
+        // as "the main data" of this chart. Set by WorkspaceInitializer based on the
+        // provider's data shape (OHLCV → candles; SingleValueLine → price). Consumers
+        // should prefer this over hardcoding CoreSeriesIds.Candles.
         string PrimarySeriesId = "candles",
-        /// <summary>
-        /// Mirrors the active provider's declared <see cref="ProviderDataShape"/> on
-        /// the current tab. Used by the reconciler in <c>WorkspaceInitializer</c> to
-        /// detect shape changes (which cause stripping of all non-core series) and by
-        /// the UI layer to hide trading-only controls on analytics tabs. Defaults to
-        /// <see cref="ProviderDataShape.Ohlcv"/> for backwards compatibility.
-        /// </summary>
+        // Mirrors the active provider's declared ProviderDataShape on
+        // the current tab. Used by the reconciler in WorkspaceInitializer to
+        // detect shape changes (which cause stripping of all non-core series) and by
+        // the UI layer to hide trading-only controls on analytics tabs. Defaults to
+        // ProviderDataShape.Ohlcv for backwards compatibility.
         ProviderDataShape CurrentDataShape = ProviderDataShape.Ohlcv,
-        /// <summary>
-        /// Human-readable label for the currently-loaded symbol, resolved via
-        /// <see cref="IMarketDataProvider.GetSymbolDisplayName"/>. Flows into the
-        /// Price series FriendlyName + component DisplayName on analytics tabs so
-        /// the user hears "Fear and Greed Index, 47" instead of "Price, 47".
-        /// Empty string until the first load completes.
-        /// </summary>
+        // Human-readable label for the currently-loaded symbol, resolved via
+        // IMarketDataProvider.GetSymbolDisplayName. Flows into the
+        // Price series FriendlyName + component DisplayName on analytics tabs so
+        // the user hears "Fear and Greed Index, 47" instead of "Price, 47".
+        // Empty string until the first load completes.
         string SymbolDisplayName = "",
-        /// <summary>
-        /// True while bar replay is revealing history one bar at a time. Live data dispatches
-        /// are suppressed for the duration — otherwise the next incoming tick would overwrite
-        /// the replay prefix with the full series and end the exercise without warning.
-        /// Distinct from <see cref="IsBacktesting"/>: replay is an interactive user mode with
-        /// full speech and sonification, not an offline strategy loop.
-        /// </summary>
+        // True while bar replay is revealing history one bar at a time. Live data dispatches
+        // are suppressed for the duration — otherwise the next incoming tick would overwrite
+        // the replay prefix with the full series and end the exercise without warning.
+        // Distinct from IsBacktesting: replay is an interactive user mode with
+        // full speech and sonification, not an offline strategy loop.
         bool IsReplaying = false
     )
     {

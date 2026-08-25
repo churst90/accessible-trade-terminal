@@ -6,7 +6,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <summary>
     /// Provides rich contextual speech facts for Skender-backed indicators.
     /// Implements <see cref="IDetailFactProvider"/> so the logic is reusable and testable
-    /// independently of the reflection-heavy <see cref="SkenderIndicatorProvider"/>.
+    /// independently of the reflection-heavy <c>SkenderIndicatorProvider</c>.
     /// </summary>
     public class SkenderDetailFactProvider : IDetailFactProvider
     {

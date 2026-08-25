@@ -4,7 +4,7 @@ namespace AccessibleTrader.Sdk.Models
     /// Metadata for a single output component of an indicator.
     /// Providers may populate the optional Default* and Audio* fields to declare their own
     /// preferred visual and sonic appearance. When set, these values are applied directly
-    /// by <see cref="AccessibleTrader.Core.Services.IndicatorModelFactory"/> instead of
+    /// by <c>IndicatorModelFactory</c> instead of
     /// falling back to the role-based defaults in <c>IStylingService</c>.
     /// All optional fields are nullable — null means "use the global role/type-based default".
     /// </summary>
@@ -126,7 +126,7 @@ namespace AccessibleTrader.Sdk.Models
 
         /// <summary>
         /// Optional ID of a SoundPatch to assign on component creation.
-        /// Applied in <see cref="AccessibleTrader.Core.Services.IndicatorModelFactory.CreateComponentConfigFromMeta"/>.
+        /// Applied in <c>IndicatorModelFactory.CreateComponentConfigFromMeta</c>.
         /// Null = no patch assignment (component uses per-field waveform/envelope settings).
         /// </summary>
         public string? DefaultSoundPatchId { get; set; }
@@ -150,7 +150,7 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>
         /// When set on a marker-type component, used instead of the generic speech template
         /// when the component has a non-NaN value at the current bar (signal IS present).
-        /// When the value IS NaN, <see cref="SpeechFormatter"/> returns an empty string (no speech).
+        /// When the value IS NaN, <c>SpeechFormatter</c> returns an empty string (no speech).
         /// Supports <c>{price}</c> (formats the signal value as an integer price) and <c>{name}</c> tokens.
         /// Propagated to <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.SignalSpeechTemplate"/>.
         /// </summary>
@@ -205,7 +205,7 @@ namespace AccessibleTrader.Sdk.Models
         /// Per-bar conditional color rules. Applied in order — first matching rule wins.
         /// Null or empty = no conditional coloring (use DefaultColorHex for all bars).
         /// When set, these rules are copied into <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.ColorRules"/>
-        /// by <see cref="AccessibleTrader.Core.Services.IndicatorModelFactory"/> at component creation time.
+        /// by <c>IndicatorModelFactory</c> at component creation time.
         /// </summary>
         public List<ColorRule>? DefaultColorRules { get; init; }
 
